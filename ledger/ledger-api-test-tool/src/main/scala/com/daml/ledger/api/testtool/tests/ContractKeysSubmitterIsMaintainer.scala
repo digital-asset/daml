@@ -209,6 +209,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .failed
       } yield {
         assertGrpcError(duplicateKeyFailure, Status.Code.INVALID_ARGUMENT, "DuplicateKey")
+
         assertGrpcError(
           bobLooksUpTextKeyFailure,
           Status.Code.INVALID_ARGUMENT,

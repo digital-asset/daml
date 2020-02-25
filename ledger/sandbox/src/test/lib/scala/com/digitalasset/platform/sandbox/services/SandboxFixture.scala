@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
@@ -95,7 +96,8 @@ trait SandboxFixture extends SuiteResource[(SandboxServer, Channel)] with Before
         timeProviderType = Some(TimeProviderType.Static),
         timeModel = TimeModel.reasonableDefault,
         scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server"))
+        ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
+        seeding = Some(Seeding.Weak),
       )
 
   protected def packageFiles: List[File] = List(darFile)

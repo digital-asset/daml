@@ -8,6 +8,7 @@ import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.auth0.jwt.algorithms.Algorithm
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
@@ -191,11 +192,14 @@ object Cli {
       .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
       .action( (url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
-    opt[Unit]("sortable-contract-ids")
-      .hidden()
+    private val seedingMap = Map[String, Option[Seeding]]("no" ->None, "weak" -> Some(Seeding.Weak), "strong" -> Some(Seeding.Strong))
+
+    opt[String]("contract-id-seeding")
       .optional()
-      .text("(Experimental) use new sortable contract ids")
-      .action( (_, config) => config.copy(useSortableCid = true))
+      .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys.mkString(",")}. Default is "no".""")
+      .validate(v => Either.cond(seedingMap.contains(v.toLowerCase), (), s"seeding must be ${seedingMap.keys.mkString(",")}"))
+      .action((text, config) => config.copy(seeding = seedingMap(text)))
+      .hidden()
 
     help("help").text("Print the usage text")
 

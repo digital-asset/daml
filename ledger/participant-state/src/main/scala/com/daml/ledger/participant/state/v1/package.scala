@@ -92,11 +92,12 @@ package object v1 {
   /** Identifiers for parties. */
   type Party = Ref.Party
 
-  /** A transaction with relative and absolute contract identifiers.
+  /** A transaction to be validated.
     *
     *  See [[WriteService.submitTransaction]] for details.
     */
-  type SubmittedTransaction = Transaction.Transaction
+  type SubmittedTransaction =
+    GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
 
   /** A transaction with absolute contract identifiers only.
     *

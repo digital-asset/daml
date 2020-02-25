@@ -130,7 +130,13 @@ final class ResetServiceIT
 
       "return new ledger ID - 20 resets" in {
         Future
-          .sequence(Iterator.iterate(fetchLedgerId())(_.flatMap(reset)).take(20).toVector)
+          .sequence(
+            Iterator
+              .iterate(fetchLedgerId())(_.flatMap { x =>
+                reset(x)
+              })
+              .take(20)
+              .toVector)
           .map(ids => ids.distinct should have size 20L)
       }
 

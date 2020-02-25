@@ -345,14 +345,24 @@ object Node {
     }(recorded, isReplayedBy)
 
   /** Useful in various circumstances -- basically this is what a ledger implementation must use as
-    * a key. The 'hash' should be used when storing the key as value serialization is not guaranteed
-    * to be stable over time (e.g. a new encoding might be introduced).
+    * a key. The 'hash' is guaranteed to be stable over time.
     */
-  sealed abstract case class GlobalKey(templateId: Identifier, key: Value[Nothing], hash: Hash)
+  final class GlobalKey private (
+      val templateId: Identifier,
+      val key: Value[Nothing],
+      val hash: Hash
+  ) extends {
+    override def equals(obj: Any): Boolean = obj match {
+      case that: GlobalKey => this.hash == that.hash
+      case _ => false
+    }
+
+    override def hashCode(): Int = hash.hashCode()
+  }
 
   object GlobalKey {
     def apply(templateId: Identifier, key: Value[Nothing]): GlobalKey =
-      new GlobalKey(templateId, key, Hash.hashContractKey(templateId, key)) {}
+      new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
   }
 
   sealed trait WithTxValue2[F[+ _, + _]] {

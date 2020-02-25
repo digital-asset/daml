@@ -11,7 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -42,6 +42,7 @@ final class StandaloneApiServer(
     writeService: WriteService,
     authService: AuthService,
     metrics: MetricRegistry,
+    seedService: Option[SeedService],
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackend: Option[TimeServiceBackend] = None,
 )(implicit logCtx: LoggingContext)
@@ -134,7 +135,7 @@ final class StandaloneApiServer(
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
-              seedService = None,
+              seedService = seedService,
             )(mat, esf, logCtx)
         },
         config.port,

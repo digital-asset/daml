@@ -38,20 +38,18 @@ class CommandExecutorImpl(
     engine: Engine,
     getPackage: Ref.PackageId => Future[Option[Package]],
     participant: Ref.ParticipantId,
-    randomService: Option[() => crypto.Hash],
 )(implicit ec: ExecutionContext)
     extends CommandExecutor {
 
   override def execute(
       submitter: Party,
+      submissionSeed: Option[crypto.Hash],
       submitted: ApiCommands,
       getContract: Value.AbsoluteContractId => Future[
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: Commands,
-  ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
-
-    val submissionSeed = randomService.map(_())
+  ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.AbsTransaction)]] = {
 
     consume(engine.submit(commands, participant, submissionSeed))(
       getPackage,
@@ -73,8 +71,9 @@ class CommandExecutorImpl(
             TransactionMeta(
               Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap),
+              submissionSeed,
             ),
-            updateTx
+            updateTx.assertNoRelCid(_ => "Unexpected relative contract ids")
           )).left.map(ErrorCause.DamlLf)
       }
   }

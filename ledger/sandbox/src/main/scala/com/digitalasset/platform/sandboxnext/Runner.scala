@@ -14,7 +14,7 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
@@ -105,7 +105,14 @@ class Runner {
         authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
+        _ <- startParticipant(
+          config,
+          indexJdbcUrl,
+          ledger,
+          authService,
+          timeServiceBackend,
+          config.seeding.map(SeedService(_)),
+        )
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
@@ -140,6 +147,7 @@ class Runner {
       ledger: KeyValueParticipantState,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
+      seedService: Option[SeedService],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     for {
       _ <- startIndexerServer(
@@ -154,6 +162,7 @@ class Runner {
         writeService = ledger,
         authService = authService,
         timeServiceBackend = timeServiceBackend,
+        seedService = seedService
       )
     } yield ()
 
@@ -180,6 +189,7 @@ class Runner {
       writeService: WriteService,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
+      seedService: Option[SeedService],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       ApiServerConfig(
@@ -197,6 +207,7 @@ class Runner {
       authService = authService,
       metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
+      seedService = seedService
     )
 }
 

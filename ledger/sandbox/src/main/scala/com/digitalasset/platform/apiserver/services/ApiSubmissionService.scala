@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded
 }
 import com.daml.ledger.participant.state.v1.{
+  SeedService,
   SubmissionResult,
   SubmitterInfo,
   TimeModel,
@@ -29,6 +30,7 @@ import com.daml.ledger.participant.state.v1.{
   WriteService
 }
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
@@ -65,6 +67,7 @@ object ApiSubmissionService {
       submissionService: IndexSubmissionService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
+      seedService: Option[SeedService],
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
       metrics: MetricRegistry)(
@@ -78,6 +81,7 @@ object ApiSubmissionService {
         submissionService,
         timeModel,
         timeProvider,
+        seedService,
         commandExecutor,
         configuration,
         metrics),
@@ -97,6 +101,7 @@ final class ApiSubmissionService private (
     submissionService: IndexSubmissionService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
+    seedService: Option[SeedService],
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
     metrics: MetricRegistry)(
@@ -124,7 +129,7 @@ final class ApiSubmissionService private (
       metrics.timer("daml.lapi.command_submission_service.submitted_transactions")
   }
 
-  private def deduplicateAndRecordOnLedger(commands: ApiCommands)(
+  private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
       implicit logCtx: LoggingContext): Future[Unit] = {
     val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
     val submittedAt = Instant.now
@@ -132,7 +137,7 @@ final class ApiSubmissionService private (
 
     submissionService.deduplicateCommand(deduplicationKey, submittedAt, ttl).flatMap {
       case CommandDeduplicationNew =>
-        recordOnLedger(commands)
+        recordOnLedger(seed, commands)
           .transform(mapSubmissionResult)
           .andThen {
             case Success(_) =>
@@ -192,7 +197,7 @@ final class ApiSubmissionService private (
           _ => {
             logger.trace(s"Received composite commands: $commands")
             logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-            deduplicateAndRecordOnLedger(commands)
+            deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
           }
         )
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
@@ -221,12 +226,15 @@ final class ApiSubmissionService private (
       Failure(error)
   }
 
-  private def recordOnLedger(commands: ApiCommands)(
-      implicit logCtx: LoggingContext): Future[SubmissionResult] =
+  private def recordOnLedger(
+      submissionSeed: Option[crypto.Hash],
+      commands: ApiCommands,
+  )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
       res <- commandExecutor
         .execute(
           commands.submitter,
+          submissionSeed,
           commands,
           contractStore.lookupActiveContract(commands.submitter, _),
           contractStore.lookupContractKey(commands.submitter, _),
@@ -236,7 +244,7 @@ final class ApiSubmissionService private (
     } yield submissionResult
 
   private def handleResult(
-      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]
+      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.AbsTransaction)]
   ) =
     res match {
       case Right((submitterInfo, transactionMeta, transaction)) =>

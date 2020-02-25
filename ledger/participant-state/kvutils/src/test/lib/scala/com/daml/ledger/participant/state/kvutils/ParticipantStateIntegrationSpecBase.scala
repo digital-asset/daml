@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -719,10 +720,14 @@ object ParticipantStateIntegrationSpecBase {
   private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
-  private def transactionMeta(let: Timestamp) = TransactionMeta(
-    ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests")),
-  )
+  private def transactionMeta(let: Timestamp) =
+    TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+      submissionSeed = Some(
+        crypto.Hash.assertFromString(
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+    )
 
   private def matchPackageUpload(
       update: Update,

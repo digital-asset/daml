@@ -7,15 +7,16 @@ package crypto
 import java.nio.ByteBuffer
 import java.security.{MessageDigest, SecureRandom}
 import java.util
+import java.util.concurrent.atomic.AtomicLong
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.digitalasset.daml.lf.transaction.{Node, Transaction}
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.io.BaseEncoding
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.util.control.NonFatal
+import scala.util.control.{NoStackTrace, NonFatal}
 
 final class Hash private (private val bytes: Array[Byte]) {
 
@@ -50,6 +51,18 @@ object Hash {
 
   private val hexEncoding = BaseEncoding.base16().lowerCase()
 
+  private case class HashingError(msg: String) extends Error with NoStackTrace
+
+  private def error(msg: String): Nothing =
+    throw HashingError(msg)
+
+  private def handleError[X](x: => X): Either[String, X] =
+    try {
+      Right(x)
+    } catch {
+      case HashingError(msg) => Left(msg)
+    }
+
   def fromBytes(a: Array[Byte]): Either[String, Hash] =
     Either.cond(
       a.length == underlyingHashLength,
@@ -60,23 +73,40 @@ object Hash {
   def assertFromBytes(a: Array[Byte]): Hash =
     data.assertRight(fromBytes(a))
 
-  def secureRandom(seed: Array[Byte]): () => Hash = {
-    val random = new SecureRandom(seed)
+  // A pseudo random generator for Hash based on hmac
+  // We mix the given seed with time to mitigate very bad seed.
+  def random(seed: Array[Byte]): () => Hash = {
+    if (seed.length != underlyingHashLength)
+      throw new IllegalArgumentException(s"expected a 32 bytes seed, get ${seed.length} bytes.")
+    val counter = new AtomicLong
+    val seedWithTime =
+      hMacBuilder(new Hash(seed)).add(Time.Timestamp.now().micros).build
     () =>
-      {
-        val a = Array.ofDim[Byte](underlyingHashLength)
-        random.nextBytes(a)
-        new Hash(a)
-      }
+      hMacBuilder(seedWithTime).add(counter.getAndIncrement()).build
   }
 
+  def random(seed: Hash): () => Hash = random(seed.bytes)
+
+  // A pseudo random generator for Hash using the best available source of entropy to generate the seed.
   def secureRandom: () => Hash =
-    secureRandom(SecureRandom.getSeed(underlyingHashLength))
+    random(SecureRandom.getInstanceStrong.generateSeed(underlyingHashLength))
 
   implicit val HashOrdering: Ordering[Hash] =
     ((hash1, hash2) => implicitly[Ordering[Iterable[Byte]]].compare(hash1.bytes, hash2.bytes))
 
-  private[crypto] sealed abstract class Builder(purpose: Purpose) {
+  @throws[HashingError]
+  private[lf] val aCid2String: Value.ContractId => String = {
+    case (Value.AbsoluteContractId(cid)) =>
+      cid
+    case (Value.RelativeContractId(_)) =>
+      error("Hashing of relative contract id is not supported")
+  }
+
+  @throws[HashingError]
+  private[lf] val noCid2String: Value.ContractId => Nothing =
+    _ => error("Hashing of relative contract id is not supported in contract key")
+
+  private[crypto] sealed abstract class Builder(cid2String: Value.ContractId => String) {
 
     protected def update(a: Array[Byte]): Unit
 
@@ -107,6 +137,9 @@ object Hash {
       add(a.length).add(a)
     }
 
+    final def add(b: Boolean): this.type =
+      add(if (b) 1.toByte else 0.toByte)
+
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def add(a: Int): this.type = {
@@ -127,6 +160,9 @@ object Hash {
     final def iterateOver[T](a: Iterator[T], size: Int)(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](add(size))(f)
 
+    final def iterateOver[T](a: Option[T])(f: (this.type, T) => this.type): this.type =
+      a.fold[this.type](add(0))(f(add(1), _))
+
     final def addDottedName(name: Ref.DottedName): this.type =
       iterateOver(name.segments)(_ add _)
 
@@ -136,15 +172,25 @@ object Hash {
     final def addIdentifier(id: Ref.Identifier): this.type =
       add(id.packageId).addQualifiedName(id.qualifiedName)
 
+    final def addStringSet[S <: String](set: Set[S]): this.type = {
+      val ss = set.toSeq.sorted[String]
+      iterateOver(ss.iterator, ss.size)(_ add _)
+    }
+
+    @throws[HashingError]
+    final def addCid(cid: Value.ContractId): this.type =
+      add(cid2String(cid))
+
     // In order to avoid hash collision, this should be used together
     // with an other data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
-    final def addTypedValue(value: Value[Value.AbsoluteContractId]): this.type =
+    @throws[HashingError]
+    final def addTypedValue(value: Value[Value.ContractId]): this.type =
       value match {
         case Value.ValueUnit =>
           add(0.toByte)
         case Value.ValueBool(b) =>
-          add(if (b) 1.toByte else 0.toByte)
+          add(b)
         case Value.ValueInt64(v) =>
           add(v)
         case Value.ValueNumeric(v) =>
@@ -158,12 +204,8 @@ object Hash {
           add(v)
         case Value.ValueText(v) =>
           add(v)
-        case Value.ValueContractId(v) =>
-          purpose match {
-            case Purpose.ContractKey =>
-              sys.error("Hashing of contract id for contract keys is not supported")
-            case _ => add(v.coid)
-          }
+        case Value.ValueContractId(cid) =>
+          addCid(cid)
         case Value.ValueOptional(None) =>
           add(0)
         case Value.ValueOptional(Some(v)) =>
@@ -179,11 +221,103 @@ object Hash {
         case Value.ValueEnum(_, v) =>
           add(v)
         case Value.ValueGenMap(_) =>
-          sys.error("Hashing of generic map not implemented")
+          error("Hashing of generic map not implemented")
         // Struct: should never be encountered
         case Value.ValueStruct(_) =>
-          sys.error("Hashing of struct values is not supported")
+          error("Hashing of struct values is not supported")
       }
+
+    val createTag = 1.toByte
+    val fetchTag = 2.toByte
+    val exerciseTag = 3.toByte
+    val lookupTag = 4.toByte
+
+    @throws[HashingError]
+    final def addKeyWithMaintainers(
+        templateId: Ref.Identifier,
+        key: Node.KeyWithMaintainers[Transaction.Value[Value.ContractId]]
+    ): this.type =
+      add(assertHashContractKey(templateId, key.key.value)).addStringSet(key.maintainers)
+
+    @throws[HashingError]
+    final def addNode(
+        node: Transaction.Node
+    ): this.type =
+      node match {
+        case Node.NodeCreate(
+            nodeSeed @ _,
+            coid,
+            coinst,
+            optLocation @ _,
+            signatories,
+            stakeholders,
+            key,
+            ) =>
+          add(createTag)
+            .addCid(coid)
+            .add(assertHashContract(coinst.template, coinst.arg.value))
+            .addStringSet(signatories)
+            .addStringSet(stakeholders)
+            .iterateOver(key)((b, k) => b.addKeyWithMaintainers(coinst.template, k))
+
+        case Node.NodeExercises(
+            nodeSeed @ _,
+            targetCoid,
+            templateId,
+            choiceId,
+            optLocation @ _,
+            consuming,
+            actingParties,
+            chosenValue,
+            stakeholders,
+            signatories,
+            controllers,
+            children,
+            exerciseResult,
+            key,
+            ) =>
+          add(exerciseTag)
+            .addCid(targetCoid)
+            .addIdentifier(templateId)
+            .add(choiceId)
+            .add(consuming)
+            .addStringSet(actingParties)
+            .addTypedValue(chosenValue.value)
+            .addStringSet(stakeholders)
+            .addStringSet(signatories)
+            .addStringSet(controllers)
+            .add(children.length)
+            .iterateOver(exerciseResult)(_ addTypedValue _.value)
+            .iterateOver(key)((b, k) => b.addKeyWithMaintainers(templateId, k))
+
+        case Node.NodeFetch(
+            coid,
+            templateId,
+            optLocation @ _,
+            actingParties,
+            signatories,
+            stakeholders,
+            ) =>
+          add(fetchTag)
+            .addCid(coid)
+            .addIdentifier(templateId)
+            .addStringSet(actingParties.getOrElse(Set.empty))
+            .addStringSet(signatories)
+            .addStringSet(stakeholders)
+        case Node.NodeLookupByKey(
+            templateId,
+            optLocation @ _,
+            key,
+            result,
+            ) =>
+          add(lookupTag)
+            .addKeyWithMaintainers(templateId, key)
+            .iterateOver(result)(_ addCid _)
+      }
+
+    @throws[HashingError]
+    def addTransaction(tx: Transaction.Transaction): this.type =
+      tx.fold[this.type](add(tx.roots.length))(_ addNode _._2)
 
   }
 
@@ -194,12 +328,17 @@ object Hash {
   private[crypto] object Purpose {
     val Testing = Purpose(1)
     val ContractKey = Purpose(2)
+    val Contract = Purpose(5)
     val PrivateKey = Purpose(3)
+    val Transaction = Purpose(4)
   }
 
   // package private for testing purpose.
   // Do not call this method from outside Hash object/
-  private[crypto] def builder(purpose: Purpose): Builder = new Builder(purpose) {
+  private[crypto] def builder(
+      purpose: Purpose,
+      cid2String: Value.ContractId => String,
+  ): Builder = new Builder(cid2String) {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
@@ -216,7 +355,7 @@ object Hash {
 
   private val hMacAlgorithm = "HmacSHA256"
 
-  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(Purpose.PrivateKey) {
+  private[crypto] def hMacBuilder(key: Hash): Builder = new Builder(noCid2String) {
 
     private val mac: Mac = Mac.getInstance(hMacAlgorithm)
 
@@ -248,16 +387,48 @@ object Hash {
     data.assertRight(fromString(s))
 
   def hashPrivateKey(s: String): Hash =
-    builder(Purpose.PrivateKey).add(s).build
+    builder(Purpose.PrivateKey, noCid2String).add(s).build
 
   // This function assumes that key is well typed, i.e. :
   // 1 - `templateId` is the identifier for a template with a key of type τ
   // 2 - `key` is a value of type τ
-  def hashContractKey(templateId: Identifier, key: Value[Nothing]): Hash =
-    builder(Hash.Purpose.ContractKey)
+  @throws[HashingError]
+  def assertHashContractKey(templateId: Ref.Identifier, key: Value[Value.ContractId]): Hash =
+    builder(Purpose.ContractKey, noCid2String)
       .addIdentifier(templateId)
       .addTypedValue(key)
       .build
+
+  def safeHashContractKey(templateId: Ref.Identifier, key: Value[Nothing]): Hash =
+    assertHashContractKey(templateId, key)
+
+  def hashContractKey(
+      templateId: Ref.Identifier,
+      key: Value[Value.ContractId],
+  ): Either[String, Hash] =
+    handleError(assertHashContractKey(templateId, key))
+
+  @throws[HashingError]
+  def assertHashContract(templateId: Ref.Identifier, value: Value[Value.ContractId]): Hash =
+    builder(Purpose.Contract, aCid2String)
+      .addIdentifier(templateId)
+      .addTypedValue(value)
+      .build
+
+  def hashContract(
+      templateId: Ref.Identifier,
+      value: Value[Value.ContractId],
+  ): Either[String, Hash] =
+    handleError(assertHashContract(templateId, value))
+
+  @throws[HashingError]
+  private def assertHashTransaction(tx: Transaction.Transaction): Hash =
+    builder(Purpose.Transaction, aCid2String)
+      .addTransaction(tx)
+      .build
+
+  def hashTransaction(tx: Transaction.Transaction): Either[String, Hash] =
+    handleError(assertHashTransaction(tx))
 
   def deriveSubmissionSeed(
       nonce: Hash,
@@ -294,7 +465,7 @@ object Hash {
   ): Hash =
     hMacBuilder(nodeSeed)
       .add(submitTime.micros)
-      .iterateOver(parties.toSeq.sorted[String].iterator, parties.size)(_ add _)
+      .addStringSet(parties)
       .build
 
 }

@@ -44,6 +44,7 @@ object KeyHasher extends KeyHasher {
     * @return the final hash value
     */
   def foldLeft[T](value: Value[AbsoluteContractId], z: T, op: (T, HashToken) => T): T = {
+
     import com.digitalasset.daml.lf.value.Value._
 
     value match {
@@ -158,7 +159,9 @@ object KeyHasher extends KeyHasher {
     putString(digest, key.templateId.qualifiedName.toString())
 
     // Note: We do not emit the type as it is implied by the template ID.
-    putValue(digest, key.key)
+    putValue(
+      digest,
+      key.key.assertNoRelCid(_ => "Unexpected  relative contract id in contract key"))
 
     digest.digest()
   }

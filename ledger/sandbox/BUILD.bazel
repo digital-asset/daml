@@ -317,6 +317,7 @@ SERVERS = {
     "memory": {
         "binary": ":sandbox-binary",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -324,6 +325,7 @@ SERVERS = {
     "h2database": {
         "binary": ":sandbox-binary",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
             # "db_close_delay=-1" is needed so that the in-memory database is not closed
@@ -334,6 +336,7 @@ SERVERS = {
     "postgresql": {
         "binary": ":sandbox-ephemeral-postgresql",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -405,6 +408,7 @@ NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -412,6 +416,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],

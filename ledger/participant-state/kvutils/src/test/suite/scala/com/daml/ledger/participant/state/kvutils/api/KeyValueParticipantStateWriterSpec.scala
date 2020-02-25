@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -105,7 +106,10 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
     ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests"))
+    workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+    submissionSeed = Some(
+      crypto.Hash.assertFromString(
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
   )
 
   private def newRecordTime(): Timestamp =

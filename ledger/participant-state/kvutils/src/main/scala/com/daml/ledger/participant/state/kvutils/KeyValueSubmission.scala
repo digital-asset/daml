@@ -44,7 +44,8 @@ object KeyValueSubmission {
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
-      tx: SubmittedTransaction): DamlSubmission = {
+      tx: SubmittedTransaction,
+  ): DamlSubmission = {
 
     val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
@@ -60,6 +61,8 @@ object KeyValueSubmission {
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId.getOrElse(""))
+          .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(x =>
+            ByteString.copyFrom(x.toByteArray)))
       )
       .build
   }

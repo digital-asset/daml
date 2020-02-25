@@ -183,11 +183,16 @@ final class Engine {
     */
   def validate(
       tx: Transaction.Transaction,
-      ledgerEffectiveTime: Time.Timestamp
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      submissionSeed: Option[crypto.Hash] = None
   ): Result[Unit] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
+    val transactionSeed = submissionSeed.map(
+      crypto.Hash.deriveTransactionSeed(_, participantId, ledgerEffectiveTime)
+    )
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
@@ -217,20 +222,23 @@ final class Engine {
         _compiledPackages,
         commands.map(_._2._2.templateId))
       rtx <- interpretCommands(
-        transactionSeed = tx.transactionSeed,
+        transactionSeed = transactionSeed,
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
         time = ledgerEffectiveTime
       )
-      validationResult <- if (tx isReplayedBy rtx) {
+      validationResult <- if (if (submissionSeed.isDefined)
+          crypto.Hash.hashTransaction(tx).exists(crypto.Hash.hashTransaction(rtx).contains(_))
+        else
+          tx isReplayedBy rtx)
         ResultDone(())
-      } else {
+      else
         ResultError(
           ValidationError(
             s"recreated and original transaction mismatch $tx expected, but $rtx is recreated"))
-      }
+
     } yield validationResult
   }
 

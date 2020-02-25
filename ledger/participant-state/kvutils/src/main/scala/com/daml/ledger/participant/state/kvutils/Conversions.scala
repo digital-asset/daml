@@ -7,6 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmittedTransaction, SubmitterInfo}
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
@@ -45,57 +46,16 @@ private[state] object Conversions {
     Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
   }
 
-  def absoluteContractIdToLogEntryId(acoid: AbsoluteContractId): (DamlLogEntryId, Int) =
-    acoid.coid.split(':').toList match {
-      case hexTxId :: nodeId :: Nil =>
-        DamlLogEntryId.newBuilder
-          .setEntryId(ByteString.copyFrom(BaseEncoding.base16.decode(hexTxId)))
-          .build -> nodeId.toInt
-      case _ =>
-        throw Err.DecodeError("AbsoluteContractIdToLogEntryId", s"Cannot parse '${acoid.coid}'")
-    }
-
-  def absoluteContractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
-    acoid.coid.split(':').toList match {
-      case hexTxId :: nodeId :: Nil =>
-        DamlStateKey.newBuilder
-          .setContractId(
-            DamlContractId.newBuilder
-              .setEntryId(
-                DamlLogEntryId.newBuilder
-                  .setEntryId(ByteString.copyFrom(BaseEncoding.base16.decode(hexTxId)))
-                  .build)
-              .setNodeId(nodeId.toLong)
-              .build
-          )
-          .build
-      case _ =>
-        throw Err.DecodeError("AbsoluteContractIdToStakeKey", s"Cannot parse '${acoid.coid}'")
-    }
-
-  def relativeContractIdToStateKey(
-      entryId: DamlLogEntryId,
-      rcoid: RelativeContractId,
-  ): DamlStateKey =
+  def contractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
     DamlStateKey.newBuilder
-      .setContractId(encodeRelativeContractId(entryId, rcoid))
+      .setContractId(acoid.coid)
       .build
 
-  def encodeRelativeContractId(entryId: DamlLogEntryId, rcoid: RelativeContractId): DamlContractId =
-    DamlContractId.newBuilder
-      .setEntryId(entryId)
-      .setNodeId(rcoid.txnid.index.toLong)
-      .build
+  def decodeContractId(coid: String): AbsoluteContractId =
+    AbsoluteContractId(Ref.ContractIdString.assertFromString(coid))
 
-  def decodeContractId(coid: DamlContractId): AbsoluteContractId = {
-    val hexTxId =
-      BaseEncoding.base16.encode(coid.getEntryId.getEntryId.toByteArray)
-    AbsoluteContractId(Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.getNodeId}"))
-  }
-
-  def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId = {
+  def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId =
     decodeContractId(key.getContractId)
-  }
 
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
     DamlContractKey.newBuilder
@@ -192,6 +152,15 @@ private[state] object Conversions {
   def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
 
+  def parseHash(a: com.google.protobuf.ByteString): crypto.Hash =
+    crypto.Hash.assertFromBytes(a.toByteArray)
+
+  def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
+    if (a.isEmpty)
+      None
+    else
+      Some(crypto.Hash.assertFromBytes(a.toByteArray))
+
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
       .setSeconds(dur.getSeconds)
@@ -213,7 +182,7 @@ private[state] object Conversions {
     TransactionCoder
       .decodeVersionedTransaction(
         TransactionCoder.NidDecoder,
-        ValueCoder.CidDecoder,
+        ValueCoder.AbsCidDecoder,
         tx
       )
       .fold(err => throw Err.DecodeError("Transaction", err.errorMessage), _.transaction)
@@ -268,22 +237,16 @@ private[state] object Conversions {
       entryId: DamlLogEntryId,
       coidString: String,
       coidStruct: ValueOuterClass.ContractId,
-  ): DamlStateKey = {
-
-    val result = ValueCoder.CidDecoder.decode(
-      sv = transactionVersion,
-      stringForm = coidString,
-      structForm = coidStruct,
-    )
-
-    result match {
-      case Left(err) =>
-        throw Err.DecodeError("ContractId", s"Cannot decode contract id: $err")
-      case Right(rcoid: RelativeContractId) =>
-        relativeContractIdToStateKey(entryId, rcoid)
-      case Right(acoid: AbsoluteContractId) =>
-        absoluteContractIdToStateKey(acoid)
-    }
-  }
+  ): DamlStateKey =
+    ValueCoder.AbsCidDecoder
+      .decode(
+        sv = transactionVersion,
+        stringForm = coidString,
+        structForm = coidStruct,
+      )
+      .fold(
+        err => throw Err.DecodeError("ContractId", s"Cannot decode contract id: $err"),
+        contractIdToStateKey
+      )
 
 }
