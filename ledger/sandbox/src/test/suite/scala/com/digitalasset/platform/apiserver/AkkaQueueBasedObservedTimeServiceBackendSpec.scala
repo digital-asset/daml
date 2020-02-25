@@ -11,7 +11,6 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 class AkkaQueueBasedObservedTimeServiceBackendSpec
@@ -77,13 +76,31 @@ class AkkaQueueBasedObservedTimeServiceBackendSpec
         TimeServiceBackend.observing(TimeServiceBackend.simple(instantAt(month = 1)))
       for {
         changes <- timeService.changes.use { changes =>
-          timeService.setCurrentTime(instantAt(month = 1), instantAt(month = 2))
-          Future.successful(changes)
+          for {
+            _ <- timeService.setCurrentTime(instantAt(month = 1), instantAt(month = 2))
+          } yield changes
         }
         _ <- timeService.setCurrentTime(instantAt(month = 2), instantAt(month = 3))
-        _ = timeService.getCurrentTime should be(instantAt(month = 3))
+        completeChanges <- changes.take(2).runWith(Sink.seq)
+      } yield {
+        timeService.getCurrentTime should be(instantAt(month = 3))
+        completeChanges should be(Seq(instantAt(month = 1), instantAt(month = 2)))
+      }
+    }
+
+    "not emit rejected changes" in {
+      val timeService =
+        TimeServiceBackend.observing(TimeServiceBackend.simple(instantAt(month = 1)))
+      for {
+        changes <- timeService.changes.use { changes =>
+          for {
+            _ <- timeService.setCurrentTime(instantAt(month = 1), instantAt(month = 2))
+            _ <- timeService.setCurrentTime(instantAt(month = 1), instantAt(month = 3))
+          } yield changes
+        }
         completeChanges <- changes.runWith(Sink.seq)
       } yield {
+        timeService.getCurrentTime should be(instantAt(month = 2))
         completeChanges should be(Seq(instantAt(month = 1), instantAt(month = 2)))
       }
     }

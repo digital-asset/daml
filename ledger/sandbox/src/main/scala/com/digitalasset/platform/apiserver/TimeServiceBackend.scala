@@ -63,7 +63,7 @@ object TimeServiceBackend {
       delegate
         .setCurrentTime(currentTime, newTime)
         .andThen {
-          case Success(_) =>
+          case Success(true) =>
             queues.foreach(_.offer(newTime))
         }(materializer.executionContext)
 
