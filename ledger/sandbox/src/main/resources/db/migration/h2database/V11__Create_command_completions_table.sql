@@ -4,7 +4,7 @@
 CREATE TABLE participant_command_completions
 (
     completion_offset bigint not null,
-    record_time timestamp not null, -- TODO re-evaluate usefulness after new ledger time lands
+    record_time timestamp not null,
 
     application_id varchar, -- null for checkpoints
     submitting_party varchar, -- null for checkpoints
