@@ -57,12 +57,16 @@ The last thing we'll point out about the DAML model for now is the operation to 
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it creates a new user contract with the new friend added to the list.
-The ``choice`` syntax automatically includes the archival of the current instance.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new instance with the new friend added to the list.
 
-.. TODO Update depending on consuming/nonconsuming choice.
+There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
 
-Next we'll see how our DAML code is reflected and used on the UI side.
+    - The choice is ``nonconsuming`` as we ``archive`` the contract explicitly.
+    - The return type is ``ContractId User``, a reference to the new contract instance for the calling code.
+    - The new ``friend: Party`` is passed as an argument to the choice.
+    - The ``controller``, the party able to execute the choice, is the party named on the ``User`` contract.
+
+Let's move on to how our DAML model is reflected and used on the UI side.
 
 TypeScript Code Generation
 ==========================
