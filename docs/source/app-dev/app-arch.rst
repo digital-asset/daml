@@ -4,7 +4,7 @@
 Application architecture guide
 #########################################
 
-This document is a guide to building applications that interact with a DA ledger deployment (the 'ledger'). It:
+This document is a guide to building applications that interact with a DAML ledger deployment (the 'ledger'). It:
 
 - describes the characteristics of the ledger API, how this affects the way an application is built (the 'application architecture'), and why it is important to understand this when building applications
 - describes the resources in the SDK to help with this task
@@ -56,7 +56,7 @@ State-driven applications
 
 **State-driven** applications build up a real-time view of the ledger state by reading events and recording contract create and archive events. They then generate commands based on a given state, not just single events.
 
-Examples of these are automation and interactive applications that let a user or code react to complex state on the ledger (e.g. the DA Navigator tool).
+Examples of these are automation and interactive applications that let a user or code react to complex state on the ledger (e.g. the Navigator tool).
 
 Which approach to take
 ======================

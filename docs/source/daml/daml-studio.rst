@@ -50,7 +50,7 @@ To learn more about DAML, see :doc:`reference/index`.
 Supported features
 ******************
 
-Visual Studio Code provides many helpful features for editing DAML files and Digital Asset recommends reviewing
+Visual Studio Code provides many helpful features for editing DAML files and we recommend reviewing
 `Visual Studio Code Basics <https://code.visualstudio.com/docs/editor/codebasics>`__ and `Visual Studio Code Keyboard Shortcuts for OS X <https://code.visualstudio.com/shortcuts/keyboard-shortcuts-macos.pdf>`_.
 The DAML Studio extension for Visual Studio Code provides the following DAML-specific features:
 

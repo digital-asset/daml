@@ -18,7 +18,7 @@ The main way for a DAML application to interact with a DAML ledger is through th
 This API can be used to request changes to the ledger (e.g., "*Alice wants to exercise choice X on contract Y*),
 or to read data from the ledger (e.g., "*Alice wants to see all active contracts*").
 
-What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`DA Ledger Model <da-ledgers>`.
+What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`DAML Ledger Model <da-ledgers>`.
 This model is defined in terms of :ref:`DAML parties <glossary-party>`,
 and does not require any cryptographic information to be sent along with requests.
 
