@@ -40,7 +40,7 @@ separate terminal using the following command.
 
 .. code-block:: sh
 
-   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/repl-playground-0.0.1.dar
+   daml repl --ledger-host=localhost --ledger-port=6865 .daml/dist/script-example-0.0.1.dar
 
 The ``--ledger-host`` and ``--ledger-port`` parameters point to the
 host and port your ledger is running on. In addition to that, you also
