@@ -32,6 +32,8 @@ object Collections {
       self.list.collect(f).toNel
   }
 
-  def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] =
-    OneAnd(as.head, as.tail.foldLeft(Set.empty[A])(_ + _) - as.head)
+  def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] = {
+    import scalaz.syntax.foldable._
+    OneAnd(as.head, as.tail.toSet - as.head)
+  }
 }

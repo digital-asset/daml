@@ -89,10 +89,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
 
   protected def withHttpService[A](
-      f3: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
-    HttpServiceTestFixture
-      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)((a, b, c, _) =>
-        f3(a, b, c))
+      f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
+    withHttpServiceAndClient((a, b, c, _) => f(a, b, c))
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
