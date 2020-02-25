@@ -161,6 +161,10 @@ test('create + fetch & exercise', async () => {
   const personStream = promisifyStream(aliceLedger.streamQuery(Main.Person));
   expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
 
+  // end of non-live data, first offset
+  expect(await personStream.next()).toEqual([[alice6Contract], []]);
+  expect(await alice6KeyStream.next()).toEqual([alice6Contract, []]);
+
   // Bob enters the scene.
   const bob4Contract = await bobLedger.create(Main.Person, bob4);
   expect(bob4Contract.payload).toEqual(bob4);
