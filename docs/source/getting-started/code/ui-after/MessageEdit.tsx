@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import React from 'react'
-import { Form, Input, Dropdown, Button } from 'semantic-ui-react';
+import { Form, Button } from 'semantic-ui-react';
 import { Party } from '@daml/types';
 import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
 import { useParty, useExerciseByKey } from '@daml/react';
@@ -18,8 +18,8 @@ const MessageEdit: React.FC<Props> = ({friends}) => {
   const sender = useParty();
   const [receiver, setReceiver] = React.useState('');
   const [content, setContent] = React.useState('');
-  const [exerciseSendMessage] = useExerciseByKey(User.SendMessage);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [exerciseSendMessage] = useExerciseByKey(User.SendMessage);
 
   const sendMessage = async (receiver: string, content: string): Promise<boolean> => {
     try {
@@ -50,7 +50,7 @@ const MessageEdit: React.FC<Props> = ({friends}) => {
 
   return (
     <Form onSubmit={submitMessage}>
-      <Dropdown
+      <Form.Dropdown
         fluid
         selection
         placeholder='Select friend'
@@ -58,17 +58,14 @@ const MessageEdit: React.FC<Props> = ({friends}) => {
         value={receiver}
         onChange={(event) => setReceiver(event.currentTarget.textContent ?? '')}
       />
-      <br />
-      <Input
+      <Form.Input
         fluid
-        transparent
         readOnly={isSubmitting}
         loading={isSubmitting}
         placeholder="Write a message"
         value={content}
         onChange={(event) => setContent(event.currentTarget.value)}
       />
-      <br />
       <Button type="submit">Send</Button>
     </Form>
   );
