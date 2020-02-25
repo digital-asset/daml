@@ -101,38 +101,43 @@ If they are set, then we render the ``MainScreen`` of the app.
 This is wrapped in a ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with the current view of the ledger.
 
 The ``MainScreen`` is a simple frame around the ``MainView`` component.
-The ``MainView`` houses the main functionality of our app and is especially interesting as it uses the DAML React hooks to query and update ledger state.
+The ``MainView`` houses the main functionality of our app and is especially interesting as it uses DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
-The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` state.
-A good example is the ``allUsers`` line.
-We use the query hook to get the ``User`` contracts on the ledger.
-Note however that the query preserves privacy: only users that have added the party currently logged in are shown.
-This is because the observers of a ``User`` contract are exactly the user's friends.
+The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` context.
+A more interesting example is the ``allUsers`` line.
+This uses the ``useStreamQuery`` hook to get all ``User`` contracts on the ledger.
+(``User`` is a TypeScript object generated from the DAML code by ``daml codegen``.)
+Note however that this query preserves privacy: only users that have added the current user have their contracts revealed.
+This behaviour is due to the observers on the ``User`` contract being exactly the user's friends.
+
+A final point on this is the *streaming* aspect of the query.
+This means that results are updated as they come in - there is no need for periodic or manual reloading to see updates.
+This functionality comes from a streaming endpoint in the :doc:`HTTP JSON API </json-api/index>`.
 
 .. TODO Explain why you see friends of friends.
 
-Another example is how we exercise the ``AddFriend`` choice of the ``User`` template.
+Another example, showing how to *update* ledger state, is how we exercise the ``AddFriend`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
-We use the ``useExerciseByKey`` hook to gain access to the ``exerciseAddFriend`` function.
+The ``useExerciseByKey`` hook returns the ``exerciseAddFriend`` function (the ``[]`` around it is simply for ignoring other return values).
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
 The wrapper function ``addFriend`` is then passed to the subcomponents of ``MainView``.
-For example, ``addFriend`` is passed to the ``UserList`` component as an argument (called a *prop* in React terms).
-This gets triggered when you click the button next to a user's name in the "Network" panel.
+For example, ``addFriend`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
+This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // USERLIST_BEGIN
   :end-before: // USERLIST_END
 
-This gives you a taste of how the UI works alongside a DAML ledger.
-You'll see this more as we develop :doc:`your first feature <first-feature>` for our social network.
+This should give you a taste of how the UI works alongside a DAML ledger.
+You'll see this more as you develop :doc:`your first feature <first-feature>` for our social network.
