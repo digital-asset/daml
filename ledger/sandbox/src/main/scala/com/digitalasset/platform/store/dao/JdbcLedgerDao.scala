@@ -929,16 +929,15 @@ private class JdbcLedgerDao(
                   appId <- tx.applicationId
                   submitter <- tx.submittingParty
                 } yield {
-                  insertEntry(
-                    PersistenceEntry.Rejection(
-                      LedgerEntry.Rejection(
-                        tx.recordedAt,
-                        cmdId,
-                        appId,
-                        submitter,
-                        rejectionReason
-                      )))
-
+                  val rejection = LedgerEntry.Rejection(
+                    tx.recordedAt,
+                    cmdId,
+                    appId,
+                    submitter,
+                    rejectionReason
+                  )
+                  CommandCompletionsTable.prepareInsert(offset + 1, rejection).map(_.execute())
+                  insertEntry(PersistenceEntry.Rejection(rejection))
                 }
               } getOrElse Ok
           }.recover {
@@ -960,6 +959,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
+        CommandCompletionsTable.prepareInsert(offset + 1, ledgerEntry.entry).map(_.execute())
         val resp = insertEntry(ledgerEntry)
         updateLedgerEnd(newLedgerEnd, externalOffset)
         resp
@@ -1640,6 +1640,7 @@ private class JdbcLedgerDao(
         |truncate contract_keys cascade;
         |truncate configuration_entries cascade;
         |truncate package_entries cascade;
+        |truncate participant_command_completions cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
@@ -1654,7 +1655,8 @@ private class JdbcLedgerDao(
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
 
-  override val completions: CommandCompletionsReader[LedgerOffset] = CommandCompletionsReader(this)
+  override val completions: CommandCompletionsReader[LedgerOffset] =
+    CommandCompletionsReader(dbDispatcher)
 }
 
 object JdbcLedgerDao {
