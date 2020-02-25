@@ -17,19 +17,16 @@ object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
       dispatcher <- InMemoryLedgerReaderWriter.dispatcher
-      factory = new InMemoryLedgerFactory(dispatcher)
+      sharedState = new InMemoryState()
+      factory = new InMemoryLedgerFactory(dispatcher, sharedState)
       runner <- new Runner("In-Memory Ledger", factory).owner(args)
     } yield runner
 
     new ProgramResource(resource).run()
   }
 
-  class InMemoryLedgerFactory(dispatcher: Dispatcher[Index])
+  class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], inMemoryState: InMemoryState)
       extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
-
-    // Here we share the ledger state access object, which also encapsulates InMemoryState,
-    // so that the state can be shared amongst multiple participants for this in-memory ledger.
-    private val sharedState = new InMemoryState()
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
         implicit executionContext: ExecutionContext,
@@ -40,6 +37,6 @@ object Main {
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,
-        inMemoryState = sharedState)
+        inMemoryState = inMemoryState)
   }
 }
