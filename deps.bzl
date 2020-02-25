@@ -51,7 +51,7 @@ def daml_deps():
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
                 # This is a daml specific patch and not upstreamable.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
+#                "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 # rules_haskell should have builtin support for hie-bios.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
