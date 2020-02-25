@@ -79,6 +79,7 @@ import qualified Web.JWT as JWT
 import Data.Aeson
 import Data.Aeson.Text
 
+import DA.Directory
 import DA.Daml.Helper.Ledger as Ledger
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts

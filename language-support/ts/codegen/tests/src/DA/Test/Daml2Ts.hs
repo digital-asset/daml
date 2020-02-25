@@ -10,6 +10,7 @@ import System.Environment.Blank
 import System.Directory.Extra
 import System.Process
 import System.Exit
+import DA.Directory
 import DA.Bazel.Runfiles
 import Data.Maybe
 import Data.List.Extra
@@ -42,11 +43,6 @@ yarnInstall yarn damlTypes rootDir = do
   copyDirectory damlTypes (rootDir </> "daml-types")
   writePackageConfigs dummyTs
   withCurrentDirectory rootDir $ yarnProject' yarn ["install"]
-  where
-    copyDirectory from to = do
-      createDirectoryIfMissing True to
-      files <- listDirectory from
-      forM_ files $ \file -> copyFile (from </> file) (to </> file)
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
 tests rootDir yarn damlc daml2ts davl = testGroup "daml2Ts"
