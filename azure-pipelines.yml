@@ -255,7 +255,7 @@ jobs:
 
           if is_release_commit; then
               echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
-              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
               echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
               echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
           else
