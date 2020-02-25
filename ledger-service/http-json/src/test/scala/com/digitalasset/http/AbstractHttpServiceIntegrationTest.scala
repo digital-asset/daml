@@ -18,7 +18,7 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.objectField
+import com.digitalasset.http.json.SprayJson.{decode2, objectField}
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
@@ -745,9 +745,7 @@ abstract class AbstractHttpServiceIntegrationTest
   "parties endpoint should return all known parties" in withHttpServiceAndClient {
     (uri, _, _, client) =>
       import scalaz.std.vector._
-
       val partyIds = Vector("Alice", "Bob", "Charlie", "Dave")
-
       val partyManagement = client.partyManagementClient
 
       partyIds
@@ -758,64 +756,55 @@ abstract class AbstractHttpServiceIntegrationTest
           getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
             case (status, output) =>
               status shouldBe StatusCodes.OK
-              assertStatus(output, StatusCodes.OK)
-              inside(output) {
-                case JsObject(fields) =>
-                  inside(fields.get("result")) {
-                    case Some(jsArray) =>
-                      inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
-                        case \/-(partyDetails) =>
-                          val actualIds: Set[domain.Party] =
-                            partyDetails.map(x => x.identifier)(breakOut)
-                          domain.Party.unsubst(actualIds) shouldBe partyIds.toSet
-                          val expected: Set[domain.PartyDetails] =
-                            allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
-                          partyDetails.toSet shouldBe expected
-                      }
-                  }
+              inside(
+                decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)
+              ) {
+                case \/-(response) =>
+                  response.status shouldBe StatusCodes.OK
+                  response.warnings shouldBe None
+                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  actualIds shouldBe domain.Party.subst(partyIds.toSet)
+                  response.result.toSet shouldBe
+                    allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
               }
           }
         }: Future[Assertion]
   }
 
-  "parties endpoint should return only requested parties" in withHttpServiceAndClient {
+  "parties endpoint should return only requested parties, unknown parties returned as warnings" in withHttpServiceAndClient {
     (uri, _, _, client) =>
       import scalaz.std.vector._
 
-      val partyIds = Vector("Alice", "Bob", "Charlie", "Dave")
-      val requestedPartyIds = partyIds.filterNot(_ == "Charlie")
+      val charlie = domain.Party("Charlie")
+      val knownParties = domain.Party.subst(Vector("Alice", "Bob", "Dave")) :+ charlie
+      val erin = domain.Party("Erin")
+      val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == charlie) :+ erin
 
       val partyManagement = client.partyManagementClient
 
-      partyIds
+      knownParties
         .traverse { p =>
-          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+          partyManagement.allocateParty(Some(p.unwrap), Some(s"${p.unwrap} & Co. LLC"))
         }
         .flatMap { allocatedParties =>
           postJsonRequest(
             uri = uri.withPath(Uri.Path("/v1/parties")),
-            JsArray(requestedPartyIds.map(JsString(_)))
+            JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
           ).flatMap {
             case (status, output) =>
               status shouldBe StatusCodes.OK
-              assertStatus(output, StatusCodes.OK)
-              inside(output) {
-                case JsObject(fields) =>
-                  inside(fields.get("result")) {
-                    case Some(jsArray) =>
-                      inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
-                        case \/-(partyDetails) =>
-                          partyDetails.size shouldBe partyIds.size - 1
-                          val actualIds: Set[domain.Party] =
-                            partyDetails.map(x => x.identifier)(breakOut)
-                          domain.Party.unsubst(actualIds) shouldBe requestedPartyIds.toSet
-                          val expected: Set[domain.PartyDetails] =
-                            allocatedParties.toSet
-                              .map(domain.PartyDetails.fromLedgerApi)
-                              .filter(x => requestedPartyIds.contains(x.identifier.unwrap: String))
-                          partyDetails.toSet shouldBe expected
-                      }
-                  }
+              inside(
+                decode2[domain.OkResponse, List[domain.PartyDetails], domain.UnknownParties](output)
+              ) {
+                case \/-(response) =>
+                  response.status shouldBe StatusCodes.OK
+                  response.warnings shouldBe Some(domain.UnknownParties(List(erin)))
+                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
+                  val expected: Set[domain.PartyDetails] = allocatedParties.toSet
+                    .map(domain.PartyDetails.fromLedgerApi)
+                    .filterNot(_.identifier == charlie)
+                  response.result.toSet shouldBe expected
               }
           }
         }: Future[Assertion]
