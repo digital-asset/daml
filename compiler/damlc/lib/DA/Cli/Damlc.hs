@@ -253,7 +253,7 @@ cmdBuild numProcessors =
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
     command "repl" $ info (helper <*> cmd) $
-    progDesc "Launch the DAML Repl." <>
+    progDesc "Launch the DAML REPL." <>
     fullDesc
   where
     cmd =

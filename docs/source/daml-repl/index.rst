@@ -1,16 +1,16 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Repl
+DAML REPL
 ###########
 
-**WARNING:** DAML Repl is an experimental feature that is actively
+**WARNING:** DAML REPL is an experimental feature that is actively
 being designed and is *subject to breaking changes*.
-We welcome feedback about DAML script on
+We welcome feedback about the DAML REPL on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
 or `on Slack <https://hub.daml.com/slack/>`_.
 
-DAML Repl allows you to use the :doc:`/daml-script/index` API
+The DAML REPL allows you to use the :doc:`/daml-script/index` API
 interactively. This is useful for debugging and for interactively
 inspecting and manipulating a ledger.
 
@@ -35,7 +35,7 @@ wallclock mode. Static time is not supported in ``daml repl``.
    daml build
    daml sandbox --wall-clock-time --port=6865 .daml/dist/script-example-0.0.1.dar
 
-Now that the ledger has been started, you can launch the repl in a
+Now that the ledger has been started, you can launch the REPL in a
 separate terminal using the following command.
 
 .. code-block:: sh
@@ -45,7 +45,7 @@ separate terminal using the following command.
 The ``--ledger-host`` and ``--ledger-port`` parameters point to the
 host and port your ledger is running on. In addition to that, you also
 need to pass in the name of a DAR containing the templates and other
-definitions that will be accessible in the repl.
+definitions that will be accessible in the REPL.
 
 You should now see a prompt looking like
 
