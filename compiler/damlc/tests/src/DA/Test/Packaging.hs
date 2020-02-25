@@ -877,6 +877,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
 
           step "Validating DAR"
           callProcessSilent repl ["validate", tmpDir </> "b" </> "b.dar"]
+
     , testCaseSteps "Tuples" $ \step -> withTempDir $ \tmpDir -> do
           step "Building dep"
           createDirectoryIfMissing True (tmpDir </> "dep")
@@ -912,6 +913,90 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "f (X (a, b)) = a <> show b"
               ]
           withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar"]
+
+    , testCaseSteps "Colliding package names" $ \step -> withTempDir $ \tmpDir -> do
+          forM_ ["1", "2"] $ \version -> do
+              step ("Building 'lib" <> version <> "'")
+              let projDir = tmpDir </> "lib-" <> version
+              createDirectoryIfMissing True projDir
+              writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+                  [ "sdk-version: " <> sdkVersion
+                  , "version: " <> show version
+                  , "name: lib"
+                  , "source: ."
+                  , "dependencies: [daml-prim, daml-stdlib]"
+                  ]
+              writeFileUTF8 (projDir </> "Lib.daml") $ unlines
+                  [ "daml 1.2 module Lib where"
+                  , "data X" <> version <> " = X"
+                  ]
+              withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "lib.dar"]
+
+          step "Building a"
+          let projDir = tmpDir </> "a"
+          createDirectoryIfMissing True projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "version: 0.0.0"
+               , "name: a"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib]"
+               , "data-dependencies:"
+               , "- " <> show (tmpDir </> "lib-1" </> "lib.dar")
+               ]
+          writeFileUTF8 (projDir </> "A.daml") $ unlines
+              [ "daml 1.2 module A where"
+              , "import Lib"
+              , "data A = A X1"
+              ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "a.dar"]
+
+          step "Building b"
+          let projDir = tmpDir </> "b"
+          createDirectoryIfMissing True projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "version: 0.0.0"
+               , "name: b"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib]"
+               , "data-dependencies:"
+               , "- " <> show (tmpDir </> "lib-2" </> "lib.dar")
+               , "- " <> show (tmpDir </> "a" </> "a.dar")
+               ]
+          writeFileUTF8 (projDir </> "B.daml") $ unlines
+              [ "daml 1.2 module B where"
+              , "import Lib"
+              , "import A"
+              , "data B1 = B1 A"
+              , "data B2 = B2 X2"
+              ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "b.dar"]
+
+          -- At this point b has references to both lib-1 and lib-2 in its transitive dependency closure.
+          -- Now try building `c` which references `b` as a `data-dependency` and see if it
+          -- manages to produce an import of `Lib` for the dummy interface of `B` that resolves correctly.
+          step "Building c"
+          let projDir = tmpDir </> "c"
+          createDirectoryIfMissing True projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "version: 0.0.0"
+               , "name: c"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib]"
+               , "data-dependencies:"
+               , "- " <> show (tmpDir </> "b" </> "b.dar")
+               , "- " <> show (tmpDir </> "lib-2" </> "lib.dar")
+               ]
+          writeFileUTF8 (projDir </> "C.daml") $ unlines
+              [ "daml 1.2 module C where"
+              , "import B"
+              , "import Lib"
+              , "f : B2 -> X2"
+              , "f (B2 x) = x"
+              ]
+          withCurrentDirectory projDir $ callProcessSilent damlc ["build", "-o", projDir </> "c.dar"]
     ] <>
     [ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe
