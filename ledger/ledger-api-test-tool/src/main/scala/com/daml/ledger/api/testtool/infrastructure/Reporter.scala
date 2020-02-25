@@ -106,6 +106,7 @@ object Reporter {
       val (successes, failures) = results.partition(_.result.isRight)
 
       if (successes.nonEmpty) {
+        s.println()
         s.println(green("### SUCCESSES"))
         printReport(successes)
       }
