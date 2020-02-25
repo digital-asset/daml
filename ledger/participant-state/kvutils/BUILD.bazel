@@ -171,7 +171,7 @@ client_server_build(
     ],
 ) if not is_windows else None
 
-# Test for checking the integrity of the ledger dump produces above.
+# Test for checking the integrity of the ledger dump produced above.
 integrity_test(
     name = "reference-ledger-dump-integrity-test",
     dump = ":reference-ledger-dump",

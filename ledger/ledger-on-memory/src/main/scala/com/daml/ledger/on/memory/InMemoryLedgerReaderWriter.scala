@@ -44,15 +44,33 @@ private[memory] object LogEntry {
 private[memory] class InMemoryState(
     val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
     val state: mutable.Map[ByteString, Array[Byte]] = mutable.Map.empty,
-)
+) {
+  val lockCurrentState = new Semaphore(1, true)
 
-// Dispatcher and LedgerStateAccess are passed in to allow for a multi-participant setup.
+  def withLock[A](action: => A): A = {
+    try {
+      lockCurrentState.acquire()
+      action
+    } finally {
+      lockCurrentState.release()
+    }
+  }
+
+  def readLogEntry(index: Int): LogEntry = {
+    lockCurrentState.acquire()
+    val entry = log(index)
+    lockCurrentState.release()
+    entry
+  }
+}
+
+// Dispatcher and InMemoryState are passed in to allow for a multi-participant setup.
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
     dispatcher: Dispatcher[Index],
     timeProvider: TimeProvider,
-    ledgerStateAccess: InMemoryLedgerStateAccess,
+    inMemoryState: InMemoryState,
 )(
     implicit executionContext: ExecutionContext,
     logCtx: LoggingContext,
@@ -62,7 +80,8 @@ final class InMemoryLedgerReaderWriter(
   private val committer = new ValidatingCommitter(
     participantId,
     () => timeProvider.getCurrentTime,
-    SubmissionValidator.create(ledgerStateAccess, () => sequentialLogEntryId.next()),
+    SubmissionValidator
+      .create(new InMemoryLedgerStateAccess(inMemoryState), () => sequentialLogEntryId.next()),
     dispatcher.signalNewHead,
   )
 
@@ -86,19 +105,14 @@ final class InMemoryLedgerReaderWriter(
       .mapConcat { case (_, updates) => updates }
 
   private def retrieveLogEntry(index: Int): LedgerRecord = {
-    val logEntry = ledgerStateAccess.currentState.log.synchronized {
-      ledgerStateAccess.currentState.log(index)
-    }
+    val logEntry = inMemoryState.readLogEntry(index)
     LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
 }
 
-class InMemoryLedgerStateAccess()(implicit executionContext: ExecutionContext)
+class InMemoryLedgerStateAccess(currentState: InMemoryState)(
+    implicit executionContext: ExecutionContext)
     extends LedgerStateAccess[Index] {
-
-  private val lockCurrentState = new Semaphore(1, true)
-
-  val currentState = new InMemoryState()
 
   private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
@@ -117,7 +131,7 @@ class InMemoryLedgerStateAccess()(implicit executionContext: ExecutionContext)
       Future.successful {
         val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
-        currentState.log.synchronized {
+        currentState.withLock {
           currentState.log += logEntry
           currentState.log.size
         }
@@ -126,11 +140,11 @@ class InMemoryLedgerStateAccess()(implicit executionContext: ExecutionContext)
 
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
     Future
-      .successful(lockCurrentState.acquire())
+      .successful(currentState.lockCurrentState.acquire())
       .flatMap(_ => body(InMemoryLedgerStateOperations))
       .andThen {
         case _ =>
-          lockCurrentState.release()
+          currentState.lockCurrentState.release()
       }
 }
 
@@ -154,7 +168,6 @@ object InMemoryLedgerReaderWriter {
           headAtInitialization = StartIndex,
       ))
 
-  // convenience method if only a single participant is needed
   def singleParticipantOwner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
@@ -165,22 +178,21 @@ object InMemoryLedgerReaderWriter {
   ): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
       dispatcher <- dispatcher
-      stateAccess = new InMemoryLedgerStateAccess()
       readerWriter <- owner(
         initialLedgerId,
         participantId,
         dispatcher = dispatcher,
-        ledgerStateAccess = stateAccess)
+        inMemoryState = new InMemoryState)
     } yield readerWriter
 
-  // passing the Dispatcher and LedgerStateAccess from the outside allows us to share
+  // passing the Dispatcher and InMemoryState from the outside allows us to share
   // the backing data for the LedgerReaderWriter and therefore setup multiple participants
   def owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
       dispatcher: Dispatcher[Index],
-      ledgerStateAccess: InMemoryLedgerStateAccess
+      inMemoryState: InMemoryState
   )(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
@@ -188,7 +200,6 @@ object InMemoryLedgerReaderWriter {
     val ledgerId =
       initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
     ResourceOwner.successful(
-    new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeProvider, ledgerStateAccess)
-    )
+      new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeProvider, inMemoryState))
   }
 }

@@ -29,7 +29,7 @@ object Main {
 
     // Here we share the ledger state access object, which also encapsulates InMemoryState,
     // so that the state can be shared amongst multiple participants for this in-memory ledger.
-    val ledgerStateAccess = new InMemoryLedgerStateAccess()(ExecutionContext.global)
+    private val sharedState = new InMemoryState()
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
         implicit executionContext: ExecutionContext,
@@ -40,7 +40,6 @@ object Main {
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,
-        ledgerStateAccess = ledgerStateAccess
-      )
+        inMemoryState = sharedState)
   }
 }

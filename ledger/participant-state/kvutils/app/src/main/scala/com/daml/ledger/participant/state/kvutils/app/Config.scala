@@ -33,7 +33,7 @@ case class ParticipantConfig(
 )
 
 object ParticipantConfig {
-  def defaultJdbcUrl(participantId: ParticipantId): String =
+  def defaultIndexJdbcUrl(participantId: ParticipantId): String =
     s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 }
 
@@ -84,7 +84,7 @@ object Config {
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =
-            kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultJdbcUrl(participantId))
+            kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultIndexJdbcUrl(participantId))
           val partConfig = ParticipantConfig(
             participantId,
             address,

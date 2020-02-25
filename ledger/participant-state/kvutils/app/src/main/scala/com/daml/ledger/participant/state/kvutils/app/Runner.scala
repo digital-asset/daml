@@ -31,7 +31,6 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       .flatMap(owner)
 
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = {
-    println(s"starting runner: ${originalConfig.participants}")
     val config = factory.manipulateConfig(originalConfig)
 
     implicit val system: ActorSystem = ActorSystem(
@@ -47,20 +46,16 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
         // initialize all configured participants
-        _ <- config.participants.foldLeft(ResourceOwner.successful(())) {
-          case (acc, participantConfig) =>
-            for {
-              _ <- acc
-              readerWriter <- factory.owner(
-                config,
-                participantConfig
-              )
-              ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-              _ <- ResourceOwner.forFuture(() =>
-                Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-              _ <- startParticipant(config, participantConfig, ledger)
-            } yield ()
-        }
+        _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
+          for {
+            readerWriter <- factory
+              .owner(config, participantConfig)
+            ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+            _ <- ResourceOwner.forFuture(() =>
+              Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+            _ <- startParticipant(config, participantConfig, ledger)
+          } yield ()
+        })
       } yield ()
     }
   }
