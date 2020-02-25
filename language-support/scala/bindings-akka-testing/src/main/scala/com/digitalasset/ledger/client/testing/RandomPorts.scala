@@ -3,8 +3,7 @@
 
 package com.digitalasset.ledger.client.testing
 
-import java.net.ServerSocket
-
+import com.digitalasset.ports.FreePort
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.annotation.tailrec
@@ -19,17 +18,12 @@ trait RandomPorts extends LazyLogging { self: AkkaTest =>
         logger.info(s"Using port $candidatePort")
         candidatePort
       } else {
-        var candidate: ServerSocket = null
-        try {
-          candidate = new ServerSocket(0)
-        } finally {
-          candidate.close()
-        }
-        logger.info(s"Checking port ${candidate.getLocalPort}")
-        val isHighEnough = lowerBound.fold(true)(candidate.getLocalPort > _)
-        val isLowEnough = upperBound.fold(true)(candidate.getLocalPort < _)
+        val port = FreePort.find()
+        logger.info(s"Checking port $port")
+        val isHighEnough = lowerBound.fold(true)(port > _)
+        val isLowEnough = upperBound.fold(true)(port < _)
         if (isHighEnough && isLowEnough) {
-          tryNext(candidate.getLocalPort)
+          tryNext(port)
         } else {
           tryNext()
         }
