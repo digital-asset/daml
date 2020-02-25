@@ -31,6 +31,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       .flatMap(owner)
 
   def owner(originalConfig: Config[Extra]): ResourceOwner[Unit] = {
+    println(s"starting runner: ${originalConfig.participants}")
     val config = factory.manipulateConfig(originalConfig)
 
     implicit val system: ActorSystem = ActorSystem(
@@ -45,11 +46,21 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        readerWriter <- factory.owner(config)
-        ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-        _ <- ResourceOwner.forFuture(() =>
-          Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, ledger)
+        // initialize all configured participants
+        _ <- config.participants.foldLeft(ResourceOwner.successful(())) {
+          case (acc, participantConfig) =>
+            for {
+              _ <- acc
+              readerWriter <- factory.owner(
+                config,
+                participantConfig
+              )
+              ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+              _ <- ResourceOwner.forFuture(() =>
+                Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+              _ <- startParticipant(config, participantConfig, ledger)
+            } yield ()
+        }
       } yield ()
     }
   }
@@ -65,14 +76,18 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     } yield ()
   }
 
-  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
+  private def startParticipant(
+      config: Config[Extra],
+      participantConfig: ParticipantConfig,
+      ledger: KeyValueParticipantState)(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): ResourceOwner[Unit] =
     for {
-      _ <- startIndexerServer(config, readService = ledger)
+      _ <- startIndexerServer(participantConfig, readService = ledger)
       _ <- startApiServer(
         config,
+        participantConfig,
         readService = ledger,
         writeService = ledger,
         authService = factory.authService(config),
@@ -80,7 +95,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     } yield ()
 
   private def startIndexerServer(
-      config: Config[Extra],
+      config: ParticipantConfig,
       readService: ReadService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
@@ -91,16 +106,17 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
 
   private def startApiServer(
       config: Config[Extra],
+      participantConfig: ParticipantConfig,
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
-      factory.apiServerConfig(config),
+      factory.apiServerConfig(participantConfig, config),
       readService,
       writeService,
       authService,
-      factory.apiServerMetricRegistry(config),
+      factory.apiServerMetricRegistry(participantConfig),
       timeServiceBackend = factory.timeServiceBackend(config),
     )
 }

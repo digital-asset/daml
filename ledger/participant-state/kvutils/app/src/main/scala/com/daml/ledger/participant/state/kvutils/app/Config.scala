@@ -13,19 +13,28 @@ import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
 case class Config[Extra](
+    ledgerId: Option[String],
+    archiveFiles: Seq[Path],
+    tlsConfig: Option[TlsConfiguration],
+    participants: Seq[ParticipantConfig],
+    extra: Extra,
+) {
+  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
+    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+}
+
+case class ParticipantConfig(
     participantId: ParticipantId,
     address: Option[String],
     port: Int,
     portFile: Option[Path],
     serverJdbcUrl: String,
-    ledgerId: Option[String],
-    archiveFiles: Seq[Path],
     allowExistingSchemaForIndex: Boolean,
-    tlsConfig: Option[TlsConfiguration],
-    extra: Extra,
-) {
-  def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
-    copy(tlsConfig = Some(modify(tlsConfig.getOrElse(TlsConfiguration.Empty))))
+)
+
+object ParticipantConfig {
+  def defaultJdbcUrl(participantId: ParticipantId): String =
+    s"jdbc:h2:mem:$participantId;db_close_delay=-1;db_close_on_exit=false"
 }
 
 object Config {
@@ -33,15 +42,10 @@ object Config {
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
-      participantId = ParticipantId.assertFromString("example"),
-      address = None,
-      port = 6865,
-      portFile = None,
-      serverJdbcUrl = "jdbc:h2:mem:server;db_close_delay=-1;db_close_on_exit=false",
       ledgerId = None,
       archiveFiles = Vector.empty,
-      allowExistingSchemaForIndex = false,
       tlsConfig = None,
+      participants = Vector.empty,
       extra = extra,
     )
 
@@ -70,33 +74,26 @@ object Config {
     val parser = new OptionParser[Config[Extra]](name) {
       head(name)
 
-      opt[String](name = "participant-id")
-        .optional()
-        .text("The participant ID given to all components of the ledger API server.")
-        .action((participantId, config) =>
-          config.copy(participantId = ParticipantId.assertFromString(participantId)))
-
-      opt[String]("address")
-        .optional()
-        .text("The address on which to run the Ledger API Server.")
-        .action((address, config) => config.copy(address = Some(address)))
-
-      opt[Int]("port")
-        .optional()
-        .text("The port on which to run the Ledger API Server.")
-        .action((port, config) => config.copy(port = port))
-
-      opt[File]("port-file")
-        .optional()
-        .hidden()
-        .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
-        .action((file, config) => config.copy(portFile = Some(file.toPath)))
-
-      opt[String]("server-jdbc-url")
-        .text(
-          "The JDBC URL to the database used for the Ledger API Server and the Indexer Server. Defaults to an in-memory H2 database.")
-        .action((serverJdbcUrl, config) => config.copy(serverJdbcUrl = serverJdbcUrl))
-
+      opt[Map[String, String]]("participant")
+        .minOccurs(1)
+        .unbounded()
+        .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
+        .action((kv, config) => {
+          val participantId = ParticipantId.assertFromString(kv("participant-id"))
+          val port = kv("port").toInt
+          val address = kv.get("address")
+          val portFile = kv.get("port-file").map(new File(_).toPath)
+          val jdbcUrl =
+            kv.getOrElse("server-jdbc-url", ParticipantConfig.defaultJdbcUrl(participantId))
+          val partConfig = ParticipantConfig(
+            participantId,
+            address,
+            port,
+            portFile,
+            jdbcUrl,
+            allowExistingSchemaForIndex = false)
+          config.copy(participants = config.participants :+ partConfig)
+        })
       opt[String]("ledger-id")
         .text(
           "The ID of the ledger. This must be the same each time the ledger is started. Defaults to a random UUID.")

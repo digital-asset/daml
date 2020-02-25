@@ -46,38 +46,59 @@ private[memory] class InMemoryState(
     val state: mutable.Map[ByteString, Array[Byte]] = mutable.Map.empty,
 )
 
+// Dispatcher and LedgerStateAccess are passed in to allow for a multi-participant setup.
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
     dispatcher: Dispatcher[Index],
     timeProvider: TimeProvider,
+    ledgerStateAccess: InMemoryLedgerStateAccess,
 )(
     implicit executionContext: ExecutionContext,
     logCtx: LoggingContext,
 ) extends LedgerWriter
     with LedgerReader {
 
-  private val currentState = new InMemoryState()
-
-  private val lockCurrentState = new Semaphore(1, true)
-
   private val committer = new ValidatingCommitter(
     participantId,
     () => timeProvider.getCurrentTime,
-    SubmissionValidator.create(InMemoryLedgerStateAccess, () => sequentialLogEntryId.next()),
+    SubmissionValidator.create(ledgerStateAccess, () => sequentialLogEntryId.next()),
     dispatcher.signalNewHead,
   )
 
-  private object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
-    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-      Future
-        .successful(lockCurrentState.acquire())
-        .flatMap(_ => body(InMemoryLedgerStateOperations))
-        .andThen {
-          case _ =>
-            lockCurrentState.release()
-        }
+  override def currentHealth(): HealthStatus =
+    Healthy
+
+  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
+    committer.commit(correlationId, envelope)
+
+  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
+    dispatcher
+      .startingAt(
+        offset
+          .map(_.components.head.toInt)
+          .getOrElse(StartIndex),
+        OneAfterAnother[Int, List[LedgerRecord]](
+          (index: Int, _) => index + 1,
+          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
+        ),
+      )
+      .mapConcat { case (_, updates) => updates }
+
+  private def retrieveLogEntry(index: Int): LedgerRecord = {
+    val logEntry = ledgerStateAccess.currentState.log.synchronized {
+      ledgerStateAccess.currentState.log(index)
+    }
+    LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
   }
+}
+
+class InMemoryLedgerStateAccess()(implicit executionContext: ExecutionContext)
+    extends LedgerStateAccess[Index] {
+
+  private val lockCurrentState = new Semaphore(1, true)
+
+  val currentState = new InMemoryState()
 
   private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
@@ -103,31 +124,14 @@ final class InMemoryLedgerReaderWriter(
       }
   }
 
-  override def currentHealth(): HealthStatus =
-    Healthy
-
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
-
-  override def events(offset: Option[Offset]): Source[LedgerRecord, NotUsed] =
-    dispatcher
-      .startingAt(
-        offset
-          .map(_.components.head.toInt)
-          .getOrElse(StartIndex),
-        OneAfterAnother[Int, List[LedgerRecord]](
-          (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
-        ),
-      )
-      .mapConcat { case (_, updates) => updates }
-
-  private def retrieveLogEntry(index: Int): LedgerRecord = {
-    val logEntry = currentState.log.synchronized {
-      currentState.log(index)
-    }
-    LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
-  }
+  override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+    Future
+      .successful(lockCurrentState.acquire())
+      .flatMap(_ => body(InMemoryLedgerStateOperations))
+      .andThen {
+        case _ =>
+          lockCurrentState.release()
+      }
 }
 
 object InMemoryLedgerReaderWriter {
@@ -141,7 +145,17 @@ object InMemoryLedgerReaderWriter {
 
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
-  def owner(
+  def dispatcher: ResourceOwner[Dispatcher[Index]] =
+    ResourceOwner.forCloseable(
+      () =>
+        Dispatcher(
+          "in-memory-key-value-participant-state",
+          zeroIndex = StartIndex,
+          headAtInitialization = StartIndex,
+      ))
+
+  // convenience method if only a single participant is needed
+  def singleParticipantOwner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -150,16 +164,31 @@ object InMemoryLedgerReaderWriter {
       logCtx: LoggingContext,
   ): ResourceOwner[InMemoryLedgerReaderWriter] =
     for {
-      dispatcher <- ResourceOwner.forCloseable(
-        () =>
-          Dispatcher(
-            "in-memory-key-value-participant-state",
-            zeroIndex = StartIndex,
-            headAtInitialization = StartIndex,
-        ))
-    } yield {
-      val ledgerId =
-        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeProvider)
-    }
+      dispatcher <- dispatcher
+      stateAccess = new InMemoryLedgerStateAccess()
+      readerWriter <- owner(
+        initialLedgerId,
+        participantId,
+        dispatcher = dispatcher,
+        ledgerStateAccess = stateAccess)
+    } yield readerWriter
+
+  // passing the Dispatcher and LedgerStateAccess from the outside allows us to share
+  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
+  def owner(
+      initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      dispatcher: Dispatcher[Index],
+      ledgerStateAccess: InMemoryLedgerStateAccess
+  )(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): ResourceOwner[InMemoryLedgerReaderWriter] = {
+    val ledgerId =
+      initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+    ResourceOwner.successful(
+    new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeProvider, ledgerStateAccess)
+    )
+  }
 }

@@ -164,7 +164,7 @@ client_server_build(
     output_env = "KVUTILS_LEDGER_DUMP",
     server = "//ledger/ledger-on-memory:app",
     server_args = [
-        "--port 6865",
+        "--participant participant-id=ledger-dump,port=6865",
     ],
     server_files = [
         "//ledger/test-common:dar-files",

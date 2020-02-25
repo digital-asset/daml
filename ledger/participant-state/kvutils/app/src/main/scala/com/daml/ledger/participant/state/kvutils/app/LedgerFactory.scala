@@ -19,7 +19,7 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def owner(config: Config[ExtraConfig])(
+  def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
@@ -28,7 +28,7 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
 
-  def indexerConfig(config: Config[ExtraConfig]): IndexerConfig =
+  def indexerConfig(config: ParticipantConfig): IndexerConfig =
     IndexerConfig(
       config.participantId,
       jdbcUrl = config.serverJdbcUrl,
@@ -36,22 +36,22 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
       allowExistingSchema = config.allowExistingSchemaForIndex,
     )
 
-  def indexerMetricRegistry(config: Config[ExtraConfig]): MetricRegistry =
+  def indexerMetricRegistry(config: ParticipantConfig): MetricRegistry =
     SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}")
 
-  def apiServerConfig(config: Config[ExtraConfig]): ApiServerConfig =
+  def apiServerConfig(participantConfig: ParticipantConfig, config: Config[ExtraConfig]): ApiServerConfig =
     ApiServerConfig(
-      participantId = config.participantId,
+      participantId = participantConfig.participantId,
       archiveFiles = config.archiveFiles.map(_.toFile).toList,
-      port = config.port,
-      address = config.address,
-      jdbcUrl = config.serverJdbcUrl,
+      port = participantConfig.port,
+      address = participantConfig.address,
+      jdbcUrl = participantConfig.serverJdbcUrl,
       tlsConfig = None,
       maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
-      portFile = config.portFile,
+      portFile = participantConfig.portFile,
     )
 
-  def apiServerMetricRegistry(config: Config[ExtraConfig]): MetricRegistry =
+  def apiServerMetricRegistry(config: ParticipantConfig): MetricRegistry =
     SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}")
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None

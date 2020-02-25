@@ -26,7 +26,7 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
   }
 
   override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
-    config.copy(allowExistingSchemaForIndex = true)
+    config.copy(participants = config.participants.map(_.copy(allowExistingSchemaForIndex = true)))
 
   override def owner(
       config: Config[ExtraConfig],

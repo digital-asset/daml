@@ -17,7 +17,8 @@ object MainWithEphemeralPostgresql extends PostgresAround {
     startEphemeralPostgres()
     sys.addShutdownHook(stopAndCleanUpPostgres())
     val config = originalConfig.copy(
-      serverJdbcUrl = postgresFixture.jdbcUrl,
+      participants =
+        originalConfig.participants.map(_.copy(serverJdbcUrl = postgresFixture.jdbcUrl)),
       extra = ExtraConfig(jdbcUrl = Some(postgresFixture.jdbcUrl)),
     )
     new ProgramResource(new Runner("SQL Ledger", SqlLedgerFactory).owner(config)).run()
