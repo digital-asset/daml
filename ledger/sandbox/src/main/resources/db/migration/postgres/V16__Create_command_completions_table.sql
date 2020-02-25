@@ -5,11 +5,12 @@ CREATE TABLE participant_command_completions
 (
     completion_offset bigint not null,
     record_time timestamp not null, -- TODO re-evaluate usefulness after new ledger time lands
-    application_id varchar not null,
-    submitting_party varchar not null,
-    command_id varchar not null,
 
-    transaction_id varchar, -- null if the command was rejected
+    application_id varchar, -- null for checkpoints
+    submitting_party varchar, -- null for checkpoints
+    command_id varchar, -- null for checkpoints
+
+    transaction_id varchar, -- null if the command was rejected and checkpoints
     status_code integer, -- null for successful command and checkpoints
     status_message varchar -- null for successful command and checkpoints
 );
