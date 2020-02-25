@@ -30,6 +30,8 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da
 /daml-lf/validation/    @remyhaemmerle-da
 
+/ledger-service/    @leo-da @S11001001
+
 /ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
 /ledger-api/  @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
 
