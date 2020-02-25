@@ -27,7 +27,7 @@ check() {
 
 is_stable() {
     local version="$1"
-    echo "$version" | grep -q "^${STABLE_REGEX}$"
+    echo "$version" | grep -q -P "^${STABLE_REGEX}$"
 }
 
 make_snapshot() {
@@ -35,11 +35,11 @@ make_snapshot() {
     local commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     local number_of_commits=$(git rev-list --count $sha)
     local commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    local prerelease="alpha.$commit_date.$number_of_commits.$commit_sha_8"
+    local prerelease="snapshot.$commit_date.$number_of_commits.$commit_sha_8"
     if is_stable "$CURRENT"; then
         local stable="$CURRENT"
     else
-        local stable=$(echo "$CURRENT" | grep -o "^$STABLE_REGEX")
+        local stable=$(echo "$CURRENT" | grep -o -P "^$STABLE_REGEX")
     fi
     echo "$sha $stable-$prerelease" > LATEST
     echo "Updated LATEST file."
