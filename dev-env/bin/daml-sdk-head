@@ -73,9 +73,9 @@ function cleanup() {
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build $BAZEL_MODE_FLAG //release:sdk-head-tarball.tar.gz
+bazel build $BAZEL_MODE_FLAG //release:sdk-release-tarball.tar.gz
 
-readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-head-tarball.tar.gz
+readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-release-tarball.tar.gz
 readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 
@@ -103,21 +103,15 @@ echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 if [ "$SKIP_JARS" -eq "0" ]; then
     echo "$(tput setaf 3)Installing JARs as 100.0.0...$(tput sgr 0)"
 
-    cp "$REPO_ROOT/VERSION" "$REPO_ROOT/VERSION.head-build-in-progress"
-
     function cleanup() {
       echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
-      mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
     }
     trap cleanup EXIT
 
-    echo "0.0.0" > "$REPO_ROOT/VERSION"
-
     bazel build //release:release
     tmp=$(mktemp -d)
-    "$REPO_ROOT/bazel-bin/release/release" --artifacts "$REPO_ROOT/release/artifacts.yaml" --release-dir $tmp --install-head-jars
+    "$REPO_ROOT/bazel-bin/release/release" --release-dir $tmp --install-head-jars
 
-    mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
     trap - EXIT
 
     echo "$(tput setaf 3)Done installing JARs as 100.0.0.$(tput sgr 0)"

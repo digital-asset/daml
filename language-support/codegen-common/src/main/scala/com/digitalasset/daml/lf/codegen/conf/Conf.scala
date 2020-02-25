@@ -105,7 +105,7 @@ object Conf {
     }
 
   lazy val Version: String =
-    Try(Source.fromResource("COMPONENT-VERSION").getLines.reduce((t, u) => t + u).trim)
+    Try(Source.fromResource("MVN_VERSION").getLines.reduce((t, u) => t + u).trim)
       .getOrElse("{component version not found on classpath}")
 
 }

@@ -1,19 +1,37 @@
 # Making a Release
 
-1. Pull the latest master branch of the `daml` repository and create a new branch off it.
+First, you need to decide whether you are making a technical snapshot
+("prerelease" at the github level, hereafter "snapshot") or an officially
+supported release (hereafter "stable release").  For the latter, there are
+extra steps marked as **[STABLE]** in the following instructions. You have to
+skip those if you are making a snapshot release, that is, one intended mostly
+for internal use and early testing, but which makes no promises about future
+compatibility.
 
-   Bump the version number in the `VERSION` file.
-   In `docs/source/support/release-notes.rst`, add a new header and label for
-   the new version. (See previous releases as examples.)
+In either case, before going through the following list, you need to know which
+commit you want to create the release from, `$SHA`. For a stable release, it is
+highly recommended that this be the same commit as the latest existing
+snapshot, so we "bless" an existing, tested version of the SDK rather than try
+our luck with a random new one.
+
+1. **[STABLE]** Coordinate with the product and marketing teams to define
+   release highlights, tweets, blog posts, as well as timeline for publishing
+   the release. Define a version number, `$VERSION`.
+1. Pull the latest master branch of the `daml` repository and create a new,
+   clean branch off it. For a snapshot, run `./release.sh snapshot $SHA`; for
+   a stable release, run `echo "$SHA $VERSION" > LATEST`. Ideally, for a stable
+   release, the resulting change is only to cut off the prerelease part of the
+   version number (the `-snapshot...`).
+
+1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
+   and label for the new version. (See previous releases as examples.)
 
    Retrieve the new release notes using the command
 
-      `./unreleased.sh <revision range>`
+      `./unreleased.sh $LAST_VERSION..$SHA`
 
-   where `<revision range>` refers to all commits since the last release.
-   For example, if the previous release was `v0.13.36` then use the range `v0.13.36..`
-   to refer to all commits since that release tag.
-   (See `man gitrevisions` for the full syntax of revision ranges.)
+   where `$LAST_VERSION` is the previous stable version. (See `man
+   gitrevisions` for the full syntax of revision ranges.)
 
    This command outputs each change individually with its appropriate section.
    You need to group them into sections in the `release-notes.rst` file.
@@ -32,19 +50,23 @@
 
    You will need to manually incorporate such edits to the changelog.
 
-   Once this is done, create a Github pull request (PR) with the above changes
-   to the `VERSION` and `release-notes.rst` files.
-   It is important that your PR changes exactly these two files.
-   Both files must be modified, even if there are no additional release notes.
+1. Once this is done, create a GitHub pull request (PR) with the above changes
+   to the `LATEST` and (for a stable release) `release-notes.rst` files.
+   It is important that your PR changes no other file.
 
 1. Get a review and approval on your PR and then merge it into master.
+   **[STABLE]** For a stable release, the approval **MUST** be from the team
+   lead of the Language, Runtime or Product team.
 
 1. Once the CI checks have passed for the corresponding master build, the release
    should be available on Bintray, Maven Central and GitHub, and have a Git tag.
    The release should be visible on GitHub with _prerelease_ status, meaning it's
    not yet ready for users to consume. The release notes should not be defined yet
    and will be adjusted later on. Maven central has a delay of around 20 minutes
-   until the new version is visible.
+   until the new version is visible. (**Note:** The 20-minute delay is for
+   artifacts to be available through e.g. `mvn build`; the delay for artifacts to
+   show up in web searches on the Maven Central website is up to two hours. Do not
+   worry if the artifacts do not show on the website yet.)
 
 1. Run through the following test plan on one of Linux or MacOS:
 
@@ -108,24 +130,25 @@
       Verify that the scenario result appears within 30 seconds.
    1. Add `+` at the end of line 26 after `"Alice"` and verify that you get an error.
 
-1. If there are no issues, the release can be made public.
+1. **[STABLE]** If there are no issues, the release can be made public.
    Go to [the releases page](https://github.com/digital-asset/daml/releases)
-   and click on the `Edit` button for the new release.
-   Combine the release notes from `docs/source/support/release-notes.rst`
-   for all releases since the last public release, convert them from RST to
-   Markdown format, and insert them in the textbox.
-   Uncheck the `This is a pre-release` checkbox at the bottom and click
-   `Update release`.
+   and click on the `Edit` button for the new release. Combine the release
+   notes from `docs/source/support/release-notes.rst` for all releases since the
+   last public release, convert them from RST to Markdown format, and insert them
+   in the textbox. Uncheck the `This is a pre-release` checkbox at the bottom and
+   click `Update release`.
 
-1. Now go back to your original release PR on Github.
-   Add the label `Standard-Change` and leave a comment like
-   "All manual tests have passed".
+1. Now go back to your original release PR on Github. Add the label
+   `Standard-Change` and leave a comment like "All manual tests have passed".
 
 1. Finally, announce the release on the relevant internal Slack channels.
-   An announcement on the external Slack channel linking to our blog should appear
-   automatically.
 
-1. Documentation is published automatically once the release is public on Github,
-   however it takes up to an hour to complete.
+1. *[STABLE]* Coordinate with product (& marketing) for the relevant public
+   announcements (public Slack, Twitter, etc.).
+
+1. *[STABLE]* Documentation is published automatically once the release is
+   public on Github, however it runs on an hourly job and takes about 20
+   minutes to complete, so it could take up to an hour and a half depending on
+   when the prerelease tag was removed.
 
 Thanks for making a release!

@@ -83,9 +83,6 @@ parseVersion src =
         Left msg -> Left (InvalidVersion src msg)
         Right v -> Right (SdkVersion v)
 
-isStableVersion :: SdkVersion -> Bool
-isStableVersion = null . L.view V.release . unwrapSdkVersion
-
 -- | File path of daml installation root (by default ~/.daml on unix, %APPDATA%/daml on windows).
 newtype DamlPath = DamlPath
     { unwrapDamlPath :: FilePath

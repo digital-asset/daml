@@ -16,15 +16,8 @@ set -euo pipefail
 
 DAMLC="$(rlocation "$TEST_WORKSPACE/$1")"
 
-# If the path starts with a dot, just appending TEST_WORKSPACE isn’t going to work.
-# Therefore we separately check if we have that path.
-if [ "$2" == "./VERSION" ]; then
-    SDK_VERSION="$(rlocation "$TEST_WORKSPACE/VERSION")"
-else
-    SDK_VERSION="$(rlocation "$TEST_WORKSPACE/$2")"
-fi
+SDK_VERSION=$2
 
-SDK_VERSION=$(cat $SDK_VERSION)
 DIFF=$3
 
 DIR=$(mktemp -d)
@@ -41,7 +34,7 @@ mkdir -p $DIR/src
 
 $DAMLC build --project-root $DIR -o $DIR/out.dar
 # The last line is the main dalf which we don’t need. We don’t need to worry about excluding daml-prim
-# and daml-stdlib since they are only pulled in when necessary and they are clearly not required fr
+# and daml-stdlib since they are only pulled in when necessary and they are clearly not required for
 # an empty package
 $DIFF -u -b <($DAMLC inspect-dar $DIR/out.dar | sed '1,/following packages/d' | head -n -1) <(cat <<EOF
 

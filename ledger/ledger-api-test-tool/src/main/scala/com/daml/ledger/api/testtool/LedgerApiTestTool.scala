@@ -35,7 +35,7 @@ object LedgerApiTestTool {
     "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
 
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
-    if (summaries.exists(_.result.failure) == expectFailure) 0 else 1
+    if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
   private def printAvailableTests(): Unit = {
     println("Tests marked with * are run by default.\n")

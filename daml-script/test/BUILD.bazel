@@ -10,6 +10,7 @@ load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
     name = "script-test",
@@ -17,7 +18,6 @@ genrule(
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
-            "//:VERSION",
         ],
     outs = ["script-test.dar"],
     cmd = """
@@ -29,7 +29,7 @@ genrule(
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: script-test
 source: daml
 version: 0.0.1
@@ -40,7 +40,7 @@ dependencies:
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

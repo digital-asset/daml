@@ -4,11 +4,12 @@
 package com.digitalasset.testing.postgresql
 
 import java.io.StringWriter
-import java.net.{InetAddress, ServerSocket}
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.digitalasset.ports.FreePort
 import com.digitalasset.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
@@ -27,7 +28,7 @@ trait PostgresAround {
     val tempDir = Files.createTempDirectory("postgres_test")
     val dataDir = tempDir.resolve("data")
     val confFile = Paths.get(dataDir.toString, "postgresql.conf")
-    val port = findFreePort()
+    val port = FreePort.find()
     val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
     val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
@@ -188,16 +189,6 @@ object PostgresAround {
   private val hostName = InetAddress.getLoopbackAddress.getHostName
   private val userName = "test"
   private val databaseName = "test"
-
-  private def findFreePort(): Int = {
-    val s = new ServerSocket(0)
-    val port = s.getLocalPort
-    // We have to release the port so the PostgreSQL server can use it. Note that there is a small
-    // window for race, as releasing the port then handing it to the server is not atomic. If this
-    // turns out to be an issue, we need to find an atomic way of doing that.
-    s.close()
-    port
-  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private class ProcessFailedException(

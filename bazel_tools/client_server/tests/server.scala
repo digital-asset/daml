@@ -3,8 +3,9 @@
 
 package com.digitalasset.bazeltools.clientservertest.tests
 
-import java.net._
 import java.io._
+import java.net._
+
 import scala.io._
 
 object Main extends App {
@@ -20,7 +21,7 @@ object Main extends App {
       .text("Something something")
   }
   val conf = argParser.parse(args, Conf("", "")).get
-  val server = new ServerSocket(0)
+  val server = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
 
   println(s"Writing port number ${server.getLocalPort} to file ${conf.portFile}")
   val w = new BufferedWriter(new FileWriter(conf.portFile))

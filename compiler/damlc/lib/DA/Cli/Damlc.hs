@@ -37,7 +37,7 @@ import DA.Daml.LanguageServer
 import DA.Daml.Options.Types
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
-import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
 import DA.Daml.Visual
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -88,7 +88,7 @@ import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
 -- For dumps
 import "ghc-lib" GHC
-import "ghc-lib" HsDumpAst
+import "ghc-lib-parser" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
@@ -252,8 +252,9 @@ cmdBuild numProcessors =
 
 cmdRepl :: Int -> Mod CommandFields Command
 cmdRepl numProcessors =
-    command "repl" $
-    info (helper <*> cmd) fullDesc
+    command "repl" $ info (helper <*> cmd) $
+    progDesc "Launch the DAML REPL." <>
+    fullDesc
   where
     cmd =
         execRepl
@@ -261,7 +262,7 @@ cmdRepl numProcessors =
             <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> strOption (long "script-lib" <> value "daml-script" <> internal)
             -- ^ This is useful for tests and `bazel run`.
-            <*> strArgument (help "DAR to load in the repl")
+            <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
 
@@ -531,12 +532,21 @@ overrideSdkVersion pkgConfig = do
                     ]
             pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
 
+--- | replace SDK version with one ghc-pkg accepts
+---
+--- This should let release version unchanged, but convert snapshot versions.
+--- See module SdkVersion (in //BUILD) for details.
+replaceSdkVersionWithGhcPkgVersion :: PackageConfigFields -> PackageConfigFields
+replaceSdkVersionWithGhcPkgVersion p@PackageConfigFields{ pSdkVersion = PackageSdkVersion v } =
+    p { pSdkVersion = PackageSdkVersion $ SdkVersion.toGhcPkgVersion v }
+
 withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
 withPackageConfig projectPath f = do
     project <- readProjectConfig projectPath
     pkgConfig <- either throwIO pure (parseProjectConfig project)
     pkgConfig' <- overrideSdkVersion pkgConfig
-    f pkgConfig'
+    let pkgConfig'' = replaceSdkVersionWithGhcPkgVersion pkgConfig'
+    f pkgConfig''
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
@@ -598,6 +608,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
 execRepl :: ProjectOpts -> Options -> FilePath -> FilePath -> String -> String -> Command
 execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl (Just projectOpts) effect
   where effect = do
+            -- We change directory so make this absolute
+            mainDar <- makeAbsolute mainDar
             opts <- pure opts
                 { optDlintUsage = DlintDisabled
                 , optScenarioService = EnableScenarioService False
@@ -1000,6 +1012,7 @@ options numProcessors =
       <> cmdInspectDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
+      <> cmdRepl numProcessors
       )
     <|> subparser
       (internal -- internal commands
@@ -1013,7 +1026,6 @@ options numProcessors =
         <> cmdClean
         <> cmdGenerateSrc numProcessors
         <> cmdGenerateGenSrc
-        <> cmdRepl numProcessors
         -- once the repl is a bit more mature, make it non-internal
         -- and modify sdk-config.yaml to add a description.
       )

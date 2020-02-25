@@ -4,9 +4,11 @@
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 
+load("@build_environment//:configuration.bzl", "sdk_version")
+
 genrule(
     name = "daml-trigger",
-    srcs = glob(["**/*.daml"]) + ["//:VERSION"],
+    srcs = glob(["**/*.daml"]),
     outs = ["daml-trigger.dar"],
     cmd = """
       set -eou pipefail
@@ -17,10 +19,10 @@ genrule(
       cp -L $(location Daml/Trigger/Internal.daml) $$TMP_DIR/daml/Daml/Trigger
       cp -L $(location Daml/Trigger/LowLevel.daml) $$TMP_DIR/daml/Daml/Trigger
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: daml-trigger
 source: daml
-version: $$(cat $(location //:VERSION))
+version: 0.0.1
 exposed-modules:
   - Daml.Trigger
   - Daml.Trigger.Assert
@@ -32,7 +34,7 @@ build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

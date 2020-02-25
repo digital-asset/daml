@@ -7,5 +7,5 @@ final case class LedgerTestSummary(
     suite: String,
     test: String,
     configuration: LedgerSessionConfiguration,
-    result: Result,
+    result: Either[Result.Failure, Result.Success],
 )

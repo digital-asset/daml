@@ -48,14 +48,7 @@ object Reporter {
       msg.lines.map(l => s"$indent$l").mkString("\n")
     }
 
-    override def report(results: Vector[LedgerTestSummary]): Unit = {
-      s.println()
-      s.println(blue("#" * 80))
-      s.println(blue("#"))
-      s.println(blue("# TEST REPORT"))
-      s.println(blue("#"))
-      s.println(blue("#" * 80))
-
+    private def printReport(results: Vector[LedgerTestSummary]): Unit =
       results.groupBy(_.suite).foreach {
         case (suite, summaries) =>
           s.println()
@@ -64,12 +57,12 @@ object Reporter {
           for (LedgerTestSummary(_, test, _, result) <- summaries) {
             s.print(cyan(s"- $test ... "))
             result match {
-              case Result.Succeeded(duration) =>
+              case Right(Result.Succeeded(duration)) =>
                 s.println(green(s"Success (${duration.toMillis} ms)"))
-              case Result.TimedOut => s.println(red(s"Timeout"))
-              case Result.Skipped(reason) =>
+              case Right(Result.Skipped(reason)) =>
                 s.println(yellow(s"Skipped (reason: $reason)"))
-              case Result.Failed(cause) =>
+              case Left(Result.TimedOut) => s.println(red(s"Timeout"))
+              case Left(Result.Failed(cause)) =>
                 val message =
                   extractRelevantLineNumber(cause).fold("Assertion failed") { lineHint =>
                     s"Assertion failed at line $lineHint"
@@ -85,7 +78,7 @@ object Reporter {
                   for (renderedStackTraceLine <- render(cause))
                     s.println(red(indented(renderedStackTraceLine)))
                 }
-              case Result.FailedUnexpectedly(cause) =>
+              case Left(Result.FailedUnexpectedly(cause)) =>
                 val prefix =
                   s"Unexpected failure (${cause.getClass.getSimpleName})"
                 val message =
@@ -100,6 +93,28 @@ object Reporter {
                 }
             }
           }
+      }
+
+    override def report(results: Vector[LedgerTestSummary]): Unit = {
+      s.println()
+      s.println(blue("#" * 80))
+      s.println(blue("#"))
+      s.println(blue("# TEST REPORT"))
+      s.println(blue("#"))
+      s.println(blue("#" * 80))
+
+      val (successes, failures) = results.partition(_.result.isRight)
+
+      if (successes.nonEmpty) {
+        s.println()
+        s.println(green("### SUCCESSES"))
+        printReport(successes)
+      }
+
+      if (failures.nonEmpty) {
+        s.println()
+        s.println(red("### FAILURES"))
+        printReport(failures)
       }
     }
   }

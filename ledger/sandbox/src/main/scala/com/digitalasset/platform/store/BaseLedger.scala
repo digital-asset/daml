@@ -18,6 +18,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionId}
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
@@ -65,7 +66,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       beginInclusive: Option[Long],
       endExclusive: Option[Long],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, domain.CompletionEvent), NotUsed] =
+      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
       beginInclusive.getOrElse(0),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),

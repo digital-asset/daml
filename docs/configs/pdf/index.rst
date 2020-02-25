@@ -95,6 +95,7 @@ Experimental features
    json-api/index
    triggers/index
    daml-script/index
+   daml-repl/index
    tools/visual
    daml2ts/index
    getting-started/index

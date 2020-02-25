@@ -227,7 +227,7 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             setFilesOfInterest [a]
             expectWarning (a,0,25) "The import of ‘B’ is redundant"
             setBufferModified a "???"
-            expectOneError (a,0,0) "Missing daml version"
+            expectOneError (a,0,0) "parse error on input"
 
     ,   testCase' "Loading two modules with the same name DEL-7175" $ do
             a <- makeFile "foo/Test.daml" "daml 1.2 module Test where"

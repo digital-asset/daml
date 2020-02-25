@@ -34,7 +34,7 @@ java_import(
 java_library(
     name = "version-resource",
     resources = [
-        "//:component-version",
+        "//:MVN_VERSION",
     ],
     visibility = ["//visibility:public"],
 )

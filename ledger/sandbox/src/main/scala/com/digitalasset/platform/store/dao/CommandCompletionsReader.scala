@@ -7,19 +7,22 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
-import com.digitalasset.ledger.api.domain.CompletionEvent
-import com.digitalasset.platform.store.CompletionFromTransaction
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 
 private[dao] object CommandCompletionsReader {
 
-  // Uses an existing LedgerReadDao to read completions from the ledger entries stream
-  // TODO Replace this to tap directly into the index
-  def apply(reader: LedgerReadDao): CommandCompletionsReader[LedgerDao#LedgerOffset] =
-    (from: Long, to: Long, appId: ApplicationId, parties: Set[Ref.Party]) =>
-      reader
-        .getLedgerEntries(from, to)
-        .map { case (offset, entry) => (offset + 1, entry) }
-        .collect(CompletionFromTransaction(appId, parties))
+  private def offsetFor(response: CompletionStreamResponse): LedgerDao#LedgerOffset =
+    response.checkpoint.get.offset.get.getAbsolute.toLong
+
+  def apply(dispatcher: DbDispatcher): CommandCompletionsReader[LedgerDao#LedgerOffset] =
+    (from: Long, to: Long, appId: ApplicationId, parties: Set[Ref.Party]) => {
+      val query = CommandCompletionsTable.prepareGet(from, to, appId, parties)
+      Source
+        .future(dispatcher.executeSql("get_completions") { implicit connection =>
+          query.as(CommandCompletionsTable.parser.*)
+        })
+        .mapConcat(_.map(response => offsetFor(response) -> response))
+    }
 }
 
 trait CommandCompletionsReader[LedgerOffset] {
@@ -40,6 +43,6 @@ trait CommandCompletionsReader[LedgerOffset] {
       startInclusive: LedgerOffset,
       endExclusive: LedgerOffset,
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(LedgerOffset, CompletionEvent), NotUsed]
+      parties: Set[Ref.Party]): Source[(LedgerOffset, CompletionStreamResponse), NotUsed]
 
 }

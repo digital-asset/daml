@@ -298,7 +298,8 @@ decodeSigningKey signingKey =  case Base64.decode $ C8.pack signingKey of
 uploadPath :: MavenCoords -> Text -> Text -> Text
 uploadPath MavenCoords{..} comDamlStagingRepoId comDigitalassetRepoId = do
     let stagingRepoId = if ["com", "daml"] `List.isPrefixOf` groupId then comDamlStagingRepoId else comDigitalassetRepoId
-    T.intercalate "/" ("/service/local/staging/deployByRepositoryId" : [stagingRepoId] <> groupId <> [artifactId, version, artifactId]) <> "-" <> version <> maybe "" ("-" <>) classifier <> "." <> artifactType
+    let Version v = version
+    T.intercalate "/" ("/service/local/staging/deployByRepositoryId" : [stagingRepoId] <> groupId <> [artifactId, v, artifactId]) <> "-" <> v <> maybe "" ("-" <>) classifier <> "." <> artifactType
 
 getContentType :: ArtifactType -> Text
 getContentType t =

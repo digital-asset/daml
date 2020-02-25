@@ -13,9 +13,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.dbbackend.ContractDao
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.http.util.FutureUtil
-import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
-import com.digitalasset.http.util.TestUtil.findOpenPort
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
@@ -29,6 +27,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.FreePort
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -66,7 +65,7 @@ object HttpServiceTestFixture {
     val httpServiceF: Future[(ServerBinding, Int)] = for {
       (_, ledgerPort) <- ledgerF
       contractDao <- contractDaoF
-      httpPort <- toFuture(findOpenPort())
+      httpPort <- Future(FreePort.find())
       httpService <- stripLeft(
         HttpService.start(
           "localhost",

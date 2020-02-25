@@ -1,0 +1,15 @@
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+)
+
+da_scala_library(
+    name = "ports",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    visibility = [
+        "//visibility:public",
+    ],
+)

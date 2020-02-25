@@ -42,9 +42,9 @@ load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
-load("//bazel_tools:sdk_version.bzl", "sdk_version")
+load("//bazel_tools:build_environment.bzl", "build_environment")
 
-sdk_version(name = "sdk_version")
+build_environment(name = "build_environment")
 
 dadew(name = "dadew")
 
@@ -838,7 +838,7 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "a4f1692ca4a8ab1c41fe482825e844b55dc388687b9ef1013abe3d4a73a22eed",
-    strip_prefix = "canton-0.8.0",
-    urls = ["https://www.canton.io/releases/canton-0.8.0.tar.gz"],
+    sha256 = "3ffcdf350157700b76392c951342781b771f534a594fdab638fbc34ed46b2328",
+    strip_prefix = "canton-0.9.0",
+    urls = ["https://www.canton.io/releases/canton-0.9.0.tar.gz"],
 )

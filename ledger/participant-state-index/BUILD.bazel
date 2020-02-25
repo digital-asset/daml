@@ -20,6 +20,7 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",

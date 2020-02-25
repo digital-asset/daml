@@ -26,13 +26,13 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
-  CompletionEvent,
   LedgerId,
   PartyDetails,
   RejectionReason,
   TransactionId
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -107,7 +107,7 @@ class InMemoryLedger(
       beginInclusive: Option[Long],
       endExclusive: Option[Long],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, CompletionEvent), NotUsed] =
+      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
     entries
       .getSource(beginInclusive, endExclusive)
       .collect { case (offset, InMemoryLedgerEntry(entry)) => (offset + 1, entry) }

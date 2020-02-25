@@ -28,6 +28,8 @@ actual ledger. This means that you can use it to test automation
 logic, your UI but also for ledger initialization where scenarios
 cannot be used (with the exception of :doc:`/tools/sandbox`).
 
+You can also use DAML Script interactively using :doc:`/daml-repl/index`.
+
 Usage
 =====
 

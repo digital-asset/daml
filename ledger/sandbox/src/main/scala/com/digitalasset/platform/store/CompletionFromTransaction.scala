@@ -3,29 +3,48 @@
 
 package com.digitalasset.platform.store
 
-import com.daml.ledger.participant.state.v1.TransactionId
+import java.time.Instant
+
+import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.{ApplicationId, CommandId}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.CompletionEvent
-import com.digitalasset.ledger.api.domain.CompletionEvent.{CommandAccepted, CommandRejected}
+import com.digitalasset.ledger.ApplicationId
+import com.digitalasset.ledger.api.domain.RejectionReason
+import com.digitalasset.ledger.api.v1.command_completion_service.{
+  Checkpoint,
+  CompletionStreamResponse
+}
+import com.digitalasset.ledger.api.v1.completion.Completion
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.platform.store.dao.LedgerDao
 import com.digitalasset.platform.store.entries.LedgerEntry
+import com.google.rpc.status.Status
+import io.grpc.Status.Code
 
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
-// TODO Remove this when:
-// TODO - the participant can read completions off the index directly AND
+// TODO Restrict the scope of this to com.digitalasset.platform.store.dao when
 // TODO - the in-memory sandbox is gone
 private[platform] object CompletionFromTransaction {
 
-  private def toApiOffset(offset: LedgerDao#LedgerOffset): domain.LedgerOffset.Absolute =
-    domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString))
+  def toApiCheckpoint(recordTime: Instant, offset: LedgerDao#LedgerOffset): Some[Checkpoint] =
+    Some(
+      Checkpoint(
+        recordTime = Some(fromInstant(recordTime)),
+        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
 
-  private def toApiCommandId(commandId: CommandId): domain.CommandId =
-    domain.CommandId(commandId)
-
-  private def toApiTransactionId(transactionId: TransactionId): domain.TransactionId =
-    domain.TransactionId(transactionId)
+  // We _rely_ on the following compiler flags for this to be safe:
+  // * -Xno-patmat-analysis _MUST NOT_ be enabled
+  // * -Xfatal-warnings _MUST_ be enabled
+  def toErrorCode(rejection: RejectionReason): Code = {
+    rejection match {
+      case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
+          _: RejectionReason.PartyNotKnownOnLedger =>
+        Code.INVALID_ARGUMENT
+      case _: RejectionReason.OutOfQuota | _: RejectionReason.TimedOut =>
+        Code.ABORTED
+      case _: RejectionReason.SubmitterCannotActViaParticipant =>
+        Code.PERMISSION_DENIED
+    }
+  }
 
   // Filter completions for transactions for which we have the full submitter information: appId, submitter, cmdId
   // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
@@ -34,11 +53,11 @@ private[platform] object CompletionFromTransaction {
   // and therefore we don't emit CommandAccepted completions for those
   def apply(appId: ApplicationId, parties: Set[Ref.Party]): PartialFunction[
     (LedgerDao#LedgerOffset, LedgerEntry),
-    (LedgerDao#LedgerOffset, CompletionEvent)] = {
+    (LedgerDao#LedgerOffset, CompletionStreamResponse)] = {
     case (
         offset,
         LedgerEntry.Transaction(
-          Some(cmdId),
+          Some(commandId),
           transactionId,
           Some(`appId`),
           Some(submitter),
@@ -47,20 +66,20 @@ private[platform] object CompletionFromTransaction {
           recordTime,
           _,
           _)) if parties(submitter) =>
-      offset -> CommandAccepted(
-        toApiOffset(offset),
-        recordTime,
-        toApiCommandId(cmdId),
-        toApiTransactionId(transactionId))
-    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, submitter, rejectionReason))
+      offset -> CompletionStreamResponse(
+        checkpoint = toApiCheckpoint(recordTime, offset),
+        Seq(Completion(commandId, Some(Status()), transactionId))
+      )
+    case (offset, LedgerEntry.Rejection(recordTime, commandId, `appId`, submitter, reason))
         if parties(submitter) =>
-      offset -> CommandRejected(
-        toApiOffset(offset),
-        recordTime,
-        toApiCommandId(commandId),
-        rejectionReason)
-    case (offset, LedgerEntry.Checkpoint(recordedAt)) =>
-      offset -> CompletionEvent.Checkpoint(toApiOffset(offset), recordedAt)
+      offset -> CompletionStreamResponse(
+        checkpoint = toApiCheckpoint(recordTime, offset),
+        Seq(Completion(commandId, Some(Status(toErrorCode(reason).value(), reason.description))))
+      )
+    case (offset, LedgerEntry.Checkpoint(recordTime)) =>
+      offset -> CompletionStreamResponse(
+        checkpoint = toApiCheckpoint(recordTime, offset),
+        completions = Seq())
   }
 
 }

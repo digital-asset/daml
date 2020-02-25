@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@build_environment//:configuration.bzl", "ghc_version")
 
 daml_provider = provider(doc = "DAML provider", fields = {
     "dalf": "The DAML-LF file.",
@@ -136,7 +137,7 @@ def _daml_doctest_impl(ctx):
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       CPP=$(rlocation $TEST_WORKSPACE/{cpp})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
+      $DAMLC doctest {flags} --cpp $CPP --package-name {package_name}-{version} $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
         # we end up with "../hpp/hpp" while we want "external/hpp/hpp"
@@ -144,7 +145,7 @@ def _daml_doctest_impl(ctx):
         cpp = ctx.executable.cpp.short_path.replace("..", "external"),
         package_name = ctx.attr.package_name,
         flags = " ".join(ctx.attr.flags),
-        version_file = ctx.file.version.path,
+        version = ghc_version,
         files = " ".join([
             f.short_path
             for f in ctx.files.srcs
@@ -159,7 +160,7 @@ def _daml_doctest_impl(ctx):
     cpp_runfiles = ctx.attr.cpp[DefaultInfo].data_runfiles
     runfiles = ctx.runfiles(
         collect_data = True,
-        files = ctx.files.srcs + [ctx.file.version],
+        files = ctx.files.srcs,
     ).merge(damlc_runfiles).merge(cpp_runfiles)
     return [DefaultInfo(runfiles = runfiles)]
 
@@ -192,10 +193,6 @@ daml_doc_test = rule(
             doc = "Flags for damlc invokation.",
         ),
         "package_name": attr.string(),
-        "version": attr.label(
-            allow_single_file = True,
-            default = "//:VERSION",
-        ),
     },
     test = True,
 )

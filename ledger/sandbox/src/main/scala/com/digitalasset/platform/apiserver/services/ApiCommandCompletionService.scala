@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{CompletionEvent, LedgerId, LedgerOffset}
+import com.digitalasset.ledger.api.domain.{LedgerId, LedgerOffset}
 import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
 import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.validation.PartyNameChecker
@@ -37,7 +37,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
   private val subscriptionIdCounter = new AtomicLong()
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionEvent, NotUsed] =
+      request: CompletionStreamRequest): Source[CompletionStreamResponse, NotUsed] =
     withEnrichedLoggingContext(logging.parties(request.parties), logging.offset(request.offset)) {
       implicit logCtx =>
         val subscriptionId = subscriptionIdCounter.getAndIncrement().toString

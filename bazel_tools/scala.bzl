@@ -400,7 +400,7 @@ def _create_scaladoc_jar(**kwargs):
 
         scaladoc_jar(
             name = kwargs["name"] + "_scaladoc",
-            deps = kwargs["deps"],
+            deps = kwargs.get("deps", []),
             plugins = plugins,
             srcs = kwargs["srcs"],
             scalacopts = kwargs.get("scalacopts", []),

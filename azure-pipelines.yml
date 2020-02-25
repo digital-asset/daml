@@ -69,19 +69,40 @@ jobs:
       - bash: ci/check-changelog.sh
 
   - job: Linux
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
         parameters:
-          name: linux
+          release_tag: $(release_tag)
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          bazel build //release:release
+          ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: macOS
+    dependsOn:
+      - check_for_release
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
@@ -90,9 +111,20 @@ jobs:
       nix-cache-path: /tmp/nix-cache/
       bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
       bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(nix-cache-key)
         displayName: nix cache key
       - task: CacheBeta@0
@@ -118,7 +150,7 @@ jobs:
           path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
-          name: macos
+          release_tag: $(release_tag)
       - bash: |
           set -euo pipefail
           if [[ ! -e $(nix-cache-path) ]]; then
@@ -133,22 +165,53 @@ jobs:
       - template: ci/report-end.yml
 
   - job: Windows
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
     steps:
       - template: ci/report-start.yml
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-windows.yml
+        parameters:
+          release_tag: $(release_tag)
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: perf
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -160,7 +223,7 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
-          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
+          DAML_SDK_RELEASE_VERSION=$(release_tag) bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
         inputs:
@@ -169,28 +232,62 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: Windows_signing
-    # Signing is a separate job so that we can make sure that we only sign on releases.
-    # Since the release check is run on Linux, we do not have access to that information
-    # in the regular Windows step.
-    dependsOn: [ "Windows", "Linux" ]
-    pool:
-      name: 'windows-pool'
-    condition: and(succeeded(), eq(dependencies.Linux.outputs['release.has_released'], 'true'))
+  - job: check_for_release
+    dependsOn:
+      - git_sha
     variables:
-      unsigned-installer: $[ dependencies.Windows.outputs['publish.artifact-unsigned-windows-installer'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    pool:
+      name: "linux-pool"
     steps:
-      - template: ci/report-start.yml
-      - checkout: self
-        persistCredentials: true
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(unsigned-installer)
-          targetPath: $(Build.StagingDirectory)/
       - bash: |
           set -euo pipefail
-          INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
-          mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
+
+          ./release.sh check
+
+          is_release_commit() {
+              changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
+              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst")
+              snapshot="LATEST"
+              [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
+          }
+
+          if is_release_commit; then
+              echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
+              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
+              echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
+          else
+              echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
+          fi
+        name: out
+
+  - job: windows_installer
+    dependsOn: [ "check_for_release", "Windows" ]
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+    pool:
+      name: 'windows-pool'
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    steps:
+      - template: ci/report-start.yml
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+      - bash: ci/configure-bazel.sh
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+
+          export DAML_SDK_RELEASE_VERSION=$(release_tag)
+
+          bazel build //release/windows-installer:windows-installer
+          INSTALLER=daml-sdk-$(release_tag)-windows.exe
+          mv "bazel-bin/release/windows-installer/daml-sdk-installer.exe" "$(Build.StagingDirectory)/$INSTALLER"
           chmod +x "$(Build.StagingDirectory)/$INSTALLER"
           cleanup () {
               rm -f signing_key.pfx
@@ -199,62 +296,154 @@ jobs:
           echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
           MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
           rm signing_key.pfx
-          echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$INSTALLER"
-          echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
-        name: signing
+          echo "##vso[task.setvariable variable=installer;isOutput=true]$INSTALLER"
+
+          bazel build //release:sdk-release-tarball
+          TARBALL=daml-sdk-$(release_tag)-windows.tar.gz
+          cp bazel-bin/release/sdk-release-tarball.tar.gz '$(Build.StagingDirectory)'/$TARBALL
+          echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+
+        name: publish
         env:
           SIGNING_KEY: $(microsoft-code-signing)
       - task: PublishPipelineArtifact@0
         inputs:
-          targetPath: $(Build.StagingDirectory)/$(signing.artifact-windows-installer)
-          artifactName: $(signing.artifact-windows-installer)
+          targetPath: $(Build.StagingDirectory)/$(publish.installer)
+          artifactName: $(publish.installer)
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/$(publish.tarball)
+          artifactName: $(publish.tarball)
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: linux_tarball
+    dependsOn: [ "check_for_release", "Linux" ]
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    pool:
+      name: "linux-pool"
+    steps:
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+      - bash: ci/configure-bazel.sh
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+
+          export DAML_SDK_RELEASE_VERSION=$(release_tag)
+          bazel build //release:release
+
+          mkdir -p ~/.jfrog
+          cleanup() {
+              rm -f ~/.jfrog/jfrog-cli.conf
+          }
+          trap cleanup EXIT
+          echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf
+          unset JFROG_CONFIG_CONTENT
+
+          ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
+
+          bazel build //release:sdk-release-tarball
+          TARBALL=daml-sdk-$(release_tag)-linux.tar.gz
+          cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
+          echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+        env:
+            JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+            GPG_KEY: $(gpg-code-signing)
+            MAVEN_USERNAME: $(MAVEN_USERNAME)
+            MAVEN_PASSWORD: $(MAVEN_PASSWORD)
+            MAVEN_URL: $(MAVEN_URL)
+            NPM_TOKEN: $(NPM_TOKEN)
+        name: publish
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/$(publish.tarball)
+          artifactName: $(publish.tarball)
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: macos_tarball
+    dependsOn: [ "check_for_release", "macOS" ]
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+    pool:
+      vmImage: "macOS-10.14"
+    steps:
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          git checkout $(release_sha)
+      - bash: ci/configure-bazel.sh
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+
+          export DAML_SDK_RELEASE_VERSION=$(release_tag)
+
+          bazel build //release:sdk-release-tarball
+          TARBALL=daml-sdk-$(release_tag)-macos.tar.gz
+          cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
+          echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+        name: publish
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/$(publish.tarball)
+          artifactName: $(publish.tarball)
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: release
-    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    dependsOn: [ "check_for_release", "linux_tarball", "macos_tarball", "windows_installer" ]
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
     variables:
-      artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
-      artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
-      artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
-      artifact-windows-installer: $[ dependencies.Windows_signing.outputs['signing.artifact-windows-installer'] ]
+      linux-tarball: $[ dependencies.linux_tarball.outputs['publish.tarball'] ]
+      macos-tarball: $[ dependencies.macos_tarball.outputs['publish.tarball'] ]
+      windows-tarball: $[ dependencies.windows_installer.outputs['publish.tarball'] ]
+      windows-installer: $[ dependencies.windows_installer.outputs['publish.installer'] ]
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - bash: |
           set -euxo pipefail
-          if git tag v$(cat VERSION); then
-            git push origin v$(cat VERSION)
+          if git tag v$(release_tag); then
+            git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-linux)
+          artifactName: $(linux-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-macos)
+          artifactName: $(macos-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-windows)
+          artifactName: $(windows-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-windows-installer)
+          artifactName: $(windows-installer)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
@@ -291,18 +480,21 @@ jobs:
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
-    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    dependsOn: [ "check_for_release" ]
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
       - checkout: self
       - bash: |
           set -euo pipefail
+
+          git checkout $(release_sha)
+          export DAML_SDK_RELEASE_VERSION=$(release_tag)
 
           sudo mkdir -p /nix
           sudo chown $USER /nix
@@ -319,7 +511,7 @@ jobs:
 
           bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
           gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
-                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(cat VERSION)
+                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
@@ -330,7 +522,10 @@ jobs:
       - Linux
       - macOS
       - Windows
-      - Windows_signing
+      - check_for_release
+      - linux_tarball
+      - macos_tarball
+      - windows_installer
       - perf
       - release
       - check_standard_change_label
@@ -351,10 +546,22 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      Windows_signing.start: $[ dependencies.Windows_signing.outputs['start.time'] ]
-      Windows_signing.machine: $[ dependencies.Windows_signing.outputs['start.machine'] ]
-      Windows_signing.end: $[ dependencies.Windows_signing.outputs['end.time'] ]
-      Windows_signing.status: $[ dependencies.Windows_signing.result ]
+      check_for_release.start: $[ dependencies.check_for_release.outputs['start.time'] ]
+      check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
+      check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
+      check_for_release.status: $[ dependencies.check_for_release.result ]
+      linux_tarball.start: $[ dependencies.linux_tarball.outputs['start.time'] ]
+      linux_tarball.machine: $[ dependencies.linux_tarball.outputs['start.machine'] ]
+      linux_tarball.end: $[ dependencies.linux_tarball.outputs['end.time'] ]
+      linux_tarball.status: $[ dependencies.linux_tarball.result ]
+      macos_tarball.start: $[ dependencies.macos_tarball.outputs['start.time'] ]
+      macos_tarball.machine: $[ dependencies.macos_tarball.outputs['start.machine'] ]
+      macos_tarball.end: $[ dependencies.macos_tarball.outputs['end.time'] ]
+      macos_tarball.status: $[ dependencies.macos_tarball.result ]
+      windows_installer.start: $[ dependencies.windows_installer.outputs['start.time'] ]
+      windows_installer.machine: $[ dependencies.windows_installer.outputs['start.machine'] ]
+      windows_installer.end: $[ dependencies.windows_installer.outputs['end.time'] ]
+      windows_installer.status: $[ dependencies.windows_installer.result ]
       perf.start: $[ dependencies.perf.outputs['start.time'] ]
       perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
       perf.end: $[ dependencies.perf.outputs['end.time'] ]
@@ -441,10 +648,22 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "Windows_signing": {"start": "$(Windows_signing.start)",
-                                        "machine": "$(Windows_signing.machine)",
-                                        "end": "$(Windows_signing.end)",
-                                        "status": "$(Windows_signing.status)"},
+                    "check_for_release": {"start": "$(check_for_release.start)",
+                                          "machine": "$(check_for_release.machine)",
+                                          "end": "$(check_for_release.end)",
+                                          "status": "$(check_for_release.status)"},
+                    "linux_tarball": {"start": "$(linux_tarball.start)",
+                                      "machine": "$(linux_tarball.machine)",
+                                      "end": "$(linux_tarball.end)",
+                                      "status": "$(linux_tarball.status)"},
+                    "macos_tarball": {"start": "$(macos_tarball.start)",
+                                      "machine": "$(macos_tarball.machine)",
+                                      "end": "$(macos_tarball.end)",
+                                      "status": "$(macos_tarball.status)"},
+                    "windows_installer": {"start": "$(windows_installer.start)",
+                                          "machine": "$(windows_installer.machine)",
+                                          "end": "$(windows_installer.end)",
+                                          "status": "$(windows_installer.status)"},
                     "perf": {"start": "$(perf.start)",
                              "machine": "$(perf.machine)",
                              "end": "$(perf.end)",
@@ -510,7 +729,9 @@ jobs:
               || "$(Windows.status)" != "Succeeded"
               || "$(perf.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
-              || "$(Windows_signing.status)" == "Canceled"
+              || "$(linux_tarball.status)" == "Canceled"
+              || "$(macos_tarball.status)" == "Canceled"
+              || "$(windows_installer.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi

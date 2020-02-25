@@ -1,0 +1,15 @@
+daml 1.2
+module DamlHasVersion(T, main) where
+
+import DA.Functor
+
+template T
+  with
+    p : Party
+  where
+    signatory p
+
+main : Scenario ()
+main = do
+  p <- getParty "p"
+  void (submit p $ create T with p)

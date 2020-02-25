@@ -3,10 +3,11 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("util.bzl", "sdk_tarball")
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 da_haskell_binary(
     name = "release",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = glob(["src/**/*.hs"]) + ["//:SdkVersion.hs"],
     hackage_deps = [
         "aeson",
         "async",
@@ -24,6 +25,7 @@ da_haskell_binary(
         "extra",
         "fast-logger",
         "filepath",
+        "ghc",
         "http-client",
         "http-client-tls",
         "http-conduit",
@@ -39,6 +41,7 @@ da_haskell_binary(
         "retry",
         "safe",
         "safe-exceptions",
+        "split",
         "time",
         "text",
         "temporary",
@@ -54,6 +57,4 @@ da_haskell_binary(
     deps = [],
 )
 
-sdk_tarball("sdk-release-tarball", "//:VERSION")
-
-sdk_tarball("sdk-head-tarball", ":HEAD-VERSION")
+sdk_tarball("sdk-release-tarball", sdk_version)

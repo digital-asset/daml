@@ -3,7 +3,7 @@
 
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
-load("@sdk_version//:sdk_version.bzl", "sdk_version")
+load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This rule builds a dar from the daml sources under the 'daml'
@@ -51,7 +51,6 @@ sh_test(
         ":daml2ts-test.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
-        "//:VERSION",
     ] + glob(
         ["ts/**"],
         exclude = [
@@ -72,11 +71,15 @@ sh_test(
 da_haskell_test(
     name = "daml2ts",
     srcs = ["src/DA/Test/Daml2Ts.hs"],
-    args = ["$(rootpath //:yarn)"],
+    args = [
+        "$(location //:yarn)",
+        "$(location //language-support/ts/daml-types:npm_package)",
+    ],
     data = [
         "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2ts",
+        "//language-support/ts/daml-types:npm_package",
         "@davl//:released/davl-upgrade-v3-v4.dar",
         "@davl//:released/davl-upgrade-v4-v5.dar",
         "@davl//:released/davl-v3.dar",
@@ -97,5 +100,6 @@ da_haskell_test(
     deps = [
         "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
-)
+) if not is_windows else None

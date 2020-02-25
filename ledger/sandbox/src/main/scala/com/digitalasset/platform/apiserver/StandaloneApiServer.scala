@@ -100,13 +100,15 @@ final class StandaloneApiServer(
         () => java.time.Clock.systemUTC.instant(),
         initialConditions.ledgerId,
         participantId)
-      indexService <- JdbcIndex(
-        initialConditions.config.timeModel,
-        domain.LedgerId(initialConditions.ledgerId),
-        participantId,
-        config.jdbcUrl,
-        metrics,
-      )(materializer, logCtx)
+      indexService <- JdbcIndex
+        .owner(
+          initialConditions.config.timeModel,
+          domain.LedgerId(initialConditions.ledgerId),
+          participantId,
+          config.jdbcUrl,
+          metrics,
+        )(materializer, logCtx)
+        .acquire()
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,

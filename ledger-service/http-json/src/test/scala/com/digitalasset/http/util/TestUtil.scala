@@ -4,7 +4,6 @@
 package com.digitalasset.http.util
 
 import java.io.{BufferedWriter, File, FileWriter}
-import java.net.ServerSocket
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -22,20 +21,13 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.typesafe.scalalogging.LazyLogging
-import spray.json.JsValue
 import spray.json._
+
 import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
 
 object TestUtil extends LazyLogging {
-  def findOpenPort(): Try[Int] = Try {
-    val socket = new ServerSocket(0)
-    val result = socket.getLocalPort
-    socket.close()
-    result
-  }
-
   def requiredFile(fileName: String): Try[File] = {
     val file = new File(fileName).getAbsoluteFile
     if (file.exists()) Success(file)
@@ -51,7 +43,7 @@ object TestUtil extends LazyLogging {
       }
     }
 
-  def readFile(resourcePath: String) =
+  def readFile(resourcePath: String): String =
     Try {
       val source = Source.fromResource(resourcePath)
       val content = source.getLines().mkString
