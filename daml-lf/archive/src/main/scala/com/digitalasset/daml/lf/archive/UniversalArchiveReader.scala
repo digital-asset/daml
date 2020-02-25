@@ -18,8 +18,8 @@ import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 /**
   * Can parse DARs and DALFs.
   * See factories:
-  * [[com.digitalasset.daml.lf.UniversalArchiveReader]];
-  * [[com.digitalasset.daml.lf.UniversalArchiveReaderWithVersion]]
+  * [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]];
+  * [[com.digitalasset.daml.lf.archive.UniversalArchiveReaderWithVersion]]
   *
   * @param parseDar  function to parse a DAR file.
   * @param parseDalf function to parse a DALF input stream.
@@ -61,7 +61,7 @@ class UniversalArchiveReader[A](
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.UniversalArchiveReader]] class.
+  * Factory for [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReader {
   def apply(): UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
@@ -78,7 +78,7 @@ object UniversalArchiveReader {
 }
 
 /**
-  * Factory for [[com.digitalasset.daml.lf.UniversalArchiveReader]] class.
+  * Factory for [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReaderWithVersion {
   def apply()
