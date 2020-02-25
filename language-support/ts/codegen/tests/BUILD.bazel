@@ -102,4 +102,4 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//libs-haskell/bazel-runfiles",
     ],
-)
+) if not is_windows else None
