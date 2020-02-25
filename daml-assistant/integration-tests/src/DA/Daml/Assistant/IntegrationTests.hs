@@ -16,6 +16,7 @@ import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -232,8 +233,13 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $
           withCreateProcess startProc $ \_ _ _ startPh ->
             race_ (waitForProcess' startProc startPh) $ do
+              -- The hard-coded secret for testing is "secret".
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
               let headers =
-                    [ ("Authorization", "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0")
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
                     ] :: RequestHeaders
               waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
               initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
