@@ -810,6 +810,21 @@ abstract class AbstractHttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
+  "parties endpoint should error if empty array passed as input" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(Vector.empty)
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          assertStatus(output, StatusCodes.BadRequest)
+          val errorMsg = expectedOneErrorMessage(output)
+          errorMsg should include("Cannot read JSON: <[]>")
+          errorMsg should include("must be a list with at least 1 element")
+      }: Future[Assertion]
+  }
+
   "fetch by contractId" in withHttpService { (uri, encoder, decoder) =>
     val command: domain.CreateCommand[v.Record] = iouCreateCommand()
 

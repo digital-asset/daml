@@ -815,7 +815,16 @@ Fetch Parties by Identifiers
 
     ["Alice", "Bob", "Dave"]
 
-If empty JSON array is passed: ``[]``, this endpoint will return all known parties.
+If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+
+.. code-block:: json
+
+    {
+      "status": 400,
+      "errors": [
+        "JsonReaderError. Cannot read JSON: <[]>. Cause: spray.json.DeserializationException: must be a list with at least 1 element"
+      ]
+    }
 
 HTTP Response
 =============
@@ -854,6 +863,40 @@ Where
 - ``identifier`` -- a stable unique identifier of a DAML party,
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
+
+HTTP Response with Unknown Parties Warning
+============================================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Bob",
+          "displayName": "Bob & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Dave",
+          "displayName": "Dave & Co. LLC",
+          "isLocal": true
+        }
+      ],
+      "warnings": {
+        "unknownParties": [
+          "Erin"
+        ]
+      },
+      "status": 200
+    }
 
 Fetch All Known Parties
 ***********************
