@@ -183,10 +183,11 @@ class WebsocketServiceIntegrationTest
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result) =>
+        case Seq(warning, result, liveBegin) =>
           warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
           result should include(""""owner":"Alice"""")
           result should include(""""number":"abc123"""")
+          liveBegin should include(""""offset":"""")
       }
   }
 

@@ -22,7 +22,6 @@ import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
-import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -334,16 +333,22 @@ class WebSocketService(
 
   private def removePhantomArchives_[A, B]
     : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
-    import ContractStreamStep.{LiveBegin, Txn}
+    import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
-          val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
+          val newInserts: Vector[String] =
+            domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
           val a1 = a0.copy(step = a0.step.mapDeletes(_ filterKeys deletesToEmit))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
+
+        case ((deletesToHold, _), a0 @ StepAndErrors(_, Acs(inserts))) =>
+          val newInserts: Vector[String] = domain.ContractId.unsubst(inserts.map(_._1.contractId))
+          val s1: Set[String] = deletesToHold ++ newInserts
+          (s1, Some(a0))
 
         case ((s0, _), a0 @ StepAndErrors(_, LiveBegin(_))) =>
           (s0, Some(a0))
