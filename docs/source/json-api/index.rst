@@ -885,10 +885,12 @@ where ``matchedQueries`` indicates the 0-based indices into the request
 list of queries that matched this contract.
 
 Every ``events`` block following the end of contracts that existed when
-the request started includes an ``offset`` string.  The stream is
-guaranteed to send an offset immediately at the beginning of this "live"
-data, which may or may not contain any ``events``.  For example, you
-might use it to turn off an initial "loading" indicator::
+the request started includes an ``offset``.  The stream is guaranteed to
+send an offset immediately at the beginning of this "live" data, which
+may or may not contain any ``events``; if it does not contain events and
+no events were emitted before, it may be ``null`` instead of a string.
+For example, you might use it to turn off an initial "loading"
+indicator::
 
     {
         "events": [],
