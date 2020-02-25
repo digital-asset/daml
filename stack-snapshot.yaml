@@ -3,10 +3,10 @@
 
 resolver: lts-14.1
 packages:
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200122.tar.gz
-    sha256: "7b77b8c6a9528e8e3856d783685dddc253c1e17d2b4bd52f7fd4363b65ce5adf"
-  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200122.tar.gz
-    sha256: "50d6942d35cef80a8159b4f593bca467e9186c7efcdbe010dfd2e654d90888bd"
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-8.8.1.20200225.tar.gz
+    sha256: "31b6f1fc15d257e66d3264e62e229203087a2e799a9638f6d5ff6cc43ec0b4a4"
+  - archive: http://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-8.8.1.20200225.tar.gz
+    sha256: "2cd22db09fdcb9bb121bd6f85024aba437ca2796ebe16453d15cbf2cb192023c"
   - github: digital-asset/hlint
     commit: "258bc2b539730b0604d0feffed98636f25022d66"
     sha256: "bb3ad5cd059e2586b2246843693aa1aee4d9db40910378929bcb88f16d0615c4"

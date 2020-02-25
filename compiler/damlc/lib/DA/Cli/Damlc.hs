@@ -88,7 +88,7 @@ import Development.IDE.Core.RuleTypes
 import "ghc-lib-parser" ErrUtils
 -- For dumps
 import "ghc-lib" GHC
-import "ghc-lib" HsDumpAst
+import "ghc-lib-parser" HsDumpAst
 import "ghc-lib" HscStats
 import "ghc-lib-parser" HscTypes
 import qualified "ghc-lib-parser" Outputable as GHC
