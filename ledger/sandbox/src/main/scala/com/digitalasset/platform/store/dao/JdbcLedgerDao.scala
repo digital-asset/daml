@@ -936,7 +936,7 @@ private class JdbcLedgerDao(
                     submitter,
                     rejectionReason
                   )
-                  CommandCompletionsTable.prepareInsert(offset, rejection).map(_.execute())
+                  CommandCompletionsTable.prepareInsert(offset + 1, rejection).map(_.execute())
                   insertEntry(PersistenceEntry.Rejection(rejection))
                 }
               } getOrElse Ok
@@ -959,7 +959,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
-        CommandCompletionsTable.prepareInsert(offset, ledgerEntry.entry).map(_.execute())
+        CommandCompletionsTable.prepareInsert(offset + 1, ledgerEntry.entry).map(_.execute())
         val resp = insertEntry(ledgerEntry)
         updateLedgerEnd(newLedgerEnd, externalOffset)
         resp

@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 private[dao] object CommandCompletionsReader {
 
   private def offsetFor(response: CompletionStreamResponse): LedgerDao#LedgerOffset =
-    response.checkpoint.get.offset.get.getAbsolute.toLong + 1
+    response.checkpoint.get.offset.get.getAbsolute.toLong
 
   def apply(dispatcher: DbDispatcher): CommandCompletionsReader[LedgerDao#LedgerOffset] =
     (from: Long, to: Long, appId: ApplicationId, parties: Set[Ref.Party]) => {
