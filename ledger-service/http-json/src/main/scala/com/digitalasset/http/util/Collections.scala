@@ -3,7 +3,7 @@
 
 package com.digitalasset.http.util
 
-import scalaz.{NonEmptyList, \/}
+import scalaz.{NonEmptyList, OneAnd, \/}
 
 import scala.collection.TraversableLike
 
@@ -31,4 +31,7 @@ object Collections {
     def collect[B](f: A PartialFunction B): Option[NonEmptyList[B]] =
       self.list.collect(f).toNel
   }
+
+  def toNonEmptySet[A](as: NonEmptyList[A]): OneAnd[Set, A] =
+    OneAnd(as.head, as.tail.foldLeft(Set.empty[A])(_ + _) - as.head)
 }

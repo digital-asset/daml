@@ -15,6 +15,7 @@ import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json._
+import com.digitalasset.http.util.Collections.toNonEmptySet
 import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.domain.Jwt
@@ -23,14 +24,16 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
+import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, EitherT, OneAnd, Show, \/, \/-}
+import scalaz.{-\/, Bitraverse, EitherT, NonEmptyList, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -60,7 +63,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
   }
 
-  def create(req: HttpRequest): ET[JsValue] =
+  def create(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
       t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -78,9 +81,9 @@ class Endpoints(
 
       jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
-    } yield jsVal
+    } yield domain.OkResponse(jsVal)
 
-  def exercise(req: HttpRequest): ET[JsValue] =
+  def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -108,11 +111,11 @@ class Endpoints(
 
       jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
 
-      jsVal <- either(SprayJson.encode(jsResp).leftMap(e => ServerError(e.shows))): ET[JsValue]
+      jsVal <- either(toJsValue(jsResp)): ET[JsValue]
 
-    } yield jsVal
+    } yield domain.OkResponse(jsVal)
 
-  def fetch(req: HttpRequest): ET[JsValue] =
+  def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
       input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -136,7 +139,7 @@ class Endpoints(
         ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
       ): ET[JsValue]
 
-    } yield jsVal
+    } yield domain.OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
     input(req).map {
@@ -168,21 +171,22 @@ class Endpoints(
 
               val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
                 .via(handleSourceFailure)
-                .map(_.flatMap(jsAcToJsValue))
+                .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
 
               result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
             }
       }
     }
 
-  def allParties(req: HttpRequest): ET[JsValue] =
+  def allParties(req: HttpRequest): ET[domain.OkResponse[JsValue, JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
       ps <- rightT(partiesService.allParties(t3._1)): ET[List[domain.PartyDetails]]
-      jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
-    } yield jsVal
+      resp = domain.OkResponse(ps, Option.empty[Unit])
+      result <- either(resp.bitraverse(toJsValue(_), toJsValue(_)))
+    } yield result
 
-  def parties(req: HttpRequest): ET[JsValue] =
+  def parties(req: HttpRequest): ET[domain.OkResponse[JsValue, JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -190,21 +194,22 @@ class Endpoints(
 
       cmd <- either(
         SprayJson
-          .decode[List[domain.Party]](reqBody)
+          .decode[NonEmptyList[domain.Party]](reqBody)
           .leftMap(e => InvalidUserInput(e.shows))
-      ): ET[List[domain.Party]]
+      ): ET[NonEmptyList[domain.Party]]
 
       ps <- eitherT(
         handleFutureFailure(
-          cmd match {
-            case Nil => partiesService.allParties(jwt)
-            case h :: t => partiesService.parties(jwt, OneAnd(h, t.toSet))
-          }
-        )): ET[List[domain.PartyDetails]]
+          partiesService.parties(jwt, toNonEmptySet(cmd))
+        )): ET[(Set[domain.PartyDetails], Set[domain.Party])]
 
-      jsVal <- either(SprayJson.encode(ps)).leftMap(e => ServerError(e.shows)): ET[JsValue]
+      resp: domain.OkResponse[List[domain.PartyDetails], domain.UnknownParties] = okResponse(
+        ps._1.toList,
+        ps._2.toList)
 
-    } yield jsVal
+      result <- either(resp.bitraverse(toJsValue(_), toJsValue(_)))
+
+    } yield result
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
@@ -228,17 +233,6 @@ class Endpoints(
           logger.error("Source failed", e)
           -\/(ServerError(e.description))
       }
-
-  private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
-    val fa: Future[Error \/ JsValue] = output.run
-    fa.map {
-        case \/-(a) => httpResponseOk(a)
-        case -\/(e) => httpResponseError(e)
-      }
-      .recover {
-        case NonFatal(e) => httpResponseError(ServerError(e.description))
-      }
-  }
 
   private def httpResponse(
       output: Future[Error \/ SearchResult[Error \/ JsValue]]): Future[HttpResponse] =
@@ -268,6 +262,21 @@ class Endpoints(
           ContentTypes.`application/json`,
           ResponseFormats.resultJsObject(jsValSource, jsValWarnings))
     )
+  }
+
+  private def httpResponse[A: JsonWriter, B: JsonWriter](
+      result: ET[domain.OkResponse[A, B]]
+  ): Future[HttpResponse] = {
+    val fa: Future[Error \/ JsValue] = result.flatMap(x => either(toJsValueWithBitraverse(x))).run
+    fa.map {
+        case -\/(e) =>
+          httpResponseError(e)
+        case \/-(r) =>
+          HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, format(r)))
+      }
+      .recover {
+        case NonFatal(e) => httpResponseError(ServerError(e.description))
+      }
   }
 
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
@@ -329,10 +338,30 @@ object Endpoints {
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
     for {
       b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract[JsValue]
-      c <- SprayJson.encode(b).leftMap(e => ServerError(e.shows))
+      c <- toJsValue(b)
     } yield c
   }
 
-  private def jsAcToJsValue(a: domain.ActiveContract[JsValue]): Error \/ JsValue =
+  private def okResponse(parties: List[domain.PartyDetails], unknownParties: List[domain.Party])
+    : domain.OkResponse[List[domain.PartyDetails], domain.UnknownParties] = {
+    if (unknownParties.isEmpty) domain.OkResponse(parties, Option.empty[domain.UnknownParties])
+    else domain.OkResponse(parties, Some(domain.UnknownParties(unknownParties)))
+  }
+
+  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue =
     SprayJson.encode(a).leftMap(e => ServerError(e.shows))
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def toJsValueWithBitraverse[F[_, _], A, B](fab: F[A, B])(
+      implicit ev1: Bitraverse[F],
+      ev2: JsonWriter[F[JsValue, JsValue]],
+      ev3: JsonWriter[A],
+      ev4: JsonWriter[B]): Error \/ JsValue =
+    for {
+      fjj <- fab.bitraverse(
+        a => toJsValue(a),
+        b => toJsValue(b)
+      ): Error \/ F[JsValue, JsValue]
+      jsVal <- toJsValue(fjj)
+    } yield jsVal
 }

@@ -492,7 +492,7 @@ object domain {
 
   final case class OkResponse[R, W](
       result: R,
-      warnings: Option[W],
+      warnings: Option[W] = Option.empty[W],
       status: StatusCode = StatusCodes.OK,
   ) extends ServiceResponse
 
@@ -521,4 +521,6 @@ object domain {
 
   final case class UnknownTemplateIds(unknownTemplateIds: List[TemplateId.OptionalPkg])
       extends ServiceWarning
+
+  final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
 }
