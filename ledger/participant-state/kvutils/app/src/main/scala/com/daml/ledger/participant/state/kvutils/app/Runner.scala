@@ -112,6 +112,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     new StandaloneApiServer(
       factory.apiServerConfig(participantConfig, config),
       factory.commandConfig(config),
+      factory.submissionConfig(config),
       readService,
       writeService,
       authService,

@@ -39,6 +39,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
+    submissionConfig: SubmissionConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,

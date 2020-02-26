@@ -10,7 +10,7 @@ final case class SubmissionConfiguration(
 )
 
 object SubmissionConfiguration {
-  lazy val default =
+  lazy val default: SubmissionConfiguration =
     SubmissionConfiguration(
       maxTtl = 1.hours,
     )

@@ -192,6 +192,7 @@ class Runner {
         portFile = config.portFile,
       ),
       commandConfig = config.commandConfig,
+      submissionConfig = config.submissionConfig,
       readService = readService,
       writeService = writeService,
       authService = authService,
