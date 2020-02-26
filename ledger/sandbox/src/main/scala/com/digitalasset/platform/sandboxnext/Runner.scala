@@ -182,14 +182,14 @@ class Runner {
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     new StandaloneApiServer(
       ApiServerConfig(
-        ParticipantId,
-        config.damlPackages,
-        config.port,
-        config.address,
+        participantId = ParticipantId,
+        archiveFiles = config.damlPackages,
+        port = config.port,
+        address = config.address,
         jdbcUrl = indexJdbcUrl,
-        tlsConfig = None,
-        DefaultMaxInboundMessageSize,
-        config.portFile,
+        tlsConfig = config.tlsConfig,
+        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        portFile = config.portFile,
       ),
       commandConfig = config.commandConfig,
       readService = readService,
