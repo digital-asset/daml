@@ -289,20 +289,20 @@ final class SandboxServer(
           (mat: Materializer, esf: ExecutionSequencerFactory) =>
             ApiServices
               .create(
-                participantId,
-                indexAndWriteService.writeService,
-                indexAndWriteService.indexService,
-                authorizer,
-                SandboxServer.engine,
-                timeProvider,
-                defaultConfiguration,
-                config.commandConfig,
-                config.submissionConfig,
-                timeServiceBackendO
+                participantId = participantId,
+                writeService = indexAndWriteService.writeService,
+                indexService = indexAndWriteService.indexService,
+                authorizer = authorizer,
+                engine = SandboxServer.engine,
+                timeProvider = timeProvider,
+                defaultLedgerConfiguration = defaultConfiguration,
+                commandConfig = config.commandConfig,
+                submissionConfig = config.submissionConfig,
+                optTimeServiceBackend = timeServiceBackendO
                   .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
-                metrics,
-                healthChecks,
-                seedService,
+                metrics = metrics,
+                healthChecks = healthChecks,
+                seedService = seedService,
               )(mat, esf, logCtx)
               .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
           currentPort.getOrElse(config.port),
