@@ -155,7 +155,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
               (LF.PackageName "daml-prim", Nothing) | pkgId `Set.notMember` dependencyPkgIds -> (LF.PackageName ("daml-prim-" <> LF.unPackageId pkgId), Nothing)
               (LF.PackageName "daml-stdlib", _) | pkgId `Set.notMember` dependencyPkgIds -> (LF.PackageName ("daml-stdlib-" <> LF.unPackageId pkgId), Nothing)
               (name, mbVersion) -> (name, mbVersion)
-        pure (pkgId, package, dalf, pkgNameVersion name mbVersion)
+        pure (pkgNameVersion name mbVersion, LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) dalf)
 
     -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
     transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
@@ -167,8 +167,8 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
        pure (pkgId, pkgNameVersion pkgName mbPkgVer)
 
     let unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
-            [ [ (unitId, Set.singleton pkgId)
-              | (pkgId, _package, _dalf, unitId) <- pkgs ]
+            [ [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
+              | (unitId, dalfPkg) <- pkgs ]
             , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
               | (unitId, dalfPkg) <- MS.toList dependencies ]
             , [ (unitId, Set.singleton pkgId)
@@ -196,7 +196,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         let pkgIdStr = T.unpack $ LF.unPackageId pkgId
         let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
         let deps =
-                [ unitIdString (unitId depPkgNode) <.> "dalf"
+                [ (unitId depPkgNode, dalfPackage depPkgNode)
                 | (depPkgNode, depPkgId) <- map vertexToNode $ reachable depGraph vertex
                 , pkgId /= depPkgId
                 , not (depPkgId `Set.member` stablePkgIds)
@@ -204,10 +204,10 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         let workDir = dbPath </> unitIdStr <> "-" <> pkgIdStr
         createDirectoryIfMissing True workDir
         -- write the dalf package
-        BS.writeFile (workDir </> unitIdStr <.> "dalf") $ encodedDalf pkgNode
+        BS.writeFile (workDir </> unitIdStr <.> "dalf") $ LF.dalfPackageBytes (dalfPackage pkgNode)
 
         generateAndInstallIfaceFiles
-            (dalf pkgNode)
+            (LF.extPackagePkg $ LF.dalfPackagePkg $ dalfPackage pkgNode)
             (stubSources pkgNode)
             opts
             workDir
@@ -242,8 +242,8 @@ generateAndInstallIfaceFiles ::
     -> LF.PackageId
     -> LF.PackageName
     -> Maybe LF.PackageVersion
-    -> [String]
-    -> MS.Map UnitId LF.DalfPackage
+    -> [(UnitId, LF.DalfPackage)] -- ^ List of packages referenced by this package.
+    -> MS.Map UnitId LF.DalfPackage -- ^ Map of all packages in `dependencies`.
     -> IO ()
 generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies = do
     loggerH <- getLogger opts "generate interface files"
@@ -259,7 +259,8 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   | mod <- NM.toList $ LF.packageModules $ LF.extPackagePkg dalfPackagePkg
                   , let modName = LF.moduleName mod
                   ]
-            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies]
+            | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies <> deps
+            ]
     opts <-
         pure $ opts
             { optIfaceDir = Nothing
@@ -272,10 +273,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++
-                  depImps ++
-                  [ exposePackage (GHC.stringToUnitId $ takeBaseName dep) True []
-                  | dep <- deps
-                  ]
+                  depImps
             -- When compiling dummy interface files for a data-dependency,
             -- we know all package flags so we don’t need to infer anything.
             , optInferDependantPackages = InferDependantPackages False
@@ -300,7 +298,9 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                     , pSrc = error "src field was used for creation of pkg conf file"
                     , pExposedModules = Nothing
                     , pVersion = mbPkgVersion
-                    , pDependencies = deps
+                    -- TODO Appending ".dalf" makes no sense but is needed to make `mkConfFile` happy.
+                    -- We should refactor this to allow us to pass unit ids verbatim.
+                    , pDependencies = map (\(unitId, _) -> unitIdString unitId <.> "dalf") deps
                     , pDataDependencies = []
                     , pSdkVersion = error "sdk version field was used for creation of pkg conf file"
                     }
@@ -471,7 +471,7 @@ lfVersionString = DA.Pretty.renderPretty
 
 -- | The graph will have an edge from package A to package B if A depends on B.
 buildLfPackageGraph
-    :: [(LF.PackageId, LF.Package, BS.ByteString, UnitId)]
+    :: [(UnitId, LF.DalfPackage)]
     -> MS.Map (UnitId, LF.ModuleName) LF.DalfPackage
     -> MS.Map UnitId LF.DalfPackage
     -> ( Graph
@@ -482,21 +482,23 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
     -- mapping from package id's to unit id's. if the same package is imported with
     -- different unit id's, we would loose a unit id here.
     pkgMap =
-        MS.fromList [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs] `MS.union`
-        MS.fromList [(LF.dalfPackageId pkg, unitId) | (unitId, pkg) <- MS.toList dependencyPkgs]
+        MS.fromList [(LF.dalfPackageId pkg, unitId) | (unitId, pkg) <- MS.toList dependencyPkgs <> pkgs]
 
-    packages = MS.unions
-      [ MS.fromList [(pkgId, pkg) | (pkgId, pkg, _, _) <- pkgs]
-      , MS.fromList [(LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg) | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs]
-      ]
+    packages =
+        MS.fromList
+            [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg $ LF.dalfPackagePkg dalfPkg)
+            | dalfPkg <- MS.elems dependencyPkgs <> MS.elems stablePkgs <> map snd pkgs
+            ]
+
 
     -- order the packages in topological order
     (depGraph, vertexToNode, _keyToVertex) =
         graphFromEdges
-            [ (PackageNode src unitId dalf bs, pkgId, pkgRefs)
-            | (pkgId, dalf, bs, unitId) <- pkgs
-            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs dalf ]
-            , let src = generateSrcPkgFromLf (config pkgId unitId) dalf
+            [ (PackageNode src unitId dalfPkg, LF.dalfPackageId dalfPkg, pkgRefs)
+            | (unitId, dalfPkg) <- pkgs
+            , let pkg = LF.extPackagePkg (LF.dalfPackagePkg dalfPkg)
+            , let pkgRefs = [ pid | LF.PRImport pid <- toListOf packageRefs pkg ]
+            , let src = generateSrcPkgFromLf (config (LF.dalfPackageId dalfPkg) unitId) pkg
             ]
     vertexToNode' v = case vertexToNode v of
         -- We don’t care about outgoing edges.
@@ -506,7 +508,7 @@ buildLfPackageGraph pkgs stablePkgs dependencyPkgs = (depGraph, vertexToNode')
         { configPackages = packages
         , configGetUnitId = getUnitId unitId pkgMap
         , configSelfPkgId = pkgId
-        , configStablePackages = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
+        , configStablePackages = MS.fromList [ (LF.dalfPackageId dalfPkg, unitId) | ((unitId, _), dalfPkg) <- MS.toList stablePkgs ]
         , configDependencyPackages = Set.fromList $ map LF.dalfPackageId $ MS.elems dependencyPkgs
         , configSdkPrefix = [T.pack currentSdkPrefix]
         }
@@ -516,8 +518,7 @@ data PackageNode = PackageNode
   -- ^ Sources for the stub package containining data type definitions
   -- ^ Sources for the package containing instances for Template, Choice, …
   , unitId :: UnitId
-  , dalf :: LF.Package
-  , encodedDalf :: BS.ByteString
+  , dalfPackage :: LF.DalfPackage
   }
 
 currentSdkPrefix :: String
