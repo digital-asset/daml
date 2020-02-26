@@ -39,6 +39,7 @@ module DA.Daml.Helper.Run
     , SandboxOptions(..)
     , NavigatorOptions(..)
     , JsonApiOptions(..)
+    , ScriptOptions(..)
     ) where
 
 import Control.Concurrent
@@ -772,6 +773,7 @@ newtype WaitForSignal = WaitForSignal Bool
 newtype SandboxOptions = SandboxOptions [String]
 newtype NavigatorOptions = NavigatorOptions [String]
 newtype JsonApiOptions = JsonApiOptions [String]
+newtype ScriptOptions = ScriptOptions [String]
 
 runStart
     :: Maybe SandboxPort
@@ -783,6 +785,7 @@ runStart
     -> SandboxOptions
     -> NavigatorOptions
     -> JsonApiOptions
+    -> ScriptOptions
     -> IO ()
 runStart
   sandboxPortM
@@ -794,6 +797,7 @@ runStart
   (SandboxOptions sandboxOpts)
   (NavigatorOptions navigatorOpts)
   (JsonApiOptions jsonApiOpts)
+  (ScriptOptions scriptOpts)
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
@@ -801,10 +805,29 @@ runStart
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
+    mbInitScript :: Maybe String <-
+        requiredE "Failed to parse init-script" $
+        queryProjectConfig ["init-script"] projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
+            whenJust mbInitScript $ \initScript -> do
+                procScript <- toAssistantCommand $
+                    [ "script"
+                    , "--dar"
+                    , darPath
+                    , "--script-name"
+                    , initScript
+                    , if any (`elem` ["-w", "--wall-clock-time"]) sandboxOpts
+                        then "--wall-clock-time"
+                        else "--static-time"
+                    , "--ledger-host"
+                    , "localhost"
+                    , "--ledger-port"
+                    , case sandboxPort of SandboxPort port -> show port
+                    ] ++ scriptOpts
+                runProcess_ procScript
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)

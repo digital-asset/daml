@@ -8,13 +8,15 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
-import qualified Data.Aeson.Types as Aeson
+import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -185,6 +187,75 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+     , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "init-script-example"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: init-script-example"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          , "  - daml-script"
+          , "parties:"
+          , "- Alice"
+          , "init-script: Main:init"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "daml 1.2"
+          , "module Main where"
+          , "import Prelude hiding (submit)"
+          , "import Daml.Script"
+          , "template T with p : Party where signatory p"
+          , "init : Script ()"
+          , "init = do"
+          , "  alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+          , "  alice `submit` createCmd (T alice)"
+          , "  pure ()"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator"
+              , "no"
+              , "--sandbox-port"
+              , show sandboxPort
+              , "--json-api-port"
+              , show jsonApiPort
+              ]
+        withCurrentDirectory projDir $
+          withCreateProcess startProc $ \_ _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $ do
+              -- The hard-coded secret for testing is "secret".
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+              let queryRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                    }
+              manager <- newManager defaultManagerSettings
+              queryResponse <- httpLbs queryRequest manager
+              statusCode (responseStatus queryResponse) @?= 200
+              case Aeson.decode (responseBody queryResponse) of
+                Just (Aeson.Object body)
+                  | Just (Aeson.Array result) <- HashMap.lookup "result" body
+                  -> length result @?= 1
+                _ -> assertFailure "Expected JSON object in response body"
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
     -- Note(MK): The hacks around daml-prim which were already not quite right, e.g.,
     -- we didn’t include daml-prim from all SDK versions, are broken completely
     -- now that we split daml-prim into multiple packages. Therefore, we
