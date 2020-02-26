@@ -142,14 +142,18 @@ class Runner {
       timeServiceBackend: Option[TimeServiceBackend],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     for {
-      _ <- startIndexerServer(config, indexJdbcUrl, readService = ledger)
+      _ <- startIndexerServer(
+        config = config,
+        indexJdbcUrl = indexJdbcUrl,
+        readService = ledger,
+      )
       _ <- startApiServer(
-        config,
-        indexJdbcUrl,
+        config = config,
+        indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
         writeService = ledger,
         authService = authService,
-        timeServiceBackend,
+        timeServiceBackend = timeServiceBackend,
       )
     } yield ()
 
@@ -159,14 +163,14 @@ class Runner {
       readService: ReadService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
-      readService,
-      IndexerConfig(
+      readService = readService,
+      config = IndexerConfig(
         ParticipantId,
         jdbcUrl = indexJdbcUrl,
         startupMode = IndexerStartupMode.MigrateAndStart,
         allowExistingSchema = true,
       ),
-      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+      metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
     )
 
   private def startApiServer(
@@ -188,10 +192,10 @@ class Runner {
         DefaultMaxInboundMessageSize,
         config.portFile,
       ),
-      readService,
-      writeService,
-      authService,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+      readService = readService,
+      writeService = writeService,
+      authService = authService,
+      metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
     )
 }
