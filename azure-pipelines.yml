@@ -265,7 +265,8 @@ jobs:
 
   - job: windows_installer
     dependsOn: [ "check_for_release", "Windows" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       name: 'windows-pool'
@@ -321,7 +322,8 @@ jobs:
 
   - job: linux_tarball
     dependsOn: [ "check_for_release", "Linux" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -374,7 +376,8 @@ jobs:
 
   - job: macos_tarball
     dependsOn: [ "check_for_release", "macOS" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -409,7 +412,8 @@ jobs:
 
   - job: release
     dependsOn: [ "check_for_release", "linux_tarball", "macos_tarball", "windows_installer" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
