@@ -279,6 +279,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -332,6 +334,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -383,6 +387,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
