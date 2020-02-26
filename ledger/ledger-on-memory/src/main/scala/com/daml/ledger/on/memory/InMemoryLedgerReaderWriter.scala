@@ -57,10 +57,7 @@ private[memory] class InMemoryState(
   }
 
   def readLogEntry(index: Int): LogEntry = {
-    lockCurrentState.acquire()
-    val entry = log(index)
-    lockCurrentState.release()
-    entry
+    withLock(log(index))
   }
 }
 
@@ -131,10 +128,8 @@ class InMemoryLedgerStateAccess(currentState: InMemoryState)(
       Future.successful {
         val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
         val logEntry = LogEntry(damlLogEntryId, value)
-        currentState.withLock {
-          currentState.log += logEntry
-          currentState.log.size
-        }
+        currentState.log += logEntry
+        currentState.log.size
       }
   }
 
