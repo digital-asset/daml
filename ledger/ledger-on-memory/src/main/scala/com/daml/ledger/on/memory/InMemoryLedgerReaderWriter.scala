@@ -5,7 +5,6 @@ package com.daml.ledger.on.memory
 
 import java.time.Instant
 import java.util.UUID
-import java.util.concurrent.Semaphore
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -31,27 +30,8 @@ import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnothe
 import com.digitalasset.resources.ResourceOwner
 import com.google.protobuf.ByteString
 
-import scala.collection.mutable
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] class InMemoryState(
-    val log: mutable.Buffer[LedgerEntry] = ArrayBuffer(),
-    val state: mutable.Map[ByteString, Array[Byte]] = mutable.Map.empty,
-) {
-  val lockCurrentState = new Semaphore(1, true)
-
-  def withLock[A](action: => A): A =
-    try {
-      lockCurrentState.acquire()
-      action
-    } finally {
-      lockCurrentState.release()
-    }
-
-  def readLogEntry(index: Int): LedgerEntry =
-    withLock(log(index))
-}
 // Dispatcher and InMemoryState are passed in to allow for a multi-participant setup.
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
@@ -97,40 +77,38 @@ final class InMemoryLedgerReaderWriter(
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
-    implicit executionContext: ExecutionContext)
-    extends LedgerStateAccess[Index] {
-
-  private object InMemoryLedgerStateOperations extends BatchingLedgerStateOperations[Index] {
-    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.successful {
-        keys.map(keyBytes => currentState.state.get(ByteString.copyFrom(keyBytes)))
-      }
-
-    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
-      Future.successful {
-        currentState.state ++= keyValuePairs.map {
-          case (keyBytes, valueBytes) => ByteString.copyFrom(keyBytes) -> valueBytes
-        }
-      }
-
-    override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful {
-        val offset = Offset(Array(currentState.log.size.toLong))
-        val entryId = KeyValueCommitting.unpackDamlLogEntryId(key)
-        val entry = LedgerEntry.LedgerRecord(offset, entryId, value)
-        currentState.log += entry
-        currentState.log.size
-      }
-  }
+    implicit executionContext: ExecutionContext
+) extends LedgerStateAccess[Index] {
 
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-    Future
-      .successful(currentState.lockCurrentState.acquire())
-      .flatMap(_ => body(InMemoryLedgerStateOperations))
-      .andThen {
-        case _ =>
-          currentState.lockCurrentState.release()
+    currentState.withFutureLock { (log, state) =>
+      body(new InMemoryLedgerStateOperations(log, state))
+    }
+}
+
+private class InMemoryLedgerStateOperations(log: InMemoryState.Log, state: InMemoryState.State)(
+    implicit executionContext: ExecutionContext
+) extends BatchingLedgerStateOperations[Index] {
+  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+    Future.successful {
+      keys.map(keyBytes => state.get(ByteString.copyFrom(keyBytes)))
+    }
+
+  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+    Future.successful {
+      state ++= keyValuePairs.map {
+        case (keyBytes, valueBytes) => ByteString.copyFrom(keyBytes) -> valueBytes
       }
+    }
+
+  override def appendToLog(key: Key, value: Value): Future[Index] =
+    Future.successful {
+      val offset = Offset(Array(log.size.toLong))
+      val entryId = KeyValueCommitting.unpackDamlLogEntryId(key)
+      val entry = LedgerEntry.LedgerRecord(offset, entryId, value)
+      log += entry
+      log.size
+    }
 }
 
 object InMemoryLedgerReaderWriter {
@@ -169,11 +147,11 @@ object InMemoryLedgerReaderWriter {
       dispatcher <- dispatcher
       heartbeats <- heartbeatMechanism
       _ = heartbeats.runWith(Sink.foreach(timestamp =>
-        state.withLock {
-          val offset = Offset(Array(state.log.size.toLong))
+        state.withLock { (log, _) =>
+          val offset = Offset(Array(log.size.toLong))
           val entry = LedgerEntry.Heartbeat(offset, timestamp)
-          state.log += entry
-          val head = state.log.size
+          log += entry
+          val head = log.size
           dispatcher.signalNewHead(head)
       }))
       readerWriter <- owner(
