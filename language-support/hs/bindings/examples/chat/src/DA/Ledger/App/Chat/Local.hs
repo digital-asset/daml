@@ -76,14 +76,14 @@ applyTrans whoami s@State{known,ans} = \case
                   | otherwise = [introduceEveryone whoami s']
 
     C.Message Message{from,to,body} ->
-        (s { ans = an : ans }, if from == whoami then [] else [an], [])
+        (s { ans = an : ans }, [an | from /= whoami], [])
         where an =
                   if from == whoami
                   then AMessageSent{to,body}
                   else AMessageIn{from,body}
 
     C.Broadcast Broadcast{from,body} ->
-        (s { ans = an : ans }, if from == whoami then [] else [an], [])
+        (s { ans = an : ans }, [an | from /= whoami], [])
         where an = ABroadcast{from,body}
 
 

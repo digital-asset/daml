@@ -24,7 +24,6 @@ let
 
 in rec {
   inherit pkgs;
-  ghc = bazel_dependencies.ghc;
 
   # GHC with static linking patches.
   ghcStatic = bazel_dependencies.ghcStatic;
@@ -44,8 +43,8 @@ in rec {
     # Haskell development
     ghcStatic       = bazel_dependencies.ghcStatic;
     ghcid           = pkgs.haskellPackages.ghcid;
-    hlint           = bazel_dependencies.hlint;
-    ghci            = bazel_dependencies.ghc.ghc;
+    hlint           = bazel_dependencies.ghcStaticPkgs.hlint;
+    ghci            = bazel_dependencies.ghcStatic;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add

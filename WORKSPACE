@@ -223,14 +223,18 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nix_ghc_deps = common_nix_file_deps + [
+    "//nix:ghc.nix",
+    "//nix:with-packages-wrapper.nix",
+    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/ghc-8.6.3-binary.nix",
+]
+
 nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:overrides/hlint-2.1.15.nix",
-        "//nix:overrides/haskell-src-exts-1.21.0.nix",
-    ],
+    nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
 )
 
@@ -278,17 +282,10 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
-nix_ghc_deps = common_nix_file_deps + [
-    "//nix:ghc.nix",
-    "//nix:with-packages-wrapper.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
-    "//nix:overrides/ghc-8.6.3-binary.nix",
-]
-
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghc.ghc",
+    attribute_path = "ghcStatic",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))

@@ -28,13 +28,6 @@ let
         wrapProgram $out/bin/pg_tmp --prefix PATH : ${pkgs.postgresql_9_6}/bin:$out/bin
       '';
     });
-    haskellPackages = pkgs.haskellPackages.override {
-      overrides = self: super: {
-        hlint = super.callPackage ./overrides/hlint-2.1.15.nix {};
-        haskell-src-exts = super.callPackage ./overrides/haskell-src-exts-1.21.0.nix {};
-        haskell-src-meta = super.callPackage ./overrides/haskell-src-meta-0.8.2.nix {};
-      };
-    };
   };
 
   nixpkgs = import src {

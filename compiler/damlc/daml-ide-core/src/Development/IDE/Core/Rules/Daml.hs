@@ -38,6 +38,7 @@ import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
+import Data.Bifunctor (bimap)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
@@ -149,7 +150,7 @@ uriToVirtualResource uri = do
         Just u ->
             Just
           $ Map.fromList
-          $ map (\(k, v) -> (BS.toString k, BS.toString v))
+          $ map (bimap BS.toString BS.toString)
           $ HTTP.Types.parseSimpleQuery
           $ BS.fromString
           $ URI.unEscapeString u
