@@ -134,7 +134,7 @@ conformance_test(
     extra_data = glob(["test/main/resources/*"]),
     server = "//ledger/ledger-on-memory:app",
     server_args = [
-        "--participant participant-id=ssl-test,port 6865",
+        "--participant participant-id=ssl-test,port=6865",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",

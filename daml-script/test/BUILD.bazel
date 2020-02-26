@@ -156,6 +156,11 @@ client_server_test(
     ],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
+    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner_args = [
+        "6865",
+        "6866",
+    ],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--participant participant-id=daml_on_x,port=6865",

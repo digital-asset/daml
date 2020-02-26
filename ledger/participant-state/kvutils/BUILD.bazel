@@ -162,6 +162,8 @@ client_server_build(
         "//ledger/test-common:dar-files",
     ],
     output_env = "KVUTILS_LEDGER_DUMP",
+    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner_args = ["6865"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
         "--participant participant-id=ledger-dump,port=6865",
