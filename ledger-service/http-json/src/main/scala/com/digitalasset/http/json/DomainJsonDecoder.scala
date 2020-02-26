@@ -95,7 +95,7 @@ class DomainJsonDecoder(
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
     for {
       tId <- resolveTemplateId(templateId).toRightDisjunction(
-        JsonError(s"DomainJsonDecoder_lookupLfType: ${cannotResolveTemplateId(templateId)}"))
+        JsonError(s"DomainJsonDecoder_lookupLfType ${cannotResolveTemplateId(templateId)}"))
       lfType <- H
         .lfType(fa, tId, resolveTemplateRecordType, resolveRecordType, resolveKey)
         .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError)
