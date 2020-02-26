@@ -7,13 +7,13 @@ def _client_server_build_impl(ctx):
         outputs = [ctx.outputs.out],
         inputs = ctx.files.data,
         tools = depset([
-            ctx.executable._runner,
+            ctx.executable.runner,
             ctx.executable.client,
             ctx.executable.server,
         ]),
         command = """
         export {output_env}="{output_path}"
-        {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}" &> runner.log
+        {runner} "{client}" "{client_args} {client_files}" "{server}" "{server_args} {server_files}" "{runner_args}" &> runner.log
         if [ "$?" -ne 0 ]; then
           {cat} runner.log
           exit 1
@@ -22,9 +22,10 @@ def _client_server_build_impl(ctx):
             cat = posix.commands["cat"],
             output_env = ctx.attr.output_env,
             output_path = ctx.outputs.out.path,
-            runner = ctx.executable._runner.path,
+            runner = ctx.executable.runner.path,
             client = ctx.executable.client.path,
             server = ctx.executable.server.path,
+            runner_args = " ".join(ctx.attr.runner_args),
             server_args = " ".join(ctx.attr.server_args),
             server_files = " ".join([f.path for f in ctx.files.server_files]),
             client_args = " ".join(ctx.attr.client_args),
@@ -40,12 +41,13 @@ def _client_server_build_impl(ctx):
 client_server_build = rule(
     implementation = _client_server_build_impl,
     attrs = {
-        "_runner": attr.label(
+        "runner": attr.label(
             cfg = "host",
             allow_single_file = True,
             executable = True,
             default = Label("@//bazel_tools/client_server/runner:runner"),
         ),
+        "runner_args": attr.string_list(),
         "client": attr.label(
             cfg = "target",
             executable = True,

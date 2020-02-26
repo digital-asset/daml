@@ -6,30 +6,16 @@ module Main(main) where
 import DA.PortFile
 import System.Environment
 import System.Process
-import System.IO.Extra (newTempFile)
+import System.IO.Extra (withTempFile)
 import Data.List.Split (splitOn)
-import Control.Monad (forM_)
 
-
-appendPortFileParam :: [String] -> IO ([(FilePath, IO ())], [String])
-appendPortFileParam [] = return ([], [])
-appendPortFileParam ("--participant" : kvs : rest) = do
-  (tempFile, cleanup) <- newTempFile
-  (files, newArgs) <- appendPortFileParam rest
-  return ((tempFile, cleanup) : files, ["--participant", kvs ++ ",port-file=" ++ tempFile] <> newArgs)
-appendPortFileParam (x:xs) = do
-  (files, newArgs) <- appendPortFileParam xs
-  return (files, x : newArgs)
 
 main :: IO ()
 main = do
-  [clientExe, clientArgs, serverExe, serverArgs] <- getArgs
-  let splitArgs = filter (/= "") . splitOn " "
-
-  (files, newServerArgs) <- appendPortFileParam (splitArgs serverArgs)
-
-  let serverProc = proc serverExe newServerArgs
-  withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
-    forM_ files $ \(file, _cleanup) -> readPortFile maxRetries file
-    callProcess clientExe (splitArgs clientArgs)
-    forM_ files snd
+  [clientExe, clientArgs, serverExe, serverArgs, _runnerArgs] <- getArgs
+  withTempFile $ \tempFile -> do
+    let splitArgs = filter (/= "") . splitOn " "
+    let serverProc = proc serverExe $ ["--port-file", tempFile] <> splitArgs serverArgs
+    withCreateProcess serverProc $ \_stdin _stdout _stderr _ph -> do
+      port <- readPortFile maxRetries tempFile
+      callProcess clientExe (["--target-port", show port] <> splitArgs clientArgs)

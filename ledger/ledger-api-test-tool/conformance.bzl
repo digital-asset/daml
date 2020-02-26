@@ -18,6 +18,8 @@ def conformance_test(
         flaky = False):
     client_server_test(
         name = name,
+        runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+        runner_args = ["%s" % port for port in ports],
         timeout = "long",
         client = "//ledger/ledger-api-test-tool",
         client_args = test_tool_args + ["localhost:%s" % port for port in ports],
