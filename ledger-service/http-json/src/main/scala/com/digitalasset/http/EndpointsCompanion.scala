@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, Show, \/}
-import spray.json.{JsString, JsValue}
+import spray.json.{JsArray, JsString, JsValue}
 
 import scala.concurrent.Future
 
@@ -60,7 +60,7 @@ object EndpointsCompanion {
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-    domain.ErrorResponse(errors = JsString(errorMsg), status = status)
+    domain.ErrorResponse(errors = JsArray(JsString(errorMsg)), status = status)
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
