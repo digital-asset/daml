@@ -132,7 +132,7 @@ Another example, showing how to *update* ledger state, is how we exercise the ``
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
-The ``useExerciseByKey`` hook returns the ``exerciseAddFriend`` function (the ``[]`` around it is simply for ignoring other return values).
+The ``useExerciseByKey`` hook returns the ``exerciseAddFriend`` function.
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
 The wrapper function ``addFriend`` is then passed to the subcomponents of ``MainView``.
 For example, ``addFriend`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
