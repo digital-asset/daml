@@ -3,12 +3,15 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import java.util.concurrent.TimeUnit
+
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import scala.util.Try
 
@@ -79,6 +82,18 @@ trait FieldValidations {
 
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
+
+  def requirePositiveDuration(
+      durationO: Option[com.google.protobuf.duration.Duration],
+      fieldName: String): Either[StatusRuntimeException, Option[FiniteDuration]] =
+    durationO.fold[Either[StatusRuntimeException, Option[FiniteDuration]]](Right(None))(
+      duration =>
+        if (duration.seconds > 0 | duration.nanos > 0)
+          Right(
+            Some(FiniteDuration(duration.seconds, TimeUnit.SECONDS)
+              .plus(FiniteDuration(duration.nanos.toLong, TimeUnit.NANOSECONDS))))
+        else
+          Left(invalidField(fieldName, "Duration must be positive")))
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

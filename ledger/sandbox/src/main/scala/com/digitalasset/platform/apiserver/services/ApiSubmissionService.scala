@@ -3,9 +3,18 @@
 
 package com.digitalasset.platform.apiserver.services
 
+import java.time.Instant
+
 import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.ContractStore
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationDuplicateWithResult,
+  CommandDeduplicationNew,
+  CommandSubmissionResult,
+  ContractStore,
+  IndexSubmissionService
+}
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   InternalError,
@@ -24,6 +33,7 @@ import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.grpc.GrpcException
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
@@ -40,8 +50,9 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
 
@@ -51,9 +62,11 @@ object ApiSubmissionService {
       ledgerId: LedgerId,
       contractStore: ContractStore,
       writeService: WriteService,
+      submissionService: IndexSubmissionService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       commandExecutor: CommandExecutor,
+      configuration: ApiSubmissionService.Configuration,
       metrics: MetricRegistry)(
       implicit ec: ExecutionContext,
       mat: Materializer,
@@ -62,9 +75,11 @@ object ApiSubmissionService {
       new ApiSubmissionService(
         contractStore,
         writeService,
+        submissionService,
         timeModel,
         timeProvider,
         commandExecutor,
+        configuration,
         metrics),
       ledgerId
     )
@@ -73,14 +88,17 @@ object ApiSubmissionService {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
+  final case class Configuration(maxTtl: FiniteDuration)
 }
 
 final class ApiSubmissionService private (
     contractStore: ContractStore,
     writeService: WriteService,
+    submissionService: IndexSubmissionService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     commandExecutor: CommandExecutor,
+    configuration: ApiSubmissionService.Configuration,
     metrics: MetricRegistry)(
     implicit ec: ExecutionContext,
     mat: Materializer,
@@ -99,8 +117,57 @@ final class ApiSubmissionService private (
     val failedInterpretationsMeter: Meter =
       metrics.meter("daml.lapi.command_submission_service.failed_command_interpretations")
 
+    val deduplicatedCommandsMeter: Meter =
+      metrics.meter("daml.lapi.command_submission_service.deduplicated_commands")
+
     val submittedTransactionsTimer: Timer =
       metrics.timer("daml.lapi.command_submission_service.submitted_transactions")
+  }
+
+  private def deduplicateAndRecordOnLedger(commands: ApiCommands)(
+      implicit logCtx: LoggingContext): Future[Unit] = {
+    val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
+    val submittedAt = Instant.now
+    val ttl = submittedAt.plusNanos(commands.ttl.getOrElse(configuration.maxTtl).toNanos)
+
+    submissionService.deduplicateCommand(deduplicationKey, submittedAt, ttl).flatMap {
+      case CommandDeduplicationNew =>
+        recordOnLedger(commands)
+          .transform(mapSubmissionResult)
+          .andThen {
+            case Success(_) =>
+              submissionService.updateCommandResult(
+                deduplicationKey,
+                submittedAt,
+                CommandSubmissionResult(Status.OK.getCode.value(), None))
+            case Failure(GrpcException(status, _)) =>
+              submissionService
+                .updateCommandResult(
+                  deduplicationKey,
+                  submittedAt,
+                  CommandSubmissionResult(status.getCode.value(), Option(status.getDescription)))
+            case Failure(error) =>
+              submissionService
+                .updateCommandResult(
+                  deduplicationKey,
+                  submittedAt,
+                  CommandSubmissionResult(Status.INTERNAL.getCode.value(), Some(error.getMessage)))
+          }
+      case CommandDeduplicationDuplicate(firstSubmittedAt) =>
+        Metrics.deduplicatedCommandsMeter.mark()
+        val reason =
+          s"Duplicate command submission. This command was submitted before at $firstSubmittedAt. The result of the submission is unknown."
+        logger.debug(reason)
+        Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
+      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(0, _)) =>
+        Metrics.deduplicatedCommandsMeter.mark()
+        Future.successful(())
+      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(code, message)) =>
+        Metrics.deduplicatedCommandsMeter.mark()
+        val status = message.fold(Status.fromCodeValue(code))(msg =>
+          Status.fromCodeValue(code).augmentDescription(msg))
+        Future.failed(status.asRuntimeException)
+    }
   }
 
   override def submit(request: SubmitRequest): Future[Unit] =
@@ -125,35 +192,37 @@ final class ApiSubmissionService private (
           _ => {
             logger.trace(s"Received composite commands: $commands")
             logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-            recordOnLedger(commands).transform {
-              case Success(Acknowledged) =>
-                logger.debug("Submission of command succeeded")
-                Success(())
-
-              case Success(Overloaded) =>
-                logger.info("Submission has failed due to backpressure")
-                Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
-
-              case Success(NotSupported) =>
-                logger.warn("Submission of command was not supported")
-                Failure(Status.INVALID_ARGUMENT.asRuntimeException)
-
-              case Success(InternalError(reason)) =>
-                logger.error(
-                  s"Submission of command failed due to an internal error, reason=$reason")
-                Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
-
-              case Failure(error) =>
-                logger.error("Submission of command has failed.", error)
-                Failure(error)
-
-            }(DirectExecutionContext)
+            deduplicateAndRecordOnLedger(commands)
           }
         )
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }
 
-  private def recordOnLedger(commands: ApiCommands): Future[SubmissionResult] =
+  private def mapSubmissionResult(result: Try[SubmissionResult])(
+      implicit logCtx: LoggingContext): Try[Unit] = result match {
+    case Success(Acknowledged) =>
+      logger.debug("Submission of command succeeded")
+      Success(())
+
+    case Success(Overloaded) =>
+      logger.info("Submission has failed due to backpressure")
+      Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+
+    case Success(NotSupported) =>
+      logger.warn("Submission of command was not supported")
+      Failure(Status.INVALID_ARGUMENT.asRuntimeException)
+
+    case Success(InternalError(reason)) =>
+      logger.error(s"Submission of command failed due to an internal error, reason=$reason")
+      Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
+
+    case Failure(error) =>
+      logger.error("Submission of command has failed.", error)
+      Failure(error)
+  }
+
+  private def recordOnLedger(commands: ApiCommands)(
+      implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
       res <- commandExecutor
         .execute(
@@ -167,7 +236,8 @@ final class ApiSubmissionService private (
     } yield submissionResult
 
   private def handleResult(
-      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]) =
+      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]
+  ) =
     res match {
       case Right((submitterInfo, transactionMeta, transaction)) =>
         timedFuture(

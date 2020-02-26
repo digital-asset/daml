@@ -79,6 +79,7 @@ class SubmitRequestValidatorTest
       DomainMocks.party,
       let,
       mrt,
+      None,
       LfCommands(
         DomainMocks.party,
         ImmArray(

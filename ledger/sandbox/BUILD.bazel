@@ -37,6 +37,7 @@ compile_deps = [
     "//ledger/participant-state/kvutils",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
+    "//libs-scala/grpc-utils",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
     "@maven//:ch_qos_logback_logback_classic",
@@ -387,6 +388,14 @@ server_conformance_test(
     ],
 )
 
+server_conformance_test(
+    name = "conformance-test-command-deduplication",
+    servers = SERVERS,
+    test_tool_args = [
+        "--include=CommandDeduplicationIT",
+    ],
+)
+
 NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
@@ -414,6 +423,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -426,6 +436,7 @@ server_conformance_test(
     test_tool_args = [
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 

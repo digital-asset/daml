@@ -34,7 +34,7 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -75,6 +75,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
+      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: MetricRegistry,
       healthChecks: HealthChecks,
@@ -95,6 +96,7 @@ object ApiServices {
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
     val configManagementService: IndexConfigManagementService = indexService
+    val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val apiSubmissionService =
@@ -102,9 +104,13 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
+          submissionService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId, seedService),
+          ApiSubmissionService.Configuration(
+            submissionConfig.maxTtl
+          ),
           metrics,
         )
 
@@ -132,8 +138,7 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.historySize,
-          commandConfig.retentionPeriod,
-          commandConfig.commandTtl
+          commandConfig.retentionPeriod
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LowLevelCommandServiceAccess.LocalServices(

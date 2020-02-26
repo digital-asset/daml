@@ -297,6 +297,7 @@ final class SandboxServer(
                 timeProvider,
                 defaultConfiguration,
                 config.commandConfig,
+                config.submissionConfig,
                 timeServiceBackendO
                   .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
                 metrics,

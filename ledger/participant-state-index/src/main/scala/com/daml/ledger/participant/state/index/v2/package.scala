@@ -105,4 +105,25 @@ package object v2 {
       size: Long,
       knownSince: Instant,
       sourceDescription: Option[String])
+
+  /** The result of a command submission, as reported to client applications.
+    * Isomorphic to a [[io.grpc.Status]].
+    *
+    * @param code    The gRPC status code of the original command submission
+    * @param message The detailed error message of the original command submission
+    */
+  final case class CommandSubmissionResult(code: Int, message: Option[String])
+
+  sealed abstract class CommandDeduplicationResult extends Product with Serializable
+
+  /** This is the first time the command was submitted. */
+  case object CommandDeduplicationNew extends CommandDeduplicationResult
+
+  /** This command was submitted before, but the result of the submission not known (yet). */
+  final case class CommandDeduplicationDuplicate(firstSubmittedAt: Instant)
+      extends CommandDeduplicationResult
+
+  /** This command was submitted before, and the result of the submission is known */
+  final case class CommandDeduplicationDuplicateWithResult(result: CommandSubmissionResult)
+      extends CommandDeduplicationResult
 }

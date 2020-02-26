@@ -155,6 +155,9 @@ integrity_test(
 server_conformance_test(
     name = "conformance-test",
     servers = SERVERS,
+    test_tool_args = [
+        "--exclude=CommandDeduplicationIT",
+    ],
 )
 
 conformance_test(
@@ -173,6 +176,7 @@ conformance_test(
     ],
     test_tool_args = [
         "--include=SemanticTests,TransactionServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -190,5 +194,6 @@ conformance_test(
     ],
     test_tool_args = [
         "--include=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
