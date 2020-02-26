@@ -23,15 +23,16 @@ As usual, we must start with the DAML model and base our UI changes on top of th
 DAML Changes
 ============
 
-The DAML code defines the *workflow* of the application.
-This means: what interactions between users (or *parties*) are permitted by the system?
-In the context of our feature, the question is: when is a user allowed to message another user?
+As mentioned in the :doc:`architecture <app-architecture>` section, the DAML code defines the data and *workflow* of the application.
+The workflow aspect refers to the interactions between parties that are permitted by the system.
+In the context of a messaging feature, these are essentially the authorization and privacy concerns listed above.
 
-The approach we'll take is: a user Bob can message another user Alice if Alice has added Bob as a friend.
-Remember that friendships are single-directional in our app.
-So Alice adding Bob as a friend means that she gives permission (or *authority*) for Bob to send her a message.
+For the authorization part, we take the following approach: a user Bob can message another user Alice exactly when Alice has added Bob as a friend.
+When Alice adds Bob as a friend, she gives permission or *authority* to Bob to send her a message.
+It is important to remember that friendships can go in a single direction in our app.
+This means its possible for Bob to message Alice without Alice being able to message him back!
 
-In DAML this workflow is represented as a new choice on the ``User`` contract.
+To implement this workflow, we add a new choice to the ``User`` template.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
