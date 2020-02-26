@@ -150,13 +150,6 @@ in rec {
 
     sphinx183 = bazel_dependencies.sphinx183;
 
-    texlive   = bazel_dependencies.texlive;
-    bibtex    = bazel_dependencies.texlive;
-    latexmk   = bazel_dependencies.texlive;
-    makeindex = bazel_dependencies.texlive;
-    pdflatex  = bazel_dependencies.texlive;
-    lualatex  = bazel_dependencies.texlive;
-
     convert = bazel_dependencies.imagemagick;
 
     sass = bazel_dependencies.sass;
@@ -294,6 +287,12 @@ in rec {
     openssh = pkgs.openssh;
   }
   else {});
+
+  # On CI we only cache a subset of cached since we only build a subset of targets.
+  ci-cached =
+    if pkgs.stdenv.isDarwin
+    then builtins.removeAttrs cached ["texlive"]
+    else cached;
 
   # The build environment used for the 'da' package set above.
   # Exported here for testing purposes.
