@@ -25,7 +25,6 @@ import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.bitraverse._
-import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Bitraverse, EitherT, NonEmptyList, Show, \/, \/-}
@@ -51,6 +50,7 @@ class Endpoints(
     extends StrictLogging {
 
   import Endpoints._
+  import util.ErrorOps._
   import json.JsonProtocol._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
@@ -70,16 +70,14 @@ class Endpoints(
       (jwt, jwtPayload, reqBody) = t3
 
       cmd <- either(
-        decoder
-          .decodeR[domain.CreateCommand](reqBody)
-          .leftMap(e => InvalidUserInput(e.shows))
+        decoder.decodeR[domain.CreateCommand](reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateCommand[lav1.value.Record]]
 
       ac <- eitherT(
         handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[lav1.value.Value]]
 
-      jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
+      jsVal <- either(encoder.encodeV(ac).liftErr(ServerError)): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
 
@@ -90,9 +88,7 @@ class Endpoints(
       (jwt, jwtPayload, reqBody) = t3
 
       cmd <- either(
-        decoder
-          .decodeExerciseCommand(reqBody)
-          .leftMap(e => InvalidUserInput(e.shows))
+        decoder.decodeExerciseCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.ExerciseCommand[LfValue, domain.ContractLocator[LfValue]]]
 
       resolvedRef <- eitherT(
@@ -124,9 +120,7 @@ class Endpoints(
       _ = logger.debug(s"/v1/fetch reqBody: $reqBody")
 
       cl <- either(
-        decoder
-          .decodeContractLocator(reqBody)
-          .leftMap(e => InvalidUserInput(e.shows))
+        decoder.decodeContractLocator(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.ContractLocator[LfValue]]
 
       _ = logger.debug(s"/v1/fetch cl: $cl")
@@ -136,7 +130,7 @@ class Endpoints(
       ): ET[Option[domain.ActiveContract[LfValue]]]
 
       jsVal <- either(
-        ac.cata(x => lfAcToJsValue(x).leftMap(e => ServerError(e.shows)), \/-(JsNull))
+        ac.cata(x => lfAcToJsValue(x), \/-(JsNull))
       ): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
@@ -163,7 +157,7 @@ class Endpoints(
         case (jwt, jwtPayload, reqBody) =>
           SprayJson
             .decode[domain.GetActiveContractsRequest](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))
+            .liftErr(InvalidUserInput)
             .map { cmd =>
               val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
                 contractsService
@@ -193,9 +187,7 @@ class Endpoints(
       (jwt, _, reqBody) = t3
 
       cmd <- either(
-        SprayJson
-          .decode[NonEmptyList[domain.Party]](reqBody)
-          .leftMap(e => InvalidUserInput(e.shows))
+        SprayJson.decode[NonEmptyList[domain.Party]](reqBody).liftErr(InvalidUserInput)
       ): ET[NonEmptyList[domain.Party]]
 
       ps <- eitherT(
@@ -212,7 +204,7 @@ class Endpoints(
     } yield result
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
-    fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
+    fa.map(_.liftErr(ServerError)).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)
         -\/(ServerError(e.description))
@@ -227,7 +219,7 @@ class Endpoints(
 
   private def handleSourceFailure[E: Show, A]: Flow[E \/ A, ServerError \/ A, NotUsed] =
     Flow
-      .fromFunction((_: E \/ A).leftMap(e => ServerError(e.shows)))
+      .fromFunction((_: E \/ A).liftErr(ServerError))
       .recover {
         case NonFatal(e) =>
           logger.error("Source failed", e)
@@ -316,6 +308,7 @@ class Endpoints(
 }
 
 object Endpoints {
+  import util.ErrorOps._
   import json.JsonProtocol._
 
   private type ET[A] = EitherT[Future, Error, A]
@@ -325,14 +318,13 @@ object Endpoints {
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
 
   private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
-    ApiValueToLfValueConverter.apiValueToLfValue(a).leftMap(e => ServerError(e.shows))
+    ApiValueToLfValueConverter.apiValueToLfValue(a).liftErr(ServerError)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
-    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
-      ServerError(e.description))
+    \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)
 
   private def lfValueToApiValue(a: LfValue): Error \/ ApiValue =
-    JsValueToApiValueConverter.lfValueToApiValue(a).leftMap(e => ServerError(e.shows))
+    JsValueToApiValueConverter.lfValueToApiValue(a).liftErr(ServerError)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def lfAcToJsValue(a: domain.ActiveContract[LfValue]): Error \/ JsValue = {
@@ -348,8 +340,9 @@ object Endpoints {
     else domain.OkResponse(parties, Some(domain.UnknownParties(unknownParties)))
   }
 
-  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue =
-    SprayJson.encode(a).leftMap(e => ServerError(e.shows))
+  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
+    SprayJson.encode(a).liftErr(ServerError)
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def toJsValueWithBitraverse[F[_, _], A, B](fab: F[A, B])(
@@ -357,11 +350,6 @@ object Endpoints {
       ev2: JsonWriter[F[JsValue, JsValue]],
       ev3: JsonWriter[A],
       ev4: JsonWriter[B]): Error \/ JsValue =
-    for {
-      fjj <- fab.bitraverse(
-        a => toJsValue(a),
-        b => toJsValue(b)
-      ): Error \/ F[JsValue, JsValue]
-      jsVal <- toJsValue(fjj)
-    } yield jsVal
+    SprayJson.encode2(fab).liftErr(ServerError)
+
 }

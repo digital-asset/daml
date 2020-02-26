@@ -8,7 +8,6 @@ import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.bitraverse._
-import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
@@ -25,12 +24,14 @@ class DomainJsonDecoder(
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
     jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue) {
 
+  import com.digitalasset.http.util.ErrorOps._
+
   def decodeR[F[_]](a: String)(
       implicit ev1: JsonReader[F[JsObject]],
       ev2: Traverse[F],
       ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
     for {
-      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      b <- SprayJson.parse(a).liftErr(JsonError.apply)
       c <- SprayJson.mustBeJsObject(b)
       d <- decodeR(c)
     } yield d
@@ -40,7 +41,7 @@ class DomainJsonDecoder(
       ev2: Traverse[F],
       ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
     for {
-      b <- SprayJson.decode[F[JsObject]](a)(ev1).leftMap(e => JsonError(e.shows))
+      b <- SprayJson.decode[F[JsObject]](a)(ev1).liftErr(JsonError.apply)
       c <- decodeUnderlyingRecords(b)
     } yield c
 
@@ -58,7 +59,7 @@ class DomainJsonDecoder(
       ev2: Traverse[F],
       ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Value] =
     for {
-      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      b <- SprayJson.parse(a).liftErr(JsonError.apply)
       d <- decodeV(b)
     } yield d
 
@@ -67,7 +68,7 @@ class DomainJsonDecoder(
       ev2: Traverse[F],
       ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Value] =
     for {
-      b <- SprayJson.decode[F[JsValue]](a)(ev1).leftMap(e => JsonError(e.shows))
+      b <- SprayJson.decode[F[JsValue]](a)(ev1).liftErr(JsonError.apply)
       c <- decodeUnderlyingValues(b)
     } yield c
 
@@ -97,16 +98,14 @@ class DomainJsonDecoder(
         JsonError(s"DomainJsonDecoder_lookupLfType: ${cannotResolveTemplateId(templateId)}"))
       lfType <- H
         .lfType(fa, tId, resolveTemplateRecordType, resolveRecordType, resolveKey)
-        .leftMap(e => JsonError("DomainJsonDecoder_lookupLfType " + e.shows))
+        .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError.apply)
     } yield lfType
   }
 
   def decodeContractLocator(a: String)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
     : JsonError \/ domain.ContractLocator[domain.LfValue] =
     for {
-      b <- SprayJson
-        .parse(a)
-        .leftMap(e => JsonError("DomainJsonDecoder_decodeContractLocator " + e.shows))
+      b <- SprayJson.parse(a).liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError.apply)
       c <- decodeContractLocator(b)
     } yield c
 
@@ -114,7 +113,7 @@ class DomainJsonDecoder(
     : JsonError \/ domain.ContractLocator[domain.LfValue] =
     SprayJson
       .decode[domain.ContractLocator[JsValue]](a)
-      .leftMap(e => JsonError("DomainJsonDecoder_decodeContractLocator " + e.shows))
+      .liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError.apply)
       .flatMap(decodeContractLocatorUnderlyingValue)
 
   private def decodeContractLocatorUnderlyingValue(
@@ -130,9 +129,7 @@ class DomainJsonDecoder(
       implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
     : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
     for {
-      b <- SprayJson
-        .parse(a)
-        .leftMap(e => JsonError("DomainJsonDecoder_decodeExerciseCommand " + e.shows))
+      b <- SprayJson.parse(a).liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError.apply)
       c <- decodeExerciseCommand(b)
     } yield c
 
@@ -143,7 +140,7 @@ class DomainJsonDecoder(
     for {
       cmd0 <- SprayJson
         .decode[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]](a)
-        .leftMap(e => JsonError("DomainJsonDecoder_decodeExerciseCommand " + e.shows))
+        .liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError.apply)
 
       lfType <- lookupLfType[domain.ExerciseCommand[+?, domain.ContractLocator[_]]](cmd0)(
         domain.ExerciseCommand.hasTemplateId)

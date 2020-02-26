@@ -17,7 +17,7 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.{-\/, Liskov, NonEmptyList, Show, \/, \/-}
+import scalaz.{Liskov, NonEmptyList}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
@@ -29,13 +29,15 @@ import scalaz.syntax.traverse._
 import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, \/, \/-}
 import spray.json.{JsObject, JsString, JsTrue, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object WebSocketService {
+  import util.ErrorOps._
+
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
   private type StreamPredicate[+Positive] = (
@@ -46,11 +48,6 @@ object WebSocketService {
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
   private val liveMarker = JsObject("live" -> JsTrue)
-
-  private implicit final class `\\/ WSS extras`[L, R](private val self: L \/ R) extends AnyVal {
-    def liftErr[M](f: String => M)(implicit L: Show[L]): M \/ R =
-      self leftMap (e => f(e.shows))
-  }
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
@@ -239,6 +236,7 @@ class WebSocketService(
     extends LazyLogging {
 
   import WebSocketService._
+  import util.ErrorOps._
   import com.digitalasset.http.json.JsonProtocol._
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)

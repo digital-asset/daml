@@ -72,6 +72,25 @@ object SprayJson {
     \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.description))
   }
 
+  def encode1[F[_], A](fa: F[A])(
+      implicit ev1: JsonWriter[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: JsonWriter[A]): JsonWriterError \/ JsValue =
+    for {
+      fj <- fa.traverse(encode[A](_))
+      jsVal <- encode[F[JsValue]](fj)
+    } yield jsVal
+
+  def encode2[F[_, _], A, B](fab: F[A, B])(
+      implicit ev1: JsonWriter[F[JsValue, JsValue]],
+      ev2: Bitraverse[F],
+      ev3: JsonWriter[A],
+      ev4: JsonWriter[B]): JsonWriterError \/ JsValue =
+    for {
+      fjj <- fab.bitraverse(encode[A](_), encode[B](_))
+      jsVal <- encode[F[JsValue, JsValue]](fjj)
+    } yield jsVal
+
   def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
     case b: JsObject => \/-(b)
     case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
