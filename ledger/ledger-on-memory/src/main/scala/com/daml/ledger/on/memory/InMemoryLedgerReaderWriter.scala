@@ -9,7 +9,6 @@ import java.util.concurrent.Semaphore
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
@@ -34,33 +33,23 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] class LogEntry(val entryId: DamlLogEntryId, val payload: Array[Byte])
-
-private[memory] object LogEntry {
-  def apply(entryId: DamlLogEntryId, payload: Array[Byte]): LogEntry =
-    new LogEntry(entryId, payload)
-}
-
 private[memory] class InMemoryState(
-    val log: mutable.Buffer[LogEntry] = ArrayBuffer[LogEntry](),
+    val log: mutable.Buffer[LedgerEntry] = ArrayBuffer(),
     val state: mutable.Map[ByteString, Array[Byte]] = mutable.Map.empty,
 ) {
   val lockCurrentState = new Semaphore(1, true)
 
-  def withLock[A](action: => A): A = {
+  def withLock[A](action: => A): A =
     try {
       lockCurrentState.acquire()
       action
     } finally {
       lockCurrentState.release()
     }
-  }
 
-  def readLogEntry(index: Int): LogEntry = {
+  def readLogEntry(index: Int): LedgerEntry =
     withLock(log(index))
-  }
 }
-
 // Dispatcher and InMemoryState are passed in to allow for a multi-participant setup.
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
@@ -101,10 +90,8 @@ final class InMemoryLedgerReaderWriter(
       )
       .mapConcat { case (_, updates) => updates }
 
-  private def retrieveLogEntry(index: Int): LedgerEntry = {
-    val logEntry = inMemoryState.readLogEntry(index)
-    LedgerEntry.LedgerRecord(Offset(Array(index.toLong)), logEntry.entryId, logEntry.payload)
-  }
+  private def retrieveLogEntry(index: Int): LedgerEntry =
+    inMemoryState.readLogEntry(index)
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
@@ -126,9 +113,10 @@ class InMemoryLedgerStateAccess(currentState: InMemoryState)(
 
     override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.successful {
-        val damlLogEntryId = KeyValueCommitting.unpackDamlLogEntryId(key)
-        val logEntry = LogEntry(damlLogEntryId, value)
-        currentState.log += logEntry
+        val offset = Offset(Array(currentState.log.size.toLong))
+        val entryId = KeyValueCommitting.unpackDamlLogEntryId(key)
+        val entry = LedgerEntry.LedgerRecord(offset, entryId, value)
+        currentState.log += entry
         currentState.log.size
       }
   }
