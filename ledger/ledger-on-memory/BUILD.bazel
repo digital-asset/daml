@@ -106,6 +106,7 @@ conformance_test(
         "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=CommandDeduplicationIT",
@@ -124,6 +125,7 @@ conformance_test(
         "--participant participant-id=example2,port=6866",
     ],
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=CommandDeduplicationIT",
@@ -138,6 +140,7 @@ conformance_test(
         "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
+        "--verbose",
         "--include=ConfigManagementServiceIT",
     ],
 )

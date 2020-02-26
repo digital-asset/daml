@@ -224,6 +224,7 @@ da_scala_test_suite(
             server_args = ["--participant participant-id=conformance-test,port=6865"] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--verbose",
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
                 "--exclude=CommandDeduplicationIT",
@@ -236,6 +237,7 @@ da_scala_test_suite(
             server_args = ["--participant participant-id=conformance-test,port=6865"] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
             test_tool_args = db.get("conformance_test_tool_args", []) + [
+                "--verbose",
                 "--include=ConfigManagementServiceIT",
             ],
         ),

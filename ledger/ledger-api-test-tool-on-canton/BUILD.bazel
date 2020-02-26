@@ -66,6 +66,7 @@ conformance_test(
     runner = "@//bazel_tools/client_server/runner:runner",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
+        "--verbose",
         "--include=SemanticTests",
     ],
 ) if not is_windows else None
