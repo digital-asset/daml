@@ -57,11 +57,11 @@ The last thing we'll point out about the DAML model for now is the operation to 
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new instance with the new friend added to the list.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list.
 
 There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
 
-    - The choice is ``nonconsuming`` as we ``archive`` the contract explicitly.
+    - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
     - The return type is ``ContractId User``, a reference to the new contract for the calling code.
     - The new ``friend: Party`` is passed as an argument to the choice.
     - The ``controller``, the party able to execute the choice, is the party named on the ``User`` contract.
