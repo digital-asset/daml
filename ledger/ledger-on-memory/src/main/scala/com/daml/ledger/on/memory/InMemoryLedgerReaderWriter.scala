@@ -3,11 +3,13 @@
 
 package com.daml.ledger.on.memory
 
+import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.Semaphore
 
 import akka.NotUsed
-import akka.stream.scaladsl.Source
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
@@ -54,9 +56,9 @@ private[memory] class InMemoryState(
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
-    dispatcher: Dispatcher[Index],
     timeProvider: TimeProvider,
-    inMemoryState: InMemoryState,
+    dispatcher: Dispatcher[Index],
+    state: InMemoryState,
 )(
     implicit executionContext: ExecutionContext,
     logCtx: LoggingContext,
@@ -67,7 +69,7 @@ final class InMemoryLedgerReaderWriter(
     participantId,
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(new InMemoryLedgerStateAccess(inMemoryState), () => sequentialLogEntryId.next()),
+      .create(new InMemoryLedgerStateAccess(state), () => sequentialLogEntryId.next()),
     dispatcher.signalNewHead,
   )
 
@@ -91,7 +93,7 @@ final class InMemoryLedgerReaderWriter(
       .mapConcat { case (_, updates) => updates }
 
   private def retrieveLogEntry(index: Int): LedgerEntry =
-    inMemoryState.readLogEntry(index)
+    state.readLogEntry(index)
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
@@ -155,27 +157,43 @@ object InMemoryLedgerReaderWriter {
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
+        ResourceOwner.successful(Source.empty),
   )(
-      implicit executionContext: ExecutionContext,
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
       logCtx: LoggingContext,
-  ): ResourceOwner[InMemoryLedgerReaderWriter] =
+  ): ResourceOwner[InMemoryLedgerReaderWriter] = {
+    val state = new InMemoryState
     for {
       dispatcher <- dispatcher
+      heartbeats <- heartbeatMechanism
+      _ = heartbeats.runWith(Sink.foreach(timestamp =>
+        state.withLock {
+          val offset = Offset(Array(state.log.size.toLong))
+          val entry = LedgerEntry.Heartbeat(offset, timestamp)
+          state.log += entry
+          val head = state.log.size
+          dispatcher.signalNewHead(head)
+      }))
       readerWriter <- owner(
         initialLedgerId,
         participantId,
-        dispatcher = dispatcher,
-        inMemoryState = new InMemoryState)
+        timeProvider,
+        dispatcher,
+        state,
+      )
     } yield readerWriter
+  }
 
-  // passing the Dispatcher and InMemoryState from the outside allows us to share
+  // passing the `dispatcher` and `inMemoryState` from the outside allows us to share
   // the backing data for the LedgerReaderWriter and therefore setup multiple participants
   def owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
       dispatcher: Dispatcher[Index],
-      inMemoryState: InMemoryState
+      state: InMemoryState,
   )(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
@@ -186,8 +204,9 @@ object InMemoryLedgerReaderWriter {
       new InMemoryLedgerReaderWriter(
         ledgerId,
         participantId,
-        dispatcher,
         timeProvider,
-        inMemoryState))
+        dispatcher,
+        state,
+      ))
   }
 }

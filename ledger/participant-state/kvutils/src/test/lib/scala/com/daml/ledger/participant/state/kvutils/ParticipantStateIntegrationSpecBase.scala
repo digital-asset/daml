@@ -42,7 +42,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
-  private var testId: String = _
+  protected var testId: String = _
 
   private var rt: Timestamp = _
 
@@ -58,10 +58,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       testId: String,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
-  private def participantState: ResourceOwner[ParticipantState] =
+  protected def participantState: ResourceOwner[ParticipantState] =
     newParticipantState(newLedgerId())
 
-  private def newParticipantState(): ResourceOwner[ParticipantState] =
+  protected def newParticipantState(): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
       participantStateFactory(None, participantId, testId)
     }
@@ -700,11 +700,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val IdleTimeout = 5.seconds
+  val IdleTimeout: FiniteDuration = 5.seconds
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
+  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
@@ -713,10 +713,10 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  private def newLedgerId(): LedgerId =
+  def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  private def newSubmissionId(): SubmissionId =
+  def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
