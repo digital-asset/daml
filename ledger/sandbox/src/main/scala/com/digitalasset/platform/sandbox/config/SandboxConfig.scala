@@ -38,11 +38,11 @@ final case class SandboxConfig(
 )
 
 object SandboxConfig {
-  val DefaultPort = 6865
+  val DefaultPort: Int = 6865
 
-  val DefaultMaxInboundMessageSize = 4194304
+  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  lazy val default =
+  lazy val default: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
