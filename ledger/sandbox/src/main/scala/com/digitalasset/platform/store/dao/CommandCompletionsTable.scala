@@ -61,8 +61,10 @@ object CommandCompletionsTable {
           from participant_command_completions
           where
             completion_offset between $startInclusive and $endExclusive and
-            application_id = ${applicationId: String} and
-            submitting_party in (${parties.asInstanceOf[Set[String]]})"""
+            (application_id is null or application_id = ${applicationId: String}) and
+            (submitting_party is null or submitting_party in (${parties
+      .asInstanceOf[Set[String]]}))
+          order by completion_offset asc"""
 
   // The insert will be prepared only if this entry contains all the information
   // necessary to be rendered as part of the completion service
