@@ -27,13 +27,13 @@ jobs:
       - bash: |
           set -euo pipefail
           if [ "$(Build.Reason)" == "PullRequest" ]; then
-              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse 'HEAD^2')"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse 'HEAD^1')"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base --fork-point 'HEAD^1' 'HEAD^2')"
+              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
           else
               echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
           fi
         name: out
 
@@ -248,7 +248,7 @@ jobs:
 
           is_release_commit() {
               changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
-              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst")
+              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
