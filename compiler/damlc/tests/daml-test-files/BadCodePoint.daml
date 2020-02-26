@@ -4,7 +4,7 @@
 -- Check that invalid code points cause failure.
 -- @ERROR invalid code point
 -- @SINCE-LF 1.6
-daml 1.2
+
 module BadCodePoint where
 
 import DA.Text qualified as T

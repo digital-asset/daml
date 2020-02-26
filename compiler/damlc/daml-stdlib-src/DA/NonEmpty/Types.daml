@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
 
 -- | This module contains the type for non-empty lists so we can give it a stable package id.
 -- This is reexported from DA.NonEmpty so you should never need to import this module.

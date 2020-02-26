@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Check all the modules in stdlib compile without warnings
-daml 1.2
+
 module Stdlib where
 
 import DA.Action()

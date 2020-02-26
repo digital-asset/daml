@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Test that we fail for overflowing integer literals at runtime.
-daml 1.2
+
 module IntBoundsDynamic where
 
 maxInt : Int

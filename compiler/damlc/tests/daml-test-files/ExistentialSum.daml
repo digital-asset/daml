@@ -6,7 +6,7 @@
 -- @ ERROR range=17:1-17:7; Pattern match with existential type.
 -- @ TODO Existential quantification
 
-daml 1.2
+
 module ExistentialSum where
 
 data Foo

@@ -8,7 +8,7 @@
 -- @ QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SerializableReferenced"]) | .serializable
 -- @ QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["SerializableImported"]) | .serializable
 
-daml 1.2
+
 module SerializableAnnotation where
 
 import SerializableAnnotation.Imported qualified as I

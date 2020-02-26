@@ -1,4 +1,4 @@
-daml 1.2
+
 module LetKeys where
 
 template Foo with

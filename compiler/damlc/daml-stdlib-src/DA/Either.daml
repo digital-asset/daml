@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
 -- | The `Either` type represents values with two possibilities.
 --
 -- It is sometimes used to represent a value which is either correct

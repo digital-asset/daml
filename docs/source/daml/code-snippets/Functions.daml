@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The Functions example.
-daml 1.2
+
 module Functions where
 
 import DA.Text

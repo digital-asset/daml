@@ -8,7 +8,6 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE NoImplicitPrelude, DeriveGeneric #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the Tuple types are not exported
-daml 1.2
 -- | HIDE
 
 --------------------------------------------------------------------------------

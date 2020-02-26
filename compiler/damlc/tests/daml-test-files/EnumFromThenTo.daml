@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR enumFromThenTo: from == then
-daml 1.2
+
 module EnumFromThenTo where
 
 main : Scenario [Int]

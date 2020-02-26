@@ -3,7 +3,7 @@
 
 -- @ ERROR Hello World!
 
-daml 1.2
+
 module HelloWorld where
 
 main = scenario do

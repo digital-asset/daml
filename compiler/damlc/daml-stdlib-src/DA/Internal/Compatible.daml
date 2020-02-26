@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PatternSynonyms #-}
 
-daml 1.2
 -- | Our Prelude, extending WiredIn with things that don't need special treatment.
 
 module DA.Internal.Compatible where

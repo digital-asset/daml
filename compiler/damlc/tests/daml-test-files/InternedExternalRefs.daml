@@ -7,7 +7,7 @@
 
 -- We test that interning of package ids works. The two packages we reference are
 -- daml-prim and daml-stdlib.
-daml 1.2
+
 module InternedExternalRefs where
 
 reverseCopy = reverse  -- this is a reference to daml-stdlib

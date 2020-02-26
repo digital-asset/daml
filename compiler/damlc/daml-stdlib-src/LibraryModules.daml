@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
-daml 1.2
 
 module LibraryModules where
 

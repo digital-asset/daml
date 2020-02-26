@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- start snippet: product types example
-daml 1.2
+
 module Com.Acme where
 
 data Person = Person with name : Name; age : Decimal

@@ -5,7 +5,7 @@
 
 {-# LANGUAGE ExistentialQuantification #-}
 
-daml 1.2
+
 module ConstraintBad where
 
 data Foo a = Show a => Foo a

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Check that shadowing of type variables works.
-daml 1.2
+
 module TypeVarShadowing where
 
 -- This is basically the problem reported in #1915.

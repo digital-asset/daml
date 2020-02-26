@@ -3,7 +3,7 @@
 
 -- @ ERROR range=10:10-10:22; does not have the required strict field(s): baz
 
-daml 1.2 module MissingFields where
+module MissingFields where
 
 data Foo = Foo {bar : Int, baz : Int}
 

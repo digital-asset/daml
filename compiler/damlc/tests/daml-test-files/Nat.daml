@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ TODO Recursive data types
-daml 1.2
+
 module Nat where
 
 data Nat = Z | S Nat

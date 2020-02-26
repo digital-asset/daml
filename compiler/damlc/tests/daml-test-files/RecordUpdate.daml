@@ -4,7 +4,7 @@
 -- @INFO Evaluate
 -- @INFO Use const
 
-daml 1.2
+
 
 module RecordUpdate where
 

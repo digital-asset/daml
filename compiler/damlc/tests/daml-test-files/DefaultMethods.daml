@@ -6,7 +6,7 @@
 
 -- @INFO Use identity
 
-daml 1.2
+
 module DefaultMethods where
 
 -- Default implementation for method without arguments.

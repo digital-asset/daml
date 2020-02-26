@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The PatternMatching example.
-daml 1.2
+
 module PatternMatching where
 
 optionalIntegerToText (x : Optional Int) : Text =

@@ -7,7 +7,7 @@
 -- @SINCE-LF 1.7
 -- @ERROR No instance for (NumericScale 38)
 
-daml 1.2
+
 
 module NumericLitMonoScaleOOB where
 

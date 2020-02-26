@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The TubeSurfaceArea example.
-daml 1.2
+
 module TubeSurfaceArea2 where
 
 -- Type synonym for Decimal -> Decimal -> Decimal

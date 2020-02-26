@@ -3,7 +3,6 @@
 
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-daml 1.2
 -- | HIDE
 
 -- An internal module based on ghc's base.GHC.CString. It is used for string

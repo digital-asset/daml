@@ -307,7 +307,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         assertGrpcError(
           failure,
           Status.Code.INVALID_ARGUMENT,
-          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:20], partial transaction: root node",
+          "Command interpretation error in LF-DAMLe: Interpretation error: Error: User abort: Assertion failed. Details: Last location: [DA.Internal.Assert:19], partial transaction: root node",
         )
       }
   }

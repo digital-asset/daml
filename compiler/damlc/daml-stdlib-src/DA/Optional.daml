@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
 
 -- | The `Optional` type encapsulates an optional value. A value of type
 -- `Optional a` either contains a value of type `a` (represented as `Some a`),

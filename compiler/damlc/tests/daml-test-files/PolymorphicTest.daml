@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR Aborted: boom
-daml 1.2
+
 module PolymorphicTest where
 
 main : Scenario a

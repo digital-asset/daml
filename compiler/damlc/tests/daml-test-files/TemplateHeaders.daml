@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Test parsing for "template headers", i.e. the types between `template` and `with`.
-daml 1.2
+
 module TemplateHeaders where
 
 template A with

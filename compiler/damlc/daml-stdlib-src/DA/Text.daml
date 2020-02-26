@@ -3,7 +3,6 @@
 
 {-# LANGUAGE CPP #-}
 
-daml 1.2
 -- | Functions for working with Text.
 module DA.Text
   ( Text

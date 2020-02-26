@@ -3,7 +3,7 @@
 
 -- The first line of a DAML file is a pragma telling the compiler the language
 -- version to use.
-daml 1.2
+
 -- A DAML file defines a module. The second line of a DAML file gives the
 -- module a name.
 module Token where

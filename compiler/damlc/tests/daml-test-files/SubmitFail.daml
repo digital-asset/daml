@@ -3,7 +3,7 @@
 
 -- Check that the submitted update is only evaluated when the scenario
 -- is evaluated.
-daml 1.2
+
 module SubmitFail where
 
 main = scenario do

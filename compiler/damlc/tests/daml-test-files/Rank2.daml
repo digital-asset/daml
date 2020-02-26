@@ -4,7 +4,7 @@
 {-# LANGUAGE Rank2Types #-}
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 
-daml 1.2
+
 module Rank2 where
 
 applyBoth : (forall c . [c] -> [c]) -> ([a], [b]) -> ([a], [b])

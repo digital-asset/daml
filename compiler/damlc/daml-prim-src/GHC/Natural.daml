@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
-daml 1.2
 -- | HIDE
 module GHC.Natural where
 

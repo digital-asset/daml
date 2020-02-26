@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR Aborted: BOOM
-daml 1.2
+
 module UnusedLet where
 
 main = scenario do

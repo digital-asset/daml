@@ -4,7 +4,7 @@
 -- Test that rational positive literals fail when bigger than 10^38 -1 after multiplying with 10^10.
 -- @ERROR Rational is out of bounds
 
-daml 1.2
+
 
 module RationalUpperBoundError where
 

@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
-daml 1.2
 -- | MOVE Prelude DAML-LF types and primitives, apart from templates/contracts.
 module DA.Internal.Date where
 

@@ -7,7 +7,7 @@
 -- + DEL-5958 ApplicativeDo pieces
 {-# LANGUAGE ApplicativeDo #-}
 
-daml 1.2
+
 module QualifiedPrelude where
 
 import Prelude qualified as P

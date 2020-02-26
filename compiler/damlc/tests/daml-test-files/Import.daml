@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ ERROR range=13:5-13:10; Couldn't match expected type ‘Good.T’
-daml 1.2
+
 module Import where
 
 import Good qualified

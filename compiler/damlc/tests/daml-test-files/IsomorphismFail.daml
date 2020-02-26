@@ -3,7 +3,7 @@
 
 -- @ERROR No instance for (Generic Int repX0) arising from a use of ‘iso’
 
-daml 1.2
+
 
 module IsomorphismFail where
 

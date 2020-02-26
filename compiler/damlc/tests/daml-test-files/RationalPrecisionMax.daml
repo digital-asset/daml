@@ -3,7 +3,7 @@
 
 -- Test that the maximal precision of e^-10 in rational literals passes.
 
-daml 1.2
+
 
 module RationalPrecisionMax where
 
