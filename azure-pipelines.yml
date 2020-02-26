@@ -236,7 +236,7 @@ jobs:
           fi
         name: out
 
-  - job: windows_installer
+  - job: release_windows_installer
     dependsOn: [ "check_for_release", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
@@ -294,7 +294,7 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: linux_tarball
+  - job: release_linux_tarball
     dependsOn: [ "check_for_release", "Linux" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
@@ -349,7 +349,7 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: macos_tarball
+  - job: release_macos_tarball
     dependsOn: [ "check_for_release", "macOS" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
@@ -387,17 +387,17 @@ jobs:
       - template: ci/report-end.yml
 
   - job: release
-    dependsOn: [ "check_for_release", "linux_tarball", "macos_tarball", "windows_installer" ]
+    dependsOn: [ "check_for_release", "release_linux_tarball", "release_macos_tarball", "release_windows_installer" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
-      linux-tarball: $[ dependencies.linux_tarball.outputs['publish.tarball'] ]
-      macos-tarball: $[ dependencies.macos_tarball.outputs['publish.tarball'] ]
-      windows-tarball: $[ dependencies.windows_installer.outputs['publish.tarball'] ]
-      windows-installer: $[ dependencies.windows_installer.outputs['publish.installer'] ]
+      linux-tarball: $[ dependencies.release_linux_tarball.outputs['publish.tarball'] ]
+      macos-tarball: $[ dependencies.release_macos_tarball.outputs['publish.tarball'] ]
+      windows-tarball: $[ dependencies.release_windows_installer.outputs['publish.tarball'] ]
+      windows-installer: $[ dependencies.release_windows_installer.outputs['publish.installer'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
@@ -509,9 +509,9 @@ jobs:
       - macOS
       - Windows
       - check_for_release
-      - linux_tarball
-      - macos_tarball
-      - windows_installer
+      - release_linux_tarball
+      - release_macos_tarball
+      - release_windows_installer
       - perf
       - release
       - check_standard_change_label
@@ -536,18 +536,18 @@ jobs:
       check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
       check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
       check_for_release.status: $[ dependencies.check_for_release.result ]
-      linux_tarball.start: $[ dependencies.linux_tarball.outputs['start.time'] ]
-      linux_tarball.machine: $[ dependencies.linux_tarball.outputs['start.machine'] ]
-      linux_tarball.end: $[ dependencies.linux_tarball.outputs['end.time'] ]
-      linux_tarball.status: $[ dependencies.linux_tarball.result ]
-      macos_tarball.start: $[ dependencies.macos_tarball.outputs['start.time'] ]
-      macos_tarball.machine: $[ dependencies.macos_tarball.outputs['start.machine'] ]
-      macos_tarball.end: $[ dependencies.macos_tarball.outputs['end.time'] ]
-      macos_tarball.status: $[ dependencies.macos_tarball.result ]
-      windows_installer.start: $[ dependencies.windows_installer.outputs['start.time'] ]
-      windows_installer.machine: $[ dependencies.windows_installer.outputs['start.machine'] ]
-      windows_installer.end: $[ dependencies.windows_installer.outputs['end.time'] ]
-      windows_installer.status: $[ dependencies.windows_installer.result ]
+      release_linux_tarball.start: $[ dependencies.release_linux_tarball.outputs['start.time'] ]
+      release_linux_tarball.machine: $[ dependencies.release_linux_tarball.outputs['start.machine'] ]
+      release_linux_tarball.end: $[ dependencies.release_linux_tarball.outputs['end.time'] ]
+      release_linux_tarball.status: $[ dependencies.release_linux_tarball.result ]
+      release_macos_tarball.start: $[ dependencies.release_macos_tarball.outputs['start.time'] ]
+      release_macos_tarball.machine: $[ dependencies.release_macos_tarball.outputs['start.machine'] ]
+      release_macos_tarball.end: $[ dependencies.release_macos_tarball.outputs['end.time'] ]
+      release_macos_tarball.status: $[ dependencies.release_macos_tarball.result ]
+      release_windows_installer.start: $[ dependencies.release_windows_installer.outputs['start.time'] ]
+      release_windows_installer.machine: $[ dependencies.release_windows_installer.outputs['start.machine'] ]
+      release_windows_installer.end: $[ dependencies.release_windows_installer.outputs['end.time'] ]
+      release_windows_installer.status: $[ dependencies.release_windows_installer.result ]
       perf.start: $[ dependencies.perf.outputs['start.time'] ]
       perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
       perf.end: $[ dependencies.perf.outputs['end.time'] ]
@@ -642,14 +642,14 @@ jobs:
                                       "machine": "$(linux_tarball.machine)",
                                       "end": "$(linux_tarball.end)",
                                       "status": "$(linux_tarball.status)"},
-                    "macos_tarball": {"start": "$(macos_tarball.start)",
-                                      "machine": "$(macos_tarball.machine)",
-                                      "end": "$(macos_tarball.end)",
-                                      "status": "$(macos_tarball.status)"},
-                    "windows_installer": {"start": "$(windows_installer.start)",
-                                          "machine": "$(windows_installer.machine)",
-                                          "end": "$(windows_installer.end)",
-                                          "status": "$(windows_installer.status)"},
+                    "release_macos_tarball": {"start": "$(release_macos_tarball.start)",
+                                      "machine": "$(release_macos_tarball.machine)",
+                                      "end": "$(release_macos_tarball.end)",
+                                      "status": "$(release_macos_tarball.status)"},
+                    "release_windows_installer": {"start": "$(release_windows_installer.start)",
+                                          "machine": "$(release_windows_installer.machine)",
+                                          "end": "$(release_windows_installer.end)",
+                                          "status": "$(release_windows_installer.status)"},
                     "perf": {"start": "$(perf.start)",
                              "machine": "$(perf.machine)",
                              "end": "$(perf.end)",
@@ -716,8 +716,8 @@ jobs:
               || "$(perf.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
               || "$(linux_tarball.status)" == "Canceled"
-              || "$(macos_tarball.status)" == "Canceled"
-              || "$(windows_installer.status)" == "Canceled"
+              || "$(release_macos_tarball.status)" == "Canceled"
+              || "$(release_windows_installer.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi
