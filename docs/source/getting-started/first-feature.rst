@@ -5,16 +5,20 @@ Your First Feature
 ******************
 
 Let's dive into implementing a new feature for our social network app.
-From that we'll get a better idea of how to build DAML applications using our template.
+This will give us a better idea how to develop DAML applications using our template.
 
-Right now our app allows us to add friends to our network, but we can't communicate with them!
-Let's fix that by adding a private messaging feature.
-This should allow a user to send messages to a chosen friend, and see all messages that have been sent to them.
-Of course we must make sure that no one can see messages that were not sent to them.
-We will see that DAML lets us implement this in a direct and intuitive way.
+At the moment, our app lets us add friends to our network, but we have no way to communicate with them!
+Let's fix that by adding a *private messaging* feature.
+This should let a user send messages to any chosen friend, and see all messages that have been sent to them.
 
-There are two parts to building the messaging feature: the DAML code and the UI.
-Let's start with adding to the DAML code, on which we will base our UI changes.
+This feature should also respect *authorization* and *privacy*.
+This means:
+    1. You cannot send a message to someone unless they have added you as a friend.
+    2. You cannot see a message unless it was sent specifically to you.
+We will see that DAML lets us implement these guarantees in a direct and intuitive way.
+
+There are two parts to building the messaging feature: the DAML model and the UI.
+As usual, we must start with the DAML model and base our UI changes on top of that.
 
 DAML Changes
 ============
