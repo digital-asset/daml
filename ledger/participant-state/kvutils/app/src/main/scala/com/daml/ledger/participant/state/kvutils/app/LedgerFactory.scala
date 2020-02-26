@@ -48,7 +48,7 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
       port = participantConfig.port,
       address = participantConfig.address,
       jdbcUrl = participantConfig.serverJdbcUrl,
-      tlsConfig = None,
+      tlsConfig = config.tlsConfig,
       maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
       portFile = participantConfig.portFile,
     )
