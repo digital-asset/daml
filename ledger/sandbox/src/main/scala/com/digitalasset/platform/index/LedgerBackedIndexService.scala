@@ -41,6 +41,12 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
+}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -111,21 +117,27 @@ abstract class LedgerBackedIndexService(
   override def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
-      filter: domain.TransactionFilter): Source[domain.TransactionTree, NotUsed] =
+      filter: domain.TransactionFilter): Source[GetTransactionTreesResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainTree(offset, transaction, filter).toList
+          TransactionConversion
+            .ledgerEntryToTransaction(offset, transaction, filter)
+            .map(tx => GetTransactionTreesResponse(Seq(tx)))
+            .toList
       }
 
   override def transactions(
       begin: domain.LedgerOffset,
       endAt: Option[domain.LedgerOffset],
-      filter: domain.TransactionFilter): Source[domain.Transaction, NotUsed] =
+      filter: domain.TransactionFilter): Source[GetTransactionsResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainFlat(offset, transaction, filter).toList
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(offset, transaction, filter)
+            .map(tx => GetTransactionsResponse(Seq(tx)))
+            .toList
       }
 
   private class OffsetConverter {
@@ -196,31 +208,35 @@ abstract class LedgerBackedIndexService(
 
   override def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[domain.Transaction]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[GetFlatTransactionResponse]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
     getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainFlat(
-            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
-            transaction,
-            filter)
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(
+              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+              transaction,
+              filter)
+            .map(tx => GetFlatTransactionResponse(Option(tx)))
       })(DEC)
   }
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[domain.TransactionTree]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[GetTransactionResponse]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
     getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainTree(
-            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
-            transaction,
-            filter)
+          TransactionConversion
+            .ledgerEntryToTransaction(
+              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+              transaction,
+              filter)
+            .map(tx => GetTransactionResponse(Option(tx)))
       })(DEC)
   }
 

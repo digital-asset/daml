@@ -59,7 +59,6 @@ compile_deps = [
     "@maven//:io_netty_netty_common",
     "@maven//:io_netty_netty_handler",
     "@maven//:io_netty_netty_transport",
-    "@maven//:io_zipkin_brave_brave",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",

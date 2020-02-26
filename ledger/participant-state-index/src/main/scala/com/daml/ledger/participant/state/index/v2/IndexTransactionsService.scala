@@ -6,8 +6,13 @@ package com.daml.ledger.participant.state.index.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter, TransactionId}
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
+}
 
 import scala.concurrent.Future
 
@@ -20,21 +25,21 @@ trait IndexTransactionsService extends LedgerEndService {
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
       filter: TransactionFilter
-  ): Source[domain.Transaction, NotUsed]
+  ): Source[GetTransactionsResponse, NotUsed]
 
   def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
       filter: TransactionFilter
-  ): Source[domain.TransactionTree, NotUsed]
+  ): Source[GetTransactionTreesResponse, NotUsed]
 
   def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party]
-  ): Future[Option[domain.Transaction]]
+  ): Future[Option[GetFlatTransactionResponse]]
 
   def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Ref.Party]
-  ): Future[Option[domain.TransactionTree]]
+  ): Future[Option[GetTransactionResponse]]
 }

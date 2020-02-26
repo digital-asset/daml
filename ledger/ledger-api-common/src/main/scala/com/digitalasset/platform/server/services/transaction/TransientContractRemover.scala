@@ -3,8 +3,9 @@
 
 package com.digitalasset.platform.server.services.transaction
 
-import com.digitalasset.ledger.api.domain.ContractId
-import com.digitalasset.ledger.api.domain.Event.{ArchivedEvent, CreateOrArchiveEvent, CreatedEvent}
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.digitalasset.platform.api.v1.event.EventOps.EventOps
 
 import scala.collection.{breakOut, mutable}
 
@@ -17,10 +18,10 @@ object TransientContractRemover {
     * @param nodes Must be sorted by event index.
     * @throws IllegalArgumentException if the argument is not sorted properly.
     */
-  def removeTransients(nodes: List[CreateOrArchiveEvent]): List[CreateOrArchiveEvent] = {
+  def removeTransients(nodes: List[Event]): List[Event] = {
 
-    val resultBuilder = new Array[Option[CreateOrArchiveEvent]](nodes.size)
-    val creationByContractId = new mutable.HashMap[ContractId, (Int, CreatedEvent)]()
+    val resultBuilder = new Array[Option[Event]](nodes.size)
+    val creationByContractId = new mutable.HashMap[String, (Int, Event)]()
 
     nodes.zipWithIndex.foreach {
       case (event, indexInList) =>
@@ -28,7 +29,9 @@ object TransientContractRemover {
         updateResultBuilder(resultBuilder, creationByContractId, event, indexInList)
     }
 
-    resultBuilder.collect { case Some(v) if v.witnessParties.nonEmpty => v }(breakOut)
+    resultBuilder.collect {
+      case Some(v) if v.witnessParties.nonEmpty => v
+    }(breakOut)
   }
 
   /**
@@ -36,18 +39,19 @@ object TransientContractRemover {
     * This will insert a new element and possibly update a previous one.
     */
   private def updateResultBuilder(
-      resultBuilder: Array[Option[CreateOrArchiveEvent]],
-      creationByContractId: mutable.HashMap[ContractId, (Int, CreatedEvent)],
-      event: CreateOrArchiveEvent,
+      resultBuilder: Array[Option[Event]],
+      creationByContractId: mutable.HashMap[String, (Int, Event)],
+      event: Event,
       indexInList: Int
   ): Unit =
     event match {
-      case createdEvent @ CreatedEvent(_, contractId, _, _, witnessParties, _, _, _, _) =>
+      case createdEvent @ Event(
+            Created(CreatedEvent(_, contractId, _, _, witnessParties, _, _, _, _))) =>
         if (witnessParties.nonEmpty) {
           resultBuilder.update(indexInList, Some(event))
           val _ = creationByContractId.put(contractId, indexInList -> createdEvent)
         }
-      case archivedEvent @ ArchivedEvent(_, contractId, _, witnessParties) =>
+      case archivedEvent @ Event(Archived(ArchivedEvent(_, contractId, _, witnessParties))) =>
         if (witnessParties.nonEmpty) {
           creationByContractId
             .get(contractId)
@@ -57,7 +61,7 @@ object TransientContractRemover {
             } {
               case (createdEventIndex, createdEvent) =>
                 // Defensive code to ensure that the set of parties the events are disclosed to are not different.
-                if (witnessParties.toSet != createdEvent.witnessParties)
+                if (witnessParties != createdEvent.witnessParties)
                   throw new IllegalArgumentException(
                     s"Created and Archived event stakeholders are different in $createdEvent, $archivedEvent")
 
@@ -65,6 +69,8 @@ object TransientContractRemover {
                 resultBuilder.update(indexInList, None)
             }
         }
+      case Event(Empty) =>
+        throw new IllegalArgumentException("Empty event")
     }
 
 }
