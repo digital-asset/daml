@@ -50,7 +50,6 @@ import scala.util.Try
   * Runs Sandbox with a KV SQL ledger backend.
   *
   * Known issues:
-  *   - does not support authorization
   *   - does not support implicit party allocation
   *   - does not support scenarios
   *   - does not emit heartbeats
@@ -103,9 +102,10 @@ class Runner {
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+        authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, indexJdbcUrl, ledger, timeServiceBackend)
+        _ <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
@@ -117,8 +117,7 @@ class Runner {
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
-          // TODO: Use the correct authorization service.
-          AuthServiceWildcard.getClass.getSimpleName,
+          authService.getClass.getSimpleName,
         )
       }
     }
@@ -139,17 +138,22 @@ class Runner {
       config: SandboxConfig,
       indexJdbcUrl: String,
       ledger: KeyValueParticipantState,
+      authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     for {
-      _ <- startIndexerServer(config, indexJdbcUrl, readService = ledger)
+      _ <- startIndexerServer(
+        config = config,
+        indexJdbcUrl = indexJdbcUrl,
+        readService = ledger,
+      )
       _ <- startApiServer(
-        config,
-        indexJdbcUrl,
+        config = config,
+        indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
         writeService = ledger,
-        authService = AuthServiceWildcard,
-        timeServiceBackend,
+        authService = authService,
+        timeServiceBackend = timeServiceBackend,
       )
     } yield ()
 
@@ -159,14 +163,14 @@ class Runner {
       readService: ReadService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
-      readService,
-      IndexerConfig(
+      readService = readService,
+      config = IndexerConfig(
         ParticipantId,
         jdbcUrl = indexJdbcUrl,
         startupMode = IndexerStartupMode.MigrateAndStart,
         allowExistingSchema = true,
       ),
-      SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+      metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
     )
 
   private def startApiServer(
@@ -188,10 +192,10 @@ class Runner {
         DefaultMaxInboundMessageSize,
         config.portFile,
       ),
-      readService,
-      writeService,
-      authService,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+      readService = readService,
+      writeService = writeService,
+      authService = authService,
+      metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
     )
 }
