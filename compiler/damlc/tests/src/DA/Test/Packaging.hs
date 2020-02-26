@@ -1300,9 +1300,9 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "version: 0.1.0"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
-        writeFileUTF8 (tmpDir </> "type" </> "Main.daml") $ unlines
+        writeFileUTF8 (tmpDir </> "type" </> "Foo.daml") $ unlines
             [ "daml 1.2"
-            , "module Main where"
+            , "module Foo where"
             , "data A t = B t | C { x: t, y: t }"
             ]
         withCurrentDirectory (tmpDir </> "type") $
@@ -1322,6 +1322,11 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
         writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
             [ "daml 1.2"
             , "module Main where"
+            , "import Foo"
+            , "mkA : A Int"
+            , "mkA = C with"
+            , "  x = 10"
+            , "  y = 20"
             ]
         withCurrentDirectory (tmpDir </> "proj") $
             callProcessSilent damlc ["build"]
