@@ -105,15 +105,14 @@ class Runner {
         authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
+        port <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
           "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
           BuildInfo.Version,
           ledgerId,
-          // TODO: Deliver the API server port.
-          0.toString,
+          port.toString,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
@@ -140,14 +139,14 @@ class Runner {
       ledger: KeyValueParticipantState,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     for {
       _ <- startIndexerServer(
         config = config,
         indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
       )
-      _ <- startApiServer(
+      port <- startApiServer(
         config = config,
         indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
@@ -155,7 +154,7 @@ class Runner {
         authService = authService,
         timeServiceBackend = timeServiceBackend,
       )
-    } yield ()
+    } yield port
 
   private def startIndexerServer(
       config: SandboxConfig,
@@ -180,7 +179,7 @@ class Runner {
       writeService: WriteService,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     new StandaloneApiServer(
       ApiServerConfig(
         ParticipantId,

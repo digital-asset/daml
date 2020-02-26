@@ -45,17 +45,17 @@ final class StandaloneApiServer(
     engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackend: Option[TimeServiceBackend] = None,
 )(implicit logCtx: LoggingContext)
-    extends ResourceOwner[Unit] {
+    extends ResourceOwner[Int] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
-    buildAndStartApiServer().map { _ =>
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Int] = {
+    buildAndStartApiServer().map { server =>
       logger.info("Started Index Server")
-      ()
+      server.port
     }
   }
 

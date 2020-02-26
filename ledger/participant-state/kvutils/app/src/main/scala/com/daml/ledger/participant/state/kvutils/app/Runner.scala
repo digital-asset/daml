@@ -113,5 +113,5 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       authService,
       factory.apiServerMetricRegistry(participantConfig),
       timeServiceBackend = factory.timeServiceBackend(config),
-    )
+    ).map(_ => ())
 }
