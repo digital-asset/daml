@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-daml 1.2 module Choice_superfluous_with where
+module Choice_superfluous_with where
 
 template W with
     owner : Party

@@ -4,7 +4,7 @@
 -- The only purpose of this code is to use it as a simple,
 -- minimal test for the package management service.
 
-daml 1.2
+
 module PackageManagementTest where
 
 template PackageManagementTestTemplate

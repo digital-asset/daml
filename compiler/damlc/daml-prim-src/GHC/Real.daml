@@ -5,7 +5,6 @@
 {-# LANGUAGE CPP #-}
 
 -- GHC desugars Decimal literals to this type
-daml 1.2
 -- | HIDE
 module GHC.Real where
 

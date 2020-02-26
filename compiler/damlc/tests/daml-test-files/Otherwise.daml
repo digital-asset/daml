@@ -3,7 +3,7 @@
 
 {-# OPTIONS_GHC -Wincomplete-patterns #-}
 -- DEL-4670: This used to erroneously warn about non-exhaustive pattern matches.
-daml 1.2
+
 module Otherwise where
 
 warning : Bool -> [a] -> [a]

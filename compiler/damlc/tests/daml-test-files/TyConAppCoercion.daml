@@ -1,4 +1,4 @@
-daml 1.2
+
 module TyConAppCoercion () where
 
 class MyClass a where

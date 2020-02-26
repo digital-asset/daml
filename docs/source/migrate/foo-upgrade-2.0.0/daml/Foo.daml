@@ -3,7 +3,7 @@
 
 --------------------------------------------------------------------------------
 
-daml 1.2
+
 module Foo where
 import FooA qualified as A
 import FooB qualified as B

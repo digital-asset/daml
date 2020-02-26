@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE CPP #-}
-daml 1.2
 
 -- | MOVE Prelude
 --

@@ -6,7 +6,7 @@
    here at 10:0). -}
 
 {-# OPTIONS_GHC -funused-imports #-}
-daml 1.2
+
 module Warning_tab where
 
 a = x

@@ -7,7 +7,7 @@
 
 -- @SINCE-LF 1.5
 -- @QUERY-LF [.modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["$$fHasExerciseFooBar$u0028$u0029"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not] | (length > 0 and all)
-daml 1.2
+
 module ExerciseWithoutActors where
 
 template Foo with

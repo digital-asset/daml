@@ -6,7 +6,7 @@
 -- @QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Color"]) | has("enum")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["red"]) | .expr | has("enum_con")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["isRed"]) | .expr.abs.body.case.alts | .[0] | has("enum")
-daml 1.2
+
 module SingleConEnum where
 
 data Color = Red

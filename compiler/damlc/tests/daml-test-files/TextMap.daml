@@ -7,7 +7,7 @@
 -- @INFO Use /=
 -- @INFO Use /=
 
-daml 1.2
+
 module TextMap where
 
 import DA.TextMap as TM

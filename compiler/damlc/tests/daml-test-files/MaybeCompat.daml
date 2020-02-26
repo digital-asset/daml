@@ -6,7 +6,7 @@
 -- @WARN range=17:29-17:36; Nothing
 -- @WARN range=18:12-18:20; fromSome
 -- @WARN range=18:22-18:26; Just
-daml 1.2
+
 module MaybeCompat where
 import DA.Maybe
 import DA.Maybe.Total ()  -- we want to make sure there are not warnings in this module

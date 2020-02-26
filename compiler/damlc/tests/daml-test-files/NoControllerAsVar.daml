@@ -3,7 +3,7 @@
 
 -- @ ERROR parse error on input ‘controller’
 
-daml 1.2
+
 module NoControllerAsVar where
 
 newtype Void = Void Void

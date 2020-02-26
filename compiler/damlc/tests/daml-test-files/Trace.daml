@@ -3,7 +3,7 @@
 
 -- @INFO Use <$>
 
-daml 1.2
+
 module Trace where
 
 main = scenario do

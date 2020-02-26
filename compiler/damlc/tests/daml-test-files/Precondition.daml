@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR Template pre-condition violated
-daml 1.2
+
 module Precondition where
 
 import DA.List

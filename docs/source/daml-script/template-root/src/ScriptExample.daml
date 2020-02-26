@@ -3,7 +3,7 @@
 
 -- DAML_SCRIPT_HEADER_BEGIN
 {-# LANGUAGE ApplicativeDo #-}
-daml 1.2
+
 module ScriptExample where
 import Prelude hiding (submit, submitMustFail)
 import Daml.Script

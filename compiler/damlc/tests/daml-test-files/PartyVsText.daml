@@ -1,5 +1,5 @@
 -- @SINCE-LF 1.2
-daml 1.2
+
 module PartyVsText where
 
 import DA.Assert

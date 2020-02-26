@@ -4,7 +4,7 @@
 -- Check that the interning tables don't contain duplicates:
 -- @QUERY-LF .interned_strings // [] | (unique | length == length)
 -- @QUERY-LF .interned_dotted_names // [] | (unique | length == length)
-daml 1.2
+
 module Test where
 
 import Bond qualified

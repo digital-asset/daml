@@ -3,7 +3,7 @@
 
 -- @ ERROR Hello World!
 
-daml 1.2
+
 module Lazy where
 
 main = scenario do

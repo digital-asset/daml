@@ -5,7 +5,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
-daml 1.2
 -- | MOVE Prelude DAML-LF types and primitives, apart from templates/contracts.
 module DA.Internal.LF
   ( Party

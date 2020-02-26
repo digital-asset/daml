@@ -8,7 +8,7 @@
 -- @SINCE-LF 1.7
 -- @ERROR type-level natural outside of supported range [0, 37]
 
-daml 1.2
+
 
 module NumericLitMonoScaleOOB2 where
 

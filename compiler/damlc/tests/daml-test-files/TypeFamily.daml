@@ -5,7 +5,7 @@
 
 -- @ERROR range=11:1-11:16; Data definition, of type type family.
 
-daml 1.2
+
 module TypeFamily where
 
 type family T a where

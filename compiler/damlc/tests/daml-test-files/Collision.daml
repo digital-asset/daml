@@ -1,5 +1,5 @@
 -- @ERROR name collision between record Collision:Record and record Collision:RECORD
-daml 1.2
+
 module Collision where
 
 data Record = Record {}

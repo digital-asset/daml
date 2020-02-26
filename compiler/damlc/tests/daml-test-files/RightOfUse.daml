@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR Scenario execution failed on commit at RightOfUse:56:5:
-daml 1.2
+
 
 module RightOfUse where
 

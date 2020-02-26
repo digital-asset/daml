@@ -8,7 +8,7 @@
 -- @INFO Use <=
 -- @INFO Use <=
 
-daml 1.2
+
 module PartyCompare where
 
 test = scenario do

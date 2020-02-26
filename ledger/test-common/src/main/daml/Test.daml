@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- file that contains the declarations used in the sandbox tests
-daml 1.2
+
 module Test where
 
 import DA.Time

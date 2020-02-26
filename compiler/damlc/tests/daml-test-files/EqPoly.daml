@@ -3,7 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-type-defaults #-}
 
-daml 1.2
+
 module EqPoly where
 
 data Foo a b = Foo {a : a, b : b}

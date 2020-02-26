@@ -7,7 +7,7 @@
 -- @WARN range=14:21-15:14; Pattern match(es) are non-exhaustive
 -- @WARN range=18:1-19:21; Pattern match(es) are non-exhaustive
 -- @WARN range=24:3-24:14; Pattern match is redundant
-daml 1.2
+
 module DesugarWarnings where
 
 incompleteCase : Optional a -> a

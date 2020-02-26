@@ -1,4 +1,4 @@
-daml 1.2
+
 -- @SINCE-LF 1.7
 module NumericRound where
 

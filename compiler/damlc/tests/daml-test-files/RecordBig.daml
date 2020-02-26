@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-daml 1.2
+
 -- big records (3 fields or more) use primitives for set/update, as per DEL-5490
 module RecordBig where
 

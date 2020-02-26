@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR Cyclic module dependency between Cyclic
-daml 1.2
+
 module Cyclic where
 
 import Cyclic

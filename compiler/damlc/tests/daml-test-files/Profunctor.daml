@@ -3,7 +3,7 @@
 
 -- @SINCE-LF 1.1
 -- Test that `(->)` can be used without any arguments.
-daml 1.2
+
 module Profunctor where
 
 class Profunctor p where

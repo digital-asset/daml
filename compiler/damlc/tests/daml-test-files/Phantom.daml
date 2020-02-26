@@ -3,7 +3,7 @@
 
 -- @INFO Replace case with optional
 
-daml 1.2
+
 module Phantom where
 
 data Phantom a = Phantom {}

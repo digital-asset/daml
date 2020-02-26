@@ -6,7 +6,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-daml 1.2
 -- This is the companion module (is that a word? now it is!) to DA.Internal.Template
 -- which provides functions and typeclasses.
 -- DA.Internal.Template ends up in its own module with

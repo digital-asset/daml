@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.dev
-daml 1.2
+
 module Map where
 
 import DA.Map as M

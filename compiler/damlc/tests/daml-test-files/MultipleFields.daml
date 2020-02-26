@@ -3,7 +3,7 @@
 
 -- @ERROR range=9:12-9:23; Constructors with multiple fields must give explicit field names
 
-daml 1.2
+
 module MultipleFields where
 
 data Foo = Foo Int Int

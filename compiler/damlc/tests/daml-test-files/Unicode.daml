@@ -3,7 +3,7 @@
 
 -- @ ERROR ⛄ ¯\_(ツ)_/¯
 
-daml 1.2
+
 module Unicode where
 
 main = scenario do

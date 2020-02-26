@@ -1,4 +1,4 @@
-daml 1.2
+
 module ConsumingTests where
 
 template T

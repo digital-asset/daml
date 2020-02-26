@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
-daml 1.2
 module DA.Internal.Erased
   ( Erased
   ) where

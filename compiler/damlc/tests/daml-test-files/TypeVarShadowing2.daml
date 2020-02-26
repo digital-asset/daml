@@ -1,4 +1,4 @@
-daml 1.2
+
 
 -- | Minimal example of issue #3777
 module TypeVarShadowing2 where

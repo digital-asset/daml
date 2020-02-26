@@ -3,7 +3,7 @@
 
 -- @ERROR range=9:1-9:28; Import of internal module DA.Internal.Template is not allowed.
 
-daml 1.2
+
 module InternalImport where
 
 import DA.Internal.Template

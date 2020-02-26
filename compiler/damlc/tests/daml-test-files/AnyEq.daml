@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.8
-daml 1.2
+
 module AnyEq where
 
 import DA.Action

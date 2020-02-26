@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
-daml 1.2
 
 -- | Automatically imported qualified in every module.
 module DA.Internal.Desugar (

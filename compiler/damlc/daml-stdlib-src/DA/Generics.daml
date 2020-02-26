@@ -23,7 +23,6 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DamlSyntax                 #-}
 
-daml 1.2
 
 module DA.Generics (
 

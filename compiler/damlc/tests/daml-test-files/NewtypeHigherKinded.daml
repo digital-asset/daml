@@ -5,7 +5,7 @@
 -- We currently cannot handle the coercion `App f (Wrap a) ~ f a` in general.
 -- Let's make sure this does not creep up because GHC tries to be smart and
 -- simplifies `fmap coerce` to `coerce`.
-daml 1.2
+
 module NewtypeHigherKinded where
 
 newtype App f a = App (f a)

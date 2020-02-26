@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE CPP #-}
 
-daml 1.2
 -- | The pieces that make up the DAML language.
 module Prelude (module X) where
 

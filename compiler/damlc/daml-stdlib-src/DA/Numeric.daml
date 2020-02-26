@@ -3,7 +3,6 @@
 
 {-# LANGUAGE CPP #-}
 
-daml 1.2
 module DA.Numeric where
 
 #ifdef DAML_NUMERIC

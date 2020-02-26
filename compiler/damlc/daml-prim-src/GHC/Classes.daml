@@ -24,7 +24,6 @@
 -- about the constraint tuples being defined but not used
 
 {-# OPTIONS_HADDOCK hide #-}
-daml 1.2
 -- | MOVE Prelude
 
 --------------------------------------------------------------------------------

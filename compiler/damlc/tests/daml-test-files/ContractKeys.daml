@@ -1,6 +1,6 @@
 -- Check that the compiler bits of contract keys work.
 -- @SINCE-LF 1.4
-daml 1.2
+
 module ContractKeys where
 
 import DA.Assert
