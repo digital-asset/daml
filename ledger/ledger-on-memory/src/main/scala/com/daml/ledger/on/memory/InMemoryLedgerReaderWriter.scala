@@ -10,6 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
+import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
@@ -105,11 +106,8 @@ private class InMemoryLedgerStateOperations(
 
   override def appendToLog(key: Key, value: Value): Future[Index] =
     Future.successful {
-      val offset = Offset(Array(log.size.toLong))
       val entryId = KeyValueCommitting.unpackDamlLogEntryId(key)
-      val entry = LedgerEntry.LedgerRecord(offset, entryId, value)
-      log += entry
-      log.size
+      appendEntry(log, LedgerEntry.LedgerRecord(_, entryId, value))
     }
 }
 
@@ -150,11 +148,7 @@ object InMemoryLedgerReaderWriter {
       heartbeats <- heartbeatMechanism
       _ = heartbeats.runWith(Sink.foreach(timestamp =>
         state.withWriteLock { (log, _) =>
-          val offset = Offset(Array(log.size.toLong))
-          val entry = LedgerEntry.Heartbeat(offset, timestamp)
-          log += entry
-          val head = log.size
-          dispatcher.signalNewHead(head)
+          dispatcher.signalNewHead(appendEntry(log, LedgerEntry.Heartbeat(_, timestamp)))
       }))
       readerWriter <- owner(
         initialLedgerId,
@@ -188,5 +182,12 @@ object InMemoryLedgerReaderWriter {
         dispatcher,
         state,
       ))
+  }
+
+  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
+    val offset = Offset(Array(log.size.toLong))
+    val entry = createEntry(offset)
+    log += entry
+    log.size
   }
 }
