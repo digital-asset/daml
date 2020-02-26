@@ -519,8 +519,8 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
+          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
+          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
                     gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
