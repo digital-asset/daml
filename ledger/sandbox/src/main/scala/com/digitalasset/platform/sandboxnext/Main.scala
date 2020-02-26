@@ -3,12 +3,14 @@
 
 package com.digitalasset.platform.sandboxnext
 
+import com.digitalasset.platform.sandbox.GlobalLogLevel
 import com.digitalasset.platform.sandbox.cli.Cli
 import com.digitalasset.resources.ProgramResource
 
 object Main {
   def main(args: Array[String]): Unit = {
     val config = Cli.parse(args).getOrElse(sys.exit(1))
+    config.logLevel.foreach(GlobalLogLevel.set)
     new ProgramResource(new Runner().owner(config)).run()
   }
 }

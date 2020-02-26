@@ -141,7 +141,7 @@ object Cli {
       .optional()
       .validate(l => Either
         .cond(KnownLogLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
-      .action((level, c) => c.copy(logLevel = Level.toLevel(level.toUpperCase)))
+      .action((level, c) => c.copy(logLevel = Some(Level.toLevel(level.toUpperCase))))
       .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
 
     opt[Unit]("eager-package-loading")

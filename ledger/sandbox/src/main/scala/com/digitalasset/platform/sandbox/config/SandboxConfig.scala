@@ -32,7 +32,7 @@ final case class SandboxConfig(
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
-    logLevel: Level,
+    logLevel: Option[Level],
     authService: Option[AuthService],
     useSortableCid: Boolean
 )
@@ -58,7 +58,7 @@ object SandboxConfig {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,
-      logLevel = Level.INFO,
+      logLevel = None, // the default is in logback.xml
       authService = None,
       useSortableCid = false
     )
