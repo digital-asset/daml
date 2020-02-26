@@ -14,13 +14,13 @@ Let's start by looking at the DAML model, which defines the core logic of the ap
 The DAML Model
 ==============
 
-Using your terminal, navigate to the ``create-daml-app/daml`` directory and run::
+In your terminal, navigate to the root ``create-daml-app`` directory and run::
 
   daml studio
 
-This should open the Visual Studio Code editor at the DAML source files.
+This should open the Visual Studio Code editor at the root of the project.
 (You may get a new tab pop up with release notes for the latest SDK - just close this.)
-We want to focus on the ``User.daml`` file.
+Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
 This models the data and workflow for users of the app.
 The core data is at the start of the ``User`` contract template.
 
@@ -64,7 +64,7 @@ There is some boilerplate to set up the choice (full details in the :doc:`DAML r
     - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
     - The return type is ``ContractId User``, a reference to the new contract for the calling code.
     - The new ``friend: Party`` is passed as an argument to the choice.
-    - The ``controller``, the party able to execute the choice, is the party named on the ``User`` contract.
+    - The ``controller``, the party able to exercise the choice, is the one named on the ``User`` contract.
 
 Let's move on to how our DAML model is reflected and used on the UI side.
 
