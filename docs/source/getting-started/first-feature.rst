@@ -13,8 +13,10 @@ This should let a user send messages to any chosen friend, and see all messages 
 
 This feature should also respect *authorization* and *privacy*.
 This means:
+
     1. You cannot send a message to someone unless they have added you as a friend.
     2. You cannot see a message unless it was sent specifically to you.
+
 We will see that DAML lets us implement these guarantees in a direct and intuitive way.
 
 There are two parts to building the messaging feature: the DAML model and the UI.
