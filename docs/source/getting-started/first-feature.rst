@@ -147,22 +147,34 @@ The assertion that ``sender `elem` friends`` in ``SendMessage`` ensures this: no
 MainView Component
 ------------------
 
-The ``MainView`` component composes the different subcomponents (for our friends, the network and the messaging components above) to build the full app view.
-
-We first import our two new components.
+Finally we can see these components come together in the ``MainView`` component.
+We want to add a new panel to house our messaging UI.
+Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for the two new components.
 
 .. literalinclude:: code/ui-after/MainView.tsx
   :language: typescript
   :start-after: // IMPORTS_BEGIN
   :end-before: // IMPORTS_END
 
-Then we can integrate our new messaging components into the main screen view.
-In another segment we add the panel including our two new components: the ``MessageEdit`` and the ``MessageList``.
+Next, find where the *Network* ``Segment`` closes, towards the end of the component.
+This is where we'll add a new ``Segment`` for *Messages*.
 
 .. literalinclude:: code/ui-after/MainView.tsx
   :start-after: // MESSAGES_SEGMENT_BEGIN
   :end-before: // MESSAGES_SEGMENT_END
 
-This wraps up the implementation of your first end-to-end DAML feature!
+You can see we simply follow the formatting of the previous panels and include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
+
+That completes the implementation of your first end-to-end DAML feature!
 Let's give the new functionality a spin.
-Follow the instructions in "Running the app" to start up the new app.
+To start up the new app, run the following commands again in separate terminal windows::
+
+    ./daml-start.sh
+    yarn start
+
+You should see the same login page, and once you've logged in the same UI as before but with our new feature at the bottom.
+Again start adding friends and sending messages; try logging in as different users in separate browser tabs and see how the UI responds to new messages being sent.
+
+Hopefully by now you get a sense of the power and ease of building apps driven by DAML.
+Explore the documentation to learn more and continue shipping DAML apps.
+Have fun!
