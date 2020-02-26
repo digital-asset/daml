@@ -33,30 +33,18 @@ class UniversalArchiveReader[A](
 
   /** Reads a DAR from a File. */
   def readFile(file: File): Try[Dar[A]] =
-    for {
-      fileType <- supportedFileType(file)
-      inputStream <- fileToInputStream(file)
-      dar <- readStream(file.getName, inputStream, fileType)
-    } yield dar
-
-  /** Reads a DAR from an InputStream. This method takes care of closing the stream! */
-  def readStream(
-      fileName: String,
-      inputStream: InputStream,
-      fileType: SupportedFileType): Try[Dar[A]] =
-    fileType match {
-      case DarFile =>
-        bracket(Try(new ZipInputStream(inputStream)))(zis => Try(zis.close())).flatMap(zis =>
-          parseDar(fileName, zis))
-
-      case DalfFile =>
-        bracket(Try(inputStream))(is => Try(is.close())).flatMap(
-          is => parseDalf(is).map(Dar(_, List.empty))
-        )
+    supportedFileType(file).flatMap {
+      case DarFile => readDarStream(file.getName, new ZipInputStream(new FileInputStream(file)))
+      case DalfFile => readDalfStream(new FileInputStream(file))
     }
 
-  private def fileToInputStream(f: File): Try[InputStream] =
-    Try(new BufferedInputStream(new FileInputStream(f)))
+  /** Reads a DAR from an InputStream. This method takes care of closing the stream! */
+  def readDarStream(fileName: String, dar: ZipInputStream): Try[Dar[A]] =
+    bracket(Try(dar))(dar => Try(dar.close())).flatMap(parseDar(fileName, _))
+
+  /** Reads a DALF from an InputStream. This method takes care of closing the stream! */
+  def readDalfStream(dalf: InputStream): Try[Dar[A]] =
+    bracket(Try(dalf))(dalf => Try(dalf.close())).flatMap(parseDalf).map(Dar(_, List.empty))
 
 }
 

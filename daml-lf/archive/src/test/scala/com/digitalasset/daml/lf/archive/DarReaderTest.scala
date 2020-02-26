@@ -3,8 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import java.io.{File, FileInputStream}
-import java.util.zip.ZipInputStream
+import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
@@ -23,8 +22,6 @@ class DarReaderTest
     with TryValues {
 
   private val darFile = resource(rlocation("daml-lf/archive/DarReaderTest.dar"))
-  private def bomb: ZipInputStream =
-    new ZipInputStream(new FileInputStream(BazelRunfiles.rlocation("libs_python/zblg.zip")))
 
   private def resource(path: String): File = {
     val f = new File(path).getAbsoluteFile
@@ -92,10 +89,6 @@ class DarReaderTest
       internedStrings: Seq[String],
       n: Int): String = {
     internedDotted(n).getSegmentsInternedStrList.asScala.map(i => internedStrings(i)).mkString(".")
-  }
-
-  "reject a zip bomb with the proper error" in {
-    DarReader().readArchive("t", bomb).failure.exception shouldBe a[Errors.ZipBomb]
   }
 
 }
