@@ -8,20 +8,15 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.digitalasset.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  StandaloneIndexerServer
-}
+import com.digitalasset.platform.apiserver.StandaloneApiServer
+import com.digitalasset.platform.indexer.StandaloneIndexerServer
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 
@@ -50,11 +45,17 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        readerWriter <- factory.owner(config.ledgerId, config.participantId, config.extra)
-        ledger = new KeyValueParticipantState(readerWriter, readerWriter)
-        _ <- ResourceOwner.forFuture(() =>
-          Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, ledger)
+        // initialize all configured participants
+        _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
+          for {
+            readerWriter <- factory
+              .owner(config, participantConfig)
+            ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+            _ <- ResourceOwner.forFuture(() =>
+              Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+            _ <- startParticipant(config, participantConfig, ledger)
+          } yield ()
+        })
       } yield ()
     }
   }
@@ -70,55 +71,47 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
     } yield ()
   }
 
-  private def startParticipant(config: Config[Extra], ledger: KeyValueParticipantState)(
+  private def startParticipant(
+      config: Config[Extra],
+      participantConfig: ParticipantConfig,
+      ledger: KeyValueParticipantState)(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): ResourceOwner[Unit] =
     for {
-      _ <- startIndexerServer(config, readService = ledger)
+      _ <- startIndexerServer(participantConfig, readService = ledger)
       _ <- startApiServer(
         config,
+        participantConfig,
         readService = ledger,
         writeService = ledger,
-        authService = AuthServiceWildcard,
+        authService = factory.authService(config),
       )
     } yield ()
 
   private def startIndexerServer(
-      config: Config[Extra],
+      config: ParticipantConfig,
       readService: ReadService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
       readService,
-      IndexerConfig(
-        config.participantId,
-        jdbcUrl = config.serverJdbcUrl,
-        startupMode = IndexerStartupMode.MigrateAndStart,
-        allowExistingSchema = config.allowExistingSchemaForIndex,
-      ),
-      SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+      factory.indexerConfig(config),
+      factory.indexerMetricRegistry(config),
     )
 
   private def startApiServer(
       config: Config[Extra],
+      participantConfig: ParticipantConfig,
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
-      ApiServerConfig(
-        participantId = config.participantId,
-        archiveFiles = config.archiveFiles.map(_.toFile).toList,
-        port = config.port,
-        address = config.address,
-        jdbcUrl = config.serverJdbcUrl,
-        tlsConfig = None,
-        maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
-        portFile = config.portFile,
-      ),
+      factory.apiServerConfig(participantConfig, config),
       readService,
       writeService,
       authService,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
+      factory.apiServerMetricRegistry(participantConfig),
+      timeServiceBackend = factory.timeServiceBackend(config),
     )
 }

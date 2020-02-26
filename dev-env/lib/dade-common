@@ -62,7 +62,7 @@ dadeListTools() {
 
 # dadeGetOutput get output of a target
 #
-#   target: Attribute in the $DADE_BASE_ROOT/nix/packages.nix tools attrset to
+#   target: Attribute in the $DADE_BASE_ROOT/nix/default.nix tools attrset to
 #     realize.
 #   outputName: the output name of the Nix derivation, where the derivation is
 #     relalized into. This is necessary, since Nix's --add-root produces a
@@ -79,7 +79,7 @@ dadeGetOutput() {
 
 # buildTool <attribute> <outputName> <force>
 #
-#   attribute: Attribute in the $DADE_BASE_ROOT/nix/packages.nix tools attrset to
+#   attribute: Attribute in the $DADE_BASE_ROOT/nix/default.nix tools attrset to
 #     realize.
 #   outputName: the output name of the Nix derivation, where the derivation is
 #     relalized into. This is necessary, since Nix's --add-root produces a

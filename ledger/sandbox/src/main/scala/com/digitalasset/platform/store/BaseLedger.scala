@@ -3,9 +3,12 @@
 
 package com.digitalasset.platform.store
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.CommandSubmissionResult
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -24,6 +27,7 @@ import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.dao.LedgerReadDao
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -124,6 +128,18 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def configurationEntries(
       offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getConfigurationEntries))
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl)
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: CommandSubmissionResult): Future[Unit] =
+    ledgerDao.updateCommandResult(deduplicationKey, submittedAt, result.code, result.message)
 
   override def close(): Unit = {
     dispatcher.close()

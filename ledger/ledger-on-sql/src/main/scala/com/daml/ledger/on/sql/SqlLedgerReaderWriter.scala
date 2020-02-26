@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql
 
-import java.time.{Clock, Instant}
 import java.util.UUID
 
 import akka.NotUsed
@@ -21,6 +20,7 @@ import com.daml.ledger.validator.{
   SubmissionValidator,
   ValidatingCommitter
 }
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -36,7 +36,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
-    now: () => Instant,
+    timeProvider: TimeProvider,
     database: Database,
     dispatcher: Dispatcher[Index],
 )(
@@ -48,7 +48,7 @@ final class SqlLedgerReaderWriter(
 
   private val committer = new ValidatingCommitter[Index](
     participantId,
-    now,
+    () => timeProvider.getCurrentTime,
     SubmissionValidator.create(SqlLedgerStateAccess),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
   )
@@ -105,13 +105,13 @@ final class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val StartOffset: Offset = Offset(Array(StartIndex))
 
-  private val DefaultClock: Clock = Clock.systemUTC()
+  val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
   def owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
-      now: () => Instant = () => DefaultClock.instant(),
+      timeProvider: TimeProvider = DefaultTimeProvider,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -122,7 +122,7 @@ object SqlLedgerReaderWriter {
       database = uninitializedDatabase.migrate()
       ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
       dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
-    } yield new SqlLedgerReaderWriter(ledgerId, participantId, now, database, dispatcher)
+    } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
       implicit executionContext: ExecutionContext,

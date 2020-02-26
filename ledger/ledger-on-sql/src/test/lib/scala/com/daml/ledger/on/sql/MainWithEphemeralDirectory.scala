@@ -6,8 +6,12 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, Runner}
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.kvutils.app.{
+  Config,
+  LedgerFactory,
+  ParticipantConfig,
+  Runner
+}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
@@ -31,17 +35,18 @@ object MainWithEphemeralDirectory {
       SqlLedgerFactory.manipulateConfig(config)
 
     override def owner(
-        initialLedgerId: Option[LedgerId],
-        participantId: ParticipantId,
-        config: ExtraConfig,
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig
     )(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[SqlLedgerReaderWriter] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
-      val jdbcUrl = config.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.owner(initialLedgerId, participantId, config.copy(jdbcUrl = jdbcUrl))
+      val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
+      SqlLedgerFactory.owner(
+        config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
+        participantConfig)
     }
   }
 }

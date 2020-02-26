@@ -15,7 +15,7 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
-  tag_filter="-dont-run-on-darwin,-scaladoc"
+  tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite

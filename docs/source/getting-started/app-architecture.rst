@@ -7,14 +7,21 @@ App Architecture
 In this section we'll look at the different components of our social network app.
 The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
 
-There are two main components in the code - the DAML model and the React/TypeScript frontend - with generated TypeScript code to bridge the two.
-Let's start by looking at the DAML model, as this sets the core logic of the application.
+There are two main components: the DAML model and the React/TypeScript frontend.
+We generate TypeScript code to bridge the two.
+Let's start by looking at the DAML model, which defines the core logic of the application.
 
 The DAML Model
 ==============
 
-Using the Visual Studio Code editor, navigate to the ``daml`` subdirectory.
-There is a single DAML file called ``User.daml`` with the model for app users.
+In your terminal, navigate to the root ``create-daml-app`` directory and run::
+
+  daml studio
+
+This should open the Visual Studio Code editor at the root of the project.
+(You may get a new tab pop up with release notes for the latest SDK - just close this.)
+Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
+This models the data and workflow for users of the app.
 The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: code/daml/User.daml
@@ -50,12 +57,16 @@ The last thing we'll point out about the DAML model for now is the operation to 
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it creates a new user contract with the new friend added to the list.
-The ``choice`` syntax automatically includes the archival of the current instance.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list.
 
-.. TODO Update depending on consuming/nonconsuming choice.
+There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
 
-Next we'll see how our DAML code is reflected and used on the UI side.
+    - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
+    - The return type is ``ContractId User``, a reference to the new contract for the calling code.
+    - The new ``friend: Party`` is passed as an argument to the choice.
+    - The ``controller``, the party able to exercise the choice, is the one named on the ``User`` contract.
+
+Let's move on to how our DAML model is reflected and used on the UI side.
 
 TypeScript Code Generation
 ==========================
@@ -82,43 +93,66 @@ The UI
 On top of TypeScript, we use the UI framework `React <https://reactjs.org/>`_.
 React helps us write modular UI components using a functional style - a component is rerendered whenever one of its inputs changes - with careful use of global state.
 
-The latter is especially interesting as it's how we handle ledger state in our application.
-We use a state management feature of React called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
-We use custom DAML React hooks to query the ledger for contracts, create new contracts, and exercise choices.
+Let's see an example of a React component.
+All components are in the ``ui/src/components`` folder.
+You can navigate there within Visual Studio Code using the file *Explorer* on the left sidebar.
+We'll first look at ``App.tsx``, which is the entry point to our application.
+
+.. literalinclude:: code/ui-before/App.tsx
+  :start-after: // APP_BEGIN
+  :end-before: // APP_END
+
+An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
+Hooks allow you to share and update state across components, avoiding having to thread it through manually.
+We take advantage of hooks in particular to share ledger state across components.
+We use custom *DAML React hooks* to query the ledger for contracts, create new contracts, and exercise choices.
+This library uses the :doc:`HTTP JSON API </json-api/index>` behind the scenes.
 
 .. TODO Link to DAML react hooks API
 
-We can see examples of this in the ``MainView`` component.
-This is the React component that enables the main functionality of the app.
+The ``useState`` hook (not specific to DAML) here keeps track of the user's credentials.
+If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
+If they are set, then we render the ``MainScreen`` of the app.
+This is wrapped in the ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with a handle to the ledger.
+
+Let's move on to more advanced uses of our DAML React library.
+The ``MainScreen`` is a simple frame around the ``MainView`` component, which houses the main functionality of our app.
+It uses DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
-For instance, ``allUsers`` uses the query hook to get the ``User`` contracts on the ledger.
-Note however that the query preserves privacy: only users that have added the party currently logged in are shown.
-This is because the observers of a ``User`` contract are exactly the user's friends.
+The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` context.
+A more interesting example is the ``allUsers`` line.
+This uses the ``useStreamQuery`` hook to get all ``User`` contracts on the ledger.
+(``User`` here is an object generated by ``daml codegen ts`` - it stores metadata of the ``User`` template defined in ``User.daml``.)
+Note however that this query preserves privacy: only users that have added the current user have their contracts revealed.
+This behaviour is due to the observers on the ``User`` contract being exactly the user's friends.
+
+A final point on this is the *streaming* aspect of the query.
+This means that results are updated as they come in - there is no need for periodic or manual reloading to see updates.
 
 .. TODO Explain why you see friends of friends.
 
-Another example is how we exercise the ``AddFriend`` choice of the ``User`` template.
+Another example, showing how to *update* ledger state, is how we exercise the ``AddFriend`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
-We use the ``useExerciseByKey`` hook to gain access to the ``exerciseAddFriend`` function.
+The ``useExerciseByKey`` hook returns the ``exerciseAddFriend`` function.
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
 The wrapper function ``addFriend`` is then passed to the subcomponents of ``MainView``.
-For example, ``addFriend`` is passed to the ``UserList`` component as an argument (called a *prop* in React terms).
-This gets triggered when you click the button next to a user's name in the "Network" panel.
+For example, ``addFriend`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
+This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: typescript
   :start-after: // USERLIST_BEGIN
   :end-before: // USERLIST_END
 
-This gives you a taste of how the UI works alongside a DAML ledger.
-You'll see this more as we develop :doc:`your first feature <first-feature>` for our social network.
+This should give you a taste of how the UI works alongside a DAML ledger.
+You'll see this more as you develop :doc:`your first feature <first-feature>` for our social network.

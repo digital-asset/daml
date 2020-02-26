@@ -37,6 +37,7 @@ compile_deps = [
     "//ledger/participant-state/kvutils",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
+    "//libs-scala/grpc-utils",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
     "@maven//:ch_qos_logback_logback_classic",
@@ -346,6 +347,7 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
@@ -361,6 +363,7 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
         "--include=LotsOfPartiesIT",
     ],
 )
@@ -372,6 +375,7 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
@@ -383,7 +387,17 @@ server_conformance_test(
     name = "conformance-test-config-management",
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
         "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-command-deduplication",
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=CommandDeduplicationIT",
     ],
 )
 
@@ -411,9 +425,11 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -424,8 +440,10 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -436,6 +454,7 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
         "--include=ConfigManagementServiceIT",
     ],
 )

@@ -803,12 +803,28 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
-Fetch All Known Parties
-***********************
+Fetch Parties by Identifiers
+****************************
 
 - URL: ``/v1/parties``
-- Method: ``GET``
-- Content: <EMPTY>
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    ["Alice", "Bob", "Dave"]
+
+If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+
+.. code-block:: json
+
+    {
+      "status": 400,
+      "errors": [
+        "JsonReaderError. Cannot read JSON: <[]>. Cause: spray.json.DeserializationException: must be a list with at least 1 element"
+      ]
+    }
 
 HTTP Response
 =============
@@ -819,14 +835,68 @@ HTTP Response
 .. code-block:: json
 
     {
-        "status": 200,
-        "result": [
-            {
-                "party": "Alice",
-                "isLocal": true
-            }
-        ]
+      "status": 200,
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Bob",
+          "displayName": "Bob & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Dave",
+          "isLocal": true
+        }
+      ]
     }
+
+Please note that the order of the party objects in the response is not guaranteed to match the order of the passed party identifiers.
+
+Where
+
+- ``identifier`` -- a stable unique identifier of a DAML party,
+- ``displayName`` -- optional human readable name associated with the party. Might not be unique,
+- ``isLocal`` -- true if party is hosted by the backing participant.
+
+HTTP Response with Unknown Parties Warning
+============================================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        }
+      ],
+      "warnings": {
+        "unknownParties": [
+          "Erin"
+        ]
+      },
+      "status": 200
+    }
+
+Fetch All Known Parties
+***********************
+
+- URL: ``/v1/parties``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+The response is the same as for the POST method above.
 
 Streaming API
 *************

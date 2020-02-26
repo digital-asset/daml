@@ -91,6 +91,7 @@ da_scala_library_suite(
         "//ledger/test-common:SemanticTests.scala",
         "//ledger/test-common:Test-dev.scala",
         "//ledger/test-common:Test-stable.scala",
+        "//libs-scala/timer-utils",
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:org_cvogt_scala_extensions_2_12",
@@ -129,24 +130,21 @@ da_scala_binary(
 )
 
 conformance_test(
-    name = "test",
-    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
-    server_args = ["--port 6865"],
-)
-
-conformance_test(
     name = "ssl-test",
     extra_data = glob(["test/main/resources/*"]),
-    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
+    server = "//ledger/ledger-on-memory:app",
     server_args = [
-        "--port 6865",
+        "--participant participant-id=ssl-test,port=6865",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
     ],
     test_tool_args = [
+        "--verbose",
+        "--include=SemanticTests",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
+        "--exclude=CommandDeduplicationIT",
     ],
 )

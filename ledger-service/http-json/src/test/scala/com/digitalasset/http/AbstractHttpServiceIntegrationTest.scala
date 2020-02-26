@@ -18,7 +18,7 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.objectField
+import com.digitalasset.http.json.SprayJson.{decode2, objectField}
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.boxedRecord
 import com.digitalasset.http.util.FutureUtil.toFuture
@@ -83,10 +83,14 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
-  protected def withHttpService[A]
-    : ((Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]) => Future[A] =
+  protected def withHttpServiceAndClient[A]
+    : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
     HttpServiceTestFixture
       .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
+
+  protected def withHttpService[A](
+      f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
+    withHttpServiceAndClient((a, b, c, _) => f(a, b, c))
 
   protected def withLedger[A]: (LedgerClient => Future[A]) => Future[A] =
     HttpServiceTestFixture.withLedger[A](List(dar1, dar2), testId)
@@ -736,31 +740,86 @@ abstract class AbstractHttpServiceIntegrationTest
         }: Future[Assertion]
   }
 
-  "parties endpoint should return all known parties" in withHttpService { (uri, encoder, _) =>
-    val create: domain.CreateCommand[v.Record] = iouCreateCommand()
-    postCreateCommand(create, encoder, uri)
-      .flatMap {
-        case (createStatus, createOutput) =>
-          createStatus shouldBe StatusCodes.OK
-          assertStatus(createOutput, StatusCodes.OK)
-          getRequest(uri = uri.withPath(Uri.Path("/v1/parties")))
-            .flatMap {
-              case (status, output) =>
-                status shouldBe StatusCodes.OK
-                assertStatus(output, StatusCodes.OK)
-                inside(output) {
-                  case JsObject(fields) =>
-                    inside(fields.get("result")) {
-                      case Some(jsArray) =>
-                        inside(SprayJson.decode[List[domain.PartyDetails]](jsArray)) {
-                          case \/-(partyDetails) =>
-                            val partyNames: Set[String] =
-                              partyDetails.map(_.party.unwrap)(breakOut)
-                            partyNames should contain("Alice")
-                        }
-                    }
-                }
-            }
+  "parties endpoint should return all known parties" in withHttpServiceAndClient {
+    (uri, _, _, client) =>
+      import scalaz.std.vector._
+      val partyIds = Vector("Alice", "Bob", "Charlie", "Dave")
+      val partyManagement = client.partyManagementClient
+
+      partyIds
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p), Some(s"$p & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              inside(
+                decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)
+              ) {
+                case \/-(response) =>
+                  response.status shouldBe StatusCodes.OK
+                  response.warnings shouldBe None
+                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  actualIds shouldBe domain.Party.subst(partyIds.toSet)
+                  response.result.toSet shouldBe
+                    allocatedParties.toSet.map(domain.PartyDetails.fromLedgerApi)
+              }
+          }
+        }: Future[Assertion]
+  }
+
+  "parties endpoint should return only requested parties, unknown parties returned as warnings" in withHttpServiceAndClient {
+    (uri, _, _, client) =>
+      import scalaz.std.vector._
+
+      val charlie = domain.Party("Charlie")
+      val knownParties = domain.Party.subst(Vector("Alice", "Bob", "Dave")) :+ charlie
+      val erin = domain.Party("Erin")
+      val requestedPartyIds: Vector[domain.Party] = knownParties.filterNot(_ == charlie) :+ erin
+
+      val partyManagement = client.partyManagementClient
+
+      knownParties
+        .traverse { p =>
+          partyManagement.allocateParty(Some(p.unwrap), Some(s"${p.unwrap} & Co. LLC"))
+        }
+        .flatMap { allocatedParties =>
+          postJsonRequest(
+            uri = uri.withPath(Uri.Path("/v1/parties")),
+            JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+          ).flatMap {
+            case (status, output) =>
+              status shouldBe StatusCodes.OK
+              inside(
+                decode2[domain.OkResponse, List[domain.PartyDetails], domain.UnknownParties](output)
+              ) {
+                case \/-(response) =>
+                  response.status shouldBe StatusCodes.OK
+                  response.warnings shouldBe Some(domain.UnknownParties(List(erin)))
+                  val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
+                  actualIds shouldBe requestedPartyIds.toSet - erin // Erin is not known
+                  val expected: Set[domain.PartyDetails] = allocatedParties.toSet
+                    .map(domain.PartyDetails.fromLedgerApi)
+                    .filterNot(_.identifier == charlie)
+                  response.result.toSet shouldBe expected
+              }
+          }
+        }: Future[Assertion]
+  }
+
+  "parties endpoint should error if empty array passed as input" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(Vector.empty)
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          assertStatus(output, StatusCodes.BadRequest)
+          val errorMsg = expectedOneErrorMessage(output)
+          errorMsg should include("Cannot read JSON: <[]>")
+          errorMsg should include("must be a list with at least 1 element")
       }: Future[Assertion]
   }
 

@@ -21,7 +21,11 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
-import com.digitalasset.platform.configuration.{BuildInfo, CommandConfiguration}
+import com.digitalasset.platform.configuration.{
+  BuildInfo,
+  CommandConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.index.JdbcIndex
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.resources.akka.AkkaResourceOwner
@@ -126,6 +130,7 @@ final class StandaloneApiServer(
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               defaultLedgerConfiguration = initialConditions.config,
               commandConfig = CommandConfiguration.default,
+              submissionConfig = SubmissionConfiguration.default,
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,

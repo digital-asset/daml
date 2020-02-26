@@ -98,6 +98,7 @@ da_haskell_test(
         "main-tester",
         "network",
         "unix-compat",
+        "unordered-containers",
         "process",
         "tar",
         "tar-conduit",

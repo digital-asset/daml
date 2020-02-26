@@ -46,7 +46,7 @@ object HttpServiceTestFixture {
       dars: List[File],
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig]
-  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A])(
+  )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
@@ -93,8 +93,9 @@ object HttpServiceTestFixture {
     val fa: Future[A] = for {
       (_, httpPort) <- httpServiceF
       (encoder, decoder) <- codecsF
+      client <- clientF
       uri = Uri.from(scheme = "http", host = "localhost", port = httpPort)
-      a <- testFn(uri, encoder, decoder)
+      a <- testFn(uri, encoder, decoder, client)
     } yield a
 
     fa.transformWith { ta =>

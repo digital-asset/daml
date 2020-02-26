@@ -73,7 +73,7 @@ message DamlSubmission {
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
-// information. See example implementation in [[InMemoryKVParticipantState]].
+// information.
 message DamlLogEntry {
   // The record time at which this entry was committed.
   google.protobuf.Timestamp record_time = 1;

@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   Configuration,
@@ -39,6 +39,7 @@ import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -69,6 +70,38 @@ import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
+
+private final case class ParsedEntry(
+    typ: String,
+    transactionId: Option[TransactionId],
+    commandId: Option[CommandId],
+    applicationId: Option[ApplicationId],
+    submitter: Option[Party],
+    workflowId: Option[WorkflowId],
+    effectiveAt: Option[Date],
+    recordedAt: Option[Date],
+    transaction: Option[Array[Byte]],
+    rejectionType: Option[String],
+    rejectionDesc: Option[String],
+    offset: Long)
+
+private final case class ParsedPartyData(
+    party: String,
+    displayName: Option[String],
+    ledgerOffset: Long,
+    explicit: Boolean)
+
+private final case class ParsedPackageData(
+    packageId: String,
+    sourceDescription: Option[String],
+    size: Long,
+    knownSince: Date)
+
+private final case class ParsedCommandData(
+    submittedAt: Instant,
+    ttl: Instant,
+    code: Option[Int],
+    message: Option[String])
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -1036,20 +1069,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
 
-  case class ParsedEntry(
-      typ: String,
-      transactionId: Option[TransactionId],
-      commandId: Option[CommandId],
-      applicationId: Option[ApplicationId],
-      submitter: Option[Party],
-      workflowId: Option[WorkflowId],
-      effectiveAt: Option[Date],
-      recordedAt: Option[Date],
-      transaction: Option[Array[Byte]],
-      rejectionType: Option[String],
-      rejectionDesc: Option[String],
-      offset: Long)
-
   private val EntryParser: RowParser[ParsedEntry] = (
     str("typ") ~
       ledgerString("transaction_id").? ~
@@ -1417,12 +1436,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit from parties")
 
-  case class ParsedPartyData(
-      party: String,
-      displayName: Option[String],
-      ledgerOffset: Long,
-      explicit: Boolean)
-
   private val PartyDataParser: RowParser[ParsedPartyData] =
     Macro.parser[ParsedPartyData](
       "party",
@@ -1479,12 +1492,6 @@ private class JdbcLedgerDao(
           |from packages
           |where package_id = {package_id}
           |""".stripMargin)
-
-  case class ParsedPackageData(
-      packageId: String,
-      sourceDescription: Option[String],
-      size: Long,
-      knownSince: Date)
 
   private val PackageDataParser: RowParser[ParsedPackageData] =
     Macro.parser[ParsedPackageData](
@@ -1628,6 +1635,80 @@ private class JdbcLedgerDao(
     }
   }
 
+  private val SQL_SELECT_COMMAND = SQL("""
+      |select submitted_at, ttl, status_code, status_message
+      |from participant_command_submissions
+      |where deduplication_key = {deduplicationKey}
+    """.stripMargin)
+
+  private val CommandDataParser: RowParser[ParsedCommandData] =
+    Macro.parser[ParsedCommandData](
+      "submitted_at",
+      "ttl",
+      "status_code",
+      "status_message"
+    )
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+      // Insert a new deduplication entry, or update an expired entry
+      val updated = SQL(queries.SQL_INSERT_COMMAND)
+        .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt, "ttl" -> ttl)
+        .executeUpdate()
+
+      if (updated == 1) {
+        // New row inserted, this is the first time the command is submitted
+        None
+      } else {
+        // Deduplication row already exists
+        val result = SQL_SELECT_COMMAND
+          .on("deduplicationKey" -> deduplicationKey)
+          .as(CommandDataParser.single)
+
+        result match {
+          case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
+            Some(
+              CommandDeduplicationEntry(deduplicationKey, originalSubmittedAt, originalTtl, None))
+          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(code), message) =>
+            Some(
+              CommandDeduplicationEntry(
+                deduplicationKey,
+                originalSubmittedAt,
+                originalTtl,
+                Some(CommandSubmissionResult(code, message))))
+          case data =>
+            sys.error(s"Invalid command deduplication row $data")
+        }
+      }
+    }
+
+  private val SQL_UPDATE_COMMAND = SQL(
+    """
+      |update participant_command_submissions
+      |set status_code={statusCode}, status_message={statusMessage}
+      |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
+    """.stripMargin)
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      code: Int,
+      message: Option[String]): Future[Unit] =
+    dbDispatcher.executeSql("update_command_result") { implicit conn =>
+      SQL_UPDATE_COMMAND
+        .on(
+          "deduplicationKey" -> deduplicationKey,
+          "submittedAt" -> submittedAt,
+          "statusCode" -> code,
+          "statusMessage" -> message
+        )
+        .execute()
+      ()
+    }
+
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
         |truncate ledger_entries cascade;
@@ -1641,6 +1722,7 @@ private class JdbcLedgerDao(
         |truncate configuration_entries cascade;
         |truncate package_entries cascade;
         |truncate participant_command_completions cascade;
+        |truncate participant_command_submissions cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
@@ -1699,6 +1781,7 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+    protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
 
@@ -1730,6 +1813,14 @@ object JdbcLedgerDao {
       """insert into parties(party, explicit, ledger_offset)
         |values({name}, {explicit}, {ledger_offset})
         |on conflict (party) do nothing""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
+      """insert into participant_command_submissions as pcs (deduplication_key, submitted_at, ttl)
+        |values ({deduplicationKey}, {submittedAt}, {ttl})
+        |on conflict (deduplication_key)
+        |  do update
+        |  set submitted_at={submittedAt}, ttl={ttl}
+        |  where pcs.ttl < {submittedAt}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
@@ -1793,6 +1884,15 @@ object JdbcLedgerDao {
     override protected[JdbcLedgerDao] val SQL_IMPLICITLY_INSERT_PARTIES: String =
       """merge into parties using dual on party = {name}
         |when not matched then insert (party, explicit, ledger_offset) values ({name}, {explicit}, {ledger_offset})""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
+      """merge into participant_command_submissions pcs
+        |using dual on deduplication_key = {deduplicationKey}
+        |when not matched then
+        |  insert (deduplication_key, submitted_at, ttl)
+        |  values ({deduplicationKey}, {submittedAt}, {ttl})
+        |when matched and pcs.ttl < {submittedAt} then
+        |  update set submitted_at={submittedAt}, ttl={ttl}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}

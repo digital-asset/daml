@@ -77,6 +77,7 @@ data Commands = Commands
     , party  :: Party
     , leTime :: Timestamp
     , mrTime :: Timestamp
+    , ttl    :: Maybe LL.Duration
     , coms   :: [Command]
     }
 

@@ -9,9 +9,10 @@ import System.Process
 import System.IO.Extra (withTempFile)
 import Data.List.Split (splitOn)
 
+
 main :: IO ()
 main = do
-  [clientExe, clientArgs, serverExe, serverArgs] <- getArgs
+  [clientExe, clientArgs, serverExe, serverArgs, _runnerArgs] <- getArgs
   withTempFile $ \tempFile -> do
     let splitArgs = filter (/= "") . splitOn " "
     let serverProc = proc serverExe $ ["--port-file", tempFile] <> splitArgs serverArgs

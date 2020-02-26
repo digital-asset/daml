@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
@@ -25,7 +25,6 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
-  CommandId,
   LedgerId,
   PartyDetails,
   RejectionReason,
@@ -36,11 +35,11 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -100,8 +99,9 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var deduplicator = Deduplicator()
   private var ledgerConfiguration: Option[Configuration] = None
+  private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
+    scala.collection.mutable.Map.empty
 
   override def completions(
       beginInclusive: Option[Long],
@@ -151,20 +151,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
-        val (newDeduplicator, isDuplicate) =
-          deduplicator.checkAndAdd(
-            submitterInfo.submitter,
-            ApplicationId(submitterInfo.applicationId),
-            CommandId(submitterInfo.commandId))
-        deduplicator = newDeduplicator
-        if (isDuplicate)
-          logger.warn(
-            "Ignoring duplicate submission for applicationId {}, commandId {}",
-            submitterInfo.applicationId: Any,
-            submitterInfo.commandId)
-        else
-          handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
-
+        handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
         SubmissionResult.Acknowledged
       }
     )
@@ -386,4 +373,46 @@ class InMemoryLedger(
       .getSource(startInclusive, None)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+    Future.successful {
+      this.synchronized {
+        val entry = commands.get(deduplicationKey)
+        if (entry.isEmpty) {
+          // No previous entry - new command
+          commands += (deduplicationKey -> CommandDeduplicationEntry(
+            deduplicationKey,
+            submittedAt,
+            ttl,
+            None))
+          None
+        } else {
+          val previousTtl = entry.get.ttl
+          if (submittedAt.isAfter(previousTtl)) {
+            // Previous entry expired - new command
+            commands += (deduplicationKey -> CommandDeduplicationEntry(
+              deduplicationKey,
+              submittedAt,
+              ttl,
+              None))
+            None
+          } else {
+            // Existing previous entry - deduplicate command
+            entry
+          }
+        }
+      }
+    }
+
+  override def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: CommandSubmissionResult): Future[Unit] =
+    Future.successful(this.synchronized {
+      for (cde <- commands.get(deduplicationKey) if cde.submittedAt == submittedAt) {
+        commands.update(deduplicationKey, cde.copy(result = Some(result)))
+      }
+    })
 }

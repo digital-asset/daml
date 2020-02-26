@@ -188,7 +188,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       participantId: ParticipantId,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     InMemoryLedgerReaderWriter
-      .owner(ledgerId, participantId)
+      .singleParticipantOwner(ledgerId, participantId)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 
   private def participantServer(

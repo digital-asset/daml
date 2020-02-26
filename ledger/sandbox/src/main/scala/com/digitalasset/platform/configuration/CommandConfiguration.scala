@@ -11,8 +11,7 @@ final case class CommandConfiguration(
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
     historySize: Int,
-    retentionPeriod: FiniteDuration,
-    commandTtl: FiniteDuration,
+    retentionPeriod: FiniteDuration
 )
 
 object CommandConfiguration {
@@ -23,7 +22,6 @@ object CommandConfiguration {
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
       historySize = 5000,
-      retentionPeriod = 24.hours,
-      commandTtl = 20.seconds,
+      retentionPeriod = 24.hours
     )
 }

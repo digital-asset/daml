@@ -27,17 +27,17 @@ export const useParty = () => {
   return state.party;
 }
 
-export type QueryResult<T extends object, K> = {
-  contracts: readonly CreateEvent<T, K>[];
+export type QueryResult<T extends object, K, I extends string> = {
+  contracts: readonly CreateEvent<T, K, I>[];
   loading: boolean;
 }
 
 /// React Hook for a query against the `/v1/query` endpoint of the JSON API.
-export function useQuery<T extends object, K>(template: Template<T, K>): QueryResult<T, K>
-export function useQuery<T extends object, K>(template: Template<T, K>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K>
-export function useQuery<T extends object, K>(template: Template<T, K>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K> {
+export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
+export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
+export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
   const state = useDamlState();
-  const [result, setResult] = useState<QueryResult<T, K>>({contracts: [], loading: false});
+  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: false});
   useEffect(() => {
     setResult({contracts: [], loading: true});
     const query = queryFactory ? queryFactory() : undefined;
@@ -52,15 +52,15 @@ export function useQuery<T extends object, K>(template: Template<T, K>, queryFac
   return result;
 }
 
-export type FetchResult<T extends object, K> = {
-  contract: CreateEvent<T, K> | null;
+export type FetchResult<T extends object, K, I extends string> = {
+  contract: CreateEvent<T, K, I> | null;
   loading: boolean;
 }
 
 /// React Hook for a lookup by key against the `/v1/fetch` endpoint of the JSON API.
-export function useFetchByKey<T extends object, K>(template: Template<T, K>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K> {
+export function useFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
   const state = useDamlState();
-  const [result, setResult] = useState<FetchResult<T, K>>({contract: null, loading: false});
+  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
   useEffect(() => {
     const key = keyFactory();
     setResult({contract: null, loading: true});
@@ -75,41 +75,31 @@ export function useFetchByKey<T extends object, K>(template: Template<T, K>, key
   return result;
 }
 
-/// React Hook that returns a function to exercise a choice and a boolean
-/// indicator whether the exercise is currently running.
-export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): [(cid: ContractId<T>, argument: C) => Promise<R>, boolean] => {
+/// React Hook that returns a function to exercise a choice by contract id.
+export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
   const state = useDamlState();
-  const [loading, setLoading] = useState(false);
-
   const exercise = async (cid: ContractId<T>, argument: C) => {
-    setLoading(true);
     const [result] = await state.ledger.exercise(choice, cid, argument);
-    setLoading(false);
     return result;
   }
-  return [exercise, loading];
+  return exercise;
 }
 
-/// React Hook that returns a function to exercise a choice by key and a boolean
-/// indicator whether the exercise is currently running.
-export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): [(key: K, argument: C) => Promise<R>, boolean] => {
+/// React Hook that returns a function to exercise a choice by key.
+export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
   const state = useDamlState();
-  const [loading, setLoading] = useState(false);
-
   const exerciseByKey = async (key: K, argument: C) => {
-    setLoading(true);
     const [result] = await state.ledger.exerciseByKey(choice, key, argument);
-    setLoading(false);
     return result;
   }
-  return [exerciseByKey, loading];
+  return exerciseByKey;
 }
 
 /// React Hook for a query against the `/v1/stream/query` endpoint of the JSON API.
-export function useStreamQuery<T extends object, K>(template: Template<T, K>): QueryResult<T, K>
-export function useStreamQuery<T extends object, K>(template: Template<T, K>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K>
-export function useStreamQuery<T extends object, K>(template: Template<T, K>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K> {
-  const [result, setResult] = useState<QueryResult<T, K>>({contracts: [], loading: false});
+export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
+export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
+export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
+  const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: false});
   const state = useDamlState();
   useEffect(() => {
     setResult({contracts: [], loading: true});
@@ -132,8 +122,8 @@ export function useStreamQuery<T extends object, K>(template: Template<T, K>, qu
 }
 
 /// React Hook for a query against the `/v1/stream/fetch` endpoint of the JSON API.
-export function useStreamFetchByKey<T extends object, K>(template: Template<T, K>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K> {
-  const [result, setResult] = useState<FetchResult<T, K>>({contract: null, loading: false});
+export function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
+  const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
   const state = useDamlState();
   useEffect(() => {
     setResult({contract: null, loading: true});

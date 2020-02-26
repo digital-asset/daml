@@ -4,7 +4,6 @@
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
     , generateSrcPkgFromLf
-    , generateGenInstancesPkgFromLf
     , prefixDependencyModule
     ) where
 
@@ -31,7 +30,6 @@ import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
-import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
@@ -43,7 +41,6 @@ import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import DA.Daml.Options
 
-import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
 data Config = Config
@@ -54,8 +51,9 @@ data Config = Config
         -- ^ maps a package reference to a unit id
     , configSelfPkgId :: LF.PackageId
         -- ^ package id for this package, we need it to build a closed LF.World
-    , configStablePackages :: Set LF.PackageId
-        -- ^ set of package ids for stable packages
+    , configStablePackages :: MS.Map LF.PackageId UnitId
+        -- ^ map from a package id of a stable package to the unit id
+        -- of the corresponding package, i.e., daml-prim/daml-stdlib.
     , configDependencyPackages :: Set LF.PackageId
         -- ^ set of package ids for dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
@@ -160,13 +158,36 @@ isDuplicate env ty1 ty2 =
             esyn2 <- LF.expandTypeSynonyms ty2
             pure (LF.alphaEquiv esyn1 esyn2)
 
+data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
+    deriving (Eq, Ord)
+
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
-    { modRefPackageQualify :: Bool
-    -- ^ If True, we use a package-qualified import.
-    , modRefUnitId :: UnitId
-    , modRefModule :: LF.ModuleName
+    { modRefModule :: LF.ModuleName
+    , modRefOrigin :: ImportOrigin
     } deriving (Eq, Ord)
+
+modRefImport :: Config -> ModRef -> LImportDecl GhcPs
+modRefImport Config{..} ModRef{..} = noLoc ImportDecl
+    { ideclSourceSrc = NoSourceText
+    , ideclName = (noLoc . mkModuleName . T.unpack . LF.moduleNameString) modName
+    , ideclPkgQual = Nothing
+    , ideclSource = False
+    , ideclSafe = False
+    , ideclImplicit = False
+    , ideclQualified = False
+    , ideclAs = Nothing
+    , ideclHiding = Nothing
+    , ideclExt = noExt
+    }
+  where
+      modName = case modRefOrigin of
+          FromCurrentSdk _ -> LF.ModuleName (configSdkPrefix <> LF.unModuleName modRefModule)
+          FromPackage importPkgId
+             | importPkgId == configSelfPkgId -> modRefModule
+             -- The module names from the current package are the only ones that are not modified
+             | otherwise -> prefixDependencyModule importPkgId modRefModule
+
 
 -- | Monad for generating a value together with its module references.
 newtype Gen t = Gen (Writer (Set ModRef) t)
@@ -388,7 +409,7 @@ generateSrcFromLf env = noLoc mod
             pure [ mkConDecl occName (RecCon (noLoc fields')) ]
         LF.DataVariant cons -> do
             sequence
-                [ mkConDecl (occNameFor conName) . details <$> convType env reexportedClasses ty
+                [ mkConDecl (occNameFor conName) <$> convConDetails ty
                 | (conName, ty) <- cons
                 ]
         LF.DataEnum cons -> do
@@ -414,42 +435,30 @@ generateSrcFromLf env = noLoc mod
             , con_args = details
             }
 
-        -- In DAML we have sums of products, in DAML-LF a variant only has
-        -- a single field. Here we combine them back into a single type.
-        details :: HsType GhcPs -> HsConDeclDetails GhcPs
-        details = \case
-            HsRecTy _ext fs -> RecCon $ noLoc fs
-            ty -> PrefixCon [noLoc ty]
+        convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
+        convConDetails = \case
 
+            -- | variant record constructor
+            LF.TConApp LF.Qualified{..} _
+                | LF.TypeConName ns <- qualObject
+                , length ns == 2 ->
+                    case MS.lookup ns (sumProdRecords $ envMod env) of
+                        Nothing ->
+                            error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." ns)
+                        Just fs ->
+                            RecCon . noLoc <$> mapM (uncurry (mkConDeclField env)) fs
+
+            -- | normal payload
+            ty ->
+                PrefixCon . pure . noLoc <$> convType env reexportedClasses ty
 
     -- imports needed by the module declarations
     imports
      =
-        [ noLoc $
-        ImportDecl
-            { ideclExt = noExt
-            , ideclSourceSrc = NoSourceText
-            , ideclName =
-                  noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRefModule
-            , ideclPkgQual = do
-                guard modRefPackageQualify -- we don’t do package qualified imports
-                    -- for modules that should come from the current SDK.
-                Just $ StringLiteral NoSourceText $ mkFastString $
-                    -- Package qualified imports for the current package
-                    -- need to use "this" instead of the package id.
-                    if modRefUnitId == unitId
-                        then "this"
-                        else T.unpack . LF.unPackageName . fst $ LF.splitUnitId modRefUnitId
-            , ideclSource = False
-            , ideclSafe = False
-            , ideclImplicit = False
-            , ideclQualified = True
-            , ideclAs = Nothing
-            , ideclHiding = Nothing
-            } :: LImportDecl GhcPs
-        | ModRef{..} <- Set.toList modRefs
+        [ modRefImport config modRef
+        | modRef@ModRef{..} <- Set.toList modRefs
          -- don’t import ourselves
-        , not (modRefModule == lfModName && modRefUnitId == unitId)
+        , not (modRefModule == lfModName && modRefOrigin == FromPackage (configSelfPkgId config))
         -- GHC.Prim doesn’t need to and cannot be explicitly imported (it is not exposed since the interface file is black magic
         -- hardcoded in GHC).
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
@@ -505,8 +514,8 @@ mkStubBind env lname = do
 
 mkErrorCall :: Env -> String -> Gen (LHsExpr GhcPs)
 mkErrorCall env msg = do
-    ghcErr <- genStableModule env (stringToUnitId "daml-prim") (LF.ModuleName ["GHC", "Err"])
-    dataString <- genStableModule env (stringToUnitId "daml-prim") (LF.ModuleName ["Data", "String"])
+    ghcErr <- genStableModule env primUnitId (LF.ModuleName ["GHC", "Err"])
+    dataString <- genStableModule env primUnitId (LF.ModuleName ["Data", "String"])
     let errorFun = noLoc $ HsVar noExt $ noLoc $ mkOrig ghcErr $ mkOccName varName "error" :: LHsExpr GhcPs
     let fromStringFun = noLoc $ HsVar noExt $ noLoc $ mkOrig dataString $ mkOccName varName "fromString" :: LHsExpr GhcPs
     let errorMsg = noLoc $ HsLit noExt (HsString (SourceText $ show msg) $ mkFastString msg) :: LHsExpr GhcPs
@@ -535,16 +544,15 @@ isConstraint = \case
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
     let Config{..} = envConfig env
-        (packageQualified, modName') = case pkgRef of
+        origin = case pkgRef of
             LF.PRImport pkgId
-                | pkgId `Set.member` configDependencyPackages -> (False, prefixDependencyModule pkgId modName)
-                | pkgId `Set.member` configStablePackages -> (False, prefixModuleName configSdkPrefix modName)
-            _ -> (True, modName)
-        unitId = configGetUnitId pkgRef
-    genModuleAux packageQualified unitId modName'
+                | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
+                | otherwise -> FromPackage pkgId
+            LF.PRSelf -> FromPackage configSelfPkgId
+    genModuleAux (envConfig env) origin modName
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
-genStableModule env unitId = genModuleAux False unitId . prefixModuleName (configSdkPrefix $ envConfig env)
+genStableModule env currentSdkPkg = genModuleAux (envConfig env) (FromCurrentSdk currentSdkPkg)
 
 prefixModuleName :: [T.Text] -> LF.ModuleName -> LF.ModuleName
 prefixModuleName prefix (LF.ModuleName mod) = LF.ModuleName (prefix <> mod)
@@ -552,12 +560,15 @@ prefixModuleName prefix (LF.ModuleName mod) = LF.ModuleName (prefix <> mod)
 prefixDependencyModule :: LF.PackageId -> LF.ModuleName -> LF.ModuleName
 prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
-genModuleAux :: Bool -> UnitId -> LF.ModuleName -> Gen Module
-genModuleAux isQualified unitId modName = do
-    let ghcModName = mkModuleName . T.unpack $ LF.moduleNameString modName
-        modRef = ModRef isQualified unitId modName
+genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
+genModuleAux conf origin moduleName = do
+    let modRef = ModRef moduleName origin
+    let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
+    let unitId = case origin of
+            FromCurrentSdk unitId -> unitId
+            FromPackage pkgId -> configGetUnitId conf (LF.PRImport pkgId)
     emitModRef modRef
-    pure $ mkModule unitId ghcModName
+    pure $ mkModule unitId ghcModuleName
 
 -- | We cannot refer to a class C reexported from the current module M using M.C. Therefore
 -- we have to rewrite it to the original module. The map only contains type synonyms reexported
@@ -614,11 +625,6 @@ convType env reexported =
                     ghcMod <- genModule env qualPackage qualModule
                     pure . HsTyVar noExt NotPromoted . noLoc
                         . mkOrig ghcMod . mkOccName varName $ T.unpack name
-                n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
-                    Nothing ->
-                        error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." n)
-                    Just fs ->
-                        HsRecTy noExt <$> mapM (uncurry (mkConDeclField env)) fs
                 cs -> errTooManyNameComponents cs
         LF.TApp ty1 ty2 -> do
             ty1' <- convType env reexported ty1
@@ -762,89 +768,6 @@ generateSrcPkgFromLf config pkg = do
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
-        ]
-
-genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
-genericInstances env externPkgId =
-    ( [unLoc imp | imp <- hsmodImports src]
-    , [ unLoc $
-      generateGenericInstanceFor
-          (nameOccName genClassName)
-          tcdLName
-          -- NOTE (MK) Using the package id as the unit id
-          -- sounds very sketchy but is only used for a debugging
-          -- command that should be removed soon.
-          (stringToUnitId $ T.unpack $ LF.unPackageId externPkgId)
-          (noLoc $
-           mkModuleName $
-           T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env)
-          tcdTyVars
-          tcdDataDefn
-      | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
-      ])
-  where
-    src = unLoc $ generateSrcFromLf env
-
-
-generateGenInstancesPkgFromLf ::
-       Config
-    -> LF.PackageId
-    -> LF.Package
-    -> String
-    -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf config pkgId pkg qual =
-    catMaybes
-        [ generateGenInstanceModule
-            Env
-                { envConfig = config
-                , envQualifyThisModule = True
-                , envMod = mod
-                , envDepClassMap = buildDepClassMap config
-                , envDepInstances = buildDepInstances config
-                , envWorld = buildWorld config
-                }
-            pkgId
-            qual
-        | mod <- NM.toList $ LF.packageModules pkg
-        ]
-
-generateGenInstanceModule ::
-       Env -> LF.PackageId -> String -> Maybe (NormalizedFilePath, String)
-generateGenInstanceModule env externPkgId qual
-    | not $ null instances =
-        Just
-            ( toNormalizedFilePath modFilePath
-            , unlines $
-              header ++
-              nubSort imports ++
-              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) genImports ++
-              [ replace (modName <> ".") (modNameQual <> ".") $
-                 unlines $
-                 map
-                     (showSDocForUser fakeDynFlags alwaysQualify . ppr)
-                     instances
-              ])
-    | otherwise = Nothing
-  where
-    instances = genInstances
-    genImportsAndInstances = genericInstances env externPkgId
-    genImports = [idecl{ideclQualified = True} | idecl <- fst genImportsAndInstances]
-    genInstances = snd genImportsAndInstances
-
-    mod = envMod env
-
-    modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
-    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
-    modNameQual = modName <> qual
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE EmptyCase #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-        , "module " <> modNameQual <> "GenInstances" <> " where"
-        ]
-    imports =
-        [ "import qualified " <> modNameQual
-        , "import qualified DA.Generics"
         ]
 
 -- | Returns 'True' if an LF type contains a reference to an

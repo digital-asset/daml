@@ -3,9 +3,11 @@
 
 package com.digitalasset.platform.store
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -19,6 +21,7 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.entries.{
+  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -73,4 +76,17 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
   def configurationEntries(
       startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
+
+  /** Deduplicates commands.
+    * Returns None if this is the first time the command is submitted
+    * Returns Some(entry) if the command was submitted before */
+  def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      ttl: Instant): Future[Option[CommandDeduplicationEntry]]
+
+  def updateCommandResult(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      result: CommandSubmissionResult): Future[Unit]
 }

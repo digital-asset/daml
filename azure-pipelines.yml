@@ -27,13 +27,13 @@ jobs:
       - bash: |
           set -euo pipefail
           if [ "$(Build.Reason)" == "PullRequest" ]; then
-              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse 'HEAD^2')"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse 'HEAD^1')"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base --fork-point 'HEAD^1' 'HEAD^2')"
+              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
           else
               echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
           fi
         name: out
 
@@ -248,14 +248,14 @@ jobs:
 
           is_release_commit() {
               changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
-              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst")
+              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
 
           if is_release_commit; then
               echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
-              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
               echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
               echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
           else
@@ -265,7 +265,8 @@ jobs:
 
   - job: windows_installer
     dependsOn: [ "check_for_release", "Windows" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       name: 'windows-pool'
@@ -279,6 +280,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -319,7 +322,8 @@ jobs:
 
   - job: linux_tarball
     dependsOn: [ "check_for_release", "Linux" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -332,6 +336,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -370,7 +376,8 @@ jobs:
 
   - job: macos_tarball
     dependsOn: [ "check_for_release", "macOS" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -383,6 +390,8 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           git checkout $(release_sha)
       - bash: ci/configure-bazel.sh
+        env:
+          IS_FORK: $(System.PullRequest.IsFork)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -403,7 +412,8 @@ jobs:
 
   - job: release
     dependsOn: [ "check_for_release", "linux_tarball", "macos_tarball", "windows_installer" ]
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
@@ -509,8 +519,8 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
+          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
+          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
                     gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

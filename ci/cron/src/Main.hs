@@ -66,7 +66,7 @@ robustly_download_nix_packages :: IO ()
 robustly_download_nix_packages = do
     h (10 :: Integer)
     where
-        cmd = "nix-build nix -A tools -A cached"
+        cmd = "nix-build nix -A tools -A ci-cached"
         h n = do
             (exit, out, err) <- shell_exit_code cmd
             case (exit, n) of

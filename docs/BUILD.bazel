@@ -324,6 +324,7 @@ genrule(
 
         # Move output to target
         mv DigitalAssetSDK.pdf ../$(location DigitalAssetSDK.pdf)""".format(sdk = sdk_version),
+    tags = ["pdfdocs"],
     tools =
         [
             "@texlive_nix//:bin/lualatex",
@@ -448,6 +449,7 @@ genrule(
         version = sdk_version,
     ),
     stamp = 1,
+    tags = ["pdfdocs"],
 ) if not is_windows else None
 
 filegroup(
