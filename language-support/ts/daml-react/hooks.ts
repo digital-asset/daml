@@ -75,8 +75,7 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
   return result;
 }
 
-/// React Hook that returns a function to exercise a choice and a boolean
-/// indicator whether the exercise is currently running.
+/// React Hook that returns a function to exercise a choice by contract id.
 export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
   const state = useDamlState();
   const exercise = async (cid: ContractId<T>, argument: C) => {
@@ -86,8 +85,7 @@ export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (c
   return exercise;
 }
 
-/// React Hook that returns a function to exercise a choice by key and a boolean
-/// indicator whether the exercise is currently running.
+/// React Hook that returns a function to exercise a choice by key.
 export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
   const state = useDamlState();
   const exerciseByKey = async (key: K, argument: C) => {
