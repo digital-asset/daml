@@ -62,7 +62,7 @@ That is what the ``AddFriend`` choice does: after checking some preconditions, i
 There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
 
     - The choice is ``nonconsuming`` as we ``archive`` the contract explicitly.
-    - The return type is ``ContractId User``, a reference to the new contract instance for the calling code.
+    - The return type is ``ContractId User``, a reference to the new contract for the calling code.
     - The new ``friend: Party`` is passed as an argument to the choice.
     - The ``controller``, the party able to execute the choice, is the party named on the ``User`` contract.
 
