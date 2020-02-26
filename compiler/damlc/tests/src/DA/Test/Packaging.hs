@@ -47,14 +47,12 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml" </> "Foo" </> "Bar")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A (a) where"
+            [ "module A (a) where"
             , "a : ()"
             , "a = ()"
             ]
         writeFileUTF8 (projectA </> "daml" </> "Foo" </> "Bar" </> "Baz.daml") $ unlines
-            [ "daml 1.2"
-            , "module Foo.Bar.Baz (c) where"
+            [ "module Foo.Bar.Baz (c) where"
             , "import A (a)"
             , "c : ()"
             , "c = a"
@@ -74,8 +72,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module B where"
+            [ "module B where"
             , "import C"
             , "import Foo.Bar.Baz"
             , "b : ()"
@@ -107,8 +104,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         step "Creating project a..."
         createDirectoryIfMissing True projectA
         writeFileUTF8 (projectA </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A () where"
+            [ "module A () where"
             ]
         writeFileUTF8 (projectA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -124,8 +120,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         step "Creating project b..."
         createDirectoryIfMissing True projectB
         writeFileUTF8 (projectB </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module B where"
+            [ "module B where"
             , "import A ()"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
@@ -149,8 +144,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         let projDir = tmpDir </> "proj"
         createDirectoryIfMissing True projDir
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-          [ "daml 1.2"
-          , "module A (a) where"
+          [ "module A (a) where"
           , "a : ()"
           , "a = ()"
           ]
@@ -175,8 +169,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         let projDir = tmpDir </> "proj"
         createDirectoryIfMissing True projDir
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-          [ "daml 1.2"
-          , "module A (a) where"
+          [ "module A (a) where"
           , "a : ()"
           , "a = ()"
           ]
@@ -208,13 +201,11 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         -- Test that all daml source files get included in the dar if "source" points to a file
         -- rather than a directory
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-          [ "daml 1.2"
-          , "module A where"
+          [ "module A where"
           , "import B ()"
           ]
         writeFileUTF8 (projDir </> "B.daml") $ unlines
-          [ "daml 1.2"
-          , "module B where"
+          [ "module B where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
@@ -234,13 +225,11 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         createDirectoryIfMissing True (projDir </> "A")
         createDirectoryIfMissing True (projDir </> "B")
         writeFileUTF8 (projDir </> "A/B.daml") $ unlines
-          [ "daml 1.2"
-          , "module A.B where"
+          [ "module A.B where"
           , "import B.C ()"
           ]
         writeFileUTF8 (projDir </> "B/C.daml") $ unlines
-          [ "daml 1.2"
-          , "module B.C where"
+          [ "module B.C where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
@@ -263,8 +252,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
     , testCase "Dalf dependencies get package id suffices" $ withTempDir $ \projDir -> do
         createDirectoryIfMissing True (projDir </> "daml")
         writeFileUTF8 (projDir </> "daml/A.daml") $ unlines
-          [ "daml 1.2"
-          , "module A where"
+          [ "module A where"
           , "data A = A ()"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
@@ -289,19 +277,16 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
         -- Regression test for #2929
         createDirectory (projDir </> "A")
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-          [ "daml 1.2"
-          , "module A where"
+          [ "module A where"
           , "import A.B ()"
           , "import A.C ()"
           ]
         writeFileUTF8 (projDir </> "A/B.daml") $ unlines
-          [ "daml 1.2"
-          , "module A.B where"
+          [ "module A.B where"
           , "import A.C ()"
           ]
         writeFileUTF8 (projDir </> "A/C.daml") $ unlines
-          [ "daml 1.2"
-          , "module A.C where"
+          [ "module A.C where"
           ]
         writeFileUTF8 (projDir </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
@@ -314,8 +299,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
 
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A (a) where"
+            [ "module A (a) where"
             , "a : ()"
             , "a = ()"
             ]
@@ -350,13 +334,11 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "data B = B Int"
             ]
         writeFileUTF8 (projDir </> "src" </> "A" </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module A.B where"
+            [ "module A.B where"
             , "data C = C Int"
             ]
         buildProjectError projDir "" "name collision"
@@ -423,8 +405,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             ]
           withCurrentDirectory projA $ callProcessSilent damlc ["build", "-o", "foo.dar"]
 
@@ -440,8 +421,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projA </> "foo.dar"
             ]
           writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module B where"
+            [ "module B where"
             , "import A"
             ]
           withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "bar.dar"]
@@ -459,8 +439,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projB </> "bar.dar"
             ]
           writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
-            [ "daml 1.2"
-            , "module C where"
+            [ "module C where"
             , "import A"
             , "import B"
             ]
@@ -483,8 +462,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "foo : Int"
             , "foo = 10"
             ]
@@ -502,15 +480,13 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projA </> "a.dar"
             ]
           writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module B where"
+            [ "module B where"
             , "import A ()"
             ]
           withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "b.dar"]
 
           writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "foo : Int"
             , "foo = 20"
             ]
@@ -530,8 +506,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projB </> "b.dar"
             ]
           writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
-            [ "daml 1.2"
-            , "module C where"
+            [ "module C where"
             , "import A ()"
             , "import B ()"
             ]
@@ -555,8 +530,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
           writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "foo : Int"
             , "foo = 10"
             ]
@@ -575,15 +549,13 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projA </> "a.dar"
             ]
           writeFileUTF8 (projB </> "src" </> "B.daml") $ unlines
-            [ "daml 1.2"
-            , "module B where"
+            [ "module B where"
             , "import A ()"
             ]
           withCurrentDirectory projB $ callProcessSilent damlc ["build", "-o", "b.dar"]
 
           writeFileUTF8 (projA </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "foo : Int"
             , "foo = 20"
             ]
@@ -604,8 +576,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , " - " <> projB </> "b.dar"
             ]
           writeFileUTF8 (projC </> "src" </> "C.daml") $ unlines
-            [ "daml 1.2"
-            , "module C where"
+            [ "module C where"
             , "import A ()"
             , "import B ()"
             ]
@@ -622,8 +593,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
             , "build-options: [\"--ghc-option=-Werror\"]"
             ]
           writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "f : Optional a -> a"
             , "f (Some a) = a"
             ]
@@ -732,8 +702,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
-              [ "daml 1.2"
-              , "module B where"
+              [ "module B where"
               , "import A"
               , "data B = B A"
               , "f : X"
@@ -774,8 +743,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "data-dependencies: [" <> show davlDar <> "]"
               ]
           writeFileUTF8 (tmpDir </> "Main.daml") $ unlines
-              [ "daml 1.2"
-              , "module Main where"
+              [ "module Main where"
 
               , "import DAVL"
               , "import DA.Assert"
@@ -888,8 +856,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "dependencies: [daml-prim, daml-stdlib]"
               ]
           writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
-              [ "daml 1.2"
-              , "module Foo where"
+              [ "module Foo where"
               , "data X = X (Text, Int)"
               -- ^ Check that tuples are mapped back to DAML tuples.
               ]
@@ -905,8 +872,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "data-dependencies: [" <> show (tmpDir </> "dep" </> "dep.dar") <> "]"
               ]
           writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
-              [ "daml 1.2"
-              , "module Bar where"
+              [ "module Bar where"
               , "import Foo"
               , "f : X -> Text"
               , "f (X (a, b)) = a <> show b"
@@ -929,8 +895,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           , "data-dependencies: [simple-dalf-0.0.0.dalf]"
           ]
         writeFileUTF8 (projDir </> "A.daml") $ unlines
-            [ "daml 1.2"
-            , "module A where"
+            [ "module A where"
             , "import DA.Assert"
             , "import qualified \"simple-dalf\" Module"
             , "swapParties : Module.Template -> Module.Template"
@@ -979,8 +944,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           step "Build proja"
           createDirectoryIfMissing True (proja </> "src")
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
-              [ "daml 1.2"
-              , "module A where"
+              [ "module A where"
               , ""
               , "template T"
               , "  with"
@@ -1004,8 +968,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
-              [ "daml 1.2"
-              , "module B where"
+              [ "module B where"
               , "import A"
               , "import DA.Assert"
               , ""
@@ -1040,8 +1003,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           step "Build proja"
           createDirectoryIfMissing True (proja </> "src")
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
-              [ "daml 1.2"
-              , "module A where"
+              [ "module A where"
               , "import DA.Record"
               -- test typeclass export
               , "class Foo t where"
@@ -1101,8 +1063,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           step "Build projb"
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
-              [ "daml 1.2"
-              , "module B where"
+              [ "module B where"
               , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
               , "import DA.Assert"
               , "import DA.Record"
@@ -1188,8 +1149,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , " - --package=old-proj-0.0.1"
               ]
           writeFileUTF8 (tmpDir </> "Upgrade.daml") $ unlines
-              [ "daml 1.2"
-              , "module Upgrade where"
+              [ "module Upgrade where"
               , "import qualified Old"
 
               , "template T"
@@ -1305,8 +1265,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         writeFileUTF8 (tmpDir </> "type" </> "Foo.daml") $ unlines
-            [ "daml 1.2"
-            , "module Foo where"
+            [ "module Foo where"
             , "data A t = B t | C { x: t, y: t }"
             ]
         withCurrentDirectory (tmpDir </> "type") $
@@ -1324,8 +1283,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "  - " <> (tmpDir </> "type" </> "type.dar")
             ]
         writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
-            [ "daml 1.2"
-            , "module Main where"
+            [ "module Main where"
             , "import Foo"
             , "mkA : A Int"
             , "mkA = C with"
