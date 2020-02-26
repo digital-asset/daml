@@ -282,6 +282,7 @@ jobs:
       - bash: ci/configure-bazel.sh
         env:
           IS_FORK: $(System.PullRequest.IsFork)
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -338,6 +339,7 @@ jobs:
       - bash: ci/configure-bazel.sh
         env:
           IS_FORK: $(System.PullRequest.IsFork)
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -392,6 +394,7 @@ jobs:
       - bash: ci/configure-bazel.sh
         env:
           IS_FORK: $(System.PullRequest.IsFork)
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
