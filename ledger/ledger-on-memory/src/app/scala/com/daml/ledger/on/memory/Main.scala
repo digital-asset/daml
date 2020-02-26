@@ -5,8 +5,7 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.SimpleLedgerFactory
-import com.daml.ledger.participant.state.kvutils.app.Runner
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 
@@ -18,15 +17,14 @@ object Main {
   }
 
   object InMemoryLedgerFactory extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
-    override def owner(
-        initialLedgerId: Option[LedgerId],
-        participantId: ParticipantId,
-        config: Unit
-    )(
+    override def owner(config: Config[Unit])(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
-      InMemoryLedgerReaderWriter.owner(initialLedgerId, participantId)
+      InMemoryLedgerReaderWriter.owner(
+        config.ledgerId,
+        config.participantId
+      )
   }
 }

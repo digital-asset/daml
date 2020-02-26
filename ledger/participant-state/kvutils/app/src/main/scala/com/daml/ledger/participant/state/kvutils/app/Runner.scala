@@ -8,20 +8,15 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{ApiServerConfig, StandaloneApiServer}
-import com.digitalasset.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  StandaloneIndexerServer
-}
+import com.digitalasset.platform.apiserver.StandaloneApiServer
+import com.digitalasset.platform.indexer.StandaloneIndexerServer
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 
@@ -50,7 +45,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        readerWriter <- factory.owner(config.ledgerId, config.participantId, config.extra)
+        readerWriter <- factory.owner(config)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
@@ -80,7 +75,7 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         config,
         readService = ledger,
         writeService = ledger,
-        authService = AuthServiceWildcard,
+        authService = factory.authService(config),
       )
     } yield ()
 
@@ -90,13 +85,8 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
       readService,
-      IndexerConfig(
-        config.participantId,
-        jdbcUrl = config.serverJdbcUrl,
-        startupMode = IndexerStartupMode.MigrateAndStart,
-        allowExistingSchema = config.allowExistingSchemaForIndex,
-      ),
-      SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}"),
+      factory.indexerConfig(config),
+      factory.indexerMetricRegistry(config),
     )
 
   private def startApiServer(
@@ -106,19 +96,11 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       authService: AuthService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
-      ApiServerConfig(
-        participantId = config.participantId,
-        archiveFiles = config.archiveFiles.map(_.toFile).toList,
-        port = config.port,
-        address = config.address,
-        jdbcUrl = config.serverJdbcUrl,
-        tlsConfig = None,
-        maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
-        portFile = config.portFile,
-      ),
+      factory.apiServerConfig(config),
       readService,
       writeService,
       authService,
-      SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}"),
+      factory.apiServerMetricRegistry(config),
+      timeServiceBackend = factory.timeServiceBackend(config),
     )
 }

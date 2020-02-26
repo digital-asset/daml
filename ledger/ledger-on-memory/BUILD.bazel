@@ -19,6 +19,7 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
@@ -42,6 +43,7 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
@@ -66,14 +68,18 @@ da_scala_library(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 

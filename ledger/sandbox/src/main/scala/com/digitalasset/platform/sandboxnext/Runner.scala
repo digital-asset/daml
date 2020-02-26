@@ -15,6 +15,7 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -86,13 +87,13 @@ class Runner {
       case TimeProviderType.WallClock =>
         None
     }
-    val now: () => Instant = timeServiceBackend
-      .map(backend => () => backend.getCurrentTime)
-      .getOrElse({
-        val clock = Clock.systemUTC()
-        () =>
-          clock.instant()
-      })
+
+    val now: TimeProvider = timeServiceBackend
+      .getOrElse(
+        new TimeProvider {
+          override def getCurrentTime: Instant = Clock.systemUTC().instant()
+        }
+      )
 
     newLoggingContext { implicit logCtx =>
       for {
