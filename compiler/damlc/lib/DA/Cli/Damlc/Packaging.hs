@@ -12,7 +12,6 @@ module DA.Cli.Damlc.Packaging
   , getUnitId
   ) where
 
-import qualified "zip" Codec.Archive.Zip as Zip
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Exception.Extra
 import Control.Lens (toListOf)
@@ -33,7 +32,7 @@ import qualified Data.Text.Extended as T
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
 import Development.IDE.Types.Location
-import "ghc-lib-parser" Module (UnitId, primUnitId, stringToUnitId, unitIdString,)
+import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
 import System.Directory.Extra
 import System.Exit
@@ -361,88 +360,6 @@ baseImports =
        )
     ]
 
--- generate a package containing template instances and install it in the package database
--- See the comment on the call site above for why this is disabled.
-_generateAndInstallInstancesPkg
-    :: PackageSdkVersion
-    -> [(NormalizedFilePath, String)]
-    -> Options
-    -> FilePath
-    -> FilePath
-    -> String
-    -> String
-    -> LF.PackageName
-    -> Maybe LF.PackageVersion
-    -> [String]
-    -> IO ()
-_generateAndInstallInstancesPkg thisSdkVer templInstSrc opts dbPath projectPackageDatabase unitIdStr instancesUnitIdStr pkgName mbPkgVersion deps = do
-    -- Given that the instances package generates actual code, we first build a DAR and then
-    -- install that in the package db like any other DAR in `dependencies`.
-    --
-    -- Note that this will go away once we have finished the packaging rework
-    -- since we will only generate dummy interfaces.
-
-    -- We build in a temp dir to avoid cluttering a directory with the source files and the .daml folder
-    -- created for the build. Therefore, we have to make dbPath and projectPackageDatabase absolute.
-    dbPathAbs <- makeAbsolute dbPath
-    projectPackageDatabaseAbs <- makeAbsolute projectPackageDatabase
-
-    withTempDir $ \tempDir ->
-        withCurrentDirectory tempDir $ do
-            loggerH <- getLogger opts "generate instances package"
-            mapM_ writeSrc templInstSrc
-            let pkgConfig =
-                    PackageConfigFields
-                        { pName = LF.PackageName ("instances-" <> LF.unPackageName pkgName)
-                        , pSrc = "."
-                        , pExposedModules = Nothing
-                        , pVersion = mbPkgVersion
-                        , pDependencies = (unitIdStr <.> "dalf") : deps
-                        , pDataDependencies = []
-                        , pSdkVersion = thisSdkVer
-                        }
-            opts <-
-                pure $
-                opts
-                    { optIfaceDir = Nothing
-                    , optPackageDbs = projectPackageDatabaseAbs : optPackageDbs opts
-                    , optIsGenerated = True
-                    , optDflagCheck = False
-                    , optMbPackageName = Just pkgName
-                    , optMbPackageVersion = mbPkgVersion
-                    , optPackageImports =
-                          exposePackage (stringToUnitId unitIdStr) True [] :
-                          baseImports ++
-                          -- the following is for the edge case, when there is no standard
-                          -- library dependency, but the dalf still uses builtins or builtin
-                          -- types like Party.  In this case, we use the current daml-stdlib as
-                          -- their origin.
-                          [exposePackage damlStdlib True [] | not $ any isStdlib deps] ++
-                          [ exposePackage (stringToUnitId $ takeBaseName dep) True []
-                          | dep <- deps
-                          , not $ unitIdString primUnitId `isPrefixOf` dep
-                          ]
-                    }
-            mbDar <-
-                withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
-                    buildDar
-                        ide
-                        pkgConfig
-                        (toNormalizedFilePath $
-                         fromMaybe ifaceDir $ optIfaceDir opts)
-                        (FromDalf False)
-            dar <- mbErr "ERROR: Creation of instances DAR file failed." mbDar
-            -- We have to write the DAR using the `zip` library first so we can then read it using
-            -- `zip-archive`. We should eventually get rid of `zip-archive` completely
-            -- but this particular codepath will go away soon anyway.
-            let darFp = instancesUnitIdStr <.> "dar"
-            Zip.createArchive darFp dar
-            ExtractedDar{..} <- extractDar darFp
-            installDar dbPathAbs edConfFiles edDalfs edSrcs
-
-isStdlib :: FilePath -> Bool
-isStdlib = isJust . stripPrefix "daml-stdlib" . takeBaseName
-
 data ExtractedDar = ExtractedDar
     { edSdkVersions :: String
     , edMain :: [ZipArchive.Entry]
@@ -450,7 +367,6 @@ data ExtractedDar = ExtractedDar
     , edDalfs :: [ZipArchive.Entry]
     , edSrcs :: [ZipArchive.Entry]
     }
-
 
 -- | Extract a dar archive
 extractDar :: FilePath -> IO ExtractedDar
