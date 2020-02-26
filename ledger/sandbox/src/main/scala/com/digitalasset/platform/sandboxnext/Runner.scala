@@ -9,6 +9,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
@@ -61,7 +62,7 @@ class Runner {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val ledgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+    val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
       case LedgerIdMode.Static(ledgerId) =>
         Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
       case LedgerIdMode.Dynamic =>
@@ -100,8 +101,14 @@ class Runner {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
+        readerWriter <- SqlLedgerReaderWriter.owner(
+          specifiedLedgerId,
+          ParticipantId,
+          ledgerJdbcUrl,
+          now)
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+        ledgerId <- ResourceOwner.forFuture(() =>
+          ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
         authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
