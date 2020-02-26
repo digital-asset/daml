@@ -40,6 +40,7 @@ object HttpServiceTestFixture {
 
   private val doNotReloadPackages = FiniteDuration(100, DAYS)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def withHttpService[A](
       testName: String,
       dars: List[File],
@@ -97,12 +98,15 @@ object HttpServiceTestFixture {
       a <- testFn(uri, encoder, decoder, client)
     } yield a
 
-    fa.onComplete { _ =>
-      ledgerF.foreach(_._1.close())
-      httpServiceF.foreach(_._1.unbind())
+    fa.transformWith { ta =>
+      Future
+        .sequence(
+          Seq(
+            ledgerF.map(_._1.close()),
+            httpServiceF.flatMap(_._1.unbind()),
+          ) map (_ fallbackTo Future.successful(())))
+        .flatMap(_ => Future fromTry ta)
     }
-
-    fa
   }
 
   def withLedger[A](

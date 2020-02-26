@@ -84,7 +84,7 @@ class WebsocketServiceIntegrationTest
   private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
     Flow[Message]
       .map(_.toString)
-      .filterNot(v => Set("heartbeat", "live") exists (v contains _))
+      .filterNot(_ contains "heartbeat")
       .toMat(Sink.seq)(Keep.right)
 
   private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
@@ -133,9 +133,10 @@ class WebsocketServiceIntegrationTest
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
-          case Seq(result) =>
+          case Seq(result, liveBegin) =>
             result should include(""""issuer":"Alice"""")
             result should include(""""amount":"999.99"""")
+            liveBegin should include(""""offset":"""")
         }
   }
 
@@ -148,9 +149,10 @@ class WebsocketServiceIntegrationTest
           .runWith(collectResultsAsRawString)
       } yield
         inside(clientMsg) {
-          case Seq(result) =>
+          case Seq(result, liveBegin) =>
             result should include(""""owner":"Alice"""")
             result should include(""""number":"abc123"""")
+            liveBegin should include(""""offset":"""")
         }
   }
 
@@ -164,9 +166,10 @@ class WebsocketServiceIntegrationTest
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result) =>
+        case Seq(warning, result, liveBegin) =>
           warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
           result should include("\"issuer\":\"Alice\"")
+          liveBegin should include(""""offset":"""")
       }
   }
 
@@ -180,10 +183,11 @@ class WebsocketServiceIntegrationTest
         .runWith(collectResultsAsRawString)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result) =>
+        case Seq(warning, result, liveBegin) =>
           warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
           result should include(""""owner":"Alice"""")
           result should include(""""number":"abc123"""")
+          liveBegin should include(""""offset":"""")
       }
   }
 
@@ -256,7 +260,10 @@ class WebsocketServiceIntegrationTest
                   statusCode.isSuccess shouldBe true
                   GotAcs(ctid)
               }
-            case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
+
+            case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
+              Future.successful(GotLive(ctid))
+
             case (
                 GotLive(consumedCtid),
                 evtsWrapper @ ContractDelta(
@@ -267,20 +274,18 @@ class WebsocketServiceIntegrationTest
                 Set(fstId, sndId, consumedCtid) should have size 3
                 inside(evtsWrapper) {
                   case JsObject(obj) =>
-                    inside(obj.toSeq) {
-                      case Seq(("events", array)) =>
-                        inside(array) {
-                          case JsArray(
-                              Vector(
-                                Archived(_, _),
-                                Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                                Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _)))) =>
-                            Set((amt1, ixes1), (amt2, ixes2)) should ===(
-                              Set(
-                                (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
-                                (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
-                              ))
-                        }
+                    inside(obj get "events") {
+                      case Some(
+                          JsArray(
+                            Vector(
+                              Archived(_, _),
+                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
+                        Set((amt1, ixes1), (amt2, ixes2)) should ===(
+                          Set(
+                            (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
+                            (BigDecimal("957.57"), Vector(BigDecimal(1), BigDecimal(2))),
+                          ))
                     }
                 }
                 ShouldHaveEnded(2)
@@ -297,6 +302,7 @@ class WebsocketServiceIntegrationTest
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _) =>
+      import spray.json.{JsArray, JsString}
       val templateId = domain.TemplateId(None, "Account", "Account")
       val fetchRequest = """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
       val f1 =
@@ -324,7 +330,8 @@ class WebsocketServiceIntegrationTest
                 }
             }: Future[StreamState]
 
-          case (GotAcs(ctid), Live(_, _)) => Future.successful(GotLive(ctid))
+          case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
+            Future.successful(GotLive(ctid))
 
           case (
               GotLive(archivedCid),
@@ -423,7 +430,7 @@ object WebsocketServiceIntegrationTest {
     ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
         JsObject(eventsWrapper) <- Some(jsv)
-        JsArray(sums) <- eventsWrapper.get("events") if eventsWrapper.size == 1
+        JsArray(sums) <- eventsWrapper.get("events")
         pairs = sums collect { case JsObject(fields) => fields.filterKeys(tagKeys).head }
         if pairs.length == sums.length
         sets = pairs groupBy (_._1)
@@ -462,7 +469,8 @@ object WebsocketServiceIntegrationTest {
       jsv.fields get label map ((_, JsObject(jsv.fields - label)))
   }
 
-  private object Live extends JsoField("live")
+  private object Events extends JsoField("events")
+  private object Offset extends JsoField("offset")
   private object Created extends JsoField("created")
   private object Archived extends JsoField("archived")
   private object MatchedQueries extends JsoField("matchedQueries")

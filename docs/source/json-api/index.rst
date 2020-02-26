@@ -932,41 +932,40 @@ output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
 
     {
-        "events": [
-            {
-                "created": {
+        "events": [{
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
                     "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "999.99",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#1:0",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
                 },
-                "matchedQueries": [
-                    1,
-                    2
-                ]
-            }
-        ]
+                "signatories": ["Alice"],
+                "contractId": "#1:0",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [1, 2]
+        }]
     }
 
 where ``matchedQueries`` indicates the 0-based indices into the request
 list of queries that matched this contract.
 
-When the stream reaches the end of contracts that existed when the
-request started, you'll receive a special message indicating the start
-of "live" updates.  For example, you might use it to turn off an initial
-"loading" indicator::
+Every ``events`` block following the end of contracts that existed when
+the request started includes an ``offset``.  The stream is guaranteed to
+send an offset immediately at the beginning of this "live" data, which
+may or may not contain any ``events``; if it does not contain events and
+no events were emitted before, it may be ``null`` or a string;
+otherwise, it will be a string.  For example, you might use it to turn
+off an initial "loading" indicator::
 
-    {"live": true}
+    {
+        "events": [],
+        "offset": "2"
+    }
 
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
@@ -977,58 +976,45 @@ After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
     {
-        "events": [
-            {
-                "archived": {
-                    "contractId": "#1:0",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                }
-            },
-            {
-                "created": {
-                    "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "42.42",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#2:1",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                },
-                "matchedQueries": [
-                    0,
-                    2
-                ]
-            },
-            {
-                "created": {
-                    "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "957.57",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#2:2",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                },
-                "matchedQueries": [
-                    1,
-                    2
-                ]
+        "events": [{
+            "archived": {
+                "contractId": "#1:0",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
             }
-        ]
+        }, {
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "42.42",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "signatories": ["Alice"],
+                "contractId": "#2:1",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [0, 2]
+        }, {
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "957.57",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "signatories": ["Alice"],
+                "contractId": "#2:2",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [1, 2]
+        }],
+        "offset": "3"
     }
 
 If any template IDs are found not to resolve, the first non-heartbeat

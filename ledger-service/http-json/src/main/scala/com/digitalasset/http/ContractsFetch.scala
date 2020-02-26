@@ -28,7 +28,7 @@ import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
 import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
-import util.{ContractStreamStep, InsertDeleteStep}
+import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import com.digitalasset.util.ExceptionOps._
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -193,12 +193,14 @@ private class ContractsFetch(
               transactionFilter(party, List(templateId)),
               true,
             )
-            (stepsAndOffset.out0.map(_.toInsertDelete).outlet, stepsAndOffset.out1)
+            (stepsAndOffset.out0, stepsAndOffset.out1)
 
           case AbsoluteBookmark(_) =>
             val stepsAndOffset = builder add transactionsFollowingBoundary(txnK)
             stepsAndOffset.in <~ Source.single(domain.Offset.tag.unsubst(offset))
-            (stepsAndOffset.out0, stepsAndOffset.out1)
+            (
+              (stepsAndOffset: FanOutShape2[_, ContractStreamStep.LAV1, _]).out0,
+              stepsAndOffset.out1)
         }
 
         val transactInsertsDeletes = Flow
@@ -206,7 +208,7 @@ private class ContractsFetch(
           .conflate(_ append _)
           .map(insertAndDelete)
 
-        idses ~> transactInsertsDeletes ~> acsSink
+        idses.map(_.toInsertDelete) ~> transactInsertsDeletes ~> acsSink
         lastOff ~> offsetSink
 
         ClosedShape
@@ -234,24 +236,6 @@ private class ContractsFetch(
 private[http] object ContractsFetch {
 
   type PreInsertContract = DBContract[TemplateId.RequiredPkg, JsValue, JsValue, Seq[domain.Party]]
-
-  sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
-    import lav1.ledger_offset.LedgerOffset
-    import LedgerOffset.{LedgerBoundary, Value}
-    import Value.Boundary
-    def toLedgerApi(implicit ev: Off <~< domain.Offset): LedgerOffset =
-      this match {
-        case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
-        case LedgerBegin => LedgerOffset(Boundary(LedgerBoundary.LEDGER_BEGIN))
-      }
-
-    def toOption: Option[Off] = this match {
-      case AbsoluteBookmark(offset) => Some(offset)
-      case LedgerBegin => None
-    }
-  }
-  final case class AbsoluteBookmark[+Off](offset: Off) extends BeginBookmark[Off]
-  case object LedgerBegin extends BeginBookmark[Nothing]
 
   def partition[A, B]: Graph[FanOutShape2[A \/ B, A, B], NotUsed] =
     GraphDSL.create() { implicit b =>
@@ -331,15 +315,21 @@ private[http] object ContractsFetch {
     NotUsed] =
     GraphDSL.create() { implicit b =>
       import GraphDSL.Implicits._
-      import ContractStreamStep.{LiveBegin, acs => Acs, Txn}
+      import ContractStreamStep.{LiveBegin, Acs}
+      type Off = BeginBookmark[String]
       val acs = b add acsAndBoundary
+      val dupOff = b add Broadcast[Off](2)
+      val liveStart = Flow fromFunction { off: Off =>
+        LiveBegin(domain.Offset.tag.subst(off))
+      }
       val txns = b add transactionsFollowingBoundary(transactionsSince)
       val allSteps = b add Concat[ContractStreamStep.LAV1](3)
       // format: off
-      discard { acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
-      discard {      Source.single(LiveBegin)          ~> allSteps }
-      discard {             txns.out0.map(Txn(_))      ~> allSteps }
-      discard { acs.out1 ~> txns.in }
+      discard { dupOff <~ acs.out1 }
+      discard {           acs.out0.map(ces => Acs(ces.toVector)) ~> allSteps }
+      discard { dupOff       ~> liveStart                        ~> allSteps }
+      discard {                      txns.out0                   ~> allSteps }
+      discard { dupOff            ~> txns.in }
       // format: on
       new FanOutShape2(acs.in, allSteps.out, txns.out1)
     }
@@ -353,7 +343,7 @@ private[http] object ContractsFetch {
   ): Graph[
     FanOutShape2[
       BeginBookmark[String],
-      InsertDeleteStep.LAV1,
+      ContractStreamStep.Txn.LAV1,
       BeginBookmark[String],
     ],
     NotUsed] =
@@ -365,7 +355,7 @@ private[http] object ContractsFetch {
       val txns = Flow[Off]
         .flatMapConcat(off => transactionsSince(domain.Offset.tag.subst(off).toLedgerApi))
         .map(transactionToInsertsAndDeletes)
-      val txnSplit = b add project2[InsertDeleteStep.LAV1, domain.Offset]
+      val txnSplit = b add project2[ContractStreamStep.Txn.LAV1, domain.Offset]
       val lastOff = b add last(LedgerBegin: Off)
       // format: off
       discard { txnSplit.in <~ txns <~ dupOff }
@@ -374,9 +364,6 @@ private[http] object ContractsFetch {
       // format: on
       new FanOutShape2(dupOff.in, txnSplit.out0, lastOff.out)
     }
-
-  private[this] def createdEventsIDS[C](seq: Seq[C]): InsertDeleteStep[Nothing, C] =
-    InsertDeleteStep(seq.toVector, Map.empty)
 
   /** Split a series of ACS responses into two channels: one with contracts, the
     * other with a single result, the last offset.
@@ -404,9 +391,9 @@ private[http] object ContractsFetch {
 
   private def transactionToInsertsAndDeletes(
       tx: lav1.transaction.Transaction,
-  ): (InsertDeleteStep.LAV1, domain.Offset) = {
+  ): (ContractStreamStep.Txn.LAV1, domain.Offset) = {
     val offset = domain.Offset.fromLedgerApi(tx)
-    (partitionInsertsDeletes(tx.events), offset)
+    (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
   private def surrogateTemplateIds[K <: TemplateId.RequiredPkg](

@@ -22,7 +22,6 @@ import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
-import scalaz.syntax.tag._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -56,25 +55,29 @@ object WebSocketService {
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue =
-      step match {
-        case ContractStreamStep.LiveBegin => liveMarker
-        case _ =>
-          def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
-          val InsertDeleteStep(inserts, deletes) =
-            Liskov
-              .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
-              .step
-              .toInsertDelete
-          val events = JsArray(
-            deletes.valuesIterator.map(inj("archived", _)).toVector
-              ++ inserts.map {
-                case (ac, pos) =>
-                  val acj = inj("created", ac)
-                  acj copy (fields = acj.fields ++ pos)
-              } ++ errors.map(e => inj("error", e.message)))
-          JsObject(("events", events))
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+      import ContractStreamStep._
+      def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+      val InsertDeleteStep(inserts, deletes) =
+        Liskov
+          .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
+          .step
+          .toInsertDelete
+
+      val events = (deletes.valuesIterator.map(inj("archived", _)).toVector
+        ++ inserts.map {
+          case (ac, pos) =>
+            val acj = inj("created", ac)
+            acj copy (fields = acj.fields ++ pos)
+        } ++ errors.map(e => inj("error", e.message)))
+      val offsetAfter = step match {
+        case Acs(_) => None
+        case LiveBegin(off) =>
+          Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
+        case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
       }
+      JsObject(Map("events" -> JsArray(events)) ++ offsetAfter.map("offset" -> _).toList)
+    }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
       StepAndErrors(errors ++ o.errors, step append o.step)
@@ -94,7 +97,7 @@ object WebSocketService {
       .batchWeighted(
         max = maxCost,
         costFn = {
-          case StepAndErrors(_, ContractStreamStep.LiveBegin) =>
+          case StepAndErrors(_, ContractStreamStep.LiveBegin(_)) =>
             // this is how we avoid conflating LiveBegin
             maxCost
           case StepAndErrors(errors, step) =>
@@ -330,19 +333,24 @@ class WebSocketService(
 
   private def removePhantomArchives_[A, B]
     : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
-    import ContractStreamStep.{LiveBegin, Txn}
+    import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
       .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
-        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep))) =>
-          val newInserts: Vector[String] = idstep.inserts.map(_._1.contractId.unwrap)
+        case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
+          val newInserts: Vector[String] =
+            domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
           val (deletesToEmit, deletesToHold) = s0 partition idstep.deletes.keySet
           val s1: Set[String] = deletesToHold ++ newInserts
-          val a1 = a0.copy(
-            step = a0.step.mapStep(_ copy (deletes = idstep.deletes filterKeys deletesToEmit)))
+          val a1 = a0.copy(step = a0.step.mapDeletes(_ filterKeys deletesToEmit))
 
           (s1, if (a1.nonEmpty) Some(a1) else None)
 
-        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin)) =>
+        case ((deletesToHold, _), a0 @ StepAndErrors(_, Acs(inserts))) =>
+          val newInserts: Vector[String] = domain.ContractId.unsubst(inserts.map(_._1.contractId))
+          val s1: Set[String] = deletesToHold ++ newInserts
+          (s1, Some(a0))
+
+        case ((s0, _), a0 @ StepAndErrors(_, LiveBegin(_))) =>
           (s0, Some(a0))
       }
       .collect { case (_, Some(x)) => x }
@@ -376,14 +384,12 @@ class WebSocketService(
               .liftErr(ServerError)
               .flatMap(_.traverse(apiValueToLfValue).liftErr(ServerError)),
         )
-        StepAndErrors(
-          errors ++ aerrors,
-          dstep mapStep (insDel =>
-            insDel copy (inserts = (insDel.inserts: Vector[domain.ActiveContract[LfV]]).flatMap {
-              ac =>
-                fn(ac).map((ac, _)).toList
-            }))
-        )
+        StepAndErrors(errors ++ aerrors, dstep mapInserts {
+          inserts: Vector[domain.ActiveContract[LfV]] =>
+            inserts.flatMap { ac =>
+              fn(ac).map((ac, _)).toList
+            }
+        })
       }
       .via(conflation)
       .map(_ mapLfv lfValueToJsValue)

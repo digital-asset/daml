@@ -34,24 +34,22 @@ private[http] final case class InsertDeleteStep[+D, +C](
   def mapPreservingIds[CC](f: C => CC): InsertDeleteStep[D, CC] = copy(inserts = inserts map f)
 
   /** Results undefined if cid(d) != cid(c) */
-  def partitionMapPreservingIds[LC, CC, LCS](f: C => (LC \/ CC))(
-      implicit LCS: CanBuildFrom[Inserts[C], LC, LCS],
-  ): (LCS, InsertDeleteStep[D, CC]) = {
+  def partitionMapPreservingIds[LC, CC](
+      f: C => (LC \/ CC)): (Inserts[LC], InsertDeleteStep[D, CC]) = {
     val (_, lcs, step) = partitionBimap(\/-(_), f)
     (lcs, step)
   }
 
   /** Results undefined if cid(cc) != cid(c) */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def partitionBimap[LD, DD, LC, CC, LDS, LCS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
+  def partitionBimap[LD, DD, LC, CC, LDS](f: D => (LD \/ DD), g: C => (LC \/ CC))(
       implicit LDS: CanBuildFrom[Map[String, D], LD, LDS],
-      LCS: CanBuildFrom[Inserts[C], LC, LCS],
-  ): (LDS, LCS, InsertDeleteStep[DD, CC]) = {
+  ): (LDS, Inserts[LC], InsertDeleteStep[DD, CC]) = {
     import Collections._
     import scalaz.std.tuple._, scalaz.syntax.traverse._
     val (lcs, ins) = inserts partitionMap g
     val (lds, del) = deletes partitionMap (_ traverse f)
-    (lds, lcs, InsertDeleteStep(ins, del))
+    (lds, lcs, copy(inserts = ins, deletes = del))
   }
 }
 
