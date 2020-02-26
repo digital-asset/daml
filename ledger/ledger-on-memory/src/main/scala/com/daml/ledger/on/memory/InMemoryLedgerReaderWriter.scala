@@ -195,6 +195,11 @@ object InMemoryLedgerReaderWriter {
     val ledgerId =
       initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
     ResourceOwner.successful(
-      new InMemoryLedgerReaderWriter(ledgerId, participantId, dispatcher, timeProvider, inMemoryState))
+      new InMemoryLedgerReaderWriter(
+        ledgerId,
+        participantId,
+        dispatcher,
+        timeProvider,
+        inMemoryState))
   }
 }

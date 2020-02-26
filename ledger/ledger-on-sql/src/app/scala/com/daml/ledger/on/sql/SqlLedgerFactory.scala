@@ -4,7 +4,7 @@
 package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory}
+import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -30,6 +30,7 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
 
   override def owner(
       config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -40,7 +41,7 @@ object SqlLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig
     }
     SqlLedgerReaderWriter.owner(
       config.ledgerId,
-      config.participantId,
+      participantConfig.participantId,
       jdbcUrl,
       SqlLedgerReaderWriter.DefaultTimeProvider
     )

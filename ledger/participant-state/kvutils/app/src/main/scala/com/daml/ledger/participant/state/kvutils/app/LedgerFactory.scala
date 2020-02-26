@@ -39,7 +39,9 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
   def indexerMetricRegistry(config: ParticipantConfig): MetricRegistry =
     SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}")
 
-  def apiServerConfig(participantConfig: ParticipantConfig, config: Config[ExtraConfig]): ApiServerConfig =
+  def apiServerConfig(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): ApiServerConfig =
     ApiServerConfig(
       participantId = participantConfig.participantId,
       archiveFiles = config.archiveFiles.map(_.toFile).toList,
