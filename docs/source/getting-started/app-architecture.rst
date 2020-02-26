@@ -101,7 +101,7 @@ We use custom *DAML React hooks* to query the ledger for contracts, create new c
 The ``useState`` hook (not specific to DAML) here keeps track of the user's credentials.
 If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
 If they are set, then we render the ``MainScreen`` of the app.
-This is wrapped in the ``DamlLedger`` component, a React `context <https://reactjs.org/docs/context.html>`_ with the current view of the ledger.
+This is wrapped in the ``DamlLedger`` component, a `React context <https://reactjs.org/docs/context.html>`_ with a handle to the ledger.
 
 Let's move on to more advanced uses of our DAML React library.
 The ``MainScreen`` is a simple frame around the ``MainView`` component, which houses the main functionality of our app.
