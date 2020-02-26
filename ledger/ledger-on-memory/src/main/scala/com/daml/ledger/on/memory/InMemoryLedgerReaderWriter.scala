@@ -73,7 +73,7 @@ final class InMemoryLedgerReaderWriter(
       .mapConcat { case (_, updates) => updates }
 
   private def retrieveLogEntry(index: Int): LedgerEntry =
-    state.readLogEntry(index)
+    state.withReadLock((log, _) => log(index))
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
@@ -81,14 +81,16 @@ class InMemoryLedgerStateAccess(currentState: InMemoryState)(
 ) extends LedgerStateAccess[Index] {
 
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-    currentState.withFutureLock { (log, state) =>
+    currentState.withFutureWriteLock { (log, state) =>
       body(new InMemoryLedgerStateOperations(log, state))
     }
 }
 
-private class InMemoryLedgerStateOperations(log: InMemoryState.Log, state: InMemoryState.State)(
-    implicit executionContext: ExecutionContext
-) extends BatchingLedgerStateOperations[Index] {
+private class InMemoryLedgerStateOperations(
+    log: InMemoryState.MutableLog,
+    state: InMemoryState.MutableState,
+)(implicit executionContext: ExecutionContext)
+    extends BatchingLedgerStateOperations[Index] {
   override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.successful {
       keys.map(keyBytes => state.get(ByteString.copyFrom(keyBytes)))
@@ -147,7 +149,7 @@ object InMemoryLedgerReaderWriter {
       dispatcher <- dispatcher
       heartbeats <- heartbeatMechanism
       _ = heartbeats.runWith(Sink.foreach(timestamp =>
-        state.withLock { (log, _) =>
+        state.withWriteLock { (log, _) =>
           val offset = Offset(Array(log.size.toLong))
           val entry = LedgerEntry.Heartbeat(offset, timestamp)
           log += entry

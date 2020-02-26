@@ -13,12 +13,16 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState(
-    log: Log = mutable.ArrayBuffer(),
-    state: State = mutable.Map.empty,
+    log: MutableLog = mutable.ArrayBuffer(),
+    state: MutableState = mutable.Map.empty,
 ) {
   private val lockCurrentState = new Semaphore(1, true)
 
-  def withLock[A](action: (Log, State) => A): A = {
+  // This only differs in the interface; it uses the same lock and provides the same objects.
+  def withReadLock[A](action: (ImmutableLog, ImmutableState) => A): A =
+    withWriteLock(action)
+
+  def withWriteLock[A](action: (MutableLog, MutableState) => A): A = {
     lockCurrentState.acquire()
     try {
       action(log, state)
@@ -27,7 +31,7 @@ private[memory] class InMemoryState(
     }
   }
 
-  def withFutureLock[A](action: (Log, State) => Future[A])(
+  def withFutureWriteLock[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
   ): Future[A] = {
     lockCurrentState.acquire()
@@ -36,12 +40,15 @@ private[memory] class InMemoryState(
         case _ => lockCurrentState.release()
       }
   }
-
-  def readLogEntry(index: Int): LedgerEntry =
-    withLock((log, _) => log(index))
 }
 
 object InMemoryState {
-  type Log = mutable.Buffer[LedgerEntry] with IndexedSeq[LedgerEntry]
-  type State = mutable.Map[ByteString, Array[Byte]]
+  type ImmutableLog = IndexedSeq[LedgerEntry]
+  type ImmutableState = collection.Map[StateKey, StateValue]
+
+  type MutableLog = mutable.Buffer[LedgerEntry] with ImmutableLog
+  type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
+
+  type StateKey = ByteString
+  type StateValue = Array[Byte]
 }
