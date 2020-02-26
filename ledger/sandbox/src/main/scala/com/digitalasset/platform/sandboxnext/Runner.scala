@@ -89,10 +89,6 @@ class Runner {
     }
 
     val now: TimeProvider = timeServiceBackend
-      .map(backend =>
-        new TimeProvider {
-          override def getCurrentTime: Instant = backend.getCurrentTime
-      })
       .getOrElse(
         new TimeProvider {
           override def getCurrentTime: Instant = Clock.systemUTC().instant()
