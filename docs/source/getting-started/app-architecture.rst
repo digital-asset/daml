@@ -7,14 +7,21 @@ App Architecture
 In this section we'll look at the different components of our social network app.
 The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
 
-There are two main components in the code - the DAML model and the React/TypeScript frontend - with generated TypeScript code to bridge the two.
-Let's start by looking at the DAML model, as this sets the core logic of the application.
+There are two main components: the DAML model and the React/TypeScript frontend.
+We generate TypeScript code to bridge the two.
+Let's start by looking at the DAML model, which defines the core logic of the application.
 
 The DAML Model
 ==============
 
-Using the Visual Studio Code editor, navigate to the ``daml`` subdirectory.
-There is a single DAML file called ``User.daml`` with the model for app users.
+In your terminal, navigate to the root ``create-daml-app`` directory and run::
+
+  daml studio
+
+This should open the Visual Studio Code editor at the root of the project.
+(You may get a new tab pop up with release notes for the latest SDK - just close this.)
+Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
+This models the data and workflow for users of the app.
 The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: code/daml/User.daml
@@ -50,12 +57,16 @@ The last thing we'll point out about the DAML model for now is the operation to 
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it creates a new user contract with the new friend added to the list.
-The ``choice`` syntax automatically includes the archival of the current instance.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list.
 
-.. TODO Update depending on consuming/nonconsuming choice.
+There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
 
-Next we'll see how our DAML code is reflected and used on the UI side.
+    - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
+    - The return type is ``ContractId User``, a reference to the new contract for the calling code.
+    - The new ``friend: Party`` is passed as an argument to the choice.
+    - The ``controller``, the party able to exercise the choice, is the one named on the ``User`` contract.
+
+Let's move on to how our DAML model is reflected and used on the UI side.
 
 TypeScript Code Generation
 ==========================
