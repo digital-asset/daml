@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -88,13 +88,6 @@ class Runner {
         None
     }
 
-    val now: TimeProvider = timeServiceBackend
-      .getOrElse(
-        new TimeProvider {
-          override def getCurrentTime: Instant = Clock.systemUTC().instant()
-        }
-      )
-
     newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -102,10 +95,11 @@ class Runner {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
         readerWriter <- SqlLedgerReaderWriter.owner(
-          specifiedLedgerId,
-          ParticipantId,
-          ledgerJdbcUrl,
-          now)
+          initialLedgerId = specifiedLedgerId,
+          participantId = ParticipantId,
+          jdbcUrl = ledgerJdbcUrl,
+          timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+        )
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         ledgerId <- ResourceOwner.forFuture(() =>
           ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
