@@ -63,6 +63,7 @@ conformance_test(
         5011,
         5021,
     ],
+    runner = "@//bazel_tools/client_server/runner:runner",
     server = ":canton-test-runner-with-dependencies",
     test_tool_args = [
         "--include=SemanticTests",
