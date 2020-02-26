@@ -3,15 +3,12 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-
 import java.io.File
 
-import org.scalatest.{FlatSpec, Inside, Matchers}
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import org.scalatest.{FlatSpec, Matchers, TryValues}
 
-import scala.util.{Success, Try}
-
-class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside {
+class UniversalArchiveReaderSpec extends FlatSpec with Matchers with TryValues {
 
   private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
@@ -20,24 +17,19 @@ class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside {
   behavior of classOf[UniversalArchiveReader[_]].getSimpleName
 
   it should "parse a DAR file" in {
-    assertSuccess(UniversalArchiveReader().readFile(darFile))
+    UniversalArchiveReader().readFile(darFile).success
   }
 
   it should "parse a DALF file" in {
-    assertSuccess(UniversalArchiveReader().readFile(dalfFile))
+    UniversalArchiveReader().readFile(dalfFile).success
   }
 
   it should "parse a DAR file and return language version" in {
-    assertSuccess(UniversalArchiveReaderWithVersion().readFile(darFile))
+    UniversalArchiveReaderWithVersion().readFile(darFile).success
   }
 
   it should "parse a DALF file and return language version" in {
-    assertSuccess(UniversalArchiveReaderWithVersion().readFile(dalfFile))
+    UniversalArchiveReaderWithVersion().readFile(dalfFile).success
   }
 
-  private def assertSuccess[A](value: Try[Dar[A]]): Unit = {
-    inside(value) {
-      case Success(Dar(_, _)) =>
-    }
-  }
 }
