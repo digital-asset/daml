@@ -107,8 +107,6 @@ jobs:
     pool:
       vmImage: 'macOS-10.14'
     variables:
-      nix-cache-key: $(Build.StagingDirectory)/macos-nix-key
-      nix-cache-path: /tmp/nix-cache/
       bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
       bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -125,23 +123,6 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(nix-cache-key)
-        displayName: nix cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(nix-cache-key) | v2
-          path: $(nix-cache-path)
-      - bash: |
-          set -euo pipefail
-          if [[ -e $(nix-cache-path) ]]; then
-              DIR=$(pwd)
-              sudo mkdir /nix && sudo chown $USER /nix
-              cd /nix
-              tar xzf $(nix-cache-path)/nix.tar.gz
-              cd $DIR
-              curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
-          fi
-        displayName: restore cache
       - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
         displayName: bazel repo cache key
       - task: CacheBeta@0
@@ -151,14 +132,6 @@ jobs:
       - template: ci/build-unix.yml
         parameters:
           release_tag: $(release_tag)
-      - bash: |
-          set -euo pipefail
-          if [[ ! -e $(nix-cache-path) ]]; then
-              mkdir -p $(nix-cache-path)
-              cd /nix
-              GZIP=-9 tar czf $(nix-cache-path)/nix.tar.gz store var
-          fi
-        displayName: create nix cache
       - bash: mkdir -p $(bazel-repo-cache-path)
         displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
