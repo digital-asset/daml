@@ -25,7 +25,6 @@ import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
 import qualified DA.Daml.Compiler.Repl as Repl
-import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -55,14 +54,12 @@ import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.Split as Split
-import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Debouncer
-import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..), GenerateStablePackages(..), GeneratePackageMap(..))
+import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.Service (runActionSync)
@@ -72,12 +69,11 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import "ghc-lib-parser" Module (stringToUnitId, unitIdString)
+import "ghc-lib-parser" Module (unitIdString)
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import Safe (headNote)
 import System.Directory.Extra
 import System.Environment
 import System.Exit
@@ -327,28 +323,6 @@ cmdMergeDars =
     info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
   where
     cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
-
-cmdGenerateSrc :: Int -> Mod CommandFields Command
-cmdGenerateSrc numProcessors =
-    command "generate-src" $
-    info (helper <*> cmd) $
-    progDesc "Generate DAML source code from a dalf package" <> fullDesc
-  where
-    cmd =
-        execGenerateSrc <$>
-        optionsParser numProcessors (EnableScenarioService False) (pure Nothing) <*>
-        inputDalfOpt <*>
-        targetSrcDirOpt
-
-cmdGenerateGenSrc :: Mod CommandFields Command
-cmdGenerateGenSrc =
-    command "generate-generic-src" $
-    info (helper <*> cmd) $
-    progDesc
-        "Generate DAML source code containing Generic instances for the data types of a dalf package " <>
-    fullDesc
-  where
-    cmd = execGenerateGenSrc <$> inputDarOpt <*> qualOpt <*> targetSrcDirOpt
 
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
@@ -871,109 +845,6 @@ execMergeDars darFp1 darFp2 mbOutFp =
         pure $ ZipArchive.toEntry manifestPath 0 $ BSLC.unlines $
             map (\(k, v) -> breakAt72Bytes $ BSL.fromStrict $ k <> ": " <> v) attrs1
 
--- | Generate daml source files from a dalf package.
-execGenerateSrc :: Options -> FilePath -> Maybe FilePath -> Command
-execGenerateSrc opts dalfOrDar mbOutDir = Command GenerateSrc Nothing effect
-  where
-    effect = do
-        (bytes, dalfPath) <- getDalfBytes dalfOrDar
-        let unitId = stringToUnitId dalfPath
-        (pkgId, pkg) <- decode bytes
-        logger <- getLogger opts "generate-src"
-
-        (dalfPkgMap, stableDalfPkgMap) <- withDamlIdeState opts { optScenarioService = EnableScenarioService False } logger diagnosticsLogger $ \ideState -> runActionSync ideState $ do
-            dalfPkgMap <- useNoFile_ GeneratePackageMap
-            stableDalfPkgMap <- useNoFile_ GenerateStablePackages
-            pure (dalfPkgMap, stableDalfPkgMap)
-
-        let allDalfPkgs :: [(UnitId, LF.DalfPackage)]
-            allDalfPkgs =
-                [ (unitId, dalfPkg)
-                | ((unitId, _modName), dalfPkg) <- MS.toList stableDalfPkgMap ]
-                ++ MS.toList dalfPkgMap
-
-            pkgMap :: MS.Map LF.PackageId LF.Package
-            pkgMap = MS.insert pkgId pkg $ MS.fromList
-                [ (LF.dalfPackageId dalfPkg, LF.extPackagePkg (LF.dalfPackagePkg dalfPkg))
-                | (_, dalfPkg) <- allDalfPkgs ]
-
-            unitIdMap :: MS.Map LF.PackageId UnitId
-            unitIdMap = MS.insert pkgId unitId $ MS.fromList
-                [ (LF.dalfPackageId dalfPkg, unitId)
-                | (unitId, dalfPkg) <- allDalfPkgs ]
-
-            stablePkgIds :: Set.Set LF.PackageId
-            stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stableDalfPkgMap
-
-            dependencyPkgIds :: Set.Set LF.PackageId
-            dependencyPkgIds = Set.fromList
-                [ LF.dalfPackageId dalfPkg
-                | (_, dalfPkg) <- MS.toList dalfPkgMap
-                ]
-
-            config = DataDeps.Config
-                { configPackages = pkgMap
-                , configSelfPkgId = pkgId
-                , configGetUnitId = getUnitId unitId unitIdMap
-                , configStablePackages = stablePkgIds
-                , configDependencyPackages = dependencyPkgIds
-                , configSdkPrefix = ["CurrentSdk"]
-                }
-
-            genSrcs = generateSrcPkgFromLf config pkg
-
-        forM_ genSrcs $ \(path, src) -> do
-            let fp = fromMaybe "" mbOutDir </> fromNormalizedFilePath path
-            createDirectoryIfMissing True $ takeDirectory fp
-            writeFileUTF8 fp src
-        putStrLn "done"
-
-    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive Archive.DecodeAsMain
-
--- | Generate daml source files containing generic instances for data types.
-execGenerateGenSrc :: FilePath -> Maybe String -> Maybe FilePath -> Command
-execGenerateGenSrc darFp mbQual outDir = Command GenerateGenerics Nothing effect
-  where
-    effect = do
-        ExtractedDar {..} <- extractDar darFp
-        let dalfsFromDar =
-                [ ( dropExtension $ takeFileName $ ZipArchive.eRelativePath e
-                  , BSL.toStrict $ ZipArchive.fromEntry e)
-                | e <- edDalfs
-                ]
-        pkgs <-
-            forM dalfsFromDar $ \(name, dalf) -> do
-                (pkgId, package) <- decode dalf
-                pure (pkgId, package, dalf, stringToUnitId name)
-        let pkgMap =
-                MS.fromList
-                    [(pkgId, unitId) | (pkgId, _pkg, _bs, unitId) <- pkgs]
-        let mainDalfEntry = headNote "Missing main dalf in dar archive." edMain
-        let unitId =
-                stringToUnitId $
-                dropExtension $
-                takeFileName $ ZipArchive.eRelativePath mainDalfEntry
-        (mainPkgId, mainLfPkg) <-
-            decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-        -- TODO Passing MS.empty and Set.empty is not right but this command is only used for debugging so for now this is fine.
-        let config = DataDeps.Config
-                { configPackages = MS.empty
-                , configSelfPkgId = mainPkgId
-                , configGetUnitId = getUnitId unitId pkgMap
-                , configStablePackages = Set.empty
-                , configDependencyPackages = Set.empty
-                , configSdkPrefix = []
-                }
-        let genSrcs = generateGenInstancesPkgFromLf config mainPkgId mainLfPkg (fromMaybe "" mbQual)
-        forM_ genSrcs $ \(path, src) -> do
-            let fp = fromMaybe "" outDir </> fromNormalizedFilePath path
-            createDirectoryIfMissing True $ takeDirectory fp
-            writeFileUTF8 fp src
-
-    decode = either (fail . DA.Pretty.renderPretty) pure . Archive.decodeArchive Archive.DecodeAsMain
-
-
-
 execDocTest :: Options -> [FilePath] -> Command
 execDocTest opts files =
   Command DocTest Nothing effect
@@ -1024,10 +895,6 @@ options numProcessors =
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
         <> cmdClean
-        <> cmdGenerateSrc numProcessors
-        <> cmdGenerateGenSrc
-        -- once the repl is a bit more mature, make it non-internal
-        -- and modify sdk-config.yaml to add a description.
       )
 
 parserInfo :: Int -> ParserInfo Command

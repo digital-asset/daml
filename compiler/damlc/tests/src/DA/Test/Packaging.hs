@@ -877,37 +877,41 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
 
           step "Validating DAR"
           callProcessSilent repl ["validate", tmpDir </> "b" </> "b.dar"]
-    ] <>
-    [ testCaseSteps "Source generation edge cases" $ \step -> withTempDir $ \tmpDir -> do
-      writeFileUTF8 (tmpDir </> "Foo.daml") $ unlines
-        [ "daml 1.2"
-        , "module Foo where"
-        , "template Bar"
-        , "   with"
-        , "     p : Party"
-        , "     t : (Text, Int)" -- check for correct tuple type generation
-        , "   where"
-        , "     signatory p"
-        ]
-      withCurrentDirectory tmpDir $ do
-        step "Compile source to dalf ..."
-        callProcessSilent damlc ["compile", "Foo.daml", "-o", "Foo.dalf"]
-        step "Regenerate source ..."
-        callProcessSilent damlc ["generate-src", "Foo.dalf", "--srcdir=gen"]
-        step "Compile generated source ..."
-        callProcessSilent
-            damlc
-            [ "compile"
-            , "--generated-src"
-            , "gen/Foo.daml"
-            , "-o"
-            , "FooGen.dalf"
-            , "--package"
-            , unitIdString damlStdlib <> " (DA.Internal.LF as CurrentSdk.DA.Internal.LF, DA.Internal.Prelude as CurrentSdk.DA.Internal.Prelude, DA.Internal.Template as CurrentSdk.DA.Internal.Template)"
-            , "--package"
-            , "daml-prim (DA.Types as CurrentSdk.DA.Types, GHC.Types as CurrentSdk.GHC.Types)"
-            ]
-        assertBool "FooGen.dalf was not created" =<< doesFileExist "FooGen.dalf"
+    , testCaseSteps "Tuples" $ \step -> withTempDir $ \tmpDir -> do
+          step "Building dep"
+          createDirectoryIfMissing True (tmpDir </> "dep")
+          writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: dep"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
+              [ "daml 1.2"
+              , "module Foo where"
+              , "data X = X (Text, Int)"
+              -- ^ Check that tuples are mapped back to DAML tuples.
+              ]
+          withCurrentDirectory (tmpDir </> "dep") $ callProcessSilent damlc ["build", "-o", tmpDir </> "dep" </> "dep.dar"]
+          step "Building proj"
+          createDirectoryIfMissing True (tmpDir </> "proj")
+          writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proj"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (tmpDir </> "dep" </> "dep.dar") <> "]"
+              ]
+          writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
+              [ "daml 1.2"
+              , "module Bar where"
+              , "import Foo"
+              , "f : X -> Text"
+              , "f (X (a, b)) = a <> show b"
+              ]
+          withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar"]
     ] <>
     [ testCase ("Dalf imports (withArchiveChoice=" <> show withArchiveChoice <> ")") $ withTempDir $ \projDir -> do
         let genSimpleDalfExe

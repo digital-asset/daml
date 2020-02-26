@@ -4,7 +4,6 @@
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
     , generateSrcPkgFromLf
-    , generateGenInstancesPkgFromLf
     , prefixDependencyModule
     ) where
 
@@ -31,7 +30,6 @@ import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
-import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
@@ -43,7 +41,6 @@ import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import DA.Daml.Options
 
-import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
 data Config = Config
@@ -766,89 +763,6 @@ generateSrcPkgFromLf config pkg = do
         , "{-# LANGUAGE UndecidableInstances #-}"
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
-        ]
-
-genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
-genericInstances env externPkgId =
-    ( [unLoc imp | imp <- hsmodImports src]
-    , [ unLoc $
-      generateGenericInstanceFor
-          (nameOccName genClassName)
-          tcdLName
-          -- NOTE (MK) Using the package id as the unit id
-          -- sounds very sketchy but is only used for a debugging
-          -- command that should be removed soon.
-          (stringToUnitId $ T.unpack $ LF.unPackageId externPkgId)
-          (noLoc $
-           mkModuleName $
-           T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env)
-          tcdTyVars
-          tcdDataDefn
-      | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
-      ])
-  where
-    src = unLoc $ generateSrcFromLf env
-
-
-generateGenInstancesPkgFromLf ::
-       Config
-    -> LF.PackageId
-    -> LF.Package
-    -> String
-    -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf config pkgId pkg qual =
-    catMaybes
-        [ generateGenInstanceModule
-            Env
-                { envConfig = config
-                , envQualifyThisModule = True
-                , envMod = mod
-                , envDepClassMap = buildDepClassMap config
-                , envDepInstances = buildDepInstances config
-                , envWorld = buildWorld config
-                }
-            pkgId
-            qual
-        | mod <- NM.toList $ LF.packageModules pkg
-        ]
-
-generateGenInstanceModule ::
-       Env -> LF.PackageId -> String -> Maybe (NormalizedFilePath, String)
-generateGenInstanceModule env externPkgId qual
-    | not $ null instances =
-        Just
-            ( toNormalizedFilePath modFilePath
-            , unlines $
-              header ++
-              nubSort imports ++
-              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) genImports ++
-              [ replace (modName <> ".") (modNameQual <> ".") $
-                 unlines $
-                 map
-                     (showSDocForUser fakeDynFlags alwaysQualify . ppr)
-                     instances
-              ])
-    | otherwise = Nothing
-  where
-    instances = genInstances
-    genImportsAndInstances = genericInstances env externPkgId
-    genImports = [idecl{ideclQualified = True} | idecl <- fst genImportsAndInstances]
-    genInstances = snd genImportsAndInstances
-
-    mod = envMod env
-
-    modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
-    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
-    modNameQual = modName <> qual
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE EmptyCase #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-        , "module " <> modNameQual <> "GenInstances" <> " where"
-        ]
-    imports =
-        [ "import qualified " <> modNameQual
-        , "import qualified DA.Generics"
         ]
 
 -- | Returns 'True' if an LF type contains a reference to an
