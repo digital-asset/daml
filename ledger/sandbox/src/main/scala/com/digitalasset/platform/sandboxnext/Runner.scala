@@ -188,7 +188,7 @@ class Runner {
         address = config.address,
         jdbcUrl = indexJdbcUrl,
         tlsConfig = config.tlsConfig,
-        maxInboundMessageSize = DefaultMaxInboundMessageSize,
+        maxInboundMessageSize = config.maxInboundMessageSize,
         portFile = config.portFile,
       ),
       commandConfig = config.commandConfig,
@@ -202,8 +202,6 @@ class Runner {
 
 object Runner {
   private val logger = ContextualizedLogger.get(classOf[Runner])
-
-  private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   private val ParticipantId: v1.ParticipantId =
     Ref.ParticipantId.assertFromString("sandbox-participant")
