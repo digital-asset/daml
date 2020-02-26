@@ -388,7 +388,7 @@ generateSrcFromLf env = noLoc mod
             pure [ mkConDecl occName (RecCon (noLoc fields')) ]
         LF.DataVariant cons -> do
             sequence
-                [ mkConDecl (occNameFor conName) . details <$> convType env reexportedClasses ty
+                [ mkConDecl (occNameFor conName) <$> convConDetails ty
                 | (conName, ty) <- cons
                 ]
         LF.DataEnum cons -> do
@@ -414,13 +414,22 @@ generateSrcFromLf env = noLoc mod
             , con_args = details
             }
 
-        -- In DAML we have sums of products, in DAML-LF a variant only has
-        -- a single field. Here we combine them back into a single type.
-        details :: HsType GhcPs -> HsConDeclDetails GhcPs
-        details = \case
-            HsRecTy _ext fs -> RecCon $ noLoc fs
-            ty -> PrefixCon [noLoc ty]
+        convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
+        convConDetails = \case
 
+            -- | variant record constructor
+            LF.TConApp LF.Qualified{..} _
+                | LF.TypeConName ns <- qualObject
+                , length ns == 2 ->
+                    case MS.lookup ns (sumProdRecords $ envMod env) of
+                        Nothing ->
+                            error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." ns)
+                        Just fs ->
+                            RecCon . noLoc <$> mapM (uncurry (mkConDeclField env)) fs
+
+            -- | normal payload
+            ty ->
+                PrefixCon . pure . noLoc <$> convType env reexportedClasses ty
 
     -- imports needed by the module declarations
     imports
@@ -614,11 +623,6 @@ convType env reexported =
                     ghcMod <- genModule env qualPackage qualModule
                     pure . HsTyVar noExt NotPromoted . noLoc
                         . mkOrig ghcMod . mkOccName varName $ T.unpack name
-                n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
-                    Nothing ->
-                        error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." n)
-                    Just fs ->
-                        HsRecTy noExt <$> mapM (uncurry (mkConDeclField env)) fs
                 cs -> errTooManyNameComponents cs
         LF.TApp ty1 ty2 -> do
             ty1' <- convType env reexported ty1
