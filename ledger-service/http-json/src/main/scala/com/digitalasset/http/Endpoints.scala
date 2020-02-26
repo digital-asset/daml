@@ -111,6 +111,26 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
+  def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+    for {
+      t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+
+      (jwt, jwtPayload, reqBody) = t3
+
+      cmd <- either(
+        decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
+      ): ET[domain.CreateAndExerciseCommand[ApiValue, ApiValue]]
+//
+//      ac <- eitherT(
+//        handleFutureFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+//      ): ET[domain.ActiveContract[lav1.value.Value]]
+//
+//      jsVal <- either(encoder.encodeV(ac).liftErr(ServerError)): ET[JsValue]
+
+      jsVal = JsString("")
+
+    } yield domain.OkResponse(jsVal)
+
   def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
       input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]

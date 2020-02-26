@@ -104,6 +104,14 @@ object domain {
       meta: Option[CommandMeta],
   )
 
+  final case class CreateAndExerciseCommand[+Payload, +Arg](
+      templateId: TemplateId.OptionalPkg,
+      payload: Payload,
+      choice: domain.Choice,
+      argument: Arg,
+      meta: Option[CommandMeta],
+  )
+
   final case class ExerciseResponse[+LfV](
       exerciseResult: LfV,
       events: List[Contract[LfV]],
@@ -467,6 +475,19 @@ object domain {
         ): Error \/ LfType =
           g(templateId, fa.choice)
             .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
+      }
+  }
+
+  object CreateAndExerciseCommand {
+    implicit val bitraverseInstance: Bitraverse[CreateAndExerciseCommand] =
+      new Bitraverse[CreateAndExerciseCommand] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fab: CreateAndExerciseCommand[A, B])(
+            f: A => G[C],
+            g: B => G[D]): G[CreateAndExerciseCommand[C, D]] = {
+          import scalaz.syntax.applicative._
+          ^(f(fab.payload), g(fab.argument))((p, a) => fab.copy(payload = p, argument = a))
+        }
       }
   }
 

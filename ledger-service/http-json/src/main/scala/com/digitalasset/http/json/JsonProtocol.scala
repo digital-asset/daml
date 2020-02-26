@@ -267,6 +267,10 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
+  implicit val CreateAndExerciseCommandFormat
+    : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
+
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
 
