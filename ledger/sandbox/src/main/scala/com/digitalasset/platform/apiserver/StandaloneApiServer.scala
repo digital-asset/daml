@@ -38,12 +38,13 @@ import scala.concurrent.{ExecutionContext, Future}
 // See v2.ReferenceServer on how it is used.
 final class StandaloneApiServer(
     config: ApiServerConfig,
+    commandConfig: CommandConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
     metrics: MetricRegistry,
-    engine: Engine = sharedEngine, // allows sharing DAML engine with DAML-on-X participant
     timeServiceBackend: Option[TimeServiceBackend] = None,
+    engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
 )(implicit logCtx: LoggingContext)
     extends ResourceOwner[Int] {
 
@@ -129,7 +130,7 @@ final class StandaloneApiServer(
               engine = engine,
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               defaultLedgerConfiguration = initialConditions.config,
-              commandConfig = CommandConfiguration.default,
+              commandConfig = commandConfig,
               submissionConfig = SubmissionConfiguration.default,
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,

@@ -191,6 +191,7 @@ class Runner {
         DefaultMaxInboundMessageSize,
         config.portFile,
       ),
+      commandConfig = config.commandConfig,
       readService = readService,
       writeService = writeService,
       authService = authService,

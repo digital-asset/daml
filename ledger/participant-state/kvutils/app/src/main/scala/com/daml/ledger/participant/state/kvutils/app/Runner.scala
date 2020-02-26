@@ -79,7 +79,10 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
       logCtx: LoggingContext,
   ): ResourceOwner[Unit] =
     for {
-      _ <- startIndexerServer(participantConfig, readService = ledger)
+      _ <- startIndexerServer(
+        participantConfig,
+        readService = ledger,
+      )
       _ <- startApiServer(
         config,
         participantConfig,
@@ -108,10 +111,11 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       factory.apiServerConfig(participantConfig, config),
+      factory.commandConfig(config),
       readService,
       writeService,
       authService,
       factory.apiServerMetricRegistry(participantConfig),
-      timeServiceBackend = factory.timeServiceBackend(config),
+      factory.timeServiceBackend(config),
     ).map(_ => ())
 }
