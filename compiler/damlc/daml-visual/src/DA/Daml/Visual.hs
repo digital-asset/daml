@@ -20,6 +20,7 @@ module DA.Daml.Visual
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST
 import DA.Daml.LF.Reader
+import Data.Bifunctor (bimap)
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -212,7 +213,7 @@ tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplT
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName internalChcName)) $ zip choiceActions [0..]
+  where choiceWithIds = zipWith (\ChoiceAndAction {..} id -> (internalChcName, ChoiceDetails id choiceConsuming choiceName internalChcName)) choiceActions [0..]
         choiceActions = concatMap (\t -> createChoice (template t) : choiceAndActions t) tplChcActions
         createChoice tpl = ChoiceAndAction
             { choiceName = LF.ChoiceName "Create"
@@ -267,7 +268,7 @@ choiceActionToChoicePairs ChoiceAndAction{..} = pairs
     where pairs = map (\ac -> (internalChcName, actionToChoice ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
-graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
+graphEdges lookupData tplChcActions = map (bimap (nodeIdForChoice lookupData) (nodeIdForChoice lookupData)) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap choiceAndActions tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 

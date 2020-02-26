@@ -28,6 +28,7 @@ let
     inherit (pkgs.python3Packages) sphinx;
     inherit (pkgs) buildLlvmPackages;
     enableIntegerSimple = true;
+    enableShared = false;
     enableRelocatedStaticLibs = true;
     libffi = null;
   };
