@@ -4,10 +4,11 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration}
+import java.time.{Clock, Duration, Instant}
 import java.util.UUID
 
-import akka.stream.scaladsl.Sink
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
@@ -42,7 +43,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
-  protected var testId: String = _
+  private var testId: String = _
 
   private var rt: Timestamp = _
 
@@ -52,23 +53,26 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
+  // This can be overriden by tests for those that don't support heartbeats.
+  protected val supportsHeartbeats: Boolean = true
+
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
+      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
-  protected def participantState: ResourceOwner[ParticipantState] =
-    newParticipantState(newLedgerId())
+  private def participantState: ResourceOwner[ParticipantState] =
+    newParticipantState()
 
-  protected def newParticipantState(): ResourceOwner[ParticipantState] =
+  private def newParticipantState(
+      ledgerId: Option[LedgerId] = None,
+      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
+        ResourceOwner.successful(Source.empty),
+  ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(None, participantId, testId)
-    }
-
-  private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
-      participantStateFactory(Some(ledgerId), participantId, testId)
+      participantStateFactory(ledgerId, participantId, testId, heartbeatMechanism)
     }
 
   override protected def beforeEach(): Unit = {
@@ -83,7 +87,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId).use { ps =>
+      newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -617,11 +621,38 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
+    if (supportsHeartbeats) {
+      "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
+        val start = Instant.EPOCH
+        val heartbeats =
+          Source
+            .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
+            .take(10) // ensure this doesn't keep running forever, past the length of the test
+        newParticipantState(heartbeatMechanism = ResourceOwner.successful(heartbeats))
+          .use { ps =>
+            for {
+              updates <- ps
+                .stateUpdates(beginAfter = None)
+                .idleTimeout(IdleTimeout)
+                .take(3)
+                .runWith(Sink.seq)
+            } yield {
+              updates.map(_._2) should be(
+                Seq(
+                  Update.Heartbeat(Timestamp.Epoch),
+                  Update.Heartbeat(Timestamp.Epoch.add(Duration.ofSeconds(1))),
+                  Update.Heartbeat(Timestamp.Epoch.add(Duration.ofSeconds(2))),
+                ))
+            }
+          }
+      }
+    }
+
     if (isPersistent) {
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
         for {
-          retrievedLedgerId1 <- newParticipantState(ledgerId).use { ps =>
+          retrievedLedgerId1 <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
           retrievedLedgerId2 <- newParticipantState().use { ps =>
@@ -637,10 +668,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val ledgerId = newLedgerId()
         val attemptedLedgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { _ =>
+          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { _ =>
             Future.unit
           }
-          exception <- newParticipantState(attemptedLedgerId).use { _ =>
+          exception <- newParticipantState(ledgerId = Some(attemptedLedgerId)).use { _ =>
             Future.unit
           }.failed
         } yield {
@@ -654,7 +685,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { ps =>
+          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
@@ -700,11 +731,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  val IdleTimeout: FiniteDuration = 5.seconds
+  private val IdleTimeout: FiniteDuration = 5.seconds
   private val emptyTransaction: SubmittedTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
-  val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
 
   private val darReader = DarReader { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
@@ -713,10 +744,10 @@ object ParticipantStateIntegrationSpecBase {
 
   private val alice = Ref.Party.assertFromString("alice")
 
-  def newLedgerId(): LedgerId =
+  private def newLedgerId(): LedgerId =
     Ref.LedgerString.assertFromString(s"ledger-${UUID.randomUUID()}")
 
-  def newSubmissionId(): SubmissionId =
+  private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
