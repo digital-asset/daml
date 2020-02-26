@@ -1287,6 +1287,50 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
               , "f = pure () : Proxy ()"
               ]
           withCurrentDirectory (tmpDir </> "top") $ callProcessSilent damlc ["build", "-o", "top.dar"]
+    , testCaseSteps "Generic variants with record constructors" $ \step -> withTempDir $ \tmpDir -> do
+        -- This test checks that data definitions of the form
+        --    data A t = B t | C { x: t, y: t }
+        -- are handled correctly. This is a regression test for issue #4707.
+        step "building project with type definition"
+        createDirectoryIfMissing True (tmpDir </> "type")
+        writeFileUTF8 (tmpDir </> "type" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: type"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (tmpDir </> "type" </> "Foo.daml") $ unlines
+            [ "daml 1.2"
+            , "module Foo where"
+            , "data A t = B t | C { x: t, y: t }"
+            ]
+        withCurrentDirectory (tmpDir </> "type") $
+            callProcessSilent damlc ["build", "-o", "type.dar"]
+
+        step "building a project that uses it as a data-dependency"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "source: ."
+            , "version: 0.1.0"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies: "
+            , "  - " <> (tmpDir </> "type" </> "type.dar")
+            ]
+        writeFileUTF8 (tmpDir </> "proj" </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "import Foo"
+            , "mkA : A Int"
+            , "mkA = C with"
+            , "  x = 10"
+            , "  y = 20"
+            ]
+        withCurrentDirectory (tmpDir </> "proj") $
+            callProcessSilent damlc ["build"]
+
     ]
 
 -- | Only displays stdout and stderr on errors
