@@ -319,9 +319,15 @@ runJar jarPath mbLogbackPath remainingArgs = do
 
 runDaml2ts :: [String] -> IO ()
 runDaml2ts remainingArgs = do
-  daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-  withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
-    (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
+    sdkVersion <- getSdkVersion
+    daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
+    -- It is not intended that these parameters be set by the user
+    -- (but it is allowed for).
+    let damlTypesVersionArgs = [x | "--daml-types-version" `notElem` remainingArgs, x <- ["--daml-types-version", sdkVersion]]
+        packageVersionArgs   = [x |    "--package-version" `notElem` remainingArgs, x <-    ["--package-version", sdkVersion]]
+    remainingArgs <- pure $ damlTypesVersionArgs ++ packageVersionArgs ++ remainingArgs
+    withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
+      (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do

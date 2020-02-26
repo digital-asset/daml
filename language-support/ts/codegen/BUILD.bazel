@@ -8,6 +8,8 @@ da_haskell_binary(
     name = "daml2ts",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
+        "aeson-pretty",
         "base",
         "bytestring",
         "containers",
