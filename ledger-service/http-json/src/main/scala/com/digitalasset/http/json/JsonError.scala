@@ -7,7 +7,7 @@ import scalaz.Show
 
 final case class JsonError(message: String)
 
-object JsonError {
+object JsonError extends (String => JsonError) {
   implicit val ShowInstance: Show[JsonError] = Show shows { f =>
     s"JsonError: ${f.message}"
   }

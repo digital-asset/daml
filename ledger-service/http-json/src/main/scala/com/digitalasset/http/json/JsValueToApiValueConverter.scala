@@ -22,14 +22,14 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
       jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
     \/.fromTryCatchNonFatal(
       LfValueCodec.jsValueToApiValue(jsValue, lfId, lfTypeLookup)
-    ).liftErr(JsonError.apply)
+    ).liftErr(JsonError)
 
   def jsValueToLfValue(
       lfType: iface.Type,
       jsValue: JsValue): JsonError \/ lf.value.Value[lf.value.Value.AbsoluteContractId] =
     \/.fromTryCatchNonFatal(
       LfValueCodec.jsValueToApiValue(jsValue, lfType, lfTypeLookup)
-    ).liftErr(JsonError.apply)
+    ).liftErr(JsonError)
 
   def jsValueToApiValue(lfType: domain.LfType, jsValue: JsValue): JsonError \/ lav1.value.Value =
     for {
@@ -57,5 +57,5 @@ object JsValueToApiValueConverter {
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]
 
   def lfValueToApiValue(lfValue: domain.LfValue): JsonError \/ lav1.value.Value =
-    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError.apply)
+    \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError)
 }

@@ -23,7 +23,7 @@ class DomainJsonEncoder(
       ev2: JsonWriter[F[JsObject]]): JsonError \/ JsObject =
     for {
       a <- encodeUnderlyingRecord(fa)
-      b <- SprayJson.encode[F[JsObject]](a)(ev2).liftErr(JsonError.apply)
+      b <- SprayJson.encode[F[JsObject]](a)(ev2).liftErr(JsonError)
       c <- SprayJson.mustBeJsObject(b)
     } yield c
 
@@ -37,7 +37,7 @@ class DomainJsonEncoder(
       ev2: JsonWriter[F[JsValue]]): JsonError \/ JsValue =
     for {
       a <- encodeUnderlyingValue(fa)
-      b <- SprayJson.encode[F[JsValue]](a)(ev2).liftErr(JsonError.apply)
+      b <- SprayJson.encode[F[JsValue]](a)(ev2).liftErr(JsonError)
     } yield b
 
   // encode underlying values
@@ -56,7 +56,7 @@ class DomainJsonEncoder(
         ref => encodeContractLocatorUnderlyingValue(ref)
       )
 
-      y <- SprayJson.encode(x).liftErr(JsonError.apply)
+      y <- SprayJson.encode(x).liftErr(JsonError)
 
     } yield y
 
