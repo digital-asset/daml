@@ -115,7 +115,7 @@ It uses DAML React hooks to query and update ledger state.
 The ``useParty`` hook simply returns the current user as stored in the ``DamlLedger`` context.
 A more interesting example is the ``allUsers`` line.
 This uses the ``useStreamQuery`` hook to get all ``User`` contracts on the ledger.
-(``User`` is a TypeScript object generated from the DAML code by ``daml codegen``.)
+(``User`` is a TypeScript object generated from the DAML code by ``daml codegen ts``.)
 Note however that this query preserves privacy: only users that have added the current user have their contracts revealed.
 This behaviour is due to the observers on the ``User`` contract being exactly the user's friends.
 
