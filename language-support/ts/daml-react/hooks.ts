@@ -77,32 +77,24 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
 
 /// React Hook that returns a function to exercise a choice and a boolean
 /// indicator whether the exercise is currently running.
-export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): [(cid: ContractId<T>, argument: C) => Promise<R>, boolean] => {
+export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
   const state = useDamlState();
-  const [loading, setLoading] = useState(false);
-
   const exercise = async (cid: ContractId<T>, argument: C) => {
-    setLoading(true);
     const [result] = await state.ledger.exercise(choice, cid, argument);
-    setLoading(false);
     return result;
   }
-  return [exercise, loading];
+  return exercise;
 }
 
 /// React Hook that returns a function to exercise a choice by key and a boolean
 /// indicator whether the exercise is currently running.
-export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): [(key: K, argument: C) => Promise<R>, boolean] => {
+export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
   const state = useDamlState();
-  const [loading, setLoading] = useState(false);
-
   const exerciseByKey = async (key: K, argument: C) => {
-    setLoading(true);
     const [result] = await state.ledger.exerciseByKey(choice, key, argument);
-    setLoading(false);
     return result;
   }
-  return [exerciseByKey, loading];
+  return exerciseByKey;
 }
 
 /// React Hook for a query against the `/v1/stream/query` endpoint of the JSON API.
