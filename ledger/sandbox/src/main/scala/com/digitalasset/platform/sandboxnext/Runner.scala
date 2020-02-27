@@ -35,6 +35,7 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
+import com.digitalasset.platform.sandbox.SandboxServer.logger
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
@@ -126,6 +127,8 @@ class Runner {
           ledgerType,
           authService.getClass.getSimpleName,
         )
+        if (config.seeding.contains(SeedService.Seeding.Weak))
+          logger.warn("Contract id seeding uses a weak seed. DO NOT USE IN PRODUCTION.")
       }
     }
   }

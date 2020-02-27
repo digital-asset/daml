@@ -320,6 +320,8 @@ final class SandboxServer(
           ledgerType,
           authService.getClass.getSimpleName
         )
+        if (config.seeding.contains(SeedService.Seeding.Weak))
+          logger.warn("Contract id seeding uses a weak seed. DO NOT USE IN PRODUCTION.")
         apiServer
       }
     }
