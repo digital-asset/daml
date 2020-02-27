@@ -427,32 +427,21 @@ jobs:
           # Note: this is going to get the PR branch commit, not the
           # result of the merge (i.e. this is not using the same commit as the
           # other jobs in this build).
-          #
-          # We have seen errors getting this commit from GitHub, which we
-          # suspect are transient network errors, so adding simple exponential
-          # backoff to mitigate.
-          BACKOFF=1
           tell_gary() {
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha) up to BACKOFF=$BACKOFF.\"}" \
+                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
                    $(Slack.team-daml-ci)
           }
-          trap tell_gary EXIT
-          while !  git fetch origin $(branch_sha); do
-            if (( $BACKOFF > 500 )); then
-              echo "Could not get commit $(branch_sha); something is very wrong."
-              exit 1
-            else
-              sleep $BACKOFF
-              let "BACKOFF = $BACKOFF * 2"
-            fi
-          done
-          if (( $BACKOFF > 1 )); then
+          if ! git fetch origin $(branch_sha); then
               tell_gary
+              echo "Failed to fetch commit: $(branch_sha) from origin."
+              echo "Remotes:"
+              git remote -v
+              echo "Job status: $(Agent.JobStatus)."
+              exit 1
           fi
-          trap - EXIT
           git checkout $(branch_sha)
 
           eval "$(./dev-env/bin/dade-assist)"
@@ -569,31 +558,21 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          # We have seen errors getting this commit from GitHub, which we
-          # suspect are transient network errors, so adding simple exponential
-          # backoff to mitigate.
-          BACKOFF=1
           tell_gary() {
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha) up to BACKOFF=$BACKOFF.\"}" \
+                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
                    $(Slack.team-daml-ci)
           }
-          trap tell_gary EXIT
-          while !  git fetch origin $(branch_sha); do
-            if (( $BACKOFF > 500 )); then
-              echo "Could not get commit $(branch_sha); something is very wrong."
-              exit 1
-            else
-              sleep $BACKOFF
-              let "BACKOFF = $BACKOFF * 2"
-            fi
-          done
-          if (( $BACKOFF > 1 )); then
+          if ! git fetch origin $(branch_sha); then
               tell_gary
+              echo "Failed to fetch commit: $(branch_sha) from origin."
+              echo "Remotes:"
+              git remote -v
+              echo "Job status: $(Agent.JobStatus)."
+              exit 1
           fi
-          trap - EXIT
           git checkout $(branch_sha)
 
 
