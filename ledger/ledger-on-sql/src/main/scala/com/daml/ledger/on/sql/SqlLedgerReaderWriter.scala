@@ -66,7 +66,7 @@ final class SqlLedgerReaderWriter(
           Source
             .futureSource(database
               .inReadTransaction(s"Querying events [$start, $end[ from log") { queries =>
-                Future.successful(queries.selectFromLog(start, end))
+                Future.fromTry(queries.selectFromLog(start, end))
               }
               .map { result =>
                 if (result.length < end - start) {
@@ -94,13 +94,13 @@ final class SqlLedgerReaderWriter(
 
   class SqlLedgerStateOperations(queries: Queries) extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.successful(queries.selectStateValuesByKeys(keys))
+      Future.fromTry(queries.selectStateValuesByKeys(keys))
 
     override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
-      Future.successful(queries.updateState(keyValuePairs))
+      Future.fromTry(queries.updateState(keyValuePairs))
 
     override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful(queries.insertRecordIntoLog(key, value))
+      Future.fromTry(queries.insertRecordIntoLog(key, value))
   }
 }
 
@@ -139,15 +139,16 @@ object SqlLedgerReaderWriter {
     database.inWriteTransaction("Checking ledger ID at startup") { queries =>
       val providedLedgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      val ledgerId = queries.updateOrRetrieveLedgerId(providedLedgerId)
-      if (initialLedgerId.exists(_ != ledgerId)) {
-        Future.failed(
-          new LedgerIdMismatchException(
-            domain.LedgerId(ledgerId),
-            domain.LedgerId(initialLedgerId.get),
-          ))
-      } else {
-        Future.successful(ledgerId)
+      Future.fromTry(queries.updateOrRetrieveLedgerId(providedLedgerId)).flatMap { ledgerId =>
+        if (initialLedgerId.exists(_ != ledgerId)) {
+          Future.failed(
+            new LedgerIdMismatchException(
+              domain.LedgerId(ledgerId),
+              domain.LedgerId(initialLedgerId.get),
+            ))
+        } else {
+          Future.successful(ledgerId)
+        }
       }
     }
 
@@ -157,7 +158,7 @@ object SqlLedgerReaderWriter {
   ): Future[Dispatcher[Index]] =
     database
       .inReadTransaction("Reading head at startup") { queries =>
-        Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
+        Future.fromTry(queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
       }
       .map(head => Dispatcher("sql-participant-state", StartIndex, head))
 
@@ -175,7 +176,7 @@ object SqlLedgerReaderWriter {
         Sink.foreach(timestamp =>
           database
             .inWriteTransaction("Publishing heartbeat") { queries =>
-              Future.successful(queries.insertHeartbeatIntoLog(timestamp))
+              Future.fromTry(queries.insertHeartbeatIntoLog(timestamp))
             }
             .onComplete {
               case Success(head) => dispatcher.signalNewHead(head)

@@ -9,12 +9,14 @@ import com.daml.ledger.on.sql.Index
 import com.daml.ledger.participant.state.v1.LedgerId
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
+import scala.util.Try
+
 trait WriteQueries {
-  def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): LedgerId
+  def updateOrRetrieveLedgerId(providedLedgerId: LedgerId): Try[LedgerId]
 
-  def insertRecordIntoLog(key: Key, value: Value): Index
+  def insertRecordIntoLog(key: Key, value: Value): Try[Index]
 
-  def insertHeartbeatIntoLog(timestamp: Instant): Index
+  def insertHeartbeatIntoLog(timestamp: Instant): Try[Index]
 
-  def updateState(stateUpdates: Seq[(Key, Value)]): Unit
+  def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit]
 }
