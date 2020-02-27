@@ -44,6 +44,9 @@ object CommandCompletionsTable {
   val parser: RowParser[CompletionStreamResponse] =
     acceptedCommandParser | rejectedCommandParser | checkpointParser
 
+  // TODO The query has to account for checkpoint, which is why it
+  // TODO returns rows there the application_id and submitting_party
+  // TODO are null. Remove as soon as checkpoints are gone.
   def prepareGet(
       startInclusive: LedgerDao#LedgerOffset,
       endExclusive: LedgerDao#LedgerOffset,
@@ -61,8 +64,13 @@ object CommandCompletionsTable {
           from participant_command_completions
           where
             completion_offset between $startInclusive and $endExclusive and
-            application_id = ${applicationId: String} and
-            submitting_party in (${parties.asInstanceOf[Set[String]]})"""
+            (
+              (application_id is null and submitting_party is null)
+              or
+              (application_id = ${applicationId: String} and submitting_party in (${parties
+      .asInstanceOf[Set[String]]}))
+            )
+          order by completion_offset asc"""
 
   // The insert will be prepared only if this entry contains all the information
   // necessary to be rendered as part of the completion service
