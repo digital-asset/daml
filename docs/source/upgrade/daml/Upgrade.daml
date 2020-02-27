@@ -1,0 +1,57 @@
+-- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Upgrade where
+
+-- COIN_BEGIN
+template Coin
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+-- COIN_END
+
+-- COIN_AMOUNT_BEGIN
+template CoinWithAmount
+  with
+    issuer : Party
+    owner : Party
+    amount : Int
+  where
+    signatory issuer, owner
+-- COIN_AMOUNT_END
+
+-- UPGRADE_PROPOSAL_BEGIN
+template UpgradeCoinProposal
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer
+    observer owner
+    choice Accept : ContractId UpgradeCoinAgreement
+      controller owner
+      do create UpgradeCoinAgreement with ..
+-- UPGRADE_PROPOSAL_END
+
+-- UPGRADE_AGREEMENT_BEGIN
+template UpgradeCoinAgreement
+  with
+    issuer : Party
+    owner : Party
+  where
+    signatory issuer, owner
+    choice Upgrade : ContractId CoinWithAmount
+      with
+        coinId : ContractId Coin
+      controller issuer
+      do coin <- fetch coinId
+         assert (coin.issuer == issuer)
+         assert (coin.owner == owner)
+         archive coinId
+         create CoinWithAmount with
+           issuer = coin.issuer
+           owner = coin.owner
+           amount = 1
+-- UPGRADE_AGREEMENT_END
