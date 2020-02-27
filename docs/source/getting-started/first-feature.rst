@@ -172,16 +172,19 @@ This is where we'll add a new ``Segment`` for *Messages*.
 
 You can see we simply follow the formatting of the previous panels and include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
 
-That completes the implementation of your first end-to-end DAML feature!
+That is all for the implementation!
 Let's give the new functionality a spin.
-To start up the new app, run the following commands again in separate terminal windows::
+To start up the new app, run the following commands in separate terminal windows::
 
     ./daml-start.sh
+
     yarn start
 
-You should see the same login page, and once you've logged in the same UI as before but with our new feature at the bottom.
-Again start adding friends and sending messages; try logging in as different users in separate browser tabs and see how the UI responds to new messages being sent.
+You should see the same login page as before.
+Once you've logged in, you'll see the same UI as before but with our new *Messages* panel at the bottom.
+Add some new friends and send some messages!
+Try logging in as different users in separate browser windows and see how the UI responds as new messages are sent.
 
-Hopefully by now you get a sense of the power and ease of building apps driven by DAML.
-Explore the documentation to learn more and continue shipping DAML apps.
+Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
+Explore the documentation to learn more and keep shipping DAML apps.
 Have fun!
