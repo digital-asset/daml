@@ -33,7 +33,7 @@ template User with
         content: Text
       controller sender
       do
-        assertMsg "You must be a friend to send a message" (sender `elem` friends)
+        assertMsg "You must be a friend to send a message" (elem sender friends)
         create Message with sender, receiver = username, content
 -- SENDMESSAGE_END
 

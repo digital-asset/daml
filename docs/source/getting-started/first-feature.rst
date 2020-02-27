@@ -107,6 +107,8 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageList.tsx
+  :start-after: // MESSAGELIST_BEGIN
+  :end-before: // MESSAGELIST_END
 
 First we get the ``username`` of the current user with the ``useParty`` hook.
 Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
@@ -123,11 +125,13 @@ MessageEdit Component
 ---------------------
 
 Next we need the ``MessageEdit`` component to compose and send messages to selected friends.
-Again we show the entire component here; you should copy this into a new file in ``ui/src/components``.
+Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components``.
 
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageEdit.tsx
+  :start-after: // MESSAGEEDIT_BEGIN
+  :end-before: // MESSAGEEDIT_END
 
 You will first notice a ``Props`` type near the top of the file with a single ``friends`` field.
 A *prop* in React is an input to a component; in this case a list of users from which to select the message receiver.
@@ -145,7 +149,7 @@ This contains a dropdown menu to select a receiver from the ``friends``, a text 
 
 There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who has not added you as a friend (even if you could somehow access their ``User`` contract).
-The assertion that ``sender `elem` friends`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
+The assertion that ``elem sender friends`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
 MainView Component
 ------------------
@@ -168,16 +172,19 @@ This is where we'll add a new ``Segment`` for *Messages*.
 
 You can see we simply follow the formatting of the previous panels and include the new messaging components: ``MessageEdit`` supplied with the usernames of all visible parties as props, and ``MessageList`` to display all messages.
 
-That completes the implementation of your first end-to-end DAML feature!
+That is all for the implementation!
 Let's give the new functionality a spin.
-To start up the new app, run the following commands again in separate terminal windows::
+To start up the new app, run the following commands in separate terminal windows::
 
     ./daml-start.sh
+
     yarn start
 
-You should see the same login page, and once you've logged in the same UI as before but with our new feature at the bottom.
-Again start adding friends and sending messages; try logging in as different users in separate browser tabs and see how the UI responds to new messages being sent.
+You should see the same login page as before.
+Once you've logged in, you'll see the same UI as before but with our new *Messages* panel at the bottom.
+Add some new friends and send some messages!
+Try logging in as different users in separate browser windows and see how the UI responds as new messages are sent.
 
-Hopefully by now you get a sense of the power and ease of building apps driven by DAML.
-Explore the documentation to learn more and continue shipping DAML apps.
+Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
+Explore the documentation to learn more and keep shipping DAML apps.
 Have fun!
