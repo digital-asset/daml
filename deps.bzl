@@ -33,8 +33,8 @@ rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
 rules_haskell_version = "eaa89858c44913f65fb48637d75e3190a912f3ae"
 rules_haskell_sha256 = "c2b42f35ecc4c90bf8a5a4d90a1c1e3937513309904809d4c02ce12cf9cc4093"
-rules_nixpkgs_version = "33c50ba64c11dddb95823d12f6b1324083cc5c43"
-rules_nixpkgs_sha256 = "91fedd5151bbd9ef89efc39e2172921bd7036c68cff54712a5df8ddf62bd6922"
+rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
+rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
 davl_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
 davl_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
