@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// MESSAGEEDIT_BEGIN
 import React from 'react'
 import { Form, Button } from 'semantic-ui-react';
 import { Party } from '@daml/types';
@@ -72,3 +73,4 @@ const MessageEdit: React.FC<Props> = ({friends}) => {
 };
 
 export default MessageEdit;
+// MESSAGEEDIT_END

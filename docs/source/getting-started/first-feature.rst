@@ -107,6 +107,8 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageList.tsx
+  :start-after: // MESSAGELIST_BEGIN
+  :end-before: // MESSAGELIST_END
 
 First we get the ``username`` of the current user with the ``useParty`` hook.
 Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
@@ -123,11 +125,13 @@ MessageEdit Component
 ---------------------
 
 Next we need the ``MessageEdit`` component to compose and send messages to selected friends.
-Again we show the entire component here; you should copy this into a new file in ``ui/src/components``.
+Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components``.
 
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageEdit.tsx
+  :start-after: // MESSAGEEDIT_BEGIN
+  :end-before: // MESSAGEEDIT_END
 
 You will first notice a ``Props`` type near the top of the file with a single ``friends`` field.
 A *prop* in React is an input to a component; in this case a list of users from which to select the message receiver.

@@ -1,6 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// MESSAGELIST_BEGIN
 import React from 'react'
 import { List, ListItem } from 'semantic-ui-react';
 import { Message } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
@@ -26,3 +27,4 @@ const MessageList: React.FC = () => {
 }
 
 export default MessageList;
+// MESSAGELIST_END
