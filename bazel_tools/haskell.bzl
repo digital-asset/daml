@@ -247,10 +247,6 @@ def da_haskell_repl(**kwargs):
             "//conditions:default": False,
         }),
         experimental_from_binary = ["//nix/..."],
-        ghci_repl_wrapper = select({
-            "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
-            "//conditions:default": "@rules_haskell//haskell:private/ghci_repl_wrapper.sh",
-        }),
         repl_ghci_args = [
             "-fexternal-interpreter",
             "-j",
