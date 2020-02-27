@@ -24,8 +24,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
 
   override protected final val startIndex: Long = StartIndex
 
-  override protected final val supportsHeartbeats: Boolean = false
-
   override protected final def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
@@ -33,6 +31,6 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     SqlLedgerReaderWriter
-      .owner(ledgerId, participantId, jdbcUrl(testId))
+      .owner(ledgerId, participantId, jdbcUrl(testId), heartbeatMechanism = heartbeatMechanism)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

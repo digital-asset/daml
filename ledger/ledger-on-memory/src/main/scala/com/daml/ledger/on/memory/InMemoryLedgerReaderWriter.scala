@@ -146,10 +146,7 @@ object InMemoryLedgerReaderWriter {
     for {
       dispatcher <- dispatcher
       heartbeats <- heartbeatMechanism
-      _ = heartbeats.runWith(Sink.foreach(timestamp =>
-        state.withWriteLock { (log, _) =>
-          dispatcher.signalNewHead(appendEntry(log, LedgerEntry.Heartbeat(_, timestamp)))
-      }))
+      _ = publishHeartbeats(state, dispatcher, heartbeats)
       readerWriter <- owner(
         initialLedgerId,
         participantId,
@@ -183,6 +180,18 @@ object InMemoryLedgerReaderWriter {
         state,
       ))
   }
+
+  private def publishHeartbeats(
+      state: InMemoryState,
+      dispatcher: Dispatcher[Index],
+      heartbeats: Source[Instant, NotUsed]
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
+    heartbeats
+      .runWith(Sink.foreach(timestamp =>
+        dispatcher.signalNewHead(state.withWriteLock { (log, _) =>
+          appendEntry(log, LedgerEntry.Heartbeat(_, timestamp))
+        })))
+      .map(_ => ())
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
     val offset = Offset(Array(log.size.toLong))

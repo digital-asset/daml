@@ -4,6 +4,7 @@
 package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
+import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -22,15 +23,24 @@ final class SqliteQueries(override protected implicit val connection: Connection
       .as(str("ledger_id").single)
   }
 
-  override def insertIntoLog(key: Key, value: Value): Index = {
+  override def insertRecordIntoLog(key: Key, value: Value): Index = {
     SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
       .executeInsert()
-    SQL"SELECT LAST_INSERT_ROWID()"
-      .as(long("LAST_INSERT_ROWID()").single)
+    lastInsertId()
+  }
+
+  override def insertHeartbeatIntoLog(timestamp: Instant): Index = {
+    SQL"INSERT INTO #$LogTable (heartbeat_timestamp) VALUES (${timestamp.toEpochMilli})"
+      .executeInsert()
+    lastInsertId()
   }
 
   override protected val updateStateQuery: String =
     s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
+
+  private def lastInsertId(): Index =
+    SQL"SELECT LAST_INSERT_ROWID() AS row_id"
+      .as(long("row_id").single)
 }
 
 object SqliteQueries {

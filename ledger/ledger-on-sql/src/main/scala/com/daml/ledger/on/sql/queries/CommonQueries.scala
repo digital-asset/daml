@@ -5,6 +5,7 @@ package com.daml.ledger.on.sql.queries
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -27,14 +28,25 @@ trait CommonQueries extends Queries {
       .flatten
 
   override final def selectFromLog(start: Index, end: Index): immutable.Seq[(Index, LedgerEntry)] =
-    SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end"
+    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end"
       .as(
-        (long("sequence_no") ~ binaryStream("entry_id") ~ byteArray("envelope")).map {
-          case index ~ entryId ~ envelope =>
+        (long("sequence_no")
+          ~ get[Option[InputStream]]("entry_id")
+          ~ get[Option[Array[Byte]]]("envelope")
+          ~ get[Option[Long]]("heartbeat_timestamp")).map {
+          case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
               Offset(Array(index)),
               DamlLogEntryId.parseFrom(entryId),
-              envelope)
+              envelope,
+            )
+          case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
+            index -> LedgerEntry.Heartbeat(
+              Offset(Array(index)),
+              Instant.ofEpochMilli(heartbeatTimestamp),
+            )
+          case _ =>
+            throw new IllegalStateException(s"Invalid data in the $LogTable table.")
         }.*,
       )
 

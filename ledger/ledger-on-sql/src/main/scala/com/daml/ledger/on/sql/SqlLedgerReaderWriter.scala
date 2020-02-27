@@ -3,11 +3,12 @@
 
 package com.daml.ledger.on.sql
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
@@ -98,7 +99,7 @@ final class SqlLedgerReaderWriter(
       Future.successful(queries.updateState(keyValuePairs))
 
     override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful(queries.insertIntoLog(key, value))
+      Future.successful(queries.insertRecordIntoLog(key, value))
   }
 }
 
@@ -112,6 +113,8 @@ object SqlLedgerReaderWriter {
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
+        ResourceOwner.successful(Source.empty),
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -122,6 +125,8 @@ object SqlLedgerReaderWriter {
       database = uninitializedDatabase.migrate()
       ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
       dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
+      heartbeats <- heartbeatMechanism
+      _ = publishHeartbeats(database, dispatcher, heartbeats)
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
@@ -152,4 +157,23 @@ object SqlLedgerReaderWriter {
         Future.successful(queries.selectLatestLogEntryId().map(_ + 1).getOrElse(StartIndex))
       }
       .map(head => Dispatcher("sql-participant-state", StartIndex, head))
+
+  private def publishHeartbeats(
+      database: Database,
+      dispatcher: Dispatcher[Index],
+      heartbeats: Source[Instant, NotUsed],
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+      logCtx: LoggingContext,
+  ): Future[Unit] =
+    heartbeats
+      .runWith(
+        Sink.foreach(timestamp =>
+          database
+            .inWriteTransaction("Publishing heartbeat") { queries =>
+              Future.successful(queries.insertHeartbeatIntoLog(timestamp))
+            }
+            .foreach(dispatcher.signalNewHead)))
+      .map(_ => ())
 }
