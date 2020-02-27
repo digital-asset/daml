@@ -355,7 +355,7 @@ unstableTake : Int -> Text -> Text
 unstableTake = unstableSlice 0
 
 unstableDrop : Int -> Text -> Text
-unstableDrop n x = unstableSlice (DA.Text.length x - n) (DA.Text.length x) x
+unstableDrop n x = unstableSlice n (DA.Text.length x) x
 
 unstableSplitAt : Int -> Text -> (Text, Text)
 unstableSplitAt n x = (unstableTake n x, unstableDrop n x)
