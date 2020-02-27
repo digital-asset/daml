@@ -13,6 +13,7 @@ import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -40,7 +41,9 @@ class SubmissionValidator[LogResult](
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean = false,
-)(implicit executionContext: ExecutionContext) {
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
+
+  private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
       envelope: RawBytes,
@@ -135,6 +138,7 @@ class SubmissionValidator[LogResult](
             case Failure(exception: ValidationFailed) =>
               Success(Left(exception))
             case Failure(exception) =>
+              logger.error("Unexpected failure during submission validation.", exception)
               Success(Left(ValidationError(exception.getLocalizedMessage)))
           }
         }
@@ -163,7 +167,10 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
+  )(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission,

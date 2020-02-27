@@ -113,6 +113,7 @@ da_scala_test(
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
+        "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
