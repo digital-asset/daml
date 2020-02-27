@@ -627,7 +627,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val heartbeats =
           Source
             .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
-            .take(10) // ensure this doesn't keep running forever, past the length of the test
+            // ensure this doesn't keep running forever, past the length of the test
+            // and make sure we correctly dispatch all events
+            .take(3)
         newParticipantState(heartbeatMechanism = ResourceOwner.successful(heartbeats))
           .use { ps =>
             for {

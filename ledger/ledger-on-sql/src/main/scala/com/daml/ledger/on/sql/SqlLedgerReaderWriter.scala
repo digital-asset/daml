@@ -179,7 +179,7 @@ object SqlLedgerReaderWriter {
               Future.fromTry(queries.insertHeartbeatIntoLog(timestamp))
             }
             .onComplete {
-              case Success(head) => dispatcher.signalNewHead(head)
+              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo + 1)
               case Failure(exception) => logger.error("Publishing heartbeat failed.", exception)
           }))
       .map(_ => ())
