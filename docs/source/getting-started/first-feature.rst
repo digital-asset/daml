@@ -145,7 +145,7 @@ This contains a dropdown menu to select a receiver from the ``friends``, a text 
 
 There is again an important point here, in this case about how *authorization* is enforced.
 Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who has not added you as a friend (even if you could somehow access their ``User`` contract).
-The assertion that ``sender `elem` friends`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
+The assertion that ``elem sender friends`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
 MainView Component
 ------------------
