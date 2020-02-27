@@ -2,12 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.Packaging
-  ( ExtractedDar(..)
-  , extractDar
-
-  , createProjectPackageDb
-
-  , getEntry
+  ( createProjectPackageDb
   , mbErr
   , getUnitId
   ) where
@@ -20,7 +15,6 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.Graph
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -46,10 +40,10 @@ import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.IdeState
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
+import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import DA.Daml.LF.Reader
 import DA.Daml.Options.Types
 import qualified DA.Pretty
 import Development.IDE.Core.RuleTypes.Daml
@@ -360,43 +354,6 @@ baseImports =
        )
     ]
 
-data ExtractedDar = ExtractedDar
-    { edSdkVersions :: String
-    , edMain :: [ZipArchive.Entry]
-    , edConfFiles :: [ZipArchive.Entry]
-    , edDalfs :: [ZipArchive.Entry]
-    , edSrcs :: [ZipArchive.Entry]
-    }
-
--- | Extract a dar archive
-extractDar :: FilePath -> IO ExtractedDar
-extractDar fp = do
-    bs <- BSL.readFile fp
-    let archive = ZipArchive.toArchive bs
-    manifest <- getEntry manifestPath archive
-    dalfManifest <- either fail pure $ readDalfManifest archive
-    mainDalfEntry <- getEntry (mainDalfPath dalfManifest) archive
-    sdkVersion <-
-        case parseManifestFile $ BSL.toStrict $ ZipArchive.fromEntry manifest of
-            Left err -> fail err
-            Right manifest ->
-                case lookup "Sdk-Version" manifest of
-                    Nothing -> fail "No Sdk-Version entry in manifest"
-                    Just version -> pure $! trim $ BSUTF8.toString version
-    let confFiles =
-            [ e
-            | e <- ZipArchive.zEntries archive
-            , ".conf" `isExtensionOf` ZipArchive.eRelativePath e
-            ]
-    let srcs =
-            [ e
-            | e <- ZipArchive.zEntries archive
-            , takeExtension (ZipArchive.eRelativePath e) `elem`
-                  [".daml", ".hie", ".hi"]
-            ]
-    dalfs <- forM (dalfPaths dalfManifest) $ \p -> getEntry p archive
-    pure (ExtractedDar sdkVersion [mainDalfEntry] confFiles dalfs srcs)
-
 -- | A helper to construct package ref to unit id maps.
 getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> LF.PackageRef -> UnitId
 getUnitId thisUnitId pkgMap =
@@ -458,12 +415,6 @@ getGhcPkgPath =
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
 mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
-
--- | Get an entry from a dar or fail.
-getEntry :: FilePath -> ZipArchive.Archive -> IO ZipArchive.Entry
-getEntry fp dar =
-    maybe (fail $ "Package does not contain " <> fp) pure $
-    ZipArchive.findEntryByPath fp dar
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty

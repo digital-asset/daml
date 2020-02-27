@@ -24,11 +24,13 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.ExtractDar (getEntry)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.Compiler.Upgrade
+import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
@@ -106,6 +108,7 @@ data CommandName =
   | Init
   | Inspect
   | InspectDar
+  | ValidateDar
   | License
   | Lint
   | MergeDars
@@ -303,6 +306,13 @@ cmdInspectDar =
     info (helper <*> cmd) $ progDesc "Inspect a DAR archive" <> fullDesc
   where
     cmd = execInspectDar <$> inputDarOpt
+
+cmdValidateDar :: Mod CommandFields Command
+cmdValidateDar =
+    command "validate-dar" $
+    info (helper <*> cmd) $ progDesc "Validate a DAR archive" <> fullDesc
+  where
+    cmd = execValidateDar <$> inputDarOpt
 
 cmdMigrate :: Mod CommandFields Command
 cmdMigrate =
@@ -742,6 +752,14 @@ execInspectDar inFile =
               (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
               show (LF.unPackageId pkgId)
 
+execValidateDar :: FilePath -> Command
+execValidateDar inFile =
+  Command ValidateDar Nothing effect
+  where
+    effect = do
+      n <- validateDar inFile -- errors if validation fails
+      putStrLn $ "DAR is valid; contains " <> show n <> " packages."
+
 execMigrate ::
        ProjectOpts
     -> FilePath
@@ -881,6 +899,7 @@ options numProcessors =
       <> cmdVisual
       <> cmdVisualWeb
       <> cmdInspectDar
+      <> cmdValidateDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
       <> cmdRepl numProcessors
