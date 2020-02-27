@@ -70,15 +70,15 @@ data RetrieveByKeyF expr = RetrieveByKeyF
   deriving (Foldable, Functor, Traversable)
 
 data ScenarioF expr
-  = SPureF          !Type !expr
-  | SBindF          !(BindingF expr) !expr
-  | SCommitF        !Type !expr !expr
-  | SMustFailAtF    !Type !expr !expr
+  = SPureF       !Type !expr
+  | SBindF       !(BindingF expr) !expr
+  | SCommitF     !Type !expr !expr
+  | SMustFailAtF !Type !expr !expr
   | SMustFailAtMsgF !Type !expr !expr
-  | SPassF          !expr
+  | SPassF       !expr
   | SGetTimeF
-  | SGetPartyF      !expr
-  | SEmbedExprF     !Type !expr
+  | SGetPartyF   !expr
+  | SEmbedExprF  !Type !expr
   deriving (Foldable, Functor, Traversable)
 
 type instance Base Expr = ExprF
