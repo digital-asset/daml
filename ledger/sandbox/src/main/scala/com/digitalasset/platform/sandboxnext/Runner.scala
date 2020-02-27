@@ -96,12 +96,13 @@ class Runner {
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
+        heartbeats <- heartbeatMechanism
         readerWriter <- SqlLedgerReaderWriter.owner(
           initialLedgerId = specifiedLedgerId,
           participantId = ParticipantId,
           jdbcUrl = ledgerJdbcUrl,
           timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-          heartbeatMechanism = heartbeatMechanism,
+          heartbeats = heartbeats,
         )
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         ledgerId <- ResourceOwner.forFuture(() =>

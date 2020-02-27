@@ -135,8 +135,7 @@ object InMemoryLedgerReaderWriter {
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
-        ResourceOwner.successful(Source.empty),
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
   )(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
@@ -145,7 +144,6 @@ object InMemoryLedgerReaderWriter {
     val state = new InMemoryState
     for {
       dispatcher <- dispatcher
-      heartbeats <- heartbeatMechanism
       _ = publishHeartbeats(state, dispatcher, heartbeats)
       readerWriter <- owner(
         initialLedgerId,

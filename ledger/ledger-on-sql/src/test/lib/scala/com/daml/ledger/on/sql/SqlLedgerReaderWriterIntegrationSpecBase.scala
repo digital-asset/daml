@@ -28,9 +28,9 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]],
+      heartbeats: Source[Instant, NotUsed],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     SqlLedgerReaderWriter
-      .owner(ledgerId, participantId, jdbcUrl(testId), heartbeatMechanism = heartbeatMechanism)
+      .owner(ledgerId, participantId, jdbcUrl(testId), heartbeats = heartbeats)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

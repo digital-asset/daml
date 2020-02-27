@@ -116,8 +116,7 @@ object SqlLedgerReaderWriter {
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
-        ResourceOwner.successful(Source.empty),
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -128,7 +127,6 @@ object SqlLedgerReaderWriter {
       database = uninitializedDatabase.migrate()
       ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
       dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
-      heartbeats <- heartbeatMechanism
       _ = publishHeartbeats(database, dispatcher, heartbeats)
     } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
 

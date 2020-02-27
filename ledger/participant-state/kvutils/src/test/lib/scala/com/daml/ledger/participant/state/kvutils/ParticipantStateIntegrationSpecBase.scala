@@ -60,7 +60,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]],
+      heartbeats: Source[Instant, NotUsed],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -68,11 +68,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private def newParticipantState(
       ledgerId: Option[LedgerId] = None,
-      heartbeatMechanism: ResourceOwner[Source[Instant, NotUsed]] =
-        ResourceOwner.successful(Source.empty),
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeatMechanism)
+      participantStateFactory(ledgerId, participantId, testId, heartbeats)
     }
 
   override protected def beforeEach(): Unit = {
@@ -630,7 +629,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             // ensure this doesn't keep running forever, past the length of the test
             // and make sure we correctly dispatch all events
             .take(3)
-        newParticipantState(heartbeatMechanism = ResourceOwner.successful(heartbeats))
+        newParticipantState(heartbeats = heartbeats)
           .use { ps =>
             for {
               updates <- ps
