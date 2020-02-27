@@ -6,7 +6,7 @@ CREATE TABLE ${table.prefix}new_log
     sequence_no         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     entry_id            VARBINARY(16384),
     envelope            BLOB,
-    heartbeat_timestamp INTEGER
+    heartbeat_timestamp BIGINT
 );
 
 INSERT INTO ${table.prefix}new_log (sequence_no, entry_id, envelope)

@@ -8,7 +8,7 @@ ALTER TABLE ${table.prefix}log
     ALTER COLUMN envelope SET NULL;
 
 ALTER TABLE ${table.prefix}log
-    ADD COLUMN heartbeat_timestamp INTEGER;
+    ADD COLUMN heartbeat_timestamp BIGINT;
 
 ALTER TABLE ${table.prefix}log
     ADD CONSTRAINT record_or_timestamp CHECK (

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Duration, Instant, LocalDate, ZoneOffset}
 import java.util.UUID
 
 import akka.NotUsed
@@ -623,7 +623,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
     if (supportsHeartbeats) {
       "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
-        val start = Instant.EPOCH
+        val start = LocalDate.of(2020, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant
         val heartbeats =
           Source
             .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
@@ -639,9 +639,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             } yield {
               updates.map(_._2) should be(
                 Seq(
-                  Update.Heartbeat(Timestamp.Epoch),
-                  Update.Heartbeat(Timestamp.Epoch.add(Duration.ofSeconds(1))),
-                  Update.Heartbeat(Timestamp.Epoch.add(Duration.ofSeconds(2))),
+                  Update.Heartbeat(Timestamp.assertFromInstant(start)),
+                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(1))),
+                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(2))),
                 ))
             }
           }
