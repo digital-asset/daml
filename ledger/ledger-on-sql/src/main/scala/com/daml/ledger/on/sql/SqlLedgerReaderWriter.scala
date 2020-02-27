@@ -25,7 +25,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.logging.LoggingContext
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.LedgerIdMismatchException
@@ -33,6 +33,7 @@ import com.digitalasset.resources.ResourceOwner
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
@@ -104,6 +105,8 @@ final class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
+  private val logger = ContextualizedLogger.get(classOf[SqlLedgerReaderWriter])
+
   private val StartOffset: Offset = Offset(Array(StartIndex))
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
@@ -174,6 +177,9 @@ object SqlLedgerReaderWriter {
             .inWriteTransaction("Publishing heartbeat") { queries =>
               Future.successful(queries.insertHeartbeatIntoLog(timestamp))
             }
-            .foreach(dispatcher.signalNewHead)))
+            .onComplete {
+              case Success(head) => dispatcher.signalNewHead(head)
+              case Failure(exception) => logger.error("Publishing heartbeat failed.", exception)
+          }))
       .map(_ => ())
 }
