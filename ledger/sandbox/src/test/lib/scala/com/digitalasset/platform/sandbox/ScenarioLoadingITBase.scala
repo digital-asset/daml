@@ -7,6 +7,7 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
 import com.digitalasset.ledger.api.testing.utils.{
@@ -26,7 +27,6 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures
@@ -49,6 +49,8 @@ abstract class ScenarioLoadingITBase
     with TestCommands
     with SandboxFixture
     with SuiteResourceManagementAroundEach {
+
+  override final def scenario: Option[String] = Some("Test:testScenario")
 
   private def newACClient(ledgerId: LedgerId) =
     new ActiveContractSetClient(ledgerId, ActiveContractsServiceGrpc.stub(channel))
@@ -127,7 +129,7 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyFactory)
           lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("7", "", Seq.empty, None))
+          resp.last should equal(GetActiveContractsResponse("8", "", Seq.empty, None))
         }
       }
 
@@ -159,8 +161,8 @@ abstract class ScenarioLoadingITBase
             val events = responses.flatMap(extractEvents)
             val contractIds = events.map(_.contractId).toSet
 
-            // note how we skip #0, #2 and #5 because of the `pass`es in the scenario.
-            contractIds shouldBe Set("#4:0", "#7:2", "#3:0", "#7:1", "#1:0", "#7:0", "#6:0")
+            // note how we skip #0, #2, #5 and #7 because of the `pass`es in the scenario.
+            contractIds shouldBe Set("#1:0", "#3:0", "#4:0", "#6:0", "#8:0", "#8:1", "#8:2")
           }
         }
       }

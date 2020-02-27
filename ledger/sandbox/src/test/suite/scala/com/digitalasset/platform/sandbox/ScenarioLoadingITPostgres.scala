@@ -9,6 +9,4 @@ import com.digitalasset.testing.postgresql.PostgresResource
 class ScenarioLoadingITPostgres extends ScenarioLoadingITBase {
   override protected def database: Option[ResourceOwner[String]] =
     Some(PostgresResource.owner().map(_.jdbcUrl))
-
-  override protected def scenario: Option[String] = Some("Test:testScenario")
 }
