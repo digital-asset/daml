@@ -180,7 +180,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     for {
       damlState <- getDamlState
       startingKeys = damlState.collect {
-        case (k, v) if k.hasContractKey && v.getContractKeyState.nonEmpty => k
+        case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
       }.toSet
 
       allUnique = relTx
@@ -239,7 +239,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {
-    val effects = InputsAndEffects.computeEffects(entryId, relTx)
+    val effects = InputsAndEffects.computeEffects(relTx)
 
     val cid2nid: Value.AbsoluteContractId => Value.NodeId = relTx.localContracts
 
@@ -267,11 +267,15 @@ private[kvutils] case class ProcessTransactionSubmission(
           createNode.key.foreach { keyWithMaintainers =>
             cs.setContractKey(
               Conversions.encodeGlobalKey(
-                Node.GlobalKey(
-                  createNode.coinst.template,
-                  Conversions.forceNoContractIds(keyWithMaintainers.key.value)
-                )
-              ))
+                Node.GlobalKey
+                  .build(
+                    createNode.coinst.template,
+                    keyWithMaintainers.key.value
+                  )
+                  .fold(
+                    _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                    identity))
+            )
           }
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
@@ -306,9 +310,12 @@ private[kvutils] case class ProcessTransactionSubmission(
       set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
           logger.trace(s"updating contract key $key to $contractKeyState")
-          key -> DamlStateValue.newBuilder
-            .setContractKeyState(contractKeyState.fold("")(_.coid))
-            .build
+          key ->
+            DamlStateValue.newBuilder
+              .setContractKeyState(
+                DamlContractKeyState.newBuilder.setContractId(contractKeyState.fold("")(_.coid))
+              )
+              .build
       }),
       delay {
         Metrics.accepts.inc()
@@ -385,7 +392,9 @@ private[kvutils] case class ProcessTransactionSubmission(
       .flatMap {
         _.flatMap { value =>
           for {
-            contractId <- Some(value.getContractKeyState).filter(_.nonEmpty).map(decodeContractId)
+            contractId <- Some(value.getContractKeyState.getContractId)
+              .filter(_.nonEmpty)
+              .map(decodeContractId)
             contractStateKey = contractIdToStateKey(contractId)
             contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
             if contractIsActiveAndVisibleToSubmitter(contractState)

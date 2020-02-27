@@ -76,7 +76,8 @@ object Hash {
   // We mix the given seed with time to mitigate very bad seed.
   def random(seed: Array[Byte]): () => Hash = {
     if (seed.length != underlyingHashLength)
-      throw new IllegalArgumentException(s"expected a 32 bytes seed, get ${seed.length} bytes.")
+      throw new IllegalArgumentException(
+        s"Expected a $underlyingHashLength bytes seed, get ${seed.length} bytes.")
     val counter = new AtomicLong
     val seedWithTime =
       hMacBuilder(new Hash(seed)).add(Time.Timestamp.now().micros).build
@@ -181,7 +182,7 @@ object Hash {
       add(cid2String(cid))
 
     // In order to avoid hash collision, this should be used together
-    // with an other data representing uniquely the type of `value`.
+    // with another data representing uniquely the type of `value`.
     // See for instance hash : Node.GlobalKey => SHA256Hash
     @throws[HashingError]
     final def addTypedValue(value: Value[Value.ContractId]): this.type =

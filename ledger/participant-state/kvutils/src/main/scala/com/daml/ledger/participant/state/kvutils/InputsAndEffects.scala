@@ -102,7 +102,7 @@ private[kvutils] object InputsAndEffects {
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
-  def computeEffects(entryId: DamlLogEntryId, tx: Transaction.AbsTransaction): Effects = {
+  def computeEffects(tx: Transaction.AbsTransaction): Effects = {
     // TODO(JM): Skip transient contracts in createdContracts/updateContractKeys. E.g. rewrite this to
     // fold bottom up (with reversed roots!) and skip creates of archived contracts.
     tx.fold(Effects.empty) {
@@ -118,12 +118,16 @@ private[kvutils] object InputsAndEffects {
                   keyWithMaintainers =>
                     effects.updatedContractKeys.updated(
                       (globalKeyToStateKey(
-                        GlobalKey(
-                          create.coinst.template,
-                          // FIXME: We probably should not crash here.
-                          keyWithMaintainers.key.value.assertNoCid(_ =>
-                            "Unexpected contract id in contract key")
-                        ))),
+                        GlobalKey
+                          .build(
+                            create.coinst.template,
+                            keyWithMaintainers.key.value
+                          )
+                          .fold(
+                            _ =>
+                              throw Err.InvalidSubmission(
+                                "Unexpected contract id in contract key."),
+                            identity))),
                       Some(create.coid)
                   )
                 )

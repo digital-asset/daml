@@ -36,10 +36,9 @@ object KeyValueSubmission {
     * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
   def transactionOutputs(
-      entryId: DamlLogEntryId,
       tx: Transaction.AbsTransaction,
   ): List[DamlStateKey] = {
-    val effects = InputsAndEffects.computeEffects(entryId, tx)
+    val effects = InputsAndEffects.computeEffects(tx)
     effects.createdContracts.map(_._1) ++ effects.consumedContracts
   }
 

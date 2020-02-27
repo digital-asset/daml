@@ -295,7 +295,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           case (_, v) =>
             v.getValueCase match {
               case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
-                v.getContractKeyState shouldBe 'empty
+                v.getContractKeyState.getContractId shouldBe 'empty
 
               case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
                 val cs = v.getContractState

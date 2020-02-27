@@ -152,7 +152,7 @@ message DamlTransactionEntry {
   google.protobuf.Timestamp ledger_effective_time = 4;
 
   // The nonce used to generate contract ids
-  bytes submissionSeed = 5;
+  bytes submission_seed = 5;
 }
 
 // A transaction rejection entry.
@@ -324,7 +324,7 @@ message DamlStateValue {
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
-    string contract_key_state = 5;
+    DamlContractKeyState contract_key_state = 5;
     DamlConfigurationEntry configuration_entry = 6;
     DamlSubmissionDedupValue submission_dedup = 7;
   }
@@ -360,9 +360,6 @@ message DamlSubmissionDedupKey {
 
   // Uploading participant's id.
   string participant_id = 3;
-
-  // Seed use for interpretation.
-  bytes submissionSeed = 4;
 }
 
 message DamlSubmissionDedupValue {
@@ -420,6 +417,13 @@ message DamlPartyAllocation {
   string participant_id = 1;
   // A display name associated with the given party.
   string display_name = 2;
+}
+
+// The state of a contract key.
+message DamlContractKeyState {
+  // The contract to which the key points to.
+  // If unset the key is inactive.
+  string contract_id = 1;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test

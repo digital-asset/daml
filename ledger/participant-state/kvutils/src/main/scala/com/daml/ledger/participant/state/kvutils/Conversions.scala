@@ -152,8 +152,8 @@ private[state] object Conversions {
   def parseTimestamp(ts: com.google.protobuf.Timestamp): Time.Timestamp =
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
 
-  def parseHash(a: com.google.protobuf.ByteString): crypto.Hash =
-    crypto.Hash.assertFromBytes(a.toByteArray)
+  def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
+    crypto.Hash.assertFromBytes(bytes.toByteArray)
 
   def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
     if (a.isEmpty)

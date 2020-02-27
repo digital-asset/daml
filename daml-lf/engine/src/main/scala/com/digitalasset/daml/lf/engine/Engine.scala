@@ -229,13 +229,13 @@ final class Engine {
         commands = commands.map(_._2),
         time = ledgerEffectiveTime
       )
-      validationResult <- if (tx isReplayedBy rtx)
+      validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
-      else
+      } else {
         ResultError(
           ValidationError(
             s"recreated and original transaction mismatch $tx expected, but $rtx is recreated"))
-
+      }
     } yield validationResult
   }
 

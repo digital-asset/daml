@@ -5,10 +5,10 @@ package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, ScalazEqual}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, ScalazEqual}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractInst
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -341,7 +341,7 @@ object Node {
     */
   final class GlobalKey private (
       val templateId: Identifier,
-      val key: Value[Nothing],
+      val key: Value[AbsoluteContractId],
       val hash: Hash
   ) extends {
     override def equals(obj: Any): Boolean = obj match {
@@ -353,8 +353,15 @@ object Node {
   }
 
   object GlobalKey {
-    def apply(templateId: Identifier, key: Value[Nothing]): GlobalKey =
+    def apply(templateId: Ref.ValueRef, key: Value[Nothing]): GlobalKey =
       new GlobalKey(templateId, key, Hash.safeHashContractKey(templateId, key))
+
+    // Will fail if key contains contract ids
+    def build(templateId: Identifier, key: Value[AbsoluteContractId]): Either[String, GlobalKey] =
+      Hash.hashContractKey(templateId, key).map(new GlobalKey(templateId, key, _))
+
+    def assertBuild(templateId: Identifier, key: Value[AbsoluteContractId]): GlobalKey =
+      data.assertRight(build(templateId, key))
   }
 
   sealed trait WithTxValue2[F[+ _, + _]] {
