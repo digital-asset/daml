@@ -15,7 +15,7 @@ final case class CommandConfiguration(
 )
 
 object CommandConfiguration {
-  lazy val default =
+  lazy val default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
       maxParallelSubmissions = 128,

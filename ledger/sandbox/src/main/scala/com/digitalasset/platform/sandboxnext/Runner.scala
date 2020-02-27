@@ -4,11 +4,12 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
@@ -61,7 +62,7 @@ class Runner {
     implicit val materializer: Materializer = Materializer(system)
     implicit val executionContext: ExecutionContext = system.dispatcher
 
-    val ledgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+    val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
       case LedgerIdMode.Static(ledgerId) =>
         Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
       case LedgerIdMode.Dynamic =>
@@ -87,33 +88,32 @@ class Runner {
         None
     }
 
-    val now: TimeProvider = timeServiceBackend
-      .getOrElse(
-        new TimeProvider {
-          override def getCurrentTime: Instant = Clock.systemUTC().instant()
-        }
-      )
-
     newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
-        readerWriter <- SqlLedgerReaderWriter.owner(ledgerId, ParticipantId, ledgerJdbcUrl, now)
+        readerWriter <- SqlLedgerReaderWriter.owner(
+          initialLedgerId = specifiedLedgerId,
+          participantId = ParticipantId,
+          jdbcUrl = ledgerJdbcUrl,
+          timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+        )
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+        ledgerId <- ResourceOwner.forFuture(() =>
+          ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
         authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        _ <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
+        port <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
           "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
           BuildInfo.Version,
           ledgerId,
-          // TODO: Deliver the API server port.
-          0.toString,
+          port.toString,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
@@ -140,14 +140,14 @@ class Runner {
       ledger: KeyValueParticipantState,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     for {
       _ <- startIndexerServer(
         config = config,
         indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
       )
-      _ <- startApiServer(
+      port <- startApiServer(
         config = config,
         indexJdbcUrl = indexJdbcUrl,
         readService = ledger,
@@ -155,7 +155,7 @@ class Runner {
         authService = authService,
         timeServiceBackend = timeServiceBackend,
       )
-    } yield ()
+    } yield port
 
   private def startIndexerServer(
       config: SandboxConfig,
@@ -180,18 +180,20 @@ class Runner {
       writeService: WriteService,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     new StandaloneApiServer(
       ApiServerConfig(
-        ParticipantId,
-        config.damlPackages,
-        config.port,
-        config.address,
+        participantId = ParticipantId,
+        archiveFiles = config.damlPackages,
+        port = config.port,
+        address = config.address,
         jdbcUrl = indexJdbcUrl,
-        tlsConfig = None,
-        DefaultMaxInboundMessageSize,
-        config.portFile,
+        tlsConfig = config.tlsConfig,
+        maxInboundMessageSize = config.maxInboundMessageSize,
+        portFile = config.portFile,
       ),
+      commandConfig = config.commandConfig,
+      submissionConfig = config.submissionConfig,
       readService = readService,
       writeService = writeService,
       authService = authService,
@@ -202,8 +204,6 @@ class Runner {
 
 object Runner {
   private val logger = ContextualizedLogger.get(classOf[Runner])
-
-  private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   private val ParticipantId: v1.ParticipantId =
     Ref.ParticipantId.assertFromString("sandbox-participant")

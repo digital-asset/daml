@@ -32,17 +32,17 @@ final case class SandboxConfig(
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
-    logLevel: Level,
+    logLevel: Option[Level],
     authService: Option[AuthService],
     useSortableCid: Boolean
 )
 
 object SandboxConfig {
-  val DefaultPort = 6865
+  val DefaultPort: Int = 6865
 
-  val DefaultMaxInboundMessageSize = 4194304
+  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  lazy val default =
+  lazy val default: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
@@ -58,7 +58,7 @@ object SandboxConfig {
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,
-      logLevel = Level.INFO,
+      logLevel = None, // the default is in logback.xml
       authService = None,
       useSortableCid = false
     )

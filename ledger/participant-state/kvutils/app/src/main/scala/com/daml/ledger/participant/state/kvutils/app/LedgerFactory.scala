@@ -8,6 +8,7 @@ import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
+import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
 import com.digitalasset.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -55,6 +56,12 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
 
   def apiServerMetricRegistry(config: ParticipantConfig): MetricRegistry =
     SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}")
+
+  def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
+    CommandConfiguration.default
+
+  def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
+    SubmissionConfiguration.default
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 
