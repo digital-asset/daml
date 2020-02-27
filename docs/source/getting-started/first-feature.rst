@@ -14,8 +14,8 @@ This should let a user send messages to any chosen friend, and see all messages 
 This feature should also respect *authorization* and *privacy*.
 This means:
 
-    1. You cannot send a message to someone unless they have added you as a friend.
-    2. You cannot see a message unless it was sent specifically to you.
+    1. You cannot send a message to someone unless they have given you the authority by adding you as a friend.
+    2. You cannot see a message unless you sent it or it was sent to you.
 
 We will see that DAML lets us implement these guarantees in a direct and intuitive way.
 
@@ -25,7 +25,7 @@ As usual, we must start with the DAML model and base our UI changes on top of th
 DAML Changes
 ============
 
-As mentioned in the :doc:`architecture <app-architecture>` section, the DAML code defines the data and *workflow* of the application.
+As mentioned in the :doc:`architecture <app-architecture>` section, the DAML code defines the *data* and *workflow* of the application.
 The workflow aspect refers to the interactions between parties that are permitted by the system.
 In the context of a messaging feature, these are essentially the authorization and privacy concerns listed above.
 
@@ -34,9 +34,22 @@ When Alice adds Bob as a friend, she gives permission or *authority* to Bob to s
 It is important to remember that friendships can go in a single direction in our app.
 This means its possible for Bob to message Alice without Alice being able to message him back!
 
-To implement this workflow, we add a new choice to the ``User`` template.
-Copy and paste the following code at the end of the ``User.daml`` file.
-(Take care to match the indentation of the ``AddFriend`` choice, as the DAML parser pays attention to it.)
+To implement this workflow, let's start by adding the new *data* for messages.
+Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
+(Indentation is important: it should be at the top level like the original ``User`` template.)
+
+.. literalinclude:: code/daml/User.daml
+  :language: daml
+  :start-after: -- MESSAGE_BEGIN
+  :end-before: -- MESSAGE_END
+
+This template is very simple: it contains the data for a message and no choices.
+The interesting part is the ``signatory`` clause: both the ``sender`` and ``receiver`` are signatories on the template.
+This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
+
+Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
+Copy the following choice to the ``User`` template after the ``AddFriend`` choice.
+(Make sure the indentation matches ``AddFriend``.)
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
@@ -45,23 +58,11 @@ Copy and paste the following code at the end of the ``User.daml`` file.
 
 As with the ``AddFriend`` choice, there are a few aspects to note here.
 
-    - The choice is ``nonconsuming`` because sending a message should not consume the ``User`` contract.
-    - By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract (which we'll show next).
-    - The parameters to the choice are the ``sender`` and ``content`` of this message.
+    - The choice is ``nonconsuming`` because sending a message should not archive the ``User`` contract.
+    - By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract.
+    - The parameters to the choice are the ``sender`` and ``content`` of this message; the receiver is the party named on this ``User`` contract.
     - The ``controller`` clause suggests that it is the ``sender`` who can exercise the choice.
     - The body of the choice first ensures that the sender is a friend of the user and then creates the ``Message`` contract with the ``receiver`` being the signatory of the ``User`` contract.
-
-If you've added the ``SendMessage`` choice correctly, you should an error in the bottom *Problems* pane of Visual Studio Code that ``Message`` is undefined.
-Let's add the ``Message`` template at the bottom of the same file (copy it from below).
-
-.. literalinclude:: code/daml/User.daml
-  :language: daml
-  :start-after: -- MESSAGE_BEGIN
-  :end-before: -- MESSAGE_END
-
-This template is very simple: it contains data but no choices.
-The ``signatory`` clause is the interesting part: both the sender and receiver are signatories on the template.
-This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 This completes the workflow for messaging in our app.
 Now let's integrate this functionality into the UI.

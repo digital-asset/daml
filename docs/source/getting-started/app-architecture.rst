@@ -22,8 +22,9 @@ This should open the Visual Studio Code editor at the root of the project.
 (You may get a new tab pop up with release notes for the latest SDK - just close this.)
 Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
 
-This DAML code defines the data and *workflow* of the application.
-The core data is at the start of the ``User`` contract template.
+The DAML code defines the *data* and *workflow* of the application.
+Both are described in the ``User`` contract *template*.
+Let's look at the data portion first.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
@@ -96,7 +97,7 @@ React helps us write modular UI components using a functional style - a componen
 
 Let's see an example of a React component.
 All components are in the ``ui/src/components`` folder.
-You can navigate there within Visual Studio Code using the file *Explorer* on the left sidebar.
+You can navigate there within Visual Studio Code using the file explorer on the left sidebar.
 We'll first look at ``App.tsx``, which is the entry point to our application.
 
 .. literalinclude:: code/ui-before/App.tsx
