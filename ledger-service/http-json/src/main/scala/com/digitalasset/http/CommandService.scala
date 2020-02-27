@@ -7,7 +7,7 @@ import java.time.Instant
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.CommandService.{Error, ExerciseCommandRef}
+import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
 import com.digitalasset.http.domain.{
   ActiveContract,
   Contract,
@@ -18,6 +18,7 @@ import com.digitalasset.http.domain.{
   JwtPayload
 }
 import com.digitalasset.http.util.ClientUtil.uniqueCommandId
+import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.jwt.domain.Jwt
@@ -30,6 +31,7 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
+import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -42,21 +44,21 @@ class CommandService(
     defaultTimeToLive: FiniteDuration)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
+  import CommandService._
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def create(jwt: Jwt, jwtPayload: JwtPayload, input: CreateCommand[lav1.value.Record])
     : Future[Error \/ ActiveContract[lav1.value.Value]] = {
 
-    val et: EitherT[Future, Error, ActiveContract[lav1.value.Value]] = for {
-      command <- EitherT.either(createCommand(input))
+    val et: ET[ActiveContract[lav1.value.Value]] = for {
+      command <- either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- liftET(logResult('create, submitAndWaitForTransaction(jwt, request)))
-      contract <- EitherT.either(exactlyOneActiveContract(response))
+      response <- rightT(logResult('create, submitAndWaitForTransaction(jwt, request)))
+      contract <- either(exactlyOneActiveContract(response))
     } yield contract
 
     et.run
   }
-
-  private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(
@@ -68,10 +70,10 @@ class CommandService(
     val command = exerciseCommand(input)
     val request = submitAndWaitRequest(jwtPayload, input.meta, command)
 
-    val et: EitherT[Future, Error, ExerciseResponse[lav1.value.Value]] = for {
-      response <- liftET(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
-      exerciseResult <- EitherT.either(exerciseResult(response))
-      contracts <- EitherT.either(contracts(response))
+    val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+      response <- rightT(logResult('exercise, submitAndWaitForTransactionTree(jwt, request)))
+      exerciseResult <- either(exerciseResult(response))
+      contracts <- either(contracts(response))
     } yield ExerciseResponse(exerciseResult, contracts)
 
     et.run
@@ -82,7 +84,17 @@ class CommandService(
       jwtPayload: JwtPayload,
       input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
     : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
-    ???
+
+    val et: ET[ExerciseResponse[lav1.value.Value]] = for {
+      command <- either(createAndExerciseCommand(input))
+      request = submitAndWaitRequest(jwtPayload, input.meta, command)
+      response <- rightT(
+        logResult('createAndExercise, submitAndWaitForTransactionTree(jwt, request)))
+      exerciseResult <- either(exerciseResult(response))
+      contracts <- either(contracts(response))
+    } yield ExerciseResponse(exerciseResult, contracts)
+
+    et.run
   }
 
   private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
@@ -96,8 +108,7 @@ class CommandService(
   private def createCommand(
       input: CreateCommand[lav1.value.Record]): Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
-      .toRightDisjunction(
-        Error('createCommand, ErrorMessages.cannotResolveTemplateId(input.templateId)))
+      .toRightDisjunction(Error('createCommand, cannotResolveTemplateId(input.templateId)))
       .map(tpId => Commands.create(refApiIdentifier(tpId), input.payload))
   }
 
@@ -117,6 +128,16 @@ class CommandService(
           choice = input.choice,
           argument = input.argument)
     }
+
+  private def createAndExerciseCommand(
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
+    : Error \/ lav1.commands.Command.Command.CreateAndExercise =
+    resolveTemplateId(input.templateId)
+      .toRightDisjunction(
+        Error('createAndExerciseCommand, cannotResolveTemplateId(input.templateId)))
+      .map(tpId =>
+        Commands
+          .createAndExercise(refApiIdentifier(tpId), input.payload, input.choice, input.argument))
 
   private def submitAndWaitRequest(
       jwtPayload: JwtPayload,
@@ -181,22 +202,29 @@ class CommandService(
     : Error \/ lav1.value.Value = {
     val result: Option[lav1.value.Value] = for {
       transaction <- a.transaction: Option[lav1.transaction.TransactionTree]
-      treeEvent <- rootTreeEvent(transaction): Option[lav1.transaction.TreeEvent]
-      exercised <- treeEvent.kind.exercised: Option[lav1.event.ExercisedEvent]
+      exercised <- firstExercisedEvent(transaction): Option[lav1.event.ExercisedEvent]
       exResult <- exercised.exerciseResult: Option[lav1.value.Value]
     } yield exResult
 
     result.toRightDisjunction(
       Error(
         'choiceArgument,
-        s"Cannot get exerciseResult from the first root event of gRPC response: ${a.toString}"))
+        s"Cannot get exerciseResult from the first ExercisedEvent of gRPC response: ${a.toString}"))
   }
 
-  private def rootTreeEvent(
-      a: lav1.transaction.TransactionTree): Option[lav1.transaction.TreeEvent] =
-    a.rootEventIds.headOption.flatMap { id =>
-      a.eventsById.get(id)
+  private def firstExercisedEvent(
+      tx: lav1.transaction.TransactionTree
+  ): Option[lav1.event.ExercisedEvent] = {
+    @tailrec
+    def loop(ids: Seq[String]): Option[lav1.event.ExercisedEvent] = ids match {
+      case h +: t =>
+        val result = tx.eventsById.get(h).flatMap(_.kind.exercised)
+        if (result.isDefined) result
+        else loop(t)
+      case Nil => None
     }
+    loop(tx.rootEventIds)
+  }
 }
 
 object CommandService {
@@ -207,6 +235,8 @@ object CommandService {
       s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
+
+  private type ET[A] = EitherT[Future, Error, A]
 
   type ExerciseCommandRef = domain.ResolvedContractRef[lav1.value.Value]
 }

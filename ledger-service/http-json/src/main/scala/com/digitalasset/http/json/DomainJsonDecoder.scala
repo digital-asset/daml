@@ -9,6 +9,7 @@ import com.digitalasset.http.ErrorMessages.{
   cannotResolveTemplateId
 }
 import com.digitalasset.http.domain.HasTemplateId
+import com.digitalasset.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.bitraverse._
@@ -25,7 +26,6 @@ class DomainJsonDecoder(
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
     resolveChoiceRecordType: PackageService.ResolveChoiceRecordType,
     resolveKey: PackageService.ResolveKeyType,
-    jsObjectToApiRecord: (domain.LfType, JsObject) => JsonError \/ lav1.value.Record,
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
     jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue) {
 
@@ -55,7 +55,7 @@ class DomainJsonDecoder(
       fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
     for {
       lfType <- lookupLfType(fa)
-      apiValue <- fa.traverse(jsObject => jsObjectToApiRecord(lfType, jsObject))
+      apiValue <- fa.traverse(a => jsValueToApiValue(lfType, a).flatMap(mustBeApiRecord))
     } yield apiValue
   }
 
@@ -158,7 +158,7 @@ class DomainJsonDecoder(
     } yield cmd1
 
   def decodeCreateAndExerciseCommand(a: String)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsObject, JsValue]])
+      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
     : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] =
     for {
       b <- SprayJson
@@ -169,12 +169,12 @@ class DomainJsonDecoder(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateAndExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsObject, JsValue]])
+      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
     : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- SprayJson
-        .decode[domain.CreateAndExerciseCommand[JsObject, JsValue]](a)
+        .decode[domain.CreateAndExerciseCommand[JsValue, JsValue]](a)
         .liftErrS(err)(JsonError)
 
       tId <- resolveTemplateId(fjj.templateId)
@@ -186,7 +186,10 @@ class DomainJsonDecoder(
       argT <- resolveChoiceRecordType(tId, fjj.choice)
         .liftErrS(err + " " + cannotResolveChoiceArgType(tId, fjj.choice))(JsonError)
 
-      fvv <- fjj.bitraverse(x => jsObjectToApiRecord(payloadT, x), x => jsValueToApiValue(argT, x))
+      fvv <- fjj.bitraverse(
+        x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord),
+        x => jsValueToApiValue(argT, x)
+      )
 
     } yield fvv
   }
@@ -201,6 +204,6 @@ class DomainJsonDecoder(
     (json: JsValue) =>
       SprayJson
         .mustBeJsObject(json)
-        .flatMap(jsObj => jsObjectToApiRecord(lfType, jsObj))
+        .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
 }

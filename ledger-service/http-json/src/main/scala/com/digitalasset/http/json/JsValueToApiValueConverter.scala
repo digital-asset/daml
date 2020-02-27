@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import scalaz.std.string._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsObject, JsValue}
+import spray.json.JsValue
 
 class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
   import com.digitalasset.http.util.ErrorOps._
@@ -36,19 +36,6 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
       lfValue <- jsValueToLfValue(lfType, jsValue)
       apiValue <- JsValueToApiValueConverter.lfValueToApiValue(lfValue)
     } yield apiValue
-
-  def jsObjectToApiRecord(
-      lfType: domain.LfType,
-      jsObject: JsObject): JsonError \/ lav1.value.Record =
-    for {
-      a <- jsValueToApiValue(lfType, jsObject)
-      b <- mustBeApiRecord(a)
-    } yield b
-
-  private def mustBeApiRecord(a: lav1.value.Value): JsonError \/ lav1.value.Record = a.sum match {
-    case lav1.value.Value.Sum.Record(b) => \/-(b)
-    case _ => -\/(JsonError(s"Expected ${classOf[lav1.value.Value.Sum.Record]}, got: $a"))
-  }
 }
 
 object JsValueToApiValueConverter {
@@ -58,4 +45,9 @@ object JsValueToApiValueConverter {
 
   def lfValueToApiValue(lfValue: domain.LfValue): JsonError \/ lav1.value.Value =
     \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue)).liftErr(JsonError)
+
+  def mustBeApiRecord(a: lav1.value.Value): JsonError \/ lav1.value.Record = a.sum match {
+    case lav1.value.Value.Sum.Record(b) => \/-(b)
+    case _ => -\/(JsonError(s"Expected ${classOf[lav1.value.Value.Sum.Record]}, got: $a"))
+  }
 }

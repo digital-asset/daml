@@ -197,7 +197,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       amount: String = "999.9900000000",
       currency: String = "USD"): domain.CreateCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val arg: Record = v.Record(
+    val arg = v.Record(
       fields = List(
         v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
@@ -213,12 +213,36 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       contractId: lar.ContractId): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
     val templateId = domain.TemplateId(None, "Iou", "Iou")
     val reference = domain.EnrichedContractId(Some(templateId), contractId)
-    val arg: Record = v.Record(
-      fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
-    )
+    val arg =
+      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
+  }
+
+  protected def iouCreateAndExerciseTransferCommand(
+      amount: String = "999.9900000000",
+      currency: String = "USD"): domain.CreateAndExerciseCommand[v.Record, v.Value] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val payload = v.Record(
+      fields = List(
+        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
+        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
+      ))
+
+    val arg =
+      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
+    val choice = lar.Choice("Iou_Transfer")
+
+    domain.CreateAndExerciseCommand(
+      templateId = templateId,
+      payload = payload,
+      choice = choice,
+      argument = boxedRecord(arg),
+      meta = None)
   }
 
   protected def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
@@ -601,6 +625,30 @@ abstract class AbstractHttpServiceIntegrationTest
                   decoder,
                   uri)
             }
+      }: Future[Assertion]
+  }
+
+  "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
+    import encoder.implicits._
+
+    val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
+      iouCreateAndExerciseTransferCommand()
+
+    val json: JsValue = SprayJson.encode2(cmd).valueOr(e => fail(e.shows))
+
+    postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json)
+      .flatMap {
+        case (exerciseStatus, exerciseOutput) =>
+          exerciseStatus shouldBe StatusCodes.OK
+          assertStatus(exerciseOutput, StatusCodes.OK)
+        // TODO(Leo): assert the response
+//          assertExerciseResponseNewActiveContract(
+//            getResult(exerciseOutput),
+//            create,
+//            exercise,
+//            encoder,
+//            decoder,
+//            uri)
       }: Future[Assertion]
   }
 
