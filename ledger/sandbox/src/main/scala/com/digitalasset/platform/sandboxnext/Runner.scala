@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandboxnext
 
 import java.io.File
-import java.time.Instant
+import java.time.{Clock, Instant}
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -44,6 +44,7 @@ import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -53,7 +54,6 @@ import scala.util.Try
   * Known issues:
   *   - does not support implicit party allocation
   *   - does not support scenarios
-  *   - does not emit heartbeats
   *   - does not provide the reset service
   */
 class Runner {
@@ -81,11 +81,13 @@ class Runner {
     }
 
     val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
-    val timeServiceBackend = timeProviderType match {
+    val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
       case TimeProviderType.Static =>
-        Some(TimeServiceBackend.simple(Instant.EPOCH))
+        val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
+        (Some(backend), backend.changes)
       case TimeProviderType.WallClock =>
-        None
+        val clock = Clock.systemUTC()
+        (None, new RegularHeartbeat(clock, 1.second))
     }
 
     newLoggingContext { implicit logCtx =>
@@ -99,6 +101,7 @@ class Runner {
           participantId = ParticipantId,
           jdbcUrl = ledgerJdbcUrl,
           timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+          heartbeatMechanism = heartbeatMechanism,
         )
         ledger = new KeyValueParticipantState(readerWriter, readerWriter)
         ledgerId <- ResourceOwner.forFuture(() =>
