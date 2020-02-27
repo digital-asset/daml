@@ -5,16 +5,17 @@ package com.digitalasset.http.json
 
 import com.digitalasset.http.domain
 import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.syntax.traverse._
 import scalaz.syntax.bitraverse._
+import scalaz.syntax.show._
+import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/}
 import spray.json.{JsObject, JsValue, JsonWriter}
 
 import scala.language.higherKinds
 
 class DomainJsonEncoder(
-    apiRecordToJsObject: lav1.value.Record => JsonError \/ JsObject,
-    apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
+    val apiRecordToJsObject: lav1.value.Record => JsonError \/ JsObject,
+    val apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
 
   import com.digitalasset.http.util.ErrorOps._
 
@@ -65,4 +66,12 @@ class DomainJsonEncoder(
       fa: domain.ContractLocator[lav1.value.Value]): JsonError \/ domain.ContractLocator[JsValue] =
     fa.traverse(a => apiValueToJsValue(a))
 
+  // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonWriters defined below
+  object implicits {
+    implicit val ApiValueJsonWriter: JsonWriter[lav1.value.Value] = (obj: lav1.value.Value) =>
+      apiValueToJsValue(obj).valueOr(e => spray.json.serializationError(e.shows))
+
+    implicit val ApiRecordJsonWriter: JsonWriter[lav1.value.Record] = (obj: lav1.value.Record) =>
+      apiRecordToJsObject(obj).valueOr(e => spray.json.serializationError(e.shows))
+  }
 }

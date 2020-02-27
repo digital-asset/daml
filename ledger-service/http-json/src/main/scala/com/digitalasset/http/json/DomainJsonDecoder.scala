@@ -12,6 +12,7 @@ import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.bitraverse._
+import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
@@ -157,8 +158,8 @@ class DomainJsonDecoder(
     } yield cmd1
 
   def decodeCreateAndExerciseCommand(a: String)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
-    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Value, lav1.value.Value] =
+      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsObject, JsValue]])
+    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] =
     for {
       b <- SprayJson
         .parse(a)
@@ -168,12 +169,12 @@ class DomainJsonDecoder(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateAndExerciseCommand(a: JsValue)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
-    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Value, lav1.value.Value] = {
+      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsObject, JsValue]])
+    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] = {
     val err = "DomainJsonDecoder_decodeCreateAndExerciseCommand"
     for {
       fjj <- SprayJson
-        .decode[domain.CreateAndExerciseCommand[JsValue, JsValue]](a)
+        .decode[domain.CreateAndExerciseCommand[JsObject, JsValue]](a)
         .liftErrS(err)(JsonError)
 
       tId <- resolveTemplateId(fjj.templateId)
@@ -185,8 +186,21 @@ class DomainJsonDecoder(
       argT <- resolveChoiceRecordType(tId, fjj.choice)
         .liftErrS(err + " " + cannotResolveChoiceArgType(tId, fjj.choice))(JsonError)
 
-      fvv <- fjj.bitraverse(x => jsValueToApiValue(payloadT, x), x => jsValueToApiValue(argT, x))
+      fvv <- fjj.bitraverse(x => jsObjectToApiRecord(payloadT, x), x => jsValueToApiValue(argT, x))
 
     } yield fvv
   }
+
+  // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonReaders defined below
+
+  def ApiValueJsonReader(lfType: domain.LfType): JsonReader[lav1.value.Value] =
+    (json: JsValue) =>
+      jsValueToApiValue(lfType, json).valueOr(e => spray.json.deserializationError(e.shows))
+
+  def ApiRecordJsonReader(lfType: domain.LfType): JsonReader[lav1.value.Record] =
+    (json: JsValue) =>
+      SprayJson
+        .mustBeJsObject(json)
+        .flatMap(jsObj => jsObjectToApiRecord(lfType, jsObj))
+        .valueOr(e => spray.json.deserializationError(e.shows))
 }

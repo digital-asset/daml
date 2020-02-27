@@ -7,10 +7,11 @@ import java.time.Instant
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.CommandService.{ExerciseCommandRef, Error}
+import com.digitalasset.http.CommandService.{Error, ExerciseCommandRef}
 import com.digitalasset.http.domain.{
   ActiveContract,
   Contract,
+  CreateAndExerciseCommand,
   CreateCommand,
   ExerciseCommand,
   ExerciseResponse,
@@ -74,6 +75,14 @@ class CommandService(
     } yield ExerciseResponse(exerciseResult, contracts)
 
     et.run
+  }
+
+  def createAndExercise(
+      jwt: Jwt,
+      jwtPayload: JwtPayload,
+      input: CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value])
+    : Future[Error \/ ExerciseResponse[lav1.value.Value]] = {
+    ???
   }
 
   private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
