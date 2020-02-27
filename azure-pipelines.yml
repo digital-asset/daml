@@ -92,7 +92,7 @@ jobs:
         parameters:
           release_tag: $(release_tag)
           name: 'linux'
-          is_release: $(is_release)
+          is_release: variables.is_release
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
@@ -133,7 +133,7 @@ jobs:
         parameters:
           release_tag: $(release_tag)
           name: macos
-          is_release: $(is_release)
+          is_release: variables.is_release
       - bash: mkdir -p $(bazel-repo-cache-path)
         displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
@@ -162,7 +162,7 @@ jobs:
       - template: ci/build-windows.yml
         parameters:
           release_tag: $(release_tag)
-          is_release: $(is_release)
+          is_release: variables.is_release
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
