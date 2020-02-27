@@ -21,7 +21,8 @@ In your terminal, navigate to the root ``create-daml-app`` directory and run::
 This should open the Visual Studio Code editor at the root of the project.
 (You may get a new tab pop up with release notes for the latest SDK - just close this.)
 Using the file *Explorer* on the left sidebar, navigate to the ``daml`` folder and double-click on the ``User.daml`` file.
-This models the data and workflow for users of the app.
+
+This DAML code defines the data and *workflow* of the application.
 The core data is at the start of the ``User`` contract template.
 
 .. literalinclude:: code/daml/User.daml
@@ -49,7 +50,7 @@ Here we see two concepts that are central to DAML: *authorization* and *privacy*
 Authorization is about who can *do* what, and privacy is about who can *see* what.
 In DAML we must answer these questions upfront, as they fundamentally change the design of an application.
 
-The last thing we'll point out about the DAML model for now is the operation to add friends, called a *choice* in DAML.
+The last part of the DAML model is the operation to add friends, called a *choice* in DAML.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
