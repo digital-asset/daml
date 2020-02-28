@@ -176,7 +176,7 @@ That is all for the implementation!
 Let's give the new functionality a spin.
 
 Running the New App
--------------------
+===================
 
 To start up the new app, open up your terminal application.
 First make sure your previously run commands are terminated, in particular the ``daml-start.sh`` command.
@@ -200,7 +200,7 @@ Send some messages between friends and make sure you can see each one from the o
 You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
 
 Next Steps
-----------
+==========
 
 We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
 Have a think about how you might further improve or extend this app.
