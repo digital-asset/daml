@@ -546,6 +546,111 @@ HTTP Response
 
 Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
 
+Create and Exercise in the Same Transaction
+*******************************************
+
+This command allows creating a contract and exercising a choice on the newly created contract in the same transaction.
+
+HTTP Request
+============
+
+- URL: ``/v1/create-and-exercise``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "templateId": "Iou:Iou",
+      "payload": {
+        "observers": [],
+        "issuer": "Alice",
+        "amount": "999.99",
+        "currency": "USD",
+        "owner": "Alice"
+      },
+      "choice": "Iou_Transfer",
+      "argument": {
+        "newOwner": "Bob"
+      }
+    }
+
+Where:
+
+- ``templateId`` -- the initial contract template identifier, in the same format as in same as in the :ref:`create request <create-request>`,
+- ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
+- ``choice`` -- DAML contract choice, that is being exercised,
+- ``argument`` -- contract choice argument(s).
+
+HTTP Response
+=============
+
+Please note that the response below is for a consuming choice, so it contains:
+
+- ``created`` and ``archived`` events for the initial contract (``"contractId": "#1:0"``), which was created and archived right away when a consuming choice was exercised on it,
+- a ``created`` event for the contract that is the result of the choice exercise (``"contractId": "#1:2"``).
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {
+        "exerciseResult": "#1:2",
+        "events": [
+          {
+            "created": {
+              "observers": [],
+              "agreementText": "",
+              "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+              },
+              "signatories": [
+                "Alice"
+              ],
+              "contractId": "#1:0",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:Iou"
+            }
+          },
+          {
+            "archived": {
+              "contractId": "#1:0",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:Iou"
+            }
+          },
+          {
+            "created": {
+              "observers": [
+                "Bob"
+              ],
+              "agreementText": "",
+              "payload": {
+                "iou": {
+                  "observers": [],
+                  "issuer": "Alice",
+                  "amount": "999.99",
+                  "currency": "USD",
+                  "owner": "Alice"
+                },
+                "newOwner": "Bob"
+              },
+              "signatories": [
+                "Alice"
+              ],
+              "contractId": "#1:2",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer"
+            }
+          }
+        ]
+      },
+      "status": 200
+    }
 
 Fetch Contract by Contract ID
 *****************************
