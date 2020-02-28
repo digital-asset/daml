@@ -35,10 +35,19 @@ main = do
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
     davlDar <- locateRunfiles ("davl" </> "released" </> "davl-v3.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.51-1.dev.dar")
-    defaultMain $ tests damlc repl davlDar oldProjDar
+    let validate dar = callProcessSilent damlc ["validate-dar", dar]
+    defaultMain $ tests Tools{..}
 
-tests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
+data Tools = Tools -- and places
+  { damlc :: FilePath
+  , repl :: FilePath
+  , validate :: FilePath -> IO ()
+  , davlDar :: FilePath
+  , oldProjDar :: FilePath
+  }
+
+tests :: Tools -> TestTree
+tests tools@Tools{damlc} = testGroup "Packaging" $
     [ testCaseSteps "Build package with dependency" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -602,7 +611,7 @@ tests damlc repl davlDar oldProjDar = testGroup "Packaging" $
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
     ] <>
     [ lfVersionTests damlc
-    , dataDependencyTests damlc repl davlDar oldProjDar
+    , dataDependencyTests tools
     ]
   where
       buildProject' :: FilePath -> FilePath -> IO ()
@@ -669,8 +678,8 @@ numStablePackages ver
   | ver == LF.versionDev = 16
   | otherwise = error $ "Unsupported LF version: " <> show ver
 
-dataDependencyTests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies" $
+dataDependencyTests :: Tools -> TestTree
+dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "Data Dependencies" $
     [ testCaseSteps ("Cross DAML-LF version: " <> LF.renderVersion depLfVer <> " -> " <> LF.renderVersion targetLfVer)  $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
           let projb = tmpDir </> "projb"
@@ -719,7 +728,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             ]
-          callProcessSilent repl ["validate", projb </> "projb.dar"]
+          validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
           -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
           length projbPkgIds @?= numStablePackages
@@ -776,7 +785,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
             , "--package", "daml-stdlib-cc6d52aa624250119006cd19d51c60006762bd93ca5a6d288320a703024b33da (DA.Internal.Template as OldStdlib.DA.Internal.Template)"
             ]
           step "Validating DAR"
-          callProcessSilent repl ["validate", tmpDir </> "foobar.dar"]
+          validate $ tmpDir </> "foobar.dar"
           step "Testing scenario"
           callProcessSilent repl ["test", "Main:test", tmpDir </> "foobar.dar"]
     , testCaseSteps "Mixed dependencies and data-dependencies" $ \step -> withTempDir $ \tmpDir -> do
@@ -844,7 +853,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           length projbPackageIds @?= length libPackageIds + 2
 
           step "Validating DAR"
-          callProcessSilent repl ["validate", tmpDir </> "b" </> "b.dar"]
+          validate $ tmpDir </> "b" </> "b.dar"
 
     , testCaseSteps "Tuples" $ \step -> withTempDir $ \tmpDir -> do
           step "Building dep"
@@ -1075,7 +1084,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             ]
-          callProcessSilent repl ["validate", projb </> "projb.dar"]
+          validate $ projb </> "projb.dar"
 
     | depLfVer <- LF.supportedOutputVersions
     , targetLfVer <- LF.supportedOutputVersions
@@ -1211,7 +1220,7 @@ dataDependencyTests damlc repl davlDar oldProjDar = testGroup "Data Dependencies
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             ]
-          callProcessSilent repl ["validate", projb </> "projb.dar"]
+          validate $ projb </> "projb.dar"
 
     | depLfVer <- LF.supportedOutputVersions
     , targetLfVer <- LF.supportedOutputVersions
