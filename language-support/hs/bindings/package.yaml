@@ -17,14 +17,17 @@ dependencies:
 - deepseq
 - exceptions
 - extra
+- mtl
 - grpc-haskell
 - proto3-suite
 - proto3-wire
 - retry
+- sorted-list
 - text
 - time
 - transformers
 - unliftio
+- utf8-string
 - vector
 
 library:
@@ -45,4 +48,3 @@ library:
   - OverloadedStrings
   - RecordWildCards
   - ScopedTypeVariables
-
