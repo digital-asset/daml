@@ -311,17 +311,16 @@ final class SandboxServer(
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
-          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
+          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
           BuildInfo.Version,
           ledgerId,
           apiServer.port.toString,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
-          authService.getClass.getSimpleName
+          authService.getClass.getSimpleName,
+          config.seeding.fold("no")(_.toString.toLowerCase),
         )
-        if (config.seeding.contains(SeedService.Seeding.Weak))
-          logger.warn("Contract id seeding uses a weak seed. DO NOT USE IN PRODUCTION.")
         apiServer
       }
     }
