@@ -1,0 +1,31 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.ports
+
+import org.scalatest.{Matchers, WordSpec}
+
+class PortSpec extends WordSpec with Matchers {
+  "a port" can {
+    "be constructed from a valid port number" in {
+      val port = Port(1024)
+      port.value should be(1024)
+    }
+
+    "not be constructed from a port number greater than 65,535" in {
+      an[IllegalArgumentException] should be thrownBy Port(65536)
+      an[IllegalArgumentException] should be thrownBy Port(80000)
+    }
+
+    "not be constructed from a port number less than 1" in {
+      an[IllegalArgumentException] should be thrownBy Port(0)
+      an[IllegalArgumentException] should be thrownBy Port(-5)
+    }
+  }
+
+  "a port" should {
+    "serialize to a string" in {
+      Port(12345).toString should be("12345")
+    }
+  }
+}
