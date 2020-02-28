@@ -174,17 +174,40 @@ You can see we simply follow the formatting of the previous panels and include t
 
 That is all for the implementation!
 Let's give the new functionality a spin.
-To start up the new app, run the following commands in separate terminal windows::
+
+Running the New App
+===================
+
+To start up the new app, open up your terminal application.
+First make sure your previously run commands are terminated, in particular the ``daml-start.sh`` command.
+You can do this by hitting ``Ctrl-C`` in the terminal window where you ran the command.
+This shuts down the previous instances of the sandbox and JSON API server: it is important that we start our new app with new instances of these components.
+
+Having done that, first restart the DAML sandbox and JSON API server in the root ``create-daml-app`` folder::
 
     ./daml-start.sh
 
+Then in another terminal window, change to the ``ui`` folder and restart the application::
+
+    cd ui
     yarn start
 
-You should see the same login page as before.
-Once you've logged in, you'll see the same UI as before but with our new *Messages* panel at the bottom.
-Add some new friends and send some messages!
-Try logging in as different users in separate browser windows and see how the UI responds as new messages are sent.
+You should see the same login page as before at http://localhost:3000.
+Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
+Go ahead and add some friends, and log in as some of those friends in separate browser windows to add yourself back.
+Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some friends to message!
+Send some messages between friends and make sure you can see each one from the other side.
+You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
+
+Next Steps
+==========
+
+We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
+Have a think about how you might further improve or extend this app.
+For example, you might have noticed that your list of messages can get out of order.
+You could add a timestamp to the ``Message`` template and sort messages in the ``MessageList`` component so your most recent are at the top.
+Of course there are many more features you could imagine (just think of your favourite social media app).
 
 Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
-Explore the documentation to learn more and keep shipping DAML apps.
+Explore the documentation to learn more, and keep shipping DAML apps.
 Have fun!
