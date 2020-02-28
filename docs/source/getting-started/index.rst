@@ -86,8 +86,9 @@ This script is just shorthand for ``daml start`` with some arguments, which does
 
 We'll leave these processes running to serve requests from our UI.
 
-In a second terminal, navigate to the ``create-daml-app/ui`` folder and run::
+In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the application::
 
+    cd ui
     yarn start
 
 This starts the web UI connected to the running Sandbox and JSON API server.
