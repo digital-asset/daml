@@ -25,7 +25,6 @@ import com.daml.ledger.validator.{
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.resources.ResourceOwner
@@ -40,10 +39,8 @@ final class InMemoryLedgerReaderWriter(
     timeProvider: TimeProvider,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
-)(
-    implicit executionContext: ExecutionContext,
-    logCtx: LoggingContext,
-) extends LedgerWriter
+)(implicit executionContext: ExecutionContext)
+    extends LedgerWriter
     with LedgerReader {
 
   private val committer = new ValidatingCommitter(
@@ -139,7 +136,6 @@ object InMemoryLedgerReaderWriter {
   )(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
-      logCtx: LoggingContext,
   ): ResourceOwner[InMemoryLedgerReaderWriter] = {
     val state = new InMemoryState
     for {
@@ -163,10 +159,7 @@ object InMemoryLedgerReaderWriter {
       timeProvider: TimeProvider = DefaultTimeProvider,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
-  )(
-      implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
-  ): ResourceOwner[InMemoryLedgerReaderWriter] = {
+  )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] = {
     val ledgerId =
       initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
     ResourceOwner.successful(
