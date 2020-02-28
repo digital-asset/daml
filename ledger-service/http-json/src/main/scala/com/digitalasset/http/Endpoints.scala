@@ -17,7 +17,7 @@ import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.Collections.toNonEmptySet
 import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
+import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -67,25 +67,25 @@ class Endpoints(
 
   def create(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
       cmd <- either(
-        decoder.decodeR[domain.CreateCommand](reqBody).liftErr(InvalidUserInput)
+        decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
       ): ET[domain.CreateCommand[ApiRecord]]
 
       ac <- eitherT(
         handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[ApiValue]]
 
-      jsVal <- either(encoder.encodeV(ac).liftErr(ServerError)): ET[JsValue]
+      jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
 
   def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -111,7 +111,7 @@ class Endpoints(
 
   def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -129,7 +129,7 @@ class Endpoints(
 
   def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      input <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
 
@@ -299,6 +299,12 @@ class Endpoints(
           .map(b => \/-((j, p, b.data.utf8String)))
     }
   }
+
+  private[http] def inputJsVal(req: HttpRequest): ET[(Jwt, JwtPayload, JsValue)] =
+    for {
+      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      jsVal <- either(SprayJson.parse(t3._3).liftErr(InvalidUserInput)): ET[JsValue]
+    } yield (t3._1, t3._2, jsVal)
 
   private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
     req.headers

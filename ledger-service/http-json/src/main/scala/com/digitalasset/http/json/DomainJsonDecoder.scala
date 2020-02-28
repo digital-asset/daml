@@ -17,7 +17,7 @@ import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Traverse, \/, \/-}
-import spray.json.{JsObject, JsValue, JsonReader}
+import spray.json.{JsValue, JsonReader}
 
 import scala.language.higherKinds
 
@@ -27,55 +27,29 @@ class DomainJsonDecoder(
     resolveChoiceRecordType: PackageService.ResolveChoiceRecordType,
     resolveKey: PackageService.ResolveKeyType,
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
-    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue) {
+    jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue
+) {
 
   import com.digitalasset.http.util.ErrorOps._
 
-  def decodeR[F[_]](a: String)(
-      implicit ev1: JsonReader[F[JsObject]],
-      ev2: Traverse[F],
-      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
-    for {
-      b <- SprayJson.parse(a).liftErr(JsonError)
-      c <- SprayJson.mustBeJsObject(b)
-      d <- decodeR(c)
-    } yield d
-
-  def decodeR[F[_]](a: JsObject)(
-      implicit ev1: JsonReader[F[JsObject]],
-      ev2: Traverse[F],
-      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
-    for {
-      b <- SprayJson.decode[F[JsObject]](a)(ev1).liftErr(JsonError)
-      c <- decodeUnderlyingRecords(b)
-    } yield c
-
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def decodeUnderlyingRecords[F[_]: Traverse: domain.HasTemplateId](
-      fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
+  def decodeCreateCommand(a: JsValue)(implicit ev1: JsonReader[domain.CreateCommand[JsValue]])
+    : JsonError \/ domain.CreateCommand[lav1.value.Record] = {
+    val err = "DomainJsonDecoder_decodeCreateCommand"
     for {
-      lfType <- lookupLfType(fa)
-      apiValue <- fa.traverse(a => jsValueToApiValue(lfType, a).flatMap(mustBeApiRecord))
-    } yield apiValue
+      fj <- SprayJson
+        .decode[domain.CreateCommand[JsValue]](a)
+        .liftErrS(err)(JsonError)
+
+      tId <- resolveTemplateId(fj.templateId)
+        .toRightDisjunction(JsonError(s"$err ${cannotResolveTemplateId(fj.templateId)}"))
+
+      payloadT <- resolveTemplateRecordType(tId)
+        .liftErrS(err + " " + cannotResolvePayloadType(tId))(JsonError)
+
+      fv <- fj.traverse(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
+    } yield fv
   }
-
-  def decodeV[F[_]](a: String)(
-      implicit ev1: JsonReader[F[JsValue]],
-      ev2: Traverse[F],
-      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Value] =
-    for {
-      b <- SprayJson.parse(a).liftErr(JsonError)
-      d <- decodeV(b)
-    } yield d
-
-  def decodeV[F[_]](a: JsValue)(
-      implicit ev1: JsonReader[F[JsValue]],
-      ev2: Traverse[F],
-      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Value] =
-    for {
-      b <- SprayJson.decode[F[JsValue]](a)(ev1).liftErr(JsonError)
-      c <- decodeUnderlyingValues(b)
-    } yield c
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
@@ -107,13 +81,6 @@ class DomainJsonDecoder(
     } yield lfType
   }
 
-  def decodeContractLocator(a: String)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
-    : JsonError \/ domain.ContractLocator[domain.LfValue] =
-    for {
-      b <- SprayJson.parse(a).liftErrS("DomainJsonDecoder_decodeContractLocator")(JsonError)
-      c <- decodeContractLocator(b)
-    } yield c
-
   def decodeContractLocator(a: JsValue)(implicit ev: JsonReader[domain.ContractLocator[JsValue]])
     : JsonError \/ domain.ContractLocator[domain.LfValue] =
     SprayJson
@@ -129,14 +96,6 @@ class DomainJsonDecoder(
       case c: domain.EnrichedContractId =>
         \/-(c)
     }
-
-  def decodeExerciseCommand(a: String)(
-      implicit ev1: JsonReader[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]])
-    : JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]] =
-    for {
-      b <- SprayJson.parse(a).liftErrS("DomainJsonDecoder_decodeExerciseCommand")(JsonError)
-      c <- decodeExerciseCommand(b)
-    } yield c
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeExerciseCommand(a: JsValue)(
@@ -156,16 +115,6 @@ class DomainJsonDecoder(
       ): JsonError \/ domain.ExerciseCommand[domain.LfValue, domain.ContractLocator[domain.LfValue]]
 
     } yield cmd1
-
-  def decodeCreateAndExerciseCommand(a: String)(
-      implicit ev1: JsonReader[domain.CreateAndExerciseCommand[JsValue, JsValue]])
-    : JsonError \/ domain.CreateAndExerciseCommand[lav1.value.Record, lav1.value.Value] =
-    for {
-      b <- SprayJson
-        .parse(a)
-        .liftErrS("DomainJsonDecoder_decodeCreateAndExerciseCommand")(JsonError)
-      c <- decodeCreateAndExerciseCommand(b)
-    } yield c
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def decodeCreateAndExerciseCommand(a: JsValue)(

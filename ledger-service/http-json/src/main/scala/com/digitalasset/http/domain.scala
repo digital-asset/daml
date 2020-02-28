@@ -421,20 +421,6 @@ object domain {
       )(f: A => G[B]): G[CreateCommand[B]] =
         f(fa.payload).map(a => fa.copy(payload = a))
     }
-
-    implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
-      override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
-
-      override def lfType(
-          fa: CreateCommand[_],
-          templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceRecordType,
-          h: PackageService.ResolveKeyType,
-      ): Error \/ LfType =
-        f(templateId)
-          .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
-    }
   }
 
   object ExerciseCommand {
