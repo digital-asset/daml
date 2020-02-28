@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.extractor.targets._
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import CustomScoptReaders._
+import com.digitalasset.ports.Port
 import scalaz.OneAnd
 
 import scala.util.Try
@@ -38,7 +39,7 @@ object ConfigParser {
       postgresMultiTableMergeIdentical: Boolean = false,
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
-      ledgerPort: Int = 6865,
+      ledgerPort: Port = Port(6865),
       ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiBytes
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
       templateConfigs: Set[TemplateConfig] = Set.empty,
@@ -170,7 +171,7 @@ object ConfigParser {
 
       opt[Int]('p', "ledger-port")
         .optional()
-        .action((x, c) => c.copy(ledgerPort = x))
+        .action((x, c) => c.copy(ledgerPort = Port(x)))
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 

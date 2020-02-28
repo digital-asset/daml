@@ -88,7 +88,7 @@ final class AuthSpec
   private def noAuth =
     ExtractorConfig(
       "127.0.0.1",
-      ledgerPort = serverPort.value,
+      ledgerPort = serverPort,
       ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
       LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
       SnapshotEndSetting.Head,

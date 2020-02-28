@@ -46,7 +46,7 @@ class TlsSpec
 
   "Extractor" should "be able to connect with TLS parameters" in {
     val config = baseConfig.copy(
-      ledgerPort = serverPort.value,
+      ledgerPort = serverPort,
       tlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt),
       to = SnapshotEndSetting.Head,
     )

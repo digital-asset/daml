@@ -11,6 +11,7 @@ import com.digitalasset.extractor.targets.PostgreSQLTarget
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.platform.sandbox.services.SandboxFixture
+import com.digitalasset.ports.Port
 import com.digitalasset.testing.postgresql.PostgresAround
 import doobie._
 import doobie.implicits._
@@ -28,7 +29,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
 
   protected val baseConfig: ExtractorConfig = ExtractorConfig(
     "127.0.0.1",
-    ledgerPort = 666, // doesn't matter, will/must be overridden in the test cases
+    ledgerPort = Port(666), // doesn't matter, will/must be overridden in the test cases
     ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
@@ -95,7 +96,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort.value))
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort))
 
     extractor = new Extractor(config, target)()
 

@@ -26,7 +26,7 @@ class VeryLargeArchiveSpec
   override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
-    val config = baseConfig.copy(ledgerPort = serverPort.value, ledgerInboundMessageSizeMax = bytes)
+    val config = baseConfig.copy(ledgerPort = serverPort, ledgerInboundMessageSizeMax = bytes)
     val extractor =
       new Extractor(config, target)()
 
