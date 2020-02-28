@@ -155,7 +155,7 @@ object InMemoryLedgerReaderWriter {
     } yield readerWriter
   }
 
-  // passing the `dispatcher` and `inMemoryState` from the outside allows us to share
+  // passing the `dispatcher` and `state` from the outside allows us to share
   // the backing data for the LedgerReaderWriter and therefore setup multiple participants
   def owner(
       initialLedgerId: Option[LedgerId],
