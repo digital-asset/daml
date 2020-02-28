@@ -307,6 +307,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       case Some(JsString(contractId)) => domain.ContractId(contractId)
     }
 
+  protected def asContractId(a: JsValue): domain.ContractId = inside(a) {
+    case JsString(x) => domain.ContractId(x)
+  }
+
   protected def encodeExercise(encoder: DomainJsonEncoder)(
       exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue =
     encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
@@ -363,7 +367,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def assertActiveContract(jsVal: JsValue)(
       command: domain.CreateCommand[Record],
       encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder) = {
+      decoder: DomainJsonDecoder): Assertion = {
 
     inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
       case \/-(activeContract) =>
@@ -371,6 +375,14 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
           encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
         (activeContract.payload: JsValue) shouldBe expectedPayload
     }
+  }
+
+  protected def assertTemplateId(
+      actual: domain.TemplateId.RequiredPkg,
+      expected: domain.TemplateId.OptionalPkg): Assertion = {
+    expected.packageId.foreach(x => actual.packageId shouldBe x)
+    actual.moduleName shouldBe expected.moduleName
+    actual.entityName shouldBe expected.entityName
   }
 }
 
@@ -628,7 +640,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, decoder) =>
+  "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, _) =>
     import encoder.implicits._
 
     val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
@@ -638,17 +650,28 @@ abstract class AbstractHttpServiceIntegrationTest
 
     postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json)
       .flatMap {
-        case (exerciseStatus, exerciseOutput) =>
-          exerciseStatus shouldBe StatusCodes.OK
-          assertStatus(exerciseOutput, StatusCodes.OK)
-        // TODO(Leo): assert the response
-//          assertExerciseResponseNewActiveContract(
-//            getResult(exerciseOutput),
-//            create,
-//            exercise,
-//            encoder,
-//            decoder,
-//            uri)
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          inside(
+            decode2[domain.OkResponse, domain.ExerciseResponse[JsValue], Unit](output)
+          ) {
+            case \/-(response) =>
+              response.status shouldBe StatusCodes.OK
+              (response.warnings: Option[Unit]) shouldBe Option.empty[Unit]
+              inside(response.result.events) {
+                case List(
+                    domain.Contract(\/-(created0)),
+                    domain.Contract(-\/(archived0)),
+                    domain.Contract(\/-(created1))) =>
+                  assertTemplateId(created0.templateId, cmd.templateId)
+                  assertTemplateId(archived0.templateId, cmd.templateId)
+                  archived0.contractId shouldBe created0.contractId
+                  assertTemplateId(
+                    created1.templateId,
+                    domain.TemplateId(None, "Iou", "IouTransfer"))
+                  asContractId(response.result.exerciseResult) shouldBe created1.contractId
+              }
+          }
       }: Future[Assertion]
   }
 
