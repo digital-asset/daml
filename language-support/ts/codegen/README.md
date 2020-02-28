@@ -257,7 +257,7 @@ export type Iou = {
   amount: daml.Numeric;
 }
 
-export const Iou: daml.Template<Iou, Iou.Key, Iou:Iou'> & {
+export const Iou: daml.Template<Iou, Iou.Key, 'Iou:Iou'> & {
   Archive: daml.Choice<Iou, DA_Internal_Template.Archive, {}, Iou.Key>;
   Transfer: daml.Choice<Iou, Transfer, daml.ContractId<Iou>, Iou.Key>;
 } = {
