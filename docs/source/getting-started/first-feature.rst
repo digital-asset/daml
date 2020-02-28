@@ -199,6 +199,15 @@ Then, if you click on the dropdown menu in the *Messages* panel, you'll be able 
 Send some messages between friends and make sure you can see each one from the other side.
 You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
 
+Next Steps
+----------
+
+We've gone through the process of setting up a full-stack DAML app and implementing a useful feature end to end.
+Have a think about how you might further improve or extend this app.
+For example, you might have noticed that your list of messages can get out of order.
+You could add a timestamp to the ``Message`` template and sort messages in the ``MessageList`` component so your most recent are at the top.
+Of course there are many more features you could imagine (just think of your favourite social media app).
+
 Hopefully this exercise gives you a sense of the power and ease of building DAML apps.
-Explore the documentation to learn more and keep shipping DAML apps.
+Explore the documentation to learn more, and keep shipping DAML apps.
 Have fun!
