@@ -3,11 +3,7 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.http.ErrorMessages.{
-  cannotResolveChoiceArgType,
-  cannotResolvePayloadType,
-  cannotResolveTemplateId
-}
+import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.digitalasset.http.{PackageService, domain}
@@ -24,8 +20,8 @@ import scala.language.higherKinds
 class DomainJsonDecoder(
     resolveTemplateId: PackageService.ResolveTemplateId,
     resolveTemplateRecordType: PackageService.ResolveTemplateRecordType,
-    resolveChoiceRecordType: PackageService.ResolveChoiceRecordType,
-    resolveKey: PackageService.ResolveKeyType,
+    resolveChoiceArgType: PackageService.ResolveChoiceArgType,
+    resolveKeyType: PackageService.ResolveKeyType,
     jsValueToApiValue: (domain.LfType, JsValue) => JsonError \/ lav1.value.Value,
     jsValueToLfValue: (domain.LfType, JsValue) => JsonError \/ domain.LfValue
 ) {
@@ -41,11 +37,7 @@ class DomainJsonDecoder(
         .decode[domain.CreateCommand[JsValue]](a)
         .liftErrS(err)(JsonError)
 
-      tId <- resolveTemplateId(fj.templateId)
-        .toRightDisjunction(JsonError(s"$err ${cannotResolveTemplateId(fj.templateId)}"))
-
-      payloadT <- resolveTemplateRecordType(tId)
-        .liftErrS(err + " " + cannotResolvePayloadType(tId))(JsonError)
+      payloadT <- templateRecordType(fj.templateId)
 
       fv <- fj.traverse(x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord))
     } yield fv
@@ -71,12 +63,10 @@ class DomainJsonDecoder(
 
   private def lookupLfType[F[_]: domain.HasTemplateId](fa: F[_]): JsonError \/ domain.LfType = {
     val H: HasTemplateId[F] = implicitly
-    val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
     for {
-      tId <- resolveTemplateId(templateId).toRightDisjunction(
-        JsonError(s"DomainJsonDecoder_lookupLfType ${cannotResolveTemplateId(templateId)}"))
+      tId <- templateId_(H.templateId(fa))
       lfType <- H
-        .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceRecordType, resolveKey)
+        .lfType(fa, tId, resolveTemplateRecordType, resolveChoiceArgType, resolveKeyType)
         .liftErrS("DomainJsonDecoder_lookupLfType")(JsonError)
     } yield lfType
   }
@@ -126,14 +116,11 @@ class DomainJsonDecoder(
         .decode[domain.CreateAndExerciseCommand[JsValue, JsValue]](a)
         .liftErrS(err)(JsonError)
 
-      tId <- resolveTemplateId(fjj.templateId)
-        .toRightDisjunction(JsonError(s"$err ${cannotResolveTemplateId(fjj.templateId)}"))
+      tId <- templateId_(fjj.templateId)
 
-      payloadT <- resolveTemplateRecordType(tId)
-        .liftErrS(err + " " + cannotResolvePayloadType(tId))(JsonError)
+      payloadT <- resolveTemplateRecordType(tId).liftErr(JsonError)
 
-      argT <- resolveChoiceRecordType(tId, fjj.choice)
-        .liftErrS(err + " " + cannotResolveChoiceArgType(tId, fjj.choice))(JsonError)
+      argT <- resolveChoiceArgType(tId, fjj.choice).liftErr(JsonError)
 
       fvv <- fjj.bitraverse(
         x => jsValueToApiValue(payloadT, x).flatMap(mustBeApiRecord),
@@ -142,6 +129,11 @@ class DomainJsonDecoder(
 
     } yield fvv
   }
+
+  private def templateId_(
+      id: domain.TemplateId.OptionalPkg
+  ): JsonError \/ domain.TemplateId.RequiredPkg =
+    resolveTemplateId(id).toRightDisjunction(JsonError(cannotResolveTemplateId(id)))
 
   // TODO(Leo) see if you can get get rid of the above boilerplate and rely on the JsonReaders defined below
 
@@ -155,4 +147,16 @@ class DomainJsonDecoder(
         .mustBeJsObject(json)
         .flatMap(jsObj => jsValueToApiValue(lfType, jsObj).flatMap(mustBeApiRecord))
         .valueOr(e => spray.json.deserializationError(e.shows))
+
+  def templateRecordType(id: domain.TemplateId.OptionalPkg): JsonError \/ domain.LfType =
+    templateId_(id).flatMap(resolveTemplateRecordType(_).liftErr(JsonError))
+
+  def choiceArgType(
+      id: domain.TemplateId.OptionalPkg,
+      choice: domain.Choice
+  ): JsonError \/ domain.LfType =
+    templateId_(id).flatMap(resolveChoiceArgType(_, choice).liftErr(JsonError))
+
+  def keyType(id: domain.TemplateId.OptionalPkg): JsonError \/ domain.LfType =
+    templateId_(id).flatMap(resolveKeyType(_).liftErr(JsonError))
 }

@@ -302,7 +302,7 @@ object domain {
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
           f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceRecordType,
+          g: PackageService.ResolveChoiceArgType,
           h: PackageService.ResolveKeyType,
       ): Error \/ LfType =
         f(templateId)
@@ -387,7 +387,7 @@ object domain {
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           h(templateId)
@@ -409,7 +409,7 @@ object domain {
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
         f: PackageService.ResolveTemplateRecordType,
-        g: PackageService.ResolveChoiceRecordType,
+        g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
     ): Error \/ LfType
   }
@@ -456,7 +456,7 @@ object domain {
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           g(templateId, fa.choice)
