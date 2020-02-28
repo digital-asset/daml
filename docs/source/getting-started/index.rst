@@ -118,7 +118,7 @@ In fact, Alice can see your entire friend list in the *Network* panel.
 This is because your friend list is part of the user data that became visible when you added her as a friend.
 
 When Alice finally adds you back as a friend, you can see her in your network as well.
-Just open the window where you are logged in as yourself - no need to reload the page!
+Just switch to the window where you are logged in as yourself - the network should update automatically.
 
 Play around more with the app at your leisure: create new users and add more friends.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
