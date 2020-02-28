@@ -7,6 +7,9 @@ package com.daml.ledger.participant.state.kvutils
   * and the changelog of kvutils.
   *
   * Changes:
+  * [after 100.13.55]: *BACKWARDS INCOMPATIBLE*
+  * - Remove use of relative contract ids. Introduces kvutils version 2.
+  *
   * [after 100.13.52]: *BACKWARDS INCOMPATIBLE*
   * - Use hash for serializing contract keys instead of serializing the value, as
   *   the value serialization is not guaranteed to be stable over time.
@@ -54,6 +57,16 @@ object Version {
     * Version should be incremented when semantics of fields change and migration of data is required or
     * when the protobuf default value for a field is insufficient and must be filled in during decoding.
     * Handling of older versions is handled by [[Envelope.open]] which performs the migration to latest version.
+    *
+    * Version history:
+    *   0: Initial version
+    *
+    *   1: Use hashing to serialize contract keys. Backwards incompatible to avoid having to do two lookups
+    *      of a single contract key.
+    *
+    *   2: Deprecate use of relative contract identifiers. The transaction is submitted with absolute contract
+    *      identifiers. Backwards incompatible to remove unnecessary traversal of the transaction when consuming
+    *      it and to make it possible to remove DamlLogEntryId.
     */
-  val version: Long = 1
+  val version: Long = 2
 }
