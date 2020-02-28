@@ -40,7 +40,7 @@ If you haven't already, see :doc:`installation` for the DAML SDK and VSCode deve
 You will also need some common software tools to build and interact with the template project.
 
 - `Git <https://git-scm.com/>`_ version control system
-- `Yarn <https://yarnpkg.com/>`_ package manager for Javascript
+- `Yarn <https://yarnpkg.com/getting-started/install>`_ package manager for Javascript
 - A terminal application for command line interaction
 
 
