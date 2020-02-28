@@ -144,7 +144,7 @@ in rec {
       python37Packages = pkgs.python37Packages;
     };
 
-    sphinx183 = bazel_dependencies.sphinx183;
+    sphinxBundle = bazel_dependencies.sphinxBundle;
 
     convert = bazel_dependencies.imagemagick;
 

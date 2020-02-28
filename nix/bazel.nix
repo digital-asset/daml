@@ -63,6 +63,16 @@ let shared = rec {
   sass = pkgs.sass;
 
   # sphinx 2.2.2 causes build failures of //docs:pdf-docs.
+  sphinx-copybutton = pkgs.python3Packages.buildPythonPackage rec {
+    pname = "sphinx-copybutton";
+    version = "0.2.8";
+    src = pkgs.python3Packages.fetchPypi {
+      inherit pname version;
+      sha256 = "022k191039z8frbmsmfj2cmrkp897r4n5agvb557w1dg8hfckbj8";
+    };
+    doCheck = false;
+    propagatedBuildInputs = [ pkgs.python3Packages.flit sphinx183 ];
+  };
   sphinx183 = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
     version = "1.8.3";
     src = attrs.src.override {
@@ -70,6 +80,7 @@ let shared = rec {
       sha256 = "c4cb17ba44acffae3d3209646b6baec1e215cad3065e852c68cc569d4df1b9f8";
     };
   });
+  sphinxBundle = pkgs.python3.withPackages (_: [sphinx-copybutton sphinx183]);
 
   # Custom combination of latex packages for our latex needs
   texlive = pkgs.texlive.combine {
