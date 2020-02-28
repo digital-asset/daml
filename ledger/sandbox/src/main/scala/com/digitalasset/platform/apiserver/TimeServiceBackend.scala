@@ -12,7 +12,7 @@ import akka.stream.{Materializer, OverflowStrategy}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.collection.mutable
+import scala.collection.concurrent
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
 
@@ -48,7 +48,9 @@ object TimeServiceBackend {
   private final class AkkaQueueBasedObservedTimeServiceBackend(delegate: TimeServiceBackend)(
       implicit materializer: Materializer
   ) extends ObservedTimeServiceBackend {
-    private val queues = mutable.Set[SourceQueueWithComplete[Instant]]()
+    // There is no `TrieSet` type, so we emulate it with a `TrieMap` with meaningless values.
+    // Scala doesn't react well to `()` in tuples, so we're using Boolean instead of Unit here.
+    private val queues = concurrent.TrieMap[SourceQueueWithComplete[Instant], Boolean]()
 
     override def getCurrentTime: Instant =
       delegate.getCurrentTime
@@ -58,7 +60,7 @@ object TimeServiceBackend {
         .setCurrentTime(currentTime, newTime)
         .andThen {
           case Success(true) =>
-            queues.foreach(_.offer(newTime))
+            queues.keys.foreach(_.offer(newTime))
         }(materializer.executionContext)
 
     override def changes: ResourceOwner[Source[Instant, NotUsed]] =
@@ -73,7 +75,7 @@ object TimeServiceBackend {
                 Keep.both[SourceQueueWithComplete[Instant], SinkQueueWithCancel[Instant]])
               .run()
             sourceQueue.offer(getCurrentTime)
-            queues += sourceQueue
+            queues += sourceQueue -> true
             (sourceQueue, sinkQueue)
           })({
             case (sourceQueue, _) =>
