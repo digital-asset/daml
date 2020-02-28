@@ -28,6 +28,7 @@ import com.digitalasset.platform.configuration.{
 }
 import com.digitalasset.platform.index.JdbcIndex
 import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -48,19 +49,18 @@ final class StandaloneApiServer(
     seedService: Option[SeedService],
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
 )(implicit logCtx: LoggingContext)
-    extends ResourceOwner[Int] {
+    extends ResourceOwner[Port] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Int] = {
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
     buildAndStartApiServer().map { server =>
       logger.info("Started Index Server")
       server.port
     }
-  }
 
   // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
@@ -155,7 +155,7 @@ final class StandaloneApiServer(
     }
   }
 
-  private def writePortFile(port: Int)(
+  private def writePortFile(port: Port)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] =
     config.portFile

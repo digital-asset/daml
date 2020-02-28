@@ -27,7 +27,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.FreePort
+import com.digitalasset.ports.{FreePort, Port}
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -58,7 +58,7 @@ object HttpServiceTestFixture {
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId), mat))
+      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
       port <- ledger.portF
     } yield (ledger, port)
 
@@ -69,7 +69,7 @@ object HttpServiceTestFixture {
       httpService <- stripLeft(
         HttpService.start(
           "localhost",
-          ledgerPort,
+          ledgerPort.value,
           applicationId,
           "localhost",
           httpPort,
@@ -82,7 +82,7 @@ object HttpServiceTestFixture {
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId))
+      client <- LedgerClient.singleHost("localhost", ledgerPort.value, clientConfig(applicationId))
     } yield client
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
@@ -122,13 +122,17 @@ object HttpServiceTestFixture {
     val applicationId = ApplicationId(testName)
 
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId, authService), mat))
+      ledger <- Future(
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authService), mat))
       port <- ledger.portF
     } yield (ledger, port)
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId, token))
+      client <- LedgerClient.singleHost(
+        "localhost",
+        ledgerPort.value,
+        clientConfig(applicationId, token))
     } yield client
 
     val fa: Future[A] = for {
@@ -144,10 +148,11 @@ object HttpServiceTestFixture {
   }
 
   private def ledgerConfig(
-      ledgerPort: Int,
+      ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService] = None): SandboxConfig =
+      authService: Option[AuthService] = None
+  ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,

@@ -43,7 +43,7 @@ final class AuthSpec
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
-  lazy val dummyRequest = {
+  private lazy val dummyRequest = {
     // we need to adjust the time of the request because we pass 10
     // days in the test scenario.
     val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
@@ -88,7 +88,7 @@ final class AuthSpec
   private def noAuth =
     ExtractorConfig(
       "127.0.0.1",
-      ledgerPort = serverPort,
+      ledgerPort = serverPort.value,
       ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
       LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
       SnapshotEndSetting.Head,

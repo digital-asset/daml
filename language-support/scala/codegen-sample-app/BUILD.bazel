@@ -140,6 +140,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",

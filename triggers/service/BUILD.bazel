@@ -71,6 +71,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//libs-scala/ports",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",

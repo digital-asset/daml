@@ -27,6 +27,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Channel
@@ -88,15 +89,14 @@ trait SandboxFixture extends SuiteResource[(SandboxServer, Channel)] with Before
   }
 
   protected def config: SandboxConfig =
-    SandboxConfig.default
-      .copy(
-        port = 0, //dynamic port allocation
-        damlPackages = packageFiles,
-        timeProviderType = Some(TimeProviderType.Static),
-        timeModel = TimeModel.reasonableDefault,
-        scenario = scenario,
-        ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server"))
-      )
+    SandboxConfig.default.copy(
+      port = Port.Dynamic,
+      damlPackages = packageFiles,
+      timeProviderType = Some(TimeProviderType.Static),
+      timeModel = TimeModel.reasonableDefault,
+      scenario = scenario,
+      ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
+    )
 
   protected def packageFiles: List[File] = List(darFile)
 
@@ -108,7 +108,7 @@ trait SandboxFixture extends SuiteResource[(SandboxServer, Channel)] with Before
 
   protected def serverHost: String = InetAddress.getLoopbackAddress.getHostName
 
-  protected def serverPort: Int = server.port
+  protected def serverPort: Port = server.port
 
   protected def channel: Channel = suiteResource.value._2
 

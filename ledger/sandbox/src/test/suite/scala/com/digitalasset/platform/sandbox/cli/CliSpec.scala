@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import org.apache.commons.io.FileUtils
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
@@ -47,8 +48,8 @@ class CliSpec extends WordSpec with Matchers {
 
     "parse the port when given" in {
       val port = "1234"
-      checkOption(Array("-p", port), _.copy(port = port.toInt))
-      checkOption(Array("--port", port), _.copy(port = port.toInt))
+      checkOption(Array("-p", port), _.copy(port = Port(port.toInt)))
+      checkOption(Array("--port", port), _.copy(port = Port(port.toInt)))
     }
 
     "parse the address when given" in {

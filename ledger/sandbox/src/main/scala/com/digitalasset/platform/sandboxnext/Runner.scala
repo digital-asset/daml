@@ -35,11 +35,11 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
-import com.digitalasset.platform.sandbox.SandboxServer.logger
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
@@ -125,7 +125,7 @@ class Runner {
           "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
           BuildInfo.Version,
           ledgerId,
-          port.toString,
+          port,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
@@ -154,7 +154,7 @@ class Runner {
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
       seedService: Option[SeedService],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Port] =
     for {
       _ <- startIndexerServer(
         config = config,
@@ -196,7 +196,7 @@ class Runner {
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
       seedService: Option[SeedService],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Port] =
     new StandaloneApiServer(
       ApiServerConfig(
         participantId = ParticipantId,
@@ -215,7 +215,7 @@ class Runner {
       authService = authService,
       metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
-      seedService = seedService
+      seedService = seedService,
     )
 }
 

@@ -13,6 +13,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.PostgresResource
 
@@ -25,7 +26,7 @@ object LedgerFactories {
 
   private def sandboxConfig(jdbcUrl: Option[String], darFiles: List[File]) =
     SandboxConfig.default.copy(
-      port = 0,
+      port = Port.Dynamic,
       damlPackages = darFiles,
       ledgerIdMode =
         LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString("ledger-server"))),

@@ -35,6 +35,7 @@ da_scala_library(
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "@maven//:com_github_scopt_scopt_2_12",

@@ -18,6 +18,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import scopt.{OptionParser, Read}
 
 import scala.util.Try
@@ -49,7 +50,8 @@ object Cli {
       .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported. Can be mixed in with optional arguments.")
 
     opt[Int]('p', "port")
-      .action((x, c) => c.copy(port = x))
+      .action((x, c) => c.copy(port = Port(x)))
+      .validate(x => Port.validate(x).toEither.left.map(_.getMessage))
       .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
     opt[File]("port-file")

@@ -14,6 +14,7 @@ import com.digitalasset.platform.sandbox.services.SandboxFixture
 import com.digitalasset.testing.postgresql.PostgresAround
 import doobie._
 import doobie.implicits._
+import doobie.util.transactor.Transactor.Aux
 import org.scalatest._
 import scalaz.OneAnd
 
@@ -25,7 +26,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
 
   implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
 
-  protected val baseConfig = ExtractorConfig(
+  protected val baseConfig: ExtractorConfig = ExtractorConfig(
     "127.0.0.1",
     ledgerPort = 666, // doesn't matter, will/must be overridden in the test cases
     ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
@@ -56,7 +57,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     stripPrefix = None
   )
 
-  protected implicit lazy val xa = Transactor.fromDriverManager[IO](
+  protected implicit lazy val xa: Aux[IO, Unit] = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", // driver classname
     target.connectUrl, // connect URL (driver-specific)
     target.user,
@@ -94,7 +95,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected var extractor: Extractor[PostgreSQLTarget] = _
 
   protected def run(): Unit = {
-    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort))
+    val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = serverPort.value))
 
     extractor = new Extractor(config, target)()
 
