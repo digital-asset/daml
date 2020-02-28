@@ -330,11 +330,6 @@ message DamlStateValue {
   }
 }
 
-message DamlContractId {
-  DamlLogEntryId entry_id = 1;
-  int64 node_id = 2;
-}
-
 message DamlCommandDedupKey {
   string submitter = 1;
   string application_id = 2;
