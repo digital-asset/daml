@@ -1,6 +1,7 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- @SINCE-LF 1.dev
 daml 1.2
 module PurchaseOrderValidation where
 
@@ -13,7 +14,7 @@ template PurchaseOrder
     qty : Int
   where
     signatory owner
-    
+
     controller owner can
       PurchaseOrder_UpdateQuantity : ContractId PurchaseOrder
         with

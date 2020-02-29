@@ -118,23 +118,21 @@ When the ``Call`` choice is exercised, the contract instance is archived. The ``
 Example with submitMustFailMsg
 ==============================
 
-Here’s an example of using :ref:`abort <daml-ref-abort>` to prevent a choice being exercised if certain conditions are not satisfied.
-:ref:`abort <daml-ref-abort>` can also be used to achieve the same effect.
+Here’s an example of using ``assertMsg`` to prevent a choice being exercised if certain conditions are not satisfied.
 
 .. literalinclude:: code-snippets/PurchaseOrderValidation.daml
    :language: daml
-   :lines: 7-24
+   :lines: 8-25
 
-To test the choice fails with the expected error message, ``submitMustFailMsg`` can be used in combination with
-common functions such as ``assertEq`` provided in ``DA.Assert``.
+To test the choice fails with the expected error message, ``submitMustFailMsg`` can be used in combination with functions such as ``assertEq`` provided in ``DA.Assert``.
 
 .. literalinclude:: code-snippets/PurchaseOrderValidation.daml
    :language: daml
-   :lines: 27-35
+   :lines: 27-36
 
 If ``DA.Assert`` doesn't contain a suitable function, binding the actual error message to a variable
-enables performing the necessary check.
+enables performing the necessary check. :ref:`abort <daml-ref-abort>` can also be used to achieve the same effect
 
 .. literalinclude:: code-snippets/PurchaseOrderValidation.daml
    :language: daml
-   :lines: 37-40
+   :lines: 38-40
