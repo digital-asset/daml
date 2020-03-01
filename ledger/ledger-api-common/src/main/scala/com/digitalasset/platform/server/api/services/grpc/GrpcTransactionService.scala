@@ -82,19 +82,15 @@ class GrpcTransactionService(
   private def getSingleTransaction[Request, DomainRequest, DomainTx, Response](
       req: Request,
       validate: Request => Result[DomainRequest],
-      fetch: DomainRequest => Future[DomainTx],
-      toApi: DomainTx => Response) = {
-    val validation = validate(req)
-    validation.fold(Future.failed, fetch(_).map(toApi(_))(DirectExecutionContext))
-  }
+      fetch: DomainRequest => Future[Response]): Future[Response] =
+    validate(req).fold(Future.failed, fetch(_))
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] = {
     getSingleTransaction(
       request,
       validator.validateTransactionByEventId,
-      service.getTransactionByEventId,
-      identity[GetTransactionResponse]
+      service.getTransactionByEventId
     )
   }
 
@@ -103,8 +99,7 @@ class GrpcTransactionService(
     getSingleTransaction(
       request,
       validator.validateTransactionById,
-      service.getTransactionById,
-      identity[GetTransactionResponse]
+      service.getTransactionById
     )
   }
 
@@ -113,8 +108,7 @@ class GrpcTransactionService(
     getSingleTransaction(
       request,
       validator.validateTransactionByEventId,
-      service.getFlatTransactionByEventId,
-      identity[GetFlatTransactionResponse]
+      service.getFlatTransactionByEventId
     )
   }
 
@@ -123,8 +117,7 @@ class GrpcTransactionService(
     getSingleTransaction(
       request,
       validator.validateTransactionById,
-      service.getFlatTransactionById,
-      identity[GetFlatTransactionResponse]
+      service.getFlatTransactionById
     )
   }
 
