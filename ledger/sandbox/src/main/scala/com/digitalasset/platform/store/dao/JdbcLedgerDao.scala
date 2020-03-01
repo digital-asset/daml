@@ -29,11 +29,17 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.digitalasset.ledger.api.domain.{
+  Filters,
+  InclusiveFilters,
+  LedgerId,
+  PartyDetails,
+  RejectionReason,
+  TransactionFilter
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
@@ -1393,11 +1399,28 @@ private class JdbcLedgerDao(
   // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
   private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
 
+  private def orEmptyStringList(xs: Iterable[String]): List[String] =
+    if (xs.nonEmpty) xs.toList else List("")
+
+  private def justByParty(txf: TransactionFilter): List[String] =
+    orEmptyStringList(txf.filtersByParty.view.collect {
+      case (party, Filters(None)) => party
+    })
+
+  // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
+  // and querying on tuples is basically impossible to do sensibly.
+  private def byPartyAndTemplate(txf: TransactionFilter): List[String] =
+    orEmptyStringList(
+      txf.filtersByParty.view
+        .flatMap {
+          case (party, Filters(Some(InclusiveFilters(templateIds)))) =>
+            templateIds.map(t => s"${t.qualifiedName.qualifiedName}&$party")
+          case _ => Seq.empty
+        })
+
   override def getActiveContractSnapshot(
       endExclusive: LedgerOffset,
-      filter: TemplateAwareFilter): Future[LedgerSnapshot] = {
-
-    def orEmptyStringList(xs: Seq[String]) = if (xs.nonEmpty) xs else List("")
+      filter: TransactionFilter): Future[LedgerSnapshot] = {
     val contractStream =
       PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
         dbDispatcher.executeSql(
@@ -1408,12 +1431,8 @@ private class JdbcLedgerDao(
               "endExclusive" -> endExclusive,
               "queryOffset" -> queryOffset,
               "pageSize" -> PageSize,
-              // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
-              // and querying on tuples is basically impossible to do sensibly.
-              "template_parties" -> orEmptyStringList(filter.specificSubscriptions.map {
-                case (ident, party) => ident.qualifiedName.qualifiedName + "&" + party.toString
-              }),
-              "wildcard_parties" -> orEmptyStringList(filter.globalSubscriptions.toList)
+              "template_parties" -> byPartyAndTemplate(filter),
+              "wildcard_parties" -> justByParty(filter),
             )
             .as(ContractDataParser.*)(conn)
         }

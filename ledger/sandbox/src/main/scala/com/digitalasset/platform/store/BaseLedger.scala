@@ -19,12 +19,16 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionId}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  LedgerId,
+  TransactionFilter,
+  TransactionId
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.dao.LedgerReadDao
 import com.digitalasset.platform.store.entries.{
   CommandDeduplicationEntry,
@@ -77,7 +81,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       endExclusive
     )
 
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     // instead of looking up the latest ledger end, we can only take the latest known ledgerEnd in the scope of SqlLedger.
     // If we don't do that, we can miss contracts from a partially inserted batch insert of ledger entries
     // scenario:

@@ -14,8 +14,7 @@ import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event,
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
-import com.digitalasset.platform.participant.util.{EventFilter, LfEngineToApi}
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
 import com.digitalasset.platform.server.services.transaction.TransientContractRemover
 import com.digitalasset.platform.store.entries.LedgerEntry
@@ -34,13 +33,12 @@ object TransactionConversion {
       .foldLeft(List.empty[Event])((l, evId) =>
         l ++ flattenEvents(events.events, evId, verbose = true))
 
-    val eventFilter = TemplateAwareFilter(filter)
     val filteredEvents = TransientContractRemover
       .removeTransients(allEvents)
-      .flatMap(EventFilter.filterEventWitnesses(eventFilter, _).toList)
+      .flatMap(EventFilter(_)(filter).toList)
 
     val submitterIsSubscriber =
-      trans.submittingParty.exists(eventFilter.isSubmitterSubscriber)
+      trans.submittingParty.exists(filter.filtersByParty.keySet)
 
     if (filteredEvents.nonEmpty || submitterIsSubscriber) {
       Some(
@@ -79,8 +77,7 @@ object TransactionConversion {
 
       val commandId =
         trans.commandId
-          .filter(_ =>
-            trans.submittingParty.exists(TemplateAwareFilter(filter).isSubmitterSubscriber))
+          .filter(_ => trans.submittingParty.exists(filter.filtersByParty.keySet))
           .getOrElse("")
 
       TransactionTree(

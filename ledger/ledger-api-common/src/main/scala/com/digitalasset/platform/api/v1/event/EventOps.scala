@@ -21,6 +21,8 @@ object EventOps {
     def witnessParties: Seq[String] = event.event.witnessParties
     def witnessParties(set: Seq[String]): Event =
       event.update(_.event.modify(_.witnessParties(set)))
+    def witnessParties(f: Seq[String] => Seq[String]): Event =
+      event.update(_.event.modify(_.witnessParties(f)))
 
     def contractId: String = event.event.contractId
 
@@ -45,6 +47,12 @@ object EventOps {
     def witnessParties(set: Seq[String]): Event.Event = event match {
       case a @ Archived(value) => a.copy(value.update(_.witnessParties := set))
       case c @ Created(value) => c.copy(value.update(_.witnessParties := set))
+      case Empty => Empty
+    }
+
+    def witnessParties(f: Seq[String] => Seq[String]): Event.Event = event match {
+      case a @ Archived(value) => a.copy(value.update(_.witnessParties.modify(f)))
+      case c @ Created(value) => c.copy(value.update(_.witnessParties.modify(f)))
       case Empty => Empty
     }
 
