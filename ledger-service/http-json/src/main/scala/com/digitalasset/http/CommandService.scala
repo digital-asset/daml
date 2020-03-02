@@ -31,7 +31,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
-import scala.annotation.tailrec
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -215,15 +214,9 @@ class CommandService(
   private def firstExercisedEvent(
       tx: lav1.transaction.TransactionTree
   ): Option[lav1.event.ExercisedEvent] = {
-    @tailrec
-    def loop(ids: Seq[String]): Option[lav1.event.ExercisedEvent] = ids match {
-      case h +: t =>
-        val result = tx.eventsById.get(h).flatMap(_.kind.exercised)
-        if (result.isDefined) result
-        else loop(t)
-      case Nil => None
-    }
-    loop(tx.rootEventIds)
+    val lookup: String => Option[lav1.event.ExercisedEvent] = id =>
+      tx.eventsById.get(id).flatMap(_.kind.exercised)
+    tx.rootEventIds.collectFirst(Function unlift lookup)
   }
 }
 
