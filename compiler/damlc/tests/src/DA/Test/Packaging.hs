@@ -889,6 +889,47 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               ]
           withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar"]
 
+    , testCaseSteps "RankNTypes" $ \step -> withTempDir $ \tmpDir -> do
+          step "Building dep"
+          createDirectoryIfMissing True (tmpDir </> "dep")
+          writeFileUTF8 (tmpDir </> "dep" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: dep"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (tmpDir </> "dep" </> "Foo.daml") $ unlines
+              [ "{-# LANGUAGE AllowAmbiguousTypes #-}"
+              , "module Foo where"
+              , "type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t"
+              , "lensIdentity : Lens s t a b -> Lens s t a b"
+              , "lensIdentity = identity"
+              , "class HasInt f where"
+              , "  getInt : Int"
+              , "f : forall a. HasInt a => Int"
+              , "f = getInt @a"
+              ]
+          withCurrentDirectory (tmpDir </> "dep") $ callProcessSilent damlc ["build", "-o", tmpDir </> "dep" </> "dep.dar", "--target=1.dev"]
+          step "Building proj"
+          createDirectoryIfMissing True (tmpDir </> "proj")
+          writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: proj"
+              , "version: 0.1.0"
+              , "source: ."
+              , "dependencies: [daml-prim, daml-stdlib]"
+              , "data-dependencies: [" <> show (tmpDir </> "dep" </> "dep.dar") <> "]"
+              ]
+          writeFileUTF8 (tmpDir </> "proj" </> "Bar.daml") $ unlines
+              [ "module Bar where"
+              , "import Foo"
+              , "type Lens s t a b = forall f. Functor f => (a -> f b) -> s -> f t"
+              , "x : Lens s t a b -> Lens s t a b"
+              , "x = lensIdentity"
+              ]
+          withCurrentDirectory (tmpDir </> "proj") $ callProcessSilent damlc ["build", "-o", tmpDir </> "proj" </> "proj.dar", "--target=1.dev"]
+
     , testCaseSteps "Colliding package names" $ \step -> withTempDir $ \tmpDir -> do
           forM_ ["1", "2"] $ \version -> do
               step ("Building 'lib" <> version <> "'")
