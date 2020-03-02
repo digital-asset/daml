@@ -20,9 +20,17 @@ import scala.collection.{breakOut, immutable}
 
 object domain {
 
-  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
+
+    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
+      filtersByParty.get(party).fold(false)(TransactionFilter.byTemplate(template))
+
+  }
 
   object TransactionFilter {
+
+    private def byTemplate(template: Ref.Identifier)(templateFilter: Filters): Boolean =
+      templateFilter.inclusive.fold(true)(_.templateIds(template))
 
     /** These parties subscribe for all templates */
     def allForParties(parties: Set[Ref.Party]) =

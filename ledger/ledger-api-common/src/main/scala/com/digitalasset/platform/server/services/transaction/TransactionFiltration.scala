@@ -33,59 +33,53 @@ object TransactionFiltration {
       }
       .withDefaultValue(invertedTransactionFilter.globalSubscribers)
 
-  implicit class RichTransactionFilter(val transactionFilter: TransactionFilter) extends AnyVal {
+  private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[Party] = node match {
+    // Note that for nodes that will not be translated to events we just return empty
+    // sets.
+    case n: Node.NodeCreate[_, _] => n.stakeholders
+    case n: Node.NodeFetch[_] => Set.empty
+    case n: Node.NodeExercises[_, _, _] =>
+      if (n.consuming)
+        n.stakeholders union n.actingParties
+      else
+        n.signatories union n.actingParties
+    case _: Node.NodeLookupByKey[_, _] => Set.empty
+  }
 
-    /**
-      * @return A nonempty map if with NodeId -> String mappings if any of them are visible.
-      *         None otherwise.
-      */
-    def filter[Nid, Cid, Val](transaction: GenTransaction[Nid, Cid, Val])
-      : Option[immutable.Map[Nid, immutable.Set[Party]]] = {
+  def disclosures[Nid, Cid, Val](
+      txf: TransactionFilter,
+      tx: GenTransaction[Nid, Cid, Val]): Option[Map[Nid, Set[Party]]] = {
 
-      val partiesByTemplate =
-        collapse(
-          InvertedTransactionFilter
-            .extractFrom(transactionFilter))
+    val partiesByTemplate =
+      collapse(
+        InvertedTransactionFilter
+          .extractFrom(txf))
 
-      val filteredPartiesByNode = mutable.Map.empty[Nid, immutable.Set[Party]]
-      val inheritedWitnessesByNode =
-        mutable.Map.empty[Nid, immutable.Set[Party]].withDefaultValue(Set.empty)
+    val filteredPartiesByNode = mutable.Map.empty[Nid, immutable.Set[Party]]
+    val inheritedWitnessesByNode =
+      mutable.Map.empty[Nid, immutable.Set[Party]].withDefaultValue(Set.empty)
 
-      transaction.foreach { (nodeId, node) =>
-        templateId(node).foreach { tpl =>
-          val requestingParties = partiesByTemplate(tpl)
-          val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
-          val explicitWitnesses = explicitWitnessesForNode(node)
-          val allWitnesses = inheritedWitnesses union explicitWitnesses
-          val requestingWitnesses = requestingParties intersect allWitnesses
+    tx.foreach { (nodeId, node) =>
+      templateId(node).foreach { tpl =>
+        val requestingParties = partiesByTemplate(tpl)
+        val inheritedWitnesses = inheritedWitnessesByNode(nodeId)
+        val explicitWitnesses = explicitWitnessesForNode(node)
+        val allWitnesses = inheritedWitnesses union explicitWitnesses
+        val requestingWitnesses = requestingParties intersect allWitnesses
 
-          filteredPartiesByNode += ((nodeId, requestingWitnesses))
-          inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
-        }
+        filteredPartiesByNode += ((nodeId, requestingWitnesses))
+        inheritedWitnessesByNode ++= children(node).map(_ -> allWitnesses)
       }
-
-      // We currently allow composite commands without any actual commands and
-      // emit empty flat transactions. To be consistent with that behavior,
-      // we check for filteredPartiesByNode.isEmpty so that we also emit empty
-      // transaction trees.
-      if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
-        val nodeIdToParty = filteredPartiesByNode.toMap
-        Some(nodeIdToParty)
-      } else None
     }
 
-    private def explicitWitnessesForNode(node: GenNode[_, _, _]): Set[Party] = node match {
-      // Note that for nodes that will not be translated to events we just return empty
-      // sets.
-      case n: Node.NodeCreate[_, _] => n.stakeholders
-      case n: Node.NodeFetch[_] => Set.empty
-      case n: Node.NodeExercises[_, _, _] =>
-        if (n.consuming)
-          n.stakeholders union n.actingParties
-        else
-          n.signatories union n.actingParties
-      case _: Node.NodeLookupByKey[_, _] => Set.empty
-    }
+    // We currently allow composite commands without any actual commands and
+    // emit empty flat transactions. To be consistent with that behavior,
+    // we check for filteredPartiesByNode.isEmpty so that we also emit empty
+    // transaction trees.
+    if (filteredPartiesByNode.exists(_._2.nonEmpty) || filteredPartiesByNode.isEmpty) {
+      val nodeIdToParty = filteredPartiesByNode.toMap
+      Some(nodeIdToParty)
+    } else None
   }
 
 }

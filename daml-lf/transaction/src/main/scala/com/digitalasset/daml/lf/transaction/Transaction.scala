@@ -118,6 +118,19 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
+    * Iterates the transaction in pre-order traversal (i.e. exercise node are traversed before their children)
+    *
+    * Crashes if the transaction is not well formed (see `isWellFormed`)
+    */
+  def iterator: Iterator[(Nid, GenNode[Nid, Cid, Val])] =
+    roots.iterator.map(nodeId => nodeId -> nodes(nodeId)).flatMap {
+      case leaf @ (_, _: LeafOnlyNode[Cid, Val]) =>
+        Iterator.single(leaf)
+      case branch @ (_, ex: NodeExercises[Nid, Cid, Val]) =>
+        Iterator.single(branch) ++ ex.children.iterator.map(nodeId => nodeId -> nodes(nodeId))
+    }
+
+  /**
     * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
