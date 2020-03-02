@@ -19,7 +19,7 @@ import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 
-class SEquatableValuesSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
