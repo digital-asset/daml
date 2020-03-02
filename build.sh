@@ -39,5 +39,5 @@ if [[ "$(uname)" != "Darwin" ]]; then
     da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
 fi
 # Check that our IDE works on our codebase
-./compiler/ghcide-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
+ghcide compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
 grep -q "1 file worked, 0 files failed" ide-log
