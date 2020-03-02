@@ -44,7 +44,7 @@ import com.digitalasset.resources.akka.AkkaResourceOwner
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
@@ -87,7 +87,7 @@ class Runner {
         (Some(backend), backend.changes)
       case TimeProviderType.WallClock =>
         val clock = Clock.systemUTC()
-        (None, new RegularHeartbeat(clock, 1.second))
+        (None, new RegularHeartbeat(clock, HeartbeatInterval))
     }
 
     newLoggingContext { implicit logCtx =>
@@ -217,4 +217,6 @@ object Runner {
 
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
+
+  private val HeartbeatInterval: FiniteDuration = 1.second
 }
