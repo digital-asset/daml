@@ -283,6 +283,8 @@ Version: 1.dev
 
   + **Add** type synonyms.
 
+  + **Add** package metadata.
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -411,6 +413,13 @@ and other similar pitfalls. ::
   PartyId character
        PartyIdChar  ∈  [a-zA-Z0-9:\-_ ]              -- PartyIdChar
 
+  PackageName strings
+   PackageNameString ∈ [a-zA-Z0-9:\-_ ]+             -- PackageNameString
+
+  PackageVersion strings
+   PackageVersionString  ∈ (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))* – PackageVersionString
+
+
 We can now define all the literals that a program can handle::
 
   Nat type literals:                                -- LitNatType
@@ -538,6 +547,12 @@ strings as *package identifiers*.  ::
 
   Package identifiers
            pid  ::=  PackageIdString                -- PkgId
+
+  Package names
+           pname ::= PackageNameString              -- PackageName
+
+  Package versions
+           pversion ::= PackageVersionString        -- PackageVersion
 
 We do not specify an explicit syntax for contract identifiers as it is
 not possible to refer to them statically within a program. In
@@ -726,8 +741,15 @@ available for usage::
     Δ ::= ε                                         -- DefCtxEmpty
        |  Def · Δ                                   -- DefCtxCons
 
+  PackageMetadata
+    PackageMetadata ::= 'metadata' PackageNameString PackageVersionString -- PackageMetadata
+
+  PackageModules
+    PackageModules ∈ ModName ↦ Δ                           -- PackageModules
+
   Package
-    Package ∈ ModName ↦ Δ                           -- Package
+    Package ::= Package PackageModules PackageMetadata – since DAML-LF 1.dev
+    Package ::= Package PackageModules -- until DAML-LF 1.dev
 
   Package collection
     Ξ ∈ pid ↦ Package                               -- Packages
