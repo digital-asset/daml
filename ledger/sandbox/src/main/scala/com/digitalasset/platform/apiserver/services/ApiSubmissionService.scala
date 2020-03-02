@@ -222,7 +222,7 @@ final class ApiSubmissionService private (
       Failure(Status.INTERNAL.augmentDescription(reason).asRuntimeException)
 
     case Failure(error) =>
-      logger.error("Submission of command has failed.", error)
+      logger.info(s"Submission of command rejected: ${error.getMessage}")
       Failure(error)
   }
 
