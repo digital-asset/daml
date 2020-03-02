@@ -125,7 +125,7 @@ class Runner {
           "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
           BuildInfo.Version,
           ledgerId,
-          port,
+          port.toString,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,

@@ -5,7 +5,7 @@ package com.digitalasset.ports
 
 import scala.util.{Failure, Success, Try}
 
-case class Port private (value: Int) {
+final case class Port private (value: Int) extends AnyVal {
   override def toString: String = value.toString
 }
 
