@@ -82,6 +82,7 @@ module DA.List
   , delete
   , deleteBy
   , (\\)
+  , singleton
 
   , repeatedly
 
@@ -462,6 +463,15 @@ deleteBy eq x (y::ys)    = if x `eq` y then ys else y :: deleteBy eq x ys
 -- Note this function is _O(n*m)_ given lists of size _n_ and _m_.
 (\\)                    : (Eq a) => [a] -> [a] -> [a]
 (\\)                    =  foldl (flip delete)
+
+-- | Produce a singleton list.
+--
+-- ```
+-- >>> singleton True
+-- [True]
+-- ```
+singleton : a -> [a]
+singleton x = [x]
 
 
 -- | List index (subscript) operator, starting from 0.
