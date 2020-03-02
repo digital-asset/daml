@@ -57,7 +57,16 @@ private[digitalasset] object DamlLfEncoder extends App {
 
     val modules = parseModules[this.type](source).fold(error, identity)
 
-    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], None))
+    val metadata =
+      if (LanguageVersion.ordering
+          .gteq(parserParameters.languageVersion, LanguageVersion.Features.packageMetadata)) {
+        Some(
+          Ast.PackageMetadata(
+            Ref.PackageName.assertFromString("encoder_binary"),
+            Ref.PackageVersion.assertFromString("1.0.0")))
+      } else None
+
+    val pkgs = Map(pkgId -> Ast.Package(modules, Set.empty[Ref.PackageId], metadata))
 
     Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
 

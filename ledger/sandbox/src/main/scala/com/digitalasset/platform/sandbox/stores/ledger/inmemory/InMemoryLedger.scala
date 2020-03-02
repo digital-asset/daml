@@ -28,12 +28,13 @@ import com.digitalasset.ledger.api.domain.{
   LedgerId,
   PartyDetails,
   RejectionReason,
+  TransactionFilter,
   TransactionId
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.platform.index
 import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -116,11 +117,13 @@ class InMemoryLedger(
   override def ledgerEnd: Long = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
       LedgerSnapshot(
         entries.ledgerEnd,
-        Source.fromIterator[ActiveContract](() => acs.activeContracts.valuesIterator))
+        Source
+          .fromIterator[ActiveContract](() =>
+            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList)))
     })
 
   override def lookupContract(

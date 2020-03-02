@@ -24,7 +24,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
   val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(
       pkgId,
-      LanguageVersion(V1, "7")
+      LanguageVersion(V1, "8")
     )
 
   "Encode and Decode" should {
@@ -35,6 +35,8 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
       val pkg: Ast.Package =
         p"""
+
+         metadata ( 'foobar' : '0.0.1' )
 
          module Mod {
 
@@ -164,7 +166,14 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
         implicit val parserParameters: ParserParameters[version.type] =
           ParserParameters(pkgId, version)
 
-        val pkg = Package(parseModules(text).right.get, Set.empty, None)
+        val metadata =
+          if (LanguageVersion.ordering.gteq(version, LanguageVersion.Features.packageMetadata)) {
+            Some(
+              PackageMetadata(
+                PackageName.assertFromString("encodespec"),
+                PackageVersion.assertFromString("1.0.0")))
+          } else None
+        val pkg = Package(parseModules(text).right.get, Set.empty, metadata)
         val archive = Encode.encodeArchive(pkgId -> pkg, version)
         val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 

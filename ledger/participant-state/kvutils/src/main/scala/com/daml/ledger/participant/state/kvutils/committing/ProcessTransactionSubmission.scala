@@ -13,10 +13,11 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
+import com.digitalasset.daml.lf.value.Value
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -61,6 +62,10 @@ private[kvutils] case class ProcessTransactionSubmission(
   private val submitterInfo = txEntry.getSubmitterInfo
   private val submitter = Party.assertFromString(submitterInfo.getSubmitter)
   private lazy val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
+  private val submissionSeed =
+    Some(txEntry.getSubmissionSeed.toByteArray)
+      .filterNot(_.isEmpty)
+      .map(crypto.Hash.assertFromBytes)
 
   private def contractIsActiveAndVisibleToSubmitter(contractState: DamlContractState): Boolean = {
     val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
@@ -76,7 +81,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
   // which are not evidenced in the transaction itself and hence the contract key state is
   // not included in the inputs.
-  private lazy val knownKeys: Map[DamlContractKey, AbsoluteContractId] =
+  private lazy val knownKeys: Map[DamlContractKey, Value.AbsoluteContractId] =
     inputState.collect {
       case (key, Some(value))
           if value.hasContractState
@@ -156,7 +161,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     val ctx = Metrics.interpretTimer.time()
     try {
       engine
-        .validate(relTx, txLet)
+        .validate(relTx, txLet, participantId, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
         .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), _ => pass)
     } finally {
@@ -175,25 +180,23 @@ private[kvutils] case class ProcessTransactionSubmission(
     for {
       damlState <- getDamlState
       startingKeys = damlState.collect {
-        case (k, v) if k.hasContractKey && v.getContractKeyState.hasContractId => k
+        case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
       }.toSet
 
       allUnique = relTx
         .fold((true, startingKeys)) {
           case (
               (allUnique, existingKeys),
-              (_nodeId, exe: NodeExercises[_, _, VersionedValue[ContractId]]))
+              (_nodeId, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _)))
               if exe.key.isDefined && exe.consuming =>
             val stateKey = Conversions.globalKeyToStateKey(
-              GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
+              Node.GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
             (allUnique, existingKeys - stateKey)
 
-          case (
-              (allUnique, existingKeys),
-              (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
+          case ((allUnique, existingKeys), (_nodeId, create @ Node.NodeCreate(_, _, _, _, _, _, _)))
               if create.key.isDefined =>
             val stateKey = Conversions.globalKeyToStateKey(
-              GlobalKey(
+              Node.GlobalKey(
                 create.coinst.template,
                 Conversions.forceNoContractIds(create.key.get.key.value)))
 
@@ -236,7 +239,9 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   /** All checks passed. Produce the log entry and contract state updates. */
   private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {
-    val effects = InputsAndEffects.computeEffects(entryId, relTx)
+    val effects = InputsAndEffects.computeEffects(relTx)
+
+    val cid2nid: Value.AbsoluteContractId => Value.NodeId = relTx.localContracts
 
     // Helper to read the _current_ contract state.
     // NOTE(JM): Important to fetch from the state that is currently being built up since
@@ -254,21 +259,23 @@ private[kvutils] case class ProcessTransactionSubmission(
           val cs = DamlContractState.newBuilder
           cs.setActiveAt(buildTimestamp(txLet))
           val localDisclosure =
-            blindingInfo.localDisclosure(NodeId(key.getContractId.getNodeId.toInt))
+            blindingInfo.localDisclosure(cid2nid(decodeContractId(key.getContractId)))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-          val absCoInst =
-            createNode.coinst.resolveRelCid(Conversions.toAbsCoid(entryId, _))
           cs.setContractInstance(
-            Conversions.encodeContractInstance(absCoInst)
+            Conversions.encodeContractInstance(createNode.coinst)
           )
           createNode.key.foreach { keyWithMaintainers =>
             cs.setContractKey(
               Conversions.encodeGlobalKey(
-                GlobalKey(
-                  createNode.coinst.template,
-                  Conversions.forceNoContractIds(keyWithMaintainers.key.value)
-                )
-              ))
+                Node.GlobalKey
+                  .build(
+                    createNode.coinst.template,
+                    keyWithMaintainers.key.value
+                  )
+                  .fold(
+                    _ => throw Err.InvalidSubmission("Unexpected contract id in contract key."),
+                    identity))
+            )
           }
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
@@ -285,8 +292,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       }: _*),
       // Update contract state of divulged contracts
       sequence2(blindingInfo.globalDivulgence.map {
-        case (absCoid, parties) =>
-          val key = absoluteContractIdToStateKey(absCoid)
+        case (coid, parties) =>
+          val key = contractIdToStateKey(coid)
           getContractState(key).flatMap { cs =>
             val divulged: Set[String] = cs.getDivulgedToList.asScala.toSet
             val newDivulgences: Set[String] = parties.toSet[String] -- divulged
@@ -303,9 +310,12 @@ private[kvutils] case class ProcessTransactionSubmission(
       set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
           logger.trace(s"updating contract key $key to $contractKeyState")
-          key -> DamlStateValue.newBuilder
-            .setContractKeyState(contractKeyState)
-            .build
+          key ->
+            DamlStateValue.newBuilder
+              .setContractKeyState(
+                DamlContractKeyState.newBuilder.setContractId(contractKeyState.fold("")(_.coid))
+              )
+              .build
       }),
       delay {
         Metrics.accepts.inc()
@@ -324,8 +334,8 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Helper to lookup contract instances. We verify the activeness of
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(coid: AbsoluteContractId) = {
-    val stateKey = absoluteContractIdToStateKey(coid)
+  private def lookupContract(coid: Value.AbsoluteContractId) = {
+    val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
       contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
@@ -375,15 +385,17 @@ private[kvutils] case class ProcessTransactionSubmission(
     } yield pkg
   }
 
-  private def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+  private def lookupKey(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
     val stateKey = Conversions.globalKeyToStateKey(key)
     inputState
       .get(stateKey)
       .flatMap {
         _.flatMap { value =>
           for {
-            contractId <- Option(value.getContractKeyState.getContractId).map(decodeContractId)
-            contractStateKey = absoluteContractIdToStateKey(contractId)
+            contractId <- Some(value.getContractKeyState.getContractId)
+              .filter(_.nonEmpty)
+              .map(decodeContractId)
+            contractStateKey = contractIdToStateKey(contractId)
             contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
             if contractIsActiveAndVisibleToSubmitter(contractState)
           } yield contractId

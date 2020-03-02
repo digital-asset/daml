@@ -78,7 +78,6 @@ final case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
     optUsedPackages: Option[Set[PackageId]],
-    transactionSeed: Option[crypto.Hash] = None,
 ) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
@@ -214,6 +213,13 @@ final case class GenTransaction[Nid, +Cid, +Val](
     errors ++ orphaned
   }
 
+  def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
+    fold(Map.empty[Cid2, Nid]) {
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
+        acc.updated(create.coid, nid)
+      case (acc, _) => acc
+    }
+
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
@@ -339,15 +345,14 @@ object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTrans
       f2: A2 => B2,
       f3: A3 => B3,
   ): GenTransaction[A1, A2, A3] => GenTransaction[B1, B2, B3] = {
-    case GenTransaction(nodes, roots, optUsedPackages, transactionSeed) =>
+    case GenTransaction(nodes, roots, optUsedPackages) =>
       GenTransaction(
         nodes = nodes.map {
           case (nodeId, node) =>
             f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
         },
         roots = roots.map(f1),
-        optUsedPackages,
-        transactionSeed,
+        optUsedPackages
       )
   }
 }
@@ -374,6 +379,10 @@ object Transaction {
     *
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
+
+  type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+
+  type AbsNode = GenNode.WithTxValue[NodeId, Value.AbsoluteContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

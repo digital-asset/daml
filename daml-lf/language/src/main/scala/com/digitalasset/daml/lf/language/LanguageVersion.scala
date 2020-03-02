@@ -38,7 +38,7 @@ object LanguageVersion {
     }
   object Features {
 
-    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_dev) =
+    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_7, v1_8, v1_dev) =
       Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
 
     val default = v1_0
@@ -61,10 +61,10 @@ object LanguageVersion {
     val numeric = v1_7
     val anyType = v1_7
     val typeRep = v1_7
+    val typeSynonyms = v1_8
+    val packageMetadata = v1_8
     val genMap = v1_dev
-    val typeSynonyms = v1_dev
     val scenarioMustFailAtMsg = v1_dev
-    val packageMetadata = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.
       * Features implemented with this flag should be moved to a separate

@@ -161,8 +161,7 @@ abstract class ScenarioLoadingITBase
             val events = responses.flatMap(extractEvents)
             val contractIds = events.map(_.contractId).toSet
 
-            // note how we skip #0, #2, #5 and #7 because of the `pass`es in the scenario.
-            contractIds shouldBe Set("#1:0", "#3:0", "#4:0", "#6:0", "#8:0", "#8:1", "#8:2")
+            contractIds.size shouldBe 7
           }
         }
       }

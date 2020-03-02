@@ -43,7 +43,6 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry}
 import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.Resource
@@ -659,22 +658,22 @@ class JdbcLedgerDaoSpec
       // - Create another M contracts
       // The resulting snapshot should contain N-1 contracts
       val aliceWildcardFilter =
-        EventFilter.byTemplates(TransactionFilter(Map(alice -> Filters(None))))
-      val aliceSpecificTemplatesFilter = EventFilter.byTemplates(
-        TransactionFilter(Map(alice -> Filters(InclusiveFilters(Set(someTemplateId))))))
+        TransactionFilter(Map(alice -> Filters(None)))
+      val aliceSpecificTemplatesFilter =
+        TransactionFilter(Map(alice -> Filters(InclusiveFilters(Set(someTemplateId)))))
 
       val charlieWildcardFilter =
-        EventFilter.byTemplates(TransactionFilter(Map(charlie -> Filters(None))))
-      val charlieSpecificFilter = EventFilter.byTemplates(
-        TransactionFilter(Map(charlie -> Filters(InclusiveFilters(Set(someTemplateId))))))
+        TransactionFilter(Map(charlie -> Filters(None)))
+      val charlieSpecificFilter =
+        TransactionFilter(Map(charlie -> Filters(InclusiveFilters(Set(someTemplateId)))))
 
-      val mixedFilter = EventFilter.byTemplates(
+      val mixedFilter =
         TransactionFilter(
           Map(
             alice -> Filters(InclusiveFilters(Set(someTemplateId))),
             bob -> Filters(None),
             charlie -> Filters(None),
-          )))
+          ))
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()

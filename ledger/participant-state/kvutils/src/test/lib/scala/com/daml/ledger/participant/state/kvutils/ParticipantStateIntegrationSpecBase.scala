@@ -14,9 +14,10 @@ import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext
@@ -733,7 +734,8 @@ object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
   private val IdleTimeout: FiniteDuration = 5.seconds
-  private val emptyTransaction: SubmittedTransaction =
+
+  private val emptyTransaction: Transaction.AbsTransaction =
     GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
@@ -751,10 +753,14 @@ object ParticipantStateIntegrationSpecBase {
   private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
-  private def transactionMeta(let: Timestamp) = TransactionMeta(
-    ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests")),
-  )
+  private def transactionMeta(let: Timestamp) =
+    TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+      submissionSeed = Some(
+        crypto.Hash.assertFromString(
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+    )
 
   private def matchPackageUpload(
       update: Update,

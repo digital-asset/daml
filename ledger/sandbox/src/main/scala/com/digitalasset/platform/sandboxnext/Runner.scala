@@ -15,7 +15,7 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v1.{ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
@@ -35,6 +35,7 @@ import com.digitalasset.platform.indexer.{
   IndexerStartupMode,
   StandaloneIndexerServer
 }
+import com.digitalasset.platform.sandbox.SandboxServer.logger
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
@@ -110,11 +111,18 @@ class Runner {
         authService = config.authService.getOrElse(AuthServiceWildcard)
         _ <- ResourceOwner.forFuture(() =>
           Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-        port <- startParticipant(config, indexJdbcUrl, ledger, authService, timeServiceBackend)
+        port <- startParticipant(
+          config,
+          indexJdbcUrl,
+          ledger,
+          authService,
+          timeServiceBackend,
+          config.seeding.map(SeedService(_)),
+        )
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
-          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
+          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
           BuildInfo.Version,
           ledgerId,
           port.toString,
@@ -122,6 +130,7 @@ class Runner {
           timeProviderType.description,
           ledgerType,
           authService.getClass.getSimpleName,
+          config.seeding.fold("no")(_.toString.toLowerCase),
         )
       }
     }
@@ -144,6 +153,7 @@ class Runner {
       ledger: KeyValueParticipantState,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
+      seedService: Option[SeedService],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     for {
       _ <- startIndexerServer(
@@ -158,6 +168,7 @@ class Runner {
         writeService = ledger,
         authService = authService,
         timeServiceBackend = timeServiceBackend,
+        seedService = seedService
       )
     } yield port
 
@@ -184,6 +195,7 @@ class Runner {
       writeService: WriteService,
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
+      seedService: Option[SeedService],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Int] =
     new StandaloneApiServer(
       ApiServerConfig(
@@ -203,6 +215,7 @@ class Runner {
       authService = authService,
       metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
       timeServiceBackend = timeServiceBackend,
+      seedService = seedService
     )
 }
 

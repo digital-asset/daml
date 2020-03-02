@@ -346,7 +346,7 @@ generateSrcFromLf env = noLoc mod
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] . HsWC noExt . HsIB noExt <$> ltype
             lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
-        let lvalD = noLoc . ValD noExt <$> mkStubBind env lname
+        let lvalD = noLoc . ValD noExt <$> mkStubBind env lname lfType
         [ lsigD, lvalD ]
 
     -- | Generate instance declarations from dictionary functions.
@@ -496,21 +496,45 @@ mkDataDecl env thisModule occName tyVars cons = do
 -- | Make a binding of the form "x = error \"data-dependency stub\"". If a qualified name is passed,
 -- we turn the left-hand side into the unqualified form of that name (LHS
 -- must always be unqualified), and the right-hand side remains qualified.
-mkStubBind :: Env -> Located RdrName -> Gen (HsBind GhcPs)
-mkStubBind env lname = do
-    -- Note that a simple recursive binding x = x
-    -- will fall apart in the presence of AmbiguousTypes. We
-    -- could in principle fix this via TypeApplications but generating
-    -- a call to `error` is simpler and avoids the issue.
+mkStubBind :: Env -> Located RdrName -> LF.Type -> Gen (HsBind GhcPs)
+mkStubBind env lname ty = do
+    -- Producing an expression that GHC will accept for
+    -- an arbitrary type:
+    --
+    -- 1. A simple recursive binding x = x falls apart in the presence of
+    --    AllowAmbiguousTypes.
+    -- 2. TypeApplications could in theory fix this but GHC is
+    --    extremely pedantic when it comes to which type variables are
+    --    in scope, e.g., the following is an error
+    --
+    --    f :: (forall a. Show a => a -> String)
+    --    f = f @a -- not in scope error
+    --
+    --    So making that actually work is very annoying.
+    -- 3. One would hope that just calling `error` does the trick but that
+    --    fails due to ImpredicativeTypes in something like Lens s t a b -> Lens s t a b.
+    --
+    -- The solution we use is to count the number of arguments and add wildcard
+    -- matches so that the type variable in `error`s type only needs to be
+    -- unified with the non-impredicative result.
     lexpr <- mkErrorCall env "data-dependency stub"
+    let args = countFunArgs ty
     let lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
         grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
         lnameUnqual = noLoc . mkRdrUnqual . rdrNameOcc $ unLoc lname
         matchContext = FunRhs lnameUnqual Prefix NoSrcStrict
-        lmatch = noLoc $ Match noExt matchContext [] Nothing grhss
+        lmatch = noLoc $ Match noExt matchContext (replicate args $ noLoc (WildPat noExt)) Nothing grhss
         lalts = noLoc [lmatch]
         bind = FunBind noExt lnameUnqual (MG noExt lalts Generated) WpHole []
     pure bind
+  where
+    countFunArgs = \case
+        (arg LF.:-> t)
+          | isConstraint arg -> countFunArgs t
+          | otherwise -> 1 + countFunArgs t
+        LF.TForall _ t -> countFunArgs t
+        _ -> 0
+
 
 mkErrorCall :: Env -> String -> Gen (LHsExpr GhcPs)
 mkErrorCall env msg = do

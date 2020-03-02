@@ -137,7 +137,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
       val logEntryCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
       when(mockStateOperations.appendToLog(any[RawBytes](), logEntryCaptor.capture()))
         .thenReturn(Future.successful(expectedLogResult))
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
@@ -165,7 +165,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       when(mockStateOperations.appendToLog(any[RawBytes](), any[RawBytes]()))
         .thenReturn(Future.successful(99))
-      val logEntryAndStateResult = (aLogEntry(), someStateUpdates(1))
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
@@ -189,18 +189,15 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
 
   private def aLogEntryId(): DamlLogEntryId = SubmissionValidator.allocateRandomLogEntryId()
 
-  private def someStateUpdates(count: Int): Map[DamlStateKey, DamlStateValue] =
-    (1 to count).map { index =>
-      val key = DamlStateKey
-        .newBuilder()
-        .setContractId(DamlContractId
-          .newBuilder()
-          .setEntryId(DamlLogEntryId.newBuilder.setEntryId(ByteString.copyFromUtf8(index.toString)))
-          .setNodeId(index.toLong))
-        .build
-      val value = DamlStateValue.getDefaultInstance
-      key -> value
-    }.toMap
+  private def someStateUpdates: Map[DamlStateKey, DamlStateValue] = {
+
+    val key = DamlStateKey
+      .newBuilder()
+      .setContractId(1.toString)
+      .build
+    val value = DamlStateValue.getDefaultInstance
+    Map(key -> value)
+  }
 
   private def aStateValue(): RawBytes =
     SubmissionValidator.valueToBytes(DamlStateValue.getDefaultInstance)

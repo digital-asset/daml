@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
@@ -17,6 +18,7 @@ case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    seeding: Seeding,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -46,6 +48,7 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      seeding = Seeding.Strong,
       extra = extra,
     )
 
@@ -119,6 +122,22 @@ object Config {
         .unbounded()
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
+
+      private val seedingMap =
+        Map[String, Seeding]("weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
+
+      opt[String]("contract-id-seeding")
+        .optional()
+        .text(s"""Set the seeding of contract ids. Possible values are ${seedingMap.keys.mkString(
+          ",")}. Default is "strong".""")
+        .validate(
+          v =>
+            Either.cond(
+              seedingMap.contains(v.toLowerCase),
+              (),
+              s"seeding must be ${seedingMap.keys.mkString(",")}"))
+        .action((text, config) => config.copy(seeding = seedingMap(text)))
+        .hidden()
 
       help("help").text(s"$name as a service.")
     }

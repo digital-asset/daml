@@ -5,31 +5,39 @@ package com.digitalasset.platform.server.api.services.domain
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.ledger.api.domain.{LedgerOffset, Transaction, TransactionTree}
+import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.api.messages.transaction.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionTreesRequest,
   GetTransactionsRequest
 }
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
+}
 
 import scala.concurrent.Future
 
 trait TransactionService {
 
-  def getTransactions(req: GetTransactionsRequest): Source[Transaction, NotUsed]
+  def getTransactions(req: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed]
 
-  def getTransactionTrees(req: GetTransactionTreesRequest): Source[TransactionTree, NotUsed]
+  def getTransactionTrees(
+      req: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed]
 
   def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute]
 
   def offsetOrdering: Ordering[LedgerOffset.Absolute]
 
-  def getTransactionById(req: GetTransactionByIdRequest): Future[TransactionTree]
+  def getTransactionById(req: GetTransactionByIdRequest): Future[GetTransactionResponse]
 
-  def getTransactionByEventId(req: GetTransactionByEventIdRequest): Future[TransactionTree]
+  def getTransactionByEventId(req: GetTransactionByEventIdRequest): Future[GetTransactionResponse]
 
-  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[Transaction]
+  def getFlatTransactionById(req: GetTransactionByIdRequest): Future[GetFlatTransactionResponse]
 
-  def getFlatTransactionByEventId(req: GetTransactionByEventIdRequest): Future[Transaction]
+  def getFlatTransactionByEventId(
+      req: GetTransactionByEventIdRequest): Future[GetFlatTransactionResponse]
 }

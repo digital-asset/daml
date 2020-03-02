@@ -268,20 +268,31 @@ Version: 1.7
     - add `type_rep` expression to reify a arbitrary ground type
       (i.e. a type with no free type variables) to a value.
 
+Version: 1.8
+............
+
+* Introduction date:
+
+    2020-03-02
+
+* Description:
+
+  + **Add** type synonyms.
+
+  + **Add** package metadata.
+
+  + **Rename** structural records from ``Tuple`` to ``Struct``.
+
+  + **Rename** ``Map`` to ``TextMap``.
+
 Version: 1.dev
 ..............
-
-  + **Rename** structural records from ``Tuple`` to ``Struct``
-
-  + **Rename** ``Map`` to ``TextMap``
 
   + **Add** generic equality builtin.
 
   + **Add** generic order builtin.
 
   + **Add** generic map type ``GenMap``.
-
-  + **Add** type synonyms.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -411,6 +422,13 @@ and other similar pitfalls. ::
   PartyId character
        PartyIdChar  ∈  [a-zA-Z0-9:\-_ ]              -- PartyIdChar
 
+  PackageName strings
+   PackageNameString ∈ [a-zA-Z0-9:\-_]+             -- PackageNameString
+
+  PackageVersion strings
+   PackageVersionString  ∈ (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))* – PackageVersionString
+
+
 We can now define all the literals that a program can handle::
 
   Nat type literals:                                -- LitNatType
@@ -538,6 +556,12 @@ strings as *package identifiers*.  ::
 
   Package identifiers
            pid  ::=  PackageIdString                -- PkgId
+
+  Package names
+           pname ::= PackageNameString              -- PackageName
+
+  Package versions
+           pversion ::= PackageVersionString        -- PackageVersion
 
 We do not specify an explicit syntax for contract identifiers as it is
 not possible to refer to them statically within a program. In
@@ -726,8 +750,15 @@ available for usage::
     Δ ::= ε                                         -- DefCtxEmpty
        |  Def · Δ                                   -- DefCtxCons
 
+  PackageMetadata
+    PackageMetadata ::= 'metadata' PackageNameString PackageVersionString -- PackageMetadata
+
+  PackageModules
+    PackageModules ∈ ModName ↦ Δ                           -- PackageModules
+
   Package
-    Package ∈ ModName ↦ Δ                           -- Package
+    Package ::= Package PackageModules PackageMetadata – since DAML-LF 1.8
+    Package ::= Package PackageModules -- until DAML-LF 1.8
 
   Package collection
     Ξ ∈ pid ↦ Package                               -- Packages
@@ -3437,7 +3468,7 @@ program using the builtin type ``TEXTMAP`` or the builtin functions
 ``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
 ``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
 
-``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
+``'TextMap'`` was called ``'Map'`` in versions < 1.8.
 
 Enum
 ....

@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -34,7 +35,7 @@ final case class SandboxConfig(
     eagerPackageLoading: Boolean,
     logLevel: Option[Level],
     authService: Option[AuthService],
-    useSortableCid: Boolean
+    seeding: Option[Seeding],
 )
 
 object SandboxConfig {
@@ -42,7 +43,7 @@ object SandboxConfig {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  lazy val default: SandboxConfig =
+  lazy val nextDefault: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
@@ -60,6 +61,9 @@ object SandboxConfig {
       eagerPackageLoading = false,
       logLevel = None, // the default is in logback.xml
       authService = None,
-      useSortableCid = false
+      seeding = Some(Seeding.Strong),
     )
+
+  lazy val default: SandboxConfig =
+    nextDefault.copy(seeding = None)
 }

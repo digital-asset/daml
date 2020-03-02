@@ -59,7 +59,6 @@ compile_deps = [
     "@maven//:io_netty_netty_common",
     "@maven//:io_netty_netty_handler",
     "@maven//:io_netty_netty_transport",
-    "@maven//:io_zipkin_brave_brave",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
@@ -401,10 +400,26 @@ server_conformance_test(
     ],
 )
 
+server_conformance_test(
+    name = "conformance-test-contract-id-seeding",
+    server_args = [
+        "--contract-id-seeding=weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
+    ],
+)
+
 NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -412,6 +427,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],

@@ -30,6 +30,16 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     case _ => None
   })
 
+  val pkgName: Parser[Ref.PackageName] = accept("PackageName", Function unlift {
+    case SimpleString(s) => Ref.PackageName.fromString(s).toOption
+    case _ => None
+  })
+
+  val pkgVersion: Parser[Ref.PackageVersion] = accept("PackageVersion", Function unlift {
+    case SimpleString(s) => Ref.PackageVersion.fromString(s).toOption
+    case _ => None
+  })
+
   val dottedName: Parser[Ref.DottedName] =
     rep1sep(id, `.`) ^^ (s => Ref.DottedName.assertFromSegments(s))
 

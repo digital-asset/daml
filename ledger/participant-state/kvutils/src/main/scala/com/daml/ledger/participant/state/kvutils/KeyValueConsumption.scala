@@ -217,7 +217,7 @@ object KeyValueConsumption {
       txEntry: DamlTransactionEntry,
       recordTime: Timestamp,
   ): Update.TransactionAccepted = {
-    val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
+    val transaction = Conversions.decodeTransaction(txEntry.getTransaction)
     val hexTxId = parseLedgerString("TransactionId")(
       BaseEncoding.base16.encode(entryId.toByteArray)
     )
@@ -229,19 +229,14 @@ object KeyValueConsumption {
         workflowId = Some(txEntry.getWorkflowId)
           .filter(_.nonEmpty)
           .map(parseLedgerString("WorkflowId")),
+        submissionSeed = parseOptHash(txEntry.getSubmissionSeed)
       ),
-      transaction = makeCommittedTransaction(entryId, relTx),
+      transaction = transaction,
       transactionId = hexTxId,
       recordTime = recordTime,
       divulgedContracts = List.empty
     )
   }
-
-  private def makeCommittedTransaction(
-      txId: DamlLogEntryId,
-      tx: SubmittedTransaction): CommittedTransaction =
-    /* Assign absolute contract ids */
-    tx.resolveRelCid(toAbsCoid(txId, _))
 
   @throws(classOf[Err])
   private def parseLedgerString(what: String)(s: String): Ref.LedgerString =

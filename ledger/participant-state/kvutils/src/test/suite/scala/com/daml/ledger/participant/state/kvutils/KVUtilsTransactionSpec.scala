@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.command.{
   CreateCommand,
   ExerciseCommand
 }
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Ref, FrontStack, SortedLookupList}
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value
@@ -88,14 +89,15 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     val p0 = mkParticipantId(0)
     val p1 = mkParticipantId(1)
 
-    "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve)(
+    "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
-        tx <- runSimpleCommand(alice, simpleCreateCmd)
-        logEntry <- submitTransaction(submitter = alice, tx = tx).map(_._2)
+        tx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        logEntry <- submitTransaction(submitter = alice, tx = tx, seed).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
       }
-    )
+    }
 
     /* Disabled while we rework the time model.
     "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
@@ -110,26 +112,35 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     )
      */
 
-    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve)(
+    "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
-        tx <- runSimpleCommand(alice, simpleCreateCmd)
+        tx <- runSimpleCommand(alice, seed, simpleCreateCmd)
         conf <- getDefaultConfiguration
-        logEntry <- submitTransaction(submitter = alice, tx = tx, letDelta = conf.timeModel.minTtl)
+        logEntry <- submitTransaction(
+          submitter = alice,
+          tx = tx,
+          seed,
+          letDelta = conf.timeModel.minTtl)
           .map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         // FIXME(JM): Bad reason, need one for bad/expired LET!
         logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
       }
-    )
+    }
 
     "be able to exercise and rejects double spends" in KVTest.runTestWithSimplePackage(
       alice,
       bob,
       eve) {
+      val seeds =
+        Stream
+          .from(0)
+          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
       for {
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
-        result <- submitTransaction(submitter = alice, tx = createTx)
+        createTx <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
+        result <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seeds(0))
         (entryId, logEntry) = result
         update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
         coid = update
@@ -141,11 +152,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .asInstanceOf[NodeCreate[AbsoluteContractId, _]]
           .coid
 
-        exeTx <- runSimpleCommand(alice, exerciseCmd(coid.coid, simpleTemplateId))
-        logEntry2 <- submitTransaction(submitter = alice, tx = exeTx).map(_._2)
+        exeTx <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
+        logEntry2 <- submitTransaction(submitter = alice, tx = exeTx, seeds(1)).map(_._2)
 
         // Try to double consume.
-        logEntry3 <- submitTransaction(submitter = alice, tx = exeTx).map(_._2)
+        logEntry3 <- submitTransaction(submitter = alice, tx = exeTx, seeds(1)).map(_._2)
 
       } yield {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
@@ -155,12 +166,13 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
 
     "reject transactions by unallocated submitters" in KVTest.runTestWithSimplePackage(bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1)
         }
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
-        txEntry <- submitTransaction(submitter = alice, tx = createTx).map(_._2)
+        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        txEntry <- submitTransaction(submitter = alice, tx = createTx, seed).map(_._2)
       } yield {
         configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
@@ -174,10 +186,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         mkTemplateArg("Alice", "Eve", additionalContractDataType, additionalContractValue))
       s"accept transactions with unallocated parties in values: $additionalContractDataType" in KVTest
         .runTestWithPackage(additionalContractDataType, alice, eve) {
-
+          val seed = hash(this.getClass.getName)
           for {
-            createTx <- runCommand(alice, additionalContractDataType, command)
-            txEntry <- submitTransaction(submitter = alice, tx = createTx).map(_._2)
+            createTx <- runCommand(alice, seed, additionalContractDataType, command)
+            txEntry <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
+              .map(_._2)
           } yield {
             txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
           }
@@ -185,27 +198,31 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
 
     "reject transactions with unallocated informee" in KVTest.runTestWithSimplePackage(alice, bob) {
+      val seed = hash(this.getClass.getName)
       for {
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
-        txEntry1 <- submitTransaction(submitter = alice, tx = createTx).map(_._2)
+        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        txEntry1 <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
+          .map(_._2)
       } yield {
         txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         txEntry1.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER
       }
     }
 
+    // FIXME: review this test
     "reject transactions for unhosted parties" in KVTest.runTestWithSimplePackage(bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1)
         }
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
+        createTx <- withParticipantId(p1)(runSimpleCommand(alice, seed, simpleCreateCmd))
 
         newParty <- withParticipantId(p1)(allocateParty("unhosted", alice))
         txEntry1 <- withParticipantId(p0)(
-          submitTransaction(submitter = newParty, tx = createTx).map(_._2))
+          submitTransaction(submitter = newParty, tx = createTx, seed).map(_._2))
         txEntry2 <- withParticipantId(p1)(
-          submitTransaction(submitter = newParty, tx = createTx).map(_._2))
+          submitTransaction(submitter = newParty, tx = createTx, seed).map(_._2))
 
       } yield {
         configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
@@ -217,11 +234,13 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
 
     "reject unauthorized transactions" in KVTest.runTestWithSimplePackage(alice, eve) {
+      val seed = hash(this.getClass.getName)
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
+        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
         bob <- allocateParty("bob", bob)
-        txEntry <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
+        txEntry <- submitTransaction(submitter = bob, tx = createTx, submissionSeed = seed)
+          .map(_._2)
       } yield {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
@@ -230,11 +249,12 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
 
     "metrics get updated" in KVTest.runTestWithSimplePackage(alice, eve) {
+      val seed = hash(this.getClass.getName)
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
+        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
         bob <- allocateParty("bob", bob)
-        _ <- submitTransaction(submitter = bob, tx = createTx).map(_._2)
+        _ <- submitTransaction(submitter = bob, tx = createTx, submissionSeed = seed).map(_._2)
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
@@ -251,14 +271,19 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       alice,
       bob,
       eve) {
+      val seeds =
+        Stream
+          .from(0)
+          .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
+
       val simpleCreateAndExerciseCmd = createAndExerciseCmd(simpleTemplateId, simpleTemplateArg)
 
       for {
-        tx1 <- runSimpleCommand(alice, simpleCreateAndExerciseCmd)
-        createAndExerciseTx1 <- submitTransaction(alice, tx1).map(_._2)
+        tx1 <- runSimpleCommand(alice, seeds(0), simpleCreateAndExerciseCmd)
+        createAndExerciseTx1 <- submitTransaction(alice, tx1, seeds(0)).map(_._2)
 
-        tx2 <- runSimpleCommand(alice, simpleCreateAndExerciseCmd)
-        createAndExerciseTx2 <- submitTransaction(alice, tx2).map(_._2)
+        tx2 <- runSimpleCommand(alice, seeds(1), simpleCreateAndExerciseCmd)
+        createAndExerciseTx2 <- submitTransaction(alice, tx2, seeds(1)).map(_._2)
 
         finalState <- scalaz.State.get[KVTestState]
       } yield {
@@ -270,8 +295,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           case (_, v) =>
             v.getValueCase match {
               case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
-                val cks = v.getContractKeyState
-                cks.hasContractId shouldBe false
+                v.getContractKeyState.getContractId shouldBe 'empty
 
               case DamlKvutils.DamlStateValue.ValueCase.CONTRACT_STATE =>
                 val cs = v.getContractState
@@ -285,9 +309,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     }
 
     "submitter info is optional" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
+      val seed = hash(this.getClass.getName)
       for {
-        createTx <- runSimpleCommand(alice, simpleCreateCmd)
-        result <- submitTransaction(submitter = alice, tx = createTx)
+        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        result <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
       } yield {
         val (entryId, entry) = result
         // Clear the submitter info from the log entry
@@ -303,4 +328,6 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
   }
+
+  private def hash(s: String) = Some(crypto.Hash.hashPrivateKey(s))
 }
