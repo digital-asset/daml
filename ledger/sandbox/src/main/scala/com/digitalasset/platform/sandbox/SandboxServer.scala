@@ -9,6 +9,7 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -276,7 +277,14 @@ final class SandboxServer(
           "index" -> indexAndWriteService.indexService,
           "write" -> indexAndWriteService.writeService,
         )
-        // NOTE: Re-use the same port after reset.
+        observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
+        _ <- observingTimeServiceBackend
+          .map(_.changes.flatMap(source =>
+            ResourceOwner.forTry(() =>
+              Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
+                .map(_ => ()))))
+          .getOrElse(ResourceOwner.successful(()))
+          .acquire()
         apiServer <- new LedgerApiServer(
           (mat: Materializer, esf: ExecutionSequencerFactory) =>
             ApiServices
@@ -290,13 +298,13 @@ final class SandboxServer(
                 defaultLedgerConfiguration = defaultConfiguration,
                 commandConfig = config.commandConfig,
                 submissionConfig = config.submissionConfig,
-                optTimeServiceBackend = timeServiceBackendO
-                  .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
+                optTimeServiceBackend = observingTimeServiceBackend,
                 metrics = metrics,
                 healthChecks = healthChecks,
                 seedService = config.seeding.map(SeedService(_)),
               )(mat, esf, logCtx)
               .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
+          // NOTE: Re-use the same port after reset.
           currentPort.getOrElse(config.port),
           config.maxInboundMessageSize,
           config.address,

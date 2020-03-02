@@ -19,30 +19,31 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     reader
       .events(toReaderOffset(beginAfter))
-      .flatMapConcat { record =>
-        val updates = Envelope
-          .open(record.envelope)
-          .flatMap {
-            case Envelope.LogEntryMessage(logEntry) =>
-              Right[String, Seq[(Offset, Update)]](
-                KeyValueConsumption
-                  .logEntryToUpdate(record.entryId, logEntry)
-                  .zipWithIndex
-                  .map {
-                    case (entry, index) =>
-                      (toReturnedOffset(index, record.offset), entry)
-                  })
-            case _ => Left[String, Seq[(Offset, Update)]]("Envelope does not contain a log entry")
-          }
-          .getOrElse(throw new IllegalArgumentException(
-            s"Invalid log entry received at offset ${record.offset}"))
-        Source.fromIterator(() => updates.iterator)
+      .flatMapConcat {
+        case LedgerEntry.Heartbeat(offset, instant) =>
+          val update = Update.Heartbeat(Time.Timestamp.assertFromInstant(instant))
+          Source.single(toReturnedOffset(0, offset) -> update)
+        case LedgerEntry.LedgerRecord(offset, entryId, envelope) =>
+          Envelope
+            .open(envelope)
+            .flatMap {
+              case Envelope.LogEntryMessage(logEntry) =>
+                val updates = Source(KeyValueConsumption.logEntryToUpdate(entryId, logEntry))
+                val updatesWithOffsets = updates.zipWithIndex.map {
+                  case (update, index) =>
+                    toReturnedOffset(index, offset) -> update
+                }
+                Right(updatesWithOffsets)
+              case _ =>
+                Left("Envelope does not contain a log entry")
+            }
+            .getOrElse(throw new IllegalArgumentException(
+              s"Invalid log entry received at offset $offset"))
       }
-      .filter {
-        case (offset, _) => beginAfter.forall(offset > _)
-      }
+      .filter { case (offset, _) => beginAfter.forall(offset > _) }
 
-  override def currentHealth(): HealthStatus = reader.currentHealth()
+  override def currentHealth(): HealthStatus =
+    reader.currentHealth()
 
   private def toReaderOffset(offset: Option[Offset]): Option[Offset] =
     offset.collect {
@@ -50,8 +51,8 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
         Offset(beginAfter.components.take(beginAfter.components.size - 1).toArray)
     }
 
-  private def toReturnedOffset(index: Int, offset: Offset): Offset =
-    Offset(Array.concat(offset.components.toArray, Array(index.toLong)))
+  private def toReturnedOffset(index: Long, offset: Offset): Offset =
+    Offset(Array.concat(offset.components.toArray, Array(index)))
 
   private def createLedgerInitialConditions(): LedgerInitialConditions =
     LedgerInitialConditions(

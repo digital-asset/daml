@@ -71,7 +71,8 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
           recordTime: Timestamp,
           damlSubmission: DamlSubmission,
           participantId: ParticipantId,
-          inputState: Map[DamlStateKey, Option[DamlStateValue]]): LogEntryAndState =
+          inputState: Map[DamlStateKey, Option[DamlStateValue]]
+      ): LogEntryAndState =
         throw new IllegalArgumentException("Validation failed")
 
       val instance =

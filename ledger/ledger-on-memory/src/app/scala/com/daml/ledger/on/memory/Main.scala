@@ -25,7 +25,7 @@ object Main {
     new ProgramResource(resource).run()
   }
 
-  class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], inMemoryState: InMemoryState)
+  class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
       extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
@@ -37,6 +37,7 @@ object Main {
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,
-        inMemoryState = inMemoryState)
+        state = state,
+      )
   }
 }
