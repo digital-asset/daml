@@ -675,6 +675,7 @@ numStablePackages :: LF.Version -> Int
 numStablePackages ver
   | ver == LF.version1_6 = 15
   | ver == LF.version1_7 = 16
+  | ver == LF.version1_8 = 16
   | ver == LF.versionDev = 16
   | otherwise = error $ "Unsupported LF version: " <> show ver
 

@@ -29,7 +29,14 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   }
 
   lazy val pkg: Parser[Package] =
-    rep(mod) ^^ (Package(_, Set.empty, None))
+    opt(metadata) ~ rep(mod) ^^ {
+      case metadata ~ modules => Package(modules, Set.empty, metadata)
+    }
+
+  private lazy val metadata: Parser[PackageMetadata] =
+    Id("metadata") ~ `(` ~> pkgName ~ `:` ~ pkgVersion <~ `)` ^^ {
+      case name ~ _ ~ version => PackageMetadata(name, version)
+    }
 
   lazy val mod: Parser[Module] =
     Id("module") ~! tags(modTags) ~ dottedName ~ `{` ~ rep(definition <~ `;`) <~ `}` ^^ {

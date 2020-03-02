@@ -268,22 +268,31 @@ Version: 1.7
     - add `type_rep` expression to reify a arbitrary ground type
       (i.e. a type with no free type variables) to a value.
 
+Version: 1.8
+............
+
+* Introduction date:
+
+    2020-03-02
+
+* Description:
+
+  + **Add** type synonyms.
+
+  + **Add** package metadata.
+
+  + **Rename** structural records from ``Tuple`` to ``Struct``.
+
+  + **Rename** ``Map`` to ``TextMap``.
+
 Version: 1.dev
 ..............
-
-  + **Rename** structural records from ``Tuple`` to ``Struct``
-
-  + **Rename** ``Map`` to ``TextMap``
 
   + **Add** generic equality builtin.
 
   + **Add** generic order builtin.
 
   + **Add** generic map type ``GenMap``.
-
-  + **Add** type synonyms.
-
-  + **Add** package metadata.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
@@ -748,8 +757,8 @@ available for usage::
     PackageModules ∈ ModName ↦ Δ                           -- PackageModules
 
   Package
-    Package ::= Package PackageModules PackageMetadata – since DAML-LF 1.dev
-    Package ::= Package PackageModules -- until DAML-LF 1.dev
+    Package ::= Package PackageModules PackageMetadata – since DAML-LF 1.8
+    Package ::= Package PackageModules -- until DAML-LF 1.8
 
   Package collection
     Ξ ∈ pid ↦ Package                               -- Packages
@@ -3459,7 +3468,7 @@ program using the builtin type ``TEXTMAP`` or the builtin functions
 ``TEXTMAP_EMPTY``, ``TEXTMAP_INSERT``, ``TEXTMAP_LOOKUP``,
 ``TEXTMAP_DELETE``, ``TEXTMAP_LIST``, ``TEXTMAP_SIZE``,
 
-``'TextMap'`` was called ``'Map'`` in versions <= 1.dev.
+``'TextMap'`` was called ``'Map'`` in versions < 1.8.
 
 Enum
 ....

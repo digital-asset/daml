@@ -46,11 +46,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       }
     }
 
-    if (!versionIsOlderThan(LV.Features.packageMetadata)) {
-      // We just set the metadata to dummy values here.
+    pkg.metadata.foreach { metadata =>
       val metadataBuilder = PLF.PackageMetadata.newBuilder
-      metadataBuilder.setNameInternedStr(stringsTable.insert("foobar"))
-      metadataBuilder.setVersionInternedStr(stringsTable.insert("0.0.0"))
+      metadataBuilder.setNameInternedStr(stringsTable.insert(metadata.name))
+      metadataBuilder.setVersionInternedStr(stringsTable.insert(metadata.version))
       builder.setMetadata(metadataBuilder.build)
     }
 

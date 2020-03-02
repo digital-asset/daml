@@ -101,7 +101,8 @@ class DecodeV1Spec
 
   private val postPackageMetadataVersions = Table(
     "minVersion",
-    LV.Minor.Dev
+    LV.Minor.Stable("8"),
+    LV.Minor.Dev,
   )
 
   "decodeKind" should {
@@ -582,31 +583,58 @@ class DecodeV1Spec
 
   "decodePackageMetadata" should {
     "accept a valid package name and version" in {
-      new DecodeV1(LV.Minor.Dev).decodePackageMetadata(
-        DamlLf1.PackageMetadata.newBuilder().setNameInternedStr(0).setVersionInternedStr(1).build(),
-        ImmArraySeq("foobar", "0.0.0")) shouldBe Ast.PackageMetadata(
-        Ref.PackageName.assertFromString("foobar"),
-        Ref.PackageVersion.assertFromString("0.0.0"))
+      forEvery(postPackageMetadataVersions) { minVersion =>
+        new DecodeV1(minVersion).decodePackageMetadata(
+          DamlLf1.PackageMetadata
+            .newBuilder()
+            .setNameInternedStr(0)
+            .setVersionInternedStr(1)
+            .build(),
+          ImmArraySeq("foobar", "0.0.0")) shouldBe Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("foobar"),
+          Ref.PackageVersion.assertFromString("0.0.0"))
+      }
     }
     "reject a package namewith space" in {
-      a[ParseError] shouldBe thrownBy(new DecodeV1(LV.Minor.Dev).decodePackageMetadata(
-        DamlLf1.PackageMetadata.newBuilder().setNameInternedStr(0).setVersionInternedStr(1).build(),
-        ImmArraySeq("foo bar", "0.0.0")))
+      forEvery(postPackageMetadataVersions) { minVersion =>
+        a[ParseError] shouldBe thrownBy(
+          new DecodeV1(minVersion).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .build(),
+            ImmArraySeq("foo bar", "0.0.0")))
+      }
     }
     "reject a package version with leading zero" in {
-      a[ParseError] shouldBe thrownBy(new DecodeV1(LV.Minor.Dev).decodePackageMetadata(
-        DamlLf1.PackageMetadata.newBuilder().setNameInternedStr(0).setVersionInternedStr(1).build(),
-        ImmArraySeq("foobar", "01.0.0")))
+      forEvery(postPackageMetadataVersions) { minVersion =>
+        a[ParseError] shouldBe thrownBy(
+          new DecodeV1(minVersion).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .build(),
+            ImmArraySeq("foobar", "01.0.0")))
+      }
     }
     "reject a package version with a dash" in {
-      a[ParseError] shouldBe thrownBy(new DecodeV1(LV.Minor.Dev).decodePackageMetadata(
-        DamlLf1.PackageMetadata.newBuilder().setNameInternedStr(0).setVersionInternedStr(1).build(),
-        ImmArraySeq("foobar", "0.0.0-")))
+      forEvery(postPackageMetadataVersions) { minVersion =>
+        a[ParseError] shouldBe thrownBy(
+          new DecodeV1(minVersion).decodePackageMetadata(
+            DamlLf1.PackageMetadata
+              .newBuilder()
+              .setNameInternedStr(0)
+              .setVersionInternedStr(1)
+              .build(),
+            ImmArraySeq("foobar", "0.0.0-")))
+      }
     }
   }
 
   "decodePackage" should {
-    "reject PackageMetadata if lf version < 1.7" in {
+    "reject PackageMetadata if lf version < 1.8" in {
       forEvery(prePackageMetadataVersions) { minVersion =>
         val decoder = new DecodeV1(minVersion)
         val pkgId = Ref.PackageId.assertFromString(
@@ -622,7 +650,7 @@ class DecodeV1Spec
         a[ParseError] shouldBe thrownBy(decoder.decodePackage(pkgId, pkg, false))
       }
     }
-    "require PackageMetadata to be present if lf version >= 1.dev" in {
+    "require PackageMetadata to be present if lf version >= 1.8" in {
       forEvery(postPackageMetadataVersions) { minVersion =>
         val decoder = new DecodeV1(minVersion)
         val pkgId = Ref.PackageId.assertFromString(
@@ -631,7 +659,7 @@ class DecodeV1Spec
           decoder.decodePackage(pkgId, DamlLf1.Package.newBuilder().build(), false))
       }
     }
-    "decode PackageMetadata if lf version >= 1.dev" in {
+    "decode PackageMetadata if lf version >= 1.8" in {
       forEvery(postPackageMetadataVersions) { minVersion =>
         val decoder = new DecodeV1(minVersion)
         val pkgId = Ref.PackageId.assertFromString(

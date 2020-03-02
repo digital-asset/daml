@@ -32,9 +32,8 @@ version1_7 :: Version
 version1_7 = V1 $ PointStable 7
 
 -- | DAML-LF version 1.8
--- TODO (MK) Change once LF 1.8 is frozen.
 version1_8 :: Version
-version1_8 = versionDev
+version1_8 = V1 $ PointStable 8
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version

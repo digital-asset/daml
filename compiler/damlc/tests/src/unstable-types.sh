@@ -33,7 +33,7 @@ for LF_VERSION in $PKG_DB/*; do
         prim=$LF_VERSION/daml-prim.dalf
         # MetaEquiv is a typeclass without methods and is translated to a type synonym for Unit
         # in newer LF versions.
-        if [ $(basename $LF_VERSION) == "1.dev" ]; then
+        if [ $(basename $LF_VERSION) == "1.dev" ] || [ $(basename $LF_VERSION) == "1.8" ]; then
             $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
 "DA.Random:Minstd"
 "DA.Next.Set:Set"
