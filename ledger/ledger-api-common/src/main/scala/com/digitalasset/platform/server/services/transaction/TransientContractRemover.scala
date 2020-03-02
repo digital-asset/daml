@@ -61,7 +61,7 @@ object TransientContractRemover {
             } {
               case (createdEventIndex, createdEvent) =>
                 // Defensive code to ensure that the set of parties the events are disclosed to are not different.
-                if (witnessParties != createdEvent.witnessParties)
+                if (witnessParties.toSet != createdEvent.witnessParties.toSet)
                   throw new IllegalArgumentException(
                     s"Created and Archived event stakeholders are different in $createdEvent, $archivedEvent")
 
