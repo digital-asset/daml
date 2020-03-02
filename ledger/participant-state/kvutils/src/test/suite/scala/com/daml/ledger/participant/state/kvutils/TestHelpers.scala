@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.data.Ref.{IdString, QualifiedName}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -42,11 +42,20 @@ object TestHelpers {
       }
     """
 
-  def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive =
+  def archiveWithContractData(additionalContractDataType: String): DamlLf.Archive = {
+    val metadata = if (LanguageVersion.ordering
+        .gteq(defaultParserParameters.languageVersion, LanguageVersion.Features.packageMetadata)) {
+      Some(
+        Ast.PackageMetadata(
+          Ref.PackageName.assertFromString("kvutils-tests"),
+          Ref.PackageVersion.assertFromString("1.0.0")))
+    } else None
+    val pkg = damlPackageWithContractData(additionalContractDataType).copy(metadata = metadata)
+
     Encode.encodeArchive(
-      defaultParserParameters.defaultPackageId -> damlPackageWithContractData(
-        additionalContractDataType),
+      defaultParserParameters.defaultPackageId -> pkg,
       defaultParserParameters.languageVersion)
+  }
 
   def packageIdWithContractData(additionalContractDataType: String): IdString.PackageId =
     Ref.PackageId.assertFromString(archiveWithContractData(additionalContractDataType).getHash)
