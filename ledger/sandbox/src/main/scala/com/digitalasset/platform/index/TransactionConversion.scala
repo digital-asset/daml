@@ -26,12 +26,12 @@ object TransactionConversion {
   def ledgerEntryToFlatTransaction(
       offset: domain.LedgerOffset.Absolute,
       trans: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
   ): Option[Transaction] = {
     val events = engine.Event.collectEvents(trans.transaction, trans.explicitDisclosure)
     val allEvents = events.roots.toSeq
-      .foldLeft(List.empty[Event])((l, evId) =>
-        l ++ flattenEvents(events.events, evId, verbose = true))
+      .foldLeft(List.empty[Event])((l, evId) => l ++ flattenEvents(events.events, evId, verbose))
 
     val filteredEvents = TransientContractRemover
       .removeTransients(allEvents)
@@ -56,7 +56,9 @@ object TransactionConversion {
   def ledgerEntryToTransaction(
       offset: domain.LedgerOffset.Absolute,
       trans: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter): Option[TransactionTree] = {
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Option[TransactionTree] = {
 
     val tx = trans.transaction
     filter.filter(tx).map { disclosureByNodeId =>
@@ -66,9 +68,9 @@ object TransactionConversion {
         case (nodeId, value) =>
           (nodeId: String, value match {
             case e: ExerciseEvent[ledger.EventId @unchecked, AbsoluteContractId @unchecked] =>
-              lfExerciseToApi(nodeId, e)
+              lfExerciseToApi(nodeId, e, verbose)
             case c: CreateEvent[AbsoluteContractId @unchecked] =>
-              lfCreateToApi(nodeId, c, includeParentWitnesses = true)
+              lfCreateToApi(nodeId, c, includeParentWitnesses = true, verbose)
           })
       }
 
@@ -129,7 +131,8 @@ object TransactionConversion {
   private def lfCreateToApiCreate(
       eventId: String,
       create: CreateEvent[AbsoluteContractId],
-      includeParentWitnesses: Boolean) = {
+      includeParentWitnesses: Boolean,
+      verbose: Boolean) = {
     CreatedEvent(
       eventId,
       create.contractId.coid,
@@ -139,7 +142,7 @@ object TransactionConversion {
           LfEngineToApi.assertOrRuntimeEx(
             "translating the contract key",
             LfEngineToApi
-              .lfValueToApiValue(verbose = true, ck.key.value))),
+              .lfValueToApiValue(verbose, ck.key.value))),
       Some(
         LfEngineToApi
           .lfValueToApiRecord(verbose = true, create.argument.value match {
@@ -158,19 +161,23 @@ object TransactionConversion {
       eventId: String,
       create: CreateEvent[Lf.AbsoluteContractId],
       includeParentWitnesses: Boolean,
+      verbose: Boolean,
   ): TreeEvent =
-    TreeEvent(TreeEvent.Kind.Created(lfCreateToApiCreate(eventId, create, includeParentWitnesses)))
+    TreeEvent(
+      TreeEvent.Kind.Created(lfCreateToApiCreate(eventId, create, includeParentWitnesses, verbose)))
 
   private def lfCreateToApiFlat(
       eventId: String,
       create: CreateEvent[Lf.AbsoluteContractId],
       includeParentWitnesses: Boolean,
+      verbose: Boolean,
   ): Event =
-    Event(Created(lfCreateToApiCreate(eventId, create, includeParentWitnesses)))
+    Event(Created(lfCreateToApiCreate(eventId, create, includeParentWitnesses, verbose)))
 
   private def lfExerciseToApi(
       eventId: String,
       exercise: ExerciseEvent[ledger.EventId, Lf.AbsoluteContractId],
+      verbose: Boolean,
   ): TreeEvent =
     TreeEvent(
       TreeEvent.Kind.Exercised(ExercisedEvent(
@@ -180,7 +187,7 @@ object TransactionConversion {
         exercise.choice,
         Some(
           LfEngineToApi
-            .lfValueToApiValue(verbose = true, exercise.choiceArgument.value)
+            .lfValueToApiValue(verbose, exercise.choiceArgument.value)
             .getOrElse(
               throw new RuntimeException("Error converting choice argument")
             )),
@@ -190,7 +197,7 @@ object TransactionConversion {
         exercise.children.toSeq,
         exercise.exerciseResult.map(result =>
           LfEngineToApi
-            .lfValueToApiValue(verbose = true, result.value)
+            .lfValueToApiValue(verbose, result.value)
             .fold(_ => throw new RuntimeException("Error converting exercise result"), identity)),
       )))
 
@@ -217,7 +224,7 @@ object TransactionConversion {
     val event = events(root)
     event match {
       case create: CreateEvent[Lf.AbsoluteContractId @unchecked] =>
-        List(lfCreateToApiFlat(root, create, includeParentWitnesses = false))
+        List(lfCreateToApiFlat(root, create, includeParentWitnesses = false, verbose))
 
       case exercise: ExerciseEvent[ledger.EventId, Lf.AbsoluteContractId] =>
         val children =

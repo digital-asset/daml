@@ -111,12 +111,14 @@ abstract class LedgerBackedIndexService(
   override def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
-      filter: domain.TransactionFilter): Source[GetTransactionTreesResponse, NotUsed] =
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToTransaction(offset, transaction, filter)
+            .ledgerEntryToTransaction(offset, transaction, filter, verbose)
             .map(tx => GetTransactionTreesResponse(Seq(tx)))
             .toList
       }
@@ -124,12 +126,14 @@ abstract class LedgerBackedIndexService(
   override def transactions(
       begin: domain.LedgerOffset,
       endAt: Option[domain.LedgerOffset],
-      filter: domain.TransactionFilter): Source[GetTransactionsResponse, NotUsed] =
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetTransactionsResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToFlatTransaction(offset, transaction, filter)
+            .ledgerEntryToFlatTransaction(offset, transaction, filter, verbose)
             .map(tx => GetTransactionsResponse(Seq(tx)))
             .toList
       }
@@ -212,7 +216,8 @@ abstract class LedgerBackedIndexService(
             .ledgerEntryToFlatTransaction(
               LedgerOffset.Absolute(LedgerString.fromLong(offset)),
               transaction,
-              filter)
+              filter,
+              verbose = true)
             .map(tx => GetFlatTransactionResponse(Option(tx)))
       })(DEC)
   }
@@ -229,7 +234,8 @@ abstract class LedgerBackedIndexService(
             .ledgerEntryToTransaction(
               LedgerOffset.Absolute(LedgerString.fromLong(offset)),
               transaction,
-              filter)
+              filter,
+              verbose = true)
             .map(tx => GetTransactionResponse(Option(tx)))
       })(DEC)
   }

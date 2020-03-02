@@ -75,7 +75,7 @@ final class ApiTransactionService private (
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
-        .transactions(request.begin, request.end, request.filter)
+        .transactions(request.begin, request.end, request.filter, request.verbose)
         .via(logger.logErrorsOnStream)
     }
 
@@ -91,7 +91,8 @@ final class ApiTransactionService private (
         .transactionTrees(
           request.begin,
           request.end,
-          TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap)
+          TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
+          request.verbose
         )
         .via(logger.logErrorsOnStream)
     }

@@ -24,22 +24,24 @@ trait IndexTransactionsService extends LedgerEndService {
   def transactions(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
-      filter: TransactionFilter
+      filter: TransactionFilter,
+      verbose: Boolean,
   ): Source[GetTransactionsResponse, NotUsed]
 
   def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
-      filter: TransactionFilter
+      filter: TransactionFilter,
+      verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed]
 
   def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]
+      requestingParties: Set[Ref.Party],
   ): Future[Option[GetFlatTransactionResponse]]
 
   def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]
+      requestingParties: Set[Ref.Party],
   ): Future[Option[GetTransactionResponse]]
 }
