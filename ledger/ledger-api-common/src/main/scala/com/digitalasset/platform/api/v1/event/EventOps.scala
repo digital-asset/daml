@@ -19,10 +19,10 @@ object EventOps {
     def eventId: String = event.event.eventId
 
     def witnessParties: Seq[String] = event.event.witnessParties
-    def witnessParties(set: Seq[String]): Event =
-      event.update(_.event.modify(_.witnessParties(set)))
-    def witnessParties(f: Seq[String] => Seq[String]): Event =
-      event.update(_.event.modify(_.witnessParties(f)))
+    def updateWitnessParties(set: Seq[String]): Event =
+      event.copy(event = event.event.updateWitnessParties(set))
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): Event =
+      event.copy(event = event.event.modifyWitnessParties(f))
 
     def contractId: String = event.event.contractId
 
@@ -44,15 +44,15 @@ object EventOps {
       case Empty => Seq.empty
     }
 
-    def witnessParties(set: Seq[String]): Event.Event = event match {
-      case a @ Archived(value) => a.copy(value.update(_.witnessParties := set))
-      case c @ Created(value) => c.copy(value.update(_.witnessParties := set))
+    def updateWitnessParties(set: Seq[String]): Event.Event = event match {
+      case Archived(value) => Archived(value.copy(witnessParties = set))
+      case Created(value) => Created(value.copy(witnessParties = set))
       case Empty => Empty
     }
 
-    def witnessParties(f: Seq[String] => Seq[String]): Event.Event = event match {
-      case a @ Archived(value) => a.copy(value.update(_.witnessParties.modify(f)))
-      case c @ Created(value) => c.copy(value.update(_.witnessParties.modify(f)))
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): Event.Event = event match {
+      case Archived(value) => Archived(value.copy(witnessParties = f(value.witnessParties)))
+      case Created(value) => Created(value.copy(witnessParties = f(value.witnessParties)))
       case Empty => Empty
     }
 

@@ -30,7 +30,7 @@ object EventFilter {
     txf.filtersByParty.get(Party.assertFromString(party)).fold(false)(byTemplate(template))
 
   def apply(event: Event)(txf: TransactionFilter): Option[Event] =
-    Some(event.witnessParties(_.filter(included(_, toLfIdentifier(event.templateId), txf))))
+    Some(event.modifyWitnessParties(_.filter(included(_, toLfIdentifier(event.templateId), txf))))
       .filter(_.witnessParties.nonEmpty)
 
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =

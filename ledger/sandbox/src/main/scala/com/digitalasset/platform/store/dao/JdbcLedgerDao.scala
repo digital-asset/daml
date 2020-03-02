@@ -1403,7 +1403,7 @@ private class JdbcLedgerDao(
     if (xs.nonEmpty) xs.toList else List("")
 
   private def justByParty(txf: TransactionFilter): List[String] =
-    orEmptyStringList(txf.filtersByParty.view.collect {
+    orEmptyStringList(txf.filtersByParty.collect {
       case (party, Filters(None)) => party
     })
 
@@ -1411,7 +1411,7 @@ private class JdbcLedgerDao(
   // and querying on tuples is basically impossible to do sensibly.
   private def byPartyAndTemplate(txf: TransactionFilter): List[String] =
     orEmptyStringList(
-      txf.filtersByParty.view
+      txf.filtersByParty
         .flatMap {
           case (party, Filters(Some(InclusiveFilters(templateIds)))) =>
             templateIds.map(t => s"${t.qualifiedName.qualifiedName}&$party")
