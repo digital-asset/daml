@@ -96,7 +96,7 @@ DAML SDK documentation
    experimental/warning
    daml-integration-kit/index
    tools/ledger-api-test-tool/index
-   migrate/index
+   upgrade/index
    json-api/index
    DAML Triggers <triggers/index>
    DAML Script <daml-script/index>

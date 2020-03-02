@@ -45,6 +45,9 @@ This may seem awkward, but notice that the ``ensure`` clause is gone from the ``
 
 You'll now learn a couple of common ways of building issuance and transfer workflows for the above ``Iou``, before diving into the authorization model in full.
 
+
+.. _intro propose accept:
+
 Use propose-accept workflows for one-off authorization
 ------------------------------------------------------
 

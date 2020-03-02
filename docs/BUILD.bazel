@@ -567,6 +567,11 @@ daml_test(
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
 )
 
+daml_test(
+    name = "daml-upgrade-daml-test",
+    srcs = glob(["source/upgrade/**/*.daml"]),
+)
+
 filegroup(
     name = "daml-intro-1",
     srcs = glob(

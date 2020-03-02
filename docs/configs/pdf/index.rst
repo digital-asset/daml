@@ -92,6 +92,7 @@ Experimental features
 
    experimental/warning
    daml-integration-kit/index
+   upgrade/index
    json-api/index
    triggers/index
    daml-script/index
