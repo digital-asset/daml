@@ -11,16 +11,16 @@ import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class ResettableResourceOwner[A, ResetValue] private (
-    owner: Reset => ResetValue => ResourceOwner[A],
     initialValue: ResetValue,
-    resetOperation: () => Future[ResetValue],
+    owner: Reset => ResetValue => ResourceOwner[A],
+    resetOperation: A => Future[ResetValue],
 ) extends ResourceOwner[A] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[A] =
     new Resource[A] {
-      private val resetFunction: () => Future[Unit] = reset _
+      private val resettableOwner: ResetValue => ResourceOwner[A] = owner(reset _)
 
       @volatile
-      private var resource = owner(resetFunction)(initialValue).acquire()
+      private var resource = resettableOwner(initialValue).acquire()
       private val resetPromise = new AtomicReference[Option[Promise[Unit]]](None)
 
       override def asFuture: Future[A] =
@@ -36,8 +36,12 @@ class ResettableResourceOwner[A, ResetValue] private (
           case None =>
             val newResetPromise = Some(Promise[Unit]())
             if (resetPromise.compareAndSet(None, newResetPromise)) {
-              resource.release().flatMap(_ => resetOperation()).map { resetValue =>
-                resource = owner(resetFunction)(resetValue).acquire()
+              for {
+                value <- resource.asFuture
+                _ <- resource.release()
+                resetValue <- resetOperation(value)
+              } yield {
+                resource = resettableOwner(resetValue).acquire()
                 newResetPromise.get.success(())
                 resetPromise.set(None)
               }
@@ -56,21 +60,14 @@ object ResettableResourceOwner {
 
   def apply[A](owner: Reset => ResourceOwner[A]) =
     new ResettableResourceOwner[A, Unit](
-      reset => _ => owner(reset),
       initialValue = (),
-      resetOperation = () => Future.unit,
-    )
-
-  def apply[A](owner: Reset => ResourceOwner[A], resetOperation: () => Future[Unit]) =
-    new ResettableResourceOwner[A, Unit](
       reset => _ => owner(reset),
-      initialValue = (),
-      resetOperation = resetOperation,
+      resetOperation = _ => Future.unit,
     )
 
   def apply[A, ResetValue](
-      owner: Reset => ResetValue => ResourceOwner[A],
       initialValue: ResetValue,
-      resetOperation: () => Future[ResetValue],
-  ) = new ResettableResourceOwner(owner, initialValue, resetOperation)
+      owner: Reset => ResetValue => ResourceOwner[A],
+      resetOperation: A => Future[ResetValue],
+  ) = new ResettableResourceOwner(initialValue, owner, resetOperation)
 }
