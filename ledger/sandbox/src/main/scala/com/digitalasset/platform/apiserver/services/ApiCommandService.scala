@@ -120,7 +120,7 @@ final class ApiCommandService private (
                 }
               }
             } yield {
-              TrackerImpl(trackingFlow, configuration.inputBufferSize, configuration.historySize)
+              TrackerImpl(trackingFlow, configuration.inputBufferSize)
             }
           }
       } else {
@@ -197,7 +197,6 @@ object ApiCommandService {
       maxParallelSubmissions: Int,
       maxCommandsInFlight: Int,
       limitMaxCommandsInFlight: Boolean,
-      historySize: Int,
       retentionPeriod: FiniteDuration,
       // TODO(RA): this should be updated dynamically from the ledger configuration
       maxDeduplicationTime: java.time.Duration)
