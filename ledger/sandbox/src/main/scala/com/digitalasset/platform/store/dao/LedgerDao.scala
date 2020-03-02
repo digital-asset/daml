@@ -15,9 +15,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
   CommandDeduplicationEntry,
@@ -114,7 +113,7 @@ trait LedgerReadDao extends ReportsHealth {
     */
   def getActiveContractSnapshot(
       untilExclusive: LedgerOffset,
-      filter: TemplateAwareFilter
+      filter: TransactionFilter
   ): Future[LedgerSnapshot]
 
   /** Returns a list of all known parties. */

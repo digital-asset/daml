@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.api.v1.event
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.{ContractId, EventId}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
@@ -12,81 +10,82 @@ import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{
   Created => TreeCreated,
   Exercised => TreeExercised
 }
-import scalaz.Tag
+import com.digitalasset.ledger.api.v1.value.Identifier
 
 object EventOps {
 
   implicit class EventOps(val event: Event) extends AnyVal {
 
-    def eventId: EventId = event.event.eventId
+    def eventId: String = event.event.eventId
 
-    def witnesses: Seq[String] = event.event.witnesses
+    def witnessParties: Seq[String] = event.event.witnessParties
+    def updateWitnessParties(set: Seq[String]): Event =
+      event.copy(event = event.event.updateWitnessParties(set))
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): Event =
+      event.copy(event = event.event.modifyWitnessParties(f))
 
-    def contractId: ContractId = event.event.contractId
+    def contractId: String = event.event.contractId
 
-    def templateId: String = event.event.templateId
-
-    def withWitnesses(witnesses: Seq[String]): Event = Event(event.event.withWitnesses(witnesses))
+    def templateId: Identifier = event.event.templateId
 
   }
 
   implicit class EventEventOps(val event: Event.Event) extends AnyVal {
 
-    def eventId: EventId = event match {
-      case Archived(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
-      case Created(value) => EventId(Ref.LedgerString.assertFromString(value.eventId))
+    def eventId: String = event match {
+      case Archived(value) => value.eventId
+      case Created(value) => value.eventId
       case Empty => throw new IllegalArgumentException("Cannot extract Event ID from Empty event.")
     }
 
-    def witnesses: Seq[String] = event match {
-      case c: Created => c.value.witnessParties
-      case a: Archived => a.value.witnessParties
+    def witnessParties: Seq[String] = event match {
+      case Archived(value) => value.witnessParties
+      case Created(value) => value.witnessParties
       case Empty => Seq.empty
     }
 
-    def templateId: String = event match {
-      case c: Created => c.templateId
-      case a: Archived => a.templateId
+    def updateWitnessParties(set: Seq[String]): Event.Event = event match {
+      case Archived(value) => Archived(value.copy(witnessParties = set))
+      case Created(value) => Created(value.copy(witnessParties = set))
+      case Empty => Empty
+    }
+
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): Event.Event = event match {
+      case Archived(value) => Archived(value.copy(witnessParties = f(value.witnessParties)))
+      case Created(value) => Created(value.copy(witnessParties = f(value.witnessParties)))
+      case Empty => Empty
+    }
+
+    def templateId: Identifier = event match {
+      case Archived(value) => value.templateId.get
+      case Created(value) => value.templateId.get
       case Empty =>
         throw new IllegalArgumentException("Cannot extract Template ID from Empty event.")
     }
 
-    def contractId: ContractId = {
-      val rawId = event match {
-        case Archived(value) => value.contractId
-        case Created(value) => value.contractId
-        case Empty =>
-          throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
-      }
-      ContractId(Ref.LedgerString.assertFromString(rawId))
-    }
-
-    def withWitnesses(witnesses: Seq[String]): Event.Event = event match {
-      case c: Created => Created(c.value.copy(witnessParties = witnesses))
-      case a: Archived => Archived(a.value.copy(witnessParties = witnesses))
-      case Empty => Empty
+    def contractId: String = event match {
+      case Archived(value) => value.contractId
+      case Created(value) => value.contractId
+      case Empty =>
+        throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
     }
 
   }
 
-  implicit class TreeEventKindOps(kind: TreeEvent.Kind) {
-    def fold[T](exerciseHandler: ExercisedEvent => T, createHandler: CreatedEvent => T) =
+  implicit final class TreeEventKindOps(val kind: TreeEvent.Kind) extends AnyVal {
+    def fold[T](exercise: ExercisedEvent => T, create: CreatedEvent => T): T =
       kind match {
-        case e: TreeExercised => exerciseHandler(e.value)
-        case c: TreeCreated => createHandler(c.value)
+        case TreeExercised(value) => exercise(value)
+        case TreeCreated(value) => create(value)
         case tk => throw new IllegalArgumentException(s"Unknown TreeEvent type: $tk")
       }
   }
 
-  implicit class TreeEventOps(val event: TreeEvent) {
-    def eventId: EventId =
-      event.kind.fold(
-        e => EventId(Ref.LedgerString.assertFromString(e.eventId)),
-        c => EventId(Ref.LedgerString.assertFromString(c.eventId)))
-    def children: Seq[EventId] =
-      event.kind
-        .fold(e => Tag.subst(e.childEventIds.map(Ref.LedgerString.assertFromString)), _ => Nil)
+  implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
+    def eventId: String = event.kind.fold(_.eventId, _.eventId)
+    def childEventIds: Seq[String] = event.kind.fold(_.childEventIds, _ => Nil)
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
+    def templateId: Option[Identifier] = event.kind.fold(_.templateId, _.templateId)
   }
 
 }

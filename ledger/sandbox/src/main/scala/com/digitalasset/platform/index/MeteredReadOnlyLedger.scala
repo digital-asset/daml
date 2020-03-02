@@ -16,11 +16,16 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionId}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  LedgerId,
+  PartyDetails,
+  TransactionFilter,
+  TransactionId
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.entries.{
   CommandDeduplicationEntry,
   ConfigurationEntry,
@@ -66,7 +71,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
     ledger.completions(beginInclusive, endExclusive, applicationId, parties)
 
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     ledger.snapshot(filter)
 
   override def lookupContract(
