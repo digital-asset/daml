@@ -42,7 +42,7 @@ template UpgradeCoinAgreement
     owner : Party
   where
     signatory issuer, owner
-    choice Upgrade : ContractId CoinWithAmount
+    nonconsuming choice Upgrade : ContractId CoinWithAmount
       with
         coinId : ContractId Coin
       controller issuer
