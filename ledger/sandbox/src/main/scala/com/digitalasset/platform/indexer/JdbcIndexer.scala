@@ -20,13 +20,13 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.{Resource, ResourceOwner}
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -88,7 +88,7 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
   }
 
   private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with id: ${foundLedgerId.unwrap}")
+    logger.info(s"Found existing ledger with ID: $foundLedgerId")
     Future.successful(foundLedgerId)
   }
 
@@ -100,13 +100,10 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
           ledgerFound(foundLedgerId)
 
         case Some(foundLedgerId) =>
-          val errorMsg =
-            s"Ledger id mismatch. Ledger id given ('$ledgerId') is not equal to the existing one ('$foundLedgerId')!"
-          logger.error(errorMsg)
-          Future.failed(new IllegalArgumentException(errorMsg))
+          Future.failed(new LedgerIdMismatchException(foundLedgerId, ledgerId))
 
         case None =>
-          logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
+          logger.info(s"Initializing ledger with ID: $ledgerId")
           ledgerDao.initializeLedger(ledgerId, 0).map(_ => ledgerId)(DEC)
       }(DEC)
   }

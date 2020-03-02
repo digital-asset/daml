@@ -21,7 +21,6 @@ import com.digitalasset.platform.store.dao.{
 import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
-import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -72,7 +71,7 @@ object ReadOnlySqlLedger {
         .lookupLedgerId()
         .flatMap {
           case Some(foundLedgerId @ `initialLedgerId`) =>
-            logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+            logger.info(s"Found existing ledger with ID: $foundLedgerId")
             Future.successful(foundLedgerId)
           case Some(foundLedgerId) =>
             Future.failed(
