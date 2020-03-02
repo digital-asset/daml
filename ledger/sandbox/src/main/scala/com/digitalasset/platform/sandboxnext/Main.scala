@@ -12,6 +12,6 @@ object Main {
   def main(args: Array[String]): Unit = {
     val config = Cli.parse(args, SandboxConfig.nextDefault).getOrElse(sys.exit(1))
     config.logLevel.foreach(GlobalLogLevel.set)
-    new ProgramResource(new Runner().owner(config)).run()
+    new ProgramResource(new Runner(config)).run()
   }
 }

@@ -40,8 +40,8 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
-import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.resources.akka.AkkaResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
@@ -57,11 +57,10 @@ import scala.util.Try
   *   - does not support scenarios
   *   - does not provide the reset service
   */
-class Runner {
-  def owner(config: SandboxConfig): ResourceOwner[Unit] = {
+class Runner(config: SandboxConfig) extends ResourceOwner[Unit] {
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
     implicit val system: ActorSystem = ActorSystem("sandbox")
     implicit val materializer: Materializer = Materializer(system)
-    implicit val executionContext: ExecutionContext = system.dispatcher
 
     val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
       case LedgerIdMode.Static(ledgerId) =>
@@ -91,7 +90,7 @@ class Runner {
         (None, new RegularHeartbeat(clock, HeartbeatInterval))
     }
 
-    newLoggingContext { implicit logCtx =>
+    val owner = newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
@@ -134,6 +133,8 @@ class Runner {
         )
       }
     }
+
+    owner.acquire()
   }
 
   private def uploadDar(from: File, to: KeyValueParticipantState)(
@@ -154,7 +155,7 @@ class Runner {
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
       seedService: Option[SeedService],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Port] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[Port] =
     for {
       _ <- startIndexerServer(
         config = config,
@@ -168,7 +169,7 @@ class Runner {
         writeService = ledger,
         authService = authService,
         timeServiceBackend = timeServiceBackend,
-        seedService = seedService
+        seedService = seedService,
       )
     } yield port
 
@@ -176,7 +177,7 @@ class Runner {
       config: SandboxConfig,
       indexJdbcUrl: String,
       readService: ReadService,
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
       readService = readService,
       config = IndexerConfig(
@@ -196,7 +197,7 @@ class Runner {
       authService: AuthService,
       timeServiceBackend: Option[TimeServiceBackend],
       seedService: Option[SeedService],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Port] =
+  )(implicit logCtx: LoggingContext): ResourceOwner[Port] =
     new StandaloneApiServer(
       ApiServerConfig(
         participantId = ParticipantId,
