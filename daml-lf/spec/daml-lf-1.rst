@@ -414,7 +414,7 @@ and other similar pitfalls. ::
        PartyIdChar  ∈  [a-zA-Z0-9:\-_ ]              -- PartyIdChar
 
   PackageName strings
-   PackageNameString ∈ [a-zA-Z0-9:\-_ ]+             -- PackageNameString
+   PackageNameString ∈ [a-zA-Z0-9:\-_]+             -- PackageNameString
 
   PackageVersion strings
    PackageVersionString  ∈ (0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))* – PackageVersionString
