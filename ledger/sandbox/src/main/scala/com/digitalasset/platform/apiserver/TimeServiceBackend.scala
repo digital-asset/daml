@@ -48,9 +48,13 @@ object TimeServiceBackend {
   private final class AkkaQueueBasedObservedTimeServiceBackend(delegate: TimeServiceBackend)(
       implicit materializer: Materializer
   ) extends ObservedTimeServiceBackend {
+    private type Changes = Source[Instant, NotUsed]
+    private type SourceQueue = SourceQueueWithComplete[Instant]
+    private type SinkQueue = SinkQueueWithCancel[Instant]
+
     // There is no `TrieSet` type, so we emulate it with a `TrieMap` with meaningless values.
     // Scala doesn't react well to `()` in tuples, so we're using Boolean instead of Unit here.
-    private val queues = concurrent.TrieMap[SourceQueueWithComplete[Instant], Boolean]()
+    private val queues = concurrent.TrieMap[SourceQueue, Boolean]()
 
     override def getCurrentTime: Instant =
       delegate.getCurrentTime
@@ -63,30 +67,32 @@ object TimeServiceBackend {
             queues.keys.foreach(_.offer(newTime))
         }(materializer.executionContext)
 
-    override def changes: ResourceOwner[Source[Instant, NotUsed]] =
-      new ResourceOwner[Source[Instant, NotUsed]] {
-        override def acquire()(
-            implicit executionContext: ExecutionContext
-        ): Resource[Source[Instant, NotUsed]] = {
-          Resource(Future {
-            val (sourceQueue, sinkQueue) = Source
-              .queue(bufferSize = 1, overflowStrategy = OverflowStrategy.dropHead)
-              .toMat(Sink.queue[Instant]())(
-                Keep.both[SourceQueueWithComplete[Instant], SinkQueueWithCancel[Instant]])
-              .run()
-            sourceQueue.offer(getCurrentTime)
-            queues += sourceQueue -> true
-            (sourceQueue, sinkQueue)
-          })({
-            case (sourceQueue, _) =>
-              queues -= sourceQueue
-              sourceQueue.complete()
-              sourceQueue.watchCompletion().map(_ => ())
-          }).map {
-            case (_, sinkQueue) =>
-              Source.unfoldAsync(sinkQueue)(queue => queue.pull().map(_.map(queue -> _)))
-          }
-        }
+    override def changes: ResourceOwner[Changes] = new ResourceOwner[Changes] {
+      override def acquire()(implicit executionContext: ExecutionContext): Resource[Changes] = {
+        val (sourceQueue, sinkQueue) = createQueues()
+        sourceQueue.offer(getCurrentTime)
+        val changesSource: Source[Instant, NotUsed] =
+          Source.unfoldAsync(sinkQueue)(queue => queue.pull().map(_.map(queue -> _)))
+        Resource(Future.successful(changesSource))(_ => release(sourceQueue))
       }
+
+      private def createQueues(): (SourceQueue, SinkQueue) = {
+        val (sourceQueue, sinkQueue) = Source
+          .queue(bufferSize = 1, overflowStrategy = OverflowStrategy.dropHead)
+          .toMat(Sink.queue[Instant]())(
+            Keep.both[SourceQueueWithComplete[Instant], SinkQueueWithCancel[Instant]])
+          .run()
+        queues += sourceQueue -> true
+        (sourceQueue, sinkQueue)
+      }
+
+      private def release(sourceQueue: SourceQueue)(
+          implicit executionContext: ExecutionContext
+      ): Future[Unit] = {
+        queues -= sourceQueue
+        sourceQueue.complete()
+        sourceQueue.watchCompletion().map(_ => ())
+      }
+    }
   }
 }

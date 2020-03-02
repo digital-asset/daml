@@ -137,17 +137,20 @@ object SqlLedgerReaderWriter {
     database.inWriteTransaction("Checking ledger ID at startup") { queries =>
       val providedLedgerId =
         initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-      Future.fromTry(queries.updateOrRetrieveLedgerId(providedLedgerId).flatMap { ledgerId =>
-        if (initialLedgerId.exists(_ != ledgerId)) {
-          Failure(
-            new LedgerIdMismatchException(
-              domain.LedgerId(ledgerId),
-              domain.LedgerId(initialLedgerId.get),
-            ))
-        } else {
-          Success(ledgerId)
-        }
-      })
+      Future.fromTry(
+        queries
+          .updateOrRetrieveLedgerId(providedLedgerId)
+          .flatMap { ledgerId =>
+            if (initialLedgerId.exists(_ != ledgerId)) {
+              Failure(
+                new LedgerIdMismatchException(
+                  domain.LedgerId(ledgerId),
+                  domain.LedgerId(initialLedgerId.get),
+                ))
+            } else {
+              Success(ledgerId)
+            }
+          })
     }
 
   private def newDispatcher(database: Database)(
