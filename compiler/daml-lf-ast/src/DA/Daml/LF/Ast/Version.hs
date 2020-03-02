@@ -31,6 +31,11 @@ version1_6 = V1 $ PointStable 6
 version1_7 :: Version
 version1_7 = V1 $ PointStable 7
 
+-- | DAML-LF version 1.8
+-- TODO (MK) Change once LF 1.8 is frozen.
+version1_8 :: Version
+version1_8 = versionDev
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_7
@@ -40,7 +45,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedOutputVersions :: [Version]
-supportedOutputVersions = [version1_6, version1_7, versionDev]
+supportedOutputVersions = [version1_6, version1_7, version1_8, versionDev]
 
 supportedInputVersions :: [Version]
 supportedInputVersions = version1_5 : supportedOutputVersions
@@ -91,14 +96,14 @@ featureGenMap = Feature
 featureTypeSynonyms :: Feature
 featureTypeSynonyms = Feature
     { featureName = "LF type synonyms"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_8
     , featureCppFlag = "DAML_TYPE_SYNONYMS"
     }
 
 featurePackageMetadata :: Feature
 featurePackageMetadata = Feature
     { featureName = "Package metadata"
-    , featureMinVersion = versionDev
+    , featureMinVersion = version1_8
     , featureCppFlag = "DAML_PACKAGE_METADATA"
     }
 
