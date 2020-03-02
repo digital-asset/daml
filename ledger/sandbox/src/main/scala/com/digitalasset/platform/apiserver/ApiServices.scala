@@ -6,9 +6,8 @@ package com.digitalasset.platform.apiserver
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
+import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -79,7 +78,7 @@ object ApiServices {
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: MetricRegistry,
       healthChecks: HealthChecks,
-      seedService: Option[() => crypto.Hash]
+      seedService: Option[SeedService]
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
@@ -107,7 +106,8 @@ object ApiServices {
           submissionService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId, seedService),
+          seedService,
+          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
           ApiSubmissionService.Configuration(
             submissionConfig.maxTtl
           ),

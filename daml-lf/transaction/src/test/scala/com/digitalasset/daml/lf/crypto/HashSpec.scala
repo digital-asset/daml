@@ -89,7 +89,7 @@ class HashSpec extends WordSpec with Matchers {
       val hash = "ea24627f5b014af67dbedb13d950e60be7f96a1a5bd9fb1a3b9a85b7fa9db4bc"
       val value = complexRecordT.inj(complexRecordV)
       val name = defRef("module", "name")
-      Hash.hashContractKey(name, value).toHexaString shouldBe hash
+      Hash.assertHashContractKey(name, value).toHexaString shouldBe hash
     }
 
     "be deterministic and thread safe" in {
@@ -98,7 +98,7 @@ class HashSpec extends WordSpec with Matchers {
       val hashes = Vector
         .fill(1000)(defRef("module", "name") -> complexRecordT.inj(complexRecordV))
         .par
-        .map(Function.tupled(Hash.hashContractKey))
+        .map(Function.tupled(Hash.assertHashContractKey))
 
       hashes.toSet.size shouldBe 1
     }
@@ -107,8 +107,8 @@ class HashSpec extends WordSpec with Matchers {
       // Same value but different template ID should produce a different hash
       val value = VA.text.inj("A")
 
-      val hash1 = Hash.hashContractKey(defRef("AA", "A"), value)
-      val hash2 = Hash.hashContractKey(defRef("A", "AA"), value)
+      val hash1 = Hash.assertHashContractKey(defRef("AA", "A"), value)
+      val hash2 = Hash.assertHashContractKey(defRef("A", "AA"), value)
 
       hash1 should !==(hash2)
     }
@@ -121,8 +121,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -136,8 +136,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -150,8 +150,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -164,8 +164,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -177,8 +177,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -191,8 +191,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -205,8 +205,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -217,8 +217,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -229,8 +229,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -241,8 +241,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -253,8 +253,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -265,8 +265,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -277,8 +277,8 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
@@ -291,14 +291,14 @@ class HashSpec extends WordSpec with Matchers {
 
       val tid = defRef("module", "name")
 
-      val hash1 = Hash.hashContractKey(tid, value1)
-      val hash2 = Hash.hashContractKey(tid, value2)
+      val hash1 = Hash.assertHashContractKey(tid, value1)
+      val hash2 = Hash.assertHashContractKey(tid, value2)
 
       hash1 should !==(hash2)
     }
   }
 
-  "KeyHasher.putValue" should {
+  "KeyHasher.addValue" should {
 
     "stable " in {
 
@@ -538,7 +538,7 @@ class HashSpec extends WordSpec with Matchers {
       val actualOutput = testCases
         .map { value =>
           val hash = Hash
-            .builder(Hash.Purpose.Testing)
+            .builder(Hash.Purpose.Testing, Hash.aCid2String)
             .addTypedValue(value)
             .build
             .toHexaString

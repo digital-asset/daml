@@ -8,9 +8,11 @@ import java.time.Duration
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.command.{Command, Commands}
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.State
 import scalaz.syntax.traverse._
@@ -156,12 +158,12 @@ object KVTest {
 
   val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
 
-  private val participant = Ref.ParticipantId.assertFromString("participant")
-
   def runCommand(
       submitter: Party,
+      submissionSeed: Option[crypto.Hash],
       additionalContractDataTy: String,
-      cmds: Command*): KVTest[SubmittedTransaction] =
+      cmds: Command*,
+  ): KVTest[Transaction.AbsTransaction] =
     for {
       s <- get[KVTestState]
       tx = s.engine
@@ -172,13 +174,13 @@ object KVTest {
             ledgerEffectiveTime = s.recordTime,
             commandsReference = "cmds-ref",
           ),
-          participantId = participant,
-          submissionSeed = None,
+          participantId = s.participantId,
+          submissionSeed = submissionSeed,
         )
         .consume(
           { coid =>
             s.damlState
-              .get(Conversions.absoluteContractIdToStateKey(coid))
+              .get(Conversions.contractIdToStateKey(coid))
               .map { v =>
                 Conversions.decodeContractInstance(v.getContractState.getContractInstance)
               }
@@ -189,17 +191,23 @@ object KVTest {
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx
+    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids")
 
-  def runSimpleCommand(submitter: Party, cmds: Command*): KVTest[SubmittedTransaction] =
-    runCommand(submitter, defaultAdditionalContractDataTy, cmds: _*)
+  def runSimpleCommand(
+      submitter: Party,
+      submissionSeed: Option[crypto.Hash],
+      cmds: Command*,
+  ): KVTest[Transaction.AbsTransaction] =
+    runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      tx: SubmittedTransaction,
+      tx: Transaction.AbsTransaction,
+      submissionSeed: Option[crypto.Hash],
       mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
-      commandId: CommandId = randomLedgerString): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+      commandId: CommandId = randomLedgerString,
+  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       submInfo = SubmitterInfo(
@@ -212,7 +220,8 @@ object KVTest {
         submitterInfo = submInfo,
         meta = TransactionMeta(
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
-          workflowId = None
+          workflowId = None,
+          submissionSeed = submissionSeed,
         ),
         tx = tx
       )

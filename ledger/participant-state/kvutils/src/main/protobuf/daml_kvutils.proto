@@ -150,6 +150,9 @@ message DamlTransactionEntry {
   // the bounds for valid timestamps in relation to the ledger record time
   // (the time at which the transaction is committed).
   google.protobuf.Timestamp ledger_effective_time = 4;
+
+  // The nonce used to generate contract ids
+  bytes submission_seed = 5;
 }
 
 // A transaction rejection entry.
@@ -304,7 +307,7 @@ message DamlPartyAllocationRejectionEntry {
 message DamlStateKey {
   oneof key {
     string package_id = 1;
-    DamlContractId contract_id = 2;
+    string contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
     string party = 4;
     DamlContractKey contract_key = 5;
@@ -325,11 +328,6 @@ message DamlStateValue {
     DamlConfigurationEntry configuration_entry = 6;
     DamlSubmissionDedupValue submission_dedup = 7;
   }
-}
-
-message DamlContractId {
-  DamlLogEntryId entry_id = 1;
-  int64 node_id = 2;
 }
 
 message DamlCommandDedupKey {
@@ -420,7 +418,7 @@ message DamlPartyAllocation {
 message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
-  DamlContractId contract_id = 1;
+  string contract_id = 1;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
