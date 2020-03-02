@@ -82,8 +82,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           case value @ DValue(_, _, _, _) =>
             builder.addValues(name -> value)
 
-          case DTypeSyn(params @ _, typ @ _) =>
-            throw new RuntimeException("TODO #3616, EncodeV1, DTypeSyn")
+          case synonym @ DTypeSyn(_, _) =>
+            builder.addSynonyms(name -> synonym)
 
         }
         builder
@@ -127,6 +127,13 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
     private implicit def encodeTypeConName(identifier: Identifier): PLF.TypeConName = {
       val builder = PLF.TypeConName.newBuilder()
+      builder.setModule(identifier.moduleRef)
+      setDottedName_(identifier.name, builder.setNameDname, builder.setNameInternedDname)
+      builder.build()
+    }
+
+    private implicit def encodeTypeSynName(identifier: Identifier): PLF.TypeSynName = {
+      val builder = PLF.TypeSynName.newBuilder()
       builder.setModule(identifier.moduleRef)
       setDottedName_(identifier.name, builder.setNameDname, builder.setNameInternedDname)
       builder.build()
@@ -256,8 +263,11 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case TStruct(fields) =>
           expect(args.isEmpty)
           builder.setStruct(PLF.Type.Struct.newBuilder().accumulateLeft(fields)(_ addFields _))
-        case TSynApp(_, _) =>
-          throw new RuntimeException("TODO #3616,encodeTypeBuilder")
+        case TSynApp(name, args) =>
+          val b = PLF.Type.Syn.newBuilder()
+          b.setTysyn(name)
+          b.accumulateLeft(args)(_ addArgs _)
+          builder.setSyn(b)
       }
     }
 
@@ -612,6 +622,15 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           )
           builder.setEnum(b)
       }
+      builder.build()
+    }
+
+    private implicit def encodeSynonymDef(nameWithDef: (DottedName, DTypeSyn)): PLF.DefTypeSyn = {
+      val (dottedName, typeSyn) = nameWithDef
+      val builder = PLF.DefTypeSyn.newBuilder()
+      setDottedName_(dottedName, builder.setNameDname, builder.setNameInternedDname)
+      builder.accumulateLeft(typeSyn.params)(_ addParams _)
+      builder.setType(typeSyn.typ)
       builder.build()
     }
 
