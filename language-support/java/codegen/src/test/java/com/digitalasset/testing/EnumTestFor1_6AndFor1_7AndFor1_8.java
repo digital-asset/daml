@@ -19,7 +19,7 @@ import test.enummod.coloredtree.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 @RunWith(JUnitPlatform.class)
-public class EnumTestFor1_6AndFor1_7 {
+public class EnumTestFor1_6AndFor1_7AndFor1_8 {
 
     @Test
     void enum2Value2Enum() {

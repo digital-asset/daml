@@ -12,4 +12,4 @@ import org.junit.runners.Suite;
         EnumTestFor1_6AndFor1_7AndFor1_8.class,
         NumericTestFor1_7AndFor1_8AndFor1_dev.class,
 })
-public class AllTestsFor1_7{ }
+public class AllTestsFor1_8{ }
