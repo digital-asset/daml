@@ -26,7 +26,6 @@ import com.digitalasset.http.util.TestUtil
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.service.MetadataReader
@@ -104,7 +103,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     val timeValue = v.Value(time)
     val enabledVariantValue =
       v.Value(v.Value.Sum.Variant(v.Variant(None, "Enabled", Some(timeValue))))
-    val arg: Record = v.Record(
+    val arg = v.Record(
       fields = List(
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party(owner.unwrap)))),
         v.RecordField("number", Some(v.Value(v.Value.Sum.Text(number)))),
@@ -150,11 +149,13 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def postCreateCommand(
       cmd: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
-      uri: Uri): Future[(StatusCode, JsValue)] =
+      uri: Uri): Future[(StatusCode, JsValue)] = {
+    import encoder.implicits._
     for {
-      json <- toFuture(encoder.encodeR(cmd)): Future[JsObject]
+      json <- toFuture(SprayJson.encode1(cmd)): Future[JsValue]
       result <- postJsonRequest(uri.withPath(Uri.Path("/v1/create")), json)
     } yield result
+  }
 
   protected def postArchiveCommand(
       templateId: domain.TemplateId.OptionalPkg,
@@ -197,7 +198,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       amount: String = "999.9900000000",
       currency: String = "USD"): domain.CreateCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val arg: Record = v.Record(
+    val arg = v.Record(
       fields = List(
         v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
         v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
@@ -213,16 +214,40 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       contractId: lar.ContractId): domain.ExerciseCommand[v.Value, domain.EnrichedContractId] = {
     val templateId = domain.TemplateId(None, "Iou", "Iou")
     val reference = domain.EnrichedContractId(Some(templateId), contractId)
-    val arg: Record = v.Record(
-      fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
-    )
+    val arg =
+      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
     val choice = lar.Choice("Iou_Transfer")
 
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
   }
 
+  protected def iouCreateAndExerciseTransferCommand(
+      amount: String = "999.9900000000",
+      currency: String = "USD"): domain.CreateAndExerciseCommand[v.Record, v.Value] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val payload = v.Record(
+      fields = List(
+        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text(currency)))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Numeric(amount)))),
+        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
+      ))
+
+    val arg =
+      v.Record(fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Bob"))))))
+    val choice = lar.Choice("Iou_Transfer")
+
+    domain.CreateAndExerciseCommand(
+      templateId = templateId,
+      payload = payload,
+      choice = choice,
+      argument = boxedRecord(arg),
+      meta = None)
+  }
+
   protected def archiveCommand[Ref](reference: Ref): domain.ExerciseCommand[v.Value, Ref] = {
-    val arg: Record = v.Record()
+    val arg: v.Record = v.Record()
     val choice = lar.Choice("Archive")
     domain.ExerciseCommand(reference, choice, boxedRecord(arg), None)
   }
@@ -283,6 +308,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
       case Some(JsString(contractId)) => domain.ContractId(contractId)
     }
 
+  protected def asContractId(a: JsValue): domain.ContractId = inside(a) {
+    case JsString(x) => domain.ContractId(x)
+  }
+
   protected def encodeExercise(encoder: DomainJsonEncoder)(
       exercise: domain.ExerciseCommand[v.Value, domain.ContractLocator[v.Value]]): JsValue =
     encoder.encodeExerciseCommand(exercise).getOrElse(fail(s"Cannot encode: $exercise"))
@@ -337,16 +366,27 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   }
 
   protected def assertActiveContract(jsVal: JsValue)(
-      command: domain.CreateCommand[Record],
+      command: domain.CreateCommand[v.Record],
       encoder: DomainJsonEncoder,
-      decoder: DomainJsonDecoder) = {
+      decoder: DomainJsonDecoder): Assertion = {
+
+    import encoder.implicits._
+
+    val expected: domain.CreateCommand[JsValue] =
+      command.traverse(SprayJson.encode[v.Record]).getOrElse(fail)
 
     inside(SprayJson.decode[domain.ActiveContract[JsValue]](jsVal)) {
       case \/-(activeContract) =>
-        val expectedPayload: JsValue =
-          encoder.encodeUnderlyingRecord(command).map(_.payload).getOrElse(fail)
-        (activeContract.payload: JsValue) shouldBe expectedPayload
+        (activeContract.payload: JsValue) shouldBe (expected.payload: JsValue)
     }
+  }
+
+  protected def assertTemplateId(
+      actual: domain.TemplateId.RequiredPkg,
+      expected: domain.TemplateId.OptionalPkg): Assertion = {
+    expected.packageId.foreach(x => actual.packageId shouldBe x)
+    actual.moduleName shouldBe expected.moduleName
+    actual.entityName shouldBe expected.entityName
   }
 }
 
@@ -546,8 +586,10 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU should fail if authorization header is missing" in withHttpService {
     (uri, encoder, _) =>
+      import encoder.implicits._
+
       val command: domain.CreateCommand[v.Record] = iouCreateCommand()
-      val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+      val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input, List()).flatMap {
         case (status, output) =>
@@ -560,9 +602,11 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "create IOU with unsupported templateId should return proper error" in withHttpService {
     (uri, encoder, _) =>
+      import encoder.implicits._
+
       val command: domain.CreateCommand[v.Record] =
         iouCreateCommand().copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
-      val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+      val input: JsValue = SprayJson.encode1(command).valueOr(e => fail(e.shows))
 
       postJsonRequest(uri.withPath(Uri.Path("/v1/create")), input).flatMap {
         case (status, output) =>
@@ -601,6 +645,41 @@ abstract class AbstractHttpServiceIntegrationTest
                   decoder,
                   uri)
             }
+      }: Future[Assertion]
+  }
+
+  "create-and-exercise IOU_Transfer" in withHttpService { (uri, encoder, _) =>
+    import encoder.implicits._
+
+    val cmd: domain.CreateAndExerciseCommand[v.Record, v.Value] =
+      iouCreateAndExerciseTransferCommand()
+
+    val json: JsValue = SprayJson.encode2(cmd).valueOr(e => fail(e.shows))
+
+    postJsonRequest(uri.withPath(Uri.Path("/v1/create-and-exercise")), json)
+      .flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          inside(
+            decode2[domain.OkResponse, domain.ExerciseResponse[JsValue], Unit](output)
+          ) {
+            case \/-(response) =>
+              response.status shouldBe StatusCodes.OK
+              (response.warnings: Option[Unit]) shouldBe Option.empty[Unit]
+              inside(response.result.events) {
+                case List(
+                    domain.Contract(\/-(created0)),
+                    domain.Contract(-\/(archived0)),
+                    domain.Contract(\/-(created1))) =>
+                  assertTemplateId(created0.templateId, cmd.templateId)
+                  assertTemplateId(archived0.templateId, cmd.templateId)
+                  archived0.contractId shouldBe created0.contractId
+                  assertTemplateId(
+                    created1.templateId,
+                    domain.TemplateId(None, "Iou", "IouTransfer"))
+                  asContractId(response.result.exerciseResult) shouldBe created1.contractId
+              }
+          }
       }: Future[Assertion]
   }
 
@@ -707,13 +786,15 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testCreateCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder): Assertion = {
+    import util.ErrorOps._
     import json.JsonProtocol._
+    import encoder.implicits._
 
     val command0: domain.CreateCommand[v.Record] = iouCreateCommand()
 
     val x = for {
-      jsonObj <- encoder.encodeR(command0)
-      command1 <- decoder.decodeR[domain.CreateCommand](jsonObj)
+      jsVal <- SprayJson.encode1(command0).liftErr(JsonError)
+      command1 <- decoder.decodeCreateCommand(jsVal)
     } yield command1.map(removeRecordId) should ===(command0)
 
     x.fold(e => fail(e.shows), identity)

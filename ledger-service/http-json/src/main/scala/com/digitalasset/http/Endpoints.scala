@@ -17,7 +17,7 @@ import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.Collections.toNonEmptySet
 import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
+import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -27,12 +27,11 @@ import scalaz.std.scalaFuture._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Bitraverse, EitherT, NonEmptyList, Show, \/, \/-}
+import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
 import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -50,12 +49,15 @@ class Endpoints(
     extends StrictLogging {
 
   import Endpoints._
-  import util.ErrorOps._
   import json.JsonProtocol._
+  import util.ErrorOps._
+  import encoder.implicits._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/exercise"), _, _, _) => httpResponse(exercise(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/create-and-exercise"), _, _, _) =>
+      httpResponse(createAndExercise(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/fetch"), _, _, _) => httpResponse(fetch(req))
     case req @ HttpRequest(GET, Uri.Path("/v1/query"), _, _, _) => httpResponse(retrieveAll(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
@@ -65,25 +67,25 @@ class Endpoints(
 
   def create(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      t3 <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
       cmd <- either(
-        decoder.decodeR[domain.CreateCommand](reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.CreateCommand[lav1.value.Record]]
+        decoder.decodeCreateCommand(reqBody).liftErr(InvalidUserInput)
+      ): ET[domain.CreateCommand[ApiRecord]]
 
       ac <- eitherT(
         handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
-      ): ET[domain.ActiveContract[lav1.value.Value]]
+      ): ET[domain.ActiveContract[ApiValue]]
 
-      jsVal <- either(encoder.encodeV(ac).liftErr(ServerError)): ET[JsValue]
+      jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
 
   def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -99,21 +101,35 @@ class Endpoints(
 
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
-      apiResp <- eitherT(
+      resp <- eitherT(
         handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
       ): ET[domain.ExerciseResponse[ApiValue]]
 
-      lfResp <- either(apiResp.traverse(apiValueToLfValue)): ET[domain.ExerciseResponse[LfValue]]
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
 
-      jsResp <- either(lfResp.traverse(lfValueToJsValue)): ET[domain.ExerciseResponse[JsValue]]
+    } yield domain.OkResponse(jsVal)
 
-      jsVal <- either(toJsValue(jsResp)): ET[JsValue]
+  def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+    for {
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+
+      (jwt, jwtPayload, reqBody) = t3
+
+      cmd <- either(
+        decoder.decodeCreateAndExerciseCommand(reqBody).liftErr(InvalidUserInput)
+      ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue]]
+
+      resp <- eitherT(
+        handleFutureFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+      ): ET[domain.ExerciseResponse[ApiValue]]
+
+      jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
 
   def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
     for {
-      input <- FutureUtil.eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      input <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
 
@@ -259,7 +275,8 @@ class Endpoints(
   private def httpResponse[A: JsonWriter, B: JsonWriter](
       result: ET[domain.OkResponse[A, B]]
   ): Future[HttpResponse] = {
-    val fa: Future[Error \/ JsValue] = result.flatMap(x => either(toJsValueWithBitraverse(x))).run
+    val fa: Future[Error \/ JsValue] =
+      result.flatMap(x => either(SprayJson.encode2(x).liftErr(ServerError))).run
     fa.map {
         case -\/(e) =>
           httpResponseError(e)
@@ -282,6 +299,12 @@ class Endpoints(
           .map(b => \/-((j, p, b.data.utf8String)))
     }
   }
+
+  private[http] def inputJsVal(req: HttpRequest): ET[(Jwt, JwtPayload, JsValue)] =
+    for {
+      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
+      jsVal <- either(SprayJson.parse(t3._3).liftErr(InvalidUserInput)): ET[JsValue]
+    } yield (t3._1, t3._2, jsVal)
 
   private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
     req.headers
@@ -308,11 +331,12 @@ class Endpoints(
 }
 
 object Endpoints {
-  import util.ErrorOps._
   import json.JsonProtocol._
+  import util.ErrorOps._
 
   private type ET[A] = EitherT[Future, Error, A]
 
+  private type ApiRecord = lav1.value.Record
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
@@ -343,13 +367,4 @@ object Endpoints {
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
     SprayJson.encode(a).liftErr(ServerError)
   }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def toJsValueWithBitraverse[F[_, _], A, B](fab: F[A, B])(
-      implicit ev1: Bitraverse[F],
-      ev2: JsonWriter[F[JsValue, JsValue]],
-      ev3: JsonWriter[A],
-      ev4: JsonWriter[B]): Error \/ JsValue =
-    SprayJson.encode2(fab).liftErr(ServerError)
-
 }

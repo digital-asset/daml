@@ -12,8 +12,8 @@ import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import scalaz.{-\/, NonEmptyList, \/-}
 import scalaz.syntax.std.option._
+import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -232,8 +232,8 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
     domain.CommandMeta)
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
-    domain.CreateCommand[JsObject])
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
+    domain.CreateCommand[JsValue])
 
   implicit val ExerciseCommandFormat
     : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
@@ -266,6 +266,10 @@ object JsonProtocol extends DefaultJsonProtocol {
           meta = meta)
       }
     }
+
+  implicit val CreateAndExerciseCommandFormat
+    : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
 
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
