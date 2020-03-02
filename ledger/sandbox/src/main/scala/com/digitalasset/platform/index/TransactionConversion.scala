@@ -99,7 +99,6 @@ object TransactionConversion {
         entry.transaction.iterator
           .collect(flatEvent(filter, entry.explicitDisclosure, verbose))
           .toList)
-      .flatMap(EventFilter(_)(filter).toList)
 
     val commandId =
       entry.commandId
