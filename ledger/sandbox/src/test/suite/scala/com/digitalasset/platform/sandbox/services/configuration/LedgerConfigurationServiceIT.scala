@@ -12,12 +12,12 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration,
   LedgerConfigurationServiceGrpc
 }
-import com.digitalasset.platform.api.grpc.GrpcApiUtil
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.PostgresResource
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
+import com.google.protobuf.duration.Duration
 
 sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
   self: SandboxFixture with SuiteResourceManagement =>
@@ -32,11 +32,14 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
             .next()
             .getLedgerConfiguration
 
-        minTtl shouldEqual GrpcApiUtil.durationToProto(config.timeModel.minTtl)
-        maxTtl shouldEqual GrpcApiUtil.durationToProto(config.timeModel.maxTtl)
+        minTtl shouldEqual toProto(config.timeModel.minTtl)
+        maxTtl shouldEqual toProto(config.timeModel.maxTtl)
       }
     }
   }
+
+  private def toProto(t: java.time.Duration): Duration =
+    Duration.of(t.getSeconds, t.getNano)
 }
 
 final class LedgerConfigurationServiceInMemoryIT
