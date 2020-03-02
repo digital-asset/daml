@@ -50,7 +50,7 @@ object Hash {
 
   private val hexEncoding = BaseEncoding.base16().lowerCase()
 
-  private case class HashingError(msg: String) extends Error with NoStackTrace
+  private case class HashingError(msg: String) extends Exception with NoStackTrace
 
   private def error(msg: String): Nothing =
     throw HashingError(msg)
