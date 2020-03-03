@@ -1859,6 +1859,11 @@ object JdbcLedgerDao {
       // the distinct keyword is required, because a single contract can be visible by 2 parties,
       // thus resulting in multiple output rows
       s"""
+         |with stakeholders as (
+         |select signatory as party, contract_id from contract_signatories
+         |  union
+         |  select observer as party, contract_id from contract_observers
+         |)
          |select distinct
          |  c.create_offset,
          |  cd.id,
@@ -1873,14 +1878,14 @@ object JdbcLedgerDao {
          |from contracts c
          |inner join contract_data cd on c.id = cd.id
          |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join contract_witnesses w on c.id = w.contract_id
+         |inner join stakeholders s on c.id = s.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
          |where create_offset < {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
-         |     concat(c.name,'&',w.witness) in ({template_parties})
-         |     OR w.witness in ({wildcard_parties})
+         |     concat(c.name,'&',s.party) in ({template_parties})
+         |     OR s.party in ({wildcard_parties})
          |    )
          |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |order by c.create_offset
@@ -1932,6 +1937,11 @@ object JdbcLedgerDao {
       // the distinct keyword is required, because a single contract can be visible by 2 parties,
       // thus resulting in multiple output rows
       s"""
+         |with stakeholders as (
+         |select signatory as party, contract_id from contract_signatories
+         |  union
+         |  select observer as party, contract_id from contract_observers
+         |)
          |select distinct
          |  c.create_offset,
          |  cd.id,
@@ -1946,14 +1956,14 @@ object JdbcLedgerDao {
          |from contracts c
          |inner join contract_data cd on c.id = cd.id
          |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join contract_witnesses w on c.id = w.contract_id
+         |inner join stakeholders s on c.id = s.contract_id
          |left join contract_signatories sigs on sigs.contract_id = c.id
          |left join contract_observers obs on obs.contract_id = c.id
          |where c.create_offset <= {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
          |and
          |   (
-         |     concat(c.name,'&',w.witness) in ({template_parties})
-         |     OR w.witness in ({wildcard_parties})
+         |     concat(c.name,'&',s.party) in ({template_parties})
+         |     OR s.party in ({wildcard_parties})
          |    )
          |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
          |order by c.create_offset
