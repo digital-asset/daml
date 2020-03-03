@@ -37,17 +37,20 @@ final abstract class Initialized extends InitStatus
 final abstract class Uninitialized extends InitStatus
 
 object JdbcIndexerFactory {
-  def apply(metrics: MetricRegistry)(
-      implicit logCtx: LoggingContext): JdbcIndexerFactory[Uninitialized] =
-    new JdbcIndexerFactory[Uninitialized](metrics)
+  def apply(jdbcUrl: String, metrics: MetricRegistry)(
+      implicit logCtx: LoggingContext
+  ): JdbcIndexerFactory[Uninitialized] =
+    new JdbcIndexerFactory[Uninitialized](jdbcUrl, metrics)
 }
 
-final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricRegistry)(
-    implicit logCtx: LoggingContext) {
+final class JdbcIndexerFactory[Status <: InitStatus] private (
+    jdbcUrl: String,
+    metrics: MetricRegistry,
+)(implicit logCtx: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
   private[indexer] val asyncTolerance = 30.seconds
 
-  def validateSchema(jdbcUrl: String)(
+  def validateSchema()(
       implicit x: Status =:= Uninitialized,
       executionContext: ExecutionContext,
   ): Future[JdbcIndexerFactory[Initialized]] = {
@@ -56,7 +59,7 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       .map(_ => this.asInstanceOf[JdbcIndexerFactory[Initialized]])
   }
 
-  def migrateSchema(jdbcUrl: String, allowExistingSchema: Boolean)(
+  def migrateSchema(allowExistingSchema: Boolean)(
       implicit x: Status =:= Uninitialized,
       executionContext: ExecutionContext,
   ): Future[JdbcIndexerFactory[Initialized]] = {

@@ -30,7 +30,7 @@ final class StandaloneIndexerServer(
         .forActorSystem(() =>
           ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
         .acquire()
-      indexerFactory = JdbcIndexerFactory(metrics)
+      indexerFactory = JdbcIndexerFactory(config.jdbcUrl, metrics)
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
         config.restartDelay,
@@ -41,11 +41,11 @@ final class StandaloneIndexerServer(
           Resource.successful(Future.unit)
         case IndexerStartupMode.MigrateAndStart =>
           Resource
-            .fromFuture(indexerFactory.migrateSchema(config.jdbcUrl, config.allowExistingSchema))
+            .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
             .flatMap(startIndexer(indexer, _, actorSystem))
         case IndexerStartupMode.ValidateAndStart =>
           Resource
-            .fromFuture(indexerFactory.validateSchema(config.jdbcUrl))
+            .fromFuture(indexerFactory.validateSchema())
             .flatMap(startIndexer(indexer, _, actorSystem))
       }
     } yield {
