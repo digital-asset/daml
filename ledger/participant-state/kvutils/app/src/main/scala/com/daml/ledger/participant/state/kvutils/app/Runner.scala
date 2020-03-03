@@ -53,7 +53,7 @@ class Runner[T <: ReadWriteService, Extra](
               .readWriteServiceOwner(config, participantConfig)
             _ <- ResourceOwner.forFuture(() =>
               Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
-            _ <- startParticipant(config, participantConfig, ledger)
+            _ <- startParticipant(config, participantConfig, system, ledger)
           } yield ()
         })
       } yield ()
@@ -74,13 +74,13 @@ class Runner[T <: ReadWriteService, Extra](
   private def startParticipant(
       config: Config[Extra],
       participantConfig: ParticipantConfig,
-      ledger: ReadWriteService)(
-      implicit executionContext: ExecutionContext,
-      logCtx: LoggingContext,
-  ): ResourceOwner[Unit] =
+      actorSystem: ActorSystem,
+      ledger: ReadWriteService,
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     for {
       _ <- startIndexerServer(
         participantConfig,
+        actorSystem,
         readService = ledger,
       )
       _ <- startApiServer(
@@ -94,9 +94,11 @@ class Runner[T <: ReadWriteService, Extra](
 
   private def startIndexerServer(
       config: ParticipantConfig,
+      actorSystem: ActorSystem,
       readService: ReadService,
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneIndexerServer(
+      actorSystem,
       readService,
       factory.indexerConfig(config),
       factory.indexerMetricRegistry(config),
