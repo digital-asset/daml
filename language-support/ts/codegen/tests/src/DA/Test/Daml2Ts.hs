@@ -210,8 +210,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         assertBool "'davl-0.0.4/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.js")
         assertBool "'davl-0.0.5/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.js")
         assertBool "'davl-upgrade-v4-v5-0.0.5/lib/Upgrade.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.js")
-        -- step "yarn workspaces run lint..."
-        -- yarnProject ["workspaces", "run", "lint"]
+        step "yarn workspaces run lint..."
+        yarnProject ["workspaces", "run", "lint"]
      ]
   where
     buildProject :: [String] -> IO ()
