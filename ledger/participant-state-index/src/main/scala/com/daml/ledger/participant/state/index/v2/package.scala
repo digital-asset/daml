@@ -119,11 +119,6 @@ package object v2 {
   /** This is the first time the command was submitted. */
   case object CommandDeduplicationNew extends CommandDeduplicationResult
 
-  /** This command was submitted before, but the result of the submission not known (yet). */
-  final case class CommandDeduplicationDuplicate(firstSubmittedAt: Instant)
-      extends CommandDeduplicationResult
-
-  /** This command was submitted before, and the result of the submission is known */
-  final case class CommandDeduplicationDuplicateWithResult(result: CommandSubmissionResult)
-      extends CommandDeduplicationResult
+  /** This command was submitted before. */
+  case object CommandDeduplicationDuplicate extends CommandDeduplicationResult
 }

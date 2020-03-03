@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
   CommandDeduplicationDuplicate,
-  CommandDeduplicationDuplicateWithResult,
   CommandDeduplicationNew,
   CommandDeduplicationResult,
   CommandSubmissionResult,
@@ -313,11 +312,10 @@ abstract class LedgerBackedIndexService(
     ledger
       .deduplicateCommand(deduplicationKey, submittedAt, ttl)
       .map {
-        case None => CommandDeduplicationNew
-        case Some(CommandDeduplicationEntry(_, firstSubmittedAt, _, None)) =>
-          CommandDeduplicationDuplicate(firstSubmittedAt)
-        case Some(CommandDeduplicationEntry(_, _, _, Some(result))) =>
-          CommandDeduplicationDuplicateWithResult(result)
+        case None =>
+          CommandDeduplicationNew
+        case Some(CommandDeduplicationEntry(_, _, _, _)) =>
+          CommandDeduplicationDuplicate
       }(DEC)
 
   override def updateCommandResult(

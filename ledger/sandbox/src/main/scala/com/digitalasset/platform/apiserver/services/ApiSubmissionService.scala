@@ -9,7 +9,6 @@ import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
-  CommandDeduplicationDuplicateWithResult,
   CommandDeduplicationNew,
   CommandSubmissionResult,
   ContractStore,
@@ -158,20 +157,11 @@ final class ApiSubmissionService private (
                   submittedAt,
                   CommandSubmissionResult(Status.INTERNAL.getCode.value(), Some(error.getMessage)))
           }
-      case CommandDeduplicationDuplicate(firstSubmittedAt) =>
+      case CommandDeduplicationDuplicate =>
         Metrics.deduplicatedCommandsMeter.mark()
-        val reason =
-          s"Duplicate command submission. This command was submitted before at $firstSubmittedAt. The result of the submission is unknown."
+        val reason = s"A command with the same command ID and submitter was submitted before."
         logger.debug(reason)
         Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
-      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(0, _)) =>
-        Metrics.deduplicatedCommandsMeter.mark()
-        Future.successful(())
-      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(code, message)) =>
-        Metrics.deduplicatedCommandsMeter.mark()
-        val status = message.fold(Status.fromCodeValue(code))(msg =>
-          Status.fromCodeValue(code).augmentDescription(msg))
-        Future.failed(status.asRuntimeException)
     }
   }
 

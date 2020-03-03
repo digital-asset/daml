@@ -42,17 +42,14 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
 
         // Submit command A (first TTL window)
         _ <- ledger.submit(requestA)
-
-        // Re-submit command A.
-        // This should return success, as the original result is known by now.
-        _ <- ledger.submit(requestA)
+        failure1 <- ledger.submit(requestA).failed
 
         // Wait until the end of first TTL window
         _ <- Delayed.by(ttlSeconds.seconds)(())
 
         // Submit command A (second TTL window)
         _ <- ledger.submit(requestA)
-        _ <- ledger.submit(requestA)
+        failure2 <- ledger.submit(requestA).failed
 
         // Submit and wait for command B (to get a unique completion for the end of the test)
         submitAndWaitRequest <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -61,6 +58,9 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
       } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
         assert(
           activeContracts.size == 3,
           s"There should be 3 active contracts, but received $activeContracts",
