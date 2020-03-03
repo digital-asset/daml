@@ -17,8 +17,8 @@ class PortSpec extends WordSpec with Matchers {
       an[IllegalArgumentException] should be thrownBy Port(80000)
     }
 
-    "not be constructed from a port number less than 1" in {
-      an[IllegalArgumentException] should be thrownBy Port(0)
+    "not be constructed from a port number less than 0" in {
+      an[IllegalArgumentException] should be thrownBy Port(-1)
       an[IllegalArgumentException] should be thrownBy Port(-5)
     }
   }

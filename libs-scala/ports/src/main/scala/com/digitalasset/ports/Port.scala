@@ -10,7 +10,7 @@ final case class Port private (value: Int) extends AnyVal {
 }
 
 object Port {
-  private val ValidPorts: Range = 1 until 0x10000
+  private val ValidPorts: Range = 0 until 0x10000
 
   /**
     * This instructs the server to automatically choose a free port.
