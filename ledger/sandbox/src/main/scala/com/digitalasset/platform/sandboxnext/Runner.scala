@@ -15,7 +15,6 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
@@ -38,7 +37,7 @@ import com.digitalasset.platform.indexer.{
   StandaloneIndexerServer
 }
 import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -103,6 +102,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         (None, new RegularHeartbeat(clock, HeartbeatInterval))
     }
 
+    val seeding = config.seeding.getOrElse {
+      throw new InvalidConfigException(
+        "This version of Sandbox will not start without a seeding mode. Please specify an appropriate seeding mode.")
+    }
+
     val owner = newLoggingContext { implicit logCtx =>
       for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -160,7 +164,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   authService = authService,
                   metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
                   timeServiceBackend = timeServiceBackend,
-                  seedService = config.seeding.map(SeedService(_)),
+                  seeding = seeding,
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )
@@ -175,7 +179,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   timeProviderType.description,
                   ledgerType,
                   authService.getClass.getSimpleName,
-                  config.seeding.fold("no")(_.toString.toLowerCase),
+                  seeding.toString.toLowerCase,
                 )
                 apiServer
               }
