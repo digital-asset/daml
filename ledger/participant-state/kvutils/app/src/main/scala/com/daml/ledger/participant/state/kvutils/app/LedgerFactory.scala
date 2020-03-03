@@ -16,12 +16,12 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
 
-trait LedgerFactory[RWS <: ReadWriterService, ExtraConfig] {
+trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def readWriterServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
+  def readWriteServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
@@ -76,7 +76,7 @@ object LedgerFactory {
       extends LedgerFactory[KeyValueParticipantState, Unit] {
     override final val defaultExtraConfig: Unit = ()
 
-    override final def readWriterServiceOwner(
+    override final def readWriteServiceOwner(
         config: Config[Unit],
         participantConfig: ParticipantConfig)(
         implicit executionContext: ExecutionContext,

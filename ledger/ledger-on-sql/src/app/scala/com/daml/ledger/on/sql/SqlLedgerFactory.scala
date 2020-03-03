@@ -29,7 +29,7 @@ object SqlLedgerFactory extends LedgerFactory[KeyValueParticipantState, ExtraCon
   override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config.copy(participants = config.participants.map(_.copy(allowExistingSchemaForIndex = true)))
 
-  override def readWriterServiceOwner(
+  override def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig
   )(
@@ -47,6 +47,6 @@ object SqlLedgerFactory extends LedgerFactory[KeyValueParticipantState, ExtraCon
         jdbcUrl,
         SqlLedgerReaderWriter.DefaultTimeProvider
       )
-    } yield (new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter))
+    } yield new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter)
   }
 }

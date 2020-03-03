@@ -8,7 +8,6 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SeedService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -24,9 +23,9 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Runner[T <: KeyValueLedger, Extra](
+class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[KeyValueParticipantState, Extra]) {
+    factory: LedgerFactory[ReadWriteService, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -51,7 +50,7 @@ class Runner[T <: KeyValueLedger, Extra](
         _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
           for {
             ledger <- factory
-              .readWriterServiceOwner(config, participantConfig)
+              .readWriteServiceOwner(config, participantConfig)
             _ <- ResourceOwner.forFuture(() =>
               Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
             _ <- startParticipant(config, participantConfig, ledger)
@@ -61,7 +60,7 @@ class Runner[T <: KeyValueLedger, Extra](
     }
   }
 
-  private def uploadDar(from: Path, to: KeyValueParticipantState)(
+  private def uploadDar(from: Path, to: ReadWriteService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -75,7 +74,7 @@ class Runner[T <: KeyValueLedger, Extra](
   private def startParticipant(
       config: Config[Extra],
       participantConfig: ParticipantConfig,
-      ledger: KeyValueParticipantState)(
+      ledger: ReadWriteService)(
       implicit executionContext: ExecutionContext,
       logCtx: LoggingContext,
   ): ResourceOwner[Unit] =
