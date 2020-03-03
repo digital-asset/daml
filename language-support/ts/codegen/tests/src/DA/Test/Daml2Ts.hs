@@ -10,7 +10,6 @@ import System.Environment.Blank
 import System.Directory.Extra
 import System.Process
 import System.Exit
-import DA.Directory
 import DA.Bazel.Runfiles
 import Data.Maybe
 import Data.List.Extra
@@ -43,23 +42,26 @@ main = do
 --         src/ *.ts
 --         lib/ *.js
 --
--- Also, you'll see this idiom:
+-- At one time we had tests that exhibited this idiom:
 --   copyDirectory damlTypesDir (here </> "daml-types")
---   writeRootPackageJson
+--   writeRootPackageJson // contains 'daml-types' as a workspace)
 --   daml2tsProject [darFile] daml2tsDir (here </> "package.json")
 --   yarnProject ["install"]
 --   writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"
 --   yarnProject ["workspaces", "run", "build"]
--- This is because we treat "@daml/types" as a yarn workspace for
+-- In such tests we treat "@daml/types" as a yarn workspace for
 -- dependency resolution, but don't allow it to be included in a 'yarn
 -- workspaces run build' (which would fail to compile for lack of
 -- 'index.ts').
+-- After stripping these tests back to their barest minimum to be
+-- reasonable with time taken in CI, you don't see it anymore. I leave
+-- the variable 'damlTypes' and this comment here though to keep it in
+-- mind should we need it again in future.
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
+tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
   [
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
-      copyDirectory damlTypes (here </> "daml-types")
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
           daml2tsDir = here </> "daml2ts"
@@ -103,7 +105,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         assertBool "A duplicate name for different packages error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
 
   , testCaseSteps "Different name, same package test" $ \step -> withTempDir $ \here -> do
-      copyDirectory damlTypes (here </> "daml-types")
       let daml2tsDir = here </> "daml2ts"
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
@@ -152,7 +153,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
-      copyDirectory damlTypes (here </> "daml-types")
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
           daml2tsDir = here </> "daml2ts"
@@ -160,7 +160,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverTsSrc = groverTs </> "src"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
-      copyDirectory damlTypes (here </> "daml-types")
       withCurrentDirectory grover $ do
         writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
           [ "module Grover where"
@@ -190,11 +189,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         -- In this test, '@daml/types-0.13.51' comes from the npm
         -- package registry.
-        writeFileUTF8 "package.json" $ unlines
-         [ "{"
-         , "  \"private\": true,"
-         , "  \"workspaces\": []"
-         , "}" ]
+        writeRootPackageJson
         callProcessSilent daml2ts $
           [ davl </> "davl-v4.dar"
           , davl </> "davl-v5.dar"
@@ -236,9 +231,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
        writeFileUTF8 "package.json" $ unlines
          [ "{"
          , "  \"private\": true,"
-         , "  \"workspaces\": ["
-         , "    \"daml-types\""
-         , "  ]"
+         , "  \"workspaces\": []"
          , "}"
          ]
 
