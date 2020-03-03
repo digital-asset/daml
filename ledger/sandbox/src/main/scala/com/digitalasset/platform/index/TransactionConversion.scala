@@ -7,6 +7,7 @@ import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
@@ -16,16 +17,14 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
+import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
   lfNodeCreateToCreatedEvent,
   lfNodeExerciseToArchivedEvent
 }
-import com.digitalasset.platform.server.services.transaction.{
-  TransactionFiltration,
-  TransientContractRemover
-}
+import com.digitalasset.platform.server.services.transaction.TransientContractRemover
 import com.digitalasset.platform.store.entries.LedgerEntry
 
 import scala.annotation.tailrec
@@ -44,7 +43,7 @@ object TransactionConversion {
         failureContext = "converting a create node to a created event",
         lfNodeCreateToCreatedEvent(
           verbose = verbose,
-          witnessParties = disclosure(eventId).intersect(node.stakeholders),
+          witnessParties = node.stakeholders,
           eventId = eventId,
           node = node,
         )
@@ -53,7 +52,7 @@ object TransactionConversion {
       assertOrRuntimeEx(
         failureContext = "converting a consuming exercise node to an archived event",
         lfNodeExerciseToArchivedEvent(
-          witnessParties = disclosure(eventId).intersect(node.stakeholders),
+          witnessParties = node.stakeholders,
           eventId = eventId,
           node = node,
         )
@@ -97,7 +96,18 @@ object TransactionConversion {
       verbose: Boolean,
   ): Option[TransactionTree] = {
 
-    TransactionFiltration.disclosures(filter, entry.transaction).map { disclosureByNodeId =>
+    val disclosureByNodeId =
+      Blinding
+        .blind(entry.transaction.mapNodeId(EventIdFormatter.split(_).get.nodeId))
+        .disclosure
+        .mapValues(_.intersect(filter.filtersByParty.keySet))
+        .map {
+          case (k, v) =>
+            (EventIdFormatter.fromTransactionId(entry.transactionId, k): EventId) -> v
+        }
+
+    if (disclosureByNodeId.exists(_._2.nonEmpty)) {
+
       val allEvents = engine.Event.collectEvents(entry.transaction, disclosureByNodeId)
       val events = allEvents.events.map {
         case (nodeId, value) =>
@@ -117,16 +127,17 @@ object TransactionConversion {
           .filter(_ => entry.submittingParty.exists(filter.filtersByParty.keySet))
           .getOrElse("")
 
-      TransactionTree(
-        transactionId = entry.transactionId,
-        commandId = commandId,
-        workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
-        offset = offset.value,
-        eventsById = byId,
-        rootEventIds = roots
-      )
-    }
+      Some(
+        TransactionTree(
+          transactionId = entry.transactionId,
+          commandId = commandId,
+          workflowId = entry.workflowId.getOrElse(""),
+          effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+          offset = offset.value,
+          eventsById = byId,
+          rootEventIds = roots
+        ))
+    } else None
   }
 
   private case class InvisibleRootRemovalState(
