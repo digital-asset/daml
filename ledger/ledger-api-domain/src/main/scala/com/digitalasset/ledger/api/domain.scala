@@ -21,13 +21,8 @@ import scala.collection.{breakOut, immutable}
 object domain {
 
   final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
-    def apply(disclosedTo: Set[Ref.Party], template: Ref.Identifier): Set[Ref.Party] =
-      filtersByParty
-        .filterKeys(disclosedTo)
-        .collect {
-          case (party, filter) if filter(template) => party
-        }
-        .toSet
+    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
+      filtersByParty.get(party).fold(false)(_.apply(template))
   }
 
   object TransactionFilter {

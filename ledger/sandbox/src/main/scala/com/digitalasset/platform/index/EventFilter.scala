@@ -23,17 +23,15 @@ object EventFilter {
       )
     )
 
-  private def included(party: String, template: Ref.Identifier, txf: TransactionFilter): Boolean =
-    txf.filtersByParty.get(Party.assertFromString(party)).fold(false)(_.apply(template))
-
   def apply(event: Event)(txf: TransactionFilter): Option[Event] =
-    Some(event.modifyWitnessParties(_.filter(included(_, toLfIdentifier(event.templateId), txf))))
+    Some(event.modifyWitnessParties(_.filter(party =>
+      txf(Party.assertFromString(party), toLfIdentifier(event.templateId)))))
       .filter(_.witnessParties.nonEmpty)
 
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
     Some(event)
       .filter(ac =>
-        (ac.signatories union ac.observers).exists(included(_, event.contract.template, txf)))
-      .map(_.copy(witnesses = event.witnesses.filter(included(_, event.contract.template, txf))))
+        (ac.signatories union ac.observers).exists(party => txf(party, event.contract.template)))
+      .map(_.copy(witnesses = event.witnesses.filter(party => txf(party, event.contract.template))))
 
 }

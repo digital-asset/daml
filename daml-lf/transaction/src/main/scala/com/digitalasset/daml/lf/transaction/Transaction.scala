@@ -118,19 +118,6 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
-    * Iterates the transaction in pre-order traversal (i.e. exercise node are traversed before their children)
-    *
-    * Crashes if the transaction is not well formed (see `isWellFormed`)
-    */
-  def iterator: Iterator[(Nid, GenNode[Nid, Cid, Val])] =
-    roots.iterator.map(nodeId => nodeId -> nodes(nodeId)).flatMap {
-      case leaf @ (_, _: LeafOnlyNode[Cid, Val]) =>
-        Iterator.single(leaf)
-      case branch @ (_, ex: NodeExercises[Nid, Cid, Val]) =>
-        Iterator.single(branch) ++ ex.children.iterator.map(nodeId => nodeId -> nodes(nodeId))
-    }
-
-  /**
     * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
     *
     * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
@@ -146,13 +133,24 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
+    * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
+    *
+    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
+    */
+  def collect[A](pf: PartialFunction[(Nid, GenNode[Nid, Cid, Val]), A]): Vector[A] =
+    fold(Vector.newBuilder[A]) {
+      case (builder, node) if pf.isDefinedAt(node) => builder += pf(node)
+      case (builder, _) => builder
+    }.result()
+
+  /**
     * A fold over the transaction that maintains global and path-specific state.
     * Takes constant stack space. Returns the global state.
     *
     * Used to for example compute the roots of per-party projections from the
     * transaction.
     */
-  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
       op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
   ): A = {
     var globalState = globalState0
@@ -230,21 +228,15 @@ final case class GenTransaction[Nid, +Cid, +Val](
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
-    *
-    * @note [[uncheckedVariance]] only to avoid the contains problem
-    *       <https://stackoverflow.com/questions/8360413/selectively-disable-subsumption-in-scala-correctly-type-list-contains>.
-    *       We can get away with it because we don't admit ''any'' overrides.
-    *       However, requiring [[Equal]]`[Val2]` as `isReplayedBy` does would
-    *       also solve the contains problem.  Food for thought
     */
-  final def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
+  def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
     compareForest(other)(_ == _)
 
   /**
     * Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  final def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
+  def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
       compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean,
   ): Boolean = {
     @tailrec
@@ -297,7 +289,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
+  def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
       other: GenTransaction[Nid2, Cid2, Val2],
   )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))

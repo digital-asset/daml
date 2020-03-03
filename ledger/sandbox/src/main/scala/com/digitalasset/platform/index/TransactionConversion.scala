@@ -12,12 +12,16 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.TransactionFilter
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
 import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  assertOrRuntimeEx,
+  lfNodeCreateToCreatedEvent,
+  lfNodeExerciseToArchivedEvent
+}
 import com.digitalasset.platform.server.services.transaction.{
   TransactionFiltration,
   TransientContractRemover
@@ -28,64 +32,34 @@ import scala.annotation.tailrec
 
 object TransactionConversion {
 
-  type Node = GenNode.WithTxValue[EventId, Lf.AbsoluteContractId]
-  type Create = NodeCreate.WithTxValue[Lf.AbsoluteContractId]
-  type Exercise = NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId]
-  type Disclosure = Relation[EventId, Ref.Party]
-
-  private def witnesses(
-      filter: TransactionFilter,
-      disclosedTo: Set[Ref.Party],
-      template: Ref.Identifier): Option[Set[Ref.Party]] =
-    Some(filter(disclosedTo, template)).filter(_.nonEmpty)
+  private type Node = GenNode.WithTxValue[EventId, Lf.AbsoluteContractId]
+  private type Create = NodeCreate.WithTxValue[Lf.AbsoluteContractId]
+  private type Exercise = NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId]
 
   private def flatEvent(
-      filter: TransactionFilter,
-      disclosure: Disclosure,
-      verbose: Boolean,
-      node: (EventId, Node)): Option[Event] =
-    node match {
-      case (eventId, c: Create) =>
-        witnesses(filter, disclosure(eventId).intersect(c.stakeholders), c.coinst.template).map {
-          witnessParties =>
-            Event(
-              Event.Event.Created(
-                CreatedEvent(
-                  eventId = eventId,
-                  contractId = c.coid.coid,
-                  templateId = Some(LfEngineToApi.toApiIdentifier(c.coinst.template)),
-                  contractKey = c.key.map(
-                    k =>
-                      LfEngineToApi
-                        .lfContractKeyToApiValue(verbose, k)
-                        .getOrElse(sys.error("Unable to translate the key"))),
-                  createArguments = Some(
-                    LfEngineToApi
-                      .lfValueToApiRecord(verbose, c.coinst.arg.value)
-                      .getOrElse(sys.error("Expected value to be a record."))),
-                  witnessParties = witnessParties.toSeq,
-                  signatories = c.signatories.toSeq,
-                  observers = c.stakeholders.diff(c.signatories).toSeq,
-                  agreementText = Some(c.coinst.agreementText),
-                )
-              ))
-        }
-      case (eventId, e: Exercise) if e.consuming =>
-        witnesses(filter, disclosure(eventId).intersect(e.stakeholders), e.templateId).map {
-          witnessParties =>
-            Event(
-              Event.Event.Archived(
-                ArchivedEvent(
-                  eventId = eventId,
-                  contractId = e.targetCoid.coid,
-                  templateId = Some(LfEngineToApi.toApiIdentifier(e.templateId)),
-                  witnessParties = witnessParties.toSeq,
-                )
-              ))
-        }
-      case _ =>
-        None
-    }
+      disclosure: Relation[EventId, Ref.Party],
+      verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
+    case (eventId, node: Create) =>
+      assertOrRuntimeEx(
+        failureContext = "converting a create node to a created event",
+        lfNodeCreateToCreatedEvent(
+          verbose = verbose,
+          witnessParties = disclosure(eventId).intersect(node.stakeholders),
+          eventId = eventId,
+          node = node,
+        )
+      )
+    case (eventId, node: Exercise) if node.consuming =>
+      assertOrRuntimeEx(
+        failureContext = "converting a consuming exercise node to an archived event",
+        lfNodeExerciseToArchivedEvent(
+          witnessParties = disclosure(eventId).intersect(node.stakeholders),
+          eventId = eventId,
+          node = node,
+        )
+      )
+
+  }
 
   def ledgerEntryToFlatTransaction(
       offset: domain.LedgerOffset.Absolute,
@@ -94,27 +68,23 @@ object TransactionConversion {
       verbose: Boolean,
   ): Option[Transaction] = {
 
-    val flatEvents =
-      entry.transaction
-        .fold(Vector.newBuilder[Event]) { (builder, node) =>
-          flatEvent(filter, entry.explicitDisclosure, verbose, node).fold(builder)(builder += _)
-        }
-        .result()
-    val filteredEvents = TransientContractRemover.removeTransients(flatEvents)
+    val flatEvents = entry.transaction.collect(flatEvent(entry.explicitDisclosure, verbose))
+    val withoutTransientContracts = TransientContractRemover.removeTransients(flatEvents)
+    val withFilteredWitnesses = withoutTransientContracts.flatMap(EventFilter(_)(filter).toList)
 
     val commandId =
       entry.commandId
         .filter(_ => entry.submittingParty.exists(filter.filtersByParty.keySet))
         .getOrElse("")
 
-    if (filteredEvents.nonEmpty || commandId.nonEmpty) {
+    if (withFilteredWitnesses.nonEmpty || commandId.nonEmpty) {
       Some(
         Transaction(
           transactionId = entry.transactionId,
           commandId = commandId,
           workflowId = entry.workflowId.getOrElse(""),
           effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
-          events = filteredEvents,
+          events = withFilteredWitnesses,
           offset = offset.value,
         ))
     } else None
