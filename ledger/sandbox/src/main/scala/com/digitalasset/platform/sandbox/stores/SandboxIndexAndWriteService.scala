@@ -154,7 +154,7 @@ object SandboxIndexAndWriteService {
             }
           ).map(_ => ())
         case _ =>
-          Resource.successful(())
+          Resource.unit
       }
   }
 }
