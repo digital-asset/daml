@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import scala.compat.java8.FutureConverters
 import scala.concurrent.ExecutionContext
 
-class KeyValueParticipantStateWriter(val writer: LedgerWriter)(
+class KeyValueParticipantStateWriter(writer: LedgerWriter)(
     implicit executionContext: ExecutionContext)
     extends WriteService {
 
