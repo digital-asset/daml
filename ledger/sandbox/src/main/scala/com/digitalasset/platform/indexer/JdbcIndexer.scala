@@ -32,51 +32,40 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-sealed trait InitStatus
-final abstract class Initialized extends InitStatus
-final abstract class Uninitialized extends InitStatus
-
-object JdbcIndexerFactory {
-  def apply(jdbcUrl: String, metrics: MetricRegistry)(
-      implicit logCtx: LoggingContext
-  ): JdbcIndexerFactory[Uninitialized] =
-    new JdbcIndexerFactory[Uninitialized](jdbcUrl, metrics)
-}
-
-final class JdbcIndexerFactory[Status <: InitStatus] private (
+final class JdbcIndexerFactory(
     jdbcUrl: String,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext) {
-  private val logger = ContextualizedLogger.get(this.getClass)
   private[indexer] val asyncTolerance = 30.seconds
 
   def validateSchema()(
-      implicit x: Status =:= Uninitialized,
-      executionContext: ExecutionContext,
-  ): Future[JdbcIndexerFactory[Initialized]] = {
+      implicit executionContext: ExecutionContext
+  ): Future[InitializedJdbcIndexerFactory] =
     new FlywayMigrations(jdbcUrl)
       .validate()
-      .map(_ => this.asInstanceOf[JdbcIndexerFactory[Initialized]])
-  }
+      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
 
   def migrateSchema(allowExistingSchema: Boolean)(
-      implicit x: Status =:= Uninitialized,
-      executionContext: ExecutionContext,
-  ): Future[JdbcIndexerFactory[Initialized]] = {
+      implicit executionContext: ExecutionContext
+  ): Future[InitializedJdbcIndexerFactory] =
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
-      .map(_ => this.asInstanceOf[JdbcIndexerFactory[Initialized]])
-  }
+      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+}
+
+class InitializedJdbcIndexerFactory private[indexer] (
+    jdbcUrl: String,
+    metrics: MetricRegistry,
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
+  private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
       participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String,
-  )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
+  ): ResourceOwner[JdbcIndexer] = {
     val materializer: Materializer = Materializer(actorSystem)
-
-    implicit val ec: ExecutionContext = DEC
 
     def fetchInitialState(dao: LedgerDao): Future[(dao.LedgerOffset, Option[LedgerString])] =
       for {
@@ -113,8 +102,8 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (
 
         case None =>
           logger.info(s"Initializing ledger with ID: $ledgerId")
-          ledgerDao.initializeLedger(ledgerId, 0).map(_ => ledgerId)(DEC)
-      }(DEC)
+          ledgerDao.initializeLedger(ledgerId, 0).map(_ => ledgerId)
+      }
   }
 }
 

@@ -30,7 +30,7 @@ final class StandaloneIndexerServer(
         .forActorSystem(() =>
           ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
         .acquire()
-      indexerFactory = JdbcIndexerFactory(config.jdbcUrl, metrics)
+      indexerFactory = new JdbcIndexerFactory(config.jdbcUrl, metrics)
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
         config.restartDelay,
@@ -54,7 +54,7 @@ final class StandaloneIndexerServer(
 
   private def startIndexer(
       indexer: RecoveringIndexer,
-      initializedIndexerFactory: JdbcIndexerFactory[Initialized],
+      initializedIndexerFactory: InitializedJdbcIndexerFactory,
       actorSystem: ActorSystem,
   )(implicit executionContext: ExecutionContext): Resource[Future[Unit]] =
     indexer
