@@ -18,7 +18,7 @@ object TransientContractRemover {
     * @param nodes Must be sorted by event index.
     * @throws IllegalArgumentException if the argument is not sorted properly.
     */
-  def removeTransients(nodes: List[Event]): List[Event] = {
+  def removeTransients(nodes: Vector[Event]): Vector[Event] = {
 
     val resultBuilder = new Array[Option[Event]](nodes.size)
     val creationByContractId = new mutable.HashMap[String, (Int, Event)]()

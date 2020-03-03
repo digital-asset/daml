@@ -5,7 +5,7 @@ package com.digitalasset.platform.index
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.domain.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.ledger.api.v1.event.Event
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -23,11 +23,8 @@ object EventFilter {
       )
     )
 
-  private def byTemplate(template: Ref.Identifier)(templateFilter: Filters): Boolean =
-    templateFilter.inclusive.fold(true)(_.templateIds(template))
-
   private def included(party: String, template: Ref.Identifier, txf: TransactionFilter): Boolean =
-    txf.filtersByParty.get(Party.assertFromString(party)).fold(false)(byTemplate(template))
+    txf.filtersByParty.get(Party.assertFromString(party)).fold(false)(_.apply(template))
 
   def apply(event: Event)(txf: TransactionFilter): Option[Event] =
     Some(event.modifyWitnessParties(_.filter(included(_, toLfIdentifier(event.templateId), txf))))

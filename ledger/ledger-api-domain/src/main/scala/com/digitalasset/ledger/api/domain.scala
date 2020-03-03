@@ -21,16 +21,16 @@ import scala.collection.{breakOut, immutable}
 object domain {
 
   final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
-
-    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
-      filtersByParty.get(party).fold(false)(TransactionFilter.byTemplate(template))
-
+    def apply(disclosedTo: Set[Ref.Party], template: Ref.Identifier): Set[Ref.Party] =
+      filtersByParty
+        .filterKeys(disclosedTo)
+        .collect {
+          case (party, filter) if filter(template) => party
+        }
+        .toSet
   }
 
   object TransactionFilter {
-
-    private def byTemplate(template: Ref.Identifier)(templateFilter: Filters): Boolean =
-      templateFilter.inclusive.fold(true)(_.templateIds(template))
 
     /** These parties subscribe for all templates */
     def allForParties(parties: Set[Ref.Party]) =
@@ -38,7 +38,7 @@ object domain {
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Ref.Identifier): Boolean =
+    def apply(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 

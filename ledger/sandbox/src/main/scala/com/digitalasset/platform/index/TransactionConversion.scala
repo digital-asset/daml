@@ -33,59 +33,59 @@ object TransactionConversion {
   type Exercise = NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId]
   type Disclosure = Relation[EventId, Ref.Party]
 
-  private def hasWitness(
-      eventId: EventId,
-      templateId: Ref.Identifier,
+  private def witnesses(
       filter: TransactionFilter,
-      disclosure: Disclosure,
-  ): Boolean =
-    disclosure(eventId).exists(filter(_, templateId))
-
-//  private def witnesses(
-//      eventId: EventId,
-//      templateId: Ref.Identifier,
-//      filter: TransactionFilter,
-//      disclosure: Disclosure): Set[Party] =
-//    disclosure(eventId).filter(filter(_, templateId))
+      disclosedTo: Set[Ref.Party],
+      template: Ref.Identifier): Option[Set[Ref.Party]] =
+    Some(filter(disclosedTo, template)).filter(_.nonEmpty)
 
   private def flatEvent(
       filter: TransactionFilter,
       disclosure: Disclosure,
-      verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
-    case (eventId, c: Create) if hasWitness(eventId, c.coinst.template, filter, disclosure) =>
-      Event(
-        Event.Event.Created(
-          CreatedEvent(
-            eventId = eventId,
-            contractId = c.coid.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(c.coinst.template)),
-            contractKey = c.key.map(
-              k =>
-                LfEngineToApi
-                  .lfContractKeyToApiValue(verbose = verbose, k)
-                  .getOrElse(sys.error("Unable to translate the key"))),
-            createArguments = Some(
-              LfEngineToApi
-                .lfValueToApiRecord(verbose = verbose, c.coinst.arg.value)
-                .getOrElse(sys.error("Expected value to be a record."))),
-            witnessParties = c.stakeholders.toSeq,
-            signatories = c.signatories.toSeq,
-            observers = c.stakeholders.diff(c.signatories).toSeq,
-            agreementText = Some(c.coinst.agreementText),
-          )
-        ))
-    case (eventId, e: Exercise)
-        if e.consuming && hasWitness(eventId, e.templateId, filter, disclosure) =>
-      Event(
-        Event.Event.Archived(
-          ArchivedEvent(
-            eventId = eventId,
-            contractId = e.targetCoid.coid,
-            templateId = Some(LfEngineToApi.toApiIdentifier(e.templateId)),
-            witnessParties = e.stakeholders.toSeq,
-          )
-        ))
-  }
+      verbose: Boolean,
+      node: (EventId, Node)): Option[Event] =
+    node match {
+      case (eventId, c: Create) =>
+        witnesses(filter, disclosure(eventId).intersect(c.stakeholders), c.coinst.template).map {
+          witnessParties =>
+            Event(
+              Event.Event.Created(
+                CreatedEvent(
+                  eventId = eventId,
+                  contractId = c.coid.coid,
+                  templateId = Some(LfEngineToApi.toApiIdentifier(c.coinst.template)),
+                  contractKey = c.key.map(
+                    k =>
+                      LfEngineToApi
+                        .lfContractKeyToApiValue(verbose, k)
+                        .getOrElse(sys.error("Unable to translate the key"))),
+                  createArguments = Some(
+                    LfEngineToApi
+                      .lfValueToApiRecord(verbose, c.coinst.arg.value)
+                      .getOrElse(sys.error("Expected value to be a record."))),
+                  witnessParties = witnessParties.toSeq,
+                  signatories = c.signatories.toSeq,
+                  observers = c.stakeholders.diff(c.signatories).toSeq,
+                  agreementText = Some(c.coinst.agreementText),
+                )
+              ))
+        }
+      case (eventId, e: Exercise) if e.consuming =>
+        witnesses(filter, disclosure(eventId).intersect(e.stakeholders), e.templateId).map {
+          witnessParties =>
+            Event(
+              Event.Event.Archived(
+                ArchivedEvent(
+                  eventId = eventId,
+                  contractId = e.targetCoid.coid,
+                  templateId = Some(LfEngineToApi.toApiIdentifier(e.templateId)),
+                  witnessParties = witnessParties.toSeq,
+                )
+              ))
+        }
+      case _ =>
+        None
+    }
 
   def ledgerEntryToFlatTransaction(
       offset: domain.LedgerOffset.Absolute,
@@ -94,11 +94,13 @@ object TransactionConversion {
       verbose: Boolean,
   ): Option[Transaction] = {
 
-    val filteredEvents = TransientContractRemover
-      .removeTransients(
-        entry.transaction.iterator
-          .collect(flatEvent(filter, entry.explicitDisclosure, verbose))
-          .toList)
+    val flatEvents =
+      entry.transaction
+        .fold(Vector.newBuilder[Event]) { (builder, node) =>
+          flatEvent(filter, entry.explicitDisclosure, verbose, node).fold(builder)(builder += _)
+        }
+        .result()
+    val filteredEvents = TransientContractRemover.removeTransients(flatEvents)
 
     val commandId =
       entry.commandId
