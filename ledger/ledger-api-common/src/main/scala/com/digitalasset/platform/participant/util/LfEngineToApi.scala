@@ -6,7 +6,7 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.data.Numeric
 import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => Lf}
@@ -164,9 +164,8 @@ object LfEngineToApi {
     lf.fold[Either[String, Option[api.Value]]](Right(None))(
       lfContractKeyToApiValue(verbose, _).map(Some(_)))
 
-  def lfNodeCreateToCreatedEvent(
+  def lfNodeCreateToFlatApiCreated(
       verbose: Boolean,
-      witnessParties: Set[Ref.Party],
       eventId: String,
       node: NodeCreate.WithTxValue[Lf.AbsoluteContractId],
   ): Either[String, Event] =
@@ -181,14 +180,13 @@ object LfEngineToApi {
           templateId = Some(LfEngineToApi.toApiIdentifier(node.coinst.template)),
           contractKey = key,
           createArguments = Some(arg),
-          witnessParties = witnessParties.toSeq,
+          witnessParties = node.stakeholders.toSeq,
           signatories = node.signatories.toSeq,
           observers = node.stakeholders.diff(node.signatories).toSeq,
           agreementText = Some(node.coinst.agreementText),
         )))
 
-  def lfNodeExerciseToArchivedEvent(
-      witnessParties: Set[Ref.Party],
+  def lfNodeExerciseToFlatApiArchived(
       eventId: String,
       node: NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId],
   ): Either[String, Event] =
@@ -200,7 +198,7 @@ object LfEngineToApi {
             eventId = eventId,
             contractId = node.targetCoid.coid,
             templateId = Some(toApiIdentifier(node.templateId)),
-            witnessParties = witnessParties.toSeq,
+            witnessParties = node.stakeholders.toSeq,
           ))),
       "illegal conversion of non-consuming exercise to archived event"
     )
