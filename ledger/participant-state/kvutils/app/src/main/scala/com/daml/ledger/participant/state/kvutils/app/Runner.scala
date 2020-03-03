@@ -24,7 +24,9 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T, Extra]) {
+class Runner[T <: KeyValueLedger, Extra](
+    name: String,
+    factory: LedgerFactory[KeyValueParticipantState, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -48,9 +50,8 @@ class Runner[T <: KeyValueLedger, Extra](name: String, factory: LedgerFactory[T,
         // initialize all configured participants
         _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
           for {
-            readerWriter <- factory
-              .owner(config, participantConfig)
-            ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+            ledger <- factory
+              .readWriterServiceOwner(config, participantConfig)
             _ <- ResourceOwner.forFuture(() =>
               Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
             _ <- startParticipant(config, participantConfig, ledger)

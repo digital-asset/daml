@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
@@ -15,16 +16,16 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
 
-trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
+trait LedgerFactory[RWS <: ReadWriterService, ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
+  def readWriterServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
-  ): ResourceOwner[T]
+  ): ResourceOwner[RWS]
 
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
@@ -71,8 +72,24 @@ trait LedgerFactory[T <: KeyValueLedger, ExtraConfig] {
 
 object LedgerFactory {
 
-  abstract class SimpleLedgerFactory[T <: KeyValueLedger] extends LedgerFactory[T, Unit] {
+  abstract class SimpleLedgerFactory[KWL <: KeyValueLedger]
+      extends LedgerFactory[KeyValueParticipantState, Unit] {
     override final val defaultExtraConfig: Unit = ()
+
+    override final def readWriterServiceOwner(
+        config: Config[Unit],
+        participantConfig: ParticipantConfig)(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+        logCtx: LoggingContext): ResourceOwner[KeyValueParticipantState] =
+      for {
+        readerWriter <- owner(config, participantConfig)
+      } yield new KeyValueParticipantState(readerWriter, readerWriter)
+
+    def owner(value: Config[Unit], config: ParticipantConfig)(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+        logCtx: LoggingContext): ResourceOwner[KWL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()
