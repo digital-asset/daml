@@ -5,14 +5,19 @@ package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
+import com.daml.ledger.participant.state.kvutils.app.{
+  Config,
+  LedgerFactory,
+  ParticipantConfig,
+  ReadWriteService
+}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
 
-object SqlLedgerFactory extends LedgerFactory[KeyValueParticipantState, ExtraConfig] {
+object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
     jdbcUrl = None,
   )
