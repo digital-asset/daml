@@ -81,13 +81,16 @@ object ApiSubmissionService {
         commandExecutor,
         configuration,
         metrics),
-      ledgerId
+      ledgerId,
+      () => Instant.now(),
+      () => configuration.maxDeduplicationTime
     )
 
   object RecordUpdate {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
+  // TODO(RC): this should be updated dynamically from the ledger configuration
   final case class Configuration(maxDeduplicationTime: Duration)
 }
 
@@ -128,9 +131,8 @@ final class ApiSubmissionService private (
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
       implicit logCtx: LoggingContext): Future[Unit] = {
     val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
-    val submittedAt = Instant.now
-    val deduplicateUntil =
-      submittedAt.plus(commands.deduplicationTime.getOrElse(configuration.maxDeduplicationTime))
+    val submittedAt = commands.submittedAt
+    val deduplicateUntil = commands.deduplicateUntil
 
     submissionService.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil).flatMap {
       case CommandDeduplicationNew =>

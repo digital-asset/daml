@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.apiserver.services
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
@@ -184,7 +186,9 @@ object ApiCommandService {
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(svcAccess, configuration),
-      configuration.ledgerId
+      configuration.ledgerId,
+      () => Instant.now(),
+      () => configuration.maxDeduplicationTime
     )
 
   final case class Configuration(
@@ -194,7 +198,9 @@ object ApiCommandService {
       maxCommandsInFlight: Int,
       limitMaxCommandsInFlight: Boolean,
       historySize: Int,
-      retentionPeriod: FiniteDuration)
+      retentionPeriod: FiniteDuration,
+      // TODO(RC): this should be updated dynamically from the ledger configuration
+      maxDeduplicationTime: java.time.Duration)
 
   sealed abstract class LowLevelCommandServiceAccess extends Product with Serializable
 

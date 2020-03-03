@@ -82,15 +82,23 @@ trait FieldValidations {
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
 
-  def requirePositiveDuration(
+  def validateDeduplicationTime(
       durationO: Option[com.google.protobuf.duration.Duration],
-      fieldName: String): Either[StatusRuntimeException, Option[Duration]] =
-    durationO.fold[Either[StatusRuntimeException, Option[Duration]]](Right(None))(
-      duration =>
-        if (duration.seconds > 0 | duration.nanos > 0)
-          Right(Some(Duration.ofSeconds(duration.seconds, duration.nanos.toLong)))
-        else
-          Left(invalidField(fieldName, "Duration must be positive")))
+      maxDeduplicationTime: Duration,
+      fieldName: String): Either[StatusRuntimeException, Duration] = durationO match {
+    case None =>
+      Right(maxDeduplicationTime)
+    case Some(duration) =>
+      val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      if (result.isNegative)
+        Left(invalidField(fieldName, "Duration must be positive"))
+      else if (result.compareTo(maxDeduplicationTime) > 0)
+        Left(invalidField(
+          fieldName,
+          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+      else
+        Right(result)
+  }
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

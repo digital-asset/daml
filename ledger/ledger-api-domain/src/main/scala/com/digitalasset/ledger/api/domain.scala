@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.api
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import brave.propagation.TraceContext
 import com.daml.ledger.participant.state.v1.Configuration
@@ -274,7 +274,8 @@ object domain {
       submitter: Ref.Party,
       ledgerEffectiveTime: Instant,
       maximumRecordTime: Instant,
-      deduplicationTime: Option[Duration],
+      submittedAt: Instant,
+      deduplicateUntil: Instant,
       commands: LfCommands)
 
   /**

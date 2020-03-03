@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.server.api.services.grpc
 
+import java.time.{Duration, Instant}
+
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
@@ -24,7 +26,9 @@ import scala.concurrent.Future
 
 class GrpcCommandSubmissionService(
     protected val service: CommandSubmissionService with AutoCloseable,
-    val ledgerId: LedgerId
+    val ledgerId: LedgerId,
+    currentTime: () => Instant,
+    maxDeduplicationTime: () => Duration
 ) extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
@@ -36,7 +40,7 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator
-      .validate(request)
+      .validate(request, currentTime(), maxDeduplicationTime())
       .fold(
         Future.failed,
         service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
