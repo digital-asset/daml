@@ -31,8 +31,10 @@ import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
+import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable
 import scala.concurrent.ExecutionContext
 
 // Main entry point to start an index server that also hosts the ledger API.
@@ -47,16 +49,18 @@ final class StandaloneApiServer(
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     seedService: Option[SeedService],
+    otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
+    otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
 )(implicit logCtx: LoggingContext)
-    extends ResourceOwner[Port] {
+    extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   // Name of this participant,
   val participantId: ParticipantId = config.participantId
 
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] = {
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
     val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
@@ -99,12 +103,13 @@ final class StandaloneApiServer(
               healthChecks = healthChecks,
               seedService = seedService,
             )(mat, esf, logCtx)
+            .map(_.withServices(otherServices))
         },
         config.port,
         config.maxInboundMessageSize,
         config.address,
         config.tlsConfig.flatMap(_.server),
-        List(AuthorizationInterceptor(authService, executionContext)),
+        AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
       )(actorSystem, materializer, logCtx)
     } yield {
@@ -114,7 +119,7 @@ final class StandaloneApiServer(
       apiServer
     }
 
-    owner.acquire().map(_.port)
+    owner.acquire()
   }
 
   // if requested, initialize the ledger state with the given scenario

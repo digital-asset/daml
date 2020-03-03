@@ -46,6 +46,12 @@ final class StandaloneIndexerServer(
           Resource
             .fromFuture(indexerFactory.validateSchema())
             .flatMap(startIndexer(indexer, _, actorSystem))
+        case IndexerStartupMode.ResetAndStart =>
+          Resource
+            .fromFuture(indexerFactory.resetSchema())
+            .flatMap(_ =>
+              Resource.fromFuture(indexerFactory.migrateSchema(allowExistingSchema = false)))
+            .flatMap(startIndexer(indexer, _, actorSystem))
       }
     } yield {
       logger.debug("Waiting for indexer to initialize the database")

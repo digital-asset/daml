@@ -47,6 +47,11 @@ final class JdbcIndexerFactory(
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
       .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+
+  def resetSchema()(implicit executionContext: ExecutionContext): Future[JdbcIndexerFactory] =
+    new FlywayMigrations(jdbcUrl)
+      .reset()
+      .map(_ => this)
 }
 
 class InitializedJdbcIndexerFactory private[indexer] (
