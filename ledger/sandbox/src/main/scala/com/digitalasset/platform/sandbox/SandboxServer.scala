@@ -183,7 +183,6 @@ final class SandboxServer(
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
-    // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
       _.reset(
@@ -196,8 +195,9 @@ final class SandboxServer(
             Some(port),
         )))
 
-    // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
-    apiServicesClosed
+    // Wait for the services to be closed, so we can guarantee that future API calls after finishing
+    // the reset will never be handled by the old one.
+    sandboxState.flatMap(_ => apiServicesClosed)
   }
 
   private def buildAndStartApiServer(
@@ -276,7 +276,6 @@ final class SandboxServer(
         // the reset service is special, since it triggers a server shutdown
         resetService = new SandboxResetService(
           ledgerId,
-          () => executionContext,
           () => resetAndRestartServer()(executionContext),
           authorizer,
         )

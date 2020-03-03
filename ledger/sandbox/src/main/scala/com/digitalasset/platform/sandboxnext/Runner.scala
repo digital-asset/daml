@@ -130,18 +130,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
                 domainLedgerId = LedgerId(ledgerId)
-                resetService <- new SandboxResetServiceOwner(
-                  domainLedgerId,
-                  () => {
-                    // This needs to be done in the background, or we cause a deadlock.
-                    // Resetting won't finish until the API server shuts down, and the API server
-                    // won't shut down until the reset operation finishes.
-                    Future {
-                      reset()
-                    }
-                    Future.unit
-                  }
-                )
+                resetService <- new SandboxResetServiceOwner(domainLedgerId, reset)
                 _ <- new StandaloneIndexerServer(
                   readService = ledger,
                   config = IndexerConfig(
@@ -238,8 +227,7 @@ object Runner {
       Resource.successful(
         new SandboxResetService(
           ledgerId,
-          () => executionContext,
-          () => reset(),
+          reset,
           new Authorizer(() => clock.instant(), LedgerId.unwrap(ledgerId), ParticipantId),
         ))
     }

@@ -15,13 +15,13 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerCall.Listener
 import io.grpc._
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.Future
 
 class SandboxResetService(
     ledgerId: LedgerId,
-    getEc: () => ExecutionContext,
     resetAndRestartServer: () => Future[Unit],
-    authorizer: Authorizer)(implicit logCtx: LoggingContext)
+    authorizer: Authorizer,
+)(implicit logCtx: LoggingContext)
     extends ResetServiceGrpc.ResetService
     with BindableService
     with ServerInterceptor {
@@ -69,14 +69,14 @@ class SandboxResetService(
       throw new StatusRuntimeException(
         Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being resetted"))
 
-    val servicesAreDown = Promise[Unit]()
-    // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer` will block
-    // until all the in flight requests have been served, so we need to schedule this in another thread so that
-    // the code that clears the in flight request is not in an in flight request itself.
-    getEc().execute({ () =>
-      logger.info(s"Stopping and starting the server.")
-      servicesAreDown.completeWith(resetAndRestartServer())
-    })
-    servicesAreDown.future
+    logger.info(s"Stopping and starting the server.")
+
+    // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer`
+    // will block until all the in flight requests have been served, so we need to schedule this in
+    // another thread so that the code that clears the in flight request is not in an in flight
+    // request itself.
+    resetAndRestartServer()
+
+    Future.successful(())
   }
 }
