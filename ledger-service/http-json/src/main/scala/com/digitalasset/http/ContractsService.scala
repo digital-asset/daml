@@ -252,10 +252,7 @@ class ContractsService(
         val convertedInserts = converted.inserts filter { ac =>
           funPredicates.get(ac.templateId).cata(f => f(ac.payload), false)
         }
-        (
-          errors,
-          converted copy (inserts = convertedInserts),
-        )
+        (errors, converted.copy(inserts = convertedInserts))
       }
       .fold(empty) {
         case ((errL, stepL), (errR, stepR)) =>
