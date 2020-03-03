@@ -88,5 +88,5 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]]
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]]
 }

@@ -109,7 +109,7 @@ object ApiServices {
           seedService,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
           ApiSubmissionService.Configuration(
-            submissionConfig.maxTtl
+            submissionConfig.maxDeduplicationTime
           ),
           metrics,
         )

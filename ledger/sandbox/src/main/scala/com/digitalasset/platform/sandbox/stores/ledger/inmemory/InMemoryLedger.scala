@@ -379,19 +379,23 @@ class InMemoryLedger(
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
     Future.successful {
       this.synchronized {
         val entry = commands.get(deduplicationKey)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (deduplicationKey -> CommandDeduplicationEntry(deduplicationKey, ttl))
+          commands += (deduplicationKey -> CommandDeduplicationEntry(
+            deduplicationKey,
+            deduplicateUntil))
           None
         } else {
-          val previousTtl = entry.get.ttl
-          if (submittedAt.isAfter(previousTtl)) {
+          val previousDeduplicateUntil = entry.get.deduplicateUntil
+          if (submittedAt.isAfter(previousDeduplicateUntil)) {
             // Previous entry expired - new command
-            commands += (deduplicationKey -> CommandDeduplicationEntry(deduplicationKey, ttl))
+            commands += (deduplicationKey -> CommandDeduplicationEntry(
+              deduplicationKey,
+              deduplicateUntil))
             None
           } else {
             // Existing previous entry - deduplicate command

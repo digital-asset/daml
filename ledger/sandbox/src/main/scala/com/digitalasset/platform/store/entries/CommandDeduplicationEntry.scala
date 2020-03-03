@@ -7,5 +7,5 @@ import java.time.Instant
 
 final case class CommandDeduplicationEntry(
     deduplicationKey: String,
-    ttl: Instant,
+    deduplicateUntil: Instant,
 )

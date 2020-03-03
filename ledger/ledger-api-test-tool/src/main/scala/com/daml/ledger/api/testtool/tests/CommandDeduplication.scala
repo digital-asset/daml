@@ -27,27 +27,29 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
 
   test(
     "CDSimpleDeduplication",
-    "Deduplicate commands within the TTL window",
+    "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
-      val ttlSeconds = 5
-      val ttl = Duration.of(ttlSeconds.toLong, 0)
+      val deduplicationSeconds = 5
+      val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
 
       for {
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        requestA = request.update(_.commands.ttl := ttl, _.commands.commandId := a)
+        requestA = request.update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := a)
 
-        // Submit command A (first TTL window)
+        // Submit command A (first deduplication window)
         _ <- ledger.submit(requestA)
         failure1 <- ledger.submit(requestA).failed
 
-        // Wait until the end of first TTL window
-        _ <- Delayed.by(ttlSeconds.seconds)(())
+        // Wait until the end of first deduplication window
+        _ <- Delayed.by(deduplicationSeconds.seconds)(())
 
-        // Submit command A (second TTL window)
+        // Submit command A (second deduplication window)
         _ <- ledger.submit(requestA)
         failure2 <- ledger.submit(requestA).failed
 

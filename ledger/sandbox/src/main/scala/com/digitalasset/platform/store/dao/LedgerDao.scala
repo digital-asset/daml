@@ -144,13 +144,13 @@ trait LedgerReadDao extends ReportsHealth {
     *
     * @param deduplicationKey The key used to deduplicate commands
     * @param submittedAt The time when the command was submitted
-    * @param ttl The time until which the command should be deduplicated
+    * @param deduplicateUntil The time until which the command should be deduplicated
     * @return
     */
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]]
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

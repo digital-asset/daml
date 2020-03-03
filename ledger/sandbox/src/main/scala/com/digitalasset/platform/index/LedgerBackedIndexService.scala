@@ -307,13 +307,13 @@ abstract class LedgerBackedIndexService(
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[CommandDeduplicationResult] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     ledger
-      .deduplicateCommand(deduplicationKey, submittedAt, ttl)
+      .deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
       .map {
         case None =>
           CommandDeduplicationNew
-        case Some(CommandDeduplicationEntry(_, ttl)) =>
-          CommandDeduplicationDuplicate(ttl)
+        case Some(CommandDeduplicationEntry(_, originalDeduplicateUntil)) =>
+          CommandDeduplicationDuplicate(originalDeduplicateUntil)
       }(DEC)
 }

@@ -135,8 +135,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
-    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl)
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
+    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 
   override def close(): Unit = {
     dispatcher.close()

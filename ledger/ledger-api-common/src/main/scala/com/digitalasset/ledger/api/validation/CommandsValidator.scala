@@ -47,7 +47,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .fromInstant(ledgerEffectiveTime)
         .left
         .map(invalidField(_, "ledger_effective_time"))
-      ttl <- requirePositiveDuration(commands.ttl, "ttl")
+      deduplicationTime <- requirePositiveDuration(commands.deduplicationTime, "deduplication_time")
     } yield
       domain.Commands(
         ledgerId = ledgerId,
@@ -57,7 +57,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
         maximumRecordTime = TimestampConversion.toInstant(mrt),
-        ttl = ttl,
+        deduplicationTime = deduplicationTime,
         commands = Commands(
           submitter = submitter,
           commands = ImmArray(validatedCommands),

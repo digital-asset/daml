@@ -14,5 +14,5 @@ trait IndexSubmissionService {
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[CommandDeduplicationResult]
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 }

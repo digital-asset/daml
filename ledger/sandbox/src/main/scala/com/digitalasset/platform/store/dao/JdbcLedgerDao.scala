@@ -103,7 +103,7 @@ private final case class ParsedPackageData(
     size: Long,
     knownSince: Date)
 
-private final case class ParsedCommandData(ttl: Instant)
+private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -1651,24 +1651,27 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_COMMAND = SQL("""
-      |select ttl
+      |select deduplicate_until
       |from participant_command_submissions
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
     Macro.parser[ParsedCommandData](
-      "ttl"
+      "deduplicate_until"
     )
 
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
     dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
-        .on("deduplicationKey" -> deduplicationKey, "submittedAt" -> submittedAt, "ttl" -> ttl)
+        .on(
+          "deduplicationKey" -> deduplicationKey,
+          "submittedAt" -> submittedAt,
+          "deduplicateUntil" -> deduplicateUntil)
         .executeUpdate()
 
       if (updated == 1) {
@@ -1680,7 +1683,7 @@ private class JdbcLedgerDao(
           .on("deduplicationKey" -> deduplicationKey)
           .as(CommandDataParser.single)
 
-        Some(CommandDeduplicationEntry(deduplicationKey, result.ttl))
+        Some(CommandDeduplicationEntry(deduplicationKey, result.deduplicateUntil))
       }
     }
 
@@ -1790,12 +1793,12 @@ object JdbcLedgerDao {
         |on conflict (party) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
-      """insert into participant_command_submissions as pcs (deduplication_key, ttl)
-        |values ({deduplicationKey}, {ttl})
+      """insert into participant_command_submissions as pcs (deduplication_key, deduplicate_until)
+        |values ({deduplicationKey}, {deduplicateUntil})
         |on conflict (deduplication_key)
         |  do update
-        |  set ttl={ttl}
-        |  where pcs.ttl < {submittedAt}""".stripMargin
+        |  set deduplicate_until={deduplicateUntil}
+        |  where pcs.deduplicate_until < {submittedAt}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
@@ -1869,10 +1872,10 @@ object JdbcLedgerDao {
       """merge into participant_command_submissions pcs
         |using dual on deduplication_key = {deduplicationKey}
         |when not matched then
-        |  insert (deduplication_key, ttl)
-        |  values ({deduplicationKey}, {ttl})
-        |when matched and pcs.ttl < {submittedAt} then
-        |  update set ttl={ttl}""".stripMargin
+        |  insert (deduplication_key, deduplicate_until)
+        |  values ({deduplicationKey}, {deduplicateUntil})
+        |when matched and pcs.deduplicate_until < {submittedAt} then
+        |  update set deduplicate_until={deduplicateUntil}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}

@@ -112,5 +112,6 @@ package object v2 {
   case object CommandDeduplicationNew extends CommandDeduplicationResult
 
   /** This command was submitted before. */
-  final case class CommandDeduplicationDuplicate(ttl: Instant) extends CommandDeduplicationResult
+  final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
+      extends CommandDeduplicationResult
 }

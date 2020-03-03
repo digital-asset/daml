@@ -124,10 +124,10 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
     timedFuture(
       Metrics.deduplicateCommand,
-      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl))
+      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

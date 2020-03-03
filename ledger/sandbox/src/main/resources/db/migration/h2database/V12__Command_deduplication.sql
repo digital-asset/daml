@@ -15,5 +15,5 @@ CREATE TABLE participant_command_submissions(
   -- The deduplication key
   deduplication_key  varchar primary key   not null,
   -- The time the command will stop being deduplicated
-  ttl                timestamp             not null
+  deduplicate_until  timestamp             not null
 );
