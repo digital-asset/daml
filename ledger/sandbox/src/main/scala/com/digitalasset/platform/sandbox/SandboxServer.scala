@@ -284,7 +284,7 @@ final class SandboxServer(
             ResourceOwner.forTry(() =>
               Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
                 .map(_ => ()))))
-          .getOrElse(ResourceOwner.successful(()))
+          .getOrElse(ResourceOwner.unit)
           .acquire()
         apiServer <- new LedgerApiServer(
           (mat: Materializer, esf: ExecutionSequencerFactory) =>

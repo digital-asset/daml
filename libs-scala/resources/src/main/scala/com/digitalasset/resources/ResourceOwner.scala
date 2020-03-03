@@ -72,6 +72,9 @@ trait ResourceOwner[+A] {
   * Convenient [[ResourceOwner]] factory and sequencing methods.
   */
 object ResourceOwner {
+  def unit: ResourceOwner[Unit] =
+    new FutureResourceOwner(() => Future.unit)
+
   def successful[T](value: T): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.successful(value))
 
@@ -124,7 +127,7 @@ object ResourceOwner {
       implicit executionContext: ExecutionContext,
   ): ResourceOwner[Unit] =
     seq
-      .foldLeft(ResourceOwner.successful(()))((builderResource, elementResource) =>
+      .foldLeft(ResourceOwner.unit)((builderResource, elementResource) =>
         for {
           _ <- builderResource
           _ <- elementResource
