@@ -30,7 +30,6 @@ import com.digitalasset.platform.configuration.{
 import com.digitalasset.platform.index.JdbcIndex
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.ports.Port
-import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.{BindableService, ServerInterceptor}
 
@@ -53,7 +52,7 @@ final class StandaloneApiServer(
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
-)(implicit logCtx: LoggingContext)
+)(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -66,10 +65,8 @@ final class StandaloneApiServer(
     preloadPackages(packageStore)
 
     val owner = for {
-      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(actorSystemName))
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       initialConditions <- ResourceOwner.forFuture(() =>
-        readService.getLedgerInitialConditions().runWith(Sink.head)(materializer))
+        readService.getLedgerInitialConditions().runWith(Sink.head))
       authorizer = new Authorizer(
         () => java.time.Clock.systemUTC.instant(),
         initialConditions.ledgerId,
@@ -80,7 +77,7 @@ final class StandaloneApiServer(
         participantId,
         config.jdbcUrl,
         metrics,
-      )(materializer, logCtx)
+      )
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
@@ -112,7 +109,7 @@ final class StandaloneApiServer(
         config.tlsConfig.flatMap(_.server),
         AuthorizationInterceptor(authService, executionContext) :: otherInterceptors,
         metrics
-      )(actorSystem, materializer, logCtx)
+      )
     } yield {
       writePortFile(apiServer.port)
       logger.info(
@@ -162,7 +159,5 @@ final class StandaloneApiServer(
 }
 
 object StandaloneApiServer {
-  private val actorSystemName = "index"
-
   private val sharedEngine = Engine()
 }
