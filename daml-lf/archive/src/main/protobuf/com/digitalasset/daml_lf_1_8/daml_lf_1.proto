@@ -1,9 +1,9 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// .proto representation of the first version of the DAML-LF language,
+// .proto representation of the first version of the DAML-LF 1.8 language,
 // as specified by
-// <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
+// <https://github.com/digital-asset/daml/tree/cc7f3e7ad007bbc632af4201e768ddeb108260d5/daml-lf/spec/daml-lf-1.rst>.
 //
 // A few notes:
 //
@@ -41,16 +41,12 @@
 //        2019-11-28: Rename Tuple to Struct
 //        2019-12-03: Add type synonyms
 //        2020-02-20: Add PackageMetadata.
-// * dev (special staging area for the next version to be released)
-//        2019-11-12: Add Generic Map (GenMap)
-//        2019-12-03: Add (experimental) text primitives.
-//        2019-12-05: Add Generic Equality builtin
 
 syntax = "proto3";
 package daml_lf_1;
 
-option java_package = "com.digitalasset.daml_lf_dev";
-option csharp_namespace = "Com.DigitalAsset.Daml_Lf_Dev.DamlLf1";
+option java_package = "com.digitalasset.daml_lf_1_8";
+option csharp_namespace = "Com.DigitalAsset.Daml_Lf_1_8.DamlLf1";
 
 // Canonical encoding in one-ofs for cases that carry no meaningful
 // values.
@@ -302,10 +298,6 @@ enum PrimType {
   // Builtin type 'TypeRep'
   // *Available in versions >= 1.7*
   TYPE_REP = 19;
-
-  // Builtin type 'TGenMap`
-  // *Available in versions >= 1.dev*
-  GENMAP = 20;
 }
 
 // Types
@@ -452,14 +444,6 @@ enum BuiltinFunction {
   TEXTMAP_TO_LIST = 100;
   TEXTMAP_SIZE = 101;
 
-  GENMAP_EMPTY = 124; // *Available in versions >= 1.dev*
-  GENMAP_INSERT = 125; // *Available in versions >= 1.dev*
-  GENMAP_LOOKUP = 126; // *Available in versions >= 1.dev*
-  GENMAP_DELETE = 127; // *Available in versions >= 1.dev*
-  GENMAP_KEYS = 128; // *Available in versions >= 1.dev*
-  GENMAP_VALUES = 129; // *Available in versions >= 1.dev*
-  GENMAP_SIZE = 130; // *Available in versions >= 1.dev*
-
   EXPLODE_TEXT = 23;
   APPEND_TEXT = 24;
 
@@ -525,18 +509,17 @@ enum BuiltinFunction {
 
   IMPLODE_TEXT = 78;
 
-  EQUAL_INT64 = 79;       // *Available in versions < 1.dev*
+  EQUAL_INT64 = 79;
   EQUAL_DECIMAL = 80;     // *Available in versions < 1.7*
-  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7 and < 1.dev*
-  EQUAL_TEXT = 81;        // *Available in versions < 1.dev*
-  EQUAL_TIMESTAMP = 82;   // *Available in versions < 1.dev*
-  EQUAL_DATE = 83;        // *Available in versions < 1.dev*
-  EQUAL_PARTY = 84;       // *Available in versions < 1.dev*
-  EQUAL_BOOL = 85;        // *Available in versions < 1.dev*
+  EQUAL_NUMERIC = 120;    // *Available in versions >= 1.7*
+  EQUAL_TEXT = 81;
+  EQUAL_TIMESTAMP = 82;
+  EQUAL_DATE = 83;
+  EQUAL_PARTY = 84;
+  EQUAL_BOOL = 85;
   EQUAL_CONTRACT_ID = 86;
   EQUAL_LIST = 87;
-  EQUAL_TYPE_REP = 123;   // *Available in versions < 1.dev*
-  EQUAL = 131;            // *Available in versions >= 1.dev*
+  EQUAL_TYPE_REP = 123;
 
   TRACE = 88;
 
@@ -546,16 +529,6 @@ enum BuiltinFunction {
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
   // Next id is 132. 131 is EQUAL.
-
-  // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
-  TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
-  TEXT_TO_LOWER = 9902; // *Available in versions >= 1.dev*
-  TEXT_SLICE = 9903; // *Available in versions >= 1.dev*
-  TEXT_SLICE_INDEX = 9904; // *Available in versions >= 1.dev*
-  TEXT_CONTAINS_ONLY = 9905; // *Available in versions >= 1.dev*
-  TEXT_REPLICATE = 9906; // *Available in versions >= 1.dev*
-  TEXT_SPLIT_ON = 9907; // *Available in versions >= 1.dev*
-  TEXT_INTERCALATE = 9908; // *Available in versions >= 1.dev*
 }
 
 // Builtin literals

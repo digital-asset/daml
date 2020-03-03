@@ -7,7 +7,7 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_dev}
+import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8, daml_lf_dev}
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}
@@ -123,6 +123,53 @@ class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
           "daml_lf.proto",
           "deb1988ae66f7146348dd116a3e5e9eb61d6068423f352a3f8892acda2159431",
           "333b571a41d54def3424bb2ce64e87ec263c74d45dca1985ca5b66d2c00c47fa")
+      )
+
+      forEvery(files) {
+        case (fileName, linuxHash, windowsHash) =>
+          List(linuxHash, windowsHash) should contain(hashFile(resolve(fileName)))
+      }
+    }
+  }
+
+  "daml_lf_1_8.DamlLf" should {
+    "read dalf" in {
+      decodeTestWrapper(
+        darFile, { cis =>
+          val archive = daml_lf_1_8.DamlLf.Archive.parseFrom(cis)
+          val payload = daml_lf_1_8.DamlLf.ArchivePayload.parseFrom(archive.getPayload)
+          payload.hasDamlLf1 shouldBe true
+        }
+      )
+    }
+  }
+
+  "daml_lf_1_8 file" should {
+
+    // Do not change thiss test.
+    // The test checks the snapshot of the proto definition are not modified.
+
+    val rootDir = "daml-lf/archive/src/main/protobuf/com/digitalasset/daml_lf_1_8"
+
+    def resolve(file: String) =
+      resource(rlocation(s"$rootDir/$file"))
+
+    "not be modified" in {
+
+      val files = Table(
+        ("file", "Linux hash", "windows hash"),
+        (
+          "daml_lf_0.proto",
+          "6bc1965f67dd8010725ae0a55da668de4e1f2609ed322cf1897c4476ecfb312a",
+          "79abe84c81428eddf5d2d6c773f9688279f6d06e88fd5895c5a51b5f5e302f55"),
+        (
+          "daml_lf_1.proto",
+          "4ed8b5a43fee3394926939fd06ad97e630448b47a7ae96a5dbdd7ec6185c0e8d",
+          "dda1794a845e5cf262e57e18d3c5266b3a8decf7fbea263c75fefac3a27163b5"),
+        (
+          "daml_lf.proto",
+          "27dd2169bc20c02ca496daa7fc9b06103edbc143e3097373917f6f4b566255b2",
+          "ffbf3d5911bc57ff3a9ea2812f93596ba8cefb16d06dcf8bdeb0c32e910520dc")
       )
 
       forEvery(files) {
