@@ -25,8 +25,13 @@ object EventOps {
       event.copy(event = event.event.modifyWitnessParties(f))
 
     def contractId: String = event.event.contractId
+    def updateContractId(set: String): Event =
+      event.copy(event = event.event.updateContractId(set))
 
     def templateId: Identifier = event.event.templateId
+
+    def isCreated: Boolean = event.event.isCreated
+    def isArchived: Boolean = event.event.isArchived
 
   }
 
@@ -68,6 +73,12 @@ object EventOps {
       case Created(value) => value.contractId
       case Empty =>
         throw new IllegalArgumentException("Cannot extract contractId from Empty event.")
+    }
+
+    def updateContractId(set: String): Event.Event = event match {
+      case Archived(value) => Archived(value.copy(contractId = set))
+      case Created(value) => Created(value.copy(contractId = set))
+      case Empty => Empty
     }
 
   }

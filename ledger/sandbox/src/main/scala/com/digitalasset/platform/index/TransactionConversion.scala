@@ -12,10 +12,9 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
+import com.digitalasset.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.participant.util.LfEngineToApi
@@ -25,18 +24,17 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfNodeExerciseToFlatApiArchived
 }
 import com.digitalasset.platform.store.entries.LedgerEntry
-import com.digitalasset.platform.api.v1.event.EventOps.EventOps
 
 import scala.annotation.tailrec
-import scala.collection.{breakOut, mutable}
 
 object TransactionConversion {
 
-  private type Node = GenNode.WithTxValue[EventId, Lf.AbsoluteContractId]
-  private type Create = NodeCreate.WithTxValue[Lf.AbsoluteContractId]
-  private type Exercise = NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId]
+  private type ContractId = Lf.AbsoluteContractId
+  private type Node = GenNode.WithTxValue[EventId, ContractId]
+  private type Create = NodeCreate.WithTxValue[ContractId]
+  private type Exercise = NodeExercises.WithTxValue[EventId, ContractId]
 
-  private def flatEvent(verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
+  private def toFlatEvent(verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
     case (eventId, node: Create) =>
       assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
@@ -49,67 +47,20 @@ object TransactionConversion {
       )
   }
 
-  /**
-    * Cancels out witnesses on creates and archives that are about the same contract.
-    * If no witnesses remain on either, the node is removed.
-    *
-    * @param nodes Must be sorted by event index.
-    * @throws IllegalArgumentException if the argument is not sorted properly.
-    */
-  private[index] def removeTransients(nodes: Vector[Event]): Vector[Event] = {
-
-    val resultBuilder = new Array[Option[Event]](nodes.size)
-    val creationByContractId = new mutable.HashMap[String, (Int, Event)]()
-
-    nodes.zipWithIndex.foreach {
-      case (event, indexInList) =>
-        // Each call adds a new (possibly null) element to resultBuilder, and may update items previously added
-        updateResultBuilder(resultBuilder, creationByContractId, event, indexInList)
+  private def permanent(events: Vector[Event]): Set[String] = {
+    events.foldLeft(Set.empty[String]) { (ids, event) =>
+      if (event.isCreated || !ids(event.contractId)) {
+        ids + event.contractId
+      } else {
+        ids - event.contractId
+      }
     }
-
-    resultBuilder.collect {
-      case Some(v) if v.witnessParties.nonEmpty => v
-    }(breakOut)
   }
 
-  /**
-    * Update resultBuilder given the next event.
-    * This will insert a new element and possibly update a previous one.
-    */
-  private def updateResultBuilder(
-      resultBuilder: Array[Option[Event]],
-      creationByContractId: mutable.HashMap[String, (Int, Event)],
-      event: Event,
-      indexInList: Int
-  ): Unit =
-    event match {
-      case createdEvent @ Event(
-            Created(CreatedEvent(_, contractId, _, _, witnessParties, _, _, _, _))) =>
-        if (witnessParties.nonEmpty) {
-          resultBuilder.update(indexInList, Some(event))
-          val _ = creationByContractId.put(contractId, indexInList -> createdEvent)
-        }
-      case archivedEvent @ Event(Archived(ArchivedEvent(_, contractId, _, witnessParties))) =>
-        if (witnessParties.nonEmpty) {
-          creationByContractId
-            .get(contractId)
-            .fold[Unit] {
-              // No matching create for this archive. Insert as is.
-              resultBuilder.update(indexInList, Some(event))
-            } {
-              case (createdEventIndex, createdEvent) =>
-                // Defensive code to ensure that the set of parties the events are disclosed to are not different.
-                if (witnessParties.toSet != createdEvent.getCreated.witnessParties.toSet)
-                  throw new IllegalArgumentException(
-                    s"Created and Archived event stakeholders are different in $createdEvent, $archivedEvent")
-
-                resultBuilder.update(createdEventIndex, None)
-                resultBuilder.update(indexInList, None)
-            }
-        }
-      case Event(Empty) =>
-        throw new IllegalArgumentException("Empty event")
-    }
+  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+    val toKeep = permanent(events)
+    events.filter(event => toKeep(event.contractId))
+  }
 
   def ledgerEntryToFlatTransaction(
       offset: domain.LedgerOffset.Absolute,
@@ -118,23 +69,23 @@ object TransactionConversion {
       verbose: Boolean,
   ): Option[Transaction] = {
 
-    val flatEvents = entry.transaction.collect(flatEvent(verbose))
-    val withoutTransientContracts = removeTransients(flatEvents)
-    val withFilteredWitnesses = withoutTransientContracts.flatMap(EventFilter(_)(filter).toList)
+    val flatEvents = entry.transaction.collect(toFlatEvent(verbose))
+    val withoutTransientEvents = removeTransient(flatEvents)
+    val withMaskedWitnesses = withoutTransientEvents.flatMap(EventFilter(_)(filter).toList)
 
     val commandId =
       entry.commandId
         .filter(_ => entry.submittingParty.exists(filter.filtersByParty.keySet))
         .getOrElse("")
 
-    if (withFilteredWitnesses.nonEmpty || commandId.nonEmpty) {
+    if (withMaskedWitnesses.nonEmpty || commandId.nonEmpty) {
       Some(
         Transaction(
           transactionId = entry.transactionId,
           commandId = commandId,
           workflowId = entry.workflowId.getOrElse(""),
           effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
-          events = withFilteredWitnesses,
+          events = withMaskedWitnesses,
           offset = offset.value,
         ))
     } else None
@@ -256,14 +207,14 @@ object TransactionConversion {
 
   private def lfCreateToApi(
       eventId: String,
-      create: CreateEvent[Lf.AbsoluteContractId],
+      create: CreateEvent[ContractId],
       verbose: Boolean,
   ): TreeEvent =
     TreeEvent(TreeEvent.Kind.Created(lfCreateToApiCreate(eventId, create, _.witnesses, verbose)))
 
   private def lfExerciseToApi(
       eventId: String,
-      exercise: ExerciseEvent[EventId, Lf.AbsoluteContractId],
+      exercise: ExerciseEvent[EventId, ContractId],
       verbose: Boolean,
   ): TreeEvent =
     TreeEvent(
