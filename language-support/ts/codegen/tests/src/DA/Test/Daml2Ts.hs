@@ -58,126 +58,6 @@ main = do
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
 tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
   [
-  {-
-    testCaseSteps "Breathing test" $ \step -> withTempDir $ \here -> do
-      copyDirectory damlTypes (here </> "daml-types")
-      let grover = here </> "grover"
-          groverDaml = grover </> "daml"
-          daml2tsDir = here </> "daml2ts"
-          groverTs =  daml2tsDir </> "grover-1.0"
-          groverTsSrc = groverTs </> "src"
-          groverTsLib = groverTs </> "lib"
-          groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
-      createDirectoryIfMissing True groverDaml
-      withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
-        step "daml build..."
-        buildProject []
-        assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
-      withCurrentDirectory here $ do
-        step "daml2ts..."
-        writeRootPackageJson
-        daml2tsProject [groverDar] daml2tsDir (here </> "package.json")
-        assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTsSrc </> "Grover.ts")
-        assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTsSrc </> "packageId.ts")
-        step "yarn install..."
-        yarnProject ["install"]
-        writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"
-        step "yarn workspaces run build..."
-        yarnProject ["workspaces", "run", "build"]
-        assertBool "'Grover.js' was not created." =<< doesFileExist (groverTsLib </> "Grover.js")
-        -- step "yarn workspaces run lint..."
-        -- yarnProject ["workspaces", "run", "lint"]
-  -}
-  {-
-  , testCaseSteps "Dependency test" $ \step -> withTempDir $ \here -> do
-      copyDirectory damlTypes (here </> "daml-types")
-      let grover = here </> "grover"
-          groverDaml = grover </> "daml"
-          daml2tsDir = here </> "daml2ts"
-          groverTs =  daml2tsDir </> "grover-1.0"
-          groverTsSrc = groverTs </> "src"
-          groverTsLib = groverTs </> "lib"
-          groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
-      createDirectoryIfMissing True groverDaml
-      withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
-        step "daml build..."
-        buildProject []
-        assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
-      let charliesRestaurant = here </> "charlies-restaurant"
-          charliesRestaurantDaml = charliesRestaurant </> "daml"
-          charliesRestaurantTs = daml2tsDir </> "charlies-restaurant-1.0"
-          charliesRestaurantTsSrc = charliesRestaurantTs </> "src"
-          charliesRestaurantTsLib = charliesRestaurantTs </> "lib"
-          charliesRestaurantDar = charliesRestaurant </> ".daml" </> "dist" </> "charlies-restaurant-1.0.dar"
-      createDirectoryIfMissing True charliesRestaurantDaml
-      withCurrentDirectory charliesRestaurant $ do
-        writeFileUTF8 (charliesRestaurantDaml </> "CharliesRestaurant.daml") $ unlines
-          [ "module CharliesRestaurant where"
-          , "import Grover"
-          , "template CharliesRestaurant"
-          , "  with  puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice CharliesRestaurant_SummonGrover: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        create Grover with puppeteer"
-          ]
-        writeDamlYaml "charlies-restaurant"
-          ["CharliesRestaurant"] ["daml-prim", "daml-stdlib", groverDar]
-        step "daml build..."
-        buildProject []
-        assertBool "'charlies-restaurant-1.0.dar' was not created." =<< doesFileExist charliesRestaurantDar
-      withCurrentDirectory here $ do
-        step "daml2ts..."
-        writeRootPackageJson
-        daml2tsProject [charliesRestaurantDar] daml2tsDir (here </> "package.json")
-        assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTsSrc </> "CharliesRestaurant.ts")
-        assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTsSrc </> "packageId.ts")
-        assertBool "'Grover.ts' was created." . not =<< doesFileExist (groverTsSrc </> "grover-1.0" </> "Grover.ts")
-        removeDirectoryRecursive charliesRestaurantTs
-        assertBool "'charlies-restaurant-ts' should not exist." . not =<< doesDirectoryExist charliesRestaurantTs
-        step "daml2ts..."
-        daml2tsProject [charliesRestaurantDar, groverDar] daml2tsDir (here </> "package.json")
-        assertBool "'CharliesRestaurant.ts' was not created." =<< doesFileExist (charliesRestaurantTsSrc </> "CharliesRestaurant.ts")
-        assertBool "'packageId.ts' was not created." =<< doesFileExist (charliesRestaurantTsSrc </> "packageId.ts")
-        assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTsSrc </> "Grover.ts")
-        assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTsSrc </> "packageId.ts")
-        step "yarn install..."
-        yarnProject ["install"]
-        writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"
-        step "yarn workspaces run build..."
-        yarnProject ["workspaces", "run", "build"]
-        assertBool "'Grover.js' was not created." =<< doesFileExist (groverTsLib </> "Grover.js")
-        assertBool "'CharliesRestaurant.js' was not created." =<< doesFileExist (charliesRestaurantTsLib </> "CharliesRestaurant.js")
-        step "yarn workspaces run lint..."
-        yarnProject ["workspaces", "run", "lint"]
-  -}
-
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
       copyDirectory damlTypes (here </> "daml-types")
       let grover = here </> "grover"
@@ -271,7 +151,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
         assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
 
-  {-
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       copyDirectory damlTypes (here </> "daml-types")
       let grover = here </> "grover"
@@ -279,7 +158,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           daml2tsDir = here </> "daml2ts"
           groverTs =  daml2tsDir </> "grover-1.0"
           groverTsSrc = groverTs </> "src"
-          groverTsLib = groverTs </> "lib"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       copyDirectory damlTypes (here </> "daml-types")
@@ -305,15 +183,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         daml2tsProject [groverDar, groverDar] daml2tsDir (here </> "package.json")
         assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTsSrc </> "Grover.ts")
         assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTsSrc </> "packageId.ts")
-        step "yarn install..."
-        yarnProject ["install"]
-        writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"
-        step "yarn workspaces run build..."
-        yarnProject ["workspaces", "run", "build"]
-        assertBool "'Grover.js' was not created." =<< doesFileExist (groverTsLib </> "Grover.js")
-        step "yarn workspaces run lint..."
-        yarnProject ["workspaces", "run", "lint"]
-  -}
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -341,15 +210,13 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         assertBool "'davl-0.0.4/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.js")
         assertBool "'davl-0.0.5/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.js")
         assertBool "'davl-upgrade-v4-v5-0.0.5/lib/Upgrade.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.js")
-        -- step "yarn workspaces run lint..."
-        -- yarnProject ["workspaces", "run", "lint"]
      ]
   where
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
 
-    -- daml2tsProject :: [FilePath] -> FilePath -> FilePath -> IO ()
-    -- daml2tsProject dars outDir packageJson = callProcessSilent daml2ts $ dars ++ ["-o", outDir, "-p", packageJson]
+    daml2tsProject :: [FilePath] -> FilePath -> FilePath -> IO ()
+    daml2tsProject dars outDir packageJson = callProcessSilent daml2ts $ dars ++ ["-o", outDir, "-p", packageJson]
 
     yarnProject :: [String] -> IO ()
     yarnProject args = callProcessSilent yarn args
