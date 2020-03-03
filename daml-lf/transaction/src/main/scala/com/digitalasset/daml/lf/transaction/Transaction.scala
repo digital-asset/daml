@@ -376,6 +376,7 @@ object Transaction {
    *        time.
    */
   final case class MetaData(
+      submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean
   )

@@ -154,6 +154,8 @@ message DamlTransactionEntry {
 
   // The nonce used to generate contract ids
   bytes submission_seed = 5;
+
+  google.protobuf.Timestamp submission_time = 6;
 }
 
 // A transaction rejection entry.

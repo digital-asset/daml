@@ -73,6 +73,7 @@ class CommandExecutorImpl(
             TransactionMeta(
               Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap),
+              meta.submissionTime,
               submissionSeed,
               Some(meta.usedPackages)
             ),

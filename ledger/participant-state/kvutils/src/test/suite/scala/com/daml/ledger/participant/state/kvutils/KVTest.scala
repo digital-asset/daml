@@ -224,6 +224,7 @@ object KVTest {
         meta = TransactionMeta(
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
+          submissionTime = txMetaData.submissionTime,
           submissionSeed = submissionSeed,
           optUsedPackages = Some(txMetaData.usedPackages)
         ),

@@ -112,6 +112,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
   private def transactionMeta(let: Timestamp) = TransactionMeta(
     ledgerEffectiveTime = let,
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+    submissionTime = let.addMicros(1000),
     submissionSeed = Some(
       crypto.Hash.assertFromString(
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),

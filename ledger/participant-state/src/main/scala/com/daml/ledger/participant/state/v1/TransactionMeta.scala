@@ -23,6 +23,7 @@ import com.digitalasset.daml.lf.data.{Ref, Time}
 final case class TransactionMeta(
     ledgerEffectiveTime: Time.Timestamp,
     workflowId: Option[WorkflowId],
+    submissionTime: Time.Timestamp,
     submissionSeed: Option[crypto.Hash],
     optUsedPackages: Option[Set[Ref.PackageId]],
 )

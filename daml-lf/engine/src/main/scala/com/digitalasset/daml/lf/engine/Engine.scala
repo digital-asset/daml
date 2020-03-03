@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package engine
 
+import java.util.concurrent.TimeUnit
+
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
@@ -48,6 +50,12 @@ final class Engine {
   private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
     _compiledPackages)
 
+  // We want to make the submission different from the ledgerTime,
+  // then we pick a random time +/- 5ms around ledger time
+  private val submissionTimeWindow = TimeUnit.MILLISECONDS.toMicros(10).toDouble
+  private def deriveSubmissionTime(ledgerTime: Time.Timestamp): Time.Timestamp =
+    ledgerTime.addMicros(((scala.util.Random.nextGaussian() - 0.5) * submissionTimeWindow).toLong)
+
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
     * <ul>
@@ -80,6 +88,7 @@ final class Engine {
       participantId: ParticipantId,
       submissionSeed: Option[crypto.Hash],
   ): Result[(Transaction.Transaction, Transaction.MetaData)] = {
+    val submissionTime = deriveSubmissionTime(cmds.ledgerEffectiveTime)
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
@@ -91,9 +100,9 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               ledgerTime = cmds.ledgerEffectiveTime,
-              transactionSeed = submissionSeed.map(
-                crypto.Hash.deriveTransactionSeed(_, participantId, cmds.ledgerEffectiveTime)
-              ),
+              transactionSeedAndSubmissionTime = submissionSeed.map(seed =>
+                crypto.Hash
+                  .deriveTransactionSeed(seed, participantId, submissionTime) -> submissionTime),
             ) map {
               case (tx, dependsOnTime) =>
                 // Annotate the transaction with the package dependencies. Since
@@ -111,6 +120,7 @@ final class Engine {
                     (pkgIds + pkgId) union transitiveDeps
                 }
                 tx -> Transaction.MetaData(
+                  submissionTime = submissionTime,
                   usedPackages = deps,
                   dependsOnTime = dependsOnTime,
                 )
@@ -141,16 +151,17 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      submissionSeed: Option[crypto.Hash],
+      submissionSeedAndTime: Option[(crypto.Hash, Time.Timestamp)],
       participantId: Ref.ParticipantId,
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Transaction.Transaction, Boolean)] = {
 
-    val transactionSeed = submissionSeed.map(
-      crypto.Hash.deriveTransactionSeed(_, participantId, ledgerEffectiveTime)
-    )
+    val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
+      case (seed, time) =>
+        crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
+    }
 
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
     for {
@@ -165,7 +176,7 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
-        transactionSeed = transactionSeed
+        transactionSeedAndSubmissionTime,
       )
     } yield result
   }
@@ -189,14 +200,15 @@ final class Engine {
       tx: Transaction.Transaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
-      submissionSeed: Option[crypto.Hash] = None,
+      submissionSeedAndTime: Option[(crypto.Hash, Time.Timestamp)] = None,
   ): Result[Unit] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
-    val transactionSeed = submissionSeed.map(
-      crypto.Hash.deriveTransactionSeed(_, participantId, ledgerEffectiveTime)
-    )
+    val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
+      case (seed, time) =>
+        crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
+    }
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
@@ -231,7 +243,7 @@ final class Engine {
         submitters = submitters,
         commands = commands.map(_._2),
         ledgerTime = ledgerEffectiveTime,
-        transactionSeed = transactionSeed,
+        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime,
       )
       (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
@@ -342,14 +354,14 @@ final class Engine {
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
       ledgerTime: Time.Timestamp,
-      transactionSeed: Option[crypto.Hash],
+      transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)]
   ): Result[(Transaction.Transaction, Boolean)] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
         compiledPackages = _compiledPackages,
-        seedWithTime = transactionSeed.map(_ -> ledgerTime),
+        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime,
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, ledgerTime)
