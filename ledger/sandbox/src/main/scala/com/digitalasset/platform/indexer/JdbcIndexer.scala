@@ -27,7 +27,6 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -35,8 +34,6 @@ final class JdbcIndexerFactory(
     jdbcUrl: String,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext) {
-  private[indexer] val asyncTolerance = 30.seconds
-
   def validateSchema()(
       implicit executionContext: ExecutionContext
   ): Future[InitializedJdbcIndexerFactory] =

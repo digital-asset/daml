@@ -34,7 +34,6 @@ final class StandaloneIndexerServer(
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
         config.restartDelay,
-        indexerFactory.asyncTolerance
       )
       _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
