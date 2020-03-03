@@ -6,11 +6,11 @@ package com.daml.ledger.on.sql
 import java.nio.file.Files
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   LedgerFactory,
   ParticipantConfig,
+  ReadWriteService,
   Runner
 }
 import com.digitalasset.logging.LoggingContext
@@ -26,7 +26,7 @@ object MainWithEphemeralDirectory {
     new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
   }
 
-  object TestLedgerFactory extends LedgerFactory[KeyValueParticipantState, ExtraConfig] {
+  object TestLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
@@ -42,7 +42,7 @@ object MainWithEphemeralDirectory {
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[KeyValueParticipantState] = {
+    ): ResourceOwner[ReadWriteService] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
       SqlLedgerFactory.readWriteServiceOwner(

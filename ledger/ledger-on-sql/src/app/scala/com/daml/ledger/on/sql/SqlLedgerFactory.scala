@@ -41,7 +41,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
-  ): ResourceOwner[KeyValueParticipantState] = {
+  ): ResourceOwner[ReadWriteService] = {
     val jdbcUrl = config.extra.jdbcUrl.getOrElse {
       throw new IllegalStateException("No JDBC URL provided.")
     }
