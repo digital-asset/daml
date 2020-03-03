@@ -38,7 +38,6 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
-import scalaz.syntax.tag._
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -475,7 +474,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       packages: InMemoryPackageStore,
   ): Future[LedgerId] = {
-    logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+    logger.info(s"Found existing ledger with ID: $foundLedgerId")
     if (initialLedgerEntries.nonEmpty) {
       logger.warn(
         s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")
