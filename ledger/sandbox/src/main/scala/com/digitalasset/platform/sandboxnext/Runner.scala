@@ -21,8 +21,8 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServerConfig,
@@ -43,7 +43,6 @@ import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.ports.Port
-import com.digitalasset.resources.ResettableResourceOwner.Reset
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{ResettableResourceOwner, Resource, ResourceOwner}
 import scalaz.syntax.tag._
@@ -120,13 +119,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           owner = reset => {
             case (currentPort, startupMode) =>
               for {
-                heartbeats <- heartbeatMechanism
                 _ <- startupMode match {
                   case StartupMode.MigrateAndStart =>
                     ResourceOwner.successful(())
                   case StartupMode.ResetAndStart =>
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
+                heartbeats <- heartbeatMechanism
                 readerWriter <- SqlLedgerReaderWriter.owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
@@ -137,7 +136,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                authService = config.authService.getOrElse(AuthServiceWildcard)
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
                 _ <- new StandaloneIndexerServer(
@@ -150,7 +148,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   ),
                   metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
                 )
-                resetService <- new SandboxResetServiceOwner(domain.LedgerId(ledgerId), reset)
+                authService = config.authService.getOrElse(AuthServiceWildcard)
+                resetService = {
+                  val clock = Clock.systemUTC()
+                  val authorizer = new Authorizer(() => clock.instant(), ledgerId, ParticipantId)
+                  new SandboxResetService(domain.LedgerId(ledgerId), reset, authorizer)
+                }
                 apiServer <- new StandaloneApiServer(
                   ApiServerConfig(
                     participantId = ParticipantId,
@@ -226,21 +229,4 @@ object Runner {
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
   private val HeartbeatInterval: FiniteDuration = 1.second
-
-  private final class SandboxResetServiceOwner(ledgerId: domain.LedgerId, reset: Reset)(
-      implicit logCtx: LoggingContext
-  ) extends ResourceOwner[SandboxResetService] {
-    override def acquire()(
-        implicit executionContext: ExecutionContext
-    ): Resource[SandboxResetService] = {
-      val clock = Clock.systemUTC()
-      Resource.successful(
-        new SandboxResetService(
-          ledgerId,
-          reset,
-          new Authorizer(() => clock.instant(), ledgerId.unwrap, ParticipantId),
-        ))
-    }
-  }
-
 }
