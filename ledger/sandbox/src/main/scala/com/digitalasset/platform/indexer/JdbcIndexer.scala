@@ -48,15 +48,21 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
   private[indexer] val asyncTolerance = 30.seconds
 
   def validateSchema(jdbcUrl: String)(
-      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).validate()
-    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+      implicit x: Status =:= Uninitialized,
+      executionContext: ExecutionContext,
+  ): Future[JdbcIndexerFactory[Initialized]] = {
+    new FlywayMigrations(jdbcUrl)
+      .validate()
+      .map(_ => this.asInstanceOf[JdbcIndexerFactory[Initialized]])
   }
 
   def migrateSchema(jdbcUrl: String, allowExistingSchema: Boolean)(
-      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).migrate(allowExistingSchema)
-    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
+      implicit x: Status =:= Uninitialized,
+      executionContext: ExecutionContext,
+  ): Future[JdbcIndexerFactory[Initialized]] = {
+    new FlywayMigrations(jdbcUrl)
+      .migrate(allowExistingSchema)
+      .map(_ => this.asInstanceOf[JdbcIndexerFactory[Initialized]])
   }
 
   def owner(

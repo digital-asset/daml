@@ -38,14 +38,15 @@ final class StandaloneIndexerServer(
       )
       _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
-          Resource.successful(Future.successful(()))
+          Resource.successful(Future.unit)
         case IndexerStartupMode.MigrateAndStart =>
-          startIndexer(
-            indexer,
-            indexerFactory.migrateSchema(config.jdbcUrl, config.allowExistingSchema),
-            actorSystem)
+          Resource
+            .fromFuture(indexerFactory.migrateSchema(config.jdbcUrl, config.allowExistingSchema))
+            .flatMap(startIndexer(indexer, _, actorSystem))
         case IndexerStartupMode.ValidateAndStart =>
-          startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
+          Resource
+            .fromFuture(indexerFactory.validateSchema(config.jdbcUrl))
+            .flatMap(startIndexer(indexer, _, actorSystem))
       }
     } yield {
       logger.debug("Waiting for indexer to initialize the database")
