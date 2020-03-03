@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
@@ -385,21 +385,13 @@ class InMemoryLedger(
         val entry = commands.get(deduplicationKey)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (deduplicationKey -> CommandDeduplicationEntry(
-            deduplicationKey,
-            submittedAt,
-            ttl,
-            None))
+          commands += (deduplicationKey -> CommandDeduplicationEntry(deduplicationKey, ttl))
           None
         } else {
           val previousTtl = entry.get.ttl
           if (submittedAt.isAfter(previousTtl)) {
             // Previous entry expired - new command
-            commands += (deduplicationKey -> CommandDeduplicationEntry(
-              deduplicationKey,
-              submittedAt,
-              ttl,
-              None))
+            commands += (deduplicationKey -> CommandDeduplicationEntry(deduplicationKey, ttl))
             None
           } else {
             // Existing previous entry - deduplicate command
@@ -408,14 +400,4 @@ class InMemoryLedger(
         }
       }
     }
-
-  override def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      result: CommandSubmissionResult): Future[Unit] =
-    Future.successful(this.synchronized {
-      for (cde <- commands.get(deduplicationKey) if cde.submittedAt == submittedAt) {
-        commands.update(deduplicationKey, cde.copy(result = Some(result)))
-      }
-    })
 }

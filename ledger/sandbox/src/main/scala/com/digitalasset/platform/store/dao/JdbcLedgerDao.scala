@@ -13,7 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.{CommandSubmissionResult, PackageDetails}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   Configuration,
@@ -103,11 +103,7 @@ private final case class ParsedPackageData(
     size: Long,
     knownSince: Date)
 
-private final case class ParsedCommandData(
-    submittedAt: Instant,
-    ttl: Instant,
-    code: Option[Int],
-    message: Option[String])
+private final case class ParsedCommandData(ttl: Instant)
 
 private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -1655,17 +1651,14 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_SELECT_COMMAND = SQL("""
-      |select submitted_at, ttl, status_code, status_message
+      |select ttl
       |from participant_command_submissions
       |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
   private val CommandDataParser: RowParser[ParsedCommandData] =
     Macro.parser[ParsedCommandData](
-      "submitted_at",
-      "ttl",
-      "status_code",
-      "status_message"
+      "ttl"
     )
 
   override def deduplicateCommand(
@@ -1687,45 +1680,8 @@ private class JdbcLedgerDao(
           .on("deduplicationKey" -> deduplicationKey)
           .as(CommandDataParser.single)
 
-        result match {
-          case ParsedCommandData(originalSubmittedAt, originalTtl, None, None) =>
-            Some(
-              CommandDeduplicationEntry(deduplicationKey, originalSubmittedAt, originalTtl, None))
-          case ParsedCommandData(originalSubmittedAt, originalTtl, Some(code), message) =>
-            Some(
-              CommandDeduplicationEntry(
-                deduplicationKey,
-                originalSubmittedAt,
-                originalTtl,
-                Some(CommandSubmissionResult(code, message))))
-          case data =>
-            sys.error(s"Invalid command deduplication row $data")
-        }
+        Some(CommandDeduplicationEntry(deduplicationKey, result.ttl))
       }
-    }
-
-  private val SQL_UPDATE_COMMAND = SQL(
-    """
-      |update participant_command_submissions
-      |set status_code={statusCode}, status_message={statusMessage}
-      |where deduplication_key={deduplicationKey} and submitted_at={submittedAt}
-    """.stripMargin)
-
-  override def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      code: Int,
-      message: Option[String]): Future[Unit] =
-    dbDispatcher.executeSql("update_command_result") { implicit conn =>
-      SQL_UPDATE_COMMAND
-        .on(
-          "deduplicationKey" -> deduplicationKey,
-          "submittedAt" -> submittedAt,
-          "statusCode" -> code,
-          "statusMessage" -> message
-        )
-        .execute()
-      ()
     }
 
   private val SQL_TRUNCATE_ALL_TABLES =
@@ -1834,11 +1790,11 @@ object JdbcLedgerDao {
         |on conflict (party) do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_INSERT_COMMAND: String =
-      """insert into participant_command_submissions as pcs (deduplication_key, submitted_at, ttl)
-        |values ({deduplicationKey}, {submittedAt}, {ttl})
+      """insert into participant_command_submissions as pcs (deduplication_key, ttl)
+        |values ({deduplicationKey}, {ttl})
         |on conflict (deduplication_key)
         |  do update
-        |  set submitted_at={submittedAt}, ttl={ttl}
+        |  set ttl={ttl}
         |  where pcs.ttl < {submittedAt}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
@@ -1913,10 +1869,10 @@ object JdbcLedgerDao {
       """merge into participant_command_submissions pcs
         |using dual on deduplication_key = {deduplicationKey}
         |when not matched then
-        |  insert (deduplication_key, submitted_at, ttl)
-        |  values ({deduplicationKey}, {submittedAt}, {ttl})
+        |  insert (deduplication_key, ttl)
+        |  values ({deduplicationKey}, {ttl})
         |when matched and pcs.ttl < {submittedAt} then
-        |  update set submitted_at={submittedAt}, ttl={ttl}""".stripMargin
+        |  update set ttl={ttl}""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES: String =
       """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}

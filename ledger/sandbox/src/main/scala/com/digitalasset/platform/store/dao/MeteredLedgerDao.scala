@@ -48,7 +48,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
     val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
-    val updateCommandResult: Timer = metrics.timer("daml.index.db.update_command_result")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -129,15 +128,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     timedFuture(
       Metrics.deduplicateCommand,
       ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl))
-
-  override def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      code: Int,
-      message: Option[String]): Future[Unit] =
-    timedFuture(
-      Metrics.updateCommandResult,
-      ledgerDao.updateCommandResult(deduplicationKey, submittedAt, code, message))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

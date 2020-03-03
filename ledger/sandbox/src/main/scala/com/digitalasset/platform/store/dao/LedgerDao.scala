@@ -151,13 +151,6 @@ trait LedgerReadDao extends ReportsHealth {
       deduplicationKey: String,
       submittedAt: Instant,
       ttl: Instant): Future[Option[CommandDeduplicationEntry]]
-
-  /** Sets the result of a command, so that duplicate submissions can return the original result */
-  def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      code: Int,
-      message: Option[String]): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

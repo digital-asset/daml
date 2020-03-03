@@ -10,7 +10,6 @@ import com.codahale.metrics.{Meter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
-  CommandSubmissionResult,
   ContractStore,
   IndexSubmissionService
 }
@@ -34,7 +33,6 @@ import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.GrpcException
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
@@ -138,26 +136,7 @@ final class ApiSubmissionService private (
       case CommandDeduplicationNew =>
         recordOnLedger(seed, commands)
           .transform(mapSubmissionResult)
-          .andThen {
-            case Success(_) =>
-              submissionService.updateCommandResult(
-                deduplicationKey,
-                submittedAt,
-                CommandSubmissionResult(Status.OK.getCode.value(), None))
-            case Failure(GrpcException(status, _)) =>
-              submissionService
-                .updateCommandResult(
-                  deduplicationKey,
-                  submittedAt,
-                  CommandSubmissionResult(status.getCode.value(), Option(status.getDescription)))
-            case Failure(error) =>
-              submissionService
-                .updateCommandResult(
-                  deduplicationKey,
-                  submittedAt,
-                  CommandSubmissionResult(Status.INTERNAL.getCode.value(), Some(error.getMessage)))
-          }
-      case CommandDeduplicationDuplicate =>
+      case CommandDeduplicationDuplicate(_) =>
         Metrics.deduplicatedCommandsMeter.mark()
         val reason = s"A command with the same command ID and submitter was submitted before."
         logger.debug(reason)

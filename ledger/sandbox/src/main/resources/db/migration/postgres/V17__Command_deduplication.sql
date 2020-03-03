@@ -14,12 +14,6 @@ DROP INDEX idx_transactions_deduplication;
 CREATE TABLE participant_command_submissions(
   -- The deduplication key
   deduplication_key  varchar primary key   not null,
-  -- The time the command was first submitted
-  submitted_at       timestamptz           not null,
   -- The time the command will stop being deduplicated
-  ttl                timestamptz           not null,
-  -- The gRPC status code of the original command submission, if available
-  status_code        int,
-  -- The gRPC status message of the original command submission, if available
-  status_message     varchar
+  ttl                timestamptz           not null
 );
