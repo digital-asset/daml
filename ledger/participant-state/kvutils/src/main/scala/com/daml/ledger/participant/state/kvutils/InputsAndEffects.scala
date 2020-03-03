@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import scala.collection.mutable
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.v1.TransactionMeta
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -43,13 +44,16 @@ private[kvutils] object InputsAndEffects {
   /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
     * and packages.
     */
-  def computeInputs(tx: Transaction.AbsTransaction): List[DamlStateKey] = {
+  def computeInputs(
+      tx: Transaction.AbsTransaction,
+      meta: TransactionMeta,
+  ): List[DamlStateKey] = {
     val inputs = mutable.LinkedHashSet[DamlStateKey]()
 
     {
       import PackageId.ordering
       inputs ++=
-        tx.optUsedPackages
+        meta.optUsedPackages
           .getOrElse(
             throw new InternalError("Transaction was not annotated with used packages")
           )

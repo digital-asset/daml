@@ -79,7 +79,7 @@ final class Engine {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: Option[crypto.Hash],
-  ): Result[Transaction.Transaction] = {
+  ): Result[(Transaction.Transaction, Transaction.MetaData)] = {
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
@@ -109,7 +109,7 @@ final class Engine {
                         sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                   (pkgIds + pkgId) union transitiveDeps
               }
-              tx.copy(optUsedPackages = Some(deps))
+              tx -> Transaction.MetaData(usedPackages = deps)
             }
         }
       }

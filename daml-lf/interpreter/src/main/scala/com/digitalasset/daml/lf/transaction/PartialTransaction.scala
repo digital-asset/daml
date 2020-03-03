@@ -170,7 +170,7 @@ case class PartialTransaction(
 
         nodes.keySet diff allChildNodeIds
       }
-      val tx = GenTransaction(nodes, ImmArray(rootNodes), None)
+      val tx = GenTransaction(nodes, ImmArray(rootNodes))
 
       tx.foreach { (nid, node) =>
         val rootPrefix = if (rootNodes.contains(nid)) "root " else ""
@@ -189,13 +189,7 @@ case class PartialTransaction(
   def finish: Either[PartialTransaction, Tx.Transaction] =
     context match {
       case ContextRoot(_, children) if aborted.isEmpty =>
-        Right(
-          GenTransaction(
-            nodes = nodes,
-            roots = children.toImmArray,
-            optUsedPackages = None,
-          ),
-        )
+        Right(GenTransaction(nodes = nodes, roots = children.toImmArray))
       case _ =>
         Left(this)
     }

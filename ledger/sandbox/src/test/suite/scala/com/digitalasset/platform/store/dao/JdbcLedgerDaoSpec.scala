@@ -164,7 +164,6 @@ class JdbcLedgerDaoSpec
               key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          None
         ),
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
@@ -471,7 +470,6 @@ class JdbcLedgerDaoSpec
               key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -528,7 +526,6 @@ class JdbcLedgerDaoSpec
             )
           ),
           ImmArray(event1, event2),
-          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -574,7 +571,6 @@ class JdbcLedgerDaoSpec
                 key = None
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -614,7 +610,6 @@ class JdbcLedgerDaoSpec
                 key = None
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -784,7 +779,6 @@ class JdbcLedgerDaoSpec
                     Set(party)))
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -826,7 +820,6 @@ class JdbcLedgerDaoSpec
                     Set(party)))
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -856,7 +849,6 @@ class JdbcLedgerDaoSpec
                 result.map(id => AbsoluteContractId(s"contractId$id")),
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -886,7 +878,6 @@ class JdbcLedgerDaoSpec
                 stakeholders = Set(party),
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -1098,7 +1089,7 @@ class JdbcLedgerDaoSpec
           Some("workflowId"),
           let,
           let,
-          GenTransaction(HashMap.empty, ImmArray.empty, None),
+          GenTransaction(HashMap.empty, ImmArray.empty),
           Map.empty
         ),
         Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),

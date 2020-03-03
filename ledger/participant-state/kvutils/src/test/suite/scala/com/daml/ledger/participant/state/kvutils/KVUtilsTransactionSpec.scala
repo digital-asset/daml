@@ -92,8 +92,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     "be able to submit transaction" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
-        tx <- runSimpleCommand(alice, seed, simpleCreateCmd)
-        logEntry <- submitTransaction(submitter = alice, tx = tx, seed).map(_._2)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        logEntry <- submitTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed).map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
       }
@@ -115,12 +118,12 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
-        tx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
         conf <- getDefaultConfiguration
         logEntry <- submitTransaction(
           submitter = alice,
-          tx = tx,
-          seed,
+          transaction = transaction,
+          submissionSeed = seed,
           letDelta = conf.timeModel.minTtl)
           .map(_._2)
       } yield {
@@ -139,8 +142,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .from(0)
           .map(i => Some(crypto.Hash.hashPrivateKey(this.getClass.getName + i.toString)))
       for {
-        createTx <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
-        result <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seeds(0))
+        transaction1 <- runSimpleCommand(alice, seeds(0), simpleCreateCmd)
+        result <- submitTransaction(
+          submitter = alice,
+          transaction = transaction1,
+          submissionSeed = seeds(0))
         (entryId, logEntry) = result
         update = KeyValueConsumption.logEntryToUpdate(entryId, logEntry).head
         coid = update
@@ -152,11 +158,17 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           .asInstanceOf[NodeCreate[AbsoluteContractId, _]]
           .coid
 
-        exeTx <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
-        logEntry2 <- submitTransaction(submitter = alice, tx = exeTx, seeds(1)).map(_._2)
+        transaction2 <- runSimpleCommand(alice, seeds(1), exerciseCmd(coid.coid, simpleTemplateId))
+        logEntry2 <- submitTransaction(
+          submitter = alice,
+          transaction = transaction2,
+          submissionSeed = seeds(1)).map(_._2)
 
         // Try to double consume.
-        logEntry3 <- submitTransaction(submitter = alice, tx = exeTx, seeds(1)).map(_._2)
+        logEntry3 <- submitTransaction(
+          submitter = alice,
+          transaction = transaction2,
+          submissionSeed = seeds(1)).map(_._2)
 
       } yield {
         logEntry2.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
@@ -171,8 +183,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         configEntry <- submitConfig { c =>
           c.copy(generation = c.generation + 1)
         }
-        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
-        txEntry <- submitTransaction(submitter = alice, tx = createTx, seed).map(_._2)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        txEntry <- submitTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed).map(_._2)
       } yield {
         configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
@@ -188,8 +203,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
         .runTestWithPackage(additionalContractDataType, alice, eve) {
           val seed = hash(this.getClass.getName)
           for {
-            createTx <- runCommand(alice, seed, additionalContractDataType, command)
-            txEntry <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
+            transaction <- runCommand(alice, seed, additionalContractDataType, command)
+            txEntry <- submitTransaction(
+              submitter = alice,
+              transaction = transaction,
+              submissionSeed = seed)
               .map(_._2)
           } yield {
             txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_ENTRY
@@ -200,8 +218,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     "reject transactions with unallocated informee" in KVTest.runTestWithSimplePackage(alice, bob) {
       val seed = hash(this.getClass.getName)
       for {
-        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
-        txEntry1 <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        txEntry1 <- submitTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed)
           .map(_._2)
       } yield {
         txEntry1.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
@@ -220,9 +241,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
 
         newParty <- withParticipantId(p1)(allocateParty("unhosted", alice))
         txEntry1 <- withParticipantId(p0)(
-          submitTransaction(submitter = newParty, tx = createTx, seed).map(_._2))
+          submitTransaction(submitter = newParty, createTx, seed).map(_._2))
         txEntry2 <- withParticipantId(p1)(
-          submitTransaction(submitter = newParty, tx = createTx, seed).map(_._2))
+          submitTransaction(submitter = newParty, transaction = createTx, submissionSeed = seed)
+            .map(_._2))
 
       } yield {
         configEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY
@@ -237,9 +259,12 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seed = hash(this.getClass.getName)
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
-        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
         bob <- allocateParty("bob", bob)
-        txEntry <- submitTransaction(submitter = bob, tx = createTx, submissionSeed = seed)
+        txEntry <- submitTransaction(
+          submitter = bob,
+          transaction = transaction,
+          submissionSeed = seed)
           .map(_._2)
       } yield {
         txEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
@@ -252,9 +277,10 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       val seed = hash(this.getClass.getName)
       for {
         // Submit a creation of a contract with owner 'Alice', but submit it as 'Bob'.
-        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
         bob <- allocateParty("bob", bob)
-        _ <- submitTransaction(submitter = bob, tx = createTx, submissionSeed = seed).map(_._2)
+        _ <- submitTransaction(submitter = bob, transaction = transaction, submissionSeed = seed)
+          .map(_._2)
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
@@ -311,8 +337,12 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     "submitter info is optional" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
-        createTx <- runSimpleCommand(alice, seed, simpleCreateCmd)
-        result <- submitTransaction(submitter = alice, tx = createTx, submissionSeed = seed)
+        transaction <- runSimpleCommand(alice, seed, simpleCreateCmd)
+        result <- submitTransaction(
+          submitter = alice,
+          transaction = transaction,
+          submissionSeed = seed,
+        )
       } yield {
         val (entryId, entry) = result
         // Clear the submitter info from the log entry

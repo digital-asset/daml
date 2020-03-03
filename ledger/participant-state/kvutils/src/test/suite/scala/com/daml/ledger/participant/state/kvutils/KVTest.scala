@@ -163,10 +163,10 @@ object KVTest {
       submissionSeed: Option[crypto.Hash],
       additionalContractDataTy: String,
       cmds: Command*,
-  ): KVTest[Transaction.AbsTransaction] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
     for {
       s <- get[KVTestState]
-      tx = s.engine
+      (tx, meta) = s.engine
         .submit(
           cmds = Commands(
             submitter = submitter,
@@ -191,18 +191,18 @@ object KVTest {
           }
         )
         .getOrElse(sys.error("Engine.submit fail"))
-    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids")
+    } yield tx.assertNoRelCid(_ => "Unexpected relative contract ids") -> meta
 
   def runSimpleCommand(
       submitter: Party,
       submissionSeed: Option[crypto.Hash],
       cmds: Command*,
-  ): KVTest[Transaction.AbsTransaction] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      tx: Transaction.AbsTransaction,
+      transaction: (Transaction.AbsTransaction, Transaction.MetaData),
       submissionSeed: Option[crypto.Hash],
       mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
@@ -216,12 +216,14 @@ object KVTest {
         commandId = commandId,
         maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000)
       )
+      (tx, txMetaData) = transaction
       subm = KeyValueSubmission.transactionToSubmission(
         submitterInfo = submInfo,
         meta = TransactionMeta(
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
           submissionSeed = submissionSeed,
+          optUsedPackages = Some(txMetaData.usedPackages)
         ),
         tx = tx
       )

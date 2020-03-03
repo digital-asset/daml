@@ -95,7 +95,6 @@ trait WriteService
     *                        This typically happens after a transaction has been assigned a
     *                        globally unique id, as then the contract-ids can be derived from that
     *                        transaction id.
-    *
     * @return an async result of a SubmissionResult
     */
   def submitTransaction(
