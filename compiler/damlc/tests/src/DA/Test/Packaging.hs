@@ -729,6 +729,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           withCurrentDirectory projb $ callProcessSilent damlc
             [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
             ]
+          step "Validating DAR"
           validate $ projb </> "projb.dar"
           projbPkgIds <- darPackageIds (projb </> "projb.dar")
           -- daml-prim, daml-stdlib for targetLfVer, daml-prim, daml-stdlib for depLfVer if targetLfVer /= depLfVer, proja and projb
