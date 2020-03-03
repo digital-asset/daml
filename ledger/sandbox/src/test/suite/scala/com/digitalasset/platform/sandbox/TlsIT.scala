@@ -44,14 +44,14 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
   private lazy val clientCertChainFilePath = certificatesDirPrefix + "client.crt"
   private lazy val clientPrivateKeyFilePath = certificatesDirPrefix + "client.pem"
 
-  private implicit def str2File(str: String) = new File(str)
+  private implicit def str2File(str: String): File = new File(str)
 
   private lazy val tlsEnabledConfig = LedgerClientConfiguration(
     "appId",
-    LedgerIdRequirement("", false),
+    LedgerIdRequirement("", enabled = false),
     CommandClientConfiguration.default,
     TlsConfiguration(
-      true,
+      enabled = true,
       Some(clientCertChainFilePath),
       Some(clientPrivateKeyFilePath),
       Some(trustCertCollectionFilePath)).client
@@ -61,18 +61,18 @@ class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManageme
     super.config.copy(
       tlsConfig = Some(
         TlsConfiguration(
-          true,
+          enabled = true,
           Some(certChainFilePath),
           Some(privateKeyFilePath),
           Some(trustCertCollectionFilePath))))
 
-  private lazy val clientF = LedgerClient.singleHost(serverHost, serverPort, tlsEnabledConfig)
+  private lazy val clientF = LedgerClient.singleHost(serverHost, serverPort.value, tlsEnabledConfig)
 
   "A TLS-enabled server" should {
     "reject ledger queries when the client connects without tls" in {
       recoverToSucceededIf[io.grpc.StatusRuntimeException] {
         LedgerClient
-          .singleHost(serverHost, serverPort, tlsEnabledConfig.copy(sslContext = None))
+          .singleHost(serverHost, serverPort.value, tlsEnabledConfig.copy(sslContext = None))
           .flatMap(_.transactionClient.getLedgerEnd())
       }
     }

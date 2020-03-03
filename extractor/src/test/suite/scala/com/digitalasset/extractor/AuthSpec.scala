@@ -43,7 +43,7 @@ final class AuthSpec
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
-  lazy val dummyRequest = {
+  private lazy val dummyRequest = {
     // we need to adjust the time of the request because we pass 10
     // days in the test scenario.
     val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)

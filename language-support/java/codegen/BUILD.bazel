@@ -277,6 +277,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",

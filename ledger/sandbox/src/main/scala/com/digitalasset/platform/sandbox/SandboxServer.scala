@@ -45,6 +45,7 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -117,7 +118,7 @@ object SandboxServer {
       // nested resource so we can release it independently when restarting
       apiServerResource: Resource[ApiServer],
   ) {
-    def port(implicit executionContext: ExecutionContext): Future[Int] =
+    def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
 
     private[SandboxServer] def apiServer(
@@ -130,7 +131,7 @@ object SandboxServer {
             Materializer,
             MetricRegistry,
             InMemoryPackageStore,
-            Int // port number
+            Port,
         ) => Resource[ApiServer]
     )(implicit executionContext: ExecutionContext): Future[SandboxState] =
       for {
@@ -173,10 +174,10 @@ final class SandboxServer(
     sandboxState.flatMap(_.apiServer)
 
   // Only used in testing; hopefully we can get rid of it soon.
-  def port: Int =
+  def port: Port =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
-  def portF(implicit executionContext: ExecutionContext): Future[Int] =
+  def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
   /** the reset service is special, since it triggers a server shutdown */
@@ -217,7 +218,7 @@ final class SandboxServer(
       metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
-      currentPort: Option[Int],
+      currentPort: Option[Port],
   ): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
@@ -362,7 +363,7 @@ final class SandboxServer(
     Await.result(sandboxState.flatMap(_.release()), AsyncTolerance)
   }
 
-  private def writePortFile(port: Int)(implicit executionContext: ExecutionContext): Future[Unit] =
+  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
       .getOrElse(Future.successful(()))

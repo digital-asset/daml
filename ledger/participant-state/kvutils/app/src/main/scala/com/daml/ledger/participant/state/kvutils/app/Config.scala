@@ -9,6 +9,7 @@ import java.nio.file.Path
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -28,7 +29,7 @@ case class Config[Extra](
 case class ParticipantConfig(
     participantId: ParticipantId,
     address: Option[String],
-    port: Int,
+    port: Port,
     portFile: Option[Path],
     serverJdbcUrl: String,
     allowExistingSchemaForIndex: Boolean,
@@ -40,6 +41,8 @@ object ParticipantConfig {
 }
 
 object Config {
+  val DefaultPort: Port = Port(6865)
+
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
   def default[Extra](extra: Extra): Config[Extra] =
@@ -83,7 +86,7 @@ object Config {
         .text("The configuration of a participant. Comma-separated key-value pairs, with mandatory keys: [participant-id, port] and optional keys [address, port-file, server-jdbc-url]")
         .action((kv, config) => {
           val participantId = ParticipantId.assertFromString(kv("participant-id"))
-          val port = kv("port").toInt
+          val port = Port(kv("port").toInt)
           val address = kv.get("address")
           val portFile = kv.get("port-file").map(new File(_).toPath)
           val jdbcUrl =

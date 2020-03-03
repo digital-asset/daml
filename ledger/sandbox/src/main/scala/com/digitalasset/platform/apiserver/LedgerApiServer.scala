@@ -13,6 +13,7 @@ import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
@@ -26,7 +27,7 @@ import scala.util.control.NoStackTrace
 trait ApiServer {
 
   /** the API port the server is listening on */
-  def port: Int
+  def port: Port
 
   /** completes when all services have been closed during the shutdown */
   def servicesClosed(): Future[Unit]
@@ -35,7 +36,7 @@ trait ApiServer {
 
 final class LedgerApiServer(
     createApiServices: (Materializer, ExecutionSequencerFactory) => Future[ApiServices],
-    desiredPort: Int,
+    desiredPort: Port,
     maxInboundMessageSize: Int,
     address: Option[String],
     sslContext: Option[SslContext] = None,
@@ -78,8 +79,8 @@ final class LedgerApiServer(
       val transportMedium = if (sslContext.isDefined) "TLS" else "plain text"
       logger.info(s"Listening on $host:$actualPort over $transportMedium.")
       new ApiServer {
-        override val port: Int =
-          server.getPort
+        override val port: Port =
+          Port(server.getPort)
 
         override def servicesClosed(): Future[Unit] =
           servicesClosedPromise.future
@@ -106,7 +107,7 @@ final class LedgerApiServer(
 
   private final class GrpcServerOwner(
       address: Option[String],
-      desiredPort: Int,
+      desiredPort: Port,
       maxInboundMessageSize: Int,
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
@@ -118,8 +119,7 @@ final class LedgerApiServer(
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] = {
       val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
       Resource(Future {
-        val builder =
-          NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort))
+        val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.value))
         builder.sslContext(sslContext.orNull)
         builder.channelType(classOf[NioServerSocketChannel])
         builder.permitKeepAliveTime(10, SECONDS)
@@ -156,7 +156,7 @@ final class LedgerApiServer(
         apiServices.release().map(_ => servicesClosedPromise.success(())))
   }
 
-  final class UnableToBind(port: Int, cause: Throwable)
+  final class UnableToBind(port: Port, cause: Throwable)
       extends RuntimeException(
         s"LedgerApiServer was unable to bind to port $port. " +
           "User should terminate the process occupying the port, or choose a different one.",

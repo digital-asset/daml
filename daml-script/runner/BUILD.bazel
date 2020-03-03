@@ -30,6 +30,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//libs-scala/auth-utils",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

@@ -14,13 +14,14 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 
 /**
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
-    port: Int,
+    port: Port,
     portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
@@ -39,7 +40,7 @@ final case class SandboxConfig(
 )
 
 object SandboxConfig {
-  val DefaultPort: Int = 6865
+  val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 

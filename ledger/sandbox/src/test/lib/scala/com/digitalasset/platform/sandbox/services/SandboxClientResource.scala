@@ -7,6 +7,7 @@ import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.platform.apiserver.EventLoopGroupOwner
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
@@ -15,18 +16,18 @@ import io.netty.channel.EventLoopGroup
 import scala.concurrent.{ExecutionContext, Future}
 
 object SandboxClientResource {
-  def owner(port: Int): ResourceOwner[Channel] =
+  def owner(port: Port): ResourceOwner[Channel] =
     for {
       eventLoopGroup <- new EventLoopGroupOwner("api-client", sys.runtime.availableProcessors())
       channel <- channelOwner(port, eventLoopGroup)
     } yield channel
 
-  def channelOwner(port: Int, eventLoopGroup: EventLoopGroup): ResourceOwner[Channel] =
+  def channelOwner(port: Port, eventLoopGroup: EventLoopGroup): ResourceOwner[Channel] =
     new ResourceOwner[Channel] {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[Channel] = {
         Resource(Future {
           NettyChannelBuilder
-            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port))
+            .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port.value))
             .eventLoopGroup(eventLoopGroup)
             .usePlaintext()
             .directExecutor()

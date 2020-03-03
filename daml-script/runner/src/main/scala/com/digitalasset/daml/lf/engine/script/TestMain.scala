@@ -26,6 +26,7 @@ import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.traverse._
@@ -89,12 +90,12 @@ object TestMain extends StrictLogging {
           case None =>
             val (apiParameters, cleanup) = if (config.ledgerHost.isEmpty) {
               val sandboxConfig = SandboxConfig.default.copy(
-                port = 0, // Automatically choose a free port.
+                port = Port.Dynamic,
                 timeProviderType = Some(config.timeProviderType),
               )
               val sandboxResource = SandboxServer.owner(sandboxConfig).acquire()
               val sandboxPort =
-                Await.result(sandboxResource.asFuture.flatMap(_.portF), Duration.Inf)
+                Await.result(sandboxResource.asFuture.flatMap(_.portF).map(_.value), Duration.Inf)
               (ApiParameters("localhost", sandboxPort), () => sandboxResource.release())
             } else {
               (
