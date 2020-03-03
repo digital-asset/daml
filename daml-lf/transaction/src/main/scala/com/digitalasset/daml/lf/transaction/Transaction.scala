@@ -9,11 +9,9 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value
-
 import scalaz.Equal
 
 import scala.annotation.tailrec
-
 import scala.collection.immutable.HashMap
 
 case class VersionedTransaction[Nid, Cid](
@@ -55,7 +53,7 @@ case class VersionedTransaction[Nid, Cid](
 /** General transaction type
   *
   * Abstracts over NodeId type and ContractId type
-  * ContractId restricts the occurence of contractIds
+  * ContractId restricts the occurrence of contractIds
   * either AbsoluteContractId if only absolute ids occur
   * or ContractId when both absolute and relative ids are allowed
   *
@@ -131,6 +129,19 @@ final case class GenTransaction[Nid, +Cid, +Val](
     }
     acc
   }
+
+  /**
+    * Returns an iterator that lazily traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
+    *
+    * Could eventually crash if the transaction is not well formed (see `isWellFormed`)
+    */
+  def iterator: Iterator[(Nid, GenNode[Nid, Cid, Val])] =
+    roots.iterator.map(nid => nid -> nodes(nid)).flatMap {
+      case leaf @ (_, _: LeafOnlyNode[Cid, Val]) =>
+        Iterator.single(leaf)
+      case branch @ (_, exercise: NodeExercises[Nid, Cid, Val]) =>
+        Iterator.single(branch) ++ exercise.children.iterator.map(nid => nid -> nodes(nid))
+    }
 
   /**
     * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)

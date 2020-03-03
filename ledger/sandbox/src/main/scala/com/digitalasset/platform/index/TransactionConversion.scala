@@ -48,11 +48,11 @@ object TransactionConversion {
   }
 
   private def permanent(events: Vector[Event]): Set[String] = {
-    events.foldLeft(Set.empty[String]) { (ids, event) =>
-      if (event.isCreated || !ids(event.contractId)) {
-        ids + event.contractId
+    events.foldLeft(Set.empty[String]) { (contractIds, event) =>
+      if (event.isCreated || !contractIds.contains(event.contractId)) {
+        contractIds + event.contractId
       } else {
-        ids - event.contractId
+        contractIds - event.contractId
       }
     }
   }
@@ -69,77 +69,74 @@ object TransactionConversion {
       verbose: Boolean,
   ): Option[Transaction] = {
 
-    val flatEvents = entry.transaction.collect(toFlatEvent(verbose))
-    val withoutTransientEvents = removeTransient(flatEvents)
-    val withMaskedWitnesses = withoutTransientEvents.flatMap(EventFilter(_)(filter).toList)
+    val flatEvents = removeTransient(entry.transaction.collect(toFlatEvent(verbose)))
+    val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
 
     val commandId =
       entry.commandId
         .filter(_ => entry.submittingParty.exists(filter.filtersByParty.keySet))
         .getOrElse("")
 
-    if (withMaskedWitnesses.nonEmpty || commandId.nonEmpty) {
+    if (filtered.nonEmpty || commandId.nonEmpty) {
       Some(
         Transaction(
           transactionId = entry.transactionId,
           commandId = commandId,
           workflowId = entry.workflowId.getOrElse(""),
           effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
-          events = withMaskedWitnesses,
+          events = filtered,
           offset = offset.value,
         ))
     } else None
   }
 
-  def ledgerEntryToTransaction(
+  def ledgerEntryToTransactionTree(
       offset: domain.LedgerOffset.Absolute,
       entry: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter,
+      requestingParties: Set[Ref.Party],
       verbose: Boolean,
   ): Option[TransactionTree] = {
 
-    val disclosureByNodeId =
+    import EventIdFormatter.{fromTransactionId, split}
+
+    val disclosure =
       Blinding
-        .blind(entry.transaction.mapNodeId(EventIdFormatter.split(_).get.nodeId))
+        .blind(entry.transaction.mapNodeId(split(_).get.nodeId))
         .disclosure
-        .mapValues(_.intersect(filter.filtersByParty.keySet))
         .map {
           case (k, v) =>
-            (EventIdFormatter.fromTransactionId(entry.transactionId, k): EventId) -> v
+            fromTransactionId(entry.transactionId, k) -> v.intersect(requestingParties)
         }
 
-    if (disclosureByNodeId.exists(_._2.nonEmpty)) {
+    val allEvents = engine.Event.collectEvents(entry.transaction, disclosure)
+    val events = allEvents.events.map {
+      case (nodeId, value) =>
+        (nodeId: String, value match {
+          case e: ExerciseEvent[EventId @unchecked, AbsoluteContractId @unchecked] =>
+            lfExerciseToApi(nodeId, e, verbose)
+          case c: CreateEvent[AbsoluteContractId @unchecked] =>
+            lfCreateToApi(nodeId, c, verbose)
+        })
+    }
 
-      val allEvents = engine.Event.collectEvents(entry.transaction, disclosureByNodeId)
-      val events = allEvents.events.map {
-        case (nodeId, value) =>
-          (nodeId: String, value match {
-            case e: ExerciseEvent[EventId @unchecked, AbsoluteContractId @unchecked] =>
-              lfExerciseToApi(nodeId, e, verbose)
-            case c: CreateEvent[AbsoluteContractId @unchecked] =>
-              lfCreateToApi(nodeId, c, verbose)
-          })
-      }
+    val (byId, roots) =
+      removeInvisibleRoots(events, allEvents.roots.toList)
 
-      val (byId, roots) =
-        removeInvisibleRoots(events, allEvents.roots.toList)
+    val commandId =
+      entry.commandId
+        .filter(_ => entry.submittingParty.exists(requestingParties))
+        .getOrElse("")
 
-      val commandId =
-        entry.commandId
-          .filter(_ => entry.submittingParty.exists(filter.filtersByParty.keySet))
-          .getOrElse("")
-
-      Some(
-        TransactionTree(
-          transactionId = entry.transactionId,
-          commandId = commandId,
-          workflowId = entry.workflowId.getOrElse(""),
-          effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
-          offset = offset.value,
-          eventsById = byId,
-          rootEventIds = roots
-        ))
-    } else None
+    Some(
+      TransactionTree(
+        transactionId = entry.transactionId,
+        commandId = commandId,
+        workflowId = entry.workflowId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        offset = offset.value,
+        eventsById = byId,
+        rootEventIds = roots
+      )).filter(_.eventsById.nonEmpty)
   }
 
   private case class InvisibleRootRemovalState(
