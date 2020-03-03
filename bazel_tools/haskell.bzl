@@ -56,8 +56,10 @@ common_haskell_flags = [
     "-threaded",
     "-rtsopts",
 
-    # run on two cores, disable idle & parallel GC
-    "-with-rtsopts=-N2 -qg -I0",
+    # run on two cores, disable idle & parallel GC, increase allocation area
+    # The allocation area was determined experimentally on //compiler/damlc/tests:packaging.
+    # Feel free to change it if measurements show a different value to be better.
+    "-with-rtsopts=-N2 -qg -I0 -A20M",
 ]
 
 def _wrap_rule(rule, name = "", deps = [], hackage_deps = [], compiler_flags = [], **kwargs):
