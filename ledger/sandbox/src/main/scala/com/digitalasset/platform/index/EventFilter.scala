@@ -35,6 +35,7 @@ object EventFilter {
 
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
     Some(event.copy(witnesses = event.witnesses.filter(included(_, event.contract.template, txf))))
-      .filter(_.witnesses.nonEmpty)
+      .filter(ac =>
+        (ac.signatories union ac.observers).exists(included(_, event.contract.template, txf)))
 
 }
