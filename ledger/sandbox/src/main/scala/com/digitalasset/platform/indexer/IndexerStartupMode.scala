@@ -11,8 +11,6 @@ object IndexerStartupMode {
 
   case object MigrateAndStart extends IndexerStartupMode
 
-  case object ResetAndStart extends IndexerStartupMode
-
   case object MigrateOnly extends IndexerStartupMode
 
 }

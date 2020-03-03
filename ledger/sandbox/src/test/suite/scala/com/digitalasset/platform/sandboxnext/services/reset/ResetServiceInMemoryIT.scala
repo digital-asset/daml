@@ -6,4 +6,4 @@ package com.digitalasset.platform.sandboxnext.services.reset
 import com.digitalasset.platform.sandbox.services.reset.ResetServiceITBase
 import com.digitalasset.platform.sandboxnext.SandboxNextFixture
 
-final class ResetServiceIT extends ResetServiceITBase with SandboxNextFixture
+final class ResetServiceInMemoryIT extends ResetServiceITBase with SandboxNextFixture

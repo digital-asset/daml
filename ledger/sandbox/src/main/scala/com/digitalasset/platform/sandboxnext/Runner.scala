@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
@@ -41,6 +41,7 @@ import com.digitalasset.platform.sandbox.config.{InvalidConfigException, Sandbox
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResettableResourceOwner.Reset
 import com.digitalasset.resources.akka.AkkaResourceOwner
@@ -58,7 +59,6 @@ import scala.util.Try
   * Known issues:
   *   - does not support implicit party allocation
   *   - does not support scenarios
-  *   - does not provide the reset service
   */
 class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] = {
@@ -72,25 +72,26 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         None
     }
 
-    val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, indexerStartupMode): (
+    val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
         String,
         String,
         String,
-        IndexerStartupMode) = config.jdbcUrl match {
-      case Some(url) if url.startsWith("jdbc:postgresql:") =>
-        ("PostgreSQL", url, url, IndexerStartupMode.MigrateAndStart)
-      case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-        ("in-memory", InMemoryLedgerJdbcUrl, url, IndexerStartupMode.ResetAndStart)
-      case Some(url) if url.startsWith("jdbc:h2:") =>
-        throw new InvalidDatabaseException(
-          "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
-      case Some(url) if url.startsWith("jdbc:sqlite:") =>
-        ("SQLite", url, InMemoryIndexJdbcUrl, IndexerStartupMode.ResetAndStart)
-      case Some(url) =>
-        throw new InvalidDatabaseException(s"Unknown database: $url")
-      case None =>
-        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, IndexerStartupMode.ResetAndStart)
-    }
+        StartupMode) =
+      config.jdbcUrl match {
+        case Some(url) if url.startsWith("jdbc:postgresql:") =>
+          ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
+        case Some(url) if url.startsWith("jdbc:h2:mem:") =>
+          ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.ResetAndStart)
+        case Some(url) if url.startsWith("jdbc:h2:") =>
+          throw new InvalidDatabaseException(
+            "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
+        case Some(url) if url.startsWith("jdbc:sqlite:") =>
+          ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
+        case Some(url) =>
+          throw new InvalidDatabaseException(s"Unknown database: $url")
+        case None =>
+          ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
+      }
 
     val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
     val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
@@ -114,12 +115,18 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], IndexerStartupMode)](
-          initialValue = (None, indexerStartupMode),
+        apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
+          initialValue = (None, startupMode),
           owner = reset => {
             case (currentPort, startupMode) =>
               for {
                 heartbeats <- heartbeatMechanism
+                _ <- startupMode match {
+                  case StartupMode.MigrateAndStart =>
+                    ResourceOwner.successful(())
+                  case StartupMode.ResetAndStart =>
+                    ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
+                }
                 readerWriter <- SqlLedgerReaderWriter.owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
@@ -133,18 +140,17 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
-                domainLedgerId = LedgerId(ledgerId)
-                resetService <- new SandboxResetServiceOwner(domainLedgerId, reset)
                 _ <- new StandaloneIndexerServer(
                   readService = ledger,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
-                    startupMode = startupMode,
+                    startupMode = IndexerStartupMode.MigrateAndStart,
                     allowExistingSchema = true,
                   ),
                   metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
                 )
+                resetService <- new SandboxResetServiceOwner(domain.LedgerId(ledgerId), reset)
                 apiServer <- new StandaloneApiServer(
                   ApiServerConfig(
                     participantId = ParticipantId,
@@ -187,7 +193,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           resetOperation = apiServer =>
             apiServer
               .servicesClosed()
-              .map(_ => (Some(apiServer.port), IndexerStartupMode.ResetAndStart)),
+              .map(_ => (Some(apiServer.port), StartupMode.ResetAndStart)),
         )
       } yield apiServer.port
     }
@@ -221,7 +227,7 @@ object Runner {
 
   private val HeartbeatInterval: FiniteDuration = 1.second
 
-  private final class SandboxResetServiceOwner(ledgerId: LedgerId, reset: Reset)(
+  private final class SandboxResetServiceOwner(ledgerId: domain.LedgerId, reset: Reset)(
       implicit logCtx: LoggingContext
   ) extends ResourceOwner[SandboxResetService] {
     override def acquire()(
@@ -232,7 +238,7 @@ object Runner {
         new SandboxResetService(
           ledgerId,
           reset,
-          new Authorizer(() => clock.instant(), LedgerId.unwrap(ledgerId), ParticipantId),
+          new Authorizer(() => clock.instant(), ledgerId.unwrap, ParticipantId),
         ))
     }
   }

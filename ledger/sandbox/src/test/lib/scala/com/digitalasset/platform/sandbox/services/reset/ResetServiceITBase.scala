@@ -154,7 +154,8 @@ abstract class ResetServiceITBase
       //
       // The 10 seconds timeout built into the context's ledger reset will be hit if something goes
       // horribly wrong, causing an exception to report "waitForNewLedger: out of retries".
-      "consistently complete within 5 seconds" in {
+      val expectedResetCompletionTime = Span.convertSpanToDuration(scaled(5.seconds))
+      s"consistently complete within $expectedResetCompletionTime" in {
         val numberOfCommands = 5
         val numberOfAttempts = 5
         Future
@@ -165,8 +166,8 @@ abstract class ResetServiceITBase
                   ledgerId <- ledgerIdF
                   party <- allocateParty(M.party)
                   _ <- submitAndExpectCompletions(ledgerId, numberOfCommands, party)
-                  (newLedgerId, timing) <- timedReset(ledgerId)
-                  _ = timing should be <= 5.seconds
+                  (newLedgerId, completionTime) <- timedReset(ledgerId)
+                  _ = completionTime should be <= expectedResetCompletionTime
                 } yield newLedgerId
               }
               .take(numberOfAttempts)
