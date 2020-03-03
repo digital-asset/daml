@@ -5,7 +5,11 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.api.{
+  KeyValueParticipantStateReader,
+  KeyValueParticipantStateWriter
+}
+import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
@@ -16,16 +20,22 @@ import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
 
-trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig] {
+trait LedgerFactory[+RS <: ReadService, +WS <: WriteService, ExtraConfig] {
   val defaultExtraConfig: ExtraConfig
 
   def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit
 
-  def readWriteServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
+  def readServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
-  ): ResourceOwner[RWS]
+  ): ResourceOwner[RS]
+
+  def writeServiceOwner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+      logCtx: LoggingContext,
+  ): ResourceOwner[WS]
 
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
@@ -73,18 +83,26 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig] {
 object LedgerFactory {
 
   abstract class SimpleLedgerFactory[KWL <: KeyValueLedger]
-      extends LedgerFactory[KeyValueParticipantState, Unit] {
+      extends LedgerFactory[KeyValueParticipantStateReader, KeyValueParticipantStateWriter, Unit] {
     override final val defaultExtraConfig: Unit = ()
 
-    override final def readWriteServiceOwner(
+    override final def writeServiceOwner(
         config: Config[Unit],
         participantConfig: ParticipantConfig)(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
-        logCtx: LoggingContext): ResourceOwner[KeyValueParticipantState] =
+        logCtx: LoggingContext): ResourceOwner[KeyValueParticipantStateWriter] =
+      for {
+        writer <- owner(config, participantConfig)
+      } yield new KeyValueParticipantStateWriter(writer)
+
+    override final def readServiceOwner(config: Config[Unit], participantConfig: ParticipantConfig)(
+        implicit executionContext: ExecutionContext,
+        materializer: Materializer,
+        logCtx: LoggingContext): ResourceOwner[KeyValueParticipantStateReader] =
       for {
         readerWriter <- owner(config, participantConfig)
-      } yield new KeyValueParticipantState(readerWriter, readerWriter)
+      } yield new KeyValueParticipantStateReader(readerWriter)
 
     def owner(value: Config[Unit], config: ParticipantConfig)(
         implicit executionContext: ExecutionContext,

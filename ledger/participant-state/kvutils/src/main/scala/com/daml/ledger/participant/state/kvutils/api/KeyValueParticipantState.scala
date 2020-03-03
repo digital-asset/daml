@@ -13,14 +13,17 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.health.HealthStatus
 
-class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
-    implicit materializer: Materializer)
+class KeyValueParticipantState(reader: ReadService, writer: WriteService)
     extends ReadService
     with WriteService {
-  private val readerAdapter =
-    new KeyValueParticipantStateReader(reader)
-  private val writerAdapter =
-    new KeyValueParticipantStateWriter(writer)(materializer.executionContext)
+  private val readerAdapter = reader
+  private val writerAdapter = writer
+
+  def this(reader: LedgerReader, writer: LedgerWriter)(implicit materializer: Materializer) {
+    this(
+      new KeyValueParticipantStateReader(reader),
+      new KeyValueParticipantStateWriter(writer)(materializer.executionContext))
+  }
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.getLedgerInitialConditions()

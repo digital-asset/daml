@@ -8,6 +8,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SeedService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -25,7 +26,7 @@ import scala.util.Try
 
 class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[ReadWriteService, Extra]) {
+    factory: LedgerFactory[ReadService, WriteService, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -49,8 +50,11 @@ class Runner[T <: ReadWriteService, Extra](
         // initialize all configured participants
         _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
           for {
-            ledger <- factory
-              .readWriteServiceOwner(config, participantConfig)
+            readService <- factory
+              .readServiceOwner(config, participantConfig)
+            writeService <- factory
+              .writeServiceOwner(config, participantConfig)
+            ledger = new KeyValueParticipantState(readService, writeService)
             _ <- ResourceOwner.forFuture(() =>
               Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
             _ <- startParticipant(config, participantConfig, ledger)

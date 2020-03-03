@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.ledger.api.health.HealthStatus
 
-class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer: Materializer)
+class KeyValueParticipantStateReader(val reader: LedgerReader)(implicit materializer: Materializer)
     extends ReadService {
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
