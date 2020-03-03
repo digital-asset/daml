@@ -380,9 +380,12 @@ object Transaction {
    *        This is a hint for what packages are required to validate
    *        the transaction using the current interpreter.
    *        The used packages are not serialized using [[TransactionCoder]].
+   * @dependsOnTime: indicate the transaction computation depends on ledger
+   *        time.
    */
   final case class MetaData(
       usedPackages: Set[PackageId],
+      dependsOnTime: Boolean
   )
 
   type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
