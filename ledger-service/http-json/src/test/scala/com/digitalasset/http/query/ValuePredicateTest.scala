@@ -109,8 +109,11 @@ class ValuePredicateTest
         Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
         true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
+      c("""{"b": 2, "a": 1}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
       c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
+      c("""{"a": 1}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), false),
+      c("""{}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), false),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), true),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), false),
     )
