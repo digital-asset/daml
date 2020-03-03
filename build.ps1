@@ -50,8 +50,6 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
-bazel clean --expunge
-
 bazel build //...
 
 bazel shutdown

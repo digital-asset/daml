@@ -161,15 +161,15 @@ class ProtoTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
         (
           "daml_lf_0.proto",
           "6bc1965f67dd8010725ae0a55da668de4e1f2609ed322cf1897c4476ecfb312a",
-          "a240dcaf4301604403b08163276f8e547b7fddcc2e76e854c76161d5793f1ca3"),
+          "79abe84c81428eddf5d2d6c773f9688279f6d06e88fd5895c5a51b5f5e302f55"),
         (
           "daml_lf_1.proto",
           "4ed8b5a43fee3394926939fd06ad97e630448b47a7ae96a5dbdd7ec6185c0e8d",
-          "f70b1be35c36c5e949f50193073581a7336caabcfcec859139d81e8d63dc2de3"),
+          "dda1794a845e5cf262e57e18d3c5266b3a8decf7fbea263c75fefac3a27163b5"),
         (
           "daml_lf.proto",
           "27dd2169bc20c02ca496daa7fc9b06103edbc143e3097373917f6f4b566255b2",
-          "333b571a41d54def3424bb2ce64e87ec263c74d45dca1985ca5b66d2c00c47fa")
+          "ffbf3d5911bc57ff3a9ea2812f93596ba8cefb16d06dcf8bdeb0c32e910520dc")
       )
 
       forEvery(files) {
