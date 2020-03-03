@@ -696,6 +696,16 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "x : [Text]"
               , "x = lines \"abc\\ndef\""
               , "data X = X" -- This should generate a DAML-LF enum
+
+              , "template T"
+              , "  with"
+              , "    p : Party"
+              , "  where"
+              , "    signatory p"
+
+              , "createT = create @T"
+              , "signatoryT = signatory @T"
+              , "archiveT = archive @T"
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -714,9 +724,17 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "module B where"
               , "import A"
+              , "import DA.Assert"
               , "data B = B A"
               , "f : X"
               , "f = X"
+
+              , "test = scenario do"
+              , "  alice <- getParty \"Alice\""
+              , "  let t = T alice"
+              , "  signatoryT t === [alice]"
+              , "  cid <- submit alice $ createT t"
+              , "  submit alice $ archiveT cid"
               ]
           writeFileUTF8 (projb </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1073,65 +1091,6 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
         assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
     | withArchiveChoice <- [False, True]
-    ] <>
-    [ testCaseSteps ("Importing toplevel monomorphic template functions from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
-          let proja = tmpDir </> "proja"
-          let projb = tmpDir </> "projb"
-
-          step "Build proja"
-          createDirectoryIfMissing True (proja </> "src")
-          writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
-              [ "module A where"
-              , ""
-              , "template T"
-              , "  with"
-              , "    p : Party"
-              , "  where"
-              , "    signatory p"
-              , ""
-              , "createT = create @T"
-              , "signatoryT = signatory @T"
-              , "archiveT = archive @T"
-              ]
-          writeFileUTF8 (proja </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
-              , "name: proja"
-              , "version: 0.0.1"
-              , "source: src"
-              , "dependencies: [daml-prim, daml-stdlib]"
-              ]
-          withCurrentDirectory proja $ callProcessSilent damlc ["build", "--target=" <> LF.renderVersion depLfVer, "-o", proja </> "proja.dar"]
-
-          step "Build projb"
-          createDirectoryIfMissing True (projb </> "src")
-          writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
-              [ "module B where"
-              , "import A"
-              , "import DA.Assert"
-              , ""
-              , "test = scenario do"
-              , "  alice <- getParty \"Alice\""
-              , "  let t = T alice"
-              , "  signatoryT t === [alice]"
-              , "  cid <- submit alice $ createT t"
-              , "  submit alice $ archiveT cid"
-              ]
-          writeFileUTF8 (projb </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
-              , "name: projb"
-              , "version: 0.0.1"
-              , "source: src"
-              , "dependencies: [daml-prim, daml-stdlib]"
-              , "data-dependencies: [" <> show (proja </> "proja.dar") <> "]"
-              ]
-          withCurrentDirectory projb $ callProcessSilent damlc
-            [ "build", "--target=" <> LF.renderVersion targetLfVer, "-o", projb </> "projb.dar"
-            ]
-          validate $ projb </> "projb.dar"
-
-    | depLfVer <- LF.supportedOutputVersions
-    , targetLfVer <- LF.supportedOutputVersions
-    , targetLfVer >= depLfVer
     ] <>
     [ testCaseSteps ("Typeclasses and instances from DAML-LF " <> LF.renderVersion depLfVer <> " to " <> LF.renderVersion targetLfVer) $ \step -> withTempDir $ \tmpDir -> do
           let proja = tmpDir </> "proja"
