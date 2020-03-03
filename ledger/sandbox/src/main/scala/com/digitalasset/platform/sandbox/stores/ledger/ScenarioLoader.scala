@@ -233,7 +233,7 @@ object ScenarioLoader {
         val transactionId = txId.id
         val workflowId =
           Some(Ref.LedgerString.assertConcat(workflowIdPrefix, Ref.LedgerString.fromInt(stepId)))
-        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots, None)
+        val tx = GenTransaction(richTransaction.nodes, richTransaction.roots)
         val mappedExplicitDisclosure = richTransaction.explicitDisclosure
         val mappedLocalImplicitDisclosure = richTransaction.localImplicitDisclosure
         val mappedGlobalImplicitDisclosure = richTransaction.globalImplicitDisclosure

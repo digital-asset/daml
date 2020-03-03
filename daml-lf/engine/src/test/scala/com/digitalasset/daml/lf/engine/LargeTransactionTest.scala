@@ -217,7 +217,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       }) match {
       case Left(err) =>
         fail(s"Unexpected error: $err")
-      case Right(tx) =>
+      case Right((tx, _)) =>
         pcs.update(tx)
         tx
     }

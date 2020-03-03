@@ -119,7 +119,7 @@ object TransactionSpec {
   def StringTransaction(
       nodes: HashMap[String, GenNode[String, V.AbsoluteContractId, Value]],
       roots: ImmArray[String],
-  ): StringTransaction = GenTransaction(nodes, roots, None)
+  ): StringTransaction = GenTransaction(nodes, roots)
 
   def dummyExerciseNode(
       children: ImmArray[String],

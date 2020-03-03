@@ -80,6 +80,7 @@ class TransactionMRTComplianceIT
   }
 
   val LET = Instant.EPOCH.plusSeconds(2)
+  val ST = LET.plusNanos(3)
   val MRT = Instant.EPOCH.plusSeconds(5)
 
   "A Ledger" should {
@@ -87,18 +88,19 @@ class TransactionMRTComplianceIT
       val seed = Some(crypto.Hash.hashPrivateKey(this.getClass.getName))
 
       val dummyTransaction: Transaction.AbsTransaction =
-        GenTransaction(HashMap.empty, ImmArray.empty, None)
+        GenTransaction(HashMap.empty, ImmArray.empty)
 
       val submitterInfo = SubmitterInfo(
-        Ref.Party.assertFromString("submitter"),
-        Ref.LedgerString.assertFromString("appId"),
-        Ref.LedgerString.assertFromString("cmdId"),
-        Time.Timestamp.assertFromInstant(MRT)
+        submitter = Ref.Party.assertFromString("submitter"),
+        applicationId = Ref.LedgerString.assertFromString("appId"),
+        commandId = Ref.LedgerString.assertFromString("cmdId"),
+        maxRecordTime = Time.Timestamp.assertFromInstant(MRT)
       )
       val transactionMeta = TransactionMeta(
-        Time.Timestamp.assertFromInstant(LET),
-        Some(Ref.LedgerString.assertFromString("wfid")),
-        seed
+        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(LET),
+        workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+        submissionSeed = seed,
+        optUsedPackages = None,
       )
 
       ledger

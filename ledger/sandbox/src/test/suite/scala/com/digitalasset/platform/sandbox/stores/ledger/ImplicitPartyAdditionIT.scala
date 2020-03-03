@@ -109,7 +109,6 @@ class ImplicitPartyAdditionIT
     val transaction: Transaction.AbsTransaction = GenTransaction(
       HashMap(event1 -> node),
       ImmArray(event1),
-      None
     )
 
     val submitterInfo = SubmitterInfo(
@@ -120,9 +119,10 @@ class ImplicitPartyAdditionIT
     )
 
     val transactionMeta = TransactionMeta(
-      let,
-      Some(Ref.LedgerString.assertFromString("wfid")),
-      None,
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionSeed = None,
+      optUsedPackages = None,
     )
 
     ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
