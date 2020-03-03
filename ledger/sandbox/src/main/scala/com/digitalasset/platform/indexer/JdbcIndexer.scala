@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.events.EventIdFormatter
@@ -72,8 +71,9 @@ class InitializedJdbcIndexerFactory private[indexer] (
         initialConditions <- readService
           .getLedgerInitialConditions()
           .runWith(Sink.head)(materializer)
-        ledgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- initializeLedger(ledgerId, dao)
+        existingLedgerId <- dao.lookupLedgerId()
+        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+        _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
         ledgerEnd <- dao.lookupLedgerEnd()
         externalOffset <- dao.lookupExternalLedgerEnd()
       } yield (ledgerEnd, externalOffset)
@@ -85,26 +85,21 @@ class InitializedJdbcIndexerFactory private[indexer] (
       new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with ID: $foundLedgerId")
-    Future.successful(foundLedgerId)
-  }
-
-  private def initializeLedger(ledgerId: domain.LedgerId, ledgerDao: LedgerDao) = {
-    ledgerDao
-      .lookupLedgerId()
-      .flatMap {
-        case Some(foundLedgerId) if foundLedgerId == ledgerId =>
-          ledgerFound(foundLedgerId)
-
-        case Some(foundLedgerId) =>
-          Future.failed(new LedgerIdMismatchException(foundLedgerId, ledgerId))
-
-        case None =>
-          logger.info(s"Initializing ledger with ID: $ledgerId")
-          ledgerDao.initializeLedger(ledgerId, 0).map(_ => ledgerId)
-      }
-  }
+  private def initializeLedger(
+      existingLedgerId: Option[domain.LedgerId],
+      providedLedgerId: domain.LedgerId,
+      ledgerDao: LedgerDao,
+  ): Future[Unit] =
+    existingLedgerId match {
+      case Some(foundLedgerId) if foundLedgerId == providedLedgerId =>
+        logger.info(s"Found existing ledger with ID: $foundLedgerId")
+        Future.unit
+      case Some(foundLedgerId) =>
+        Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
+      case None =>
+        logger.info(s"Initializing ledger with ID: $providedLedgerId")
+        ledgerDao.initializeLedger(providedLedgerId, ledgerEnd = 0)
+    }
 }
 
 /**
@@ -203,7 +198,8 @@ class JdbcIndexer private[indexer] (
               submissionId,
               hostingParticipantId,
               recordTime.toInstant,
-              PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
+              domain
+                .PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
           )
           .map(_ => headRef = headRef + 1)(DEC)
 
