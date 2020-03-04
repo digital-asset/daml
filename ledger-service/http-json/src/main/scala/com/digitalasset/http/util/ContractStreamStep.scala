@@ -7,7 +7,7 @@ package util
 import Collections._
 import InsertDeleteStep.{Cid, Inserts}
 
-import scalaz.\/
+import scalaz.{Semigroup, \/}
 import scalaz.std.tuple._
 import scalaz.syntax.functor._
 
@@ -84,4 +84,7 @@ private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Txn[+D, +C](step: InsertDeleteStep[D, C], offsetAfter: domain.Offset)
       extends ContractStreamStep[D, C]
   object Txn extends WithLAV1[Txn]
+
+  implicit def `CSS semigroup`[D, C: Cid]: Semigroup[ContractStreamStep[D, C]] =
+    Semigroup instance (_ append _)
 }
