@@ -13,7 +13,7 @@ import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply._
 import scalaz.syntax.semigroup._
-import scalaz.{@@, Equal, Semigroup, Tag}
+import scalaz.{@@, Equal, Tag}
 
 class ContractStreamStepTest
     extends FlatSpec
@@ -21,8 +21,12 @@ class ContractStreamStepTest
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
+
   import ContractStreamStepTest._, ContractStreamStep._
   import InsertDeleteStepTest._
+
+  override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 100)
 
   behavior of "append"
 
@@ -42,6 +46,7 @@ class ContractStreamStepTest
       case LiveBegin(off) => off.toOption
       case Txn(_, off) => Some(off)
     }
+
     off(a |+| b) should ===(off(b) orElse off(a))
   }
 
@@ -60,9 +65,6 @@ object ContractStreamStepTest {
   import Arbitrary.arbitrary
 
   type CSS = ContractStreamStep[Unit, Cid]
-
-  implicit val `CSS semigroup`: Semigroup[CSS] =
-    Semigroup instance (_.append(_)(Cid.unwrap))
 
   private val offGen: Gen[domain.Offset] = Tag subst Tag.unsubst(arbitrary[String @@ Alpha])
   private val acsGen = arbitrary[Inserts[Cid]] map (Acs(_))

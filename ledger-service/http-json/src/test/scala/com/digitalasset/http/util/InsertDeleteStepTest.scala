@@ -9,7 +9,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup._
-import scalaz.{@@, Equal, Monoid, Tag}
+import scalaz.{@@, Equal, Tag}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class InsertDeleteStepTest
@@ -18,6 +18,9 @@ class InsertDeleteStepTest
     with FlatSpecCheckLaws
     with GeneratorDrivenPropertyChecks {
   import InsertDeleteStepTest._
+
+  override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 100)
 
   behavior of "InsertDeleteStep append monoid"
 
@@ -59,11 +62,7 @@ object InsertDeleteStepTest {
   implicit val `Alpha arb`: Arbitrary[Cid] = Cid subst Arbitrary(
     Gen.alphaUpperChar map (_.toString))
 
-  private[util] implicit val `IDS monoid`
-    : Monoid[IDS] = Monoid instance (_.append(_)(Cid.unwrap), InsertDeleteStep(
-    Vector.empty,
-    Map.empty,
-  ))
+  private[util] implicit val `test Cid`: InsertDeleteStep.Cid[Cid] = Cid.unwrap
 
   implicit val `IDS arb`: Arbitrary[IDS] =
     Arbitrary(arbitrary[(Vector[Cid], Map[Cid, Unit])] map {
