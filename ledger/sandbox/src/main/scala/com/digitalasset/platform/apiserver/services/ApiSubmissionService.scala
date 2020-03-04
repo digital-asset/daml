@@ -90,7 +90,7 @@ object ApiSubmissionService {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
-  // TODO(RC): this should be updated dynamically from the ledger configuration
+  // TODO(RA): this should be updated dynamically from the ledger configuration
   final case class Configuration(maxDeduplicationTime: Duration)
 }
 

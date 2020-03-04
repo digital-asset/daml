@@ -199,7 +199,7 @@ object ApiCommandService {
       limitMaxCommandsInFlight: Boolean,
       historySize: Int,
       retentionPeriod: FiniteDuration,
-      // TODO(RC): this should be updated dynamically from the ledger configuration
+      // TODO(RA): this should be updated dynamically from the ledger configuration
       maxDeduplicationTime: java.time.Duration)
 
   sealed abstract class LowLevelCommandServiceAccess extends Product with Serializable
