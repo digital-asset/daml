@@ -90,26 +90,30 @@ final class Engine {
               checkSubmitterInMaintainers = checkSubmitterInMaintainers,
               submitters = Set(cmds.submitter),
               commands = processedCmds,
-              time = cmds.ledgerEffectiveTime,
+              ledgerTime = cmds.ledgerEffectiveTime,
               transactionSeed = submissionSeed.map(
                 crypto.Hash.deriveTransactionSeed(_, participantId, cmds.ledgerEffectiveTime)
               ),
-            ) map { tx =>
-              // Annotate the transaction with the package dependencies. Since
-              // all commands are actions on a contract template, with a fully typed
-              // argument, we only need to consider the templates mentioned in the command
-              // to compute the full dependencies.
-              val deps = processedCmds.foldLeft(Set.empty[PackageId]) {
-                case (pkgIds, (_, cmd)) =>
-                  val pkgId = cmd.templateId.packageId
-                  val transitiveDeps =
-                    _compiledPackages
-                      .getPackageDependencies(pkgId)
-                      .getOrElse(
-                        sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-                  (pkgIds + pkgId) union transitiveDeps
-              }
-              tx -> Transaction.MetaData(usedPackages = deps)
+            ) map {
+              case (tx, dependsOnTime) =>
+                // Annotate the transaction with the package dependencies. Since
+                // all commands are actions on a contract template, with a fully typed
+                // argument, we only need to consider the templates mentioned in the command
+                // to compute the full dependencies.
+                val deps = processedCmds.foldLeft(Set.empty[PackageId]) {
+                  case (pkgIds, (_, cmd)) =>
+                    val pkgId = cmd.templateId.packageId
+                    val transitiveDeps =
+                      _compiledPackages
+                        .getPackageDependencies(pkgId)
+                        .getOrElse(
+                          sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                    (pkgIds + pkgId) union transitiveDeps
+                }
+                tx -> Transaction.MetaData(
+                  usedPackages = deps,
+                  dependsOnTime = dependsOnTime,
+                )
             }
         }
       }
@@ -141,8 +145,8 @@ final class Engine {
       participantId: Ref.ParticipantId,
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
-      ledgerEffectiveTime: Time.Timestamp
-  ): Result[Transaction.Transaction] = {
+      ledgerEffectiveTime: Time.Timestamp,
+  ): Result[(Transaction.Transaction, Boolean)] = {
 
     val transactionSeed = submissionSeed.map(
       crypto.Hash.deriveTransactionSeed(_, participantId, ledgerEffectiveTime)
@@ -160,7 +164,7 @@ final class Engine {
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands,
-        time = ledgerEffectiveTime,
+        ledgerTime = ledgerEffectiveTime,
         transactionSeed = transactionSeed
       )
     } yield result
@@ -221,14 +225,15 @@ final class Engine {
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2._2.templateId))
-      rtx <- interpretCommands(
-        transactionSeed = transactionSeed,
+      result <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
-        time = ledgerEffectiveTime
+        ledgerTime = ledgerEffectiveTime,
+        transactionSeed = transactionSeed,
       )
+      (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -336,18 +341,18 @@ final class Engine {
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
-      time: Time.Timestamp,
-      transactionSeed: Option[crypto.Hash]
-  ): Result[Transaction.Transaction] = {
+      ledgerTime: Time.Timestamp,
+      transactionSeed: Option[crypto.Hash],
+  ): Result[(Transaction.Transaction, Boolean)] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
         compiledPackages = _compiledPackages,
-        seedWithTime = transactionSeed.map(_ -> time),
+        seedWithTime = transactionSeed.map(_ -> ledgerTime),
       )
       .copy(validating = validating, committers = submitters)
-    interpretLoop(machine, time)
+    interpretLoop(machine, ledgerTime)
   }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
@@ -355,7 +360,7 @@ final class Engine {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[Transaction.Transaction] = {
+  ): Result[(Transaction.Transaction, Boolean)] = {
     while (!machine.isFinal) {
       machine.step() match {
         case SResultContinue =>
@@ -389,6 +394,7 @@ final class Engine {
           )
 
         case SResultNeedTime(callback) =>
+          machine.dependsOnTime = true
           callback(time)
 
         case SResultNeedKey(gk, _, cbMissing, cbPresent) =>
@@ -423,7 +429,7 @@ final class Engine {
     machine.ptx.finish match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(t) => ResultDone(t)
+      case Right(t) => ResultDone(t -> machine.dependsOnTime)
     }
   }
 
