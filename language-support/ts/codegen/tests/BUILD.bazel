@@ -68,7 +68,7 @@ daml_compile(
 #  - Evaluates assertions of http-json-api specified ledger operations
 #    involving contracts defined by the dar;
 #  - Gracefully tears down the processes it started when its work is done.
-
+# All in all, a pretty slick bit of work!
 sh_test(
     name = "build-and-lint",
     size = "large",
