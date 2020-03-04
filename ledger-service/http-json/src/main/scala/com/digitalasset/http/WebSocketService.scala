@@ -119,7 +119,7 @@ object WebSocketService {
     /** Extra data on success of a predicate. */
     type Positive
 
-    def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
+    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ A
 
     def allowPhantonArchives: Boolean
 
@@ -136,10 +136,10 @@ object WebSocketService {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
+      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ SearchForeverRequest = {
         import JsonProtocol._
         SprayJson
-          .decode[SearchForeverRequest](str)
+          .decode[SearchForeverRequest](jv)
           .liftErr(InvalidUserInput)
       }
 
@@ -196,10 +196,10 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] =
+          jv: JsValue): Error \/ List[domain.EnrichedContractKey[LfV]] =
         for {
           as <- SprayJson
-            .decode[List[domain.EnrichedContractKey[JsValue]]](str)
+            .decode[List[domain.EnrichedContractKey[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
         } yield bs
@@ -298,7 +298,9 @@ class WebSocketService(
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
-          msg.toStrict(wsReadTimeout).map(m => Q.parse(decoder, m.text))
+          msg.toStrict(wsReadTimeout).map { m =>
+            SprayJson.parse(m.text).liftErr(InvalidUserInput).flatMap(Q.parse(decoder, _))
+          }
         case _ =>
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
