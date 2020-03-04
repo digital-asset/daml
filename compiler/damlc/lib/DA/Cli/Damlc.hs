@@ -24,12 +24,10 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
 import DA.Daml.Compiler.Dar
-import DA.Daml.Compiler.ExtractDar (getEntry)
 import qualified DA.Daml.Compiler.Repl as Repl
 import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import qualified DA.Daml.LF.ReplClient as ReplClient
-import DA.Daml.Compiler.Upgrade
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -57,7 +55,6 @@ import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import qualified Data.List.Split as Split
 import Data.Maybe
-import qualified Data.NameMap as NM
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Debouncer
@@ -112,7 +109,6 @@ data CommandName =
   | License
   | Lint
   | MergeDars
-  | Migrate
   | Package
   | Test
   | Visual
@@ -313,19 +309,6 @@ cmdValidateDar =
     info (helper <*> cmd) $ progDesc "Validate a DAR archive" <> fullDesc
   where
     cmd = execValidateDar <$> inputDarOpt
-
-cmdMigrate :: Mod CommandFields Command
-cmdMigrate =
-    command "migrate" $
-    info (helper <*> cmd) $
-    progDesc "Generate a migration package to upgrade the ledger" <> fullDesc
-  where
-    cmd =
-        execMigrate
-        <$> projectOpts "daml damlc migrate"
-        <*> inputDarOpt
-        <*> inputDarOpt
-        <*> targetSrcDirOpt
 
 cmdMergeDars :: Mod CommandFields Command
 cmdMergeDars =
@@ -760,80 +743,6 @@ execValidateDar inFile =
       n <- validateDar inFile -- errors if validation fails
       putStrLn $ "DAR is valid; contains " <> show n <> " packages."
 
-execMigrate ::
-       ProjectOpts
-    -> FilePath
-    -> FilePath
-    -> Maybe FilePath
-    -> Command
-execMigrate projectOpts inFile1_ inFile2_ mbDir =
-  Command Migrate (Just projectOpts) effect
-  where
-    effect = do
-      -- See https://github.com/digital-asset/daml/issues/3704
-      hPutStrLn stderr $ unlines
-        [ "Warning: `damlc migrate` is currently in the process of being reworked"
-        , "to make it function better across SDK versions and address"
-        , "a number of known bugs."
-        ]
-      inFile1 <- makeAbsolute inFile1_
-      inFile2 <- makeAbsolute inFile2_
-      withProjectRoot' projectOpts $ \_relativize
-       -> do
-          -- get the package name and the lf-package
-          [(pkgName1, _pkgId1, lfPkg1), (pkgName2, _pkgId2, lfPkg2)] <-
-              forM [inFile1, inFile2] $ \inFile -> do
-                  bytes <- B.readFile inFile
-                  let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
-                  -- get the main pkg
-                  dalfManifest <- either fail pure $ readDalfManifest dar
-                  mainDalfEntry <- getEntry (mainDalfPath dalfManifest) dar
-                  (mainPkgId, mainLfPkg) <-
-                      decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
-                  let pkgName = unitIdString (LF.unitIdFromFile (mainDalfPath dalfManifest) mainPkgId)
-                  pure (pkgName, mainPkgId, mainLfPkg)
-          -- generate upgrade modules and instances modules
-          let eqModNames =
-                  (NM.names $ LF.packageModules lfPkg1) `intersect`
-                  (NM.names $ LF.packageModules lfPkg2)
-          let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
-          let buildOptions =
-                  [ "'--package=" <> show ("instances-" <> pkgName1, True, [(m, m ++ "A") | m <- eqModNamesStr]) <> "'"
-                  , "'--package=" <> show ("instances-" <> pkgName2, True, [(m, m ++ "B") | m <- eqModNamesStr]) <> "'"
-                  ]
-          forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
-              let upgradeModPath =
-                      (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
-                      ".daml"
-              templateNames <-
-                  map (T.unpack . T.intercalate "." . LF.unTypeConName) .
-                  NM.names . LF.moduleTemplates <$>
-                  getModule m lfPkg1
-              let generatedUpgradeMod =
-                      generateUpgradeModule
-                          templateNames
-                          (T.unpack $ LF.moduleNameString m)
-                          "A"
-                          "B"
-              createDirectoryIfMissing True $ takeDirectory upgradeModPath
-              writeFile upgradeModPath generatedUpgradeMod
-          oldDamlYaml <- T.readFileUtf8 "daml.yaml"
-          let newDamlYaml = T.unlines $
-                T.lines oldDamlYaml ++
-                ["build-options:"] ++
-                map (\opt -> T.pack $ "- " <> opt) buildOptions
-          T.writeFileUtf8 "daml.yaml" newDamlYaml
-          putStrLn "Generation of migration project complete."
-    decode dalf =
-        errorOnLeft
-            "Cannot decode daml-lf archive"
-            (Archive.decodeArchive Archive.DecodeAsMain dalf)
-    getModule modName pkg =
-        maybe
-            (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
-            pure $
-        NM.lookup modName $ LF.packageModules pkg
-
 -- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
 -- manifest from the first.
 execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> Command
@@ -909,7 +818,6 @@ options numProcessors =
         <> cmdInspect
         <> cmdVisual
         <> cmdVisualWeb
-        <> cmdMigrate
         <> cmdMergeDars
         <> cmdInit numProcessors
         <> cmdCompile numProcessors
