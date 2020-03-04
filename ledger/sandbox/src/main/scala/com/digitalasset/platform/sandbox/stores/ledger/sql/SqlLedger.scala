@@ -67,34 +67,32 @@ object SqlLedger {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    new FlywayMigrations(jdbcUrl).migrate()
-
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
+      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate())
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerDao = new MeteredLedgerDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
-      ledger <- ResourceOwner
-        .forFutureCloseable(
-          () =>
-            new SqlLedgerFactory(ledgerDao).createSqlLedger(
-              ledgerId,
-              participantId,
-              timeProvider,
-              startMode,
-              acs,
-              packages,
-              initialLedgerEntries,
-              queueDepth,
-              // we use `maxConnections` for the maximum batch size, since it doesn't make sense to try to
-              // persist more ledger entries concurrently than we have SQL executor threads and SQL
-              // connections available.
-              maxConnections,
-          ))
+      ledger <- ResourceOwner.forFutureCloseable(
+        () =>
+          new SqlLedgerFactory(ledgerDao).createSqlLedger(
+            ledgerId,
+            participantId,
+            timeProvider,
+            startMode,
+            acs,
+            packages,
+            initialLedgerEntries,
+            queueDepth,
+            // we use `maxConnections` for the maximum batch size, since it doesn't make sense to
+            // try to persist more ledger entries concurrently than we have SQL executor threads and
+            // SQL connections available.
+            maxConnections,
+        ))
     } yield ledger
   }
 }

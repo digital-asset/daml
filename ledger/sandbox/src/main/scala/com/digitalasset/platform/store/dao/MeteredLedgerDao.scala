@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,7 +20,6 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -48,7 +47,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
     val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
-    val updateCommandResult: Timer = metrics.timer("daml.index.db.update_command_result")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -125,19 +123,10 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     timedFuture(
       Metrics.deduplicateCommand,
-      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, ttl))
-
-  override def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      code: Int,
-      message: Option[String]): Future[Unit] =
-    timedFuture(
-      Metrics.updateCommandResult,
-      ledgerDao.updateCommandResult(deduplicationKey, submittedAt, code, message))
+      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

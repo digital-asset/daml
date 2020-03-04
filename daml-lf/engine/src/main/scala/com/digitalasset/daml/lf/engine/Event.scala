@@ -221,7 +221,6 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
               // purge fetch children -- we do not have fetch events
               val relevantChildren =
                 ne.children.filter(!isIrrelevantNode(_))
-              val stakeholders = ne.stakeholders
               val evt = ExerciseEvent(
                 ne.targetCoid,
                 templateId,
@@ -230,7 +229,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
                 ne.actingParties,
                 ne.consuming,
                 relevantChildren,
-                stakeholders intersect disclosure(nodeId),
+                ne.stakeholders,
                 disclosure(nodeId),
                 ne.exerciseResult
               )

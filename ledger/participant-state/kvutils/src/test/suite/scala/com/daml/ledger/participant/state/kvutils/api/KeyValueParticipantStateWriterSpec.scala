@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
@@ -82,7 +82,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
   private val aParty = Ref.Party.assertFromString("aParty")
 
   private val anEmptyTransaction: Transaction.AbsTransaction =
-    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+    GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val aSubmissionId: SubmissionId =
     Ref.LedgerString.assertFromString(UUID.randomUUID().toString)
@@ -109,7 +109,8 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
     workflowId = Some(Ref.LedgerString.assertFromString("tests")),
     submissionSeed = Some(
       crypto.Hash.assertFromString(
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+    optUsedPackages = Some(Set.empty)
   )
 
   private def newRecordTime(): Timestamp =

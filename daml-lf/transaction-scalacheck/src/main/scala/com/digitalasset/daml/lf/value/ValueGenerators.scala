@@ -337,7 +337,7 @@ object ValueGenerators {
     for {
       nodes <- Gen.listOf(danglingRefGenNode)
       roots <- Gen.listOf(Arbitrary.arbInt.arbitrary.map(Tx.NodeId(_)))
-    } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots), None)
+    } yield GenTransaction(HashMap(nodes: _*), ImmArray(roots))
   }
 
   /*
@@ -399,11 +399,7 @@ object ValueGenerators {
 
     nonDanglingRefNodeGen(3, Tx.NodeId(0)).map {
       case (nodeIds, nodes) =>
-        GenTransaction(
-          nodes,
-          nodeIds,
-          None
-        )
+        GenTransaction(nodes, nodeIds)
     }
   }
 

@@ -20,7 +20,7 @@ trait Resource[+A] {
   /**
     * Every [[Resource]] has an underlying [[Future]] representation.
     */
-  val asFuture: Future[A]
+  def asFuture: Future[A]
 
   /**
     * Every [[Resource]] can be (asynchronously) released. Releasing a resource will also release
@@ -152,6 +152,12 @@ object Resource {
     apply(future)(_ => Future.successful(()))
 
   /**
+    * Produces a [[Resource]] that has already succeeded with the [[Unit]] value.
+    */
+  def unit(implicit executionContext: ExecutionContext): Resource[Unit] =
+    Resource.fromFuture(Future.unit)
+
+  /**
     * Produces a [[Resource]] that has already succeeded with a given value.
     */
   def successful[T](value: T)(implicit executionContext: ExecutionContext): Resource[T] =
@@ -198,7 +204,7 @@ object Resource {
       implicit executionContext: ExecutionContext,
   ): Resource[Unit] =
     seq
-      .foldLeft(Resource.successful(()))((builderResource, elementResource) =>
+      .foldLeft(Resource.unit)((builderResource, elementResource) =>
         for {
           _ <- builderResource
           _ <- elementResource

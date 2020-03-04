@@ -229,7 +229,8 @@ object KeyValueConsumption {
         workflowId = Some(txEntry.getWorkflowId)
           .filter(_.nonEmpty)
           .map(parseLedgerString("WorkflowId")),
-        submissionSeed = parseOptHash(txEntry.getSubmissionSeed)
+        submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
+        optUsedPackages = None,
       ),
       transaction = transaction,
       transactionId = hexTxId,

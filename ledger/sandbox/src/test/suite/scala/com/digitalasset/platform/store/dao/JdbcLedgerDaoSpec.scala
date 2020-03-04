@@ -78,15 +78,16 @@ class JdbcLedgerDaoSpec
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
     resource = newLoggingContext { implicit logCtx =>
-      new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
       for {
+        _ <- Resource.fromFuture(new FlywayMigrations(postgresFixture.jdbcUrl).migrate())
         dbDispatcher <- DbDispatcher
           .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
           .acquire()
-      } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, system.dispatcher)
+        ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, executionContext)
+        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0))
+      } yield ledgerDao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)
-    Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
   override def afterAll(): Unit = {
@@ -164,7 +165,6 @@ class JdbcLedgerDaoSpec
               key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          None
         ),
         Map(event1 -> Set[Party]("Alice", "Bob"), event2 -> Set[Party]("Alice", "In", "Chains"))
       )
@@ -471,7 +471,6 @@ class JdbcLedgerDaoSpec
               key = Some(keyWithMaintainers)
             )),
           ImmArray(event1),
-          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -528,7 +527,6 @@ class JdbcLedgerDaoSpec
             )
           ),
           ImmArray(event1, event2),
-          None
         ),
         Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
       )
@@ -574,7 +572,6 @@ class JdbcLedgerDaoSpec
                 key = None
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -614,7 +611,6 @@ class JdbcLedgerDaoSpec
                 key = None
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set("Alice", "Bob"))
         )
@@ -784,7 +780,6 @@ class JdbcLedgerDaoSpec
                     Set(party)))
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -826,7 +821,6 @@ class JdbcLedgerDaoSpec
                     Set(party)))
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -856,7 +850,6 @@ class JdbcLedgerDaoSpec
                 result.map(id => AbsoluteContractId(s"contractId$id")),
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -886,7 +879,6 @@ class JdbcLedgerDaoSpec
                 stakeholders = Set(party),
               )),
             ImmArray[EventId](s"event$id"),
-            None
           ),
           Map((s"event$id": EventId) -> Set(party))
         ),
@@ -1098,7 +1090,7 @@ class JdbcLedgerDaoSpec
           Some("workflowId"),
           let,
           let,
-          GenTransaction(HashMap.empty, ImmArray.empty, None),
+          GenTransaction(HashMap.empty, ImmArray.empty),
           Map.empty
         ),
         Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),

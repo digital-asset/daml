@@ -526,6 +526,11 @@ template Witnesses
      do
       return ()
 
+    nonconsuming choice WitnessesCreateNewWitnesses: ContractId Witnesses
+     controller p_actor
+     do
+      create this with p_signatory = p_actor
+
 -- Contract used to divulge instances of Witnesses to the actor
 -- of witnesses. Otherwise we cannot exercise!
 template DivulgeWitnesses

@@ -57,7 +57,8 @@ class CommandExecutorImpl(
       lookupKey)
       .map { submission =>
         (for {
-          updateTx <- submission
+          result <- submission
+          (updateTx, meta) = result
           _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(submitter))
         } yield
@@ -72,6 +73,7 @@ class CommandExecutorImpl(
               Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap),
               submissionSeed,
+              Some(meta.usedPackages)
             ),
             updateTx,
           )).left.map(ErrorCause.DamlLf)

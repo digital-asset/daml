@@ -16,7 +16,7 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -736,7 +736,7 @@ object ParticipantStateIntegrationSpecBase {
   private val IdleTimeout: FiniteDuration = 5.seconds
 
   private val emptyTransaction: Transaction.AbsTransaction =
-    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+    GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
@@ -759,7 +759,8 @@ object ParticipantStateIntegrationSpecBase {
       workflowId = Some(Ref.LedgerString.assertFromString("tests")),
       submissionSeed = Some(
         crypto.Hash.assertFromString(
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"))
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+      optUsedPackages = Some(Set.empty),
     )
 
   private def matchPackageUpload(

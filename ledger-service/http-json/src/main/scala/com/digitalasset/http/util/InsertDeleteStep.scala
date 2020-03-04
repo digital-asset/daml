@@ -7,7 +7,7 @@ package util
 import com.digitalasset.http.dbbackend.Queries.DBContract
 import com.digitalasset.ledger.api.v1.{event => evv1}
 
-import scalaz.{\/, \/-}
+import scalaz.{Monoid, \/, \/-}
 import scalaz.syntax.tag._
 
 import scala.collection.generic.CanBuildFrom
@@ -57,6 +57,8 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
   type Inserts[+C] = Vector[C]
   val Inserts: Vector.type = Vector
 
+  val Empty: InsertDeleteStep[Nothing, Nothing] = apply(Vector.empty, Map.empty)
+
   abstract class Cid[-C] extends (C AbstractFunction1 String)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -66,6 +68,10 @@ private[http] object InsertDeleteStep extends WithLAV1[InsertDeleteStep] {
     implicit def ofFst[L](implicit L: Cid[L]): Cid[(L, Any)] = la => L(la._1)
     // ofFst and ofSnd should *not* both be defined, being incoherent together
   }
+
+  // we always use the Last semigroup for D
+  implicit def `IDS monoid`[D, C: Cid]: Monoid[InsertDeleteStep[D, C]] =
+    Monoid instance (_ append _, Empty)
 
   def appendForgettingDeletes[D, C](leftInserts: Inserts[C], right: InsertDeleteStep[Any, C])(
       implicit cid: Cid[C],

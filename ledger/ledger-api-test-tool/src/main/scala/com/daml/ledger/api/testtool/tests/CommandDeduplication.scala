@@ -27,32 +27,31 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
 
   test(
     "CDSimpleDeduplication",
-    "Deduplicate commands within the TTL window",
+    "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
-      val ttlSeconds = 5
-      val ttl = Duration.of(ttlSeconds.toLong, 0)
+      val deduplicationSeconds = 5
+      val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
 
       for {
         request <- ledger.submitRequest(party, Dummy(party).create.command)
-        requestA = request.update(_.commands.ttl := ttl, _.commands.commandId := a)
+        requestA = request.update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := a)
 
-        // Submit command A (first TTL window)
+        // Submit command A (first deduplication window)
         _ <- ledger.submit(requestA)
+        failure1 <- ledger.submit(requestA).failed
 
-        // Re-submit command A.
-        // This should return success, as the original result is known by now.
-        _ <- ledger.submit(requestA)
+        // Wait until the end of first deduplication window
+        _ <- Delayed.by(deduplicationSeconds.seconds)(())
 
-        // Wait until the end of first TTL window
-        _ <- Delayed.by(ttlSeconds.seconds)(())
-
-        // Submit command A (second TTL window)
+        // Submit command A (second deduplication window)
         _ <- ledger.submit(requestA)
-        _ <- ledger.submit(requestA)
+        failure2 <- ledger.submit(requestA).failed
 
         // Submit and wait for command B (to get a unique completion for the end of the test)
         submitAndWaitRequest <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
@@ -61,6 +60,9 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
       } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
         assert(
           activeContracts.size == 3,
           s"There should be 3 active contracts, but received $activeContracts",

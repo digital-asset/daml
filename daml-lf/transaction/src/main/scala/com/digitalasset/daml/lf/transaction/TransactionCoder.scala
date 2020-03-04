@@ -590,7 +590,7 @@ object TransactionCoder {
     for {
       rs <- roots
       ns <- nodes
-    } yield GenTransaction(ns, rs, None)
+    } yield GenTransaction(ns, rs)
   }
 
   def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {

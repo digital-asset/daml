@@ -3,15 +3,15 @@
 
 package com.digitalasset.platform.configuration
 
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import java.time.Duration
 
 final case class SubmissionConfiguration(
-    maxTtl: FiniteDuration,
+    maxDeduplicationTime: Duration,
 )
 
 object SubmissionConfiguration {
   lazy val default: SubmissionConfiguration =
     SubmissionConfiguration(
-      maxTtl = 1.hours,
+      maxDeduplicationTime = Duration.ofDays(1),
     )
 }

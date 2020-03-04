@@ -24,11 +24,11 @@ import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timestamp}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.testing.TestTemplateIdentifiers
 import com.google.protobuf.timestamp.{Timestamp => GTimestamp}
 import scalaz.syntax.tag._
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait TestCommands {
 
   protected def darFile: File
@@ -43,7 +43,8 @@ trait TestCommands {
       commands: Seq[Command],
       let: GTimestamp = ledgerEffectiveTime,
       maxRecordTime: GTimestamp = maximumRecordTime,
-      appId: String = applicationId) =
+      appId: String = applicationId,
+  ): SubmitRequest =
     M.submitRequest.update(
       _.commands.commandId := commandId,
       _.commands.ledgerId := ledgerId.unwrap,
@@ -56,7 +57,8 @@ trait TestCommands {
   protected def dummyCommands(
       ledgerId: domain.LedgerId,
       commandId: String,
-      party: String = "party") =
+      party: String = M.party,
+  ): SubmitRequest =
     buildRequest(
       ledgerId,
       commandId,
@@ -67,7 +69,7 @@ trait TestCommands {
       )
     )
 
-  protected def createWithOperator(templateId: Identifier, party: String = "party") =
+  protected def createWithOperator(templateId: Identifier, party: String = M.party): Command =
     Command(
       Create(CreateCommand(
         Some(templateId),
@@ -80,7 +82,7 @@ trait TestCommands {
     new String(array)
   }
 
-  protected def oneKbCommand(templateId: Identifier) =
+  protected def oneKbCommand(templateId: Identifier): Command =
     Command(
       Create(
         CreateCommand(
@@ -94,8 +96,6 @@ trait TestCommands {
               )))
         )))
 
-  import com.digitalasset.platform.participant.util.ValueConversions._
-  private def integerListRecordLabel = "integerList"
   protected def paramShowcaseArgs: Record = {
     val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
     val nestedVariant = Vector("value" -> variant).asRecordValue
@@ -111,11 +111,12 @@ trait TestCommands {
         RecordField("time", Value(Timestamp(0))),
         RecordField("relTime", 42.asInt64), // RelTime gets now compiled to Integer with the new primitive types
         RecordField("nestedOptionalInteger", nestedVariant),
-        RecordField(integerListRecordLabel, integerList)
+        RecordField("integerList", integerList),
       )
     )
   }
-  protected def paramShowcase = Commands(
+
+  protected def paramShowcase: Commands = Commands(
     "ledgerId",
     "workflowId",
     "appId",
@@ -128,18 +129,18 @@ trait TestCommands {
         CreateCommand(Some(templateIds.parameterShowcase), Option(paramShowcaseArgs)))))
   )
 
-  protected def oneKbCommandRequest(ledgerId: domain.LedgerId, commandId: String) =
+  protected def oneKbCommandRequest(ledgerId: domain.LedgerId, commandId: String): SubmitRequest =
     buildRequest(ledgerId, commandId, List(oneKbCommand(templateIds.textContainer)))
 
   protected def exerciseWithUnit(
       templateId: Identifier,
       contractId: String,
       choice: String,
-      args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance)))) =
+      args: Option[Value] = Some(Value(Sum.Record(Record.defaultInstance)))
+  ): Command =
     Command(Exercise(ExerciseCommand(Some(templateId), contractId, choice, args)))
 
   implicit class SubmitRequestEnhancer(request: SubmitRequest) {
     def toSync: SubmitAndWaitRequest = SubmitAndWaitRequest(request.commands)
   }
-
 }

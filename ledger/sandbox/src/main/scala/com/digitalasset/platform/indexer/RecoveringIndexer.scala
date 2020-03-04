@@ -20,13 +20,12 @@ import scala.util.{Failure, Success}
 /**
   * A helper that restarts an indexer whenever an error occurs.
   *
+  * @param scheduler    Used to schedule the restart operation.
   * @param restartDelay Time to wait before restarting the indexer after a failure
-  * @param asyncTolerance Time to wait for asynchronous operations to complete
   */
 final class RecoveringIndexer(
     scheduler: Scheduler,
     restartDelay: FiniteDuration,
-    asyncTolerance: FiniteDuration,
 )(implicit logCtx: LoggingContext) {
   private implicit val executionContext: ExecutionContext = DirectExecutionContext
   private val logger = ContextualizedLogger.get(this.getClass)

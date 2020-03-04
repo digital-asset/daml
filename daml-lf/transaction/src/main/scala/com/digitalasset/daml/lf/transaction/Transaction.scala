@@ -65,11 +65,6 @@ case class VersionedTransaction[Nid, Cid](
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
-  * @param optUsedPackages The set of packages used during command processing.
-  *                     This is a hint for what packages are required to validate
-  *                     the transaction using the current interpreter.
-  *                     The used packages are not serialized using [[TransactionCoder]].
-  *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
@@ -77,7 +72,6 @@ case class VersionedTransaction[Nid, Cid](
 final case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    optUsedPackages: Option[Set[PackageId]],
 ) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
@@ -332,6 +326,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
+
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
@@ -345,14 +340,13 @@ object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTrans
       f2: A2 => B2,
       f3: A3 => B3,
   ): GenTransaction[A1, A2, A3] => GenTransaction[B1, B2, B3] = {
-    case GenTransaction(nodes, roots, optUsedPackages) =>
+    case GenTransaction(nodes, roots) =>
       GenTransaction(
         nodes = nodes.map {
           case (nodeId, node) =>
             f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
         },
-        roots = roots.map(f1),
-        optUsedPackages
+        roots = roots.map(f1)
       )
   }
 }
@@ -379,6 +373,20 @@ object Transaction {
     *
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
+
+  /* Transaction meta data
+   * @param submissionTime: submission time
+   * @param usedPackages The set of packages used during command processing.
+   *        This is a hint for what packages are required to validate
+   *        the transaction using the current interpreter.
+   *        The used packages are not serialized using [[TransactionCoder]].
+   * @dependsOnTime: indicate the transaction computation depends on ledger
+   *        time.
+   */
+  final case class MetaData(
+      usedPackages: Set[PackageId],
+      dependsOnTime: Boolean
+  )
 
   type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
 

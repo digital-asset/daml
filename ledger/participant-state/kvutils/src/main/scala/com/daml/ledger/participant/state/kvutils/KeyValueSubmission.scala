@@ -49,7 +49,7 @@ object KeyValueSubmission {
       tx: Transaction.AbsTransaction,
   ): DamlSubmission = {
 
-    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
+    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
 
     DamlSubmission.newBuilder

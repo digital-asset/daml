@@ -22,8 +22,8 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
+import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
@@ -180,23 +180,9 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  /** the reset service is special, since it triggers a server shutdown */
-  private def resetService(
-      ledgerId: LedgerId,
-      authorizer: Authorizer,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): SandboxResetService =
-    new SandboxResetService(
-      ledgerId,
-      () => executionContext,
-      () => resetAndRestartServer()(executionContext),
-      authorizer,
-    )
-
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
-    // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
       _.reset(
@@ -209,7 +195,8 @@ final class SandboxServer(
             Some(port),
         )))
 
-    // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
+    // Wait for the services to be closed, so we can guarantee that future API calls after finishing
+    // the reset will never be handled by the old one.
     apiServicesClosed
   }
 
@@ -284,8 +271,14 @@ final class SandboxServer(
             ResourceOwner.forTry(() =>
               Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
                 .map(_ => ()))))
-          .getOrElse(ResourceOwner.successful(()))
+          .getOrElse(ResourceOwner.unit)
           .acquire()
+        // the reset service is special, since it triggers a server shutdown
+        resetService = new SandboxResetService(
+          ledgerId,
+          () => resetAndRestartServer(),
+          authorizer,
+        )
         apiServer <- new LedgerApiServer(
           (mat: Materializer, esf: ExecutionSequencerFactory) =>
             ApiServices
@@ -304,7 +297,7 @@ final class SandboxServer(
                 healthChecks = healthChecks,
                 seedService = config.seeding.map(SeedService(_)),
               )(mat, esf, logCtx)
-              .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
+              .map(_.withServices(List(resetService))),
           // NOTE: Re-use the same port after reset.
           currentPort.getOrElse(config.port),
           config.maxInboundMessageSize,
@@ -312,7 +305,7 @@ final class SandboxServer(
           config.tlsConfig.flatMap(_.server),
           List(
             AuthorizationInterceptor(authService, executionContext),
-            resetService(ledgerId, authorizer, executionContext),
+            resetService,
           ),
           metrics
         ).acquire()

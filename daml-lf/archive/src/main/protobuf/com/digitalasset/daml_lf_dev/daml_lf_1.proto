@@ -37,13 +37,14 @@
 //        2019-09-17: Drop support for Decimal
 //        2019-09-30: Add interning of strings and dotted names
 //        2019-11-04: Add Type representation values
+// * 8 -- 2019-11-22: Rename Map to TextMap
+//        2019-11-28: Rename Tuple to Struct
+//        2019-12-03: Add type synonyms
+//        2020-02-20: Add PackageMetadata.
 // * dev (special staging area for the next version to be released)
 //        2019-11-12: Add Generic Map (GenMap)
-//        2019-11-22: Rename Map to TextMap
-//        2019-11-28: Rename Tuple to Struct
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
-//        2020-02-20: Add PackageMetadata.
 
 syntax = "proto3";
 package daml_lf_1;

@@ -8,7 +8,7 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.{ReadService, SeedService, SubmissionId, WriteService}
+import com.daml.ledger.participant.state.v1.{ReadService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.auth.AuthService
@@ -89,7 +89,6 @@ class Runner[T <: ReadWriteService, Extra](
         readService = ledger,
         writeService = ledger,
         authService = factory.authService(config),
-        seedService = Some(SeedService(config.seeding)),
       )
     } yield ()
 
@@ -109,7 +108,6 @@ class Runner[T <: ReadWriteService, Extra](
       readService: ReadService,
       writeService: WriteService,
       authService: AuthService,
-      seedService: Option[SeedService]
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): ResourceOwner[Unit] =
     new StandaloneApiServer(
       factory.apiServerConfig(participantConfig, config),
@@ -120,6 +118,6 @@ class Runner[T <: ReadWriteService, Extra](
       authService,
       factory.apiServerMetricRegistry(participantConfig),
       factory.timeServiceBackend(config),
-      seedService,
+      config.seeding,
     ).map(_ => ())
 }

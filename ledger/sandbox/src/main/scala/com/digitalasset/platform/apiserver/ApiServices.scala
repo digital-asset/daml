@@ -109,7 +109,7 @@ object ApiServices {
           seedService,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
           ApiSubmissionService.Configuration(
-            submissionConfig.maxTtl
+            submissionConfig.maxDeduplicationTime
           ),
           metrics,
         )
@@ -138,7 +138,8 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.historySize,
-          commandConfig.retentionPeriod
+          commandConfig.retentionPeriod,
+          submissionConfig.maxDeduplicationTime
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LowLevelCommandServiceAccess.LocalServices(

@@ -61,6 +61,8 @@ object Speedy {
       traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
       var compiledPackages: CompiledPackages,
+      /* Flag to trace usage of get_time builtins */
+      var dependsOnTime: Boolean,
   ) {
 
     def kontPop(): Kont = kont.remove(kont.size - 1)
@@ -254,6 +256,7 @@ object Speedy {
         compiledPackages = compiledPackages,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
+        dependsOnTime = false,
       )
 
     def newBuilder(

@@ -73,7 +73,7 @@ lowerCommands = \case
         commandsParty = unParty party,
         commandsLedgerEffectiveTime = Just (lowerTimestamp leTime),
         commandsMaximumRecordTime = Just (lowerTimestamp mrTime),
-        commandsTtl = ttl,
+        commandsDeduplicationTime = dedupTime,
         commandsCommands = Vector.fromList $ map lowerCommand coms }
 
 lowerCommand :: Command -> LL.Command
