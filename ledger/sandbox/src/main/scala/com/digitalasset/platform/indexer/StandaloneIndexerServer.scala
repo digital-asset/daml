@@ -30,22 +30,22 @@ final class StandaloneIndexerServer(
         .forActorSystem(() =>
           ActorSystem("StandaloneIndexerServer-" + config.participantId.filterNot(".:#/ ".toSet)))
         .acquire()
-      indexerFactory = JdbcIndexerFactory(metrics)
+      indexerFactory = new JdbcIndexerFactory(config.jdbcUrl, metrics)
       indexer = new RecoveringIndexer(
         actorSystem.scheduler,
         config.restartDelay,
-        indexerFactory.asyncTolerance
       )
       _ <- config.startupMode match {
         case IndexerStartupMode.MigrateOnly =>
-          Resource.successful(Future.successful(()))
+          Resource.successful(Future.unit)
         case IndexerStartupMode.MigrateAndStart =>
-          startIndexer(
-            indexer,
-            indexerFactory.migrateSchema(config.jdbcUrl, config.allowExistingSchema),
-            actorSystem)
+          Resource
+            .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
+            .flatMap(startIndexer(indexer, _, actorSystem))
         case IndexerStartupMode.ValidateAndStart =>
-          startIndexer(indexer, indexerFactory.validateSchema(config.jdbcUrl), actorSystem)
+          Resource
+            .fromFuture(indexerFactory.validateSchema())
+            .flatMap(startIndexer(indexer, _, actorSystem))
       }
     } yield {
       logger.debug("Waiting for indexer to initialize the database")
@@ -53,7 +53,7 @@ final class StandaloneIndexerServer(
 
   private def startIndexer(
       indexer: RecoveringIndexer,
-      initializedIndexerFactory: JdbcIndexerFactory[Initialized],
+      initializedIndexerFactory: InitializedJdbcIndexerFactory,
       actorSystem: ActorSystem,
   )(implicit executionContext: ExecutionContext): Resource[Future[Unit]] =
     indexer

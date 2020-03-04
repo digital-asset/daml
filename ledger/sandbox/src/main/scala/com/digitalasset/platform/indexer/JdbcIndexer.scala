@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.events.EventIdFormatter
@@ -28,54 +27,50 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-sealed trait InitStatus
-final abstract class Initialized extends InitStatus
-final abstract class Uninitialized extends InitStatus
+final class JdbcIndexerFactory(
+    jdbcUrl: String,
+    metrics: MetricRegistry,
+)(implicit logCtx: LoggingContext) {
+  def validateSchema()(
+      implicit executionContext: ExecutionContext
+  ): Future[InitializedJdbcIndexerFactory] =
+    new FlywayMigrations(jdbcUrl)
+      .validate()
+      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
 
-object JdbcIndexerFactory {
-  def apply(metrics: MetricRegistry)(
-      implicit logCtx: LoggingContext): JdbcIndexerFactory[Uninitialized] =
-    new JdbcIndexerFactory[Uninitialized](metrics)
+  def migrateSchema(allowExistingSchema: Boolean)(
+      implicit executionContext: ExecutionContext
+  ): Future[InitializedJdbcIndexerFactory] =
+    new FlywayMigrations(jdbcUrl)
+      .migrate(allowExistingSchema)
+      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
 }
 
-final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricRegistry)(
-    implicit logCtx: LoggingContext) {
+class InitializedJdbcIndexerFactory private[indexer] (
+    jdbcUrl: String,
+    metrics: MetricRegistry,
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
   private val logger = ContextualizedLogger.get(this.getClass)
-  private[indexer] val asyncTolerance = 30.seconds
-
-  def validateSchema(jdbcUrl: String)(
-      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).validate()
-    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
-  }
-
-  def migrateSchema(jdbcUrl: String, allowExistingSchema: Boolean)(
-      implicit x: Status =:= Uninitialized): JdbcIndexerFactory[Initialized] = {
-    new FlywayMigrations(jdbcUrl).migrate(allowExistingSchema)
-    this.asInstanceOf[JdbcIndexerFactory[Initialized]]
-  }
 
   def owner(
       participantId: ParticipantId,
       actorSystem: ActorSystem,
       readService: ReadService,
       jdbcUrl: String,
-  )(implicit x: Status =:= Initialized): ResourceOwner[JdbcIndexer] = {
+  ): ResourceOwner[JdbcIndexer] = {
     val materializer: Materializer = Materializer(actorSystem)
-
-    implicit val ec: ExecutionContext = DEC
 
     def fetchInitialState(dao: LedgerDao): Future[(dao.LedgerOffset, Option[LedgerString])] =
       for {
         initialConditions <- readService
           .getLedgerInitialConditions()
           .runWith(Sink.head)(materializer)
-        ledgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- initializeLedger(ledgerId, dao)
+        existingLedgerId <- dao.lookupLedgerId()
+        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+        _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
         ledgerEnd <- dao.lookupLedgerEnd()
         externalOffset <- dao.lookupExternalLedgerEnd()
       } yield (ledgerEnd, externalOffset)
@@ -87,26 +82,21 @@ final class JdbcIndexerFactory[Status <: InitStatus] private (metrics: MetricReg
       new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
   }
 
-  private def ledgerFound(foundLedgerId: LedgerId) = {
-    logger.info(s"Found existing ledger with ID: $foundLedgerId")
-    Future.successful(foundLedgerId)
-  }
-
-  private def initializeLedger(ledgerId: domain.LedgerId, ledgerDao: LedgerDao) = {
-    ledgerDao
-      .lookupLedgerId()
-      .flatMap {
-        case Some(foundLedgerId) if foundLedgerId == ledgerId =>
-          ledgerFound(foundLedgerId)
-
-        case Some(foundLedgerId) =>
-          Future.failed(new LedgerIdMismatchException(foundLedgerId, ledgerId))
-
-        case None =>
-          logger.info(s"Initializing ledger with ID: $ledgerId")
-          ledgerDao.initializeLedger(ledgerId, 0).map(_ => ledgerId)(DEC)
-      }(DEC)
-  }
+  private def initializeLedger(
+      existingLedgerId: Option[domain.LedgerId],
+      providedLedgerId: domain.LedgerId,
+      ledgerDao: LedgerDao,
+  ): Future[Unit] =
+    existingLedgerId match {
+      case Some(foundLedgerId) if foundLedgerId == providedLedgerId =>
+        logger.info(s"Found existing ledger with ID: $foundLedgerId")
+        Future.unit
+      case Some(foundLedgerId) =>
+        Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
+      case None =>
+        logger.info(s"Initializing ledger with ID: $providedLedgerId")
+        ledgerDao.initializeLedger(providedLedgerId, ledgerEnd = 0)
+    }
 }
 
 /**
@@ -205,7 +195,8 @@ class JdbcIndexer private[indexer] (
               submissionId,
               hostingParticipantId,
               recordTime.toInstant,
-              PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
+              domain
+                .PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
           )
           .map(_ => headRef = headRef + 1)(DEC)
 

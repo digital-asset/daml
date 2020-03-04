@@ -78,15 +78,16 @@ class JdbcLedgerDaoSpec
     super.beforeAll()
     implicit val executionContext: ExecutionContext = system.dispatcher
     resource = newLoggingContext { implicit logCtx =>
-      new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
       for {
+        _ <- Resource.fromFuture(new FlywayMigrations(postgresFixture.jdbcUrl).migrate())
         dbDispatcher <- DbDispatcher
           .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
           .acquire()
-      } yield JdbcLedgerDao(dbDispatcher, DbType.Postgres, system.dispatcher)
+        ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, executionContext)
+        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0))
+      } yield ledgerDao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)
-    Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
   override def afterAll(): Unit = {

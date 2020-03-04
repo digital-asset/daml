@@ -10,12 +10,12 @@ import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
 import com.digitalasset.resources.Resource
 import com.digitalasset.testing.postgresql.PostgresAroundAll
-import org.scalatest._
+import org.scalatest.{AsyncWordSpec, BeforeAndAfterAll, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 
-class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with BeforeAndAfterAll {
+class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with BeforeAndAfterAll {
 
   private var connectionProviderResource: Resource[JdbcConnectionProvider] = _
   private var connectionProvider: JdbcConnectionProvider = _
@@ -34,9 +34,7 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with Befo
   }
 
   "Postgres" when {
-
     "running queries using Hikari" should {
-
       "be accessible" in {
         connectionProvider.runSQL { conn =>
           val resultSet = conn.createStatement().executeQuery("SELECT 1")
@@ -45,31 +43,28 @@ class PostgresIT extends WordSpec with Matchers with PostgresAroundAll with Befo
           result shouldEqual 1
         }
       }
-
     }
-
   }
 
   "Flyway" should {
-
     "execute initialisation script" in {
       newLoggingContext { implicit logCtx =>
-        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()
-      }
-      connectionProvider.runSQL { conn =>
-        def checkTableExists(table: String) = {
-          val resultSet = conn.createStatement().executeQuery(s"SELECT * from $table")
-          resultSet.next shouldEqual false
-        }
+        new FlywayMigrations(postgresFixture.jdbcUrl).migrate()(DirectExecutionContext)
+      }.map { _ =>
+        connectionProvider.runSQL { conn =>
+          def checkTableExists(table: String) = {
+            val resultSet = conn.createStatement().executeQuery(s"SELECT * from $table")
+            resultSet.next shouldEqual false
+          }
 
-        checkTableExists("ledger_entries")
-        checkTableExists("contracts")
-        checkTableExists("disclosures")
-        checkTableExists("contract_witnesses")
-        checkTableExists("parameters")
-        checkTableExists("parties")
+          checkTableExists("ledger_entries")
+          checkTableExists("contracts")
+          checkTableExists("disclosures")
+          checkTableExists("contract_witnesses")
+          checkTableExists("parameters")
+          checkTableExists("parties")
+        }
       }
     }
-
   }
 }
