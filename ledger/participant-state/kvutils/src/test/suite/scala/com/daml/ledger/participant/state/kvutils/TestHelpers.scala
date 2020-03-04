@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Duration
 import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
@@ -108,7 +109,8 @@ object TestHelpers {
   val theRecordTime: Timestamp = Timestamp.Epoch
   val theDefaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault
+    timeModel = TimeModel.reasonableDefault,
+    maxDeduplicationTime = Duration.ofDays(1),
   )
 
   def mkEntryId(n: Int): DamlLogEntryId =

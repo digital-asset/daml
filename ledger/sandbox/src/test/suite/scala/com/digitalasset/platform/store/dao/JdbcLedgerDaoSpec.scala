@@ -4,7 +4,7 @@
 package com.digitalasset.platform.store.dao
 
 import java.io.File
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
@@ -267,7 +267,8 @@ class JdbcLedgerDaoSpec
 
     val defaultConfig = Configuration(
       generation = 0,
-      timeModel = TimeModel.reasonableDefault
+      timeModel = TimeModel.reasonableDefault,
+      Duration.ofDays(1),
     )
 
     "be able to persist and load configuration" in {
