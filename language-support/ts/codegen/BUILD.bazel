@@ -28,6 +28,7 @@ da_haskell_binary(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )

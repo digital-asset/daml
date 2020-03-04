@@ -54,8 +54,8 @@ daml_compile(
 #        ...
 #
 # In more detail, the actions of 'build-and-lint' are to:
-#  - Produce 'build-and-lint-pkg.dar';
-#  - Invoke 'daml2ts' on that dar to produce TypeScript bindings (in the 'daml2ts' directory);
+#  - Invoke 'daml2ts' on 'build-and-lint-pkg.dar' produce TypeScript bindings (
+#    in the 'daml2ts' directory);
 #  - Invoke from 'root':
 #    - 'yarn workspaces run install';
 #    - 'yarn workspaces run build';

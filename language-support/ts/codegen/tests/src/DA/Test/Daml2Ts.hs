@@ -225,6 +225,7 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
           hPutStrLn stderr $ unlines ["stdout:", out]
           hPutStrLn stderr $ unlines ["stderr: ", err]
+          exitFailure
 
     writeRootPackageJson :: IO ()
     writeRootPackageJson =

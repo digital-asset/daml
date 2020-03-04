@@ -31,15 +31,14 @@ import System.Directory
 import System.FilePath hiding ((<.>))
 import qualified System.FilePath as FP
 
+import DA.Daml.Project.Consts
+
 data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
     , optDamlTypesVersion :: Maybe String
         -- The version string of '@daml/types' the packages we write should depend on.
-        --    Default : '0.0.0'
-    , optPackageVersion :: Maybe String
-        --  The version string we should write into our own packages.
-        --    Default : '0.0.0'
+        --    Default : SDK version if defined else 0.0.0.
     , optInputPackageJson :: Maybe FilePath
     }
 
@@ -56,16 +55,13 @@ optionsParser = Options
         )
     <*> optional (strOption
         (  long "daml-types-version"
-        <> help "The version of '@daml/types' to depend on (warning : not a user-configuration parameter; for SDK internal use)"
-        ))
-    <*> optional (strOption
-        (  long "package-version"
-        <> help "The version string to use for output packages (warning : not a user-configuration parameter; for SDK internal use)"
+        <> help "The version of '@daml/types' to depend on"
+        <> internal
         ))
     <*> optional (strOption
         (  short 'p'
         <> metavar "PACKAGE-JSON"
-        <> help "A 'package.json' of workspaces"
+        <> help "Path to an existing 'package.json' to update"
         ))
 
 optionsParserInfo :: ParserInfo Options
@@ -119,14 +115,12 @@ mergePackageMap ps = foldM merge Map.empty ps
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    let damlTypesVersion = fromMaybe "0.0.0" optDamlTypesVersion
+    sdkVersion <- fromMaybe "0.0.0" <$> getSdkVersionMaybe
+    let damlTypesVersion = fromMaybe sdkVersion optDamlTypesVersion
        -- The '@daml/types' version that the packages we write should depend on.
-    let packageVersion   = fromMaybe "0.0.0" optPackageVersion
-       -- The version string for pacakges we write.
-
     putStrLn $ "Referencing '@daml/types' : \"" <> damlTypesVersion <> "\""
-    putStrLn $ "Generated packages to have version string : \"" <> packageVersion <> "\""
-
+    let packageVersion   = sdkVersion
+       -- The version string for packages we write.
     ps <- readPackages optInputDars
     case mergePackageMap ps of
       Left err -> fail . T.unpack $ err
@@ -143,31 +137,39 @@ main = do
         whenJust optInputPackageJson $
           writeTopLevelPackageJson optOutputDir dependencies
 
--- Gives the string '@foo' given a directory path like '/path/to/foo'.
-packageSetNameOfPackageSetDir :: FilePath -> String
-packageSetNameOfPackageSetDir = ("@" <>) . takeFileName
+newtype Scope = Scope String
+unscope :: Scope -> String
+unscope (Scope s) = s
+
+newtype Dependency = Dependency String deriving (Eq, Ord)
+undependency :: Dependency -> String
+undependency (Dependency d) = d
+
+-- Gives the scope '@foo' given a directory path like '/path/to/foo'.
+scopeOfScopeDir :: FilePath -> Scope
+scopeOfScopeDir = Scope . ("@" <>) . takeFileName
 
 -- From the path to a package like '/path/to/daml2ts/d14e08'
 -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
 -- of a 'package.json'.
 packageNameOfPackageDir :: FilePath -> String
-packageNameOfPackageDir packageDir = packageSet <> "/" <> package
+packageNameOfPackageDir packageDir = scope <> "/" <> package
   where
-    packageSet = packageSetNameOfPackageSetDir (takeDirectory packageDir)
+    scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
     package = takeFileName packageDir
 
 -- Write the files for a single package.
 daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
-    PackageId -> Package -> Maybe PackageName -> String -> String -> IO [String]
+    PackageId -> Package -> Maybe PackageName -> String -> String -> IO [Dependency]
 daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
-    let packageSetDir = optOutputDir
+    let scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
-        packageDir = packageSetDir </> (T.unpack . maybe (unPackageId pkgId) unPackageName) mbPkgName
+        packageDir = scopeDir </> (T.unpack . maybe (unPackageId pkgId) unPackageName) mbPkgName
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
-        packageSetName = packageSetNameOfPackageSetDir packageSetDir
-          -- The package set name e.g. '@daml2ts'.
+        scope = scopeOfScopeDir scopeDir
+          -- The scope e.g. '@daml2ts'.
           -- We use this, for example, when generating import declarations e.g.
           --   'import * as pkgd14e08_DA_Internal_Template from @daml2ts/d14e08/lib/DA/Internal/Template';'
     createDirectoryIfMissing True packageSrcDir
@@ -175,32 +177,30 @@ daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
     -- foreign packages as we do.
     T.writeFileUtf8 (packageSrcDir </> "packageId.ts") $ T.unlines
         ["export default '" <> unPackageId pkgId <> "';"]
-    dependencies <- nubOrd <$> foldM (writeModuleTs packageSrcDir packageSetName) [] (packageModules pkg)
+    dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     -- Now write 'package.json', 'tsconfig.json' and '.eslint.rc.json'
     -- files into the package dir. The 'package.json' needs the
     -- dependencies.
     writeTsConfig packageDir
     writeEsLintConfig packageDir
-    writePackageJson packageDir damlTypesVersion packageVersion dependencies
-    -- Dependencies have the form '@daml2ts/d14e08'. We want to return
-    -- just the 'd14e08' parts.
-    pure $ mapMaybe (stripPrefix (packageSetName ++ "/")) dependencies
+    writePackageJson packageDir damlTypesVersion packageVersion scope dependencies
+    pure dependencies
     where
       -- Write the .ts file for a single DAML-LF module.
-      writeModuleTs :: FilePath -> String -> [String] -> Module -> IO [String]
-      writeModuleTs packageSrcDir packageSetName dependencies mod = do
-        case genModule pm (T.pack packageSetName) pkgId mod of
+      writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
+      writeModuleTs packageSrcDir (Scope scope) mod = do
+        case genModule pm (T.pack scope) pkgId mod of
            Just (modTxt, ds) -> do
              let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
              createDirectoryIfMissing True (takeDirectory outputFile)
              T.writeFileUtf8 outputFile modTxt
-             pure $ ds ++ dependencies
-           Nothing -> pure dependencies
+             pure $ ds
+           Nothing -> pure []
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
-     T.Text -> PackageId -> Module -> Maybe (T.Text, [String])
-genModule pm packageSetName curPkgId mod
+     T.Text -> PackageId -> Module -> Maybe (T.Text, [Dependency])
+genModule pm scope curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
@@ -210,8 +210,8 @@ genModule pm packageSetName curPkgId mod
                   , let rootPath = pkgRootPath modName pkgRef ]
         defs = map biconcat defSers
         modText = T.unlines $ intercalate [""] $ filter (not . null) $ modHeader : imports : defs
-        depends = [ T.unpack $ packageSetName <> "/" <> pkgRefStr pm pkgRef
-                  | (pkgRef, _) <- modRefs refs, isPkgRefNotSelf pkgRef ]
+        depends = [ Dependency . T.unpack $ pkgRefStr pm pkgRef
+                  | (pkgRef, _) <- modRefs refs, pkgRef /= PRSelf ]
    in Just (modText, depends)
   where
     modName = moduleName mod
@@ -228,21 +228,14 @@ genModule pm packageSetName curPkgId mod
 
     -- Calculate an import declaration.
     importDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
-                       (PackageRef, ModuleName) -> T.Text -> T.Text
+                      (PackageRef, ModuleName) -> T.Text -> T.Text
     importDecl pm modRef@(pkgRef, modName) rootPath =
       "import * as " <>  genModuleRef modRef <> " from '" <>
-      (if isPkgRefNotSelf pkgRef
-         then rootPath <> "/" <> pkgRefStr pm pkgRef <> "/lib/"
-         else rootPath <> "/" <> pkgRefStr pm pkgRef
-      ) <> T.intercalate "/" (unModuleName modName) <> "';"
-
-    -- Check if a package ref is a foreign import.
-    isPkgRefNotSelf :: PackageRef -> Bool
-    isPkgRefNotSelf = \case PRSelf -> False; PRImport _ -> True
+      T.intercalate "/" ((rootPath : pkgRefStr pm pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
+      "';"
 
     -- Produce a package name for a package ref.
-    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) ->
-                                              PackageRef -> T.Text
+    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageRef -> T.Text
     pkgRefStr pm = \case
       PRSelf -> ""
       PRImport pkgId ->
@@ -261,7 +254,7 @@ genModule pm packageSetName curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> packageSetName
+        PRImport _ -> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -587,8 +580,8 @@ writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
   , "}"
   ]
 
-writePackageJson :: FilePath -> String -> String -> [String] -> IO ()
-writePackageJson packageDir damlTypesVersion packageVersion depends =
+writePackageJson :: FilePath -> String -> String -> Scope -> [Dependency] -> IO ()
+writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depends =
   writeFileUTF8 (packageDir </> "package.json") $ unlines
   (["{"
    , "  \"private\": true,"
@@ -615,7 +608,10 @@ writePackageJson packageDir damlTypesVersion packageVersion depends =
     ])
   where
     packageName =  packageNameOfPackageDir packageDir
-    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> packageVersion <> "\"" | pkg <- depends]
+    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> packageVersion <> "\""
+                              | d <- depends
+                              , let pkg = scope ++ "/" ++ undependency d
+                              ]
 
     withCommas :: [String] -> [String]
     withCommas [] = []
@@ -650,12 +646,13 @@ instance ToJSON PackageJson where
 
 -- Read the provided 'package.json'; transform it to include the
 -- provided workspaces; write it back to disk.
-writeTopLevelPackageJson :: FilePath -> [(String, String, [String])] -> FilePath -> IO ()
+writeTopLevelPackageJson :: FilePath -> [(String, String, [Dependency])] -> FilePath -> IO ()
 writeTopLevelPackageJson optOutputDir dependencies file = do
-  let (g, nodeFromVertex) = graphFromEdges' dependencies
+  let (g, nodeFromVertex) = graphFromEdges'
+        (map (\(a, b, ds) -> (a, b, map undependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      ldr = fromJust (stripPrefix "@" (packageSetNameOfPackageSetDir optOutputDir))
+      ldr = fromJust (stripPrefix "@" (unscope (scopeOfScopeDir optOutputDir)))
         -- 'ldr' we expect to be something like "daml2ts/".
   let ourPackages = map (T.pack . ((ldr ++ "/") ++)) ps
   bytes <- BSL.readFile file
