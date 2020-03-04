@@ -71,6 +71,7 @@ daml_compile(
 
 sh_test(
     name = "build-and-lint",
+    size = "large",
     srcs = ["build-and-lint.sh"],
     args = [
         "$(location //:java)",
@@ -117,6 +118,7 @@ sh_test(
 
 da_haskell_test(
     name = "daml2ts",
+    size = "large",
     srcs = ["src/DA/Test/Daml2Ts.hs"],
     args = [
         "$(location //:yarn)",
