@@ -12,7 +12,7 @@ However, in a DAML application running on a distributed ledger, the
 signatories of a contract have agreed to one specific version of a
 template. Changing the definition of a template, e.g., by extending it
 with a new choice without agreement from signatories of contracts of
-that template would completely break the authority guarantees provided
+that template would completely break the authorization guarantees provided
 by DAML.
 
 Therefore, DAML takes a different approach to upgrades and
@@ -49,7 +49,7 @@ A *Coin* has an issuer and an owner and both are signatories.  Our
 goal is to extend this *Coin* template with a field that represents
 the number of coins to avoid needing 1000 contracts to represent 1000
 coins. (In a real application, you would also want choices for merging
-and splitting such a *Coin*. For presentational purposes, we omit
+and splitting such a *Coin*. For the sake of simplicity, we omit
 those here.) We use a different name for the new template here. This
 is not required as templates are identified by the triple
 *(PackageId, ModuleName, TemplateName)*
@@ -59,11 +59,11 @@ is not required as templates are identified by the triple
   :start-after: -- COIN_AMOUNT_BEGIN
   :end-before: -- COIN_AMOUNT_END
 
-Now, that we defined our new template, we need to provide a way for
-the signatories issuer and owner to agree to a contract being
+Next, we need to provide a way for
+the signatories, issuer and owner, to agree to a contract being
 upgraded. It would be possible to structure this such that issuer and
-owner have to agree to an upgrade for each *Coin* contract
-separately. However, since the template definition for those is all
+owner have to agree to an upgrade for each individual *Coin* contract
+separately. However, since the template definition for all of them is
 the same, this is usually not necessary for most
 applications. Instead, we collect agreement from the signatories only
 once and use that to upgrade all coins. Since there are multiple
@@ -79,9 +79,9 @@ an *UpgradeCoinAgreement*.
   :end-before: -- UPGRADE_PROPOSAL_END
 
 Now we can define the *UpgradeCoinAgreement* template. This template
-has one *nonconsuming* choice that accepts a *Coin* contract, archives
+has one *nonconsuming* choice that takes the contract ID of a *Coin* contract, archives
 this *Coin* contract and creates a *CoinWithAmount* contract with
-*amount* set to 1.
+the same issuer and owner and  the *amount* set to 1.
 
 .. literalinclude:: example/coinV2/daml/UpgradeFromCoinV1.daml
   :language: daml
