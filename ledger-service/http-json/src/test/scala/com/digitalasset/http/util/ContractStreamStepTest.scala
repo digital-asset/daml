@@ -24,6 +24,9 @@ class ContractStreamStepTest
   import ContractStreamStepTest._, ContractStreamStep._
   import InsertDeleteStepTest._
 
+  override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 100)
+
   behavior of "append"
 
   it should "be associative for valid streams" in forAll(validStreamGen) { csses =>

@@ -29,11 +29,13 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
         Txn(toInsertDelete, off)
       case (Acs(_) | Txn(_, _), Txn(ostep, off)) =>
         Txn(toInsertDelete append ostep, off)
-      case (LiveBegin(_), Txn(_, _) | LiveBegin(_)) => o
+      case (LiveBegin(_), Txn(_, _)) => o
       // the following cases should never happen in a real stream; we attempt to
       // provide definitions that make `append` totally associative, anyway
-      case (Acs(_), LiveBegin(LedgerBegin)) => this
-      case (LiveBegin(LedgerBegin), Acs(_)) => o
+      case (Acs(_) | LiveBegin(_), LiveBegin(LedgerBegin)) => this
+      case (LiveBegin(LedgerBegin), Acs(_) | LiveBegin(_)) |
+          (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
+        o
       case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
       case (Txn(step, off), Acs(_) | LiveBegin(LedgerBegin)) =>
         Txn(step append o.toInsertDelete, off)
