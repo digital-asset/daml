@@ -114,10 +114,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         _ <- AkkaResourceOwner.forActorSystem(() => system)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
-        apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
-          initialValue = (None, startupMode),
+        apiServer <- ResettableResourceOwner[ApiServer, (Boolean, Option[Port], StartupMode)](
+          initialValue = (true, None, startupMode),
           owner = reset => {
-            case (currentPort, startupMode) =>
+            case (firstTime, currentPort, startupMode) =>
               for {
                 _ <- startupMode match {
                   case StartupMode.MigrateAndStart =>
@@ -138,8 +138,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                _ <- ResourceOwner.forFuture(() =>
-                  Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
+                _ <- if (firstTime) {
+                  ResourceOwner.forFuture(() =>
+                    Future.sequence(config.damlPackages.map(uploadDar(_, ledger))).map(_ => ()))
+                } else {
+                  ResourceOwner.unit
+                }
                 _ <- new StandaloneIndexerServer(
                   readService = ledger,
                   config = IndexerConfig(
@@ -208,7 +212,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
               }
           },
           resetOperation =
-            apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart))
+            apiServer => Future.successful((false, Some(apiServer.port), StartupMode.ResetAndStart))
         )
       } yield apiServer.port
     }
