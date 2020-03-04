@@ -4,16 +4,20 @@
 package com.digitalasset.http
 package util
 
+import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
+
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.scalacheck.ScalaCheckBinding._
+import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply._
 import scalaz.syntax.semigroup._
-import scalaz.{@@, Semigroup, Tag}
+import scalaz.{@@, Equal, Semigroup, Tag}
 
 class ContractStreamStepTest
     extends FlatSpec
+    with FlatSpecCheckLaws
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
@@ -32,7 +36,7 @@ class ContractStreamStepTest
     }
   }
 
-  it should "report the last offset" in forAll(anyCssGen, anyCssGen) { (a, b) =>
+  it should "report the last offset" in forAll { (a: CSS, b: CSS) =>
     def off(css: ContractStreamStep[_, _]) = css match {
       case Acs(_) => None
       case LiveBegin(off) => off.toOption
@@ -41,15 +45,19 @@ class ContractStreamStepTest
     off(a |+| b) should ===(off(b) orElse off(a))
   }
 
-  it should "preserve append across toInsertDelete" in forAll(anyCssGen, anyCssGen) { (a, b) =>
+  it should "preserve append across toInsertDelete" in forAll { (a: CSS, b: CSS) =>
     (a |+| b).toInsertDelete should ===(a.toInsertDelete |+| b.toInsertDelete)
   }
+
+  behavior of "append semigroup"
+
+  checkLaws(ScalazProperties.semigroup.laws[CSS])
 }
 
 object ContractStreamStepTest {
   import InsertDeleteStepTest._, InsertDeleteStep.Inserts, ContractStreamStep._
-  import org.scalacheck.Arbitrary.arbitrary
-  import org.scalacheck.Gen
+  import org.scalacheck.{Arbitrary, Gen}
+  import Arbitrary.arbitrary
 
   type CSS = ContractStreamStep[Unit, Cid]
 
@@ -70,6 +78,8 @@ object ContractStreamStepTest {
     liveBegin <- if (acsSeq.isEmpty) noAcsLBGen else postAcsGen
   } yield (acsSeq :+ liveBegin) ++ txnSeq
 
-  private val anyCssGen: Gen[CSS] =
-    Gen.frequency((4, acsGen), (1, noAcsLBGen), (1, postAcsGen), (4, txnGen))
+  private implicit val `CSS eq`: Equal[CSS] = Equal.equalA
+
+  private implicit val `anyCSS arb`: Arbitrary[CSS] =
+    Arbitrary(Gen.frequency((4, acsGen), (1, noAcsLBGen), (1, postAcsGen), (4, txnGen)))
 }
