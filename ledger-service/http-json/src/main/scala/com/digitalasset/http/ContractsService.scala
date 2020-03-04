@@ -249,11 +249,10 @@ class ContractsService(
             .leftMap(e => Error('searchInMemory, e.shows))
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
-        (
-          errors,
-          converted copy (inserts = converted.inserts filter (ac =>
-            funPredicates(ac.templateId)(ac.payload))),
-        )
+        val convertedInserts = converted.inserts filter { ac =>
+          funPredicates.get(ac.templateId).cata(f => f(ac.payload), false)
+        }
+        (errors, converted.copy(inserts = convertedInserts))
       }
       .fold(empty) {
         case ((errL, stepL), (errR, stepR)) =>
