@@ -528,8 +528,14 @@ traceId : Show b => b -> b
 traceId x = trace x x
 
 -- | `debug x` prints `x` for debugging purposes.
-debug : (Show b, Applicative m) => b -> m ()
-debug x = trace x (pure ())
+debug : (Show b, Action m) => b -> m ()
+debug x =
+  -- NOTE (MK): We introduce an explicit indirection via >>=
+  -- to make sure that evaluating something like
+  -- `debug x >> pure ()` does not print the debug statement.
+  -- Instead it will only be printed when you execute the monadic
+  -- action.
+  pure () >>= \_ -> pure (trace x ())
 
 -- | Return the first element of a tuple.
 fst : (a, b) -> a
