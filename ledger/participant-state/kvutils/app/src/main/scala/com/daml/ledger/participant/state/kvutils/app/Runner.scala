@@ -8,7 +8,6 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, SeedService, SubmissionId, WriteService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -24,7 +23,9 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Runner[Extra](name: String, factory: LedgerFactory[ReadService, WriteService, Extra]) {
+class Runner[T <: ReadWriteService, Extra](
+    name: String,
+    factory: LedgerFactory[ReadWriteService, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -48,11 +49,8 @@ class Runner[Extra](name: String, factory: LedgerFactory[ReadService, WriteServi
         // initialize all configured participants
         _ <- ResourceOwner.sequence(config.participants.map { participantConfig =>
           for {
-            readService <- factory
-              .readServiceOwner(config, participantConfig)
-            writeService <- factory
-              .writeServiceOwner(config, participantConfig)
-            ledger = new KeyValueParticipantState(readService, writeService)
+            ledger <- factory
+              .readWriteServiceOwner(config, participantConfig)
             _ <- ResourceOwner.forFuture(() =>
               Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
             _ <- startParticipant(config, participantConfig, ledger)
@@ -62,7 +60,7 @@ class Runner[Extra](name: String, factory: LedgerFactory[ReadService, WriteServi
     }
   }
 
-  private def uploadDar(from: Path, to: WriteService)(
+  private def uploadDar(from: Path, to: ReadWriteService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)

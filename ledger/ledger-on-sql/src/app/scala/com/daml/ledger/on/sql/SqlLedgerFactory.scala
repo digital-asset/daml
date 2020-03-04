@@ -4,19 +4,20 @@
 package com.daml.ledger.on.sql
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.api.{
-  KeyValueParticipantStateReader,
-  KeyValueParticipantStateWriter
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.app.{
+  Config,
+  LedgerFactory,
+  ParticipantConfig,
+  ReadWriteService
 }
-import com.daml.ledger.participant.state.kvutils.app.{Config, LedgerFactory, ParticipantConfig}
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
 
-object SqlLedgerFactory extends LedgerFactory[ReadService, WriteService, ExtraConfig] {
+object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
     jdbcUrl = None,
   )
@@ -33,51 +34,24 @@ object SqlLedgerFactory extends LedgerFactory[ReadService, WriteService, ExtraCo
   override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config.copy(participants = config.participants.map(_.copy(allowExistingSchemaForIndex = true)))
 
-  override def readServiceOwner(
+  override def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
       logCtx: LoggingContext,
-  ): ResourceOwner[ReadService] = {
+  ): ResourceOwner[ReadWriteService] = {
     val jdbcUrl = config.extra.jdbcUrl.getOrElse {
       throw new IllegalStateException("No JDBC URL provided.")
     }
     for {
-      ledgerReadWriter <- owner(config, participantConfig, jdbcUrl)
-    } yield new KeyValueParticipantStateReader(ledgerReadWriter)
-  }
-
-  override def writeServiceOwner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ): ResourceOwner[WriteService] = {
-    val jdbcUrl = config.extra.jdbcUrl.getOrElse {
-      throw new IllegalStateException("No JDBC URL provided.")
-    }
-    for {
-      ledgerReadWriter <- owner(config, participantConfig, jdbcUrl)
-    } yield new KeyValueParticipantStateWriter(ledgerReadWriter)
-  }
-
-  private def owner(
-      config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig,
-      jdbcUrl: String)(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ) = {
-    SqlLedgerReaderWriter.owner(
-      config.ledgerId,
-      participantConfig.participantId,
-      jdbcUrl,
-      SqlLedgerReaderWriter.DefaultTimeProvider
-    )
+      ledgerReadWriter <- SqlLedgerReaderWriter.owner(
+        config.ledgerId,
+        participantConfig.participantId,
+        jdbcUrl,
+        SqlLedgerReaderWriter.DefaultTimeProvider
+      )
+    } yield new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter)
   }
 }

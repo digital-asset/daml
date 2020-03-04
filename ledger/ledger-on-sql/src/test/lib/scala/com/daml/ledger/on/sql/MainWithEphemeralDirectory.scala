@@ -10,9 +10,9 @@ import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   LedgerFactory,
   ParticipantConfig,
+  ReadWriteService,
   Runner
 }
-import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
@@ -26,7 +26,7 @@ object MainWithEphemeralDirectory {
     new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
   }
 
-  object TestLedgerFactory extends LedgerFactory[ReadService, WriteService, ExtraConfig] {
+  object TestLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
@@ -35,32 +35,17 @@ object MainWithEphemeralDirectory {
     override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
       SqlLedgerFactory.manipulateConfig(config)
 
-    override def readServiceOwner(
+    override def readWriteServiceOwner(
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig
     )(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[ReadService] = {
+    ): ResourceOwner[ReadWriteService] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.readServiceOwner(
-        config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
-        participantConfig)
-    }
-
-    override def writeServiceOwner(
-        config: Config[ExtraConfig],
-        participantConfig: ParticipantConfig
-    )(
-        implicit executionContext: ExecutionContext,
-        materializer: Materializer,
-        logCtx: LoggingContext,
-    ): ResourceOwner[WriteService] = {
-      val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
-      val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.writeServiceOwner(
+      SqlLedgerFactory.readWriteServiceOwner(
         config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
         participantConfig)
     }
