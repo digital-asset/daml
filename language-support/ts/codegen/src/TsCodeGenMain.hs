@@ -141,13 +141,8 @@ packageNameStr :: PackageId -> Maybe PackageName -> String
 packageNameStr pkgId mbPkgIdent =
   T.unpack (maybe (unPackageId pkgId) unPackageName mbPkgIdent)
 
-newtype Scope = Scope String
-unscope :: Scope -> String
-unscope (Scope s) = s
-
-newtype Dependency = Dependency String deriving (Eq, Ord)
-undependency :: Dependency -> String
-undependency (Dependency d) = d
+newtype Scope = Scope {unscope :: String}
+newtype Dependency = Dependency {undependency :: String}  deriving (Eq, Ord)
 
 -- Gives the scope '@foo' given a directory path like '/path/to/foo'.
 scopeOfScopeDir :: FilePath -> Scope
