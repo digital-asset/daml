@@ -75,7 +75,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)])
     : Either[Set[SequencingError], ALS] = {
-    // NOTE(RC): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
+    // NOTE(RA): `globalImplicitDisclosure` was meant to refer to contracts created in previous transactions.
     // However, because we have translated relative to absolute IDs at this point, `globalImplicitDisclosure`
     // will also point to contracts created in the same transaction.
     //

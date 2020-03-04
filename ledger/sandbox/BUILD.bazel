@@ -37,7 +37,6 @@ compile_deps = [
     "//ledger/participant-state/kvutils",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
-    "//libs-scala/grpc-utils",
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",

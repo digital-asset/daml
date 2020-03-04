@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -19,7 +19,6 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFi
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -144,20 +143,13 @@ trait LedgerReadDao extends ReportsHealth {
     *
     * @param deduplicationKey The key used to deduplicate commands
     * @param submittedAt The time when the command was submitted
-    * @param ttl The time until which the command should be deduplicated
+    * @param deduplicateUntil The time until which the command should be deduplicated
     * @return
     */
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      ttl: Instant): Future[Option[CommandDeduplicationEntry]]
-
-  /** Sets the result of a command, so that duplicate submissions can return the original result */
-  def updateCommandResult(
-      deduplicationKey: String,
-      submittedAt: Instant,
-      code: Int,
-      message: Option[String]): Future[Unit]
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

@@ -21,6 +21,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
@@ -45,6 +46,7 @@ class SubmitRequestValidatorTest
     val submitter = "party"
     val let = TimestampConversion.fromInstant(Instant.now)
     val mrt = TimestampConversion.fromInstant(Instant.now)
+    val deduplicationTime = new Duration().withSeconds(10)
     val command =
       Command(
         Command.Command.Create(CreateCommand(
@@ -62,7 +64,8 @@ class SubmitRequestValidatorTest
       submitter,
       Some(let),
       Some(mrt),
-      Seq(command)
+      Seq(command),
+      Some(deduplicationTime)
     )
   }
 
@@ -70,6 +73,9 @@ class SubmitRequestValidatorTest
 
     val let = TimestampConversion.toInstant(api.let)
     val mrt = TimestampConversion.toInstant(api.mrt)
+    val submittedAt = Instant.EPOCH
+    val maxDeduplicationTime = java.time.Duration.ofDays(1)
+    val deduplicateUntil = submittedAt.plusSeconds(api.deduplicationTime.seconds)
 
     val emptyCommands = ApiCommands(
       ledgerId,
@@ -79,7 +85,8 @@ class SubmitRequestValidatorTest
       DomainMocks.party,
       let,
       mrt,
-      None,
+      submittedAt = submittedAt,
+      deduplicateUntil = deduplicateUntil,
       LfCommands(
         DomainMocks.party,
         ImmArray(
@@ -116,20 +123,32 @@ class SubmitRequestValidatorTest
     "validating command submission requests" should {
       "reject requests with empty commands" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.withCommands(Seq.empty)),
+          commandsValidator.validateCommands(
+            api.commands.withCommands(Seq.empty),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: commands")
+          "Missing field: commands"
+        )
       }
 
       "not allow missing ledgerId" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.withLedgerId("")),
+          commandsValidator
+            .validateCommands(
+              api.commands.withLedgerId(""),
+              internal.submittedAt,
+              internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: ledger_id")
+          "Missing field: ledger_id"
+        )
       }
 
       "tolerate a missing workflowId" in {
-        commandsValidator.validateCommands(api.commands.withWorkflowId("")) shouldEqual Right(
+        commandsValidator.validateCommands(
+          api.commands.withWorkflowId(""),
+          internal.submittedAt,
+          internal.maxDeduplicationTime) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
             commands = internal.emptyCommands.commands.copy(commandsReference = "")))
@@ -137,21 +156,33 @@ class SubmitRequestValidatorTest
 
       "not allow missing applicationId" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.withApplicationId("")),
+          commandsValidator.validateCommands(
+            api.commands.withApplicationId(""),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: application_id")
+          "Missing field: application_id"
+        )
       }
 
       "not allow missing commandId" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.withCommandId("")),
+          commandsValidator.validateCommands(
+            api.commands.withCommandId(""),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: command_id")
+          "Missing field: command_id"
+        )
       }
 
       "not allow missing submitter" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.withParty("")),
+          commandsValidator
+            .validateCommands(
+              api.commands.withParty(""),
+              internal.submittedAt,
+              internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
           """Missing field: party"""
         )
@@ -159,18 +190,60 @@ class SubmitRequestValidatorTest
 
       "not allow missing let" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.copy(ledgerEffectiveTime = None)),
+          commandsValidator.validateCommands(
+            api.commands.copy(ledgerEffectiveTime = None),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: ledger_effective_time")
+          "Missing field: ledger_effective_time"
+        )
 
       }
 
       "not allow missing mrt" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(api.commands.copy(maximumRecordTime = None)),
+          commandsValidator.validateCommands(
+            api.commands.copy(maximumRecordTime = None),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
-          "Missing field: maximum_record_time")
+          "Missing field: maximum_record_time"
+        )
       }
+
+      "not allow negative deduplication time" in {
+        requestMustFailWith(
+          commandsValidator.validateCommands(
+            api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
+          INVALID_ARGUMENT,
+          "Invalid field deduplication_time: Duration must be positive"
+        )
+      }
+
+      "not allow deduplication time exceeding maximum deduplication time" in {
+        val manySeconds = 100000L
+        requestMustFailWith(
+          commandsValidator.validateCommands(
+            api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
+            internal.submittedAt,
+            internal.maxDeduplicationTime),
+          INVALID_ARGUMENT,
+          s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
+            .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}"
+        )
+      }
+
+      "default to maximum deduplication time if deduplication time is missing" in {
+        commandsValidator.validateCommands(
+          api.commands.copy(deduplicationTime = None),
+          internal.submittedAt,
+          internal.maxDeduplicationTime) shouldEqual Right(
+          internal.emptyCommands.copy(
+            deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)))
+      }
+
     }
 
     "validating contractId values" should {

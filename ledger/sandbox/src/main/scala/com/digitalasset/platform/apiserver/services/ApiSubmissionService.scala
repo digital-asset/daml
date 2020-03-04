@@ -3,15 +3,13 @@
 
 package com.digitalasset.platform.apiserver.services
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
-  CommandDeduplicationDuplicateWithResult,
   CommandDeduplicationNew,
-  CommandSubmissionResult,
   ContractStore,
   IndexSubmissionService
 }
@@ -35,7 +33,6 @@ import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.GrpcException
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
@@ -52,7 +49,6 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -85,14 +81,17 @@ object ApiSubmissionService {
         commandExecutor,
         configuration,
         metrics),
-      ledgerId
+      ledgerId,
+      () => Instant.now(),
+      () => configuration.maxDeduplicationTime
     )
 
   object RecordUpdate {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
-  final case class Configuration(maxTtl: FiniteDuration)
+  // TODO(RA): this should be updated dynamically from the ledger configuration
+  final case class Configuration(maxDeduplicationTime: Duration)
 }
 
 final class ApiSubmissionService private (
@@ -132,46 +131,18 @@ final class ApiSubmissionService private (
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
       implicit logCtx: LoggingContext): Future[Unit] = {
     val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
-    val submittedAt = Instant.now
-    val ttl = submittedAt.plusNanos(commands.ttl.getOrElse(configuration.maxTtl).toNanos)
+    val submittedAt = commands.submittedAt
+    val deduplicateUntil = commands.deduplicateUntil
 
-    submissionService.deduplicateCommand(deduplicationKey, submittedAt, ttl).flatMap {
+    submissionService.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil).flatMap {
       case CommandDeduplicationNew =>
         recordOnLedger(seed, commands)
           .transform(mapSubmissionResult)
-          .andThen {
-            case Success(_) =>
-              submissionService.updateCommandResult(
-                deduplicationKey,
-                submittedAt,
-                CommandSubmissionResult(Status.OK.getCode.value(), None))
-            case Failure(GrpcException(status, _)) =>
-              submissionService
-                .updateCommandResult(
-                  deduplicationKey,
-                  submittedAt,
-                  CommandSubmissionResult(status.getCode.value(), Option(status.getDescription)))
-            case Failure(error) =>
-              submissionService
-                .updateCommandResult(
-                  deduplicationKey,
-                  submittedAt,
-                  CommandSubmissionResult(Status.INTERNAL.getCode.value(), Some(error.getMessage)))
-          }
-      case CommandDeduplicationDuplicate(firstSubmittedAt) =>
+      case CommandDeduplicationDuplicate(_) =>
         Metrics.deduplicatedCommandsMeter.mark()
-        val reason =
-          s"Duplicate command submission. This command was submitted before at $firstSubmittedAt. The result of the submission is unknown."
+        val reason = s"A command with the same command ID and submitter was submitted before."
         logger.debug(reason)
         Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
-      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(0, _)) =>
-        Metrics.deduplicatedCommandsMeter.mark()
-        Future.successful(())
-      case CommandDeduplicationDuplicateWithResult(CommandSubmissionResult(code, message)) =>
-        Metrics.deduplicatedCommandsMeter.mark()
-        val status = message.fold(Status.fromCodeValue(code))(msg =>
-          Status.fromCodeValue(code).augmentDescription(msg))
-        Future.failed(status.asRuntimeException)
     }
   }
 

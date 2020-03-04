@@ -3,6 +3,8 @@
 
 package com.digitalasset.ledger.api.validation
 
+import java.time.{Duration, Instant}
+
 import com.digitalasset.ledger.api.messages.command.submission
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.platform.server.api.validation.FieldValidations.requirePresence
@@ -12,10 +14,15 @@ import io.grpc.StatusRuntimeException
 class SubmitAndWaitRequestValidator(commandsValidator: CommandsValidator) {
 
   def validate(
-      req: SubmitAndWaitRequest): Either[StatusRuntimeException, submission.SubmitRequest] =
+      req: SubmitAndWaitRequest,
+      currentTime: Instant,
+      maxDeduplicationTime: Duration): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
-      validatedCommands <- commandsValidator.validateCommands(commands)
+      validatedCommands <- commandsValidator.validateCommands(
+        commands,
+        currentTime,
+        maxDeduplicationTime)
     } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
 
 }
