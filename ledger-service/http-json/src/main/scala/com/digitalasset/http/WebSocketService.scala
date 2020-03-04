@@ -26,10 +26,11 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.std.map._
+import scalaz.std.option.{none, some}
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsObject, JsString, JsTrue, JsValue}
+import spray.json.{JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -46,7 +47,16 @@ object WebSocketService {
   )
 
   val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
-  private val liveMarker = JsObject("live" -> JsTrue)
+
+  private def withOptPrefix[I, L, O](fst: I => (L \/ O))(snd: (L, I) => O): Flow[I, O, NotUsed] =
+    Flow[I]
+      .scan((none[L], none[O])) { (s, i) =>
+        val (ol, _) = s
+        ol.cata(
+          l => (none, some(snd(l, i))),
+          fst(i) fold (l => (some(l), none), o => (none, some(o))))
+      }
+      .collect { case (_, Some(o)) => o }
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
@@ -358,13 +368,6 @@ class WebSocketService(
     TextMessage(
       JsObject("error" -> JsString(errorMsg)).compactPrint
     )
-
-  private def prepareFilters(
-      ids: Iterable[domain.TemplateId.RequiredPkg],
-      queryExpr: Map[String, JsValue]): CompiledQueries =
-    ids.iterator.map { tid =>
-      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
-    }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
