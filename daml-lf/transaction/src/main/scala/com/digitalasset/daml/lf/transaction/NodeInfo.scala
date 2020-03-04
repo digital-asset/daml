@@ -49,8 +49,15 @@ object NodeInfo {
     def stakeholders: Set[Party]
     def actingParties: Option[Set[Party]]
 
-    final def requiredAuthorizers: Set[Party] = actingParties.get
-    final def informeesOfNode: Set[Party] = signatories | actingParties.get
+    final def requiredAuthorizers: Set[Party] =
+      actingPartiesOrThrow
+    final def informeesOfNode: Set[Party] =
+      signatories | actingPartiesOrThrow
+
+    private[this] def actingPartiesOrThrow: Set[Party] =
+      actingParties.fold(
+        throw new IllegalStateException(
+          "'Fetch.actingParties' should always be present but is 'None'"))(identity)
   }
 
   trait Exercise extends NodeInfo {
