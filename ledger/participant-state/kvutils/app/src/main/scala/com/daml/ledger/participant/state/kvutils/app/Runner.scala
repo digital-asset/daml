@@ -24,9 +24,7 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class Runner[T <: ReadWriteService, Extra](
-    name: String,
-    factory: LedgerFactory[ReadService, WriteService, Extra]) {
+class Runner[Extra](name: String, factory: LedgerFactory[ReadService, WriteService, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -64,7 +62,7 @@ class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def uploadDar(from: Path, to: ReadWriteService)(
+  private def uploadDar(from: Path, to: WriteService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
