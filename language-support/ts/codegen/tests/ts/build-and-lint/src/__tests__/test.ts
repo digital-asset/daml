@@ -6,8 +6,8 @@ import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
-import * as Main from '../daml/daml2ts-test/Main';
-import * as LibMod from '../daml/daml2ts-test/Lib/Mod';
+import * as Main from '../../../daml2ts/build-and-lint-pkg/lib/Main';
+import * as LibMod from '../../../daml2ts/build-and-lint-pkg/lib/Lib/Mod';
 
 const LEDGER_ID = 'daml2ts-tests';
 const APPLICATION_ID = 'daml2ts-tests';

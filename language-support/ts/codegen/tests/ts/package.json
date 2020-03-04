@@ -3,6 +3,6 @@
   "workspaces": [
     "daml-types",
     "daml-ledger",
-    "generated"
+    "build-and-lint"
   ]
 }
