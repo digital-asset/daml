@@ -83,7 +83,7 @@ case class InMemoryPackageStore(
         )
       case Some(oldDetails) =>
         // Note: we are discarding the new metadata (size, known since, source description)
-        logger.warn(
+        logger.debug(
           s"Ignoring duplicate upload of package $pkgId. Existing package: $oldDetails, new package: $details")
         this
     }
