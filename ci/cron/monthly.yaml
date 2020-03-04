@@ -11,7 +11,7 @@ trigger: none
 
 # Run on schedule: first Monday of each month at 4AM UTC
 schedules:
-  - cron: '0 4 1-7 * Mon'
+  - cron: '0 6 1-7 * Mon'
     displayName: monthly
     branches:
       include:
