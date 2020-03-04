@@ -104,9 +104,8 @@ object WebSocketService {
       .batchWeighted(
         max = maxCost,
         costFn = {
-          case StepAndErrors(_, ContractStreamStep.LiveBegin(_)) =>
-            // this is how we avoid conflating LiveBegin
-            maxCost
+          case StepAndErrors(errors, ContractStreamStep.LiveBegin(_)) =>
+            1L + errors.length
           case StepAndErrors(errors, step) =>
             val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
             errors.length.toLong + (inserts.length * 2) + deletes.size
