@@ -64,15 +64,18 @@ For full details, see :ref:`the proto documentation for the service <com.digital
 Command deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands:
+The command submission service deduplicates submitted commands based on the submitting :ref:`party <com.digitalasset.ledger.api.v1.Commands.party>` and :ref:`command ID <com.digitalasset.ledger.api.v1.Commands.command_id>`:
 
-- Applications can assign a "time to live" (TTL) value to each command.
-- Duplicate command submissions (using the same submitter and command ID) will be ignored until either the TTL of the original command has elapsed or the original submission was rejected, whichever comes first.
-- Command deduplication is only guaranteed to work if all commands are submitted to the same participant. On some ledgers, the deduplication may also work across participants.
+- Applications can provide a :ref:`deduplication time <com.digitalasset.ledger.api.v1.Commands.deduplication_time>` for each command. If this parameter is not set, the default maximum deduplication time is used.
+- A command submission is considered a duplicate submission if the ledger server receives the command within the deduplication time of a previous command with the same command ID from the same submitting party.
+- Duplicate command submissions will be ignored until either the deduplication time of the original command has elapsed or the original submission was rejected (i.e. the command failed and resulted in a rejected transaction), whichever comes first.
+- Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
 - A command submission will return:
-  - The result of the submission, if the command was submitted for the first time
-  - The status error ALREADY_EXISTS, if the command was deduplicated and the result of the first submission is unknown
-  - The result of the original submission, if the command was deduplicated and the result of the original submission is known
+
+  - The result of the submission (``Empty`` or a gRPC error), if the command was submitted outside of the deduplication time of a previous command with the same command ID on the same participant.
+  - The status error ``ALREADY_EXISTS``, if the command was discarded by the ledger server because it was sent within the deduplication time of a previous command with the same command ID.
+
+- If the ledger provides additional command deduplication across participants, the initial command submission might be successful, but ultimately the command can be rejected if the deduplication check fails on the ledger.
 
 For details on how to use command deduplication, see the :ref:`Application Architecture Guide <handling-submission-failures>`.
 
