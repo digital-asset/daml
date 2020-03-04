@@ -46,6 +46,16 @@ class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
       }
     }
 
+  def reset()(implicit executionContext: ExecutionContext): Future[Unit] =
+    dataSource.use { ds =>
+      Future {
+        val flyway = configurationBase(dbType).dataSource(ds).load()
+        logger.info("Running Flyway clean...")
+        flyway.clean()
+        logger.info("Flyway schema clean finished successfully.")
+      }
+    }
+
   private def dataSource: ResourceOwner[HikariDataSource] =
     HikariConnection.owner(jdbcUrl, "daml.index.db.migration", 2, 2, 250.millis, None)
 }

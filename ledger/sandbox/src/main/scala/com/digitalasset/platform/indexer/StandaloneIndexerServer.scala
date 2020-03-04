@@ -12,8 +12,6 @@ import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-// Main entry point to start an indexer server.
-// See v2.ReferenceServer for the usage
 final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
