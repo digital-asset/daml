@@ -6,10 +6,11 @@ module DA.Daml.LF.Mangling (mangleIdentifier, unmangleIdentifier) where
 
 import Data.Bits
 import Data.Char
-import qualified Data.Set as Set
+import Data.Either (fromRight)
 import qualified Data.Text as T
-import qualified Data.Text.Internal as T (text)
 import qualified Data.Text.Array as TA
+import qualified Data.Text.Internal as T (text)
+import qualified Data.Text.Read as T
 import Data.Word
 
 -- DAML-LF talks about *identifier* to build up different kind of
@@ -108,39 +109,42 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
 
 unmangleIdentifier :: T.Text -> Either String T.Text
 unmangleIdentifier txt = do
-  chs <- goStart (T.unpack txt)
-  if null chs
+  chs <- goStart txt
+  if T.null chs
     then Left "Empty identifier"
-    else Right (T.pack chs)
+    else Right chs
   where
-    go :: (Char -> Bool) -> (String -> Either String String) -> String -> Either String String
-    go isAllowed followUp = \case
-      [] -> Right []
-      ['$'] -> Left "Got control character $ with nothing after it. It should be followed by $, u, or U"
-      '$' : ctrlCh : chs0 -> case ctrlCh of
-        '$' -> ('$' :) <$> followUp chs0
-        'u' -> do
-          (ch, chs1) <- readEscaped "$u" 4 chs0
-          (ch :) <$> followUp chs1
-        'U' -> do
-          (ch, chs1) <- readEscaped "$U" 8 chs0
-          (ch :) <$> followUp chs1
-        ch -> Left ("Control character $ should be followed by $, u, or U, but got " ++ show ch)
-      ch : chs -> if isAllowed ch
-        then (ch :) <$> followUp chs
-        else Left ("Unexpected unescaped character " ++ show ch)
-    
+    go :: (Char -> Bool) -> (T.Text -> Either String T.Text) -> T.Text -> Either String T.Text
+    go isAllowed followUp s
+        | T.null s = Right T.empty
+        | Just ('$', s) <- T.uncons s =
+              case T.uncons s of
+                  Just ('$', s) -> T.cons '$' <$> followUp s
+                  Just ('u', s) -> do
+                      (ch, s') <- readEscaped "$u" 4 s
+                      T.cons ch <$> followUp s'
+                  Just ('U', s) -> do
+                      (ch, s') <- readEscaped "$U" 8 s
+                      T.cons ch <$> followUp s'
+                  _ -> Left "Control character $ should be followed by $, u or U"
+        | otherwise = case T.span isAllowed s of
+              (prefix, suffix)
+                  | T.null prefix -> Left ("Unexpected unescaped character " ++ show (T.head suffix))
+                  | otherwise -> fmap (prefix <>) (followUp suffix)
+
     goStart = go isAllowedStart goPart
     goPart = go isAllowedPart goPart
 
     readEscaped what n chs0 = let
-      (escaped, chs) = splitAt n chs0
+      (escaped, chs) = T.splitAt n chs0
       in if
-        | length escaped < n ->
-            Left ("Expected " ++ show n ++ " characters after " ++ what ++ ", but got " ++ show (length escaped))
-        | not (all (`Set.member` escapeSequencesChars) escaped) ->
+        | T.length escaped < n ->
+            Left ("Expected " ++ show n ++ " characters after " ++ what ++ ", but got " ++ show (T.length escaped))
+        | not (T.all isEscapeSequenceChars escaped) ->
             Left ("Expected only lowercase hex code in escape sequences, but got " ++ show escaped)
-        | otherwise -> Right (toEnum (read ("0x" ++ escaped)), chs)
+        | otherwise ->
+          -- We’ve already done the validation so fromRight is safe.
+          Right (toEnum (fst $ fromRight (error $ "Internal error in unmangleIdentifier: " <> show escaped) $ T.hexadecimal escaped), chs)
 
     -- only lowercase, as per printf
-    escapeSequencesChars = Set.fromList (['a'..'f'] ++ ['0'..'9'])
+    isEscapeSequenceChars c = isDigit c || c >= 'a' && c <= 'f'
