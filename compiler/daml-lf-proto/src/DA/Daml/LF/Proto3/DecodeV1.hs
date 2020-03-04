@@ -113,13 +113,9 @@ decodeValueName ident mangledV dnId = do
     mangled <- decodeInternableStrings mangledV dnId
     case mangled of
         [] -> throwError $ MissingField ident
-        [unmangled] -> do
-            mangled <- decodeNameString id unmangled
-            case unmangleIdentifier mangled of
-                Right unmangled -> pure $ ExprValName unmangled
-                -- NOTE(MH): This is an ugly hack to keep backwards compatibility.
-                -- We need to fix this in DAML-LF 2.
-                Left _ -> pure $ ExprValName mangled
+        [mangled] -> do
+            unmangled <- decodeNameString id mangled
+            pure $ ExprValName unmangled
         _ -> throwError $ ParseError $ "Unexpected multi-segment def name: " ++ show mangledV ++ "//" ++ show mangled
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
