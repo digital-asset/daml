@@ -9,7 +9,7 @@ import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.PostgresResource
 
 final class ResetServiceOnPostgresqlIT extends ResetServiceITBase with SandboxNextFixture {
-  override def spanScaleFactor: Double = super.spanScaleFactor * 2
+  override def spanScaleFactor: Double = super.spanScaleFactor * 4
 
   override protected def database: Option[ResourceOwner[String]] =
     Some(PostgresResource.owner().map(_.jdbcUrl))
