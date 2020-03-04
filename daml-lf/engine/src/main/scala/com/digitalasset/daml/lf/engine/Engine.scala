@@ -4,8 +4,6 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.util.concurrent.TimeUnit
-
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
@@ -43,18 +41,21 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   * even if `result1` and `result2` request to dereference the same id.
   * <p>
   *
-  * This class is thread safe.
+  * The class requires a pseudo random generator (`nextRandomInt`) to randomize the
+  * submission time. This generator does not have to be cryptographically secure.
+  * <p>
+  *
+  * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine {
+final class Engine(nextRandomInt: () => Int) {
   private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
     _compiledPackages)
 
-  // We want to make the submission different from the ledgerTime,
-  // then we pick a random time +/- 5ms around ledger time
-  private val submissionTimeWindow = TimeUnit.MILLISECONDS.toMicros(10).toDouble
-  private def deriveSubmissionTime(ledgerTime: Time.Timestamp): Time.Timestamp =
-    ledgerTime.addMicros(((scala.util.Random.nextGaussian() - 0.5) * submissionTimeWindow).toLong)
+  // We want to make the submissionTime different from the ledgerTime,
+  // then we pick a random time +/- 10 micro seconds around ledger time
+  private def deriveSubmissionTime(ledgerTime: Time.Timestamp) =
+    ledgerTime.addMicros((nextRandomInt() % 11).toLong)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -465,5 +466,5 @@ final class Engine {
 }
 
 object Engine {
-  def apply(): Engine = new Engine()
+  def apply(): Engine = new Engine(() => scala.util.Random.nextInt())
 }
