@@ -59,7 +59,7 @@ object InsertDeleteStepTest {
   implicit val `Alpha arb`: Arbitrary[Cid] = Cid subst Arbitrary(
     Gen.alphaUpperChar map (_.toString))
 
-  private implicit val `IDS monoid`
+  private[util] implicit val `IDS monoid`
     : Monoid[IDS] = Monoid instance (_.append(_)(Cid.unwrap), InsertDeleteStep(
     Vector.empty,
     Map.empty,
