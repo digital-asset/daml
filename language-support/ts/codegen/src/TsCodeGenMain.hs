@@ -13,6 +13,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
+import qualified Data.Text.IO
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
@@ -129,34 +130,24 @@ main = do
         dependencies <-
           forM (Map.toList pm) $
             \(pkgId, (mbPkgName, pkg)) -> do
-                 let id = T.unpack $ unPackageId pkgId
-                     name = packageNameStr pkgId mbPkgName
+                 let id = unPackageId pkgId
+                     name = packageNameText pkgId mbPkgName
                      asName = if name == id then "itself" else name
-                 putStrLn $ "Generating " <> id <> " as " <> asName
+                 Data.Text.IO.putStrLn $ "Generating " <> id <> " as " <> asName
                  deps <- daml2ts opts pm pkgId pkg mbPkgName damlTypesVersion packageVersion
                  pure (name, name, deps)
         whenJust optInputPackageJson $
           writeTopLevelPackageJson optOutputDir dependencies
 
-packageNameStr :: PackageId -> Maybe PackageName -> String
-packageNameStr pkgId mbPkgIdent =
-  T.unpack (maybe (unPackageId pkgId) unPackageName mbPkgIdent)
+packageNameText :: PackageId -> Maybe PackageName -> T.Text
+packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
 newtype Scope = Scope {unscope :: String}
 newtype Dependency = Dependency {undependency :: String}  deriving (Eq, Ord)
 
--- Gives the scope '@foo' given a directory path like '/path/to/foo'.
+-- Gives the scope 'foo' given a directory path like '/path/to/foo'.
 scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . ("@" <>) . takeFileName
-
--- From the path to a package like '/path/to/daml2ts/d14e08'
--- calculates '@daml2ts/d14e08' suitable for use as the "name" field
--- of a 'package.json'.
-packageNameOfPackageDir :: FilePath -> String
-packageNameOfPackageDir packageDir = scope <> "/" <> package
-  where
-    scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
-    package = takeFileName packageDir
+scopeOfScopeDir = Scope . takeFileName
 
 -- Write the files for a single package.
 daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
@@ -164,12 +155,12 @@ daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
 daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
     let scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
-        packageDir = scopeDir </> packageNameStr pkgId mbPkgName
+        packageDir = scopeDir </> T.unpack (packageNameText pkgId mbPkgName)
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
         scope = scopeOfScopeDir scopeDir
-          -- The scope e.g. '@daml2ts'.
+          -- The scope e.g. 'daml2ts'.
           -- We use this, for example, when generating import declarations e.g.
           --   'import * as pkgd14e08_DA_Internal_Template from @daml2ts/d14e08/lib/DA/Internal/Template';'
     createDirectoryIfMissing True packageSrcDir
@@ -241,7 +232,7 @@ genModule pm (Scope scope) curPkgId mod
       PRSelf -> ""
       PRImport pkgId ->
         maybe (error "IMPOSSIBLE : package map malformed")
-        (\(mbPkgName, _) -> T.pack $ packageNameStr pkgId mbPkgName)
+        (\(mbPkgName, _) -> packageNameText pkgId mbPkgName)
         (Map.lookup pkgId pm)
 
     -- Calculate the base part of a package ref string. For foreign
@@ -254,7 +245,7 @@ genModule pm (Scope scope) curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> T.pack scope
+        PRImport _ -> T.pack $ "@" <> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -610,12 +601,21 @@ writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depend
     packageName =  packageNameOfPackageDir packageDir
     dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> packageVersion <> "\""
                               | d <- depends
-                              , let pkg = scope ++ "/" ++ undependency d
+                              , let pkg = "@" ++ scope ++ "/" ++ undependency d
                               ]
+
+    -- From the path to a package like '/path/to/daml2ts/d14e08'
+    -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
+    -- of a 'package.json'.
+    packageNameOfPackageDir :: FilePath -> String
+    packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
+      where
+        scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
+        package = takeFileName packageDir
 
     withCommas :: [String] -> [String]
     withCommas [] = []
-    withCommas ms = reverse (head ms' : map (++",") (tail ms')) where ms' = reverse ms
+    withCommas ms = reverse (head ms' : map (++ ",") (tail ms')) where ms' = reverse ms
 
 -- This type describes the format of a "top-level" 'package.json'. We
 -- expect such files to have the format
@@ -643,14 +643,14 @@ instance ToJSON PackageJson where
 
 -- Read the provided 'package.json'; transform it to include the
 -- provided workspaces; write it back to disk.
-writeTopLevelPackageJson :: FilePath -> [(String, String, [Dependency])] -> FilePath -> IO ()
+writeTopLevelPackageJson :: FilePath -> [(T.Text, T.Text, [Dependency])] -> FilePath -> IO ()
 writeTopLevelPackageJson optOutputDir dependencies file = do
   let (g, nodeFromVertex) = graphFromEdges'
-        (map (\(a, b, ds) -> (a, b, map undependency ds)) dependencies)
+        (map (\(a, b, ds) -> (T.unpack a, T.unpack b, map undependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      ldr = fromJust (stripPrefix "@" (unscope (scopeOfScopeDir optOutputDir)))
-        -- 'ldr' we expect to be something like "daml2ts/".
+      ldr = unscope $ scopeOfScopeDir optOutputDir
+        -- 'ldr' we expect to be something like "daml2ts".
   let ourPackages = map (T.pack . ((ldr ++ "/") ++)) ps
   bytes <- BSL.readFile file
   maybe
