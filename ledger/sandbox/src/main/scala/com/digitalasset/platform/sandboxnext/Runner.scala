@@ -49,7 +49,7 @@ import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 /**
@@ -123,6 +123,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   case StartupMode.MigrateAndStart =>
                     ResourceOwner.successful(())
                   case StartupMode.ResetAndStart =>
+                    // Resetting through Flyway removes all tables in the database schema.
+                    // Therefore we don't need to "reset" the KV Ledger and Index separately.
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
                 heartbeats <- heartbeatMechanism
@@ -149,10 +151,21 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
+                promise = Promise[Unit]
                 resetService = {
                   val clock = Clock.systemUTC()
                   val authorizer = new Authorizer(() => clock.instant(), ledgerId, ParticipantId)
-                  new SandboxResetService(domain.LedgerId(ledgerId), reset, authorizer)
+                  new SandboxResetService(
+                    domain.LedgerId(ledgerId),
+                    () => {
+                      // Don't block the reset request; just wait until the services are closed.
+                      // Otherwise we end up in deadlock, because the server won't shut down until
+                      // all requests are completed.
+                      reset()
+                      promise.future
+                    },
+                    authorizer
+                  )
                 }
                 apiServer <- new StandaloneApiServer(
                   ApiServerConfig(
@@ -177,6 +190,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )
+                _ = promise.completeWith(apiServer.servicesClosed())
               } yield {
                 Banner.show(Console.out)
                 logger.withoutContext.info(
@@ -193,10 +207,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 apiServer
               }
           },
-          resetOperation = apiServer =>
-            apiServer
-              .servicesClosed()
-              .map(_ => (Some(apiServer.port), StartupMode.ResetAndStart)),
+          resetOperation =
+            apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart))
         )
       } yield apiServer.port
     }

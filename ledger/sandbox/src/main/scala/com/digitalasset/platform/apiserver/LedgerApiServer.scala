@@ -72,7 +72,10 @@ final class LedgerApiServer(
         workerEventLoopGroup,
         apiServices,
       ).acquire()
-      _ <- new ReorderApiServices(apiServicesResource, servicesClosedPromise).acquire()
+      // Notify the caller that the services have been closed, so a reset request can complete
+      // without blocking on the server terminating.
+      _ <- Resource(Future.successful(()))(_ =>
+        apiServicesResource.release().map(_ => servicesClosedPromise.success(())))
     } yield {
       val host = address.getOrElse("localhost")
       val actualPort = server.getPort
@@ -141,19 +144,6 @@ final class LedgerApiServer(
         server
       })(server => Future(server.shutdown().awaitTermination()))
     }
-  }
-
-  // This is necessary because we need to signal to the ResetService that we have shut down the
-  // APIs so it can consider the reset "done". Once it's finished, the reset request will finish,
-  // the gRPC connection will be closed and we can safely shut down the gRPC server. If we don't
-  // do that, the server won't shut down and we'll enter a deadlock.
-  private final class ReorderApiServices(
-      apiServices: Resource[ApiServices],
-      servicesClosedPromise: Promise[Unit],
-  ) extends ResourceOwner[ApiServices] {
-    override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
-      Resource(apiServices.asFuture)(_ =>
-        apiServices.release().map(_ => servicesClosedPromise.success(())))
   }
 
   final class UnableToBind(port: Port, cause: Throwable)

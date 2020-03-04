@@ -197,7 +197,7 @@ final class SandboxServer(
 
     // Wait for the services to be closed, so we can guarantee that future API calls after finishing
     // the reset will never be handled by the old one.
-    sandboxState.flatMap(_ => apiServicesClosed)
+    apiServicesClosed
   }
 
   private def buildAndStartApiServer(
@@ -276,7 +276,7 @@ final class SandboxServer(
         // the reset service is special, since it triggers a server shutdown
         resetService = new SandboxResetService(
           ledgerId,
-          () => resetAndRestartServer()(executionContext),
+          () => resetAndRestartServer(),
           authorizer,
         )
         apiServer <- new LedgerApiServer(

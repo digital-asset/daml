@@ -42,7 +42,7 @@ class SandboxResetService(
       serverCallHandler: ServerCallHandler[ReqT, RespT]): Listener[ReqT] = {
     if (resetInitialized.get) {
       throw new StatusRuntimeException(
-        Status.UNAVAILABLE.withDescription("Sandbox server is currently being resetted"))
+        Status.UNAVAILABLE.withDescription("Sandbox server is currently being reset"))
     }
 
     serverCallHandler.startCall(serverCall, metadata)
@@ -67,16 +67,9 @@ class SandboxResetService(
 
     if (!resetInitialized.compareAndSet(false, true))
       throw new StatusRuntimeException(
-        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being resetted"))
+        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being reset"))
 
     logger.info(s"Stopping and starting the server.")
-
-    // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer`
-    // will block until all the in flight requests have been served, so we need to schedule this in
-    // another thread so that the code that clears the in flight request is not in an in flight
-    // request itself.
     resetAndRestartServer()
-
-    Future.successful(())
   }
 }
