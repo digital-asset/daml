@@ -18,7 +18,7 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
 
   def toInsertDelete: InsertDeleteStep[D, C] = this match {
     case Acs(inserts) => InsertDeleteStep(inserts, Map.empty)
-    case LiveBegin(_) => InsertDeleteStep(Vector.empty, Map.empty)
+    case LiveBegin(_) => InsertDeleteStep.Empty
     case Txn(step, _) => step
   }
 
