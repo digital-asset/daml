@@ -44,7 +44,7 @@ main = do
 --
 -- At one time we had tests that exhibited this idiom:
 --   copyDirectory damlTypesDir (here </> "daml-types")
---   writeRootPackageJson // contains 'daml-types' as a workspace)
+--   writeRootPackageJson // contains 'daml-types' as a workspace
 --   daml2tsProject [darFile] daml2tsDir (here </> "package.json")
 --   yarnProject ["install"]
 --   writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"

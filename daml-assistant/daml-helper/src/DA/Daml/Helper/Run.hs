@@ -319,7 +319,6 @@ runJar jarPath mbLogbackPath remainingArgs = do
 
 runDaml2ts :: [String] -> IO ()
 runDaml2ts remainingArgs = do
-    sdkVersion <- getSdkVersion
     daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
     withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
       (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)

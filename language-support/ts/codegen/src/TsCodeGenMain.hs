@@ -129,13 +129,17 @@ main = do
           forM (Map.toList pm) $
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = T.unpack $ unPackageId pkgId
-                     name = maybe id (T.unpack . unPackageName) mbPkgName
+                     name = packageNameStr pkgId mbPkgName
                      asName = if name == id then "itself" else name
                  putStrLn $ "Generating " <> id <> " as " <> asName
                  deps <- daml2ts opts pm pkgId pkg mbPkgName damlTypesVersion packageVersion
                  pure (name, name, deps)
         whenJust optInputPackageJson $
           writeTopLevelPackageJson optOutputDir dependencies
+
+packageNameStr :: PackageId -> Maybe PackageName -> String
+packageNameStr pkgId mbPkgIdent =
+  T.unpack (maybe (unPackageId pkgId) unPackageName mbPkgIdent)
 
 newtype Scope = Scope String
 unscope :: Scope -> String
@@ -164,7 +168,7 @@ daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
 daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
     let scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
-        packageDir = scopeDir </> (T.unpack . maybe (unPackageId pkgId) unPackageName) mbPkgName
+        packageDir = scopeDir </> packageNameStr pkgId mbPkgName
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
@@ -188,19 +192,20 @@ daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
     where
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
-      writeModuleTs packageSrcDir (Scope scope) mod = do
-        case genModule pm (T.pack scope) pkgId mod of
-           Just (modTxt, ds) -> do
+      writeModuleTs packageSrcDir scope mod = do
+         maybe (pure [])
+           (\(modTxt, ds) -> do
              let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
              createDirectoryIfMissing True (takeDirectory outputFile)
              T.writeFileUtf8 outputFile modTxt
-             pure $ ds
-           Nothing -> pure []
+             pure ds
+           )
+           (genModule pm scope pkgId mod)
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
-     T.Text -> PackageId -> Module -> Maybe (T.Text, [Dependency])
-genModule pm scope curPkgId mod
+     Scope -> PackageId -> Module -> Maybe (T.Text, [Dependency])
+genModule pm (Scope scope) curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
@@ -239,10 +244,9 @@ genModule pm scope curPkgId mod
     pkgRefStr pm = \case
       PRSelf -> ""
       PRImport pkgId ->
-        case Map.lookup pkgId pm of
-            Just (Just name, _) -> unPackageName name
-            Just (Nothing, _) -> unPackageId pkgId
-            Nothing -> error "IMPOSSIBLE : package map malformed"
+        maybe (error "IMPOSSIBLE : package map malformed")
+        (\(mbPkgName, _) -> T.pack $ packageNameStr pkgId mbPkgName)
+        (Map.lookup pkgId pm)
 
     -- Calculate the base part of a package ref string. For foreign
     -- imports that's something like '@daml2ts'. For self refences
@@ -254,7 +258,7 @@ genModule pm scope curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> scope
+        PRImport _ -> T.pack scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
