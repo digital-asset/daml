@@ -19,11 +19,11 @@ class InsertDeleteStepTest
     with GeneratorDrivenPropertyChecks {
   import InsertDeleteStepTest._
 
-  behavior of "InsertDeleteStep append monoid"
+  behavior of "append monoid"
 
   checkLaws(ScalazProperties.monoid.laws[IDS])
 
-  behavior of "InsertDeleteStep.appendWithCid"
+  behavior of "append"
 
   it should "never insert a deleted item" in forAll { (x: IDS, y: IDS) =>
     val xy = x |+| y.copy(inserts = y.inserts filterNot Cid.subst(x.deletes.keySet))
