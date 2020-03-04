@@ -1,0 +1,15 @@
+load("//repro:repro.bzl", "create_directory", "list_directory")
+
+create_directory(
+    name = "directory",
+    files = [
+        "file1",
+        "file2",
+        "file3",
+    ],
+)
+
+list_directory(
+    name = "listing",
+    directory = ":directory",
+)
