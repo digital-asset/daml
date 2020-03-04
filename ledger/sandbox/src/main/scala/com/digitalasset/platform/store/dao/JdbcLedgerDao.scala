@@ -13,7 +13,12 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{BatchSql, Macro, NamedParameter, ResultSetParser, RowParser, SQL, SqlParser}
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
   Configuration,
@@ -45,7 +50,6 @@ import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -1664,7 +1668,7 @@ private class JdbcLedgerDao(
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
@@ -1676,14 +1680,14 @@ private class JdbcLedgerDao(
 
       if (updated == 1) {
         // New row inserted, this is the first time the command is submitted
-        None
+        CommandDeduplicationNew
       } else {
         // Deduplication row already exists
         val result = SQL_SELECT_COMMAND
           .on("deduplicationKey" -> deduplicationKey)
           .as(CommandDataParser.single)
 
-        Some(CommandDeduplicationEntry(deduplicationKey, result.deduplicateUntil))
+        CommandDeduplicationDuplicate(result.deduplicateUntil)
       }
     }
 

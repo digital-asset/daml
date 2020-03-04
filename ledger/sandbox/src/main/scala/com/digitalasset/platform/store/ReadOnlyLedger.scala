@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -26,7 +26,6 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -88,5 +87,5 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]]
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 }

@@ -8,7 +8,12 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
@@ -40,7 +45,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -59,6 +63,11 @@ final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
 final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
 final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
+
+final case class CommandDeduplicationEntry(
+    deduplicationKey: String,
+    deduplicateUntil: Instant,
+)
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -379,7 +388,7 @@ class InMemoryLedger(
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
         val entry = commands.get(deduplicationKey)
@@ -388,7 +397,7 @@ class InMemoryLedger(
           commands += (deduplicationKey -> CommandDeduplicationEntry(
             deduplicationKey,
             deduplicateUntil))
-          None
+          CommandDeduplicationNew
         } else {
           val previousDeduplicateUntil = entry.get.deduplicateUntil
           if (submittedAt.isAfter(previousDeduplicateUntil)) {
@@ -396,10 +405,10 @@ class InMemoryLedger(
             commands += (deduplicationKey -> CommandDeduplicationEntry(
               deduplicationKey,
               deduplicateUntil))
-            None
+            CommandDeduplicationNew
           } else {
             // Existing previous entry - deduplicate command
-            entry
+            CommandDeduplicationDuplicate(previousDeduplicateUntil)
           }
         }
       }

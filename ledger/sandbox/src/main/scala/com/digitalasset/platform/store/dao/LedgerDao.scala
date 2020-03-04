@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -19,7 +19,6 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFi
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -150,7 +149,7 @@ trait LedgerReadDao extends ReportsHealth {
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]]
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

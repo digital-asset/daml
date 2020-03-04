@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,7 +20,6 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -124,7 +123,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     timedFuture(
       Metrics.deduplicateCommand,
       ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))

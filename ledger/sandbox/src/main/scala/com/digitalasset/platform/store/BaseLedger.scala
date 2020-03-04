@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -30,7 +31,6 @@ import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.store.dao.LedgerReadDao
 import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
@@ -135,7 +135,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
-      deduplicateUntil: Instant): Future[Option[CommandDeduplicationEntry]] =
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 
   override def close(): Unit = {

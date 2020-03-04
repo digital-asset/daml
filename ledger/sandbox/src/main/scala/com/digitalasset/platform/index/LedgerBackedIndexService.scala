@@ -11,8 +11,6 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
-  CommandDeduplicationDuplicate,
-  CommandDeduplicationNew,
   CommandDeduplicationResult,
   IndexService,
   PackageDetails
@@ -47,11 +45,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{
-  CommandDeduplicationEntry,
-  LedgerEntry,
-  PartyLedgerEntry
-}
+import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 
 import scala.concurrent.Future
@@ -308,12 +302,5 @@ abstract class LedgerBackedIndexService(
       deduplicationKey: String,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    ledger
-      .deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
-      .map {
-        case None =>
-          CommandDeduplicationNew
-        case Some(CommandDeduplicationEntry(_, originalDeduplicateUntil)) =>
-          CommandDeduplicationDuplicate(originalDeduplicateUntil)
-      }(DEC)
+    ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 }
