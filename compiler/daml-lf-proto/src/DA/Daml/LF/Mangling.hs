@@ -109,31 +109,29 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
 
 unmangleIdentifier :: T.Text -> Either String T.Text
 unmangleIdentifier txt = do
-  chs <- goStart txt
-  if T.null chs
-    then Left "Empty identifier"
-    else Right chs
+  case T.uncons txt of
+      Nothing -> Left "Empty identifier"
+      Just (c, _)
+        | isAllowedStart c || c == '$' -> go txt
+        | otherwise -> Left ("Invalid start character: " <> show c)
   where
-    go :: (Char -> Bool) -> (T.Text -> Either String T.Text) -> T.Text -> Either String T.Text
-    go isAllowed followUp s
-        | T.null s = Right T.empty
-        | Just ('$', s) <- T.uncons s =
+    go :: T.Text -> Either String T.Text
+    go s = case T.uncons s of
+        Nothing -> Right T.empty
+        Just ('$', s) ->
               case T.uncons s of
-                  Just ('$', s) -> T.cons '$' <$> followUp s
+                  Just ('$', s) -> T.cons '$' <$> go s
                   Just ('u', s) -> do
                       (ch, s') <- readEscaped "$u" 4 s
-                      T.cons ch <$> followUp s'
+                      T.cons ch <$> go s'
                   Just ('U', s) -> do
                       (ch, s') <- readEscaped "$U" 8 s
-                      T.cons ch <$> followUp s'
+                      T.cons ch <$> go s'
                   _ -> Left "Control character $ should be followed by $, u or U"
-        | otherwise = case T.span isAllowed s of
+        Just (char, _) -> case T.span isAllowedPart s of
               (prefix, suffix)
-                  | T.null prefix -> Left ("Unexpected unescaped character " ++ show (T.head suffix))
-                  | otherwise -> fmap (prefix <>) (followUp suffix)
-
-    goStart = go isAllowedStart goPart
-    goPart = go isAllowedPart goPart
+                  | T.null prefix -> Left ("Unexpected unescaped character " ++ show char)
+                  | otherwise -> fmap (prefix <>) (go suffix)
 
     readEscaped what n chs0 = let
       (escaped, chs) = T.splitAt n chs0
