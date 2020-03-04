@@ -162,7 +162,7 @@ daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
         scope = scopeOfScopeDir scopeDir
           -- The scope e.g. 'daml2ts'.
           -- We use this, for example, when generating import declarations e.g.
-          --   'import * as pkgd14e08_DA_Internal_Template from @daml2ts/d14e08/lib/DA/Internal/Template';'
+          --   import * as pkgd14e08_DA_Internal_Template from '@daml2ts/d14e08/lib/DA/Internal/Template';
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
