@@ -949,7 +949,6 @@ isDFunBody = \case
 -- | Get the relevant references from a dictionary function.
 refsFromDFun :: LF.DefValue -> DL.DList Ref
 refsFromDFun LF.DefValue{..}
-    | otherwise
     = refsFromType (snd dvalBinder)
     <> refsFromDFunBody dvalBody
 
