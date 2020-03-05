@@ -33,7 +33,7 @@ trait CommonQueries extends Queries {
       start: Index,
       end: Index,
   ): Try[immutable.Seq[(Index, LedgerEntry)]] = Try {
-    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end"
+    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end ORDER BY sequence_no"
       .as(
         (long("sequence_no")
           ~ get[Option[InputStream]]("entry_id")
