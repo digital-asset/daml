@@ -1035,8 +1035,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           "favor" -> 9,
         )
 
-        eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
-          Right(SList(FrontStack(words.map { case (k, _) => SText(k) })))
+        val r = eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}")
+        val s =  Right(SList(FrontStack(words.map { case (k, _) => SText(k) })))
+        r  shouldEqual s
+
       }
     }
 
