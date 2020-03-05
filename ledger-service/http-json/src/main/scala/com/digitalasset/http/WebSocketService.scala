@@ -299,12 +299,15 @@ class WebSocketService(
       .mapAsync(1) {
         case msg: TextMessage =>
           msg.toStrict(wsReadTimeout).map { m =>
-            SprayJson.parse(m.text).liftErr(InvalidUserInput).flatMap(Q.parse(decoder, _))
+            SprayJson.parse(m.text).liftErr(InvalidUserInput)
           }
         case _ =>
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
+      .via(withOptPrefix { ejv: InvalidUserInput \/ JsValue =>
+        \/-(ejv flatMap (Q.parse(decoder, _))): Unit \/ (Error \/ A)
+      }((offPrefix, ejv) => ejv flatMap (Q.parse(decoder, _))))
       .flatMapConcat {
         case \/-(a) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
