@@ -196,6 +196,30 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 
 If you open Navigator, you can now see the contracts that have been created.
 
+Migrating from Scenarios to DAML Script for Ledger Initialization
+=================================================================
+
+Existing scenarios that you used for ledger initialization can be
+translated to DAML script but there are a few things to keep in mind:
+
+#. You need to add ``daml-script`` to the list of dependencies in your
+   ``daml.yaml``.
+#. You need to import the ``Daml.Script`` module.
+#. Calls to ``create``, ``exercise``, ``exerciseByKey`` and
+   ``createAndExercise`` need to be suffixed with ``Cmd``, e.g.,
+   ``createCmd``.
+#. Instead of specifying a ``scenario`` field in your ``daml.yaml``,
+   you need to specify an ``init-script`` field. The initialization
+   script is specified via ``Module:identifier`` for both fields.
+#. DAML script only supports the commands available on the ledger API
+   so you cannot call functions like ``fetch`` directly. This is
+   intentional. Your initialization scripts should not be able to
+   create transactions that a ledger client would not be able to
+   create. If you need, you can create a choice and call that via
+   ``createAndExercise``.
+#. You need to replace calls to ``getParty x`` by
+   ``allocatePartyWithHint x (PartyIdHint x)``.
+
 Using DAML Script in Distributed Topologies
 ===========================================
 
