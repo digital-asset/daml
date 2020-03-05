@@ -403,8 +403,6 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
           x <- atoms
           y <- atoms
         } {
-          if ((Ordering.compare(x, y) == 0) != Equality.areEqual(x, y))
-            remy.log(x -> y -> (Ordering.compare(x, y) == 0) -> Equality.areEqual(x, y))
           assert((Ordering.compare(x, y) == 0) == Equality.areEqual(x, y))
         }
       }
@@ -414,12 +412,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
       forEvery(comparableValues) { atoms =>
         val inputs = atoms.toList
         val sorted = new Random(0).shuffle(inputs).sorted(Ordering)
-        if (!(inputs zip sorted).forall { case (x, y) => Equality.areEqual(x, y) }) {
-          remy.log(inputs)
-          remy.log(sorted)
-        }
         assert((inputs zip sorted).forall { case (x, y) => Equality.areEqual(x, y) })
-
       }
     }
 

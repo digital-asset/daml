@@ -1,3 +1,6 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.daml.lf.speedy.svalue
 
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Ref, Utf8}
@@ -48,7 +51,7 @@ object Ordering extends scala.math.Ordering[SValue] {
     ).zipWithIndex.toMap
 
   @tailrec
-  // Any two ground types (types without variable nor quanitifiers) can be compared.
+  // Any two ground types (types without variable nor quantifiers) can be compared.
   private[this] def compareType(x: Int, stack0: => FrontStack[(Ast.Type, Ast.Type)]): Int =
     stack0 match {
       case FrontStack() =>
@@ -163,10 +166,14 @@ object Ordering extends scala.math.Ordering[SValue] {
             case (STypeRep(t1), STypeRep(t2)) =>
               compareValue(compareType(t1, t2), stack)
             case (SEnum(_, con1), SEnum(_, con2)) =>
+              // FIXME https://github.com/digital-asset/daml/issues/2256
+              // should not compare constructor syntactically
               compareValue((con1 compareTo con2), stack)
             case (SRecord(_, _, args1), SRecord(_, _, args2)) =>
               compareValue(0, zipAndPush(args1.asScala, args2.asScala, stack))
             case (SVariant(_, con1, arg1), SVariant(_, con2, arg2)) =>
+              // FIXME https://github.com/digital-asset/daml/issues/2256
+              // should not compare constructor syntactically
               compareValue((con1 compareTo con2), (arg1, arg2) +: stack)
             case (SList(FrontStackCons(head1, tail1)), SList(FrontStackCons(head2, tail2))) =>
               compareValue(0, (head1, head2) +: (SList(tail1), SList(tail2)) +: stack)

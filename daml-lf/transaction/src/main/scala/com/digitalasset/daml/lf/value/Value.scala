@@ -347,8 +347,17 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed trait ContractId extends Product with Serializable
-  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
+  sealed trait ContractId
+
+  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId {
+    lazy val descriminator =
+      if (coid(0) == '0')
+        crypto.Hash.fromString(coid.slice(1, 65)).toOption
+      else
+        None
+    lazy val suffix: String = coid.drop(65)
+  }
+
   final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {
