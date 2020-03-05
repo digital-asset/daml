@@ -98,6 +98,22 @@ object WebSocketService {
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
+  private def readStartingOffset(jv: JsValue): Option[Error \/ domain.StartingOffset] =
+    jv match {
+      case JsObject(fields) =>
+        fields get "offset" map { offJv =>
+          import JsonProtocol._
+          if (fields.size > 1)
+            -\/(InvalidUserInput("offset must be specified as a leading, separate object message"))
+          else
+            SprayJson
+              .decode[String](offJv)
+              .liftErr(InvalidUserInput)
+              .map(offStr => domain.StartingOffset(domain.Offset(offStr)))
+        }
+      case _ => None
+    }
+
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
     val maxCost = 200L
     Flow[StepAndErrors[P, A]]
