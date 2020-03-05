@@ -276,6 +276,7 @@ class ContractsService(
       jwt: Jwt,
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
+      startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
@@ -286,6 +287,7 @@ class ContractsService(
       : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
+    // TODO SC use startOffset
     import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
     val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead
     source

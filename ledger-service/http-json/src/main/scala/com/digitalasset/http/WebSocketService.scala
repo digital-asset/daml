@@ -344,10 +344,9 @@ class WebSocketService(
 
     val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
 
-    // TODO SC use offPrefix
     if (resolved.nonEmpty) {
       contractsService
-        .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
+        .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
