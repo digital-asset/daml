@@ -166,47 +166,6 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: perf
-    dependsOn:
-      - check_for_release
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    timeoutInMinutes: 60
-    pool:
-      name: 'linux-pool'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
-        name: checkout_release
-        condition: eq(variables.is_release, 'true')
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          DAML_SDK_RELEASE_VERSION=$(release_tag) bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Perf test logs'
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
-
   - job: check_for_release
     dependsOn:
       - git_sha
@@ -361,7 +320,6 @@ jobs:
       - macOS
       - Windows
       - check_for_release
-      - perf
       - release
       - check_standard_change_label
       - write_ledger_dump
@@ -385,10 +343,6 @@ jobs:
       check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
       check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
       check_for_release.status: $[ dependencies.check_for_release.result ]
-      perf.start: $[ dependencies.perf.outputs['start.time'] ]
-      perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
-      perf.end: $[ dependencies.perf.outputs['end.time'] ]
-      perf.status: $[ dependencies.perf.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
@@ -464,10 +418,6 @@ jobs:
                                           "machine": "$(check_for_release.machine)",
                                           "end": "$(check_for_release.end)",
                                           "status": "$(check_for_release.status)"},
-                    "perf": {"start": "$(perf.start)",
-                             "machine": "$(perf.machine)",
-                             "end": "$(perf.end)",
-                             "status": "$(perf.status)"},
                     "check_standard_change_label": {"start": "$(std_change.start)",
                                                     "machine": "$(std_change.machine)",
                                                     "end": "$(std_change.end)",
@@ -519,7 +469,7 @@ jobs:
               cat $REPORT
           fi
 
-          # Linux, macOS, perf, check_std_change_label and Windows are always
+          # Linux, macOS, check_std_change_label and Windows are always
           # required and should always succeed.
           #
           # windows_signing, release and write_ledger_dump only run on releases
@@ -527,7 +477,6 @@ jobs:
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
-              || "$(perf.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
