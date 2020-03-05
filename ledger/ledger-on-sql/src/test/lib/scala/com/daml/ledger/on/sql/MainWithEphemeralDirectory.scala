@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   Config,
   LedgerFactory,
   ParticipantConfig,
+  ReadWriteService,
   Runner
 }
 import com.digitalasset.logging.LoggingContext
@@ -25,7 +26,7 @@ object MainWithEphemeralDirectory {
     new ProgramResource(new Runner("SQL Ledger", TestLedgerFactory).owner(args)).run()
   }
 
-  object TestLedgerFactory extends LedgerFactory[SqlLedgerReaderWriter, ExtraConfig] {
+  object TestLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
     override val defaultExtraConfig: ExtraConfig = SqlLedgerFactory.defaultExtraConfig
 
     override def extraConfigParser(parser: OptionParser[Config[ExtraConfig]]): Unit =
@@ -34,17 +35,17 @@ object MainWithEphemeralDirectory {
     override def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
       SqlLedgerFactory.manipulateConfig(config)
 
-    override def owner(
+    override def readWriteServiceOwner(
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig
     )(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[SqlLedgerReaderWriter] = {
+    ): ResourceOwner[ReadWriteService] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
       val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.owner(
+      SqlLedgerFactory.readWriteServiceOwner(
         config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
         participantConfig)
     }

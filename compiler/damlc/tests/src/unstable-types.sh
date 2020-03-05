@@ -51,7 +51,6 @@ EOF
 )
         else
             $DIFF -b -u <(get_serializable_types $stdlib) <(cat <<EOF
-"DA.Upgrade:MetaEquiv"
 "DA.Random:Minstd"
 "DA.Next.Set:Set"
 "DA.Next.Map:Map"

@@ -36,7 +36,6 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
-    | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
@@ -65,7 +64,6 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
-    , command "migrate" (info (migrateCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -106,11 +104,6 @@ commandParser = subparser $ fold
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
             <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
         ]
-
-    migrateCmd =  Migrate
-        <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be   located")
-        <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
-        <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
 
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
@@ -261,7 +254,6 @@ runCommand = \case
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
     New {..} -> runNew targetFolder templateNameM [] []
-    Migrate {..} -> runMigrate targetFolder pkgPathFrom pkgPathTo
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->

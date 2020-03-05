@@ -853,17 +853,30 @@ convertExpr env0 e = do
         = fmap (, args) $ mkIf <$> convertExpr env x <*> convertExpr env y <*> mkPure env monad dict TUnit EUnit
     go env (VarIn DA_Action "unless") (LType monad : LExpr dict : LExpr x : LExpr y : args)
         = fmap (, args) $ mkIf <$> convertExpr env x <*> mkPure env monad dict TUnit EUnit <*> convertExpr env y
-    go env (VarIn DA_Internal_LF "submit") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-        pty' <- convertExpr env pty
-        upd' <- convertExpr env upd
-        typ' <- convertType env typ
-        pure $
-          EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
-    go env (VarIn DA_Internal_LF "submitMustFail") (LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
-        pty' <- convertExpr env pty
-        upd' <- convertExpr env upd
-        typ' <- convertType env typ
-        pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
+    go env submit@(VarIn DA_Internal_LF "submit") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+         m' <- convertType env m
+         typ' <- convertType env typ
+         pty' <- convertExpr env pty
+         upd' <- convertExpr env upd
+         case m' of
+           TBuiltin BTScenario -> pure $ EScenario (SCommit typ' pty' (EUpdate (UEmbedExpr typ' upd')))
+           _ -> do
+             submit' <- convertExpr env submit
+             cmds' <- convertType env cmds
+             dict' <- convertExpr env dict
+             pure $ mkEApps submit' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
+    go env submitMustFail@(VarIn DA_Internal_LF "submitMustFail") (LType m : LType cmds : LExpr dict : LType typ : LExpr pty : LExpr upd : args) = fmap (, args) $ do
+         m' <- convertType env m
+         typ' <- convertType env typ
+         pty' <- convertExpr env pty
+         upd' <- convertExpr env upd
+         case m' of
+           TBuiltin BTScenario -> pure $ EScenario (SMustFailAt typ' pty' (EUpdate (UEmbedExpr typ' upd')))
+           _ -> do
+             submitMustFail' <- convertExpr env submitMustFail
+             cmds' <- convertType env cmds
+             dict' <- convertExpr env dict
+             pure $ mkEApps submitMustFail' [TyArg m', TyArg cmds', TmArg dict', TyArg typ', TmArg pty', TmArg upd']
 
     -- custom conversion because they correspond to builtins in DAML-LF, so can make the output more readable
     go env (VarIn DA_Internal_Prelude "pure") (LType monad : LExpr dict : LType t : LExpr x : args)

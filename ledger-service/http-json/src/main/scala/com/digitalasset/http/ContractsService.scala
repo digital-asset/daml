@@ -250,7 +250,7 @@ class ContractsService(
             .flatMap(apiAcToLfAc): Error \/ Ac
         }
         val convertedInserts = converted.inserts filter { ac =>
-          funPredicates.get(ac.templateId).cata(f => f(ac.payload), false)
+          funPredicates.get(ac.templateId).exists(_(ac.payload))
         }
         (errors, converted.copy(inserts = convertedInserts))
       }

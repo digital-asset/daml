@@ -1,8 +1,10 @@
 {
   "private": true,
   "workspaces": [
-    "daml-types",
-    "daml-ledger",
-    "generated"
-  ]
+    "build-and-lint"
+  ],
+  "resolutions": {
+    "@daml/types": "file:daml-types",
+    "@daml/ledger": "file:daml-ledger"
+  }
 }

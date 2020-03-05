@@ -4,7 +4,6 @@ module DA.Daml.Helper.Run
     ( runDamlStudio
     , runInit
     , runNew
-    , runMigrate
     , runJar
     , runDaml2ts
     , runListTemplates
@@ -319,9 +318,9 @@ runJar jarPath mbLogbackPath remainingArgs = do
 
 runDaml2ts :: [String] -> IO ()
 runDaml2ts remainingArgs = do
-  daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-  withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
-    (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
+    daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
+    withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
+      (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do
@@ -641,28 +640,6 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
     putStrLn $
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
-
--- | Create a project containing code to migrate a running system between two given packages.
-runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
-runMigrate targetFolder pkgPath1 pkgPath2
- = do
-    pkgPath1Abs <- makeAbsolute pkgPath1
-    pkgPath2Abs <- makeAbsolute pkgPath2
-    -- Create a new project
-    runNew targetFolder (Just "migrate") [] [pkgPath1Abs, pkgPath2Abs]
-
-    -- Call damlc to create the upgrade source files.
-    procConfig <- toAssistantCommand
-        [ "damlc"
-        , "migrate"
-        , "--srcdir"
-        , "daml"
-        , "--project-root"
-        , targetFolder
-        , pkgPath1
-        , pkgPath2
-        ]
-    runProcess_ procConfig
 
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"

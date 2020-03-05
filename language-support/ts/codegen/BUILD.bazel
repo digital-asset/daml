@@ -8,6 +8,8 @@ da_haskell_binary(
     name = "daml2ts",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "aeson",
+        "aeson-pretty",
         "base",
         "bytestring",
         "containers",
@@ -17,6 +19,7 @@ da_haskell_binary(
         "lens",
         "optparse-applicative",
         "text",
+        "unordered-containers",
         "zip-archive",
     ],
     main_function = "TsCodeGenMain.main",
@@ -26,6 +29,7 @@ da_haskell_binary(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
     ],
 )

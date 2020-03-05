@@ -11,7 +11,12 @@ import DA.Pretty
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.Writer.CPS
+import qualified Data.DList as DL
+import Data.Foldable (fold)
+import Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
+import Data.Semigroup.FixedPoint
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
@@ -20,6 +25,7 @@ import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
+import GHC.Generics (Generic)
 import Safe
 import System.FilePath
 
@@ -282,13 +288,14 @@ generateSrcFromLf env = noLoc mod
 
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
-        LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         fields <- case synType of
             LF.TStruct fields -> [fields]
             LF.TUnit -> [[]]
             _ -> []
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
+        guard (shouldExposeDefTypeSyn defTypeSyn)
         let occName = mkOccName clsName . T.unpack $ sanitize name
         pure $ do
             supers <- sequence
@@ -352,15 +359,9 @@ generateSrcFromLf env = noLoc mod
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
-        LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
         Just dfunSig <- [getDFunSig dvalBinder]
-        -- TODO (MK)
-        -- This is a temporary measure to be able to import DA.Upgrade.
-        -- This should be replaced by a proper filter based on Erased
-        -- but that’s not yet used in 0.13.51 which we use by testing.
-        -- see https://github.com/digital-asset/daml/issues/4470.
-        guard (LF.qualObject (dfhName $ dfsHead dfunSig) `notElem` map (LF.TypeSynName . pure) ["MetaEquiv", "GenConvertible"])
-        guard (isDFunBody dvalBody)
+        guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
         case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
             Just qualInstance ->
@@ -379,28 +380,38 @@ generateSrcFromLf env = noLoc mod
                     , cid_datafam_insts = []
                     , cid_overlap_mode = Nothing
                     }
-      where
-        -- | Check that the body matches that of a dictionary function,
-        -- as opposed to a superclass projection function.
-        isDFunBody :: LF.Expr -> Bool
-        isDFunBody = \case
-            LF.ETyLam _ body -> isDFunBody body
-            LF.ETmLam _ body -> isDFunBody body
-            LF.EStructCon _ -> True
-            _ -> False
 
+    hiddenRefMap :: HMS.HashMap Ref Bool
+    hiddenRefMap = buildHiddenRefMap env
+
+    isHidden :: Ref -> Bool
+    isHidden ref =
+        case HMS.lookup ref hiddenRefMap of
+            Nothing -> error
+                ("Internal Error: Missing type dependency from hiddenRefMap: "
+                <> show ref)
+            Just b -> b
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
-    shouldExposeDefDataType typeDef
-        = not (defDataTypeIsOldTypeClass typeDef)
+    shouldExposeDefDataType LF.DefDataType{..}
+        = not (isHidden (RTypeCon (qualify env dataTypeCon)))
+
+    shouldExposeDefTypeSyn :: LF.DefTypeSyn -> Bool
+    shouldExposeDefTypeSyn LF.DefTypeSyn{..}
+        = not (isHidden (RTypeSyn (qualify env synName)))
 
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
         = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
-        && not (typeHasOldTypeclass env lfType)
+        && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+
+    shouldExposeInstance :: LF.DefValue -> Bool
+    shouldExposeInstance LF.DefValue{..}
+        = isDFunBody dvalBody
+        && not (isHidden (RValue (qualify env (fst dvalBinder))))
 
     convDataCons :: T.Text -> LF.DataCons -> Gen [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -630,7 +641,7 @@ convType env reexported =
                 tyvar = HsTyVar noExt NotPromoted . noLoc
                     . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
             args <- mapM (convType env reexported) lfArgs
-            pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
+            pure $ HsParTy noExt (noLoc $ foldl' (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
         ty | Just text <- getPromotedText ty ->
             pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
@@ -794,23 +805,200 @@ generateSrcPkgFromLf config pkg = do
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 
--- | Returns 'True' if an LF type contains a reference to an
--- old-style typeclass. See 'tconIsOldTypeclass' for more details.
-typeHasOldTypeclass :: Env -> LF.Type -> Bool
-typeHasOldTypeclass env = \case
-    LF.TVar _ -> False
-    LF.TCon tcon -> tconIsOldTypeclass env tcon
-    LF.TSynApp _ _ -> False
-        -- Type synonyms came after the switch to new-style
-        -- typeclasses, so we can assume there are no old-style
-        -- typeclasses being referenced.
-    LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
-    LF.TBuiltin _ -> False
-    LF.TForall _ b -> typeHasOldTypeclass env b
-    LF.TStruct fields -> any (typeHasOldTypeclass env . snd) fields
-    LF.TNat _ -> False
+-- | A reference that can appear in a type or expression. We need to track
+-- all of these in order to control what gets hidden in data-dependencies.
+data Ref
+    = RTypeCon (LF.Qualified LF.TypeConName)
+        -- ^ necessary to track hidden types and old-style typeclasses
+    | RTypeSyn (LF.Qualified LF.TypeSynName)
+        -- ^ necessary to track hidden new-style typeclasses
+    | RValue (LF.Qualified LF.ExprValName)
+        -- ^ necessary to track hidden typeclass instances
+    deriving (Eq, Ord, Show, Generic)
 
--- | Determine whether a typecon refers to an old-style
+instance Hashable Ref
+
+refPackage :: Ref -> LF.PackageRef
+refPackage = \case
+    RTypeCon q -> LF.qualPackage q
+    RTypeSyn q -> LF.qualPackage q
+    RValue q -> LF.qualPackage q
+
+refModule :: Ref -> LF.ModuleName
+refModule = \case
+    RTypeCon q -> LF.qualModule q
+    RTypeSyn q -> LF.qualModule q
+    RValue q -> LF.qualModule q
+
+type RefGraph = HMS.HashMap Ref (Bool, [Ref])
+
+-- | Calculate the set of all references that should be hidden.
+buildHiddenRefMap :: Env -> HMS.HashMap Ref Bool
+buildHiddenRefMap env =
+    case leastFixedPointBy (||) refGraphList of
+        Left ref -> error
+            ("Internal error: missing reference in RefGraph "
+            <> show ref)
+        Right m -> m
+  where
+    refGraphList :: [(Ref, Bool, [Ref])]
+    refGraphList =
+        [ (ref, hidden, deps)
+        | (ref, (hidden, deps)) <- HMS.toList refGraph
+        ]
+
+    refGraph :: RefGraph
+    refGraph = foldl' visitRef HMS.empty (rootRefs env)
+
+    visitRef :: RefGraph -> Ref -> RefGraph
+    visitRef !refGraph ref
+        | HMS.member ref refGraph
+            = refGraph -- already in the map
+        | ref == RTypeCon erasedTCon
+            = HMS.insert ref (True, []) refGraph -- Erased is always erased
+        | refModule ref == LF.ModuleName ["DA", "Generics"]
+            = HMS.insert ref (True, []) refGraph
+            -- DA.Generics is not supported. This prevents issues with GenConvertible.
+            -- TODO (SF): Check if we really need this after we remove DA.Upgrade
+            -- from daml-stdlib.
+        | LF.PRImport pkgId <- refPackage ref
+        , Set.member pkgId (configDependencyPackages (envConfig env))
+            = HMS.insert ref (False, []) refGraph
+            -- Dependencies are always available. This is a mostly a small optimization.
+            -- TODO (SF): Check if we really need this after we move to running the
+            -- erased tracker once per package.
+        | LF.PRImport pkgId <- refPackage ref
+        , MS.member pkgId (configStablePackages (envConfig env))
+            = HMS.insert ref (False, []) refGraph -- stable pkgs are always available
+            -- TODO (SF): Check if we really need this after we move to running the
+            -- erased tracker once per package.
+
+        | RTypeCon tcon <- ref
+        , Just defDataType <- envLookupDataType tcon env
+        , refs <- DL.toList (refsFromDefDataType defDataType)
+        , hidden <- defDataTypeIsOldTypeClass defDataType
+        , refGraph' <- HMS.insert ref (hidden, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | RTypeSyn tsyn <- ref
+        , Just defTypeSyn <- envLookupSynonym tsyn env
+        , refs <- DL.toList (refsFromDefTypeSyn defTypeSyn)
+        , refGraph' <- HMS.insert ref (False, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | RValue val <- ref
+        , Just dval@LF.DefValue{..} <- envLookupValue val env
+        , refs <- if hasDFunSig dvalBinder -- we only care about typeclass instances
+            then DL.toList (refsFromDFun dval)
+            else mempty
+        , refGraph' <- HMS.insert ref (False, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | otherwise
+            = error ("Unknown reference to type dependency " <> show ref)
+
+-- | Get the list of type constructors that this type references.
+-- This uses difference lists to reduce overhead.
+refsFromType :: LF.Type -> DL.DList Ref
+refsFromType = go
+  where
+    go = \case
+        LF.TCon tcon -> pure (RTypeCon tcon)
+        LF.TSynApp tsyn xs -> pure (RTypeSyn tsyn) <> foldMap go xs
+        LF.TVar _ -> mempty
+        LF.TBuiltin _ -> mempty
+        LF.TNat _ -> mempty
+        LF.TApp a b -> go a <> go b
+        LF.TForall _ b -> go b
+        LF.TStruct fields -> foldMap (go . snd) fields
+
+refsFromDefTypeSyn :: LF.DefTypeSyn -> DL.DList Ref
+refsFromDefTypeSyn = refsFromType . LF.synType
+
+refsFromDefDataType :: LF.DefDataType -> DL.DList Ref
+refsFromDefDataType = refsFromDataCons . LF.dataCons
+
+refsFromDataCons :: LF.DataCons -> DL.DList Ref
+refsFromDataCons = \case
+    LF.DataRecord fields -> foldMap (refsFromType . snd) fields
+    LF.DataVariant cons -> foldMap (refsFromType . snd) cons
+    LF.DataEnum _ -> mempty
+
+rootRefs :: Env -> DL.DList Ref
+rootRefs env = fold
+    [ DL.fromList
+        [ RTypeCon (qualify env (LF.dataTypeCon defDataType))
+        | defDataType <- NM.toList (LF.moduleDataTypes (envMod env))
+        ]
+    , DL.fromList
+        [ RTypeSyn (qualify env (LF.synName defTypeSyn))
+        | defTypeSyn <- NM.toList (LF.moduleSynonyms (envMod env))
+        ]
+    , DL.fromList
+        [ RValue (qualify env (fst dvalBinder))
+        | LF.DefValue{..} <- NM.toList (LF.moduleValues (envMod env))
+        , hasDFunSig dvalBinder
+        ]
+    , fold
+        [ refsFromType (snd dvalBinder)
+        | LF.DefValue{..} <- NM.toList (LF.moduleValues (envMod env))
+        , not (hasDFunSig dvalBinder)
+        ]
+    ]
+
+-- | Check that an expression matches the body of a dictionary function.
+isDFunBody :: LF.Expr -> Bool
+isDFunBody = \case
+    LF.ETyLam _ body -> isDFunBody body
+    LF.ETmLam _ body -> isDFunBody body
+    LF.EStructCon _ -> True
+    _ -> False
+
+-- | Get the relevant references from a dictionary function.
+refsFromDFun :: LF.DefValue -> DL.DList Ref
+refsFromDFun LF.DefValue{..}
+    = refsFromType (snd dvalBinder)
+    <> refsFromDFunBody dvalBody
+
+-- | Extract instance references from a dictionary function, and possibly some
+-- more value references that get swept up by accident. This is general enough
+-- to catch both @$f...@ generic dictionary functions, and @$d...@ specialised
+-- dictionary functions.
+--
+-- Read https://wiki.haskell.org/Inlining_and_Specialisation for more info on
+-- dictionary function specialisation.
+refsFromDFunBody :: LF.Expr -> DL.DList Ref
+refsFromDFunBody = \case
+    LF.ETyLam _ body -> refsFromDFunBody body
+    LF.ETmLam (_, ty) body -> refsFromType ty <> refsFromDFunBody body
+    LF.EStructCon fields -> foldMap refsFromDFunField fields
+    LF.EStructProj _fieldName a -> refsFromDFunBody a
+    LF.ETyApp a b -> refsFromDFunBody a <> refsFromType b
+    LF.ETmApp a b -> refsFromDFunBody a <> refsFromDFunBody b
+    LF.EVal val -> pure (RValue val)
+    LF.ELet (LF.Binding (_, ty) a) b -> refsFromType ty <> refsFromDFunBody a <> refsFromDFunBody b
+    LF.EBuiltin _ -> mempty
+    LF.EVar _ -> mempty
+    t -> error ("Unhandled expression type in dictionary function body: " <> show t)
+  where
+    -- | We only care about superclasses instances.
+    refsFromDFunField :: (LF.FieldName, LF.Expr) -> DL.DList Ref
+    refsFromDFunField (fieldName, fieldBody)
+        | isSuperClassField fieldName
+        = refsFromDFunBody fieldBody
+
+        | otherwise
+        = mempty
+
+
+qualify :: Env -> a -> LF.Qualified a
+qualify env x = LF.Qualified
+    { qualPackage = LF.PRImport (configSelfPkgId (envConfig env))
+    , qualModule = LF.moduleName (envMod env)
+    , qualObject = x
+    }
+
+-- | Determine whether a data type def is for an old-style
 -- typeclass. By "old-style" I mean a typeclass based on
 -- nominal LF record types. There's no foolproof way of
 -- determining this, but we can approximate it by taking
@@ -827,12 +1015,6 @@ typeHasOldTypeclass env = \case
 -- typeclass and therefore any functions that use this type
 -- will not be exposed via the data-dependency mechanism,
 -- (see 'generateSrcFromLf').
-tconIsOldTypeclass :: Env -> LF.Qualified LF.TypeConName -> Bool
-tconIsOldTypeclass env tcon =
-    case envLookupDataType tcon env of
-        Nothing -> error ("Unknown reference to type " <> show tcon)
-        Just dtype -> defDataTypeIsOldTypeClass dtype
-
 defDataTypeIsOldTypeClass :: LF.DefDataType -> Bool
 defDataTypeIsOldTypeClass LF.DefDataType{..}
     | LF.DataRecord fields <- dataCons
@@ -851,6 +1033,16 @@ envLookupDataType :: LF.Qualified LF.TypeConName -> Env -> Maybe LF.DefDataType
 envLookupDataType tcon env = do
     mod <- envLookupModuleOf tcon env
     NM.lookup (LF.qualObject tcon) (LF.moduleDataTypes mod)
+
+envLookupSynonym :: LF.Qualified LF.TypeSynName -> Env -> Maybe LF.DefTypeSyn
+envLookupSynonym tsyn env = do
+    mod <- envLookupModuleOf tsyn env
+    NM.lookup (LF.qualObject tsyn) (LF.moduleSynonyms mod)
+
+envLookupValue :: LF.Qualified LF.ExprValName -> Env -> Maybe LF.DefValue
+envLookupValue valName env = do
+    mod <- envLookupModuleOf valName env
+    NM.lookup (LF.qualObject valName) (LF.moduleValues mod)
 
 envLookupModuleOf :: LF.Qualified a -> Env -> Maybe LF.Module
 envLookupModuleOf qual = envLookupModule (LF.qualPackage qual) (LF.qualModule qual)
@@ -893,6 +1085,12 @@ data DFunHead
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhArgs :: [LF.Type] -- ^ arguments
           }
+
+-- | Is this the type signature for a dictionary function? Note that this
+-- accepts both generic dictionary functions "$f..." and specialised
+-- dictionary functions "$d...".
+hasDFunSig :: (LF.ExprValName, LF.Type) -> Bool
+hasDFunSig binder = isJust (getDFunSig binder)
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
@@ -957,14 +1155,12 @@ convDFunSig env reexported DFunSig{..} = do
       . HsParTy noExt . noLoc
       . HsForAllTy noExt binders . noLoc
       . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
-      $ foldl (HsAppTy noExt . noLoc) cls (map noLoc args)
+      $ foldl' (HsAppTy noExt . noLoc) cls (map noLoc args)
 
 getPromotedText :: LF.Type -> Maybe T.Text
 getPromotedText = \case
-    LF.TApp (LF.TCon LF.Qualified {..}) argTy
-        | qualPackage == LF.PRImport (LF.PackageId "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97")
-        , qualModule == LF.ModuleName ["DA", "Internal", "PromotedText"]
-        , ["PromotedText"] <- LF.unTypeConName qualObject
+    LF.TApp (LF.TCon qtcon) argTy
+        | qtcon == promotedTextTCon
         ->
             case argTy of
                 LF.TStruct [(LF.FieldName text, LF.TUnit)]
@@ -973,3 +1169,20 @@ getPromotedText = \case
                 _ ->
                     error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
     _ -> Nothing
+
+stableTCon :: T.Text -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
+stableTCon packageId moduleName tconName = LF.Qualified
+    { qualPackage = LF.PRImport (LF.PackageId packageId)
+    , qualModule = LF.ModuleName moduleName
+    , qualObject = LF.TypeConName [tconName]
+    }
+
+erasedTCon, promotedTextTCon :: LF.Qualified LF.TypeConName
+erasedTCon = stableTCon
+    "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
+    ["DA", "Internal", "Erased"]
+    "Erased"
+promotedTextTCon = stableTCon
+    "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
+    ["DA", "Internal", "PromotedText"]
+    "PromotedText"

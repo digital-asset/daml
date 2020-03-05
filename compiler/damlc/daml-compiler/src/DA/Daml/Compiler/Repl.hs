@@ -164,7 +164,6 @@ renderModule dflags imports line binds expr = unlines $
      , "{-# LANGUAGE PartialTypeSignatures #-}"
      , "daml 1.2"
      , "module " <> lineModuleName line <> " where"
-     , "import Prelude hiding (submit)"
      , "import Daml.Script"
      ] <>
      map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>

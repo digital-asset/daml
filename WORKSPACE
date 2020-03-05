@@ -48,7 +48,7 @@ build_environment(name = "build_environment")
 
 dadew(name = "dadew")
 
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
 
 ghc_dwarf(name = "ghc_dwarf")
@@ -318,7 +318,9 @@ haskell_register_ghc_nixpkgs(
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
     compiler_flags = common_ghc_flags + [
         "-fexternal-dynamic-refs",
-    ] + (["-g3"] if enable_ghc_dwarf else ["-optl-s"]),
+    ] + (["-g3"] if enable_ghc_dwarf else ([
+        "-optl-unexported_symbols_list=*",
+    ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],

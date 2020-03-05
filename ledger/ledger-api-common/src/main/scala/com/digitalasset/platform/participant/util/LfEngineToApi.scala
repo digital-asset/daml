@@ -6,10 +6,13 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.Numeric
+import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.data.LawlessTraversals._
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
+import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.EventId
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.ledger.api.v1.{value => api}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -18,7 +21,7 @@ object LfEngineToApi {
 
   private[this] type LfValue[+Cid] = Lf[Cid]
 
-  def toApiIdentifier(identifier: Identifier) = {
+  def toApiIdentifier(identifier: Identifier): api.Identifier = {
     api.Identifier(
       identifier.packageId,
       identifier.qualifiedName.module.toString(),
@@ -59,6 +62,13 @@ object LfEngineToApi {
     }
 
   }
+
+  def lfVersionedValueToApiValue(
+      verbose: Boolean,
+      lf: Option[Lf.VersionedValue[Lf.AbsoluteContractId]],
+  ): Either[String, Option[api.Value]] =
+    lf.fold[Either[String, Option[api.Value]]](Right(None))(
+      lfVersionedValueToApiValue(verbose, _).map(Some(_)))
 
   def lfVersionedValueToApiValue(
       verbose: Boolean,
@@ -154,6 +164,100 @@ object LfEngineToApi {
       verbose: Boolean,
       lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]): Either[String, api.Value] =
     lfVersionedValueToApiValue(verbose, lf.key)
+
+  def lfContractKeyToApiValue(
+      verbose: Boolean,
+      lf: Option[KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]])
+    : Either[String, Option[api.Value]] =
+    lf.fold[Either[String, Option[api.Value]]](Right(None))(
+      lfContractKeyToApiValue(verbose, _).map(Some(_)))
+
+  def lfNodeCreateToEvent(
+      verbose: Boolean,
+      eventId: String,
+      node: NodeCreate.WithTxValue[Lf.AbsoluteContractId],
+  ): Either[String, Event] =
+    for {
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
+      key <- lfContractKeyToApiValue(verbose, node.key)
+    } yield
+      Event(
+        Event.Event.Created(CreatedEvent(
+          eventId = eventId,
+          contractId = node.coid.coid,
+          templateId = Some(toApiIdentifier(node.coinst.template)),
+          contractKey = key,
+          createArguments = Some(arg),
+          witnessParties = node.stakeholders.toSeq,
+          signatories = node.signatories.toSeq,
+          observers = node.stakeholders.diff(node.signatories).toSeq,
+          agreementText = Some(node.coinst.agreementText),
+        )))
+
+  def lfNodeExercisesToEvent(
+      eventId: String,
+      node: NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId],
+  ): Either[String, Event] =
+    Either.cond(
+      node.consuming,
+      Event(
+        Event.Event.Archived(
+          ArchivedEvent(
+            eventId = eventId,
+            contractId = node.targetCoid.coid,
+            templateId = Some(toApiIdentifier(node.templateId)),
+            witnessParties = node.stakeholders.toSeq,
+          ))),
+      "illegal conversion of non-consuming exercise to archived event"
+    )
+
+  def lfNodeCreateToTreeEvent(
+      verbose: Boolean,
+      eventId: String,
+      witnessParties: Set[Ref.Party],
+      node: NodeCreate.WithTxValue[Lf.AbsoluteContractId],
+  ): Either[String, TreeEvent] =
+    for {
+      arg <- lfValueToApiRecord(verbose, node.coinst.arg.value)
+      key <- lfContractKeyToApiValue(verbose, node.key)
+    } yield
+      TreeEvent(
+        TreeEvent.Kind.Created(CreatedEvent(
+          eventId = eventId,
+          contractId = node.coid.coid,
+          templateId = Some(toApiIdentifier(node.coinst.template)),
+          contractKey = key,
+          createArguments = Some(arg),
+          witnessParties = witnessParties.toSeq,
+          signatories = node.signatories.toSeq,
+          observers = node.stakeholders.diff(node.signatories).toSeq,
+          agreementText = Some(node.coinst.agreementText),
+        )))
+
+  def lfNodeExercisesToTreeEvent(
+      verbose: Boolean,
+      eventId: String,
+      witnessParties: Set[Ref.Party],
+      node: NodeExercises.WithTxValue[EventId, Lf.AbsoluteContractId],
+  ): Either[String, TreeEvent] =
+    for {
+      arg <- lfVersionedValueToApiValue(verbose, node.chosenValue)
+      result <- lfVersionedValueToApiValue(verbose, node.exerciseResult)
+    } yield {
+      TreeEvent(
+        TreeEvent.Kind.Exercised(ExercisedEvent(
+          eventId = eventId,
+          contractId = node.targetCoid.coid,
+          templateId = Some(toApiIdentifier(node.templateId)),
+          choice = node.choiceId,
+          choiceArgument = Some(arg),
+          actingParties = node.actingParties.toSeq,
+          consuming = node.consuming,
+          witnessParties = witnessParties.toSeq,
+          childEventIds = node.children.toSeq,
+          exerciseResult = result,
+        )))
+    }
 
   @throws[RuntimeException]
   def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =

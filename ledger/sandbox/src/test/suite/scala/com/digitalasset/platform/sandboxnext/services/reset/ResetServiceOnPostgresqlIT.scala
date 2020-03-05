@@ -7,7 +7,9 @@ import com.digitalasset.platform.sandbox.services.reset.ResetServiceITBase
 import com.digitalasset.platform.sandboxnext.SandboxNextFixture
 import com.digitalasset.resources.ResourceOwner
 import com.digitalasset.testing.postgresql.PostgresResource
+import org.scalatest.Ignore
 
+@Ignore
 final class ResetServiceOnPostgresqlIT extends ResetServiceITBase with SandboxNextFixture {
   override def spanScaleFactor: Double = super.spanScaleFactor * 4
 

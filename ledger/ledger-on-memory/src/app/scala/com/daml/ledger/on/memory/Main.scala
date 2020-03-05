@@ -5,7 +5,7 @@ package com.daml.ledger.on.memory
 
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter.Index
-import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.SimpleLedgerFactory
+import com.daml.ledger.participant.state.kvutils.app.LedgerFactory.KeyValueLedgerFactory
 import com.daml.ledger.participant.state.kvutils.app.{Config, ParticipantConfig, Runner}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
@@ -26,7 +26,7 @@ object Main {
   }
 
   class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
-      extends SimpleLedgerFactory[InMemoryLedgerReaderWriter] {
+      extends KeyValueLedgerFactory[InMemoryLedgerReaderWriter] {
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
         implicit executionContext: ExecutionContext,
