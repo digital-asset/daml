@@ -8,6 +8,7 @@ import qualified DA.Daml.LF.Reader as DAR
 import qualified DA.Pretty
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
@@ -619,29 +620,26 @@ writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depend
 -- This type describes the format of a "top-level" 'package.json'. We
 -- expect such files to have the format
 -- {
---   "private": true,
 --   "workspaces: [
 --      "path/to/foo",
 --      "path/to/bar",
 --      ...
---   ]
+--   ],
+--   ...
 -- }
 data PackageJson = PackageJson
-  {  private :: Bool
-  ,  workspaces :: [T.Text]
+  { workspaces :: [T.Text]
+  , otherFields :: Object
   } deriving Show
 -- Explicitly provide instances to avoid relying on restricted
 -- extension 'DeriveGeneric'.
 instance FromJSON PackageJson where
   parseJSON (Object v) = PackageJson
-      <$> v .: "private"
-      <*> v .: "workspaces"
+      <$> v .: "workspaces"
+      <*> pure (HMS.delete "workspaces" v)
   parseJSON _ = mzero
 instance ToJSON PackageJson where
-  toJSON (PackageJson private workspaces) =
-    object [ "private" .= private
-           , "workspaces" .= workspaces
-           ]
+  toJSON PackageJson{..} = Object (HMS.insert "workspaces" (toJSON workspaces) otherFields)
 
 -- Read the provided 'package.json'; transform it to include the
 -- provided workspaces; write it back to disk.

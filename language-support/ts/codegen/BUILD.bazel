@@ -19,6 +19,7 @@ da_haskell_binary(
         "lens",
         "optparse-applicative",
         "text",
+        "unordered-containers",
         "zip-archive",
     ],
     main_function = "TsCodeGenMain.main",
