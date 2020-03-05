@@ -17,10 +17,10 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.{Liskov, NonEmptyList}
+import scalaz.{Bitraverse, Liskov, NonEmptyList}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
-import scalaz.syntax.bitraverse._
+import scalaz.syntax.bifunctor._
 import scalaz.syntax.show._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -325,8 +325,8 @@ class WebSocketService(
       .via(withOptPrefix { ejv: (InvalidUserInput \/ JsValue) =>
         ejv
           .flatMap(jv =>
-            (readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv))
-              .bisequence[Error \/ ?, domain.StartingOffset, A])
+            Bitraverse[\/].bisequence(
+              readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv)))
           .sequence: domain.StartingOffset \/ (Error \/ A)
       }((offPrefix, ejv) => ejv flatMap (Q.parse(decoder, _))))
       .flatMapConcat {
