@@ -2,11 +2,16 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-module DA.Daml.LF.Mangling (mangleIdentifier, unmangleIdentifier) where
+module DA.Daml.LF.Mangling
+    ( UnmangledIdentifier(..)
+    , mangleIdentifier
+    , unmangleIdentifier
+    ) where
 
 import Data.Bits
 import Data.Char
-import Data.Either (fromRight)
+import Data.Coerce
+import Data.Either.Combinators
 import qualified Data.Text as T
 import qualified Data.Text.Array as TA
 import qualified Data.Text.Internal as T (text)
@@ -107,8 +112,11 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
             | ord c > 0xFFFF = MangledSize 1 (word16s + 10)
             | otherwise = MangledSize 1 (word16s + 6)
 
-unmangleIdentifier :: T.Text -> Either String T.Text
-unmangleIdentifier txt = do
+-- | Newtype to make it explicit when we have already unmangled a string.
+newtype UnmangledIdentifier = UnmangledIdentifier T.Text
+
+unmangleIdentifier :: T.Text -> Either String UnmangledIdentifier
+unmangleIdentifier txt = mapLeft (\err -> "Could not unmangle name " ++ show txt ++ ": " ++ err) $ coerce $ do
   case T.uncons txt of
       Nothing -> Left "Empty identifier"
       Just (c, _)
