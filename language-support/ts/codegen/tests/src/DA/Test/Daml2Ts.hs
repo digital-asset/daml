@@ -82,7 +82,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertFileExists groverDar
       let elmo = here </> "elmo"
           elmoDaml = elmo </> "daml"
           elmoDar = elmo </> ".daml" </> "dist" </> "elmo-1.0.dar"
@@ -98,7 +97,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
-        assertFileExists elmoDar
         step "daml2ts..."
         writeRootPackageJson
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
@@ -125,7 +123,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertFileExists groverDar
       let superGrover = here </> "super-grover"
           superGroverDaml = superGrover </> "daml"
           superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
@@ -145,7 +142,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertFileExists superGroverDar
       withCurrentDirectory here $ do
         step "daml2ts..."
         writeRootPackageJson
@@ -175,7 +171,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertFileExists groverDar
       withCurrentDirectory here $ do
         step "daml2ts..."
         writeRootPackageJson
