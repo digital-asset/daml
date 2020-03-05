@@ -5,7 +5,7 @@ package com.digitalasset.platform.index
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.domain.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.domain.TransactionFilter
 import com.digitalasset.ledger.api.v1.event.Event
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -23,20 +23,15 @@ object EventFilter {
       )
     )
 
-  private def byTemplate(template: Ref.Identifier)(templateFilter: Filters): Boolean =
-    templateFilter.inclusive.fold(true)(_.templateIds(template))
-
-  private def included(party: String, template: Ref.Identifier, txf: TransactionFilter): Boolean =
-    txf.filtersByParty.get(Party.assertFromString(party)).fold(false)(byTemplate(template))
-
   def apply(event: Event)(txf: TransactionFilter): Option[Event] =
-    Some(event.modifyWitnessParties(_.filter(included(_, toLfIdentifier(event.templateId), txf))))
+    Some(event.modifyWitnessParties(_.filter(party =>
+      txf(Party.assertFromString(party), toLfIdentifier(event.templateId)))))
       .filter(_.witnessParties.nonEmpty)
 
   def apply(event: ActiveContract)(txf: TransactionFilter): Option[ActiveContract] =
     Some(event)
       .filter(ac =>
-        (ac.signatories union ac.observers).exists(included(_, event.contract.template, txf)))
-      .map(_.copy(witnesses = event.witnesses.filter(included(_, event.contract.template, txf))))
+        (ac.signatories union ac.observers).exists(party => txf(party, event.contract.template)))
+      .map(_.copy(witnesses = event.witnesses.filter(party => txf(party, event.contract.template))))
 
 }

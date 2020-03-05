@@ -28,6 +28,9 @@ object EventOps {
 
     def templateId: Identifier = event.event.templateId
 
+    def isCreated: Boolean = event.event.isCreated
+    def isArchived: Boolean = event.event.isArchived
+
   }
 
   implicit class EventEventOps(val event: Event.Event) extends AnyVal {

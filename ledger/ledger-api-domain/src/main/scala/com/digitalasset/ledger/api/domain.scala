@@ -20,7 +20,10 @@ import scala.collection.{breakOut, immutable}
 
 object domain {
 
-  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters])
+  final case class TransactionFilter(filtersByParty: immutable.Map[Ref.Party, Filters]) {
+    def apply(party: Ref.Party, template: Ref.Identifier): Boolean =
+      filtersByParty.get(party).fold(false)(_.apply(template))
+  }
 
   object TransactionFilter {
 
@@ -30,7 +33,7 @@ object domain {
   }
 
   final case class Filters(inclusive: Option[InclusiveFilters]) {
-    def containsTemplateId(identifier: Ref.Identifier): Boolean =
+    def apply(identifier: Ref.Identifier): Boolean =
       inclusive.fold(true)(_.templateIds.contains(identifier))
   }
 

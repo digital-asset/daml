@@ -9,11 +9,9 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value
-
 import scalaz.Equal
 
 import scala.annotation.tailrec
-
 import scala.collection.immutable.HashMap
 
 case class VersionedTransaction[Nid, Cid](
@@ -55,7 +53,7 @@ case class VersionedTransaction[Nid, Cid](
 /** General transaction type
   *
   * Abstracts over NodeId type and ContractId type
-  * ContractId restricts the occurence of contractIds
+  * ContractId restricts the occurrence of contractIds
   * either AbsoluteContractId if only absolute ids occur
   * or ContractId when both absolute and relative ids are allowed
   *
@@ -139,7 +137,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     * Used to for example compute the roots of per-party projections from the
     * transaction.
     */
-  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
       op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
   ): A = {
     var globalState = globalState0
@@ -217,21 +215,15 @@ final case class GenTransaction[Nid, +Cid, +Val](
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
-    *
-    * @note [[uncheckedVariance]] only to avoid the contains problem
-    *       <https://stackoverflow.com/questions/8360413/selectively-disable-subsumption-in-scala-correctly-type-list-contains>.
-    *       We can get away with it because we don't admit ''any'' overrides.
-    *       However, requiring [[Equal]]`[Val2]` as `isReplayedBy` does would
-    *       also solve the contains problem.  Food for thought
     */
-  final def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
+  def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
     compareForest(other)(_ == _)
 
   /**
     * Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  final def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
+  def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
       compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean,
   ): Boolean = {
     @tailrec
@@ -284,7 +276,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
+  def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
       other: GenTransaction[Nid2, Cid2, Val2],
   )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))

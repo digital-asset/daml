@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.EventId
 
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +28,7 @@ object EventIdFormatter {
     }
 
   // this method defines the EventId format used by the sandbox
-  def fromTransactionId(transactionId: LedgerString, nid: Transaction.NodeId): LedgerString =
+  def fromTransactionId(transactionId: LedgerString, nid: Transaction.NodeId): EventId =
     fromTransactionId(transactionId, LedgerString.fromInt(nid.index))
 
   /** When loading a scenario we get already absolute nids from the ledger -- still prefix them with the transaction

@@ -110,7 +110,11 @@ abstract class LedgerBackedIndexService(
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToTransaction(offset, transaction, filter, verbose)
+            .ledgerEntryToTransactionTree(
+              offset,
+              transaction,
+              filter.filtersByParty.keySet,
+              verbose)
             .map(tx => GetTransactionTreesResponse(Seq(tx)))
             .toList
       }
@@ -223,10 +227,10 @@ abstract class LedgerBackedIndexService(
       .map(_.flatMap {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToTransaction(
+            .ledgerEntryToTransactionTree(
               LedgerOffset.Absolute(LedgerString.fromLong(offset)),
               transaction,
-              filter,
+              filter.filtersByParty.keySet,
               verbose = true)
             .map(tx => GetTransactionResponse(Option(tx)))
       })(DEC)

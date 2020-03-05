@@ -4,237 +4,192 @@
 package com.digitalasset.platform.index
 
 import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Relation.Relation
+import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger
+import com.digitalasset.ledger.{CommandId, EventId, TransactionId}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
-import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
-import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
-import com.digitalasset.platform.server.services.transaction.TransientContractRemover
+import com.digitalasset.ledger.api.v1.event.Event
+import com.digitalasset.ledger.api.v1.transaction.{
+  TreeEvent,
+  Transaction => ApiTransaction,
+  TransactionTree => ApiTransactionTree
+}
+import com.digitalasset.platform.api.v1.event.EventOps.EventOps
+import com.digitalasset.platform.events.EventIdFormatter.{fromTransactionId, split}
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  assertOrRuntimeEx,
+  lfNodeCreateToEvent,
+  lfNodeCreateToTreeEvent,
+  lfNodeExercisesToEvent,
+  lfNodeExercisesToTreeEvent
+}
 import com.digitalasset.platform.store.entries.LedgerEntry
 
 import scala.annotation.tailrec
 
 object TransactionConversion {
 
+  private type ContractId = Lf.AbsoluteContractId
+  private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
+  private type Node = GenNode.WithTxValue[EventId, ContractId]
+  private type Create = NodeCreate.WithTxValue[ContractId]
+  private type Exercise = NodeExercises.WithTxValue[EventId, ContractId]
+
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(EventId, Node), A]): Vector[A] =
+    tx.fold(Vector.empty[A]) {
+      case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
+      case (nodes, _) => nodes
+    }
+
+  private def maskCommandId(
+      commandId: Option[CommandId],
+      submittingParty: Option[Ref.Party],
+      requestingParties: Set[Ref.Party],
+  ): String =
+    commandId.filter(_ => submittingParty.exists(requestingParties)).getOrElse("")
+
+  private def toFlatEvent(verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
+    case (eventId, node: Create) =>
+      assertOrRuntimeEx(
+        failureContext = "converting a create node to a created event",
+        lfNodeCreateToEvent(verbose, eventId, node)
+      )
+    case (eventId, node: Exercise) if node.consuming =>
+      assertOrRuntimeEx(
+        failureContext = "converting a consuming exercise node to an archived event",
+        lfNodeExercisesToEvent(eventId, node)
+      )
+  }
+
+  private def permanent(events: Vector[Event]): Set[String] = {
+    events.foldLeft(Set.empty[String]) { (contractIds, event) =>
+      if (event.isCreated || !contractIds.contains(event.contractId)) {
+        contractIds + event.contractId
+      } else {
+        contractIds - event.contractId
+      }
+    }
+  }
+
+  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+    val toKeep = permanent(events)
+    events.filter(event => toKeep(event.contractId))
+  }
+
   def ledgerEntryToFlatTransaction(
       offset: domain.LedgerOffset.Absolute,
-      trans: LedgerEntry.Transaction,
+      entry: LedgerEntry.Transaction,
       filter: domain.TransactionFilter,
       verbose: Boolean,
-  ): Option[Transaction] = {
-    val events = engine.Event.collectEvents(trans.transaction, trans.explicitDisclosure)
-    val allEvents = events.roots.toSeq
-      .foldLeft(List.empty[Event])((l, evId) => l ++ flattenEvents(events.events, evId, verbose))
-
-    val filteredEvents = TransientContractRemover
-      .removeTransients(allEvents)
-      .flatMap(EventFilter(_)(filter).toList)
-
-    val commandId =
-      trans.commandId
-        .filter(_ => trans.submittingParty.exists(filter.filtersByParty.keySet))
-        .getOrElse("")
-
-    if (filteredEvents.nonEmpty || commandId.nonEmpty) {
-      Some(
-        Transaction(
-          transactionId = trans.transactionId,
-          commandId = commandId,
-          workflowId = trans.workflowId.getOrElse(""),
-          effectiveAt = Some(TimestampConversion.fromInstant(trans.recordedAt)),
-          events = filteredEvents,
-          offset = offset.value,
-        ))
-    } else None
-  }
-
-  def ledgerEntryToTransaction(
-      offset: domain.LedgerOffset.Absolute,
-      trans: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter,
-      verbose: Boolean,
-  ): Option[TransactionTree] = {
-
-    filter.filter(trans.transaction).map { disclosureByNodeId =>
-      val allEvents = engine.Event.collectEvents(trans.transaction, disclosureByNodeId)
-      val events = allEvents.events.map {
-        case (nodeId, value) =>
-          (nodeId: String, value match {
-            case e: ExerciseEvent[ledger.EventId @unchecked, AbsoluteContractId @unchecked] =>
-              lfExerciseToApi(nodeId, e, verbose)
-            case c: CreateEvent[AbsoluteContractId @unchecked] =>
-              lfCreateToApi(nodeId, c, verbose)
-          })
-      }
-
-      val (byId, roots) =
-        removeInvisibleRoots(events, allEvents.roots.toList)
-
-      val commandId =
-        trans.commandId
-          .filter(_ => trans.submittingParty.exists(filter.filtersByParty.keySet))
-          .getOrElse("")
-
-      TransactionTree(
-        transactionId = trans.transactionId,
+  ): Option[ApiTransaction] = {
+    val flatEvents = removeTransient(collect(entry.transaction)(toFlatEvent(verbose)))
+    val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
+    val requestingParties = filter.filtersByParty.keySet
+    val commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties)
+    Some(
+      ApiTransaction(
+        transactionId = entry.transactionId,
         commandId = commandId,
-        workflowId = trans.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(trans.recordedAt)),
+        workflowId = entry.workflowId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        events = filtered,
         offset = offset.value,
-        eventsById = byId,
-        rootEventIds = roots
+      )).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
+  }
+
+  private def disclosureForParties(
+      transactionId: TransactionId,
+      transaction: Transaction,
+      parties: Set[Ref.Party],
+  ): Option[Relation[EventId, Ref.Party]] =
+    Some(
+      Blinding
+        .blind(transaction.mapNodeId(split(_).get.nodeId))
+        .disclosure
+        .flatMap {
+          case (nodeId, disclosure) =>
+            List(disclosure.intersect(parties)).collect {
+              case disclosure if disclosure.nonEmpty =>
+                fromTransactionId(transactionId, nodeId) -> disclosure
+            }
+        }
+    ).filter(_.nonEmpty)
+
+  private def toTreeEvent(
+      verbose: Boolean,
+      disclosure: Relation[EventId, Ref.Party],
+  ): PartialFunction[(EventId, Node), (String, TreeEvent)] = {
+    case (eventId, node: Create) if disclosure.contains(eventId) =>
+      eventId -> assertOrRuntimeEx(
+        failureContext = "converting a create node to a created event",
+        lfNodeCreateToTreeEvent(verbose, eventId, disclosure(eventId), node),
       )
-    }
+    case (eventId, node: Exercise) if disclosure.contains(eventId) =>
+      eventId -> assertOrRuntimeEx(
+        failureContext = "converting an exercise node to an exercise event",
+        lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node),
+      )
   }
 
-  private case class InvisibleRootRemovalState(
-      rootsWereReplaced: Boolean,
-      eventsById: Map[String, TreeEvent],
-      rootEventIds: Seq[String])
-
-  // Remove root nodes that have empty witnesses and put their children in their place as roots.
-  // Do this while there are roots with no witnesses.
   @tailrec
-  private def removeInvisibleRoots(
-      eventsById: Map[String, TreeEvent],
-      rootEventIds: Seq[String]): (Map[String, TreeEvent], Seq[String]) = {
-
-    val result =
-      rootEventIds.foldRight(
-        InvisibleRootRemovalState(rootsWereReplaced = false, eventsById, Seq.empty)) {
-        case (eventId, InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, newRoots)) =>
-          val event = eventsById
-            .getOrElse(
-              eventId,
-              throw new IllegalArgumentException(
-                s"Root event id $eventId is not present among transaction nodes ${eventsById.keySet}"))
-          if (event.witnessParties.nonEmpty)
-            InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, eventId +: newRoots)
+  private def newRoots(
+      tx: Transaction,
+      disclosure: Relation[EventId, Ref.Party],
+  ): Seq[String] = {
+    val (replaced, roots) =
+      tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
+        case ((replaced, roots), eventId) =>
+          if (disclosure.contains(eventId)) (replaced, roots :+ eventId)
           else
-            InvisibleRootRemovalState(
-              rootsWereReplaced = true,
-              filteredEvents - eventId,
-              event.childEventIds ++ newRoots)
+            tx.nodes(eventId) match {
+              case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
+              case _ => (true, roots)
+            }
       }
-    if (result.rootsWereReplaced)
-      removeInvisibleRoots(result.eventsById, result.rootEventIds)
-    else (result.eventsById, result.rootEventIds)
+    if (replaced) newRoots(tx.copy(roots = ImmArray(roots)), disclosure) else roots
   }
 
-  private def lfCreateToApiCreate(
-      eventId: String,
-      create: CreateEvent[AbsoluteContractId],
-      witnessParties: CreateEvent[AbsoluteContractId] => Set[Ref.Party],
-      verbose: Boolean): CreatedEvent = {
-    CreatedEvent(
-      eventId = eventId,
-      contractId = create.contractId.coid,
-      templateId = Some(LfEngineToApi.toApiIdentifier(create.templateId)),
-      contractKey = create.contractKey.map(
-        ck =>
-          LfEngineToApi.assertOrRuntimeEx(
-            "translating the contract key",
-            LfEngineToApi
-              .lfValueToApiValue(verbose, ck.key.value))),
-      createArguments = Some(
-        LfEngineToApi
-          .lfValueToApiRecord(verbose, create.argument.value match {
-            case rec @ Lf.ValueRecord(_, _) => rec
-            case _ => throw new RuntimeException(s"Value is not an record.")
-          })
-          .fold(_ => throw new RuntimeException("Expected value to be a record."), identity)),
-      witnessParties = witnessParties(create).toSeq,
-      signatories = create.signatories.toSeq,
-      observers = create.observers.toSeq,
-      agreementText = Some(create.agreementText)
-    )
-  }
-
-  private def lfCreateToApi(
-      eventId: String,
-      create: CreateEvent[Lf.AbsoluteContractId],
+  private def applyDisclosure(
+      tx: Transaction,
+      disclosure: Relation[EventId, Ref.Party],
       verbose: Boolean,
-  ): TreeEvent =
-    TreeEvent(TreeEvent.Kind.Created(lfCreateToApiCreate(eventId, create, _.witnesses, verbose)))
-
-  private def lfCreateToApiFlat(
-      eventId: String,
-      create: CreateEvent[Lf.AbsoluteContractId],
-      verbose: Boolean,
-  ): Event =
-    Event(Created(lfCreateToApiCreate(eventId, create, _.stakeholders, verbose)))
-
-  private def lfExerciseToApi(
-      eventId: String,
-      exercise: ExerciseEvent[ledger.EventId, Lf.AbsoluteContractId],
-      verbose: Boolean,
-  ): TreeEvent =
-    TreeEvent(
-      TreeEvent.Kind.Exercised(ExercisedEvent(
-        eventId = eventId,
-        contractId = exercise.contractId.coid,
-        templateId = Some(LfEngineToApi.toApiIdentifier(exercise.templateId)),
-        choice = exercise.choice,
-        choiceArgument = Some(
-          LfEngineToApi
-            .lfValueToApiValue(verbose, exercise.choiceArgument.value)
-            .getOrElse(
-              throw new RuntimeException("Error converting choice argument")
-            )),
-        actingParties = exercise.actingParties.toSeq,
-        consuming = exercise.isConsuming,
-        witnessParties = exercise.witnesses.toSeq,
-        childEventIds = exercise.children.toSeq,
-        exerciseResult = exercise.exerciseResult.map(result =>
-          LfEngineToApi
-            .lfValueToApiValue(verbose, result.value)
-            .fold(_ => throw new RuntimeException("Error converting exercise result"), identity)),
-      )))
-
-  private def lfConsumingExerciseToApi(
-      eventId: ledger.EventId,
-      exercise: ExerciseEvent[ledger.EventId, Lf.AbsoluteContractId]
-  ): Event =
-    Event(
-      Archived(
-        ArchivedEvent(
-          eventId = eventId,
-          contractId = exercise.contractId.coid,
-          templateId = Some(LfEngineToApi.toApiIdentifier(exercise.templateId)),
-          witnessParties = exercise.stakeholders.toSeq
+  ): Option[ApiTransactionTree] =
+    Some(collect(tx)(toTreeEvent(verbose, disclosure))).collect {
+      case events if events.nonEmpty =>
+        ApiTransactionTree(
+          eventsById = events.toMap,
+          rootEventIds = newRoots(tx, disclosure)
         )
-      ))
-
-  private def flattenEvents(
-      events: Map[
-        ledger.EventId,
-        engine.Event[ledger.EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
-      root: ledger.EventId,
-      verbose: Boolean): List[Event] = {
-    val event = events(root)
-    event match {
-      case create: CreateEvent[Lf.AbsoluteContractId @unchecked] =>
-        List(lfCreateToApiFlat(root, create, verbose))
-
-      case exercise: ExerciseEvent[ledger.EventId, Lf.AbsoluteContractId] =>
-        val children =
-          exercise.children.iterator
-            .flatMap(eventId => flattenEvents(events, eventId, verbose))
-            .toList
-
-        if (exercise.isConsuming) {
-          lfConsumingExerciseToApi(root, exercise) :: children
-        } else children
-
-      case _ => Nil
     }
+
+  def ledgerEntryToTransactionTree(
+      offset: domain.LedgerOffset.Absolute,
+      entry: LedgerEntry.Transaction,
+      requestingParties: Set[Ref.Party],
+      verbose: Boolean,
+  ): Option[ApiTransactionTree] = {
+    val filteredTree =
+      for {
+        disclosure <- disclosureForParties(
+          entry.transactionId,
+          entry.transaction,
+          requestingParties,
+        )
+        filteredTree <- applyDisclosure(entry.transaction, disclosure, verbose)
+      } yield filteredTree
+
+    filteredTree.map(
+      _.copy(
+        transactionId = entry.transactionId,
+        commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
+        workflowId = entry.workflowId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        offset = offset.value,
+      ))
   }
+
 }
