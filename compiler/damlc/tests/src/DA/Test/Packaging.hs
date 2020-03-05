@@ -1099,8 +1099,12 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           step "Build proja"
           createDirectoryIfMissing True (proja </> "src")
           writeFileUTF8 (proja </> "src" </> "A.daml") $ unlines
-              [ "module A where"
+              [ "{-# LANGUAGE KindSignatures #-}"
+              , "{-# LANGUAGE UndecidableInstances #-}"
+              , "{-# LANGUAGE DataKinds #-}"
+              , "module A where"
               , "import DA.Record"
+              , "import DA.Generics"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
@@ -1120,7 +1124,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "usingEq : Eq t => t -> t -> Bool"
               , "usingEq = (==)"
               -- test exporting of HasField instances
-              , "data R = R { rfoo : Int }"
+              , "data RR = RR { rrfoo : Int }"
               -- test exporting of template typeclass instances
               , "template P"
               , "  with"
@@ -1146,6 +1150,20 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "usesHasField = getField @\"a_field\""
               , "usesHasFieldEmpty : (HasField \"\" a b) => a -> b"
               , "usesHasFieldEmpty = getField @\"\""
+              -- Test that deriving Generic doesn't blow everything up
+              , "data X t = X t deriving Generic"
+              -- Test that indirect references to an erased type don't
+              -- stick around with a dangling reference, including via
+              -- typeclass specializations.
+              , "class MyGeneric t where"
+              , "class MyGeneric t => YourGeneric t where"
+              , "instance {-# OVERLAPPABLE #-} DA.Generics.Generic t rep => MyGeneric t"
+              , "instance {-# OVERLAPPABLE #-} Generic Int (D1 ('MetaData ('MetaData0 \"\" \"\" \"\" 'True)) (K1 R ())) where"
+              , "  from = error \"\""
+              , "  to = error \"\""
+              , "instance YourGeneric Int"
+                  -- ^ tests detection of Generic reference via
+                  -- specialization of MyGeneric instance
               ]
           writeFileUTF8 (proja </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -1160,7 +1178,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
           createDirectoryIfMissing True (projb </> "src")
           writeFileUTF8 (projb </> "src" </> "B.daml") $ unlines
               [ "module B where"
-              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, R(R), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
+              , "import A ( Foo (foo), Bar (..), usingFoo, Q (..), usingEq, RR(RR), P(P), AnyWrapper(..), FunT(..), OptionalT(..), ActionTrans(..), usesHasField, usesHasFieldEmpty )"
               , "import DA.Assert"
               , "import DA.Record"
               , ""
@@ -1185,8 +1203,8 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
               , "  (Q1 <= Q2) === True" -- Ord Q
               -- test importing of HasField instances
               , "testHasFieldInstanceImport = scenario do"
-              , "  let x = R 100"
-              , "  getField @\"rfoo\" x === 100"
+              , "  let x = RR 100"
+              , "  getField @\"rrfoo\" x === 100"
               -- test importing of template typeclass instance
               , "test = scenario do"
               , "  alice <- getParty \"Alice\""
