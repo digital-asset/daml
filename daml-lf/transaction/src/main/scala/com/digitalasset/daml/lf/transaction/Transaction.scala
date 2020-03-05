@@ -131,17 +131,6 @@ final case class GenTransaction[Nid, +Cid, +Val](
   }
 
   /**
-    * Traverses the transaction tree in pre-order traversal (i.e. exercise node are traversed before their children)
-    *
-    * Takes constant stack space. Crashes if the transaction is not well formed (see `isWellFormed`)
-    */
-  def collect[A](pf: PartialFunction[(Nid, GenNode[Nid, Cid, Val]), A]): Vector[A] =
-    fold(Vector.newBuilder[A]) {
-      case (builder, node) if pf.isDefinedAt(node) => builder += pf(node)
-      case (builder, _) => builder
-    }.result()
-
-  /**
     * A fold over the transaction that maintains global and path-specific state.
     * Takes constant stack space. Returns the global state.
     *
