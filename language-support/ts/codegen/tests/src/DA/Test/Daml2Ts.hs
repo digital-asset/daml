@@ -82,7 +82,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
       let elmo = here </> "elmo"
           elmoDaml = elmo </> "daml"
           elmoDar = elmo </> ".daml" </> "dist" </> "elmo-1.0.dar"
@@ -98,7 +97,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
-        assertBool "elmo-1.0.dar was not created." =<< doesFileExist elmoDar
         step "daml2ts..."
         writeRootPackageJson
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
@@ -125,7 +123,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
       let superGrover = here </> "super-grover"
           superGroverDaml = superGrover </> "daml"
           superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
@@ -145,7 +142,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertBool "super-grover-1.0.dar was not created." =<< doesFileExist superGroverDar
       withCurrentDirectory here $ do
         step "daml2ts..."
         writeRootPackageJson
@@ -175,13 +171,12 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
         step "daml build..."
         buildProject []
-        assertBool "grover-1.0.dar was not created." =<< doesFileExist groverDar
       withCurrentDirectory here $ do
         step "daml2ts..."
         writeRootPackageJson
         daml2tsProject [groverDar, groverDar] daml2tsDir (here </> "package.json")
-        assertBool "'Grover.ts' was not created." =<< doesFileExist (groverTsSrc </> "Grover.ts")
-        assertBool "'packageId.ts' was not created." =<< doesFileExist (groverTsSrc </> "packageId.ts")
+        assertFileExists (groverTsSrc </> "Grover.ts")
+        assertFileExists (groverTsSrc </> "packageId.ts")
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -195,16 +190,16 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
           ["-o", daml2tsDir, "-p", here </> "package.json", "--daml-types-version", "0.13.51"]
-        assertBool "davl-0.0.4/src/DAVL.ts was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.4" </> "src" </> "DAVL.ts")
-        assertBool "davl-0.0.5/src/DAVL.ts was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.5" </> "src" </> "DAVL.ts")
-        assertBool "davl-upgrade-v4-v5-0.0.5/src/Upgrade.ts was not created." =<< doesFileExist (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "src" </> "Upgrade.ts")
+        assertFileExists (daml2tsDir </> "davl-0.0.4" </> "src" </> "DAVL.ts")
+        assertFileExists (daml2tsDir </> "davl-0.0.5" </> "src" </> "DAVL.ts")
+        assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "src" </> "Upgrade.ts")
         step "yarn install..."
         yarnProject ["install"]
         step "yarn workspaces run build..."
         yarnProject ["workspaces", "run", "build"]
-        assertBool "'davl-0.0.4/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.js")
-        assertBool "'davl-0.0.5/lib/DAVL.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.js")
-        assertBool "'davl-upgrade-v4-v5-0.0.5/lib/Upgrade.js' was not created." =<< doesFileExist (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.js")
+        assertFileExists (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.js")
+        assertFileExists (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.js")
+        assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.js")
         step "yarn workspaces run lint..."
         yarnProject ["workspaces", "run", "lint"]
      ]
@@ -246,3 +241,6 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         , "exposed-modules: [" <> intercalate "," exposedModules <> "]"
         , "dependencies:"] ++ ["  - " ++ dependency | dependency <- dependencies]
       )
+
+    assertFileExists :: FilePath -> IO ()
+    assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
