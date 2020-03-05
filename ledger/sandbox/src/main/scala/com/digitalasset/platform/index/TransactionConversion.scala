@@ -123,12 +123,12 @@ object TransactionConversion {
       verbose: Boolean,
       disclosure: Relation[EventId, Ref.Party],
   ): PartialFunction[(EventId, Node), (String, TreeEvent)] = {
-    case (eventId, node: Create) if disclosure(eventId).nonEmpty =>
+    case (eventId, node: Create) if disclosure.contains(eventId) =>
       eventId -> assertOrRuntimeEx(
         failureContext = "converting a create node to a created event",
         lfNodeCreateToTreeEvent(verbose, eventId, disclosure(eventId), node),
       )
-    case (eventId, node: Exercise) if disclosure(eventId).nonEmpty =>
+    case (eventId, node: Exercise) if disclosure.contains(eventId) =>
       eventId -> assertOrRuntimeEx(
         failureContext = "converting an exercise node to an exercise event",
         lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node),
@@ -143,7 +143,7 @@ object TransactionConversion {
     val (replaced, roots) =
       tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
         case ((replaced, roots), eventId) =>
-          if (disclosure(eventId).nonEmpty) (replaced, roots :+ eventId)
+          if (disclosure.contains(eventId)) (replaced, roots :+ eventId)
           else
             tx.nodes(eventId) match {
               case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
