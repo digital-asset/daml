@@ -34,6 +34,8 @@ import System.FilePath hiding ((<.>))
 import qualified System.FilePath as FP
 
 import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
+import qualified DA.Daml.Project.Types as DATypes
 
 data Options = Options
     { optInputDars :: [FilePath]
@@ -109,19 +111,22 @@ mergePackageMap ps = foldM merge Map.empty ps
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    sdkVersion <- fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    ps <- readPackages optInputDars
-    case mergePackageMap ps of
+    version <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+    sdkVersion <- case version of
+          Left _ -> fail "Invalid SDK version"
+          Right v -> pure v
+    pkgs <- readPackages optInputDars
+    case mergePackageMap pkgs of
       Left err -> fail . T.unpack $ err
-      Right pm -> do
+      Right pkgMap -> do
         dependencies <-
-          forM (Map.toList pm) $
+          forM (Map.toList pkgMap) $
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = unPackageId pkgId
                      name = packageNameText pkgId mbPkgName
                      asName = if name == id then "itself" else name
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
-                 deps <- daml2ts opts pm pkgId pkg mbPkgName sdkVersion
+                 deps <- daml2ts Daml2TsParams{..}
                  pure (name, deps)
         whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
 
@@ -137,11 +142,20 @@ newtype Dependency = Dependency {undependency :: T.Text}  deriving (Eq, Ord)
 scopeOfScopeDir :: FilePath -> Scope
 scopeOfScopeDir = Scope . takeFileName
 
+data Daml2TsParams = Daml2TsParams
+  { opts :: Options  -- cli args
+  , pkgMap :: Map.Map PackageId (Maybe PackageName, Package)
+  , pkgId :: PackageId
+  , pkg :: Package
+  , mbPkgName :: Maybe PackageName
+  , sdkVersion :: SdkVersion
+  }
+
 -- Write the files for a single package.
-daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
-    PackageId -> Package -> Maybe PackageName -> String -> IO [Dependency]
-daml2ts Options{..} pm pkgId pkg mbPkgName sdkVersion = do
-    let scopeDir = optOutputDir
+daml2ts :: Daml2TsParams -> IO [Dependency]
+daml2ts Daml2TsParams {..} = do
+    let Options {..} = opts
+        scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
         packageDir = scopeDir </> T.unpack (packageNameText pkgId mbPkgName)
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
@@ -168,7 +182,7 @@ daml2ts Options{..} pm pkgId pkg mbPkgName sdkVersion = do
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
       writeModuleTs packageSrcDir scope mod = do
-        case genModule pm scope pkgId mod of
+        case genModule pkgMap scope pkgId mod of
           Nothing -> pure []
           Just (modTxt, ds) -> do
             let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
@@ -179,17 +193,17 @@ daml2ts Options{..} pm pkgId pkg mbPkgName sdkVersion = do
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
      Scope -> PackageId -> Module -> Maybe (T.Text, [Dependency])
-genModule pm (Scope scope) curPkgId mod
+genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
     let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
-        imports = [ importDecl pm modRef rootPath
+        imports = [ importDecl pkgMap modRef rootPath
                   | modRef@(pkgRef, _) <- modRefs refs
                   , let rootPath = pkgRootPath modName pkgRef ]
         defs = map biconcat defSers
         modText = T.unlines $ intercalate [""] $ filter (not . null) $ modHeader : imports : defs
-        depends = [ Dependency $ pkgRefStr pm pkgRef
+        depends = [ Dependency $ pkgRefStr pkgMap pkgRef
                   | (pkgRef, _) <- modRefs refs, pkgRef /= PRSelf ]
    in Just (modText, depends)
   where
@@ -208,17 +222,17 @@ genModule pm (Scope scope) curPkgId mod
     -- Calculate an import declaration.
     importDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
                       (PackageRef, ModuleName) -> T.Text -> T.Text
-    importDecl pm modRef@(pkgRef, modName) rootPath =
+    importDecl pkgMap modRef@(pkgRef, modName) rootPath =
       "import * as " <>  genModuleRef modRef <> " from '" <>
-      T.intercalate "/" ((rootPath : pkgRefStr pm pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
+      T.intercalate "/" ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
       "';"
 
     -- Produce a package name for a package ref.
     pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageRef -> T.Text
-    pkgRefStr pm = \case
+    pkgRefStr pkgMap = \case
       PRSelf -> ""
       PRImport pkgId ->
-        case Map.lookup pkgId pm of
+        case Map.lookup pkgId pkgMap of
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
@@ -558,17 +572,17 @@ writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
   , "}"
   ]
 
-writePackageJson :: FilePath -> String -> Scope -> [Dependency] -> IO ()
+writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
 writePackageJson packageDir sdkVersion (Scope scope) depends =
   writeFileUTF8 (packageDir </> "package.json") $ unlines
   (["{"
    , "  \"private\": true,"
    , "  \"name\": \"" <> packageName <> "\","
-   , "  \"version\": \"" <> sdkVersion <> "\","
+   , "  \"version\": \"" <> version <> "\","
    , "  \"description\": \"Produced by daml2ts\","
    , "  \"license\": \"Apache-2.0\","
    , "  \"dependencies\": {"
-   , "    \"@daml/types\": \"" <> sdkVersion <> "\","
+   , "    \"@daml/types\": \"" <> version <> "\","
    , "    \"@mojotech/json-type-validation\": \"^3.1.0\"" ++ if not $ null dependencies then ", " else ""
    ] ++ dependencies ++
     ["  },"
@@ -585,8 +599,9 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     , "}"
     ])
   where
+    version = versionToString sdkVersion
     packageName =  packageNameOfPackageDir packageDir
-    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> sdkVersion <> "\""
+    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> version <> "\""
                               | d <- depends
                               , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
                               ]
