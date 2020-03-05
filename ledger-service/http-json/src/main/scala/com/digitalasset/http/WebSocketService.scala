@@ -20,7 +20,7 @@ import com.typesafe.scalalogging.LazyLogging
 import scalaz.{Liskov, NonEmptyList}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
-import scalaz.syntax.bifunctor._
+import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -306,6 +306,7 @@ class WebSocketService(
 
   private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def wsMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -321,8 +322,12 @@ class WebSocketService(
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
-      .via(withOptPrefix { ejv: InvalidUserInput \/ JsValue =>
-        \/-(ejv flatMap (Q.parse(decoder, _))): Unit \/ (Error \/ A)
+      .via(withOptPrefix { ejv: (InvalidUserInput \/ JsValue) =>
+        ejv
+          .flatMap(jv =>
+            (readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv))
+              .bisequence[Error \/ ?, domain.StartingOffset, A])
+          .sequence: domain.StartingOffset \/ (Error \/ A)
       }((offPrefix, ejv) => ejv flatMap (Q.parse(decoder, _))))
       .flatMapConcat {
         case \/-(a) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
