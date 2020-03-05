@@ -196,6 +196,49 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 
 If you open Navigator, you can now see the contracts that have been created.
 
+Using DAML Script for Ledger Initialization
+===========================================
+
+You can use DAML script to initialize a ledger on startup. To do so,
+specify an ``init-script: ScriptExample:initializeFixed`` field in
+your ``daml.yaml``. This will automatically be picked up by ``daml
+start`` and used to initialize sandbox. Since it is often useful to
+create a party with a specific party id during development, you can
+use the ``allocatePartyWithHint`` function which accepts not only the
+display name but also a hint for the party id. On Sandbox, the hint
+will be used directly as the party id of the newly allocated
+party. This allows us to implement ``initializeFixed`` as a small
+wrapper around the ``initialize`` function we defined above:
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- INITIALIZE_FIXED_BEGIN
+   :end-before: -- INITIALIZE_FIXED_END
+
+Migrating from Scenarios
+------------------------
+
+Existing scenarios that you used for ledger initialization can be
+translated to DAML script but there are a few things to keep in mind:
+
+#. You need to add ``daml-script`` to the list of dependencies in your
+   ``daml.yaml``.
+#. You need to import the ``Daml.Script`` module.
+#. Calls to ``create``, ``exercise``, ``exerciseByKey`` and
+   ``createAndExercise`` need to be suffixed with ``Cmd``, e.g.,
+   ``createCmd``.
+#. Instead of specifying a ``scenario`` field in your ``daml.yaml``,
+   you need to specify an ``init-script`` field. The initialization
+   script is specified via ``Module:identifier`` for both fields.
+#. DAML script only supports the commands available on the ledger API
+   so you cannot call functions like ``fetch`` directly. This is
+   intentional. Your initialization scripts should not be able to
+   create transactions that a ledger client would not be able to
+   create. If you need, you can create a choice and call that via
+   ``createAndExercise``.
+#. You need to replace calls to ``getParty x`` by
+   ``allocatePartyWithHint x (PartyIdHint x)``.
+
 Using DAML Script in Distributed Topologies
 ===========================================
 

@@ -86,3 +86,13 @@ test = do
   assertEq [Coin bank bob] (map snd bobCoins)
 -- TEST_QUERIES_END
 
+
+-- INITIALIZE_FIXED_BEGIN
+initializeFixed : Script ()
+initializeFixed = do
+  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  let parties = LedgerParties{..}
+  initialize parties
+-- INITIALIZE_FIXED_END

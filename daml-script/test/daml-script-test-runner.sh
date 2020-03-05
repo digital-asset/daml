@@ -50,6 +50,7 @@ ScriptTest:testKey SUCCESS
 ScriptTest:time SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
+ScriptExample:initializeFixed SUCCESS
 EOF
 )"
 
