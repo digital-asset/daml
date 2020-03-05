@@ -49,11 +49,6 @@ cd $TMP_DIR
 
 $DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
 $YARN install --frozen-lockfile
-# Remove the daml-types and daml-ledger workspaces. They were here for
-# the purposes of dependency resolution and can't participate in a
-# 'daml workspaces run build'.
-sed -i '/\"daml-types\",/d' $TMP_DIR/package.json
-sed -i '/\"daml-ledger\",/d' $TMP_DIR/package.json
 $YARN workspaces run build
 $YARN workspaces run lint
 cd build-and-lint
