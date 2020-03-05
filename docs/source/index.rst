@@ -41,6 +41,7 @@ DAML SDK documentation
    :caption: Building applications
 
    app-dev/index
+   DAML Script <daml-script/index>
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
@@ -99,7 +100,6 @@ DAML SDK documentation
    upgrade/index
    json-api/index
    DAML Triggers <triggers/index>
-   DAML Script <daml-script/index>
    DAML Repl <daml-repl/index>
    tools/visual
    daml2ts/index
