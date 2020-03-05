@@ -326,11 +326,12 @@ class WebSocketService(
         ejv
           .flatMap(jv =>
             Bitraverse[\/].bisequence(
-              readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv)))
-          .sequence: domain.StartingOffset \/ (Error \/ A)
-      }((offPrefix, ejv) => ejv flatMap (Q.parse(decoder, _))))
+              readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv).strengthL(None)))
+          .sequence: domain.StartingOffset \/ (Error \/ (Option[domain.StartingOffset], A))
+      }((offPrefix, ejv) => ejv flatMap (jv => Q.parse(decoder, jv) strengthL Some(offPrefix))))
       .flatMapConcat {
-        case \/-(a) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
+        // TODO SC use offPrefix
+        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
