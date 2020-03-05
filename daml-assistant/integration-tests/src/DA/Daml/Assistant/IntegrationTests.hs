@@ -206,7 +206,6 @@ packagingTests = testGroup "packaging"
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
           [ "daml 1.2"
           , "module Main where"
-          , "import Prelude hiding (submit)"
           , "import Daml.Script"
           , "template T with p : Party where signatory p"
           , "init : Script ()"

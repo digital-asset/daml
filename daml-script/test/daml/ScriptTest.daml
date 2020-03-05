@@ -5,7 +5,6 @@
 
 module ScriptTest where
 
-import Prelude hiding (getParty, submit, submitMustFail)
 import DA.Time
 
 import Daml.Script
