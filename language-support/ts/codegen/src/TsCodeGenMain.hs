@@ -580,14 +580,14 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
   writeFileUTF8 (packageDir </> "package.json") $ unlines
   (["{"
    , "  \"private\": true,"
-   , "  \"name\": \"" <> packageName <> "\","
+   , "  \"name\": \"" <> name <> "\","
    , "  \"version\": \"" <> version <> "\","
    , "  \"description\": \"Produced by daml2ts\","
    , "  \"dependencies\": {"
    , "    \"@daml/types\": \"" <> version <> "\","
-   , "    \"@mojotech/json-type-validation\": \"^3.1.0\"" ++ if not $ null dependencies then ", " else ""
    ] ++ dependencies ++
-    ["  },"
+   [ "    \"@mojotech/json-type-validation\": \"^3.1.0\""
+    , "  },"
     , "  \"scripts\": {"
     , "    \"build\": \"tsc --build\","
     , "    \"lint\": \"eslint --ext .ts src/ --max-warnings 0\""
@@ -602,11 +602,11 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     ])
   where
     version = versionToString sdkVersion
-    packageName =  packageNameOfPackageDir packageDir
-    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> version <> "\""
-                              | d <- depends
-                              , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
-                              ]
+    name = packageNameOfPackageDir packageDir
+    dependencies = [ "    \"" <> pkg <> "\": \"" <> version <> "\","
+                   | d <- depends
+                   , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
+                   ]
 
     -- From the path to a package like '/path/to/daml2ts/d14e08'
     -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
@@ -616,10 +616,6 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
       where
         scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
         package = takeFileName packageDir
-
-    withCommas :: [String] -> [String]
-    withCommas [] = []
-    withCommas ms = reverse (head ms' : map (++ ",") (tail ms')) where ms' = reverse ms
 
 -- This type describes the format of a "top-level" 'package.json'. We
 -- expect such files to have the format
@@ -661,18 +657,9 @@ setupWorkspace optOutputDir dependencies file = do
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
     transformAndWrite ourPackages scope oldPackageJson = do
-      let damlTypes = [T.pack "daml-types"]
-      --   * Old versions of our packages should be removed;
-          keepPackages =
-            [ T.pack x
-            | x <- [T.unpack y | y <- workspaces oldPackageJson]
-            , isNothing $ stripPrefix (T.unpack scope) x
-            ]
-      --  * Our packages need to come after 'daml-types' if it exists;
-      --  * Our packages need to come before any other existing packages.
-          allPackages =
-            case stripInfix damlTypes keepPackages of
-              Nothing -> ourPackages ++ keepPackages
-              Just (before, after) -> before ++ damlTypes ++ ourPackages ++ after
+      let keepPackages = filter (not . T.isPrefixOf scope) $ workspaces oldPackageJson
+            -- Old versions of our packages should be removed.
+          allPackages = ourPackages ++ keepPackages
+            -- Our packages need to come before any other existing packages.
       BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allPackages}
       putStrLn $ "'" <> file <> "' updated."
