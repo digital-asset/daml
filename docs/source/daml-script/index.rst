@@ -64,10 +64,7 @@ library to the ``dependencies`` field in ``daml.yaml``.
    :start-after: # script-dependencies-begin
    :end-before: # script-dependencies-end
 
-In addition to that you also need to import the ``Daml.Script`` module
-and since DAML script provides ``submit`` and ``submitMustFail``
-functions that collide with the ones used in scenarios, we need to
-hide those. We also enable the ``ApplicativeDo`` extension. We will
+We also enable the ``ApplicativeDo`` extension. We will
 see below why this is useful.
 
 .. literalinclude:: ./template-root/src/ScriptExample.daml

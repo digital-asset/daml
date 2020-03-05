@@ -5,8 +5,6 @@
 
 module MultiTest where
 
-import Prelude hiding (getParty, submit, submitMustFail)
-
 import Daml.Script
 
 template T

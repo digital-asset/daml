@@ -22,7 +22,6 @@ module Daml.Script
   , sleep
   ) where
 
-import Prelude hiding (submit, submitMustFail)
 import DA.Optional
 import DA.Time
 
@@ -176,16 +175,13 @@ data SubmitCmd a = SubmitCmd { party : Party, commands : Commands a, handleFailu
 -- | Submit the commands as a single transaction.
 
 -- This will error if the submission fails.
-submit : Party -> Commands a -> Script a
-submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
-  where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
 
--- | Submit the commands as a single transaction
--- but error if it succeeds. This is only
--- useful for testing.
-submitMustFail : Party -> Commands a -> Script ()
-submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
-  where fail _ = error "Expected submit to fail but it succeeded"
+instance HasSubmit Script Commands where
+  submit p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p cmds fail)
+    where fail (SubmitFailure status msg) = error $ "Submit failed with code " <> show status <> ": " <> msg
+
+  submitMustFail p cmds = Script $ Free (fmap pure $ Submit $ SubmitCmd p (fail <$> cmds) (const ()))
+    where fail _ = error "Expected submit to fail but it succeeded"
 
 -- | This is the type of A DAML script. `Script` is an instance of `Action`,
 -- so you can use `do` notation.
