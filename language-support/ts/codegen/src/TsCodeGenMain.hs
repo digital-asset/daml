@@ -146,6 +146,8 @@ newtype Scope = Scope {unscope :: String}
 newtype Dependency = Dependency {undependency :: T.Text}  deriving (Eq, Ord)
 
 -- Gives the scope 'foo' given a directory path like '/path/to/foo'.
+-- The scope 'foo' is the '@foo' part of a package name in an import
+-- declaration.
 scopeOfScopeDir :: FilePath -> Scope
 scopeOfScopeDir = Scope . takeFileName
 
@@ -180,14 +182,13 @@ daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
       writeModuleTs packageSrcDir scope mod = do
-         maybe (pure [])
-           (\(modTxt, ds) -> do
-             let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
-             createDirectoryIfMissing True (takeDirectory outputFile)
-             T.writeFileUtf8 outputFile modTxt
-             pure ds
-           )
-           (genModule pm scope pkgId mod)
+        case genModule pm scope pkgId mod of
+          Nothing -> pure []
+          Just (modTxt, ds) -> do
+            let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
+            createDirectoryIfMissing True (takeDirectory outputFile)
+            T.writeFileUtf8 outputFile modTxt
+            pure ds
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
@@ -231,9 +232,9 @@ genModule pm (Scope scope) curPkgId mod
     pkgRefStr pm = \case
       PRSelf -> ""
       PRImport pkgId ->
-        maybe (error "IMPOSSIBLE : package map malformed")
-        (\(mbPkgName, _) -> packageNameText pkgId mbPkgName)
-        (Map.lookup pkgId pm)
+        case Map.lookup pkgId pm of
+          Nothing -> error "IMPOSSIBLE : package map malformed"
+          Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
     -- Calculate the base part of a package ref string. For foreign
     -- imports that's something like '@daml2ts'. For self refences
@@ -625,14 +626,12 @@ writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depend
 --      "path/to/bar",
 --      ...
 --   ],
---   ...
+--   ... perhaps other stuff ...
 -- }
 data PackageJson = PackageJson
   { workspaces :: [T.Text]
   , otherFields :: Object
   } deriving Show
--- Explicitly provide instances to avoid relying on restricted
--- extension 'DeriveGeneric'.
 instance FromJSON PackageJson where
   parseJSON (Object v) = PackageJson
       <$> v .: "workspaces"
@@ -653,10 +652,9 @@ writeTopLevelPackageJson optOutputDir dependencies file = do
         -- 'scope' we expect to be something like "daml2ts".
   let ourPackages = map ((scope <> "/") <>) ps
   bytes <- BSL.readFile file
-  maybe
-    (fail $ "Error decoding JSON from '" <> file <> "'")
-    (transformAndWrite ourPackages scope)
-    (decode bytes :: Maybe PackageJson)
+  case decode bytes :: Maybe PackageJson of
+    Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
+    Just oldPackageJson -> transformAndWrite ourPackages scope oldPackageJson
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
     transformAndWrite ourPackages scope oldPackageJson = do
@@ -669,9 +667,9 @@ writeTopLevelPackageJson optOutputDir dependencies file = do
             ]
       --  * Our packages need to come after 'daml-types' if it exists;
       --  * Our packages need to come before any other existing packages.
-          allPackages = maybe
-            (ourPackages ++ keepPackages)
-            (\(before, after) -> before ++ damlTypes ++ ourPackages ++ after)
-            (stripInfix damlTypes keepPackages)
+          allPackages =
+            case stripInfix damlTypes keepPackages of
+              Nothing -> ourPackages ++ keepPackages
+              Just (before, after) -> before ++ damlTypes ++ ourPackages ++ after
       BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allPackages}
       putStrLn $ "'" <> file <> "' updated."
