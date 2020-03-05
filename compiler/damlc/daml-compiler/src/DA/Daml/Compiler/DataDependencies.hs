@@ -641,7 +641,7 @@ convType env reexported =
                 tyvar = HsTyVar noExt NotPromoted . noLoc
                     . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
             args <- mapM (convType env reexported) lfArgs
-            pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
+            pure $ HsParTy noExt (noLoc $ foldl' (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
         ty | Just text <- getPromotedText ty ->
             pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
@@ -848,7 +848,7 @@ buildHiddenRefMap env =
         ]
 
     refGraph :: RefGraph
-    refGraph = foldl visitRef HMS.empty (rootRefs env)
+    refGraph = foldl' visitRef HMS.empty (rootRefs env)
 
     visitRef :: RefGraph -> Ref -> RefGraph
     visitRef !refGraph ref
@@ -857,26 +857,34 @@ buildHiddenRefMap env =
         | ref == RTypeCon erasedTCon
             = HMS.insert ref (True, []) refGraph -- Erased is always erased
         | refModule ref == LF.ModuleName ["DA", "Generics"]
-            = HMS.insert ref (True, []) refGraph -- DA.Generics is not supported
+            = HMS.insert ref (True, []) refGraph
+            -- DA.Generics is not supported. This prevents issues with GenConvertible.
+            -- TODO (SF): Check if we really need this after we remove DA.Upgrade
+            -- from daml-stdlib.
         | LF.PRImport pkgId <- refPackage ref
         , Set.member pkgId (configDependencyPackages (envConfig env))
-            = HMS.insert ref (False, []) refGraph -- dependencies are always available
+            = HMS.insert ref (False, []) refGraph
+            -- Dependencies are always available. This is a mostly a small optimization.
+            -- TODO (SF): Check if we really need this after we move to running the
+            -- erased tracker once per package.
         | LF.PRImport pkgId <- refPackage ref
         , MS.member pkgId (configStablePackages (envConfig env))
             = HMS.insert ref (False, []) refGraph -- stable pkgs are always available
+            -- TODO (SF): Check if we really need this after we move to running the
+            -- erased tracker once per package.
 
         | RTypeCon tcon <- ref
         , Just defDataType <- envLookupDataType tcon env
         , refs <- DL.toList (refsFromDefDataType defDataType)
         , hidden <- defDataTypeIsOldTypeClass defDataType
         , refGraph' <- HMS.insert ref (hidden, refs) refGraph
-            = foldl visitRef refGraph' refs
+            = foldl' visitRef refGraph' refs
 
         | RTypeSyn tsyn <- ref
         , Just defTypeSyn <- envLookupSynonym tsyn env
         , refs <- DL.toList (refsFromDefTypeSyn defTypeSyn)
         , refGraph' <- HMS.insert ref (False, refs) refGraph
-            = foldl visitRef refGraph' refs
+            = foldl' visitRef refGraph' refs
 
         | RValue val <- ref
         , Just dval@LF.DefValue{..} <- envLookupValue val env
@@ -884,7 +892,7 @@ buildHiddenRefMap env =
             then DL.toList (refsFromDFun dval)
             else mempty
         , refGraph' <- HMS.insert ref (False, refs) refGraph
-            = foldl visitRef refGraph' refs
+            = foldl' visitRef refGraph' refs
 
         | otherwise
             = error ("Unknown reference to type dependency " <> show ref)
@@ -1147,7 +1155,7 @@ convDFunSig env reexported DFunSig{..} = do
       . HsParTy noExt . noLoc
       . HsForAllTy noExt binders . noLoc
       . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
-      $ foldl (HsAppTy noExt . noLoc) cls (map noLoc args)
+      $ foldl' (HsAppTy noExt . noLoc) cls (map noLoc args)
 
 getPromotedText :: LF.Type -> Maybe T.Text
 getPromotedText = \case
