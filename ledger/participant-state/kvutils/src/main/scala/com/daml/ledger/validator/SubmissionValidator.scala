@@ -128,29 +128,32 @@ class SubmissionValidator[LogResult](
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] = {
     val declaredInputs = submission.getInputDamlStateList.asScala
     val inputKeysAsBytes = declaredInputs.map(keyToBytes)
-    ledgerStateAccess.inTransaction { stateOperations =>
-      val result = for {
-        readStateValues <- stateOperations.readState(inputKeysAsBytes)
-        readStateInputs = readStateValues.zip(declaredInputs).map {
-          case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-        }
-        damlLogEntryId = allocateLogEntryId()
-        readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-        missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-        _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
-          Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
-        else
-          Future.unit
-        logEntryAndState <- Future.fromTry(
-          Try(processSubmission(damlLogEntryId, recordTime, submission, participantId, readInputs)))
-        result <- postProcessResult(
-          damlLogEntryId,
-          flattenInputStates(readInputs),
-          logEntryAndState,
-          stateOperations,
-        )
-      } yield result
-      result.transform {
+    ledgerStateAccess
+      .inTransaction { stateOperations =>
+        for {
+          readStateValues <- stateOperations.readState(inputKeysAsBytes)
+          readStateInputs = readStateValues.zip(declaredInputs).map {
+            case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
+          }
+          damlLogEntryId = allocateLogEntryId()
+          readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
+          missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
+          _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
+            Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+          else
+            Future.unit
+          logEntryAndState <- Future.fromTry(
+            Try(
+              processSubmission(damlLogEntryId, recordTime, submission, participantId, readInputs)))
+          result <- postProcessResult(
+            damlLogEntryId,
+            flattenInputStates(readInputs),
+            logEntryAndState,
+            stateOperations,
+          )
+        } yield result
+      }
+      .transform {
         case Success(result) =>
           Success(Right(result))
         case Failure(exception: ValidationFailed) =>
@@ -159,7 +162,6 @@ class SubmissionValidator[LogResult](
           logger.error("Unexpected failure during submission validation.", exception)
           Success(Left(ValidationError(exception.getLocalizedMessage)))
       }
-    }
   }
 
   private def flattenInputStates(
