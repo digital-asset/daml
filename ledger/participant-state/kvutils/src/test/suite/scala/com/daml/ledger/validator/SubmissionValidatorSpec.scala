@@ -6,7 +6,6 @@ package com.daml.ledger.validator
 import java.time.Clock
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawBytes, RawKeyValuePairs}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -28,7 +27,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Right(_) => succeed
         }
@@ -42,23 +41,11 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true)
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Left(MissingInputState(keys)) => keys should have size 1
         }
       }
-    }
-
-    "return invalid submission for invalid envelope" in {
-      val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
-      instance
-        .validate(Array[Byte](1, 2, 3), "aCorrelationId", newRecordTime(), aParticipantId())
-        .map {
-          inside(_) {
-            case Left(ValidationError(reason)) => reason should include("Failed to parse")
-          }
-        }
     }
 
     "return invalid submission in case exception is thrown during processing of submission" in {
@@ -80,7 +67,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
           new FakeStateAccess(mockStateOperations),
           failingProcessSubmission,
           () => aLogEntryId())
-      instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
+      instance.validate(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Left(ValidationError(reason)) => reason should include("Validation failed")
         }
@@ -106,7 +93,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
         SubmissionValidator.processSubmission,
         mockLogEntryIdGenerator)
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
           inside(_) {
             case Right(actualLogResult) =>
@@ -143,7 +130,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
         (_, _, _, _, _) => logEntryAndStateResult,
         () => aLogEntryId())
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
           inside(_) {
             case Right(actualLogResult) =>
@@ -171,7 +158,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
         (_, _, _, _, _) => logEntryAndStateResult,
         () => aLogEntryId())
       instance
-        .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
+        .validateAndCommit(aSubmission(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
           inside(_) {
             case Left(ValidationError(reason)) => reason should include("Write error")
@@ -202,14 +189,12 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
   private def aStateValue(): RawBytes =
     SubmissionValidator.valueToBytes(DamlStateValue.getDefaultInstance)
 
-  private def anEnvelope(): RawBytes = {
-    val submission = DamlSubmission
+  private def aSubmission(): DamlSubmission =
+    DamlSubmission
       .newBuilder()
       .setConfigurationSubmission(DamlConfigurationSubmission.getDefaultInstance)
       .addInputDamlState(DamlStateKey.newBuilder.setConfiguration(Empty.getDefaultInstance))
       .build
-    Envelope.enclose(submission).toByteArray
-  }
 
   private def aParticipantId(): ParticipantId = ParticipantId.assertFromString("aParticipantId")
 

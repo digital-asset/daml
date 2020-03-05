@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -82,8 +83,8 @@ final class SqlLedgerReaderWriter(
       )
       .map { case (_, entry) => entry }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+  override def commit(correlationId: String, submission: DamlSubmission): Future[SubmissionResult] =
+    committer.commit(correlationId, submission)
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =

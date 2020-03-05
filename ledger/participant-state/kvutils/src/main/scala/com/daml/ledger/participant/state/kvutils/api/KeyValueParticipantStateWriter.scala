@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.CompletionStage
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
+import com.daml.ledger.participant.state.kvutils.KeyValueSubmission
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -81,6 +81,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
 
   private def commit(
       correlationId: String,
-      submission: DamlSubmission): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission).toByteArray))
+      submission: DamlSubmission,
+  ): CompletionStage[SubmissionResult] =
+    FutureConverters.toJava(writer.commit(correlationId, submission))
 }

@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
@@ -54,8 +55,8 @@ final class InMemoryLedgerReaderWriter(
   override def currentHealth(): HealthStatus =
     Healthy
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+  override def commit(correlationId: String, submission: DamlSubmission): Future[SubmissionResult] =
+    committer.commit(correlationId, submission)
 
   override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
