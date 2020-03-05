@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, LeafOnlyNode, NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.{CommandId, EventId, TransactionId}
 import com.digitalasset.ledger.api.domain
@@ -39,13 +39,10 @@ object TransactionConversion {
   private type Create = NodeCreate.WithTxValue[ContractId]
   private type Exercise = NodeExercises.WithTxValue[EventId, ContractId]
 
-  // TODO Refactor this into GenTransaction itself
-  private def iterate(tx: Transaction): Iterator[(EventId, Node)] =
-    tx.roots.iterator.map(nid => nid -> tx.nodes(nid)).flatMap {
-      case leaf @ (_, _: LeafOnlyNode.WithTxValue[ContractId]) =>
-        Iterator.single(leaf)
-      case branch @ (_, e: Exercise) =>
-        Iterator.single(branch) ++ e.children.iterator.map(nid => nid -> tx.nodes(nid))
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(EventId, Node), A]): Vector[A] =
+    tx.fold(Vector.empty[A]) {
+      case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
+      case (nodes, _) => nodes
     }
 
   private def maskCommandId(
@@ -89,8 +86,7 @@ object TransactionConversion {
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Option[ApiTransaction] = {
-    val flatEvents = removeTransient(
-      iterate(entry.transaction).collect(toFlatEvent(verbose)).toVector)
+    val flatEvents = removeTransient(collect(entry.transaction)(toFlatEvent(verbose)))
     val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
     val requestingParties = filter.filtersByParty.keySet
     val commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties)
@@ -162,7 +158,7 @@ object TransactionConversion {
       disclosure: Relation[EventId, Ref.Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] =
-    Some(iterate(tx).collect(toTreeEvent(verbose, disclosure))).collect {
+    Some(collect(tx)(toTreeEvent(verbose, disclosure))).collect {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,
