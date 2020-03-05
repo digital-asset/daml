@@ -338,7 +338,7 @@ private[http] object ContractsFetch {
     * the ACS graph, if desired.  Deliberately matching output shape
     * to `acsFollowingAndBoundary`.
     */
-  private def transactionsFollowingBoundary(
+  private[http] def transactionsFollowingBoundary(
       transactionsSince: lav1.ledger_offset.LedgerOffset => Source[Transaction, NotUsed],
   ): Graph[
     FanOutShape2[

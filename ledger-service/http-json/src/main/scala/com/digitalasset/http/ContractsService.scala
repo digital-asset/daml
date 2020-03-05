@@ -24,7 +24,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
 import scala.collection.breakOut
@@ -272,6 +272,7 @@ class ContractsService(
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
@@ -281,20 +282,26 @@ class ContractsService(
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
-    val source = getActiveContracts(jwt, txnFilter, true)
+    def source = getActiveContracts(jwt, txnFilter, true)
 
     val transactionsSince
       : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
     // TODO SC use startOffset
-    import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
-    val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead
-    source
-      .viaMat(contractsAndBoundary) { (nu, fob) =>
-        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
-        nu
-      }
+    import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
+    ContractsFetch.GraphExtensions._
+    val contractsAndBoundary = startOffset.cata(
+      so =>
+        Source
+          .single(Tag unsubst util.AbsoluteBookmark(so.offset))
+          .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
+      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right)
+    )
+    contractsAndBoundary mapMaterializedValue { fob =>
+      fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+      NotUsed
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
