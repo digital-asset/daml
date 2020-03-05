@@ -108,7 +108,7 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
 
 object LedgerFactory {
 
-  abstract class SimpleLedgerFactory[KWL <: KeyValueLedger]
+  abstract class KeyValueLedgerFactory[KVL <: KeyValueLedger]
       extends LedgerFactory[KeyValueParticipantState, Unit] {
     override final val defaultExtraConfig: Unit = ()
 
@@ -125,7 +125,7 @@ object LedgerFactory {
     def owner(value: Config[Unit], config: ParticipantConfig)(
         implicit executionContext: ExecutionContext,
         materializer: Materializer,
-        logCtx: LoggingContext): ResourceOwner[KWL]
+        logCtx: LoggingContext): ResourceOwner[KVL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =
       ()
