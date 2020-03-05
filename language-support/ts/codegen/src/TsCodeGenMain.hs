@@ -122,9 +122,8 @@ main = do
                      asName = if name == id then "itself" else name
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
                  deps <- daml2ts opts pm pkgId pkg mbPkgName sdkVersion
-                 pure (name, name, deps)
-        whenJust optInputPackageJson $
-          writeTopLevelPackageJson optOutputDir dependencies
+                 pure (name, deps)
+        whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
@@ -629,10 +628,10 @@ instance ToJSON PackageJson where
 
 -- Read the provided 'package.json'; transform it to include the
 -- provided workspaces; write it back to disk.
-writeTopLevelPackageJson :: FilePath -> [(T.Text, T.Text, [Dependency])] -> FilePath -> IO ()
-writeTopLevelPackageJson optOutputDir dependencies file = do
+setupWorkspace :: FilePath -> [(T.Text, [Dependency])] -> FilePath -> IO ()
+setupWorkspace optOutputDir dependencies file = do
   let (g, nodeFromVertex) = graphFromEdges'
-        (map (\(a, b, ds) -> (a, b, map undependency ds)) dependencies)
+        (map (\(a, ds) -> (a, a, map undependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
       scope = T.pack (unscope $ scopeOfScopeDir optOutputDir)
