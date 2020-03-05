@@ -18,6 +18,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
@@ -217,12 +218,10 @@ object SubmissionValidator {
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState): (RawBytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
-    val rawStateUpdates = damlStateUpdates
-      .map {
+    val rawStateUpdates: Vector[(RawBytes, RawBytes)] =
+      damlStateUpdates.map {
         case (key, value) => keyToBytes(key) -> valueToBytes(value)
-      }
-      .toSeq
-      .sortBy(_._1.toIterable)
+      }(breakOut)
     (Envelope.enclose(logEntry).toByteArray, rawStateUpdates)
   }
 
