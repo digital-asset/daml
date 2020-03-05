@@ -38,9 +38,6 @@ import DA.Daml.Project.Consts
 data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
-    , optDamlTypesVersion :: Maybe String
-        -- The version string of '@daml/types' the packages we write should depend on.
-        --    Default : SDK version if defined else 0.0.0.
     , optInputPackageJson :: Maybe FilePath
     }
 
@@ -55,11 +52,6 @@ optionsParser = Options
         <> metavar "DIR"
         <> help "Output directory for the generated TypeScript files"
         )
-    <*> optional (strOption
-        (  long "daml-types-version"
-        <> help "The version of '@daml/types' to depend on"
-        <> internal
-        ))
     <*> optional (strOption
         (  short 'p'
         <> metavar "PACKAGE-JSON"
@@ -118,11 +110,6 @@ main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
     sdkVersion <- fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    let damlTypesVersion = fromMaybe sdkVersion optDamlTypesVersion
-       -- The '@daml/types' version that the packages we write should depend on.
-    putStrLn $ "Referencing '@daml/types' : \"" <> damlTypesVersion <> "\""
-    let packageVersion   = sdkVersion
-       -- The version string for packages we write.
     ps <- readPackages optInputDars
     case mergePackageMap ps of
       Left err -> fail . T.unpack $ err
@@ -134,7 +121,7 @@ main = do
                      name = packageNameText pkgId mbPkgName
                      asName = if name == id then "itself" else name
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
-                 deps <- daml2ts opts pm pkgId pkg mbPkgName damlTypesVersion packageVersion
+                 deps <- daml2ts opts pm pkgId pkg mbPkgName sdkVersion
                  pure (name, name, deps)
         whenJust optInputPackageJson $
           writeTopLevelPackageJson optOutputDir dependencies
@@ -151,8 +138,8 @@ scopeOfScopeDir = Scope . takeFileName
 
 -- Write the files for a single package.
 daml2ts :: Options -> Map.Map PackageId (Maybe PackageName, Package) ->
-    PackageId -> Package -> Maybe PackageName -> String -> String -> IO [Dependency]
-daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
+    PackageId -> Package -> Maybe PackageName -> String -> IO [Dependency]
+daml2ts Options{..} pm pkgId pkg mbPkgName sdkVersion = do
     let scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
         packageDir = scopeDir </> T.unpack (packageNameText pkgId mbPkgName)
@@ -174,7 +161,7 @@ daml2ts Options{..} pm pkgId pkg mbPkgName damlTypesVersion packageVersion = do
     -- dependencies.
     writeTsConfig packageDir
     writeEsLintConfig packageDir
-    writePackageJson packageDir damlTypesVersion packageVersion scope dependencies
+    writePackageJson packageDir sdkVersion scope dependencies
     pure dependencies
     where
       -- Write the .ts file for a single DAML-LF module.
@@ -571,17 +558,17 @@ writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
   , "}"
   ]
 
-writePackageJson :: FilePath -> String -> String -> Scope -> [Dependency] -> IO ()
-writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depends =
+writePackageJson :: FilePath -> String -> Scope -> [Dependency] -> IO ()
+writePackageJson packageDir sdkVersion (Scope scope) depends =
   writeFileUTF8 (packageDir </> "package.json") $ unlines
   (["{"
    , "  \"private\": true,"
    , "  \"name\": \"" <> packageName <> "\","
-   , "  \"version\": \"" <> packageVersion <> "\","
+   , "  \"version\": \"" <> sdkVersion <> "\","
    , "  \"description\": \"Produced by daml2ts\","
    , "  \"license\": \"Apache-2.0\","
    , "  \"dependencies\": {"
-   , "    \"@daml/types\": \"" <> damlTypesVersion <> "\","
+   , "    \"@daml/types\": \"" <> sdkVersion <> "\","
    , "    \"@mojotech/json-type-validation\": \"^3.1.0\"" ++ if not $ null dependencies then ", " else ""
    ] ++ dependencies ++
     ["  },"
@@ -599,7 +586,7 @@ writePackageJson packageDir damlTypesVersion packageVersion (Scope scope) depend
     ])
   where
     packageName =  packageNameOfPackageDir packageDir
-    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> packageVersion <> "\""
+    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> sdkVersion <> "\""
                               | d <- depends
                               , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
                               ]

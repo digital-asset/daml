@@ -11,6 +11,7 @@ import System.Directory.Extra
 import System.Process
 import System.Exit
 import DA.Bazel.Runfiles
+import DA.Directory
 import Data.Maybe
 import Data.List.Extra
 import Test.Tasty
@@ -41,25 +42,10 @@ main = do
 --         tsconfig.json
 --         src/ *.ts
 --         lib/ *.js
---
--- At one time we had tests that exhibited this idiom:
---   copyDirectory damlTypesDir (here </> "daml-types")
---   writeRootPackageJson // contains 'daml-types' as a workspace
---   daml2tsProject [darFile] daml2tsDir (here </> "package.json")
---   yarnProject ["install"]
---   writeFile "package.json" .  replace "    \"daml-types\"," "" =<< readFile' "package.json"
---   yarnProject ["workspaces", "run", "build"]
--- In such tests we treat "@daml/types" as a yarn workspace for
--- dependency resolution, but don't allow it to be included in a 'yarn
--- workspaces run build' (which would fail to compile for lack of
--- 'index.ts').
--- After stripping these tests back to their barest minimum to be
--- reasonable with time taken in CI, you don't see it anymore. I leave
--- the variable 'damlTypes' and this comment here though to keep it in
--- mind should we need it again in future.
+--     daml-types  <-- referred to by the "resolutions" field in package.json
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
+tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
   [
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -98,7 +84,7 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
         step "daml2ts..."
-        writeRootPackageJson
+        setupWorkspace
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
         assertBool "A duplicate name for different packages error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
 
@@ -144,7 +130,7 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         buildProject []
       withCurrentDirectory here $ do
         step "daml2ts..."
-        writeRootPackageJson
+        setupWorkspace
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
         assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
 
@@ -173,7 +159,7 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         buildProject []
       withCurrentDirectory here $ do
         step "daml2ts..."
-        writeRootPackageJson
+        setupWorkspace
         daml2tsProject [groverDar, groverDar] daml2tsDir (here </> "package.json")
         assertFileExists (groverTsSrc </> "Grover.ts")
         assertFileExists (groverTsSrc </> "packageId.ts")
@@ -181,15 +167,13 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
       withCurrentDirectory here $ do
+        setupWorkspace
         step "daml2ts..."
-        -- In this test, '@daml/types-0.13.51' comes from the npm
-        -- package registry.
-        writeRootPackageJson
         callProcessSilent daml2ts $
           [ davl </> "davl-v4.dar"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
-          ["-o", daml2tsDir, "-p", here </> "package.json", "--daml-types-version", "0.13.51"]
+          ["-o", daml2tsDir, "-p", here </> "package.json"]
         assertFileExists (daml2tsDir </> "davl-0.0.4" </> "src" </> "DAVL.ts")
         assertFileExists (daml2tsDir </> "davl-0.0.5" </> "src" </> "DAVL.ts")
         assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "src" </> "Upgrade.ts")
@@ -222,12 +206,16 @@ tests _damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           hPutStrLn stderr $ unlines ["stderr: ", err]
           exitFailure
 
-    writeRootPackageJson :: IO ()
-    writeRootPackageJson =
+    setupWorkspace :: IO ()
+    setupWorkspace = do
+       copyDirectory damlTypes "daml-types"
        writeFileUTF8 "package.json" $ unlines
          [ "{"
          , "  \"private\": true,"
-         , "  \"workspaces\": []"
+         , "  \"workspaces\": [],"
+         , "  \"resolutions\": {"
+         , "    \"@daml/types\": \"file:daml-types\""
+         , "  }"
          , "}"
          ]
 
