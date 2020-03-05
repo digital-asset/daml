@@ -66,6 +66,23 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
+data ConfigConsts = ConfigConsts
+  { pkgDependencies :: [(String, String)]
+  , pkgDevDependencies :: [(String, String)]
+  }
+_configConsts :: ConfigConsts
+_configConsts = ConfigConsts
+  { pkgDependencies =
+      [("@mojotech/json-type-validation", "^3.1.0")
+      ]
+  , pkgDevDependencies =
+      [ ("@typescript-eslint/eslint-plugin", "2.11.0")
+      , ("@typescript-eslint/parser", "2.11.0")
+      , ("eslint", "^6.7.2")
+      , ("typescript", "~3.7.3")
+      ]
+  }
+
 -- Build a list of packages from a list of DAR file paths.
 readPackages :: [FilePath] -> IO [(PackageId, (Package, Maybe PackageName))]
 readPackages dars = concatMapM darToPackages dars
