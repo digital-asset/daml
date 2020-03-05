@@ -11,6 +11,7 @@ START="$MONTH-01T00:00:00+00:00"
 END="$(date -Is -u -d "$START + 1 month")"
 FULL="$(${FULL+false})"
 FILE="${2:-std-change-report-daml-$MONTH.csv}"
+ERROR_FILE="${FILE}.err"
 
 SHA_LIST=$(git log --format=%H --after $START --before $END | tac)
 
@@ -68,19 +69,28 @@ echo "Writing export to $FILE..."
 
 echo "\"date merged\",\"date opened\",\"title\",\"author\",\"approvers\",\"merger\",\"change type\",\"sha\",\"commit link\",\"PR\",\"PR link\"" > "$FILE"
 for sha in $SHA_LIST; do
-    PR_URL=$(cat $TMP/commits/$sha | jq -r '.[] | .url')
-    PR=$(cat $TMP/commits/$sha | jq -r '.[] | .number')
-    OPEN_DATE=$(cat $TMP/pulls/$PR | jq ".created_at")
-    MERGE_DATE=$(cat $TMP/pulls/$PR | jq ".merged_at")
-    AUTHOR=$(cat $TMP/pulls/$PR | jq '.user.login')
-    MERGER=$(cat $TMP/pulls/$PR | jq '.merged_by.login')
-    PR_LINK="https://github.com/digital-asset/daml/pull/$PR"
     COMMIT_LINK="https://github.com/digital-asset/daml/commit/$sha"
-    TITLE=$(cat $TMP/pulls/$PR | jq '.title')
-    CHANGE_TYPE=$(cat $TMP/issues/$PR | jq 'if [.labels[] | .name] | contains(["Standard-Change"]) then "Standard-Change" else "Routine-Change" end')
-    APPROVERS=$(cat $TMP/approvers/$PR | jq '[.[] | select(.state=="APPROVED") | .user.login] | join(";")')
-    if [ "$CHANGE_TYPE" = '"Standard-Change"' ] || [ "$FULL" = "true" ]; then
-        echo "$MERGE_DATE,$OPEN_DATE,$TITLE,$AUTHOR,$APPROVERS,$MERGER,$CHANGE_TYPE,\"$sha\",\"$COMMIT_LINK\",\"$PR\",\"$PR_LINK\"" >> "$FILE"
+    PR=$(cat $TMP/commits/$sha | jq -r '.[] | .number')
+
+    if [ -z "$PR" ]; then
+        echo "$COMMIT_LINK" >> "$ERROR_FILE"
+    else
+        PR_URL=$(cat $TMP/commits/$sha | jq -r '.[] | .url')
+        OPEN_DATE=$(cat $TMP/pulls/$PR | jq ".created_at")
+        MERGE_DATE=$(cat $TMP/pulls/$PR | jq ".merged_at")
+        AUTHOR=$(cat $TMP/pulls/$PR | jq '.user.login')
+        MERGER=$(cat $TMP/pulls/$PR | jq '.merged_by.login')
+        PR_LINK="https://github.com/digital-asset/daml/pull/$PR"
+        TITLE=$(cat $TMP/pulls/$PR | jq '.title')
+        CHANGE_TYPE=$(cat $TMP/issues/$PR | jq 'if [.labels[] | .name] | contains(["Standard-Change"]) then "Standard-Change" else "Routine-Change" end')
+        APPROVERS=$(cat $TMP/approvers/$PR | jq '[.[] | select(.state=="APPROVED") | .user.login] | join(";")')
+        if [ "$CHANGE_TYPE" = '"Standard-Change"' ] || [ "$FULL" = "true" ]; then
+            echo "$MERGE_DATE,$OPEN_DATE,$TITLE,$AUTHOR,$APPROVERS,$MERGER,$CHANGE_TYPE,\"$sha\",\"$COMMIT_LINK\",\"$PR\",\"$PR_LINK\"" >> "$FILE"
+        fi
     fi
 done
 
+if [ -f "$ERROR_FILE" ]; then
+    echo "One or more errors occurred. Please manually check the following commits:"
+    cat "$ERROR_FILE"
+fi
