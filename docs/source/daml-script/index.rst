@@ -9,12 +9,6 @@ DAML Script
 
    daml-script-docs
 
-**WARNING:** DAML Script is an experimental feature that is actively
-being designed and is *subject to breaking changes*.
-We welcome feedback about DAML script on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Script>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
 DAML scenarios provide a simple API for experimenting with DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
@@ -25,7 +19,8 @@ DAML script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an
 actual ledger. This means that you can use it to test automation
-logic, your UI but also for ledger initialization where scenarios
+logic, your UI but also for
+:ref:`ledger initialization <script-ledger-initialization>` where scenarios
 cannot be used (with the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
@@ -195,6 +190,8 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 ``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
 
 If you open Navigator, you can now see the contracts that have been created.
+
+.. _script-ledger-initialization:
 
 Using DAML Script for Ledger Initialization
 ===========================================

@@ -36,6 +36,7 @@ Building applications
    :maxdepth: 2
 
    app-dev/index
+   daml-script/index
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
@@ -95,7 +96,6 @@ Experimental features
    upgrade/index
    json-api/index
    triggers/index
-   daml-script/index
    daml-repl/index
    tools/visual
    daml2ts/index
