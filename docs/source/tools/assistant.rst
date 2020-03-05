@@ -117,6 +117,7 @@ Here is what each field means:
 - ``name``: the name of the project. This determines the filename of the ``.dar`` file compiled by ``daml build``.
 - ``source``: the root folder of your DAML source code files relative to the project root.
 - ``scenario``: the name of the scenario to run when using ``daml start``.
+- ``init-script``: the name of the DAML script to run when using ``daml start``.
 - ``parties``: the parties to display in the Navigator when using ``daml start``.
 - ``version``: the project version.
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.

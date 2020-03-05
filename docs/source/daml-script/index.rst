@@ -196,8 +196,27 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 
 If you open Navigator, you can now see the contracts that have been created.
 
-Migrating from Scenarios to DAML Script for Ledger Initialization
-=================================================================
+Using DAML Script for Ledger Initialization
+===========================================
+
+You can use DAML script to initialize a ledger on startup. To do so,
+specify an ``init-script: ScriptExample:initializeFixed`` field in
+your ``daml.yaml``. This will automatically be picked up by ``daml
+start`` and used to initialize sandbox. Since it is often useful to
+create a party with a specific party id during development, you can
+use the ``allocatePartyWithHint`` function which accepts not only the
+display name but also a hint for the party id. On Sandbox, the hint
+will be used directly as the party id of the newly allocated
+party. This allows us to implement ``initializeFixed`` as a small
+wrapper around the ``initialize`` function we defined above:
+
+.. literalinclude:: ./template-root/src/ScriptExample.daml
+   :language: daml
+   :start-after: -- INITIALIZE_FIXED_BEGIN
+   :end-before: -- INITIALIZE_FIXED_END
+
+Migrating from Scenarios
+------------------------
 
 Existing scenarios that you used for ledger initialization can be
 translated to DAML script but there are a few things to keep in mind:
