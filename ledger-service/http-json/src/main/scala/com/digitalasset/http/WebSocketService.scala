@@ -330,8 +330,7 @@ class WebSocketService(
           .sequence: domain.StartingOffset \/ (Error \/ (Option[domain.StartingOffset], A))
       }((offPrefix, ejv) => ejv flatMap (jv => Q.parse(decoder, jv) strengthL Some(offPrefix))))
       .flatMapConcat {
-        // TODO SC use offPrefix
-        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
+        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
@@ -339,11 +338,13 @@ class WebSocketService(
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
+      offPrefix: Option[domain.StartingOffset],
       request: A): Source[Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
     val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
 
+    // TODO SC use offPrefix
     if (resolved.nonEmpty) {
       contractsService
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
