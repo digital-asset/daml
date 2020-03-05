@@ -195,7 +195,7 @@ the input in the :doc:`/json-api/lf-value-specification`.
 
 We can then initialize our ledger passing in the json file via ``--input-file``.
 
-``daml script daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
 
 If you open Navigator, you can now see the contracts that have been created.
 
