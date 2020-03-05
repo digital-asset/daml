@@ -126,8 +126,7 @@ main = do
                      name = packageNameText pkgId mbPkgName
                      asName = if name == id then "itself" else name
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
-                 deps <- daml2ts Daml2TsParams{..}
-                 pure (name, deps)
+                 daml2ts Daml2TsParams{..}
         whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
@@ -152,12 +151,12 @@ data Daml2TsParams = Daml2TsParams
   }
 
 -- Write the files for a single package.
-daml2ts :: Daml2TsParams -> IO [Dependency]
+daml2ts :: Daml2TsParams -> IO (T.Text, [Dependency])
 daml2ts Daml2TsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
-        packageDir = scopeDir </> T.unpack (packageNameText pkgId mbPkgName)
+        packageDir = scopeDir </> T.unpack pkgName
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
@@ -168,17 +167,16 @@ daml2ts Daml2TsParams {..} = do
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    T.writeFileUtf8 (packageSrcDir </> "packageId.ts") $ T.unlines
-        ["export default '" <> unPackageId pkgId <> "';"]
     dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
-    -- Now write 'package.json', 'tsconfig.json' and '.eslint.rc.json'
-    -- files into the package dir. The 'package.json' needs the
-    -- dependencies.
+    -- Now write package metadata.
+    writePackageIdTs packageSrcDir pkgId
     writeTsConfig packageDir
     writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
-    pure dependencies
+    pure (pkgName, dependencies)
     where
+      pkgName = packageNameText pkgId mbPkgName
+
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
       writeModuleTs packageSrcDir scope mod = do
@@ -526,6 +524,11 @@ onLast f = \case
     [l] -> [f l]
     x : xs -> x : onLast f xs
 
+writePackageIdTs :: FilePath -> PackageId -> IO ()
+writePackageIdTs dir pkgId =
+    T.writeFileUtf8 (dir </> "packageId.ts") $ T.unlines
+      ["export default '" <> unPackageId pkgId <> "';"]
+
 writeTsConfig :: FilePath -> IO ()
 writeTsConfig dir = writeFileUTF8 (dir </> "tsconfig.json") $ unlines
     [ "{"
@@ -580,7 +583,6 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
    , "  \"name\": \"" <> packageName <> "\","
    , "  \"version\": \"" <> version <> "\","
    , "  \"description\": \"Produced by daml2ts\","
-   , "  \"license\": \"Apache-2.0\","
    , "  \"dependencies\": {"
    , "    \"@daml/types\": \"" <> version <> "\","
    , "    \"@mojotech/json-type-validation\": \"^3.1.0\"" ++ if not $ null dependencies then ", " else ""
