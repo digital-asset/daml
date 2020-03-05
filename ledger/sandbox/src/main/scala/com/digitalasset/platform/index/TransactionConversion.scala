@@ -129,6 +129,24 @@ object TransactionConversion {
       )
   }
 
+  @tailrec
+  private def newRoots(
+      tx: Transaction,
+      disclosure: Relation[EventId, Ref.Party],
+  ): Seq[String] = {
+    val (replaced, roots) =
+      tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
+        case ((replaced, roots), eventId) =>
+          if (disclosure(eventId).nonEmpty) (replaced, roots :+ eventId)
+          else
+            tx.nodes(eventId) match {
+              case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
+              case _ => (true, roots)
+            }
+      }
+    if (replaced) newRoots(tx.copy(roots = ImmArray(roots)), disclosure) else roots
+  }
+
   private def applyDisclosure(
       tx: Transaction,
       disclosure: Relation[EventId, Ref.Party],
@@ -166,24 +184,6 @@ object TransactionConversion {
         effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
         offset = offset.value,
       ))
-  }
-
-  @tailrec
-  private def newRoots(
-      tx: Transaction,
-      disclosure: Relation[EventId, Ref.Party],
-  ): Seq[String] = {
-    val (replaced, roots) =
-      tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
-        case ((replaced, roots), eventId) =>
-          if (disclosure(eventId).nonEmpty) (replaced, roots :+ eventId)
-          else
-            tx.nodes(eventId) match {
-              case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
-              case _ => (true, roots)
-            }
-      }
-    if (replaced) newRoots(tx.copy(roots = ImmArray(roots)), disclosure) else roots
   }
 
 }
