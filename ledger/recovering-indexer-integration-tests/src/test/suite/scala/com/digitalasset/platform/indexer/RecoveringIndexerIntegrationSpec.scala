@@ -24,6 +24,7 @@ import com.digitalasset.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -201,7 +202,9 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
       participantState <- newParticipantState(Some(ledgerId), participantId)
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
       _ <- new StandaloneIndexerServer(
+        actorSystem,
         participantState,
         IndexerConfig(
           participantId,
