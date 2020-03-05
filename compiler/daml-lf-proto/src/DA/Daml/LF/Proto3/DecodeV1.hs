@@ -76,7 +76,7 @@ decodeString = TL.toStrict
 decodeMangledString :: TL.Text -> (T.Text, Either String UnmangledIdentifier)
 decodeMangledString t = (decoded, unmangledOrErr)
     where !decoded = decodeString t
-          !unmangledOrErr = unmangleIdentifier decoded
+          unmangledOrErr = unmangleIdentifier decoded
 
 -- | Decode a string that will be interned in DAML-LF 1.7 and onwards.
 -- At the protobuf level, we represent internable non-empty lists of strings
@@ -100,14 +100,14 @@ decodeName
     => (T.Text -> a) -> Maybe e -> Decode a
 decodeName wrapName mbStrOrId = mayDecode "name" mbStrOrId $ \strOrId -> do
     unmangledOrErr <- case Util.toEither strOrId of
-        Left str -> pure $ decodeMangledString str
-        Right strId -> lookupString strId
+        Left str -> pure $ snd $ decodeMangledString str
+        Right strId -> snd <$> lookupString strId
     decodeNameString wrapName unmangledOrErr
 
-decodeNameString :: (T.Text -> a) -> (T.Text, Either String UnmangledIdentifier) -> Decode a
-decodeNameString wrapName (mangled, unmangledOrErr) =
+decodeNameString :: (T.Text -> a) -> Either String UnmangledIdentifier -> Decode a
+decodeNameString wrapName unmangledOrErr =
     case unmangledOrErr of
-        Left err -> throwError $ ParseError $ "Could not unmangle name " ++ show mangled ++ ": " ++ err
+        Left err -> throwError $ ParseError err
         Right (UnmangledIdentifier unmangled) -> pure $ wrapName unmangled
 
 -- | Decode the multi-component name of a syntactic object, e.g., a type
@@ -116,11 +116,11 @@ decodeNameString wrapName (mangled, unmangledOrErr) =
 decodeDottedName :: Util.EitherLike LF1.DottedName Int32 e
                  => ([T.Text] -> a) -> Maybe e -> Decode a
 decodeDottedName wrapDottedName mbDottedNameOrId = mayDecode "dottedName" mbDottedNameOrId $ \dottedNameOrId -> do
-    (mangled, unmangledOrErr) <- case Util.toEither dottedNameOrId of
+    (_, unmangledOrErr) <- case Util.toEither dottedNameOrId of
         Left (LF1.DottedName mangledV) -> decodeInternableStrings mangledV 0
         Right dnId -> decodeInternableStrings V.empty dnId
     case unmangledOrErr of
-      Left err -> throwError $ ParseError $ "Could not unmangle name " ++ show mangled ++ ": " ++ err
+      Left err -> throwError $ ParseError err
       Right unmangled -> pure $ wrapDottedName (coerce unmangled)
 
 -- | Decode the name of a top-level value. The name is mangled and will be
@@ -129,7 +129,7 @@ decodeValueName :: String -> V.Vector TL.Text -> Int32 -> Decode ExprValName
 decodeValueName ident mangledV dnId = do
     (mangled, unmangledOrErr) <- decodeInternableStrings mangledV dnId
     case unmangledOrErr of
-      Left err -> throwError $ ParseError $ "Could not unmangle name " ++ show mangled ++ ": " ++ err
+      Left err -> throwError $ ParseError err
       Right [UnmangledIdentifier unmangled] -> pure $ ExprValName unmangled
       Right [] -> throwError $ MissingField ident
       Right _ ->
@@ -243,8 +243,8 @@ decodeDataCons = \case
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
   LF1.DefDataTypeDataConsEnum (LF1.DefDataType_EnumConstructors cs cIds) -> do
     unmangledOrErr <- if
-      | V.null cIds -> pure $ map decodeMangledString (V.toList cs)
-      | V.null cs -> mapM lookupString (V.toList cIds)
+      | V.null cIds -> pure $ map (snd . decodeMangledString) (V.toList cs)
+      | V.null cs -> mapM (fmap snd . lookupString) (V.toList cIds)
       | otherwise -> throwError $ ParseError "strings and interned string ids both set for enum constructor"
     DataEnum <$> mapM (decodeNameString VariantConName) unmangledOrErr
 
@@ -468,8 +468,8 @@ decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
 
 decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
-  LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (decodeMangledString var)
-  LF1.ExprSumVarInternedStr strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName)
+  LF1.ExprSumVarStr var -> EVar <$> decodeNameString ExprVarName (snd $ decodeMangledString var)
+  LF1.ExprSumVarInternedStr strId -> EVar <$> (lookupString strId >>= decodeNameString ExprVarName . snd)
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)

@@ -11,7 +11,7 @@ module DA.Daml.LF.Mangling
 import Data.Bits
 import Data.Char
 import Data.Coerce
-import Data.Either (fromRight)
+import Data.Either.Combinators
 import qualified Data.Text as T
 import qualified Data.Text.Array as TA
 import qualified Data.Text.Internal as T (text)
@@ -116,7 +116,7 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
 newtype UnmangledIdentifier = UnmangledIdentifier T.Text
 
 unmangleIdentifier :: T.Text -> Either String UnmangledIdentifier
-unmangleIdentifier txt = coerce $ do
+unmangleIdentifier txt = mapLeft (\err -> "Could not unmangle name " ++ show txt ++ ": " ++ err) $ coerce $ do
   case T.uncons txt of
       Nothing -> Left "Empty identifier"
       Just (c, _)
