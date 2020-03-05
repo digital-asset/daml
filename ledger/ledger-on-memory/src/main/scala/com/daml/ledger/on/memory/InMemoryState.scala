@@ -50,5 +50,5 @@ object InMemoryState {
   type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
 
   type StateKey = ByteString
-  type StateValue = Array[Byte]
+  type StateValue = ByteString
 }

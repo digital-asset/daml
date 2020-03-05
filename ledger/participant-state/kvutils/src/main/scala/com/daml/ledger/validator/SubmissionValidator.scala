@@ -7,7 +7,7 @@ import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -48,7 +48,7 @@ class SubmissionValidator[LogResult](
   private val logger = ContextualizedLogger.get(getClass)
 
   def validate(
-      envelope: RawBytes,
+      envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -58,7 +58,7 @@ class SubmissionValidator[LogResult](
     }
 
   def validateAndCommit(
-      envelope: RawBytes,
+      envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -68,7 +68,7 @@ class SubmissionValidator[LogResult](
     }
 
   private[validator] def validateAndCommitWithLoggingContext(
-      envelope: RawBytes,
+      envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -76,7 +76,7 @@ class SubmissionValidator[LogResult](
     runValidation(envelope, correlationId, recordTime, participantId, commit)
 
   def validateAndTransform[U](
-      envelope: RawBytes,
+      envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -97,7 +97,7 @@ class SubmissionValidator[LogResult](
       stateOperations: LedgerStateOperations[LogResult],
   ): Future[LogResult] = {
     val (rawLogEntry, rawStateUpdates) = serializeProcessedSubmission(logEntryAndState)
-    val eventualLogResult = stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
+    val eventualLogResult = stateOperations.appendToLog(logEntryId.toByteString, rawLogEntry)
     val eventualStateResult =
       if (rawStateUpdates.nonEmpty)
         stateOperations.writeState(rawStateUpdates)
@@ -111,7 +111,7 @@ class SubmissionValidator[LogResult](
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def runValidation[T](
-      envelope: RawBytes,
+      envelope: Bytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
@@ -171,8 +171,7 @@ class SubmissionValidator[LogResult](
 }
 
 object SubmissionValidator {
-  type RawBytes = Array[Byte]
-  type RawKeyValuePairs = Seq[(RawBytes, RawBytes)]
+  type RawKeyValuePairs = Seq[(Bytes, Bytes)]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
@@ -214,22 +213,23 @@ object SubmissionValidator {
     )
 
   private[validator] def serializeProcessedSubmission(
-      logEntryAndState: LogEntryAndState): (RawBytes, RawKeyValuePairs) = {
+      logEntryAndState: LogEntryAndState,
+  ): (Bytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
-    val rawStateUpdates: Vector[(RawBytes, RawBytes)] =
+    val rawStateUpdates: Vector[(Bytes, Bytes)] =
       damlStateUpdates.map {
         case (key, value) => keyToBytes(key) -> valueToBytes(value)
       }(breakOut)
-    (Envelope.enclose(logEntry).toByteArray, rawStateUpdates)
+    (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
-  private[validator] def keyToBytes(damlStateKey: DamlStateKey): RawBytes =
-    damlStateKey.toByteArray
+  private[validator] def keyToBytes(damlStateKey: DamlStateKey): Bytes =
+    damlStateKey.toByteString
 
-  private[validator] def valueToBytes(value: DamlStateValue): RawBytes =
-    Envelope.enclose(value).toByteArray
+  private[validator] def valueToBytes(value: DamlStateValue): Bytes =
+    Envelope.enclose(value)
 
-  private[validator] def bytesToStateValue(value: RawBytes): DamlStateValue =
+  private[validator] def bytesToStateValue(value: Bytes): DamlStateValue =
     Envelope
       .openStateValue(value)
       .fold(message => throw new IllegalStateException(message), identity)

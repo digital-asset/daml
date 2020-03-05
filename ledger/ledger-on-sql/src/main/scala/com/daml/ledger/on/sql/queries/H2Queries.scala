@@ -27,7 +27,7 @@ final class H2Queries(override protected implicit val connection: Connection)
 
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
     Try {
-      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
+      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES (${key.toByteArray}, ${value.toByteArray})"
         .executeInsert()
       ()
     }.flatMap(_ => lastInsertId())

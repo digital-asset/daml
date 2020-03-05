@@ -27,7 +27,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
 
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
     Try {
-      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
+      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES (${key.toByteArray}, ${value.toByteArray})"
         .executeInsert()
       ()
     }.flatMap(_ => lastInsertId())
@@ -39,13 +39,13 @@ final class SqliteQueries(override protected implicit val connection: Connection
       ()
     }.flatMap(_ => lastInsertId())
 
-  override protected val updateStateQuery: String =
-    s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
-
   private def lastInsertId(): Try[Index] = Try {
     SQL"SELECT LAST_INSERT_ROWID() AS row_id"
       .as(long("row_id").single)
   }
+
+  override protected val updateStateQuery: String =
+    s"INSERT INTO $StateTable VALUES ({key}, {value}) ON CONFLICT(key) DO UPDATE SET value = {value}"
 }
 
 object SqliteQueries {

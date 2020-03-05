@@ -16,13 +16,14 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.{Heartbeat, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.when
-import org.scalatest.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.Future
@@ -30,7 +31,6 @@ import scala.concurrent.Future
 class KeyValueParticipantStateReaderSpec
     extends AsyncWordSpec
     with Matchers
-    with MockitoSugar
     with AkkaBeforeAndAfterAll {
 
   private val start: Instant = Instant.from(ZonedDateTime.of(2020, 1, 1, 12, 0, 0, 0, UTC))
@@ -147,7 +147,7 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "throw in case of an invalid log entry received" in {
-      val anInvalidEnvelope = Array[Byte](0, 1, 2)
+      val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelope),
@@ -166,7 +166,7 @@ class KeyValueParticipantStateReaderSpec
             .setParticipantId("aParticipantId")
             .setDisplayName("participant"))
         .build
-      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray
+      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelopeMessage),
@@ -179,13 +179,19 @@ class KeyValueParticipantStateReaderSpec
     }
   }
 
+  private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Future[Seq[Offset]] =
+    stream.runWith(Sink.seq).map(_.map(_._1))
+}
+
+object KeyValueParticipantStateReaderSpec {
+
   private val aLogEntry = DamlLogEntry
     .newBuilder()
     .setPartyAllocationEntry(
       DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
     .build()
 
-  private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray
+  private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
   private def aLogEntryId(index: Int): DamlLogEntryId =
     DamlLogEntryId.newBuilder
@@ -206,6 +212,4 @@ class KeyValueParticipantStateReaderSpec
     reader
   }
 
-  private def offsetsFrom(stream: Source[(Offset, Update), NotUsed]): Future[Seq[Offset]] =
-    stream.runWith(Sink.seq).map(_.map(_._1))
 }
