@@ -825,18 +825,6 @@ data Ref
 
 instance Hashable Ref
 
-refPackage :: Ref -> LF.PackageRef
-refPackage = \case
-    RTypeCon q -> LF.qualPackage q
-    RTypeSyn q -> LF.qualPackage q
-    RValue q -> LF.qualPackage q
-
-refModule :: Ref -> LF.ModuleName
-refModule = \case
-    RTypeCon q -> LF.qualModule q
-    RTypeSyn q -> LF.qualModule q
-    RValue q -> LF.qualModule q
-
 type RefGraph = HMS.HashMap Ref (Bool, [Ref])
 
 -- | Calculate the set of all references that should be hidden.
@@ -863,22 +851,6 @@ buildHiddenRefMap config world =
             = refGraph -- already in the map
         | ref == RTypeCon erasedTCon
             = HMS.insert ref (True, []) refGraph -- Erased is always erased
-        | refModule ref == LF.ModuleName ["DA", "Generics"]
-            = HMS.insert ref (True, []) refGraph
-            -- DA.Generics is not supported. This prevents issues with GenConvertible.
-            -- TODO (SF): Check if we really need this after we remove DA.Upgrade
-            -- from daml-stdlib.
-        | LF.PRImport pkgId <- refPackage ref
-        , Set.member pkgId (configDependencyPackages config)
-            = HMS.insert ref (False, []) refGraph
-            -- Dependencies are always available. This is a mostly a small optimization.
-            -- TODO (SF): Check if we really need this after we move to running the
-            -- erased tracker once per package.
-        | LF.PRImport pkgId <- refPackage ref
-        , MS.member pkgId (configStablePackages config)
-            = HMS.insert ref (False, []) refGraph -- stable pkgs are always available
-            -- TODO (SF): Check if we really need this after we move to running the
-            -- erased tracker once per package.
 
         | RTypeCon tcon <- ref
         , Right defDataType <- LF.lookupDataType tcon world
