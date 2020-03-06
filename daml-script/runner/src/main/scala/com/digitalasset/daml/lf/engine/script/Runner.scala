@@ -298,13 +298,16 @@ class Runner(
 
     stepToValue()
     machine.toSValue match {
-      // Unwrap Script newtype, StateT and apply to ()
+      // Unwrap Script newtype and apply to ()
       case SRecord(_, _, vals) if vals.size == 1 => {
         vals.get(0) match {
-          case SRecord(_, _, vals) if vals.size == 1 => {
+          case SPAP(_, _, _) =>
             machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
-          }
-          case v => throw new ConverterException(s"Expected record with 1 field but got $v")
+          case v =>
+            throw new ConverterException(
+              "Mismatch in structure of Script type. " +
+                "This probably means that you tried to run a script built against an " +
+                "SDK <= 0.13.55-snapshot.20200304.3329.6a1c75cf with a script runner from a newer SDK.")
         }
       }
       case v => throw new ConverterException(s"Expected record with 1 field but got $v")
@@ -475,7 +478,7 @@ class Runner(
         case SVariant(_, "Pure", v) =>
           v match {
             case SRecord(_, _, vals) if vals.size == 2 => {
-              // Unwrap the Tuple2 we get from StateT.
+              // Unwrap the Tuple2 we get from the inlined StateT.
               Future { vals.get(0) }
             }
             case _ => throw new RuntimeException(s"Expected Tuple2 but got $v")
