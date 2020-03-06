@@ -233,7 +233,5 @@ object SubmissionValidator {
   private[validator] def bytesToStateValue(value: RawBytes): DamlStateValue =
     Envelope
       .openStateValue(value)
-      .fold(message => {
-        throw new IllegalStateException(message)
-      }, identity)
+      .fold(message => throw new IllegalStateException(message), identity)
 }
