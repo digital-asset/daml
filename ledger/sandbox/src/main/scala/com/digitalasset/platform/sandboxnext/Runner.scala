@@ -95,6 +95,14 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       "This version of Sandbox will not start without a seeding mode. Please specify an appropriate seeding mode.")
   }
 
+  if (config.scenario.isDefined) {
+    throw new InvalidConfigException(
+      """|This version of Sandbox does not support initialization scenarios. Please use DAML Script instead.
+         |A migration guide for converting your scenarios to DAML Script is available at:
+         |https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization
+         |""".stripMargin.stripLineEnd)
+  }
+
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
     newLoggingContext { implicit logCtx =>
       implicit val system: ActorSystem = ActorSystem("sandbox")
