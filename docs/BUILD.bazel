@@ -456,11 +456,10 @@ filegroup(
     name = "daml-assistant-iou-setup",
     srcs = glob(
         ["source/getting-started/quickstart/template-root/*"],
-        # excluding quickstart-java stuff and da-skeleton.yaml (which should be removed once DA Assistant is gone)
+        # excluding quickstart-java stuff
         exclude = [
             "source/getting-started/quickstart/template-root/src",
             "source/getting-started/quickstart/template-root/pom.xml",
-            "source/getting-started/quickstart/template-root/da-skeleton.yaml",
         ],
         exclude_directories = 0,
     ),
@@ -482,14 +481,41 @@ genrule(
 
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 
-daml_compile(
+genrule(
     name = "quickstart-model",
-    srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
-    main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-    visibility = [
-        "//language-support/scala/examples:__subpackages__",
-        "//ledger-service:__subpackages__",
+    srcs = [
+        "//docs:source/getting-started/quickstart/template-root/daml/Main.daml",
+        "//docs:source/getting-started/quickstart/template-root/daml/Iou.daml",
+        "//docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml",
+        "//docs:source/getting-started/quickstart/template-root/daml/Setup.daml",
+        "//daml-script/daml:daml-script.dar",
     ],
+    outs = ["quickstart-model.dar"],
+    cmd = """
+      set -eou pipefail
+      TMP_DIR=$$(mktemp -d)
+      mkdir -p $$TMP_DIR/daml
+      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
+      cat << EOF > $$TMP_DIR/daml.yaml
+sdk-version: {sdk}
+name: quickstart-model
+source: daml
+version: 0.0.1
+dependencies:
+  - daml-stdlib
+  - daml-prim
+  - daml-script.dar
+build-options: ["--ghc-option", "-Werror"]
+EOF
+      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location quickstart-model.dar)
+      rm -rf $$TMP_DIR
+    """.format(sdk = sdk_version),
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
 )
 
 dar_to_java(
@@ -585,11 +611,10 @@ filegroup(
     name = "daml-intro-1",
     srcs = glob(
         ["source/daml/intro/daml/1_Token/**/*"],
-        # excluding quickstart-java stuff and da-skeleton.yaml (which should be removed once DA Assistant is gone)
+        # excluding quickstart-java stuff
         exclude = [
             "source/getting-started/quickstart/template-root/src",
             "source/getting-started/quickstart/template-root/pom.xml",
-            "source/getting-started/quickstart/template-root/da-skeleton.yaml",
         ],
         exclude_directories = 0,
     ),

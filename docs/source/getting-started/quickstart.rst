@@ -44,6 +44,7 @@ The project contains the following files:
   │   ├── Iou.daml
   │   ├── IouTrade.daml
   │   ├── Main.daml
+  │   ├── Setup.daml
   │   └── Tests
   │       ├── Iou.daml
   │       └── Trade.daml
@@ -124,7 +125,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart-0.0.1.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
@@ -142,13 +143,14 @@ In this section, you will run the quickstart application and get introduced to t
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
 
-   .. note::
+   .. _quickstart-script
 
-      The parameter ``--scenario Main:setup`` loaded the sandbox ledger with some initial data. Only the sandbox has this prototyping feature - it's not available on the full ledger server. More on :ref:`scenarios <quickstart-scenarios>` later.
+#. Open a new terminal window and navigate to your project directory, ``quickstart``.
+
+#. To initialize the ledger with some parties and contracts we use :doc:`DAML Script </daml-script/index>` by running ``daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --static-time``
 
    .. _quickstart-navigator:
 
-#. Open a new terminal window and navigate to your project directory, ``quickstart``.
 #. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
@@ -169,7 +171,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@ffb...``.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
@@ -198,7 +200,7 @@ Now everything is running, you can try out the quickstart application:
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
 #. Go to the **Owned Ious** page.
 
-   The screen shows the same contract ``#2:1`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
+   The screen shows the same contract ``#9:1`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
 #. Go to the **Iou Transfers** page. It shows the transfer of your recently issued Iou to Bob, but Bob has not accepted the transfer, so it is not settled.
 
    This is an important part of DAML: nobody can be forced into owning an *Iou*, or indeed agreeing to any other contract. They must explicitly consent.
@@ -208,7 +210,7 @@ Now everything is running, you can try out the quickstart application:
 
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
-   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
+   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#13:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
@@ -220,8 +222,8 @@ Now everything is running, you can try out the quickstart application:
 
    It also shows an *Iou* for $110 issued by *USD_Bank*. This matches the trade proposal you made earlier as Alice.
 
-   Note its *Contract Id* ``#3:1``.
-#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#3:1`` as the *quoteIouCid*, then click **Submit**.
+   Note its *Contract Id* ``#10:1``.
+#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#10:1`` as the *quoteIouCid*, then click **Submit**.
 
    The two legs of the transfer are now settled atomically in a single transaction. The trade either fails or succeeds as a whole.
 #. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.
