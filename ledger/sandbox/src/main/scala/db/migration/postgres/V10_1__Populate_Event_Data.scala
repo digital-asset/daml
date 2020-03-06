@@ -33,7 +33,7 @@ class V10_1__Populate_Event_Data extends BaseJavaMigration {
       def next(): (String, Transaction) = {
         val transactionId = rows.getString("transaction_id")
         val transaction = TransactionSerializer
-          .deserializeTransaction(rows.getBytes("transaction"))
+          .deserializeTransaction(rows.getBinaryStream("transaction"))
           .getOrElse(sys.error(s"failed to deserialize transaction $transactionId"))
 
         hasNext = rows.next()
