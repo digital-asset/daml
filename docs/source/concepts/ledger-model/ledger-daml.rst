@@ -51,7 +51,7 @@ Intuitively, the allowed actions are:
 
 #. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
-An instance of a DAML template, that is, a **DAML contract** or **contract**,
+An instance of a DAML template, that is, a **DAML contract**,
 is a triple of:
 
 #. a contract identifier
