@@ -16,6 +16,7 @@ da_haskell_binary(
         "directory",
         "extra",
         "filepath",
+        "hashable",
         "lens",
         "optparse-applicative",
         "text",
