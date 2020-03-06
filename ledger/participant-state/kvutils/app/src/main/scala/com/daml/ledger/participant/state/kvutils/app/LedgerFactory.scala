@@ -10,7 +10,11 @@ import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
+import com.digitalasset.platform.configuration.{
+  CommandConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.indexer.{IndexerConfig, IndexerStartupMode}
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
@@ -61,6 +65,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
     CommandConfiguration.default
+
+  def partyConfig(config: Config[ExtraConfig]): PartyConfiguration =
+    PartyConfiguration.default
 
   def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
     SubmissionConfiguration.default

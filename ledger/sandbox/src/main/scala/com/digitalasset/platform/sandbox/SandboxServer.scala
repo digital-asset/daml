@@ -291,6 +291,7 @@ final class SandboxServer(
                 timeProvider = timeProvider,
                 defaultLedgerConfiguration = defaultConfiguration,
                 commandConfig = config.commandConfig,
+                partyConfig = config.partyConfig,
                 submissionConfig = config.submissionConfig,
                 optTimeServiceBackend = observingTimeServiceBackend,
                 metrics = metrics,

@@ -450,10 +450,11 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--verbose",
+        "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -465,9 +466,11 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--verbose",
+        "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
         "--exclude=CommandDeduplicationIT",
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -479,6 +482,7 @@ server_conformance_test(
     servers = NEXT_SERVERS,
     test_tool_args = [
         "--verbose",
+        "--open-world",
         "--include=ConfigManagementServiceIT",
     ],
 )

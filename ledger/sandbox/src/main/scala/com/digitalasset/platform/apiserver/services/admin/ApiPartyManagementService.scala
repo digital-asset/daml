@@ -94,7 +94,7 @@ final class ApiPartyManagementService private (
   }
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
-    // TODO Gerolf: this should do proper validation
+    // TODO: This should do proper validation.
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
     val party =
       if (request.partyIdHint.isEmpty) None

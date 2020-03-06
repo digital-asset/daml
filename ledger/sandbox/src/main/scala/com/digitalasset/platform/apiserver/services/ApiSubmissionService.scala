@@ -4,6 +4,7 @@
 package com.digitalasset.platform.apiserver.services
 
 import java.time.{Duration, Instant}
+import java.util.UUID
 
 import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
@@ -13,6 +14,7 @@ import com.daml.ledger.participant.state.index.v2.{
   ContractStore,
   IndexSubmissionService
 }
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   InternalError,
@@ -39,6 +41,7 @@ import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.CommandExecutor
+import com.digitalasset.platform.apiserver.services.ApiSubmissionService.TransactionInfo
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -49,10 +52,13 @@ import io.grpc.Status
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
+import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
+
+  private type TransactionInfo = (SubmitterInfo, TransactionMeta, Transaction.Transaction)
 
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
@@ -66,10 +72,12 @@ object ApiSubmissionService {
       seedService: Option[SeedService],
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
-      metrics: MetricRegistry)(
+      metrics: MetricRegistry,
+  )(
       implicit ec: ExecutionContext,
       mat: Materializer,
-      logCtx: LoggingContext): GrpcCommandSubmissionService with GrpcApiService =
+      logCtx: LoggingContext
+  ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
         contractStore,
@@ -80,18 +88,23 @@ object ApiSubmissionService {
         seedService,
         commandExecutor,
         configuration,
-        metrics),
+        metrics,
+      ),
       ledgerId,
       () => Instant.now(),
-      () => configuration.maxDeduplicationTime
+      () => configuration.maxDeduplicationTime,
     )
 
   object RecordUpdate {
     def apply(views: Either[LfError, (Transaction, BlindingInfo)]): RecordUpdate = views
   }
 
-  // TODO(RA): this should be updated dynamically from the ledger configuration
-  final case class Configuration(maxDeduplicationTime: Duration)
+  final case class Configuration(
+      // TODO(RA): this should be updated dynamically from the ledger configuration
+      maxDeduplicationTime: Duration,
+      implicitPartyAllocation: Boolean,
+  )
+
 }
 
 final class ApiSubmissionService private (
@@ -211,25 +224,43 @@ final class ApiSubmissionService private (
           contractStore.lookupContractKey(commands.submitter, _),
           commands.commands
         )
-      submissionResult <- handleResult(res)
+      transactionInfo <- res.fold(error => {
+        Metrics.failedInterpretationsMeter.mark()
+        Future.failed(grpcError(toStatus(error)))
+      }, Future.successful)
+      partyAllocationResults <- if (configuration.implicitPartyAllocation) {
+        allocateParties(transactionInfo)
+      } else {
+        Future.successful(Seq.empty)
+      }
+      submissionResult <- partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
+        case None => handleResult(transactionInfo)
+        case Some(result) => Future.successful(result)
+      }
     } yield submissionResult
 
-  private def handleResult(
-      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)],
-  ) =
-    res match {
-      case Right((submitterInfo, transactionMeta, transaction)) =>
+  private def allocateParties(transactionInfo: TransactionInfo): Future[Seq[SubmissionResult]] = {
+    val parties = transactionInfo._3.nodes.values.flatMap(_.informeesOfNode).toSet
+    Future
+      .sequence(
+        parties.toSeq
+          .map(name =>
+            writeService.allocateParty(
+              hint = Some(name),
+              displayName = Some(name),
+              // TODO: Just like the ApiPartyManagementService, this should do proper validation.
+              submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString),
+          ))
+          .map(_.toScala))
+  }
+
+  private def handleResult(transactionInfo: TransactionInfo): Future[SubmissionResult] =
+    transactionInfo match {
+      case (submitterInfo, transactionMeta, transaction) =>
         timedFuture(
           Metrics.submittedTransactionsTimer,
           FutureConverters.toScala(
-            writeService.submitTransaction(
-              submitterInfo,
-              transactionMeta,
-              transaction
-            )))
-      case Left(err) =>
-        Metrics.failedInterpretationsMeter.mark()
-        Future.failed(grpcError(toStatus(err)))
+            writeService.submitTransaction(submitterInfo, transactionMeta, transaction)))
     }
 
   private def toStatus(errorCause: ErrorCause) = {

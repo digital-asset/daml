@@ -190,6 +190,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     portFile = config.portFile,
                   ),
                   commandConfig = config.commandConfig,
+                  partyConfig = config.partyConfig,
                   submissionConfig = config.submissionConfig,
                   readService = ledger,
                   writeService = ledger,
