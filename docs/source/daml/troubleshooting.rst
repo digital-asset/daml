@@ -43,7 +43,7 @@ Modelling questions
 How to model an agreement with another party
 ============================================
 
-To enter into an agreement, create a contract instance from a template that has explicit ``signatory`` and ``agreement`` statements.
+To enter into an agreement, create a contract from a template that has explicit ``signatory`` and ``agreement`` statements.
 
 You'll need to use a series of contracts that give each party the chance to consent, via a contract choice.
 

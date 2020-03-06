@@ -9,7 +9,7 @@ DAML
 
 **DAML** is a programming language for writing `smart contracts <#contract-contract-instance>`__, that you can use to build an application based on a `ledger <#ledger-daml-ledger>`__. You can run DAML contracts on many different ledgers.
 
-Contract, contract instance
+Contract, contract
 ===========================
 
 A **contract** is an item on a `ledger <#ledger-daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
@@ -20,7 +20,7 @@ A **contract** is an item on a `ledger <#ledger-daml-ledger>`__. They are create
 
 Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to it is that the contract can be `archived <#active-contract-archived-contract>`__.
 
-They're sometimes referred to as a **contract instance** to make clear that this is an instantiated contract, as opposed to a `template <#template>`__.
+They're sometimes referred to as a **contract** to make clear that this is an instantiated contract, as opposed to a `template <#template>`__.
 
 Active contract, archived contract
 ----------------------------------
@@ -70,7 +70,7 @@ A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-c
 Nonconsuming choice
 --------------------
 
-A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract instance <#contract-contract-instance>`__. 
+A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract-contract-instance>`__. 
 
 Disjunction choice, flexible controllers
 ----------------------------------------
@@ -94,28 +94,28 @@ A **party** represents a person or legal entity. Parties can `create contracts <
 Signatory
 ---------
 
-A **signatory** is a `party <#party>`__ on a `contract instance <#contract-contract-instance>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail.
+A **signatory** is a `party <#party>`__ on a `contract <#contract-contract-instance>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail.
 
 For documentation on signatories, see :doc:`/daml/reference/templates`.
 
 Observer
 --------
 
-An **observer** is a `party <#party>`__ on a `contract instance <#contract-contract-instance>`__. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to <#authorization-signing>`__ the creation.
+An **observer** is a `party <#party>`__ on a `contract <#contract-contract-instance>`__. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to <#authorization-signing>`__ the creation.
 
 For documentation on observers, see :doc:`/daml/reference/templates`.
 
 Controller
 ----------
 
-A **controller** is a `party <#party>`__ that is able to `exercise <#exercise>`__ a particular `choice <#choice>`__ on a particular `contract instance <#contract-contract-instance>`__.
+A **controller** is a `party <#party>`__ that is able to `exercise <#exercise>`__ a particular `choice <#choice>`__ on a particular `contract <#contract-contract-instance>`__.
 
 Controllers must be at least an `observer`_, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`_. this enables the :doc:`propose-accept pattern </daml/patterns/initaccept>`.
 
 Stakeholder
 -----------
 
-**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract instance <#contract-contract-instance>`__. 
+**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract <#contract-contract-instance>`__. 
 
 Maintainer
 ----------
@@ -141,13 +141,13 @@ A DAML update is the composition of update actions created with one of the items
      - Authorization
    * - ``create``
      - ``(Template c) => c -> Update (ContractId c)``
-     - All signatories of the created contract instance
+     - All signatories of the created contract
    * - ``exercise``
      - ``ContractId c -> e -> Update r``
      - All controllers of the choice
    * - ``fetch``
      - ``ContractId c -> e -> Update r``
-     - One of the union of signatories and observers of the fetched contract instance
+     - One of the union of signatories and observers of the fetched contract
    * - ``fetchByKey``
      - ``k -> Update (ContractId c, c)``
      - Same as ``fetch``
@@ -183,7 +183,7 @@ See :doc:`/daml/reference/templates`.
 Create
 ======
 
-A **create** is an update that creates a `contract instance <#contract-contract-instance>`__ on the `ledger <#ledger-daml-ledger>`__.
+A **create** is an update that creates a `contract <#contract-contract-instance>`__ on the `ledger <#ledger-daml-ledger>`__.
 
 Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/initaccept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
 
@@ -194,7 +194,7 @@ See :doc:`/daml/reference/updates`.
 Exercise
 ========
 
-An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract instance <#contract-contract-instance>`__ on the `ledger <#ledger-daml-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract instance; if it is `nonconsuming <#nonconsuming-choice>`__, the contract instance will stay active.
+An **exercise** is an action that exercises a `choice <#choice>`__ on a `contract <#contract-contract-instance>`__ on the `ledger <#ledger-daml-ledger>`__. If the choice is `consuming <#consuming-choice>`__, the exercise will `archive <#active-contract-archived-contract>`__ the contract; if it is `nonconsuming <#nonconsuming-choice>`__, the contract will stay active.
 
 Exercising a choice requires `authorization <#authorization-signing>`__ from all of the `controllers <#controller>`__ of the choice.
 
@@ -225,7 +225,7 @@ See :doc:`/daml/testing-scenarios`.
 Contract key
 ============
 
-A **contract key** allows you to uniquely identify a `contract instance <#contract-contract-instance>`__ of a particular `template <#template>`__, similarly to a primary key in a database table.
+A **contract key** allows you to uniquely identify a `contract <#contract-contract-instance>`__ of a particular `template <#template>`__, similarly to a primary key in a database table.
 
 A contract key requires a `maintainer <#maintainer>`__: a simple key would be something like a tuple of text and maintainer, like ``(accountId, bank)``.
 

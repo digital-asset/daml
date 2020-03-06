@@ -11,7 +11,7 @@ import CoinIssuance
 import Utilities
 
 -- Delegation pattern gives A the right to exercise a choice on behalf of B
--- Party A can control a contract instance on the ledger that allows an action
+-- Party A can control a contract on the ledger that allows an action
 -- to be performed on behalf of a second party B without B explicitly committing the action.
 -- Before such delegation takes place, DAML obligable computation will make sure party B has agreed to it.
 -- This is to ensure all contracts on the ledger are well-authorized
