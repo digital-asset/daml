@@ -68,7 +68,7 @@ A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-c
 Nonconsuming choice
 --------------------
 
-A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract-contract-instance>`__. 
+A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract <#contract>`__. 
 
 Disjunction choice, flexible controllers
 ----------------------------------------
