@@ -1,8 +1,10 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-The Ledger API using gRPC
-#########################
+.. _grpc:
+
+gRPC
+####
 
 .. toctree::
    :hidden:
