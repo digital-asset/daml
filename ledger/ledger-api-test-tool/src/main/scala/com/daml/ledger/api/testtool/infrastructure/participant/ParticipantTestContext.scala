@@ -103,13 +103,15 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   import ParticipantTestContext._
 
-  val begin = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+  val begin: LedgerOffset =
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
   /**
     * A reference to the moving ledger end. If you want a fixed reference to the offset at
     * a given point in time, use [[currentEnd]]
     */
-  val end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+  val end: LedgerOffset =
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
 

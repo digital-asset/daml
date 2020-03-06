@@ -13,7 +13,7 @@ object Cli {
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
-    val reads = { (s: String) =>
+    val reads: String => (String, Int) = { s: String =>
       splitAddress(s) match {
         case (k, v) => stringRead.reads(k) -> intRead.reads(v)
       }
