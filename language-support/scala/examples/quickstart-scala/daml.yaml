@@ -4,7 +4,7 @@
 sdk-version: 0.0.0
 name: quickstart
 source: daml
-scenario: Main:setup
+init-script: Setup:initialize
 parties:
   - Alice
   - Bob
@@ -16,6 +16,7 @@ exposed-modules:
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
 # <doc-ref:codegen-scala>
 codegen:
   scala:
