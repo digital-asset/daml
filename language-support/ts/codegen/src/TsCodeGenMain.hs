@@ -111,8 +111,8 @@ mergePackageMap ps = foldM merge Map.empty ps
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    version <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    sdkVersion <- case version of
+    sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+    sdkVersion <- case sdkVersionOrErr of
           Left _ -> fail "Invalid SDK version"
           Right v -> pure v
     pkgs <- readPackages optInputDars
