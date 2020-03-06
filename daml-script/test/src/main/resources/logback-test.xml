@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="TEST-LOGGER" class="com.digitalasset.daml.lf.engine.script.test.LogCollector" />
+
+    <logger name="io.netty" level="WARN" />
+    <logger name="io.grpc.netty" level="WARN" />
+    <logger name="daml.tracelog" level="DEBUG">
+      <appender-ref ref="TEST-LOGGER" />
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>
