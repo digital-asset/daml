@@ -270,6 +270,22 @@ case class ScriptExample(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   }
 }
 
+case class TraceOrder(dar: Dar[(PackageId, Package)], runner: TestRunner) {
+  val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:traceOrder"))
+  def traceMsg(msg: String) = s"""[DA.Internal.Prelude:540]: "$msg""""
+  def runTests(): Unit = {
+    runner.genericTest(
+      "traceOrder",
+      scriptId,
+      None, {
+        case SUnit => Right(())
+        case v => Left(s"Expected SUnit but got $v")
+      },
+      Some(Seq(traceMsg("abc"), traceMsg("def"), traceMsg("abc"), traceMsg("def")))
+    )
+  }
+}
+
 case class TestAuth(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:auth"))
   def runTests(): Unit = {
@@ -330,6 +346,7 @@ object SingleParticipant {
           new TestRunner(participantParams, dar, config.wallclockTime, tokenHolder.flatMap(_.token))
         config.accessTokenFile match {
           case None =>
+            TraceOrder(dar, runner).runTests()
             Test0(dar, runner).runTests()
             Test1(dar, runner).runTests()
             Test2(dar, runner).runTests()

@@ -5,8 +5,10 @@ package com.digitalasset.daml.lf.engine.script.test
 
 import akka.actor.ActorSystem
 import akka.stream._
-import com.typesafe.scalalogging.StrictLogging
+import ch.qos.logback.core.AppenderBase
+import ch.qos.logback.classic.spi.ILoggingEvent
 import java.time.Instant
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Success, Failure}
@@ -28,6 +30,18 @@ import com.digitalasset.ledger.client.configuration.{
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 import com.digitalasset.daml.lf.engine.script._
+
+object LogCollector {
+  val events = new ArrayBuffer[ILoggingEvent]
+  def clear(): Unit = events.clear
+}
+
+final class LogCollector extends AppenderBase[ILoggingEvent] {
+
+  override def append(e: ILoggingEvent): Unit = {
+    LogCollector.events += e
+  }
+}
 
 object TestRunner {
   def assertEqual[A](actual: A, expected: A, note: String) = {
@@ -54,8 +68,7 @@ class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
     val wallclockTime: Boolean,
-    val token: Option[String])
-    extends StrictLogging {
+    val token: Option[String]) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
   val clientConfig = LedgerClientConfiguration(
@@ -77,7 +90,11 @@ class TestRunner(
       // Identifier of the script value
       scriptId: Identifier,
       inputValue: Option[JsValue],
-      assertResult: SValue => Either[String, Unit]) = {
+      assertResult: SValue => Either[String, Unit],
+      expectedLog: Option[Seq[String]] = None
+  ) = {
+
+    LogCollector.clear()
 
     println(s"---\n$name:")
 
@@ -94,6 +111,16 @@ class TestRunner(
     val testFlow: Future[Unit] = for {
       clients <- clientsF
       result <- runner.run(clients, scriptId, inputValue)
+      _ <- expectedLog match {
+        case None => Future.unit
+        case Some(expectedLogs) =>
+          val logMsgs = LogCollector.events.map(_.getMessage)
+          if (expectedLogs.equals(logMsgs)) {
+            Future.unit
+          } else {
+            Future.failed(new RuntimeException(s"Expected logs $expectedLogs but got $logMsgs"))
+          }
+      }
       _ <- assertResult(result) match {
         case Left(err) =>
           Future.failed(new RuntimeException(s"Assertion on script result failed: $err"))
