@@ -200,10 +200,10 @@ You can use DAML script to initialize a ledger on startup. To do so,
 specify an ``init-script: ScriptExample:initializeFixed`` field in
 your ``daml.yaml``. This will automatically be picked up by ``daml
 start`` and used to initialize sandbox. Since it is often useful to
-create a party with a specific party id during development, you can
+create a party with a specific party identifier during development, you can
 use the ``allocatePartyWithHint`` function which accepts not only the
-display name but also a hint for the party id. On Sandbox, the hint
-will be used directly as the party id of the newly allocated
+display name but also a hint for the party identifier. On Sandbox, the hint
+will be used directly as the party identifier of the newly allocated
 party. This allows us to implement ``initializeFixed`` as a small
 wrapper around the ``initialize`` function we defined above:
 
@@ -231,8 +231,9 @@ translated to DAML script but there are a few things to keep in mind:
    so you cannot call functions like ``fetch`` directly. This is
    intentional. Your initialization scripts should not be able to
    create transactions that a ledger client would not be able to
-   create. If you need, you can create a choice and call that via
-   ``createAndExercise``.
+   create. If you want to call methods not exposed via the Ledger API,
+   you can create a new template with a single choice
+   and call that via ``createAndExercise``.
 #. You need to replace calls to ``getParty x`` by
    ``allocatePartyWithHint x (PartyIdHint x)``.
 
