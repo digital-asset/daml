@@ -17,6 +17,7 @@ import qualified Data.Text.IO as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
+import qualified Data.Aeson as Json
 import Data.Aeson.Encode.Pretty
 
 import Control.Monad.Extra
@@ -36,6 +37,31 @@ import qualified System.FilePath as FP
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
+
+-- Referenced from 'writePackageJson'. Lifted here for easy
+-- maintenance.
+data ConfigConsts = ConfigConsts
+  { pkgDependencies :: [(T.Text, T.Text)]
+  , pkgDevDependencies :: [(T.Text, T.Text)]
+  , pkgScripts :: [(T.Text, T.Text)]
+  }
+configConsts :: T.Text -> ConfigConsts
+configConsts sdkVersion = ConfigConsts
+  { pkgDependencies =
+      [ ("@mojotech/json-type-validation", "^3.1.0")
+      , ("@daml/types", sdkVersion)
+      ]
+  , pkgDevDependencies =
+      [ ("@typescript-eslint/eslint-plugin", "2.11.0")
+      , ("@typescript-eslint/parser", "2.11.0")
+      , ("eslint", "^6.7.2")
+      , ("typescript", "~3.7.3")
+      ]
+  , pkgScripts =
+    [ ("build", "tsc --build")
+    , ("lint", "eslint --ext .ts src/ --max-warnings 0")
+    ]
+  }
 
 data Options = Options
     { optInputDars :: [FilePath]
@@ -65,23 +91,6 @@ optionsParserInfo = info (optionsParser <**> helper)
     (  fullDesc
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
-
-data ConfigConsts = ConfigConsts
-  { pkgDependencies :: [(String, String)]
-  , pkgDevDependencies :: [(String, String)]
-  }
-_configConsts :: ConfigConsts
-_configConsts = ConfigConsts
-  { pkgDependencies =
-      [("@mojotech/json-type-validation", "^3.1.0")
-      ]
-  , pkgDevDependencies =
-      [ ("@typescript-eslint/eslint-plugin", "2.11.0")
-      , ("@typescript-eslint/parser", "2.11.0")
-      , ("eslint", "^6.7.2")
-      , ("typescript", "~3.7.3")
-      ]
-  }
 
 -- Build a list of packages from a list of DAR file paths.
 readPackages :: [FilePath] -> IO [(PackageId, (Package, Maybe PackageName))]
@@ -145,18 +154,19 @@ main = do
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
                  daml2ts Daml2TsParams{..}
         whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
+    -- BSL.putStr $ encodePretty writePackageJson'
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
-newtype Scope = Scope {unscope :: String}
+newtype Scope = Scope {unscope :: T.Text}
 newtype Dependency = Dependency {undependency :: T.Text}  deriving (Eq, Ord)
 
 -- Gives the scope 'foo' given a directory path like '/path/to/foo'.
 -- The scope 'foo' is the '@foo' part of a package name in an import
 -- declaration.
 scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . takeFileName
+scopeOfScopeDir = Scope . T.pack . takeFileName
 
 data Daml2TsParams = Daml2TsParams
   { opts :: Options  -- cli args
@@ -259,7 +269,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> T.pack $ "@" <> scope
+        PRImport _ -> "@" <> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -592,45 +602,35 @@ writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
 writePackageJson packageDir sdkVersion (Scope scope) depends =
-  writeFileUTF8 (packageDir </> "package.json") $ unlines
-  (["{"
-   , "  \"private\": true,"
-   , "  \"name\": \"" <> name <> "\","
-   , "  \"version\": \"" <> version <> "\","
-   , "  \"description\": \"Produced by daml2ts\","
-   , "  \"dependencies\": {"
-   , "    \"@daml/types\": \"" <> version <> "\","
-   ] ++ dependencies ++
-   [ "    \"@mojotech/json-type-validation\": \"^3.1.0\""
-    , "  },"
-    , "  \"scripts\": {"
-    , "    \"build\": \"tsc --build\","
-    , "    \"lint\": \"eslint --ext .ts src/ --max-warnings 0\""
-    , "  },"
-    , "  \"devDependencies\": {"
-    , "    \"@typescript-eslint/eslint-plugin\": \"^2.11.0\","
-    , "    \"@typescript-eslint/parser\": \"^2.11.0\","
-    , "    \"eslint\": \"^6.7.2\","
-    , "    \"typescript\": \"~3.7.3\""
-    , "  }"
-    , "}"
-    ])
+  BSL.writeFile (packageDir </> "package.json") $
+    encodePretty (packageJson name version dependencies)
   where
-    version = versionToString sdkVersion
+    version = versionToText sdkVersion
     name = packageNameOfPackageDir packageDir
-    dependencies = [ "    \"" <> pkg <> "\": \"" <> version <> "\","
-                   | d <- depends
-                   , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
-                   ]
-
-    -- From the path to a package like '/path/to/daml2ts/d14e08'
-    -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
-    -- of a 'package.json'.
-    packageNameOfPackageDir :: FilePath -> String
+    dependencies = [ (pkg, version)
+       | d <- depends
+       , let pkg = "@" <> scope <> "/" <> undependency d
+       ]
+    packageNameOfPackageDir :: FilePath -> T.Text
     packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
       where
         scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
-        package = takeFileName packageDir
+        package = T.pack $ takeFileName packageDir
+
+    packageJson :: T.Text -> T.Text -> [(T.Text, T.Text)] -> Json.Value
+    packageJson name version dependencies =
+      Json.Object $ HMS.fromList [
+        ("private", Json.Bool True)
+      , ("name", Json.String name)
+      , ("version", Json.String version)
+      , ("description", Json.String "Generated by daml2ts")
+      , ("dependencies", Json.Object (fields $ pkgDependencies config ++ dependencies))
+      , ("devDependencies", Json.Object (fields $ pkgDevDependencies config))
+      , ("scripts", Json.Object (fields $ pkgScripts config))
+      ]
+      where
+        config = configConsts version
+        fields fs = HMS.fromList [(a, Json.String b) | (a, b) <- fs]
 
 -- This type describes the format of a "top-level" 'package.json'. We
 -- expect such files to have the format
@@ -662,7 +662,7 @@ setupWorkspace optOutputDir dependencies file = do
         (map (\(a, ds) -> (a, a, map undependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      scope = T.pack (unscope $ scopeOfScopeDir optOutputDir)
+      scope = unscope $ scopeOfScopeDir optOutputDir
         -- 'scope' we expect to be something like "daml2ts".
   let ourPackages = map ((scope <> "/") <>) ps
   bytes <- BSL.readFile file
