@@ -133,6 +133,11 @@ Here is what each field means:
     errors, there should be no reason to modify this.
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
+- ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
+- ``navigator-options``: a list of options that will be passed to Navigator in ``daml start``.
+- ``json-api-options``: a list of options that will be passed to the HTTP JSON API in ``daml start``.
+- ``script-options``: a list of options that will be passed to the DAML script
+  runner when running the ``init-script`` as part of ``daml start``.
 
 ..  TODO (@robin-da) document the dependency syntax
 
