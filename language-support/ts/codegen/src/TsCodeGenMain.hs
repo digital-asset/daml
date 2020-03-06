@@ -123,8 +123,8 @@ main = do
           forM (Map.toList pkgMap) $
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = unPackageId pkgId
-                     name = packageNameText pkgId mbPkgName
-                     asName = if name == id then "itself" else name
+                     pkgName = packageNameText pkgId mbPkgName
+                     asName = if pkgName == id then "itself" else pkgName
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
                  daml2ts Daml2TsParams{..}
         whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
@@ -146,7 +146,7 @@ data Daml2TsParams = Daml2TsParams
   , pkgMap :: Map.Map PackageId (Maybe PackageName, Package)
   , pkgId :: PackageId
   , pkg :: Package
-  , mbPkgName :: Maybe PackageName
+  , pkgName :: T.Text
   , sdkVersion :: SdkVersion
   }
 
@@ -175,8 +175,6 @@ daml2ts Daml2TsParams {..} = do
     writePackageJson packageDir sdkVersion scope dependencies
     pure (pkgName, dependencies)
     where
-      pkgName = packageNameText pkgId mbPkgName
-
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
       writeModuleTs packageSrcDir scope mod = do
