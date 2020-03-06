@@ -25,16 +25,20 @@ trait ConfigProvider[ExtraConfig] {
   def manipulateConfig(config: Config[ExtraConfig]): Config[ExtraConfig] =
     config
 
-  def indexerConfig(config: ParticipantConfig): IndexerConfig =
+  def indexerConfig(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): IndexerConfig =
     IndexerConfig(
-      config.participantId,
-      jdbcUrl = config.serverJdbcUrl,
+      participantConfig.participantId,
+      jdbcUrl = participantConfig.serverJdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
-      allowExistingSchema = config.allowExistingSchemaForIndex,
+      allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
     )
 
-  def indexerMetricRegistry(config: ParticipantConfig): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(s"indexer-${config.participantId}")
+  def indexerMetricRegistry(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): MetricRegistry =
+    SharedMetricRegistries.getOrCreate(s"indexer-${participantConfig.participantId}")
 
   def apiServerConfig(
       participantConfig: ParticipantConfig,
@@ -50,8 +54,10 @@ trait ConfigProvider[ExtraConfig] {
       portFile = participantConfig.portFile,
     )
 
-  def apiServerMetricRegistry(config: ParticipantConfig): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(s"ledger-api-server-${config.participantId}")
+  def apiServerMetricRegistry(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig]): MetricRegistry =
+    SharedMetricRegistries.getOrCreate(s"ledger-api-server-${participantConfig.participantId}")
 
   def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
     CommandConfiguration.default
