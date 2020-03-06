@@ -151,31 +151,26 @@ class Runner(
   val darMap: Map[PackageId, Package] = dar.all.toMap
   val compiler = Compiler(darMap)
   val scriptModuleName = DottedName.assertFromString("Daml.Script")
+  // TODO (MK) We should infer this package id based on the Script type of the script identifier.
   val scriptPackageId: PackageId = dar.all
     .find {
       case (pkgId, pkg) => pkg.modules.contains(scriptModuleName)
-    }
-    .get
-    ._1
+    } match {
+    case None =>
+      throw new RuntimeException(
+        "daml-script library was not found in DAR. Add 'daml-script' to the dependencies in your 'daml.yaml' and define a DAML script'.")
+    case Some((pkgId, _)) => pkgId
+  }
   val scriptTyCon = Identifier(
     scriptPackageId,
     QualifiedName(scriptModuleName, DottedName.assertFromString("Script")))
-  val stdlibPackageId =
-    dar.all
-      .find {
-        case (pkgId, pkg) =>
-          pkg.modules.contains(DottedName.assertFromString("DA.Internal.LF"))
-      }
-      .get
-      ._1
-  val primPackageId =
-    dar.all
-      .find {
-        case (pkgId, pkg) =>
-          pkg.modules.contains(DottedName.assertFromString("DA.Types"))
-      }
-      .get
-      ._1
+
+  // These two packages are stable packages
+  val daTypesPackageId =
+    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+  val daInternalAnyPackageId =
+    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
+
   def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
       pkg <- darMap
@@ -392,7 +387,12 @@ class Runner(
                     val res =
                       FrontStack(acsPages.flatMap(page => page.activeContracts))
                         .traverseU(
-                          Converter.fromCreated(valueTranslator, primPackageId, stdlibPackageId, _))
+                          Converter
+                            .fromCreated(
+                              valueTranslator,
+                              daTypesPackageId,
+                              daInternalAnyPackageId,
+                              _))
                         .fold(s => throw new ConverterException(s), identity)
                     machine.ctrl =
                       Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
