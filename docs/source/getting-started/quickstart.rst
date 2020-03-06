@@ -143,7 +143,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
 
-   .. _quickstart-script
+   .. _quickstart-script:
 
 #. Open a new terminal window and navigate to your project directory, ``quickstart``.
 
