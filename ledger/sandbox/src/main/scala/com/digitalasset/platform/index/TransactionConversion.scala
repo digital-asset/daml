@@ -19,6 +19,7 @@ import com.digitalasset.ledger.api.v1.transaction.{
   TransactionTree => ApiTransactionTree
 }
 import com.digitalasset.platform.api.v1.event.EventOps.EventOps
+import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.events.EventIdFormatter.{fromTransactionId, split}
 import com.digitalasset.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
@@ -119,9 +120,17 @@ object TransactionConversion {
         }
     ).filter(_.nonEmpty)
 
+  private def isCreateOrExercise(n: Node): Boolean = {
+    n match {
+      case _: Exercise => true
+      case _: Create => true
+      case _ => false
+    }
+  }
   private def toTreeEvent(
       verbose: Boolean,
       disclosure: Relation[EventId, Ref.Party],
+      eventsById: Map[EventId, Node],
   ): PartialFunction[(EventId, Node), (String, TreeEvent)] = {
     case (eventId, node: Create) if disclosure.contains(eventId) =>
       eventId -> assertOrRuntimeEx(
@@ -131,7 +140,9 @@ object TransactionConversion {
     case (eventId, node: Exercise) if disclosure.contains(eventId) =>
       eventId -> assertOrRuntimeEx(
         failureContext = "converting an exercise node to an exercise event",
-        lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node),
+        lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node)
+          .map(_.filterChildEventIds(eventId =>
+            isCreateOrExercise(eventsById(eventId.asInstanceOf[EventId]))))
       )
   }
 
@@ -143,7 +154,8 @@ object TransactionConversion {
     val (replaced, roots) =
       tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
         case ((replaced, roots), eventId) =>
-          if (disclosure.contains(eventId)) (replaced, roots :+ eventId)
+          if (isCreateOrExercise(tx.nodes(eventId)) && disclosure.contains(eventId))
+            (replaced, roots :+ eventId)
           else
             tx.nodes(eventId) match {
               case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
@@ -158,7 +170,7 @@ object TransactionConversion {
       disclosure: Relation[EventId, Ref.Party],
       verbose: Boolean,
   ): Option[ApiTransactionTree] =
-    Some(collect(tx)(toTreeEvent(verbose, disclosure))).collect {
+    Some(collect(tx)(toTreeEvent(verbose, disclosure, tx.nodes))).collect {
       case events if events.nonEmpty =>
         ApiTransactionTree(
           eventsById = events.toMap,
