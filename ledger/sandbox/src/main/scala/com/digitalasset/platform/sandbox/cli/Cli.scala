@@ -90,7 +90,7 @@ object Cli {
       opt[String](name = "scenario")
         .action((x, c) => c.copy(scenario = Some(x)))
         .text(
-        "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
+          "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
             "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
             "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
             "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
