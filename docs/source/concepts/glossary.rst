@@ -9,7 +9,7 @@ DAML
 
 **DAML** is a programming language for writing `smart contracts <#contract-contract-instance>`__, that you can use to build an application based on a `ledger <#ledger-daml-ledger>`__. You can run DAML contracts on many different ledgers.
 
-Contract, contract
+Contract
 ===========================
 
 A **contract** is an item on a `ledger <#ledger-daml-ledger>`__. They are created from blueprints called `templates <#template>`__, and include:
@@ -458,4 +458,3 @@ A **trust domain** encompasses a part of the system (in particular, a DAML ledge
 
 .. Conformance
 .. ===========
-
