@@ -752,6 +752,15 @@ newtype NavigatorOptions = NavigatorOptions [String]
 newtype JsonApiOptions = JsonApiOptions [String]
 newtype ScriptOptions = ScriptOptions [String]
 
+withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
+withOptsFromProjectConfig fieldName cliOpts projectConfig = do
+    optsYaml :: [String] <-
+        fmap (fromMaybe []) $
+        requiredE ("Failed to parse " <> fieldName) $
+        queryProjectConfig [fieldName] projectConfig
+    pure (optsYaml ++ cliOpts)
+
+
 runStart
     :: Maybe SandboxPort
     -> StartNavigator
@@ -785,6 +794,10 @@ runStart
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
+    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOpts projectConfig
+    navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOpts projectConfig
+    jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
+    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
