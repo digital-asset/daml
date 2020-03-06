@@ -575,7 +575,12 @@ daml_test(
 
 daml_test(
     name = "quickstart-daml-test",
-    srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"]),
+    srcs = glob(
+        include = ["source/getting-started/quickstart/template-root/daml/**/*.daml"],
+        # excluding Setup.daml, because it doesn't contain any scenarios,
+        # and we cannot conveniently add daml-script as a dependency for daml_test
+        exclude = ["source/getting-started/quickstart/template-root/daml/Setup.daml"],
+    ),
 )
 
 daml_test(
