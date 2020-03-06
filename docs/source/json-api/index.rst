@@ -1075,7 +1075,9 @@ off an initial "loading" indicator::
 To keep the stream alive, you'll occasionally see messages like this,
 which can be safely ignored::
 
-    {"heartbeat": "ping"}
+    {"events":[],"offset":"5609"}
+
+where ``offset`` is the last seen ledger offset.
 
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
@@ -1122,8 +1124,7 @@ and archives the one above, the same stream will eventually produce::
         "offset": "3"
     }
 
-If any template IDs are found not to resolve, the first non-heartbeat
-element of the stream will report them::
+If any template IDs are found not to resolve, the first element of the stream will report them::
 
     {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
