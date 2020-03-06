@@ -359,12 +359,14 @@ object Converter {
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: ValueTranslator,
-      primPackageId: PackageId,
-      stdlibPackageId: PackageId,
+      daTypesPackageId: PackageId,
+      daInternalAnyPackageId: PackageId,
       created: CreatedEvent): Either[String, SValue] = {
     val anyTemplateTyCon =
-      Identifier(stdlibPackageId, QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
-    val pairTyCon = Identifier(primPackageId, QualifiedName.assertFromString("DA.Types:Tuple2"))
+      Identifier(
+        daInternalAnyPackageId,
+        QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
+    val pairTyCon = Identifier(daTypesPackageId, QualifiedName.assertFromString("DA.Types:Tuple2"))
     for {
       templateId <- created.templateId match {
         case None => Left(s"Missing field templateId in $created")
