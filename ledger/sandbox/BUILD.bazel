@@ -349,7 +349,6 @@ server_conformance_test(
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
-        "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
