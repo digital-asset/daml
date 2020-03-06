@@ -43,6 +43,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       metrics.timer("daml.index.db.lookup_ledger_configuration")
     val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
     val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
+    val getParty: Timer = metrics.timer("daml.index.db.get_party")
     val getParties: Timer = metrics.timer("daml.index.db.get_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
@@ -81,20 +82,29 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   override def getActiveContractSnapshot(
       untilExclusive: LedgerOffset,
-      filter: TransactionFilter): Future[LedgerSnapshot] =
+      filter: TransactionFilter
+  ): Future[LedgerSnapshot] =
     ledgerDao.getActiveContractSnapshot(untilExclusive, filter)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
+
+  override def getParty(party: Party): Future[Option[PartyDetails]] =
+    timedFuture(Metrics.getParty, ledgerDao.getParty(party))
 
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
 
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    timedFuture(Metrics.getParties, ledgerDao.getParties(parties))
+
   override def getPartyEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
     ledgerDao.getPartyEntries(startInclusive, endExclusive)
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =

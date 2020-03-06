@@ -1452,6 +1452,13 @@ private class JdbcLedgerDao(
     Future.successful(LedgerSnapshot(endExclusive, contractStream))
   }
 
+  private val SQL_SELECT_PARTY =
+    SQL("select party, display_name, ledger_offset, explicit from parties where party = {party}")
+
+  private val SQL_SELECT_SOME_PARTIES =
+    SQL(
+      "select party, display_name, ledger_offset, explicit from parties where party in ({parties})")
+
   private val SQL_SELECT_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit from parties")
 
@@ -1463,27 +1470,45 @@ private class JdbcLedgerDao(
       "explicit"
     )
 
+  override def getParty(party: Party): Future[Option[PartyDetails]] =
+    dbDispatcher
+      .executeSql("load_party") { implicit conn =>
+        SQL_SELECT_PARTY
+          .on("party" -> party)
+          .as(PartyDataParser.singleOpt)
+      }
+      .map(_.map(constructPartyDetails))(executionContext)
+
   override def getParties: Future[List[PartyDetails]] =
     dbDispatcher
       .executeSql("load_parties") { implicit conn =>
         SQL_SELECT_PARTIES
           .as(PartyDataParser.*)
       }
-      .map(
-        _.map(
-          d =>
-            // TODO: isLocal should be based on equality of participantId reported in an
-            // update and the id given to participant in a command-line argument
-            // (See issue #2026)
-            PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true)))(
-        executionContext)
+      .map(_.map(constructPartyDetails))(executionContext)
+
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    dbDispatcher
+      .executeSql("load_parties") { implicit conn =>
+        SQL_SELECT_SOME_PARTIES
+          .on("parties" -> parties)
+          .as(PartyDataParser.*)
+      }
+      .map(_.map(constructPartyDetails))(executionContext)
+
+  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
+    // TODO: isLocal should be based on equality of participantId reported in an
+    //       update and the id given to participant in a command-line argument
+    //       (See issue #2026)
+    PartyDetails(Party.assertFromString(data.party), data.displayName, isLocal = true)
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-          |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
+        |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
 
   private def storeParty(party: Party, displayName: Option[String], offset: LedgerOffset)(
-      implicit conn: Connection): PersistenceResponse = {
+      implicit conn: Connection
+  ): PersistenceResponse = {
     Try {
       SQL_INSERT_PARTY
         .on(
