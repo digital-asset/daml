@@ -3,8 +3,9 @@
 
 package com.digitalasset.platform.store.serialization
 
+import java.io.InputStream
+
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder
@@ -13,7 +14,7 @@ trait ContractSerializer {
   def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]]
 
-  def deserializeContractInstance(blob: Array[Byte])
+  def deserializeContractInstance(stream: InputStream)
     : Either[ValueCoder.DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]]
 }
 
@@ -28,20 +29,13 @@ object ContractSerializer extends ContractSerializer {
       .encodeContractInstance[AbsoluteContractId](ValueCoder.CidEncoder, coinst)
       .map(_.toByteArray())
 
-  override def deserializeContractInstance(blob: Array[Byte])
+  override def deserializeContractInstance(stream: InputStream)
     : Either[ValueCoder.DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
       .decodeContractInstance[AbsoluteContractId](
         ValueCoder.AbsCidDecoder,
         TransactionOuterClass.ContractInstance.parseFrom(
-          Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
+          Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
       )
-
-  private def toContractId(s: String) =
-    Ref.ContractIdString
-      .fromString(s)
-      .left
-      .map(e => ValueCoder.DecodeError(s"cannot decode contractId: $e"))
-      .map(AbsoluteContractId)
 
 }

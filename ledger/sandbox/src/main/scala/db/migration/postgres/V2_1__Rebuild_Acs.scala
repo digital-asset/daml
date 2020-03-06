@@ -5,6 +5,7 @@
 // 'db.migration.postgres' for postgres migrations
 package db.migration.postgres
 
+import java.io.InputStream
 import java.sql.Connection
 import java.util.Date
 
@@ -493,10 +494,11 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       workflowId: Option[WorkflowId],
       effectiveAt: Option[Date],
       recordedAt: Option[Date],
-      transaction: Option[Array[Byte]],
+      transaction: Option[InputStream],
       rejectionType: Option[String],
       rejectionDesc: Option[String],
-      offset: Long)
+      offset: Long,
+  )
 
   private val EntryParser: RowParser[ParsedEntry] =
     Macro.parser[ParsedEntry](

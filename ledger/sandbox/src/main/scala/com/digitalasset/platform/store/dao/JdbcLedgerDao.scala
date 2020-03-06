@@ -73,7 +73,6 @@ import com.digitalasset.platform.store.{
   PersistenceEntry
 }
 import com.digitalasset.resources.ResourceOwner
-import com.google.common.io.ByteStreams
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -90,10 +89,11 @@ private final case class ParsedEntry(
     workflowId: Option[WorkflowId],
     effectiveAt: Option[Date],
     recordedAt: Option[Date],
-    transaction: Option[Array[Byte]],
+    transaction: Option[InputStream],
     rejectionType: Option[String],
     rejectionDesc: Option[String],
-    offset: Long)
+    offset: Long,
+)
 
 private final case class ParsedPartyData(
     party: String,
@@ -1084,7 +1084,7 @@ private class JdbcLedgerDao(
       ledgerString("workflow_id")(emptyStringToNullColumn).? ~
       date("effective_at").? ~
       date("recorded_at").? ~
-      byteArray("transaction").? ~
+      binaryStream("transaction").? ~
       str("rejection_type").? ~
       str("rejection_description").? ~
       long("ledger_offset")
@@ -1255,9 +1255,9 @@ private class JdbcLedgerDao(
           )
           .as(binaryStream("contract").singleOpt)
       }
-      .map(_.map { bytes =>
+      .map(_.map { contractStream =>
         contractSerializer
-          .deserializeContractInstance(ByteStreams.toByteArray(bytes))
+          .deserializeContractInstance(contractStream)
           .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
       })(executionContext)
 
@@ -1280,7 +1280,7 @@ private class JdbcLedgerDao(
         DivulgedContract(
           absoluteCoid,
           contractSerializer
-            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+            .deserializeContractInstance(contractStream)
             .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
           divulgences
         )
@@ -1299,7 +1299,7 @@ private class JdbcLedgerDao(
         val divulgences = lookupDivulgences(coid)
         val absoluteCoid = AbsoluteContractId(coid)
         val contractInstance = contractSerializer
-          .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+          .deserializeContractInstance(contractStream)
           .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
 
         val signatories =
@@ -1320,7 +1320,7 @@ private class JdbcLedgerDao(
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
-              .deserializeValue(ByteStreams.toByteArray(keyStream))
+              .deserializeValue(keyStream)
               .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
               .ensureNoCid
               .fold(
