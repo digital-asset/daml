@@ -29,7 +29,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsObject, JsString, JsTrue, JsValue}
+import spray.json.{JsArray, JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -45,14 +45,13 @@ object WebSocketService {
       domain.ActiveContract[LfV] => Option[Positive],
   )
 
-  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
-  private val liveMarker = JsObject("live" -> JsTrue)
-
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+    def render(
+        implicit lfv: LfV <~< JsValue,
+        pos: Pos <~< Map[String, JsValue]): (JsValue, Option[JsValue]) = {
       import ContractStreamStep._
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val InsertDeleteStep(inserts, deletes) =
@@ -73,7 +72,7 @@ object WebSocketService {
           Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
         case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
       }
-      JsObject(Map("events" -> JsArray(events)) ++ offsetAfter.map("offset" -> _).toList)
+      (formatEvents(events, offsetAfter), offsetAfter)
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
@@ -87,6 +86,9 @@ object WebSocketService {
 
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
+
+  private def formatEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
+    JsObject(Map("events" -> JsArray(events)) ++ offset.map("offset" -> _).toList)
 
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
     val maxCost = 200L
@@ -244,15 +246,20 @@ class WebSocketService(
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
+  @volatile private var lastSeenOffset: Option[JsValue] = None
+
   private[http] def transactionMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
-      .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
+      .via(applyConfig(keepAliveMessage))
       .via(connCounter)
 
-  private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
+  private def keepAliveMessage: Message =
+    TextMessage.Strict(formatEvents(Vector.empty, lastSeenOffset).compactPrint)
+
+  private def applyConfig[A](keepAlive: => A): Flow[A, A, NotUsed] = {
     val config = wsConfig.getOrElse(Config.DefaultWsConfig)
     Flow[A]
       .takeWithin(config.maxDuration)
@@ -315,6 +322,11 @@ class WebSocketService(
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
+        .map {
+          case (x, lastSeenOffset) =>
+            this.lastSeenOffset = lastSeenOffset
+            x
+        }
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
