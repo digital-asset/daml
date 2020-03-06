@@ -54,6 +54,7 @@ import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
@@ -685,12 +686,11 @@ navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
-withSandbox (SandboxPort port) args a = do
+withSandbox (SandboxPort port) args a = withTempFile $ \portFile -> do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
-    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port] ++ args) $ \ph -> do
+    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
-        -- TODO We need to figure out what a sane timeout for this step.
-        waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
+        _port <- readPortFile maxRetries portFile
         a ph
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
