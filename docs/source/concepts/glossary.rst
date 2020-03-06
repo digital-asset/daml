@@ -20,8 +20,6 @@ A **contract** is an item on a `ledger <#ledger-daml-ledger>`__. They are create
 
 Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to it is that the contract can be `archived <#active-contract-archived-contract>`__.
 
-They're sometimes referred to as a **contract** to make clear that this is an instantiated contract, as opposed to a `template <#template>`__.
-
 Active contract, archived contract
 ----------------------------------
 
