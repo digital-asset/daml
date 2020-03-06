@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSessionConfiguration,
-  ParticipantSessionManager,
+  ParticipantSessionManager
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -46,7 +46,7 @@ private[testtool] final class LedgerSession(
                 session.createTestContext(endpointId, applicationId, identifierSuffix)
             }
         )
-        .map(new LedgerTestContext(_))
+        .map(new LedgerTestContext(_, config.openWorld))
     }
 
 }

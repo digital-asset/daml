@@ -193,6 +193,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
+  def reservePartyName(): Future[Party] =
+    Future.successful(Party(nextPartyHintId()))
+
+  def reservePartyNames(n: Int): Future[Vector[Party]] =
+    Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
+
   def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] =
     services.partyManagement
       .getParties(GetPartiesRequest(parties.map(_.unwrap)))

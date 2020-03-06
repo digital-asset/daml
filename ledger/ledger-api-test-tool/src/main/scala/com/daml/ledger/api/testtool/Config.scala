@@ -24,10 +24,11 @@ final case class Config(
     allTests: Boolean,
     waitForParties: Boolean,
     shuffleParticipants: Boolean,
+    openWorld: Boolean,
 )
 
 object Config {
-  val default = Config(
+  val default: Config = Config(
     participants = Vector.empty,
     darPackages = Nil,
     mustFail = false,
@@ -43,6 +44,7 @@ object Config {
     listTests = false,
     allTests = false,
     waitForParties = true,
-    shuffleParticipants = false
+    shuffleParticipants = false,
+    openWorld = false,
   )
 }

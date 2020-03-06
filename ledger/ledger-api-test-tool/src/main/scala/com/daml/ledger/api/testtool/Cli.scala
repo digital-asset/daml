@@ -157,6 +157,12 @@ object Cli {
       .text("""Shuffle the list of participants used in a test.
           |By default participants are used in the order they're given.""".stripMargin)
 
+    opt[Unit]("open-world")
+      .action((_, c) => c.copy(openWorld = true))
+      .text("""|Do not allocate parties explicitly.
+           |Instead, expect the ledger to allocate parties dynamically.
+           |Party names must be their hints.""".stripMargin)
+
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")

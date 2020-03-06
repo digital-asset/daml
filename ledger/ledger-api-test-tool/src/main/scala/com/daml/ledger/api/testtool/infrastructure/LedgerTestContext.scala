@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   ParticipantAllocation,
-  Participants,
+  Participants
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
@@ -14,6 +14,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
     participants: Vector[ParticipantTestContext],
+    openWorld: Boolean,
 )(implicit ec: ExecutionContext) {
 
   require(participants.nonEmpty, "At least one participant must be provided.")
@@ -43,9 +44,14 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
       .sequence(allocation.partyCounts.map(partyCount => {
         val participant = nextParticipant()
         for {
-          parties <- participant.allocateParties(partyCount.count)
-          partiesSet = parties.toSet
-          _ <- participant.waitForParties(participants, partiesSet)
+          parties <- if (openWorld) {
+            participant.reservePartyNames(partyCount.count)
+          } else {
+            for {
+              parties <- participant.allocateParties(partyCount.count)
+              _ <- participant.waitForParties(participants, parties.toSet)
+            } yield parties
+          }
         } yield Participant(participant, parties: _*)
       }))
       .map(Participants(_: _*))
