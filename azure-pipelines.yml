@@ -217,7 +217,7 @@ jobs:
         persistCredentials: true
       - bash: |
           set -euxo pipefail
-          if git tag v$(release_tag); then
+          if git tag v$(release_tag) $(release_sha); then
             git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
           else
