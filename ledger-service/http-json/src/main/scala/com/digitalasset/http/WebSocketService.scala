@@ -39,6 +39,8 @@ object WebSocketService {
 
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
+  private type EventsAndOffset = (Vector[JsObject], Option[JsValue])
+
   private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
@@ -51,7 +53,7 @@ object WebSocketService {
     import json.JsonProtocol._, spray.json._
     def render(
         implicit lfv: LfV <~< JsValue,
-        pos: Pos <~< Map[String, JsValue]): (JsValue, Option[JsValue]) = {
+        pos: Pos <~< Map[String, JsValue]): EventsAndOffset = {
       import ContractStreamStep._
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val InsertDeleteStep(inserts, deletes) =
@@ -72,7 +74,7 @@ object WebSocketService {
           Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
         case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
       }
-      (formatEvents(events, offsetAfter), offsetAfter)
+      (events, offsetAfter)
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
@@ -244,6 +246,8 @@ class WebSocketService(
   import util.ErrorOps._
   import com.digitalasset.http.json.JsonProtocol._
 
+  private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
   @volatile private var lastSeenOffset: Option[JsValue] = None
@@ -253,19 +257,13 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
-      .via(applyConfig(keepAliveMessage))
+      .via(applyConfig)
       .via(connCounter)
 
-  private def keepAliveMessage: Message =
-    TextMessage.Strict(formatEvents(Vector.empty, lastSeenOffset).compactPrint)
-
-  private def applyConfig[A](keepAlive: => A): Flow[A, A, NotUsed] = {
-    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+  private def applyConfig[A]: Flow[A, A, NotUsed] =
     Flow[A]
       .takeWithin(config.maxDuration)
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
-      .keepAlive(config.heartBeatPer, () => keepAlive)
-  }
 
   @SuppressWarnings(
     Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
@@ -286,8 +284,6 @@ class WebSocketService(
         NotUsed
       }
 
-  private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
-
   private def wsMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -296,7 +292,7 @@ class WebSocketService(
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
-          msg.toStrict(wsReadTimeout).map(m => Q.parse(decoder, m.text))
+          msg.toStrict(config.maxDuration).map(m => Q.parse(decoder, m.text))
         case _ =>
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
@@ -322,11 +318,7 @@ class WebSocketService(
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
-        .map {
-          case (x, lastSeenOffset) =>
-            this.lastSeenOffset = lastSeenOffset
-            x
-        }
+        .via(heartBeatFlow)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -336,6 +328,15 @@ class WebSocketService(
             s"unresolved templateIds: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
     }
   }
+
+  // TODO(Leo): add scan here
+  private def heartBeatFlow: Flow[EventsAndOffset, JsValue, NotUsed] =
+    Flow[(Vector[JsObject], Option[JsValue])]
+      .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue]))
+      .map {
+        case (Vector(), None) => formatEvents(Vector.empty[JsObject], Some(JsString("todo-offset")))
+        case (xs, o) => formatEvents(xs, o)
+      }
 
   private def removePhantomArchives[A, B](remove: Boolean) =
     if (remove) removePhantomArchives_[A, B]
