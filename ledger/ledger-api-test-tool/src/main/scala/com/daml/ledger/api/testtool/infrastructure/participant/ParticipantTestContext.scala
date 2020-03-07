@@ -176,11 +176,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   /**
     * Non managed version of party allocation. Use exclusively when testing the party management service.
     */
-  def allocateParty(partyHintId: Option[String], displayName: Option[String]): Future[Party] =
+  def allocateParty(partyIdHint: Option[String], displayName: Option[String]): Future[Party] =
     services.partyManagement
       .allocateParty(
         new AllocatePartyRequest(
-          partyIdHint = partyHintId.getOrElse(""),
+          partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
         ),
       )
@@ -189,7 +189,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  def listParties(): Future[Set[Party]] =
+  def listKnownParties(): Future[Set[Party]] =
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
@@ -204,7 +204,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         Future
           .sequence(participants.map(otherParticipant => {
             otherParticipant
-              .listParties()
+              .listKnownParties()
               .map { actualParties =>
                 assert(
                   expectedParties.subsetOf(actualParties),

@@ -32,7 +32,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
-          partyHintId = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
+          partyIdHint = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
           displayName = Some("Bob Ross"),
         )
       } yield
@@ -49,7 +49,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   ) {
     case Participants(Participant(ledger)) =>
       for {
-        party <- ledger.allocateParty(partyHintId = None, displayName = Some("Jebediah Kerman"))
+        party <- ledger.allocateParty(partyIdHint = None, displayName = Some("Jebediah Kerman"))
       } yield
         assert(
           Tag.unwrap(party).nonEmpty,
@@ -66,7 +66,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     case Participants(Participant(ledger)) =>
       for {
         party <- ledger.allocateParty(
-          partyHintId =
+          partyIdHint =
             Some(pMAllocateWithoutDisplayName + "_" + Random.alphanumeric.take(10).mkString),
           displayName = None,
         )
@@ -84,8 +84,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   ) {
     case Participants(Participant(ledger)) =>
       for {
-        p1 <- ledger.allocateParty(partyHintId = None, displayName = Some("Ononym McOmonymface"))
-        p2 <- ledger.allocateParty(partyHintId = None, displayName = Some("Ononym McOmonymface"))
+        p1 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
+        p2 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
       } yield {
         assert(Tag.unwrap(p1).nonEmpty, "The first allocated party identifier is an empty string")
         assert(Tag.unwrap(p2).nonEmpty, "The second allocated party identifier is an empty string")
@@ -104,7 +104,36 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
       } yield {
         val nonUniqueNames = parties.groupBy(Tag.unwrap).mapValues(_.size).filter(_._2 > 1)
         assert(nonUniqueNames.isEmpty, s"There are non-unique party names: ${nonUniqueNames
-          .map { case (name, count) => s"$name ($count)" } mkString (", ")}")
+          .map { case (name, count) => s"$name ($count)" }
+          .mkString(", ")}")
+      }
+  }
+
+  test(
+    "PMListKnownParties",
+    "It should list all known, previously-allocated parties",
+    allocate(NoParties),
+  ) {
+    case Participants(Participant(ledger)) =>
+      for {
+        party1 <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = None,
+        )
+        party2 <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = None,
+        )
+        party3 <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = None,
+        )
+        knownPartyIds <- ledger.listKnownParties()
+      } yield {
+        val allocatedPartyIds = Set(party1, party2, party3)
+        assert(
+          allocatedPartyIds subsetOf knownPartyIds,
+          s"The allocated party IDs $allocatedPartyIds are not a subset of $knownPartyIds.")
       }
   }
 }
