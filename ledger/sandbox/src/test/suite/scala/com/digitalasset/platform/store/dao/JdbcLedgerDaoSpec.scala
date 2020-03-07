@@ -533,6 +533,44 @@ class JdbcLedgerDaoSpec
       }
     }
 
+    "inform the caller if they try to write a duplicate party" in {
+      val fred = PartyDetails(
+        party = Ref.Party.assertFromString(s"Fred-${UUID.randomUUID()}"),
+        displayName = Some("Fred Flintstone"),
+        isLocal = true,
+      )
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
+      val offset1 = nextOffset()
+      for {
+        response <- ledgerDao.storePartyEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = fred,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        offset2 = nextOffset()
+        response <- ledgerDao.storePartyEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = fred,
+          ),
+        )
+      } yield {
+        response should be(PersistenceResponse.Duplicate)
+      }
+    }
+
     "upload packages in an idempotent fashion, maintaining existing descriptions" in {
       val firstDescription = "first description"
       val secondDescription = "second description"
