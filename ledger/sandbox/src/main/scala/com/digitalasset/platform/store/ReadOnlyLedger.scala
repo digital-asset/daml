@@ -55,14 +55,18 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def lookupContract(
       contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+      forParty: Party
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
   def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
   def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]]
+      transactionId: TransactionId
+  ): Future[Option[(Long, LedgerEntry.Transaction)]]
 
   // Party management
+  def getParty(party: Party): Future[Option[PartyDetails]]
+
   def parties: Future[List[PartyDetails]]
 
   def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed]

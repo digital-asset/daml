@@ -4,7 +4,12 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
+import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.digitalasset.ledger.client.binding
+import io.grpc.Status
 import scalaz.Tag
 
 import scala.util.Random
@@ -106,6 +111,33 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         assert(nonUniqueNames.isEmpty, s"There are non-unique party names: ${nonUniqueNames
           .map { case (name, count) => s"$name ($count)" }
           .mkString(", ")}")
+      }
+  }
+
+  test(
+    "PMGetParty",
+    "It should get details for a single party, if it exists",
+    allocate(NoParties),
+  ) {
+    case Participants(Participant(ledger)) =>
+      for {
+        party <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = Some("Alice"),
+        )
+        partyDetails <- ledger.getParty(party)
+        missingPartyError <- ledger.getParty(binding.Primitive.Party("non-existent")).failed
+      } yield {
+        assert(
+          partyDetails.contains(
+            PartyDetails(
+              party = Ref.Party.assertFromString(Tag.unwrap(party)),
+              displayName = "Alice",
+              isLocal = true,
+            )),
+          s"The allocated party, $party, was not retrieved successfully. Instead, got $partyDetails."
+        )
+        assertGrpcError(missingPartyError, Status.Code.NOT_FOUND, "")
       }
   }
 

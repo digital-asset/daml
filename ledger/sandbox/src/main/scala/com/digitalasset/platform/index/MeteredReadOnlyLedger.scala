@@ -44,6 +44,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
     val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
     val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
+    val getParty: Timer = metrics.timer("daml.index.get_party")
     val parties: Timer = metrics.timer("daml.index.parties")
     val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
@@ -74,15 +75,20 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      forParty: Party
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId
+  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
     timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
+
+  override def getParty(party: Party): Future[Option[PartyDetails]] =
+    timedFuture(Metrics.getParty, ledger.getParty(party))
 
   override def parties: Future[List[PartyDetails]] =
     timedFuture(Metrics.parties, ledger.parties)

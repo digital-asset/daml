@@ -25,7 +25,7 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerServiceDefinition, Status}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.DurationInt
@@ -57,16 +57,24 @@ final class ApiPartyManagementService private (
   }
 
   private[this] def mapPartyDetails(
-      details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
+      details: com.digitalasset.ledger.api.domain.PartyDetails
+  ): PartyDetails =
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
+  override def getParty(request: GetPartyRequest): Future[GetPartyResponse] =
+    partyManagementService
+      .getParty(Ref.Party.assertFromString(request.party))
+      .flatMap(_.fold(Future.failed[GetPartyResponse](Status.NOT_FOUND.asRuntimeException()))(p =>
+        Future.successful(GetPartyResponse(Some(mapPartyDetails(p))))))(DE)
+      .andThen(logger.logErrorsOnCall[GetPartyResponse])(DE)
+
   override def listKnownParties(
-      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] = {
+      request: ListKnownPartiesRequest
+  ): Future[ListKnownPartiesResponse] =
     partyManagementService
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
-  }
 
   /**
     * Checks invariants and forwards the original result after the party is found to be persisted.

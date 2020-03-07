@@ -31,15 +31,17 @@ service PartyManagementService {
   // daml-on-sql: returns an identifier supplied on command line at launch time
   // daml-on-kv-ledger: as above
   // canton: returns globally unique identifier of the backing participant
-  rpc GetParticipantId (GetParticipantIdRequest) returns
-    (GetParticipantIdResponse);
+  rpc GetParticipantId (GetParticipantIdRequest) returns (GetParticipantIdResponse);
+
+  // Get the party details of the given party, or a ``NOT_FOUND`` error if the
+  // requested party is unknown.
+  rpc GetParty (GetPartyRequest) returns (GetPartyResponse);
 
   // List the parties known by the backing participant.
   // The list returned contains parties whose ledger access is facilitated by
   // backing participant and the ones maintained elsewhere.
   // This request will always succeed.
-  rpc ListKnownParties (ListKnownPartiesRequest) returns
-    (ListKnownPartiesResponse);
+  rpc ListKnownParties (ListKnownPartiesRequest) returns (ListKnownPartiesResponse);
 
   // Adds a new party to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
@@ -71,6 +73,21 @@ message GetParticipantIdResponse {
   string participant_id = 1;
 }
 
+message GetPartyRequest {
+
+  // The stable unique identifier of a DAML party.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Required
+  string party = 1;
+}
+
+message GetPartyResponse {
+
+  // The details of the requested DAML party hosted by the participant, if available.
+  // Required
+  PartyDetails party_details = 1;
+}
+
 message ListKnownPartiesRequest {
 }
 
@@ -79,6 +96,25 @@ message ListKnownPartiesResponse {
   // The details of all DAML parties hosted by the participant.
   // Required
   repeated PartyDetails party_details = 1;
+}
+
+message AllocatePartyRequest {
+
+  // A hint to the backing participant which party ID to allocate. It can be
+  // ignored.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
+  // Optional
+  string party_id_hint = 1;
+
+  // Human-readable name of the party to be added to the participant. It doesn't
+  // have to be unique.
+  // Optional
+  string display_name = 2;
+}
+
+message AllocatePartyResponse {
+
+  PartyDetails party_details = 1;
 }
 
 message PartyDetails {
@@ -96,23 +132,4 @@ message PartyDetails {
   // true if party is hosted by the backing participant.
   // Required
   bool is_local = 3;
-}
-
-message AllocatePartyRequest {
-
-  // A hint to the backing participant what party id to allocate. It can be
-  // ignored.
-  // Must be a valid PartyIdString (as describe in ``value.proto``).
-  // Optional
-  string party_id_hint = 1;
-
-  // Human readable name of the party to be added to the participant. It doesn't
-  // have to be unique.
-  // Optional
-  string display_name = 2;
-}
-
-message AllocatePartyResponse {
-
-  PartyDetails party_details = 1;
 }
