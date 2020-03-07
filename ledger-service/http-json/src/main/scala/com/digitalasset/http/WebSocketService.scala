@@ -333,11 +333,11 @@ class WebSocketService(
     Flow[(Vector[JsObject], Option[JsValue])]
       .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
       .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
-        case (None, a) =>
+        case (None, a) => // override empty state
           Some((a, a))
-        case (Some((s, _)), (Vector(), None)) =>
-          Some((s, (Vector.empty[JsObject], s._2))) // heartbeat message
-        case (Some(_), a) =>
+        case (Some((s, _)), (Vector(), None)) => // heartbeat message, keep the previous state
+          Some((s, (Vector.empty[JsObject], s._2)))
+        case (Some(_), a) => // override non-empty state
           Some((a, a))
       }
       .map {
