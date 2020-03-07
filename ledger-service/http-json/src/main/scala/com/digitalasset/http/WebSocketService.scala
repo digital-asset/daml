@@ -329,13 +329,20 @@ class WebSocketService(
     }
   }
 
-  // TODO(Leo): add scan here
   private def heartBeatFlow: Flow[EventsAndOffset, JsValue, NotUsed] =
     Flow[(Vector[JsObject], Option[JsValue])]
-      .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue]))
+      .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
+      .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
+        case (None, a) =>
+          Some((a, a))
+        case (Some((s, _)), (Vector(), None)) =>
+          Some((s, (Vector.empty[JsObject], s._2))) // heartbeat message
+        case (Some(_), a) =>
+          Some((a, a))
+      }
       .map {
-        case (Vector(), None) => formatEvents(Vector.empty[JsObject], Some(JsString("todo-offset")))
-        case (xs, o) => formatEvents(xs, o)
+        case None => formatEvents(Vector.empty, None)
+        case Some((_, a)) => formatEvents(a._1, a._2)
       }
 
   private def removePhantomArchives[A, B](remove: Boolean) =
