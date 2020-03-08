@@ -142,6 +142,42 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
   }
 
   test(
+    "PMGetParties",
+    "It should get details for multiple parties, if they exist",
+    allocate(NoParties),
+  ) {
+    case Participants(Participant(ledger)) =>
+      for {
+        party1 <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = Some("Alice"),
+        )
+        party2 <- ledger.allocateParty(
+          partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
+          displayName = Some("Bob"),
+        )
+        partyDetails <- ledger.getParties(
+          Seq(party1, party2, binding.Primitive.Party("non-existent")))
+      } yield {
+        assert(
+          partyDetails.sortBy(_.displayName) == Seq(
+            PartyDetails(
+              party = Ref.Party.assertFromString(Tag.unwrap(party1)),
+              displayName = "Alice",
+              isLocal = true,
+            ),
+            PartyDetails(
+              party = Ref.Party.assertFromString(Tag.unwrap(party2)),
+              displayName = "Bob",
+              isLocal = true,
+            ),
+          ),
+          s"The allocated parties, ${Seq(party1, party2)}, were not retrieved successfully. Instead, got $partyDetails."
+        )
+      }
+  }
+
+  test(
     "PMListKnownParties",
     "It should list all known, previously-allocated parties",
     allocate(NoParties),

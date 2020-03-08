@@ -118,11 +118,11 @@ trait LedgerReadDao extends ReportsHealth {
   /** Returns a single party, if they exist. */
   def getParty(party: Party): Future[Option[PartyDetails]]
 
-  /** Returns a list of all known parties. */
-  def getParties: Future[List[PartyDetails]]
-
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+
+  /** Returns a list of all known parties. */
+  def getParties: Future[List[PartyDetails]]
 
   def getPartyEntries(
       startInclusive: LedgerOffset,

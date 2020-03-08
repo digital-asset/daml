@@ -37,6 +37,11 @@ service PartyManagementService {
   // requested party is unknown.
   rpc GetParty (GetPartyRequest) returns (GetPartyResponse);
 
+  // Get the party details of the given parties. Only known parties will be
+  // returned in the list.
+  // This request will always succeed.
+  rpc GetParties (GetPartiesRequest) returns (GetPartiesResponse);
+
   // List the parties known by the backing participant.
   // The list returned contains parties whose ledger access is facilitated by
   // backing participant and the ones maintained elsewhere.
@@ -75,7 +80,7 @@ message GetParticipantIdResponse {
 
 message GetPartyRequest {
 
-  // The stable unique identifier of a DAML party.
+  // The stable, unique identifier of a DAML party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
@@ -86,6 +91,22 @@ message GetPartyResponse {
   // The details of the requested DAML party hosted by the participant, if available.
   // Required
   PartyDetails party_details = 1;
+}
+
+message GetPartiesRequest {
+
+  // The stable, unique identifier of the DAML parties.
+  // Must be valid PartyIdStrings (as described in ``value.proto``).
+  // Required
+  repeated string parties = 1;
+}
+
+message GetPartiesResponse {
+
+  // The details of the requested DAML parties by the participant, if known.
+  // The party details may not be in the same order as requested.
+  // Required
+  repeated PartyDetails party_details = 1;
 }
 
 message ListKnownPartiesRequest {

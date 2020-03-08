@@ -67,6 +67,8 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   // Party management
   def getParty(party: Party): Future[Option[PartyDetails]]
 
+  def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+
   def parties: Future[List[PartyDetails]]
 
   def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed]

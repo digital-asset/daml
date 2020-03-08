@@ -28,6 +28,7 @@ import com.digitalasset.ledger.api.v1.admin.package_management_service.{
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
+  GetPartiesRequest,
   GetPartyRequest,
   ListKnownPartiesRequest,
   PartyDetails
@@ -193,6 +194,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def getParty(party: Party): Future[Option[PartyDetails]] =
     services.partyManagement.getParty(GetPartyRequest(party.unwrap)).map(_.partyDetails)
+
+  def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] =
+    services.partyManagement
+      .getParties(GetPartiesRequest(parties.map(_.unwrap)))
+      .map(_.partyDetails)
 
   def listKnownParties(): Future[Set[Party]] =
     services.partyManagement

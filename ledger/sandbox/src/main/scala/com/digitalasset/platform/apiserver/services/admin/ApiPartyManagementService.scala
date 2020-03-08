@@ -68,6 +68,12 @@ final class ApiPartyManagementService private (
         Future.successful(GetPartyResponse(Some(mapPartyDetails(p))))))(DE)
       .andThen(logger.logErrorsOnCall[GetPartyResponse])(DE)
 
+  override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
+    partyManagementService
+      .getParties(request.parties.map(Ref.Party.assertFromString))
+      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))(DE)
+      .andThen(logger.logErrorsOnCall[GetPartiesResponse])(DE)
+
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =

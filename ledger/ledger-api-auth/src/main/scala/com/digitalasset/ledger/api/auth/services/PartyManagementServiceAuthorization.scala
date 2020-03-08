@@ -28,6 +28,9 @@ final class PartyManagementServiceAuthorization(
   override def getParty(request: GetPartyRequest): Future[GetPartyResponse] =
     authorizer.requireAdminClaims(service.getParty)(request)
 
+  override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
+    authorizer.requireAdminClaims(service.getParties)(request)
+
   override def listKnownParties(
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
