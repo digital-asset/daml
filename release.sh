@@ -15,7 +15,7 @@ trap uhoh EXIT
 
 CURRENT=$(cat LATEST | awk '{print $2}')
 STABLE_REGEX="\d+\.\d+\.\d+"
-VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+\.[0-9a-f]{8})?$"
+VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+(\.\d+)?\.[0-9a-f]{8})?$"
 
 check() {
     if ! echo $CURRENT | grep -q -P $VERSION_REGEX; then
@@ -43,7 +43,7 @@ make_snapshot() {
     local commit_date=$(git log -n1 --format=%cd --date=format:%Y%m%d $sha)
     local number_of_commits=$(git rev-list --count $sha)
     local commit_sha_8=$(git log -n1 --format=%h --abbrev=8 $sha)
-    local prerelease="snapshot.$commit_date.$number_of_commits.$commit_sha_8"
+    local prerelease="snapshot.$commit_date.$number_of_commits.0.$commit_sha_8"
     if is_stable "$CURRENT"; then
         local stable="$CURRENT"
     else
