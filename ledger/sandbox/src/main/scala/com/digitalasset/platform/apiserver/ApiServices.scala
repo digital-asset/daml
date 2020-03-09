@@ -110,6 +110,7 @@ object ApiServices {
           contractStore,
           writeService,
           submissionService,
+          partyManagementService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           seedService,

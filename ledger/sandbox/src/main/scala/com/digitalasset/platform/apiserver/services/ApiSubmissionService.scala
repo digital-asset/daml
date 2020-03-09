@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
   ContractStore,
+  IndexPartyManagementService,
   IndexSubmissionService
 }
 import com.daml.ledger.participant.state.v1
@@ -31,6 +32,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
@@ -51,6 +53,7 @@ import com.digitalasset.platform.store.ErrorCause
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.collection.breakOut
 import scala.compat.java8.FutureConverters
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,6 +70,7 @@ object ApiSubmissionService {
       contractStore: ContractStore,
       writeService: WriteService,
       submissionService: IndexSubmissionService,
+      partyManagementService: IndexPartyManagementService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       seedService: Option[SeedService],
@@ -83,6 +87,7 @@ object ApiSubmissionService {
         contractStore,
         writeService,
         submissionService,
+        partyManagementService,
         timeModel,
         timeProvider,
         seedService,
@@ -111,15 +116,14 @@ final class ApiSubmissionService private (
     contractStore: ContractStore,
     writeService: WriteService,
     submissionService: IndexSubmissionService,
+    partyManagementService: IndexPartyManagementService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
     seedService: Option[SeedService],
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
-    metrics: MetricRegistry)(
-    implicit ec: ExecutionContext,
-    mat: Materializer,
-    logCtx: LoggingContext)
+    metrics: MetricRegistry,
+)(implicit ec: ExecutionContext, mat: Materializer, logCtx: LoggingContext)
     extends CommandSubmissionService
     with ErrorFactories
     with AutoCloseable {
@@ -240,18 +244,25 @@ final class ApiSubmissionService private (
     } yield submissionResult
 
   private def allocateParties(transactionInfo: TransactionInfo): Future[Seq[SubmissionResult]] = {
-    val parties = transactionInfo._3.nodes.values.flatMap(_.informeesOfNode).toSet
-    Future
-      .sequence(
-        parties.toSeq
-          .map(name =>
-            writeService.allocateParty(
-              hint = Some(name),
-              displayName = Some(name),
-              // TODO: Just like the ApiPartyManagementService, this should do proper validation.
-              submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString),
-          ))
-          .map(_.toScala))
+    val parties: Set[Party] = transactionInfo._3.nodes.values.flatMap(_.informeesOfNode)(breakOut)
+    partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
+      val missingParties = parties -- partyDetails.map(_.party)
+      if (missingParties.nonEmpty) {
+        logger.info(s"Implicitly allocating the parties: ${missingParties.mkString(", ")}")
+        Future.sequence(
+          missingParties.toSeq
+            .map(name =>
+              writeService.allocateParty(
+                hint = Some(name),
+                displayName = Some(name),
+                // TODO: Just like the ApiPartyManagementService, this should do proper validation.
+                submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString),
+            ))
+            .map(_.toScala))
+      } else {
+        Future.successful(Seq.empty)
+      }
+    }
   }
 
   private def handleResult(transactionInfo: TransactionInfo): Future[SubmissionResult] =
