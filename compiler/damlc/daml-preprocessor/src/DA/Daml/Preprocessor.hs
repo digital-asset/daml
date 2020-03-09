@@ -16,6 +16,8 @@ import Development.IDE.Types.Options
 import qualified "ghc-lib" GHC
 import qualified "ghc-lib-parser" SrcLoc as GHC
 import qualified "ghc-lib-parser" Module as GHC
+import qualified "ghc-lib-parser" RdrName as GHC
+import qualified "ghc-lib-parser" OccName as GHC
 import qualified "ghc-lib-parser" FastString as GHC
 import Outputable
 
@@ -60,7 +62,7 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkModuleName x
+        { preprocWarnings = checkModuleName x ++ checkRecordConstructor x
         , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
@@ -117,6 +119,30 @@ checkImports x =
     [ (ss, "Import of internal module " ++ GHC.moduleNameString m ++ " is not allowed.")
     | GHC.L ss GHC.ImportDecl{ideclName=GHC.L _ m} <- GHC.hsmodImports $ GHC.unLoc x, isInternal m]
 
+-- | Emit a warning if a record constructor name does not match the record type name.
+-- See issue #4718. This ought to be moved into 'checkDataTypes' before too long.
+checkRecordConstructor :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
+checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
+  where
+    getRecordError :: GHC.LHsDecl GHC.GhcPs -> Maybe (GHC.SrcSpan, String)
+    getRecordError (GHC.L ss decl)
+        | GHC.TyClD _ GHC.DataDecl{tcdLName=ltyName, tcdDataDefn=dataDefn} <- decl
+        , GHC.HsDataDefn{dd_cons=[con]} <- dataDefn
+        , GHC.RecCon{} <- GHC.con_args (GHC.unLoc con)
+        , GHC.L _ tyName <- ltyName
+        , [GHC.L _ conName] <- GHC.getConNames (GHC.unLoc con)
+        , tyNameStr <- GHC.occNameString (GHC.rdrNameOcc tyName)
+        , conNameStr <- GHC.occNameString (GHC.rdrNameOcc conName)
+        , tyNameStr /= conNameStr
+        = Just (ss, message tyNameStr conNameStr)
+
+        | otherwise
+        = Nothing
+
+    message tyNameStr conNameStr = unwords
+        [ "Record type", tyNameStr, "has constructor", conNameStr
+        , "with different name. This may cause problems with cross-SDK upgrades."
+        , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]
 checkDataTypes m = checkAmbiguousDataTypes m ++ checkUnlabelledConArgs m ++ checkThetas m

@@ -7,13 +7,11 @@
 
 module DataTypes where
 
-data Rec = MkRec with x: Int
+data Rec = Rec with x: Int
 
-newtype RecNT = MkRecNT with x: Int
+newtype RecNT = RecNT with x: Int
 
--- NOTE(MH): This is translted to a variant with one constructor and _not_
--- to a record.
-data Unit = MkUnit{}
+data Unit = Unit{}
 
 data Tag = MkTag Int
 
@@ -40,11 +38,11 @@ eval = \case
 
 
 main = scenario do
-  assert $ (MkRec with x = 5).x == 5
+  assert $ (Rec with x = 5).x == 5
 
-  assert $ (MkRecNT with x = 7).x == 7
+  assert $ (RecNT with x = 7).x == 7
 
-  assert $ case MkUnit of {MkUnit -> True}
+  assert $ case Unit of {Unit -> True}
 
   assert $ untag (MkTag 3) == 3
 
