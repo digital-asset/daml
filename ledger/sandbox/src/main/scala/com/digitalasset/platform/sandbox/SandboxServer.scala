@@ -323,6 +323,11 @@ final class SandboxServer(
           authService.getClass.getSimpleName,
           config.seeding.fold("no")(_.toString.toLowerCase),
         )
+        if (config.scenario.nonEmpty) {
+          logger.withoutContext.warn(
+            """Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
+              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+        }
         apiServer
       }
     }

@@ -106,7 +106,7 @@ respect this. In ``Commands`` we use ``createCmd`` instead of
    :start-after: -- INITIALIZE_PROPOSAL_BEGIN
    :end-before: -- INITIALIZE_PROPOSAL_END
 
-Now that we have created the ``CoinProposal``s, we want ``Alice`` and
+Now that we have created the ``CoinProposal``\ s, we want ``Alice`` and
 ``Bob`` to accept the proposal while the ``Bank`` will ignore the
 proposal that it has created for itself. To do so we use separate
 ``submit`` statements for ``Alice`` and ``Bob`` and call
