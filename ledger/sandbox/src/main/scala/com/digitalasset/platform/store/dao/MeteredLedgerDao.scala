@@ -81,20 +81,26 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   override def getActiveContractSnapshot(
       untilExclusive: LedgerOffset,
-      filter: TransactionFilter): Future[LedgerSnapshot] =
+      filter: TransactionFilter
+  ): Future[LedgerSnapshot] =
     ledgerDao.getActiveContractSnapshot(untilExclusive, filter)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
   override def getParties: Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties)
 
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    timedFuture(Metrics.getParties, ledgerDao.getParties(parties))
+
   override def getPartyEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
     ledgerDao.getPartyEntries(startInclusive, endExclusive)
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =

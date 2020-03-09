@@ -57,16 +57,23 @@ final class ApiPartyManagementService private (
   }
 
   private[this] def mapPartyDetails(
-      details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
+      details: com.digitalasset.ledger.api.domain.PartyDetails
+  ): PartyDetails =
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 
+  override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
+    partyManagementService
+      .getParties(request.parties.map(Ref.Party.assertFromString))
+      .map(ps => GetPartiesResponse(ps.map(mapPartyDetails)))(DE)
+      .andThen(logger.logErrorsOnCall[GetPartiesResponse])(DE)
+
   override def listKnownParties(
-      request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] = {
+      request: ListKnownPartiesRequest
+  ): Future[ListKnownPartiesResponse] =
     partyManagementService
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
-  }
 
   /**
     * Checks invariants and forwards the original result after the party is found to be persisted.

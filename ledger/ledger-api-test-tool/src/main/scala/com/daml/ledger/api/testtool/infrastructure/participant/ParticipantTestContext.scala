@@ -11,29 +11,31 @@ import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServic
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
-  GetActiveContractsResponse,
+  GetActiveContractsResponse
 }
 import com.digitalasset.ledger.api.v1.admin.config_management_service.{
   GetTimeModelRequest,
   GetTimeModelResponse,
   SetTimeModelRequest,
   SetTimeModelResponse,
-  TimeModel,
+  TimeModel
 }
 import com.digitalasset.ledger.api.v1.admin.package_management_service.{
   ListKnownPackagesRequest,
   PackageDetails,
-  UploadDarFileRequest,
+  UploadDarFileRequest
 }
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
+  GetPartiesRequest,
   ListKnownPartiesRequest,
+  PartyDetails
 }
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionStreamRequest,
-  CompletionStreamResponse,
+  CompletionStreamResponse
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -44,7 +46,7 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
   GetLedgerConfigurationResponse,
-  LedgerConfiguration,
+  LedgerConfiguration
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.package_service._
@@ -53,13 +55,13 @@ import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
-  TransactionFilter,
+  TransactionFilter
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
-  GetTransactionsRequest,
+  GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
@@ -176,11 +178,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
   /**
     * Non managed version of party allocation. Use exclusively when testing the party management service.
     */
-  def allocateParty(partyHintId: Option[String], displayName: Option[String]): Future[Party] =
+  def allocateParty(partyIdHint: Option[String], displayName: Option[String]): Future[Party] =
     services.partyManagement
       .allocateParty(
         new AllocatePartyRequest(
-          partyIdHint = partyHintId.getOrElse(""),
+          partyIdHint = partyIdHint.getOrElse(""),
           displayName = displayName.getOrElse(""),
         ),
       )
@@ -189,7 +191,12 @@ private[testtool] final class ParticipantTestContext private[participant] (
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  def listParties(): Future[Set[Party]] =
+  def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] =
+    services.partyManagement
+      .getParties(GetPartiesRequest(parties.map(_.unwrap)))
+      .map(_.partyDetails)
+
+  def listKnownParties(): Future[Set[Party]] =
     services.partyManagement
       .listKnownParties(new ListKnownPartiesRequest())
       .map(_.partyDetails.map(partyDetails => Party(partyDetails.party)).toSet)
@@ -204,7 +211,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
         Future
           .sequence(participants.map(otherParticipant => {
             otherParticipant
-              .listParties()
+              .listKnownParties()
               .map { actualParties =>
                 assert(
                   expectedParties.subsetOf(actualParties),

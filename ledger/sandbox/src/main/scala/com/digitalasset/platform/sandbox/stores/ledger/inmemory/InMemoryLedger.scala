@@ -257,6 +257,11 @@ class InMemoryLedger(
     }
   }
 
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    Future.successful(this.synchronized {
+      parties.flatMap(party => acs.parties.get(party).toList).toList
+    })
+
   override def parties: Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
       acs.parties.values.toList
@@ -265,7 +270,8 @@ class InMemoryLedger(
   override def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[SubmissionResult] =
+      displayName: Option[String]
+  ): Future[SubmissionResult] =
     Future.successful(this.synchronized[SubmissionResult] {
       val ids = acs.parties.keySet
       if (ids.contains(party)) {

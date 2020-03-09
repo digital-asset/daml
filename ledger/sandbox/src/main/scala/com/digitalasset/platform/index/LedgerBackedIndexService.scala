@@ -272,6 +272,9 @@ abstract class LedgerBackedIndexService(
   override def getParticipantId(): Future[ParticipantId] =
     Future.successful(participantId)
 
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    ledger.getParties(parties)
+
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties
 

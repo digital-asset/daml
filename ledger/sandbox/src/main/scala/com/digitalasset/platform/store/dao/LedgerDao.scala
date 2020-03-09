@@ -115,12 +115,16 @@ trait LedgerReadDao extends ReportsHealth {
       filter: TransactionFilter
   ): Future[LedgerSnapshot]
 
+  /** Returns a list of party details for the parties specified. */
+  def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+
   /** Returns a list of all known parties. */
   def getParties: Future[List[PartyDetails]]
 
   def getPartyEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
 
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]
