@@ -262,7 +262,7 @@ class InMemoryLedger(
       parties.flatMap(party => acs.parties.get(party).toList).toList
     })
 
-  override def parties: Future[List[PartyDetails]] =
+  override def listKnownParties(): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
       acs.parties.values.toList
     })

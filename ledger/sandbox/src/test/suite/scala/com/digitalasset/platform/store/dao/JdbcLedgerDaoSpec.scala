@@ -448,7 +448,7 @@ class JdbcLedgerDaoSpec
           ),
         )
         _ = response should be(PersistenceResponse.Ok)
-        parties <- ledgerDao.getParties
+        parties <- ledgerDao.listKnownParties()
       } yield {
         parties should contain allOf (alice, bob)
       }

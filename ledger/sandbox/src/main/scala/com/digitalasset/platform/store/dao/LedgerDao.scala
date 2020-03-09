@@ -119,7 +119,7 @@ trait LedgerReadDao extends ReportsHealth {
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 
   /** Returns a list of all known parties. */
-  def getParties: Future[List[PartyDetails]]
+  def listKnownParties(): Future[List[PartyDetails]]
 
   def getPartyEntries(
       startInclusive: LedgerOffset,

@@ -45,7 +45,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
     val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
     val getParties: Timer = metrics.timer("daml.index.get_parties")
-    val parties: Timer = metrics.timer("daml.index.parties")
+    val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
     val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
@@ -90,8 +90,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledger.getParties(parties))
 
-  override def parties: Future[List[PartyDetails]] =
-    timedFuture(Metrics.parties, ledger.parties)
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(beginOffset)

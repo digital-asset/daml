@@ -44,6 +44,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
     val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
     val getParties: Timer = metrics.timer("daml.index.db.get_parties")
+    val listKnownParties: Timer = metrics.timer("daml.index.db.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
     val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
@@ -91,11 +92,11 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   ): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
-  override def getParties: Future[List[PartyDetails]] =
-    timedFuture(Metrics.getParties, ledgerDao.getParties)
-
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties(parties))
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    timedFuture(Metrics.listKnownParties, ledgerDao.listKnownParties())
 
   override def getPartyEntries(
       startInclusive: LedgerOffset,

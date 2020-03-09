@@ -14,9 +14,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -191,7 +190,7 @@ class ImplicitPartyAdditionIT
           .ledgerEntries(None, None)
           .take(2)
           .runWith(Sink.seq)
-        parties <- ledger.parties
+        parties <- ledger.listKnownParties()
       } yield {
         createResult shouldBe SubmissionResult.Acknowledged
         exerciseResult shouldBe SubmissionResult.Acknowledged
