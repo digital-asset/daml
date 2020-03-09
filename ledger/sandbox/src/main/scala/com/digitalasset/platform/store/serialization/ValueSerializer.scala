@@ -11,14 +11,17 @@ import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 object ValueSerializer {
 
-  def serializeValue(value: VersionedValue[AbsoluteContractId], errorContext: String): Array[Byte] =
+  def serializeValue(
+      value: VersionedValue[AbsoluteContractId],
+      errorContext: => String,
+  ): Array[Byte] =
     ValueCoder
       .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
   private def deserializeValue(
       stream: InputStream,
-      errorContext: Option[String],
+      errorContext: => Option[String],
   ): VersionedValue[AbsoluteContractId] =
     ValueCoder
       .decodeVersionedValue(
@@ -38,7 +41,7 @@ object ValueSerializer {
 
   def deserializeValue(
       stream: InputStream,
-      errorContext: String,
+      errorContext: => String,
   ): VersionedValue[AbsoluteContractId] =
     deserializeValue(stream, Some(errorContext))
 
