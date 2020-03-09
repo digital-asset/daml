@@ -71,7 +71,7 @@ final class ApiPartyManagementService private (
       request: ListKnownPartiesRequest
   ): Future[ListKnownPartiesResponse] =
     partyManagementService
-      .listParties()
+      .listKnownParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
       .andThen(logger.logErrorsOnCall[ListKnownPartiesResponse])(DE)
 

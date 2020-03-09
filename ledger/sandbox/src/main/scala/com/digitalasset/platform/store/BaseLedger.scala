@@ -22,7 +22,6 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   LedgerId,
-  PartyDetails,
   TransactionFilter,
   TransactionId
 }
@@ -106,11 +105,11 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao
       .lookupTransaction(TransactionId.unwrap(transactionId))
 
-  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+  override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
     ledgerDao.getParties(parties)
 
-  override def parties: Future[List[domain.PartyDetails]] =
-    ledgerDao.getParties
+  override def listKnownParties(): Future[List[domain.PartyDetails]] =
+    ledgerDao.listKnownParties()
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
     dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))

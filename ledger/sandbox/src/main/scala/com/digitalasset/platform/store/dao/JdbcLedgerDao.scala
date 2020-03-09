@@ -1452,11 +1452,11 @@ private class JdbcLedgerDao(
     Future.successful(LedgerSnapshot(endExclusive, contractStream))
   }
 
-  private val SQL_SELECT_SOME_PARTIES =
+  private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
       "select party, display_name, ledger_offset, explicit from parties where party in ({parties})")
 
-  private val SQL_SELECT_PARTIES =
+  private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit from parties")
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
@@ -1467,19 +1467,19 @@ private class JdbcLedgerDao(
       "explicit"
     )
 
-  override def getParties: Future[List[PartyDetails]] =
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     dbDispatcher
       .executeSql("load_parties") { implicit conn =>
-        SQL_SELECT_PARTIES
+        SQL_SELECT_MULTIPLE_PARTIES
+          .on("parties" -> parties)
           .as(PartyDataParser.*)
       }
       .map(_.map(constructPartyDetails))(executionContext)
 
-  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+  override def listKnownParties(): Future[List[PartyDetails]] =
     dbDispatcher
-      .executeSql("load_parties") { implicit conn =>
-        SQL_SELECT_SOME_PARTIES
-          .on("parties" -> parties)
+      .executeSql("load_all_parties") { implicit conn =>
+        SQL_SELECT_ALL_PARTIES
           .as(PartyDataParser.*)
       }
       .map(_.map(constructPartyDetails))(executionContext)

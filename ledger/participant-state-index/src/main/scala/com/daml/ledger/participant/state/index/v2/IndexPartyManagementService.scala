@@ -19,7 +19,7 @@ trait IndexPartyManagementService {
 
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 
-  def listParties(): Future[List[PartyDetails]]
+  def listKnownParties(): Future[List[PartyDetails]]
 
   def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed]
 }
