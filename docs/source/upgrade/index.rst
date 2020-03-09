@@ -155,7 +155,9 @@ Here is the new project config:
   :start-after: # BEGIN
   :end-before: # END
 
-Note how ``coin-1.0.0.dar`` is listed as a ``data-dependency``. This allows the upgrade templates to make reference to the ``Coin`` template from the ``CoinV1`` module, even though that module is not part of this project, but is part of original package already deployed to the ledger.
+Note how ``path/to/coin-1.0.0.dar`` is listed as a ``data-dependency``. This allows the upgrade templates to make reference to the ``Coin`` template from the ``CoinV1`` module, even though that module is not part of this project, but is part of original package already deployed to the ledger.
+
+When following this example, ``path/to/coin-1.0.0.dar`` should be replaced by the relative or absolute path to the DAR file created by building the version-1 project. Commonly the version-1 and version-2 projects would be sibling directories in the file systems, so this path would be: ``../coinV1/.daml/dist/coin-1.0.0.dar``.
 
 The DAML for the upgrade contacts imports the modules for both the new and old coin versions.
 
