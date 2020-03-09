@@ -37,6 +37,7 @@ Building applications
 
    app-dev/index
    daml-script/index
+   upgrade/index
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
@@ -93,7 +94,6 @@ Experimental features
 
    experimental/warning
    daml-integration-kit/index
-   upgrade/index
    json-api/index
    triggers/index
    daml-repl/index
