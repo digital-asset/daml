@@ -3,6 +3,6 @@
 
 -- @WARN Record type X has constructor Y with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to X
 
-module RecordCtorCheck where
+module RecordConstructorCheck where
 
 data X = Y {}
