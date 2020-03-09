@@ -28,7 +28,9 @@ private[testtool] final class LedgerSession(
               port,
               config.ssl,
               config.commandTtlFactor,
-              config.waitForParties),
+              config.waitForParties,
+              config.openWorld,
+            ),
           )
       })
       .map(_.map(endpointIdProvider() -> _))

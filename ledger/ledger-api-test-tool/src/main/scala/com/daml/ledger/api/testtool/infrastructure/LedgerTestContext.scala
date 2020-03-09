@@ -43,16 +43,9 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     Future
       .sequence(allocation.partyCounts.map(partyCount => {
         val participant = nextParticipant()
-        for {
-          parties <- if (openWorld) {
-            participant.reservePartyNames(partyCount.count)
-          } else {
-            for {
-              parties <- participant.allocateParties(partyCount.count)
-              _ <- participant.waitForParties(participants, parties.toSet)
-            } yield parties
-          }
-        } yield Participant(participant, parties: _*)
+        participant
+          .preallocateParties(partyCount.count, participants)
+          .map(parties => Participant(participant, parties: _*))
       }))
       .map(Participants(_: _*))
 

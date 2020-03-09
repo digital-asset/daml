@@ -11,4 +11,5 @@ private[testtool] final case class ParticipantSessionConfiguration(
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
     waitForParties: Boolean,
+    openWorld: Boolean,
 )

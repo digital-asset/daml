@@ -98,7 +98,8 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     ttl: Duration,
-    waitForPartiesEnabled: Boolean
+    waitForPartiesEnabled: Boolean,
+    openWorld: Boolean,
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
@@ -192,12 +193,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def allocateParties(n: Int): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
-
-  def reservePartyName(): Future[Party] =
-    Future.successful(Party(nextPartyHintId()))
-
-  def reservePartyNames(n: Int): Future[Vector[Party]] =
-    Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
 
   def getParties(parties: Seq[Party]): Future[Seq[PartyDetails]] =
     services.partyManagement
@@ -629,4 +624,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.configManagement.setTimeModel(
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
+
+  private[infrastructure] def preallocateParties(
+      n: Int,
+      participants: Iterable[ParticipantTestContext],
+  ): Future[Vector[Party]] =
+    if (openWorld) {
+      reservePartyNames(n)
+    } else {
+      for {
+        parties <- allocateParties(n)
+        _ <- waitForParties(participants, parties.toSet)
+      } yield parties
+    }
+
+  private def reservePartyNames(n: Int): Future[Vector[Party]] =
+    Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
 }
