@@ -5,6 +5,14 @@
 
 set -euo pipefail
 
+uhoh() {
+    echo "
+    It looks like this script failed to complete. Please check the status
+    of the LATEST file and consider running this script again."
+}
+
+trap uhoh EXIT
+
 CURRENT=$(cat LATEST | awk '{print $2}')
 STABLE_REGEX="\d+\.\d+\.\d+"
 VERSION_REGEX="^${STABLE_REGEX}(-snapshot\.\d{8}\.\d+\.[0-9a-f]{8})?$"
@@ -80,3 +88,4 @@ case $1 in
         ;;
 esac
 
+trap - EXIT

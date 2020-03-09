@@ -12,13 +12,15 @@ In either case, before going through the following list, you need to know which
 commit you want to create the release from, `$SHA`. For a stable release, it is
 highly recommended that this be the same commit as the latest existing
 snapshot, so we "bless" an existing, tested version of the SDK rather than try
-our luck with a random new one.
+our luck with a random new one. For a snapshot, this should generally be the
+latest commit on master.
 
 1. **[STABLE]** Coordinate with the product and marketing teams to define
    release highlights, tweets, blog posts, as well as timeline for publishing
    the release. Define a version number, `$VERSION`.
+
 1. Pull the latest master branch of the `daml` repository and create a new,
-   clean branch off it. For a snapshot, run `./release.sh snapshot $SHA`; for
+   clean branch off it. For a snapshot, run `./release.sh snapshot HEAD`; for
    a stable release, run `echo "$SHA $VERSION" > LATEST`. Ideally, for a stable
    release, the resulting change is only to cut off the prerelease part of the
    version number (the `-snapshot...`).
@@ -70,8 +72,13 @@ our luck with a random new one.
 
 1. Run through the following test plan on one of Linux or MacOS:
 
-   1. Install the new SDK using `curl -sSL https://get.daml.com/ | sh -s X.XX.XX`,
-      where `X.XX.XX` is the new version number.
+   1. Install the new SDK using
+      ```
+      curl -sSL https://get.daml.com/ | sh -s $(cat LATEST | gawk '{print $2}')
+      ```
+      Note: this assumes you have the up-to-date `LATEST` file, either because
+      you just checked out master or because you're still on the release PR
+      commit.
    1. Run `daml version --assistant=yes` and verify that the new version is
       selected as the assistant version and the default version for new projects.
    1. Create a new project with `daml new quickstart quickstart-java`
@@ -111,6 +118,12 @@ our luck with a random new one.
       takes you to the definition in line 14.
    1. Close all files.
 
+1. On your PR, add the comment
+
+   > Manual tests passed on [Linux/macOS].
+
+   specifying which platform you tested on.
+
 1. Run through the following test plan on Windows.
    This is slightly shortened to make testing faster and
    since most issues are not platform specific.
@@ -130,23 +143,37 @@ our luck with a random new one.
       Verify that the scenario result appears within 30 seconds.
    1. Add `+` at the end of line 26 after `"Alice"` and verify that you get an error.
 
-1. **[STABLE]** If there are no issues, the release can be made public.
-   Go to [the releases page](https://github.com/digital-asset/daml/releases)
-   and click on the `Edit` button for the new release. Combine the release
-   notes from `docs/source/support/release-notes.rst` for all releases since the
-   last public release, convert them from RST to Markdown format, and insert them
-   in the textbox. Uncheck the `This is a pre-release` checkbox at the bottom and
-   click `Update release`.
+1. On your PR, add the comment
 
-1. Now go back to your original release PR on Github. Add the label
-   `Standard-Change` and leave a comment like "All manual tests have passed".
+   > Manual tests passed on Windows.
 
-1. Finally, announce the release on the relevant internal Slack channels.
+1. If the release is bad, delete the release from [the releases
+   page](https://github.com/digital-asset/daml/releases). Mention why it is bad
+   as a comment on your PR, and **stop the process here**.
 
-1. *[STABLE]* Coordinate with product (& marketing) for the relevant public
+1. Add the label `Standard-Change` to your PR.
+
+1. Go to [the releases page](https://github.com/digital-asset/daml/releases)
+   and edit the release to look better. For both types of release, the release
+   title should be the version number (i.e. same as the git tag). For a
+   snapshot, the message should be set to
+
+   > This is a snapshot release. Use at your own risks.
+
+   For a stable release, the message should contain the team-lead-approved
+   release notes, and the "prerelease" checkbox should be unticked.
+
+1. Announce the release on the relevant internal Slack channels. Add release
+   notes in a thread under your announcement. For a stable release, these are
+   the notes decided with the product team; for a snapshot release, include
+   both the changes in this release (i.e. since the last snapshot) and the
+   complete list of changes since the last stable release. Use the raw output
+   of `unreleased.sh`.
+
+1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
    announcements (public Slack, Twitter, etc.).
 
-1. *[STABLE]* Documentation is published automatically once the release is
+1. **[STABLE]** Documentation is published automatically once the release is
    public on Github, however it runs on an hourly job and takes about 20
    minutes to complete, so it could take up to an hour and a half depending on
    when the prerelease tag was removed.
