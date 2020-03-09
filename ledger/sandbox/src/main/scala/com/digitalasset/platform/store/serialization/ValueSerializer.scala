@@ -19,7 +19,7 @@ object ValueSerializer {
       .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
-  private def deserializeValue(
+  private def deserializeValueHelper(
       stream: InputStream,
       errorContext: => Option[String],
   ): VersionedValue[AbsoluteContractId] =
@@ -37,12 +37,12 @@ object ValueSerializer {
   def deserializeValue(
       stream: InputStream,
   ): VersionedValue[AbsoluteContractId] =
-    deserializeValue(stream, None)
+    deserializeValueHelper(stream, None)
 
   def deserializeValue(
       stream: InputStream,
       errorContext: => String,
   ): VersionedValue[AbsoluteContractId] =
-    deserializeValue(stream, Some(errorContext))
+    deserializeValueHelper(stream, Some(errorContext))
 
 }
