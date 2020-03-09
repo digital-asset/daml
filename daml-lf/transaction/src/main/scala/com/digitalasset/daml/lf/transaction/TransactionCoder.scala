@@ -490,15 +490,13 @@ object TransactionCoder {
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val tx = transaction.transaction
     val txVersion: TransactionVersion = transaction.version
-    val roots = tx.roots.map(encodeNid.asString)
-    // fold traverses the transaction in deterministic order
-    val mbNodes = tx
-      .fold[Either[EncodeError, BackStack[TransactionOuterClass.Node]]](
-        Right(BackStack.empty),
+    val builder = tx
+      .fold[Either[EncodeError, TransactionOuterClass.Transaction.Builder]](
+        Right(TransactionOuterClass.Transaction.newBuilder()),
       ) {
-        case (acc, (id, node)) =>
+        case (builderOrError, (id, node)) =>
           for {
-            stack <- acc
+            builder <- builderOrError
             encodedNode <- encodeNode(
               encodeNid,
               encodeCid,
@@ -506,15 +504,11 @@ object TransactionCoder {
               id,
               node,
             )
-          } yield stack :+ encodedNode
+          } yield builder.addNodes(encodedNode)
       }
-      .map(_.toImmArray)
-    mbNodes.map(nodes => {
-      TransactionOuterClass.Transaction
-        .newBuilder()
-        .setVersion(txVersion.protoValue)
-        .addAllRoots(roots.toList.asJava)
-        .addAllNodes(nodes.toSeq.asJava)
+    builder.map(b => {
+      b.setVersion(transaction.version.protoValue)
+        .addAllRoots(tx.roots.map(encodeNid.asString).toSeq.asJava)
         .build()
     })
   }
