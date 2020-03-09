@@ -331,14 +331,11 @@ class WebSocketService(
     Flow[EventsAndOffset]
       .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
       .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
-        case (None, a) =>
-          // override empty state, capture the last seen offset
-          Some((a, a))
         case (Some((s, _)), (Vector(), None)) =>
           // heartbeat message, keep the previous state, report the last seen offset
           Some((s, (Vector(), s._2)))
-        case (Some(_), a) =>
-          // override non-empty state, capture the last seen offset
+        case (_, a) =>
+          // override state, capture the last seen offset
           Some((a, a))
       }
       .collect {

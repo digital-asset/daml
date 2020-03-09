@@ -1073,7 +1073,7 @@ off an initial "loading" indicator::
     }
 
 To keep the stream alive, you'll occasionally see messages like this,
-which can be safely ignored::
+which can be safely ignored if you do not need to capture the last seen ledger offset::
 
     {"events":[],"offset":"5609"}
 
