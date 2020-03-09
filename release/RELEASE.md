@@ -87,8 +87,9 @@ latest commit on master.
       `http://localhost:7500`. Login as `Alice` and verify that there is
       1 contract and 3 templates. Close the tab and kill `daml start` using `Ctrl-C`.
    1. Run `daml build`.
-   1. In 3 separate terminals (since each command will block), run
-      1. `daml sandbox --port 6865 --scenario Main:setup .daml/dist/quickstart-0.0.1.dar`
+   1. In 3 separate terminals (since each command except for `daml script` will block), run
+      1. `daml sandbox --port 6865 .daml/dist/quickstart-0.0.1.dar`
+      1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --static-time`
       1. `daml navigator server localhost 6865 --port 7500`
       1. `mvn compile exec:java@run-quickstart`
       > Note: It takes some time for our artifacts to be available on Maven Central. If you try running the last command before the artifacts are available, you will get a "not found" error. Trying to build again _in the next 24h_ will result in:
@@ -109,13 +110,13 @@ latest commit on master.
    1. Open `daml/Main.daml`.
    1. Click on `Scenario results` above `setup` and wait for the scenario results
       to appear.
-   1. Add `+` at the end of line 11, after `"Alice"` and confirm you get an
-      error in line 12.
-   1. Add `1` after the `+` and confirm you get an error in line 11.
+   1. Add `+` at the end of line 12, after `"Alice"` and confirm you get an
+      error in line 13.
+   1. Add `1` after the `+` and confirm you get an error in line 12.
    1. Delete the `+1` and the `e` in `Alice` and verify that the scenario results
       are updated to the misspelled name.
-   1. Right click on `eurBank` in line 17 and verify that "Go to Definition"
-      takes you to the definition in line 14.
+   1. Right click on `eurBank` in line 18 and verify that "Go to Definition"
+      takes you to the definition in line 15.
    1. Close all files.
 
 1. On your PR, add the comment
