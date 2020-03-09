@@ -122,3 +122,27 @@ typical DAML developer workflow is to
   #. Make further changes either to your DAML and/or React code until you're happy with what you've developed
 
 .. image:: ./developer_workflow.svg
+
+.. _handling-submission-failures:
+
+Handle failures when submitting commands
+****************************************
+
+The interaction of a DAML application with the ledger is inherently asynchronous: applications send commands to the ledger, and some time later they see the effect of that command on the ledger.
+
+There are several things that can fail during this time window: the application can crash, the participant node can crash, messages can be lost on the network, or the ledger may be just slow to respond due to a high load.
+
+If you want to make sure that a command is not executed twice, your application needs to robustly handle all the various failure scenarios.
+DAML ledgers provide a mechanism for :ref:`command deduplication <command-submission-service-deduplication>` to help deal this problem.
+
+For each command applications provide a command ID and an optional parameter that specifies the deduplication time. If the latter parameter is not specified in the command submission itself, the ledger will fall back to using the configured maximum deduplication time.
+The ledger will then guarantee that commands for the same submitting party and command ID will be ignored within the deduplication time window.
+
+To use command deduplication, you should:
+
+- Use generous values for the deduplication time. It should be large enough such that you can assume the command was permanently lost if the deduplication time has passed and you still don’t observe any effect of the command on the ledger (i.e. you don't see a transaction with the command ID via the :ref:`transaction service <transaction-service>`).
+- Make sure you set command IDs deterministically, that is to say: the "same" command must use the same command ID. This is useful for the recovery procedure after an application crash/restart, in which the application inspects the state of the ledger (e.g. via the :ref:`Active contracts service <active-contract-service>`) and sends commands to the ledger. When using deterministic command IDs, any commands that had been sent before the application restart will be discarded by the ledger to avoid duplicate submissions.
+- If you are not sure whether a command was submitted successfully, just resubmit it. If the new command was submitted within the deduplication time window, the duplicate submission will safely be ignored. If the deduplication time window has passed, you can assume the command was lost or rejected and a new submission is justified.
+
+
+For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
