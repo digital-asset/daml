@@ -365,7 +365,8 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] = {
+      partyEntry: PartyLedgerEntry,
+  ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_party_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
 
@@ -384,17 +385,21 @@ private class JdbcLedgerDao(
                 "participant_id" -> participantId,
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
-                "is_local" -> partyDetails.isLocal
+                "is_local" -> partyDetails.isLocal,
               )
               .execute()
-
-            storeParty(partyDetails.party, partyDetails.displayName, offset)
-
+            SQL_INSERT_PARTY
+              .on(
+                "party" -> partyDetails.party,
+                "display_name" -> partyDetails.displayName,
+                "ledger_offset" -> offset,
+              )
+              .execute()
             PersistenceResponse.Ok
           }).recover {
             case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
-                s"Ignoring duplicate party submission for submissionId $submissionIdOpt, participantId $participantId")
+                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt, participantId $participantId")
               conn.rollback()
               PersistenceResponse.Duplicate
           }.get
@@ -1493,26 +1498,6 @@ private class JdbcLedgerDao(
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
         |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
-
-  private def storeParty(party: Party, displayName: Option[String], offset: LedgerOffset)(
-      implicit conn: Connection
-  ): PersistenceResponse = {
-    Try {
-      SQL_INSERT_PARTY
-        .on(
-          "party" -> (party: String),
-          "display_name" -> displayName,
-          "ledger_offset" -> offset
-        )
-        .execute()
-      PersistenceResponse.Ok
-    }.recover {
-      case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-        logger.warn(s"Party with ID $party already exists")
-        conn.rollback()
-        PersistenceResponse.Duplicate
-    }.get
-  }
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
