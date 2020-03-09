@@ -13,7 +13,7 @@ import com.daml.ledger.api.testtool.tests.TransactionService.{
   comparableTransactionTrees,
   comparableTransactions
 }
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
@@ -192,7 +192,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
             eventsToObserve.remove(eventId) match {
               case Some(TreeEvent(Exercised(exercisedEvent))) =>
                 exercisedEvent.childEventIds.foreach(go)
-              case Some(TreeEvent(Created(_))) =>
+              case Some(TreeEvent(_)) =>
                 ()
               case None =>
                 throw new AssertionError(
