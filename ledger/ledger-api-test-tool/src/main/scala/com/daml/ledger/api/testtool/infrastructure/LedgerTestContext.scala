@@ -14,7 +14,6 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] final class LedgerTestContext private[infrastructure] (
     participants: Vector[ParticipantTestContext],
-    openWorld: Boolean,
 )(implicit ec: ExecutionContext) {
 
   require(participants.nonEmpty, "At least one participant must be provided.")

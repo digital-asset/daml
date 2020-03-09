@@ -85,8 +85,7 @@ private[participant] final class ParticipantSession(
         end,
         services,
         ttl,
-        config.waitForParties,
-        config.openWorld,
+        config.partyAllocation,
       )
 
   private[testtool] def close(): Unit = {

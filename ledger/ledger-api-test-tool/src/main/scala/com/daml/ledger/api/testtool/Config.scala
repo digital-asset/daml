@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 final case class Config(
@@ -22,9 +23,8 @@ final case class Config(
     included: Set[String],
     listTests: Boolean,
     allTests: Boolean,
-    waitForParties: Boolean,
     shuffleParticipants: Boolean,
-    openWorld: Boolean,
+    partyAllocation: PartyAllocationConfiguration,
 )
 
 object Config {
@@ -43,8 +43,7 @@ object Config {
     included = Set.empty,
     listTests = false,
     allTests = false,
-    waitForParties = true,
     shuffleParticipants = false,
-    openWorld = false,
+    partyAllocation = PartyAllocationConfiguration.ClosedWorldWaitingForAllParticipants,
   )
 }

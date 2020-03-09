@@ -11,6 +11,5 @@ private[testtool] final case class LedgerSessionConfiguration(
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
     loadScaleFactor: Double,
-    waitForParties: Boolean,
-    openWorld: Boolean,
+    partyAllocation: PartyAllocationConfiguration,
 )

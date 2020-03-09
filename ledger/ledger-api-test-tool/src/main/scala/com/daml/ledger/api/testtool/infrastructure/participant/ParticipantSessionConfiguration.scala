@@ -3,6 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 private[testtool] final case class ParticipantSessionConfiguration(
@@ -10,6 +11,5 @@ private[testtool] final case class ParticipantSessionConfiguration(
     port: Int,
     ssl: Option[TlsConfiguration],
     commandTtlFactor: Double,
-    waitForParties: Boolean,
-    openWorld: Boolean,
+    partyAllocation: PartyAllocationConfiguration,
 )

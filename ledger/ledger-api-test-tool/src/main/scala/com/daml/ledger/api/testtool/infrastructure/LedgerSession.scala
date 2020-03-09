@@ -28,8 +28,7 @@ private[testtool] final class LedgerSession(
               port,
               config.ssl,
               config.commandTtlFactor,
-              config.waitForParties,
-              config.openWorld,
+              config.partyAllocation,
             ),
           )
       })
@@ -48,7 +47,7 @@ private[testtool] final class LedgerSession(
                 session.createTestContext(endpointId, applicationId, identifierSuffix)
             }
         )
-        .map(new LedgerTestContext(_, config.openWorld))
+        .map(new LedgerTestContext(_))
     }
 
 }
