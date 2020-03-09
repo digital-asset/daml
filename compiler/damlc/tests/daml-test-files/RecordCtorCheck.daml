@@ -1,0 +1,8 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @WARN Record type X has constructor Y with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to X
+
+module RecordCtorCheck where
+
+data X = Y {}
