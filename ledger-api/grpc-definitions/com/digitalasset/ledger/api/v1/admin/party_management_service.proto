@@ -33,10 +33,6 @@ service PartyManagementService {
   // canton: returns globally unique identifier of the backing participant
   rpc GetParticipantId (GetParticipantIdRequest) returns (GetParticipantIdResponse);
 
-  // Get the party details of the given party, or a ``NOT_FOUND`` error if the
-  // requested party is unknown.
-  rpc GetParty (GetPartyRequest) returns (GetPartyResponse);
-
   // Get the party details of the given parties. Only known parties will be
   // returned in the list.
   // This request will always succeed.
@@ -76,21 +72,6 @@ message GetParticipantIdResponse {
   // Identifier of the participant, which SHOULD be globally unique.
   // Must be a valid LedgerString (as describe in ``value.proto``).
   string participant_id = 1;
-}
-
-message GetPartyRequest {
-
-  // The stable, unique identifier of a DAML party.
-  // Must be a valid PartyIdString (as described in ``value.proto``).
-  // Required
-  string party = 1;
-}
-
-message GetPartyResponse {
-
-  // The details of the requested DAML party hosted by the participant, if available.
-  // Required
-  PartyDetails party_details = 1;
 }
 
 message GetPartiesRequest {

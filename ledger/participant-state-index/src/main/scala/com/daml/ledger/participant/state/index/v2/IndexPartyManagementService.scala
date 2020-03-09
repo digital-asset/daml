@@ -17,8 +17,6 @@ import scala.concurrent.Future
 trait IndexPartyManagementService {
   def getParticipantId(): Future[ParticipantId]
 
-  def getParty(party: Party): Future[Option[PartyDetails]]
-
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 
   def listParties(): Future[List[PartyDetails]]
