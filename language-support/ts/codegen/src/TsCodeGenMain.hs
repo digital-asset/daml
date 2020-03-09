@@ -78,6 +78,7 @@ data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
     , optInputPackageJson :: Maybe FilePath
+    , optScope :: Scope -- Defaults to '@daml.js'.
     }
 
 optionsParser :: Parser Options
@@ -89,12 +90,18 @@ optionsParser = Options
     <*> strOption
         (  short 'o'
         <> metavar "DIR"
-        <> help "Output directory for the generated TypeScript files"
+        <> help "Output directory for the generated packages"
         )
     <*> optional (strOption
         (  short 'p'
         <> metavar "PACKAGE-JSON"
         <> help "Path to an existing 'package.json' to update"
+        ))
+    <*> (Scope <$> strOption
+        (  short 's'
+        <> metavar "SCOPE"
+        <> value "@daml.js"
+        <> help "The NPM scope name for the generated packages; defaults to @daml.js"
         ))
 
 optionsParserInfo :: ParserInfo Options
@@ -169,14 +176,8 @@ main = do
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
-newtype Scope = Scope {unScope :: T.Text}
+newtype Scope = Scope T.Text
 newtype Dependency = Dependency {unDependency :: T.Text}  deriving (Eq, Ord)
-
--- Gives the scope 'foo' given a directory path like '/path/to/foo'.
--- The scope 'foo' is the '@foo' part of a package name in an import
--- declaration.
-scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . T.pack . takeFileName
 
 data Daml2TsParams = Daml2TsParams
   { opts :: Options  -- cli args
@@ -197,10 +198,10 @@ daml2ts Daml2TsParams {..} = do
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
-        scope = scopeOfScopeDir scopeDir
-          -- The scope e.g. 'daml2ts'.
+        scope = optScope
+          -- The scope e.g. '@daml.js'.
           -- We use this, for example, when generating import declarations e.g.
-          --   import * as pkgd14e08_DA_Internal_Template from '@daml2ts/d14e08/lib/DA/Internal/Template';
+          --   import * as pkgd14e08_DA_Internal_Template from '@daml.js/d14e08/lib/DA/Internal/Template';
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
@@ -279,7 +280,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> "@" <> scope
+        PRImport _ -> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -614,12 +615,11 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     name = packageNameOfPackageDir packageDir
     dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
        | d <- depends
-       , let pkg = "@" <> scope <> "/" <> unDependency d
+       , let pkg = scope <> "/" <> unDependency d
        ]
     packageNameOfPackageDir :: FilePath -> T.Text
-    packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
+    packageNameOfPackageDir packageDir = scope <> "/" <> package
       where
-        scope = unScope $ scopeOfScopeDir (takeDirectory packageDir)
         package = T.pack $ takeFileName packageDir
 
     packageJson :: NpmPackageName -> NpmPackageVersion -> HMS.HashMap NpmPackageName NpmPackageVersion -> Value
@@ -666,17 +666,17 @@ setupWorkspace optOutputDir dependencies file = do
         (map (\(a, ds) -> (a, a, map unDependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      scope = scopeOfScopeDir optOutputDir
-        -- 'scope' we expect to be something like "daml2ts".
-  let ourWorkspaces = map ((unScope scope <> "/") <>) ps
+      outBaseDir = T.pack $ takeFileName optOutputDir
+        -- The leaf directory of the output directory (e.g. often 'daml2ts').
+  let ourWorkspaces = map ((outBaseDir <> "/") <>) ps
   bytes <- BSL.readFile file
   case decode bytes :: Maybe PackageJson of
     Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
-    Just oldPackageJson -> transformAndWrite ourWorkspaces scope oldPackageJson
+    Just oldPackageJson -> transformAndWrite ourWorkspaces outBaseDir oldPackageJson
   where
-    transformAndWrite :: [T.Text] -> Scope -> PackageJson -> IO ()
-    transformAndWrite ourWorkspaces (Scope scope) oldPackageJson = do
-      let keepWorkspaces = filter (not . T.isPrefixOf scope) $ workspaces oldPackageJson
+    transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
+    transformAndWrite ourWorkspaces outBaseDir oldPackageJson = do
+      let keepWorkspaces = filter (not . T.isPrefixOf outBaseDir) $ workspaces oldPackageJson
             -- Old versions of our packages should be removed.
           allWorkspaces = ourWorkspaces ++ keepWorkspaces
             -- Our packages need to come before any other existing packages.
