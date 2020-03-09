@@ -9,7 +9,7 @@ DAML Integration Kit - ALPHA
 
    /tools/ledger-api-test-tool/index
 
-:doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
+:doc:`DAML Applications </app-dev/app-arch>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
 :doc:`Ledger API </app-dev/grpc/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
@@ -120,8 +120,8 @@ To acquire this context, you should:
 
 1. Complete the :doc:`/getting-started/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
-3. Build a mental model of how the :doc:`Ledger API </app-dev/index>`
-   is used to :doc:`build DAML Applications </app-dev/index>`.
+3. Build a mental model of how the :doc:`Ledger API </app-dev/ledger-api>`
+   is used to :doc:`build DAML Applications </app-dev/app-arch>`.
 
 .. _integration-kit_writing_code:
 
@@ -285,7 +285,7 @@ In the diagram above:
 Explaining this diagram in detail (for brevity, we drop prefixes
 of their qualified names where unambiguous):
 
-:doc:`Ledger API </app-dev/index>`
+:doc:`Ledger API </app-dev/ledger-api>`
   is the collection of gRPC
   services that you would like your `daml-on-<X>-server` to provide.
 ``<X> services``
@@ -367,7 +367,7 @@ Testing a DAML Ledger
 You can test your DAML ledger implementation using :doc:`Ledger API Test Tool
 </tools/ledger-api-test-tool/index>`, which will assess correctness of
 implementation of the :doc:`Ledger API
-</app-dev/index>`. For example, it will show you if
+</app-dev/ledger-api>`. For example, it will show you if
 there are consistency or conformance problem with your implementation.
 
 Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:

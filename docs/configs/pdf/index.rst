@@ -35,16 +35,27 @@ Building applications
    :titlesonly:
    :maxdepth: 2
 
-   app-dev/index
-   daml-script/index
-   upgrade/index
+   app-dev/app-arch
+   app-dev/authentication
+   app-dev/ledger-api
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
    app-dev/grpc/index
    app-dev/bindings-x-lang/index
-   app-dev/app-arch
-   app-dev/authentication
+   DAML Script <daml-script/index>
+   upgrade/index
+
+Deploying to DAML ledgers
+-------------------------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   deploy/index
+   deploy/generic_ledger
+   deploy/ledger-topologies
 
 SDK tools
 ---------
@@ -67,14 +78,6 @@ Background concepts
    concepts/glossary
    concepts/ledger-model/index
 
-Deploying
----------
-
-.. toctree::
-   :titlesonly:
-   :maxdepth: 2
-
-   deploy/index
 
 Examples
 --------

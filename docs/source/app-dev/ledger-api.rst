@@ -1,8 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Writing applications using the Ledger API
-#########################################
+The Ledger API
+##############
 
 .. toctree::
    :hidden:
@@ -10,28 +10,14 @@ Writing applications using the Ledger API
    services
    daml-lf-translation
 
-DAML contracts are stored on a ledger. In order to exercise choices on those contracts, create new ones, or read from the ledger, you need to use the **Ledger API**. (Every ledger that DAML can run on exposes this same API.) To write an application around a DAML ledger, you'll need to interact with the Ledger API from another language.
-
-Resources available to you
-**************************
-
-- **The Java bindings**: a library to help you write idiomatic applications using the Ledger API in Java.
-
-  :doc:`Read the documentation for the Java bindings </app-dev/bindings-java/index>`
-- **The experimental Node.js bindings**: a library to help you write idiomatic applications using the Ledger API in JavaScript. Information about the Node.js bindings isn't available in this documentation, but is on GitHub.
-
-  `Read the documentation for the Node.js bindings <http://www.github.com/digital-asset/daml-js>`__
-- **The underlying gRPC API**: if you want to interact with the ledger API from other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
-
-  :doc:`Read the documentation for the gRPC API </app-dev/grpc/index>`
-- **The application architecture guide**: this documentation gives high-level guidance on designing DAML Ledger applications.
-
-  :doc:`Read the application architecture guide </app-dev/app-arch>`
+To write an application around a DAML ledger, you'll need to interact with the **Ledger API** from
+another language. Every ledger that DAML can run on exposes this same API.
 
 What's in the Ledger API
 ************************
 
-No matter how you're accessing it (Java bindings, Node.js bindings, or gRPC), the Ledger API exposes the same services:
+You can access the Ledger API via via the HTTP JSON API, Java bindings, Scala bindings or gRPC. In
+all cases, the Ledger API exposes the same services:
 
 - Submitting commands to the ledger
 
@@ -74,7 +60,7 @@ As a user, you don't need to interact with DAML-LF directly. But inside the DAML
 When you need to know about DAML-LF
 ===================================
 
-DAML-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use :doc:`code generation </app-dev/bindings-java/codegen>`, you don't need to know about DAML-LF at all, because this generates idiomatic representations of DAML for you.
+DAML-LF is only really relevant when you're dealing with the objects you send to or receive from the ledger. If you use any of the provided language bindings for the Ledger API, you don't need to know about DAML-LF at all, because this generates idiomatic representations of DAML for you.
 
 Otherwise, it can be helpful to know what the types in your DAML code look like at the DAML-LF level, so you know what to expect from the Ledger API.
 
