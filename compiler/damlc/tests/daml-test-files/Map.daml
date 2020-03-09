@@ -17,7 +17,7 @@ testSize = scenario do
   3 === size (fromList ([(1, 2.0), (2, 9.0), (3, 2.2)] : [(Int, Decimal)]))
 
 testToList = scenario do
-  [(2, "a"), (5, "b"), (1, "c")] === toList (fromList [(2, "a"), (5, "b"), (1, "c")])
+  [(1, "c"), (2, "a"), (5, "b")] === toList (fromList [(2, "a"), (5, "b"), (1, "c")])
 
 testFromList = scenario do
   False === member 2 (fromList [(1, "a"), (3, "b"), (4, "c")])
@@ -45,15 +45,15 @@ testNull = scenario do
   True === M.null (fromList ([] : [(Int, Party)]))
 
 testInsert = scenario do
-  [(3,True),(1,True),(4,False),(2,False),(5,False)] === toList
+  [(1,True),(2,False),(3,True),(4,False),(5,False)] === toList
     (foldl (\a b -> uncurry insert b a) M.empty [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)])
 
 testFilterWithKey = scenario do
-  [(3, True), (1, True), (2, False)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
+  [(1, True), (2, False), (3, True)] === toList (M.filterWithKey (\k v -> k < 3 || v) (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
 
 testDelete = scenario do
-  [ (3, True), (4, False), (2, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
-  [(2, True), (1, False)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
+  [(2, False), (3, True), (4, False), (5, False)] === toList (delete 1 (fromList [(3, True), (1, False), (4, False), (2, True), (5, False), (2, False), (1, True)]))
+  [(1, False), (2, True)] === toList (delete 3 (fromList [(2, False), (1, True), (2, True), (1, False)]))
 
 testMerge = scenario do
   let m1 = fromList [(1, "bb"), (2, "dd"), (3, "aa"), (4, "cc"), (6, "ee")]

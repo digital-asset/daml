@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.speedy.svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, InsertOrdMap, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
@@ -357,7 +357,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         SList(FrontStack(lfFunction)),
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
-      SGenMap(InsertOrdMap.empty) -> SGenMap(InsertOrdMap(SGenMap.Key(SInt64(0)) -> lfFunction)),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
       SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
         SVariant(VariantTypeCon, VariantCon2, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->

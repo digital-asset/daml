@@ -1055,7 +1055,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case STextMap(map) => map.values.foreach(goV)
         case SGenMap(values) =>
           values.foreach {
-            case (SGenMap.Key(k), v) =>
+            case (k, v) =>
               goV(k)
               goV(v)
           }

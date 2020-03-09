@@ -8,8 +8,10 @@ package svalue
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -125,8 +127,7 @@ object Ordering extends scala.math.Ordering[SValue] {
         if (lim == underlyingCidDiscriminatorLength && (//
           cid1.length != underlyingCidDiscriminatorLength && isHexa(cid2) || //
           cid2.length != underlyingCidDiscriminatorLength && isHexa(cid1)))
-          throw new IllegalArgumentException(
-            "Conflicting discriminators between a local and global contract id")
+          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
         else
           cid1.length compareTo cid2.length
       }
@@ -223,15 +224,15 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SAny(t2, v2) =>
               compareType(t1, t2) -> ImmArray((v1, v2))
           }
-          case SContractId(_) => {
-            case SContractId(_) =>
-              throw new IllegalAccessException("Try to compare relative contract ids")
+          case SContractId(RelativeContractId(_)) => {
+            case SContractId(RelativeContractId(_)) =>
+              throw SErrorCrash("relative contract id are not comparable")
           }
           case SPAP(_, _, _) => {
             case SPAP(_, _, _) =>
-              throw new IllegalAccessException("Try to compare functions")
+              throw SErrorCrash("functions are not comparable")
           }
-        }(fallback = throw new IllegalAccessException("Try to compare unrelated type"))
+        }(fallback = throw new IllegalAccessException("try to compare unrelated type"))
         if (x != 0)
           x
         else

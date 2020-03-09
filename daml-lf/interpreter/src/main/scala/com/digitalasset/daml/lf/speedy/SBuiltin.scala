@@ -470,18 +470,11 @@ object SBuiltin {
     }
   }
 
-  @throws[SErrorCrash]
-  private def buildKey(v: SValue): SGenMap.Key =
-    SGenMap.Key.fromSValue(v) match {
-      case Left(msg) => throw SErrorCrash(msg)
-      case Right(key) => key
-    }
-
   final case object SBGenMapInsert extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(2) match {
         case SGenMap(value) =>
-          SGenMap(value + (buildKey(args.get(0)) -> args.get(1)))
+          SGenMap(value.updated(args.get(0), args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       })
@@ -492,7 +485,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SOptional(value.get(buildKey(args.get(0))))
+          SOptional(value.get(args.get(0)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       })
@@ -503,7 +496,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SGenMap(value - buildKey(args.get(0)))
+          SGenMap(value - args.get(0))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       })
@@ -513,8 +506,8 @@ object SBuiltin {
   final case object SBGenMapKeys extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case SGenMap(values) =>
-          SList(FrontStack(values.keys.map(_.v)))
+        case SGenMap(value) =>
+          SList(ImmArray(value.keys) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapKeys, expected GenMap get $x")
       })
@@ -525,7 +518,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SGenMap(value) =>
-          SList(FrontStack(value.values.toSeq))
+          SList(ImmArray(value.values) ++: FrontStack.empty)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapValues, expected GenMap get $x")
       })
