@@ -131,8 +131,8 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
         , GHC.RecCon{} <- GHC.con_args (GHC.unLoc con)
         , GHC.L _ tyName <- ltyName
         , [GHC.L _ conName] <- GHC.getConNames (GHC.unLoc con)
-        , tyNameStr <- GHC.occNameString (GHC.rdrNameOcc tyName)
-        , conNameStr <- GHC.occNameString (GHC.rdrNameOcc conName)
+        , let tyNameStr = GHC.occNameString (GHC.rdrNameOcc tyName)
+        , let conNameStr = GHC.occNameString (GHC.rdrNameOcc conName)
         , tyNameStr /= conNameStr
         = Just (ss, message tyNameStr conNameStr)
 
