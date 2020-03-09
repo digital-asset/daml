@@ -477,11 +477,11 @@ class JdbcLedgerDaoSpec
           ),
         )
         _ = response should be(PersistenceResponse.Ok)
-        carolPartyDetails <- ledgerDao.getParty(party)
-        noPartyDetails <- ledgerDao.getParty(nonExistentParty)
+        carolPartyDetails <- ledgerDao.getParties(Seq(party))
+        noPartyDetails <- ledgerDao.getParties(Seq(nonExistentParty))
       } yield {
-        carolPartyDetails should be(Some(carol))
-        noPartyDetails should be(None)
+        carolPartyDetails should be(Seq(carol))
+        noPartyDetails should be(Seq.empty)
       }
     }
 

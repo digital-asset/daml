@@ -115,9 +115,6 @@ trait LedgerReadDao extends ReportsHealth {
       filter: TransactionFilter
   ): Future[LedgerSnapshot]
 
-  /** Returns a single party, if they exist. */
-  def getParty(party: Party): Future[Option[PartyDetails]]
-
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 

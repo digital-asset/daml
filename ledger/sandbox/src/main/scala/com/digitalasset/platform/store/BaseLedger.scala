@@ -106,9 +106,6 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao
       .lookupTransaction(TransactionId.unwrap(transactionId))
 
-  override def getParty(party: Party): Future[Option[domain.PartyDetails]] =
-    ledgerDao.getParty(party)
-
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     ledgerDao.getParties(parties)
 
