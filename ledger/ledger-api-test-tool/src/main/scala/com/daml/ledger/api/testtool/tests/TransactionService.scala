@@ -13,6 +13,7 @@ import com.daml.ledger.api.testtool.tests.TransactionService.{
   comparableTransactionTrees,
   comparableTransactions
 }
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.{Created, Exercised}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
@@ -188,18 +189,20 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
           val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
 
           def go(eventId: String): Unit = {
-            assert(
-              eventsToObserve.contains(eventId),
-              s"Referenced eventId $eventId is not available as node in the transaction.")
-            val Some(event) = eventsToObserve.remove(eventId)
-            event.kind.exercised.toList.flatMap(_.childEventIds).foreach { childEventId =>
-              go(childEventId)
+            eventsToObserve.remove(eventId) match {
+              case Some(TreeEvent(Exercised(exercisedEvent))) =>
+                exercisedEvent.childEventIds.foreach(go)
+              case Some(TreeEvent(Created(_))) =>
+                ()
+              case None =>
+                throw new AssertionError(
+                  s"Referenced eventId $eventId is not available as node in the transaction.")
             }
           }
           tree.rootEventIds.foreach(go)
           assert(
             eventsToObserve.isEmpty,
-            s"After traversing the transaction, there are still unvisted nodes: $eventsToObserve")
+            s"After traversing the transaction, there are still unvisited nodes: $eventsToObserve")
         }
 
         treeIsWellformed(aliceTree)

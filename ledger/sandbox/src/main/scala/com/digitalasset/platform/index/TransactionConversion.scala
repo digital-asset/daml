@@ -154,9 +154,9 @@ object TransactionConversion {
     val (replaced, roots) =
       tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
         case ((replaced, roots), eventId) =>
-          if (isCreateOrExercise(tx.nodes(eventId)) && disclosure.contains(eventId))
+          if (isCreateOrExercise(tx.nodes(eventId)) && disclosure.contains(eventId)) {
             (replaced, roots :+ eventId)
-          else
+          } else
             tx.nodes(eventId) match {
               case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
               case _ => (true, roots)
