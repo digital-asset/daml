@@ -9,7 +9,6 @@ import java.util
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Numeric.Scale
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -450,20 +449,10 @@ object SBuiltin {
 
   final case object SBTextMapToList extends SBuiltin(1) {
 
-    private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
-
-    private def entry(key: String, value: SValue) = {
-      val args = new util.ArrayList[SValue](2)
-      args.add(SText(key))
-      args.add(value)
-      SStruct(entryFields, args)
-    }
-
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
-        case STextMap(map) =>
-          val entries = SortedLookupList(map).toImmArray
-          SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
+        case map: STextMap =>
+          SValue.toList(map)
         case x =>
           throw SErrorCrash(s"type mismatch SBTextMapToList, expected TextMap get $x")
       })
