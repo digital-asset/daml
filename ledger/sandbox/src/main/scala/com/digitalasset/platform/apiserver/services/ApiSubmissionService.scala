@@ -219,64 +219,67 @@ final class ApiSubmissionService private (
       commands: ApiCommands,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
-      res <- commandExecutor
-        .execute(
-          commands.submitter,
-          submissionSeed,
-          commands,
-          contractStore.lookupActiveContract(commands.submitter, _),
-          contractStore.lookupContractKey(commands.submitter, _),
-          commands.commands
-        )
+      res <- commandExecutor.execute(
+        commands.submitter,
+        submissionSeed,
+        commands,
+        contractStore.lookupActiveContract(commands.submitter, _),
+        contractStore.lookupContractKey(commands.submitter, _),
+        commands.commands
+      )
       transactionInfo <- res.fold(error => {
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(error)))
       }, Future.successful)
-      partyAllocationResults <- if (configuration.implicitPartyAllocation) {
-        allocateMissingInformees(transactionInfo)
-      } else {
-        Future.successful(Seq.empty)
-      }
-      submissionResult <- partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
-        case None => submitTransaction(transactionInfo)
-        case Some(result) => Future.successful(result)
-      }
+      partyAllocationResults <- allocateMissingInformees(transactionInfo._3)
+      submissionResult <- submitTransaction(transactionInfo, partyAllocationResults)
     } yield submissionResult
 
   private def allocateMissingInformees(
-      transactionInfo: TransactionInfo,
-  ): Future[Seq[SubmissionResult]] = {
-    val parties: Set[Party] = transactionInfo._3.nodes.values.flatMap(_.informeesOfNode)(breakOut)
-    partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
-      val missingParties = parties -- partyDetails.map(_.party)
-      if (missingParties.nonEmpty) {
-        logger.info(s"Implicitly allocating the parties: ${missingParties.mkString(", ")}")
-        Future.sequence(
-          missingParties.toSeq
-            .map(name =>
-              writeService.allocateParty(
-                hint = Some(name),
-                displayName = Some(name),
-                // TODO: Just like the ApiPartyManagementService, this should do proper validation.
-                submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString),
-            ))
-            .map(_.toScala))
-      } else {
-        Future.successful(Seq.empty)
+      transaction: Transaction,
+  ): Future[Seq[SubmissionResult]] =
+    if (configuration.implicitPartyAllocation) {
+      val parties: Set[Party] = transaction.nodes.values.flatMap(_.informeesOfNode)(breakOut)
+      partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
+        val missingParties = parties -- partyDetails.map(_.party)
+        if (missingParties.nonEmpty) {
+          logger.info(s"Implicitly allocating the parties: ${missingParties.mkString(", ")}")
+          Future.sequence(
+            missingParties.toSeq
+              .map(name =>
+                writeService.allocateParty(
+                  hint = Some(name),
+                  displayName = Some(name),
+                  // TODO: Just like the ApiPartyManagementService, this should do proper validation.
+                  submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString),
+              ))
+              .map(_.toScala))
+        } else {
+          Future.successful(Seq.empty)
+        }
       }
-    }
-  }
-
-  private def submitTransaction(transactionInfo: TransactionInfo): Future[SubmissionResult] =
-    transactionInfo match {
-      case (submitterInfo, transactionMeta, transaction) =>
-        timedFuture(
-          Metrics.submittedTransactionsTimer,
-          FutureConverters.toScala(
-            writeService.submitTransaction(submitterInfo, transactionMeta, transaction)))
+    } else {
+      Future.successful(Seq.empty)
     }
 
-  private def toStatus(errorCause: ErrorCause) = {
+  private def submitTransaction(
+      transactionInfo: TransactionInfo,
+      partyAllocationResults: Seq[SubmissionResult],
+  ): Future[SubmissionResult] =
+    partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
+      case Some(result) =>
+        Future.successful(result)
+      case None =>
+        transactionInfo match {
+          case (submitterInfo, transactionMeta, transaction) =>
+            timedFuture(
+              Metrics.submittedTransactionsTimer,
+              FutureConverters.toScala(
+                writeService.submitTransaction(submitterInfo, transactionMeta, transaction)))
+        }
+    }
+
+  private def toStatus(errorCause: ErrorCause) =
     errorCause match {
       case e @ ErrorCause.DamlLf(_) =>
         Status.INVALID_ARGUMENT.withDescription(e.explain)
@@ -284,7 +287,6 @@ final class ApiSubmissionService private (
         val base = if (errors.exists(_.isFinal)) Status.INVALID_ARGUMENT else Status.ABORTED
         base.withDescription(e.explain)
     }
-  }
 
   override def close(): Unit = ()
 
