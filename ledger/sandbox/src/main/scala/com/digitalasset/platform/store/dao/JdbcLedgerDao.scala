@@ -113,7 +113,6 @@ private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
-    valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
@@ -627,10 +626,8 @@ private class JdbcLedgerDao(
               "key" -> c.key
                 .map(
                   k =>
-                    valueSerializer
-                      .serializeValue(k.key)
-                      .getOrElse(
-                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
+                    ValueSerializer
+                      .serializeValue(k.key, s"Failed to serialize key for contract ${c.id.coid}"))
           )
         )
 
@@ -1324,9 +1321,8 @@ private class JdbcLedgerDao(
           divulgences,
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
-            val keyValue = valueSerializer
-              .deserializeValue(keyStream)
-              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
+            val keyValue = ValueSerializer
+              .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
               .ensureNoCid
               .fold(
                 coid => sys.error(s"Found contract ID $coid in a contract key"),
@@ -1747,7 +1743,6 @@ object JdbcLedgerDao {
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
-      ValueSerializer,
       KeyHasher,
       dbType,
       executionContext,

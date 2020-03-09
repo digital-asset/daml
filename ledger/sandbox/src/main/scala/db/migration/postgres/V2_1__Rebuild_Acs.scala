@@ -171,9 +171,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
                 .map(
                   k =>
                     valueSerializer
-                      .serializeValue(k.key)
-                      .getOrElse(
-                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
+                      .serializeValue(k.key, s"Failed to serialize key for contract ${c.id.coid}")
+                )
           )
         )
 
