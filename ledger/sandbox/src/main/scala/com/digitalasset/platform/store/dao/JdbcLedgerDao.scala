@@ -113,7 +113,6 @@ private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
-    valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
@@ -622,10 +621,8 @@ private class JdbcLedgerDao(
               "key" -> c.key
                 .map(
                   k =>
-                    valueSerializer
-                      .serializeValue(k.key)
-                      .getOrElse(
-                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
+                    ValueSerializer
+                      .serializeValue(k.key, s"Failed to serialize key for contract ${c.id.coid}"))
           )
         )
 
@@ -1762,7 +1759,6 @@ object JdbcLedgerDao {
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
-      ValueSerializer,
       KeyHasher,
       dbType,
       executionContext,
