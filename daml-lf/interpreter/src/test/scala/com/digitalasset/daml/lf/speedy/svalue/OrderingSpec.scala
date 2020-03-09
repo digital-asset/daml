@@ -380,12 +380,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         for {
           x <- atoms
           y <- atoms
-        } {
-          if (Ordering.compare(x, y).signum != -Ordering.compare(y, x).signum)
-            remy.log(atoms.toList.sorted(Ordering))
-
-          assert(Ordering.compare(x, y).signum == -Ordering.compare(y, x).signum)
-        }
+        } assert(Ordering.compare(x, y).signum == -Ordering.compare(y, x).signum)
       }
     }
 

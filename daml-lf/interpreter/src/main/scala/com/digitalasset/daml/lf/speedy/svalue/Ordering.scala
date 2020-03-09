@@ -6,6 +6,7 @@ package speedy
 package svalue
 
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -88,7 +89,10 @@ object Ordering extends scala.math.Ordering[SValue] {
             case (Ast.TApp(t11, t12), Ast.TApp(t21, t22)) =>
               compareType(0, (t11, t21) +: (t12, t22) +: stack)
             case (t1, t2) =>
-              typeRank(t1) compareTo typeRank(t2)
+              // This case only occurs when t1 and t2 have different ranks.
+              val x = typeRank(t1) compareTo typeRank(t2)
+              assert(x != 0)
+              x
           }
     }
 
@@ -106,6 +110,9 @@ object Ordering extends scala.math.Ordering[SValue] {
   private val underlyingCidDiscriminatorLength = 65
 
   private def compareCid(cid1: Ref.ContractIdString, cid2: Ref.ContractIdString): Int = {
+    // FIXME https://github.com/digital-asset/daml/issues/2256
+    // cleanup this function
+
     val lim = cid1.length min cid2.length
 
     @tailrec
@@ -119,7 +126,7 @@ object Ordering extends scala.math.Ordering[SValue] {
           cid1.length != underlyingCidDiscriminatorLength && isHexa(cid2) || //
           cid2.length != underlyingCidDiscriminatorLength && isHexa(cid1)))
           throw new IllegalArgumentException(
-            "Try to a fresh contract id with  conflicting discriminators")
+            "Conflicting discriminators between a local and global contract id")
         else
           cid1.length compareTo cid2.length
       }
@@ -128,68 +135,110 @@ object Ordering extends scala.math.Ordering[SValue] {
   }
   @tailrec
   // Only value of the same type can be compared.
-  private[this] def compareValue(x: Int, stack0: FrontStack[(SValue, SValue)]): Int =
+  private[this] def compareValue(stack0: FrontStack[(SValue, SValue)]): Int =
     stack0 match {
       case FrontStack() =>
-        x
+        0
       case FrontStackCons(tuple, stack) =>
-        if (x != 0) x
-        else
-          tuple match {
-            case (SUnit, SUnit) =>
-              compareValue(0, stack)
-            case (SBool(b1), SBool(b2)) =>
-              compareValue(b1 compareTo b2, stack)
-            case (SInt64(i1), SInt64(i2)) =>
-              compareValue(i1 compareTo i2, stack)
-            case (STimestamp(ts1), STimestamp(ts2)) =>
-              compareValue(ts1.micros compareTo ts2.micros, stack)
-            case (SDate(d1), SDate(d2)) =>
-              compareValue(d1.days compareTo d2.days, stack)
-            case (SNumeric(n1), SNumeric(n2)) =>
-              compareValue(n1 compareTo n2, stack)
-            case (SText(t1), SText(t2)) =>
-              compareValue(compareText(t1, t2), stack)
-            case (SParty(p1), SParty(p2)) =>
-              compareValue(compareText(p1, p2), stack)
-            case (SContractId(AbsoluteContractId(coid1)), SContractId(AbsoluteContractId(coid2))) =>
-              compareValue(compareCid(coid1, coid2), stack)
-            case (STypeRep(t1), STypeRep(t2)) =>
-              compareValue(compareType(t1, t2), stack)
-            case (SEnum(_, con1), SEnum(_, con2)) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
-              compareValue((con1 compareTo con2), stack)
-            case (SRecord(_, _, args1), SRecord(_, _, args2)) =>
-              compareValue(0, zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
-            case (SVariant(_, con1, arg1), SVariant(_, con2, arg2)) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
-              compareValue((con1 compareTo con2), (arg1, arg2) +: stack)
-            case (SList(FrontStackCons(head1, tail1)), SList(FrontStackCons(head2, tail2))) =>
-              compareValue(0, (head1, head2) +: (SList(tail1), SList(tail2)) +: stack)
-            case (SList(l1), SList(l2)) =>
-              l1.nonEmpty compareTo l2.nonEmpty
-            case (SOptional(Some(v1)), SOptional(Some(v2))) =>
-              compareValue(0, (v1, v2) +: stack)
-            case (SOptional(o1), SOptional(o2)) =>
-              compareValue(o1.nonEmpty compareTo o2.nonEmpty, stack)
-            case (map1: STextMap, map2: STextMap) =>
-              compareValue(0, (toList(map1), toList(map2)) +: stack)
-            case (SStruct(_, args1), SStruct(_, args2)) =>
-              compareValue(0, zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
-            case (SAny(t1, v1), SAny(t2, v2)) =>
-              compareValue(compareType(t1, t2), (v1, v2) +: stack)
-            case (SContractId(_), SContractId(_)) =>
-              throw new IllegalAccessException("Try to compare relative contract ids")
-            case (SPAP(_, _, _), SPAP(_, _, _)) =>
-              throw new IllegalAccessException("Try to compare functions")
-            case _ =>
-              throw new IllegalAccessException("Try to compare unrelated type")
+        val (x, toPush) = tuple.match2 {
+          case SUnit => {
+            case SUnit =>
+              0 -> ImmArray.empty
           }
+          case SBool(b1) => {
+            case SBool(b2) =>
+              (b1 compareTo b2) -> ImmArray.empty
+          }
+          case SInt64(i1) => {
+            case SInt64(i2) =>
+              (i1 compareTo i2) -> ImmArray.empty
+          }
+          case STimestamp(ts1) => {
+            case STimestamp(ts2) =>
+              (ts1.micros compareTo ts2.micros) -> ImmArray.empty
+          }
+          case SDate(d1) => {
+            case SDate(d2) =>
+              (d1.days compareTo d2.days) -> ImmArray.empty
+          }
+          case SNumeric(n1) => {
+            case SNumeric(n2) =>
+              (n1 compareTo n2) -> ImmArray.empty
+          }
+          case SText(t1) => {
+            case SText(t2) =>
+              (compareText(t1, t2)) -> ImmArray.empty
+          }
+          case SParty(p1) => {
+            case SParty(p2) =>
+              (compareText(p1, p2)) -> ImmArray.empty
+          }
+          case SContractId(AbsoluteContractId(coid1)) => {
+            case SContractId(AbsoluteContractId(coid2)) =>
+              compareCid(coid1, coid2) -> ImmArray.empty
+          }
+          case STypeRep(t1) => {
+            case STypeRep(t2) =>
+              compareType(t1, t2) -> ImmArray.empty
+          }
+          case SEnum(_, con1) => {
+            case SEnum(_, con2) =>
+              // FIXME https://github.com/digital-asset/daml/issues/2256
+              // should not compare constructor syntactically
+              (con1 compareTo con2) -> ImmArray.empty
+          }
+          case SRecord(_, _, args1) => {
+            case SRecord(_, _, args2) =>
+              0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
+          }
+          case SVariant(_, con1, arg1) => {
+            case SVariant(_, con2, arg2) =>
+              // FIXME https://github.com/digital-asset/daml/issues/2256
+              // should not compare constructor syntactically
+              (con1 compareTo con2) -> ImmArray((arg1, arg2))
+          }
+          case SList(FrontStack()) => {
+            case SList(l2) =>
+              (false compareTo l2.nonEmpty) -> ImmArray.empty
+          }
+          case SList(FrontStackCons(head1, tail1)) => {
+            case SList(FrontStackCons(head2, tail2)) =>
+              0 -> ImmArray((head1, head2), (SList(tail1), SList(tail2)))
+            case SList(FrontStack()) =>
+              1 -> ImmArray.empty
+          }
+          case SOptional(v1) => {
+            case SOptional(v2) =>
+              (v1.nonEmpty compareTo v2.nonEmpty) -> (v1.iterator zip v2.iterator).to[ImmArray]
+          }
+          case map1: STextMap => {
+            case map2: STextMap =>
+              0 -> ImmArray((toList(map1), toList(map2)))
+          }
+          case SStruct(_, args1) => {
+            case SStruct(_, args2) =>
+              0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
+          }
+          case SAny(t1, v1) => {
+            case SAny(t2, v2) =>
+              compareType(t1, t2) -> ImmArray((v1, v2))
+          }
+          case SContractId(_) => {
+            case SContractId(_) =>
+              throw new IllegalAccessException("Try to compare relative contract ids")
+          }
+          case SPAP(_, _, _) => {
+            case SPAP(_, _, _) =>
+              throw new IllegalAccessException("Try to compare functions")
+          }
+        }(fallback = throw new IllegalAccessException("Try to compare unrelated type"))
+        if (x != 0)
+          x
+        else
+          compareValue(toPush ++: stack)
     }
 
   def compare(v1: SValue, v2: SValue): Int =
-    compareValue(0, FrontStack((v1, v2)))
+    compareValue(FrontStack((v1, v2)))
 
 }
