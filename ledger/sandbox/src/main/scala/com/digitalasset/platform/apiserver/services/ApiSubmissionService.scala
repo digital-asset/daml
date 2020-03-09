@@ -233,17 +233,19 @@ final class ApiSubmissionService private (
         Future.failed(grpcError(toStatus(error)))
       }, Future.successful)
       partyAllocationResults <- if (configuration.implicitPartyAllocation) {
-        allocateParties(transactionInfo)
+        allocateMissingInformees(transactionInfo)
       } else {
         Future.successful(Seq.empty)
       }
       submissionResult <- partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
-        case None => handleResult(transactionInfo)
+        case None => submitTransaction(transactionInfo)
         case Some(result) => Future.successful(result)
       }
     } yield submissionResult
 
-  private def allocateParties(transactionInfo: TransactionInfo): Future[Seq[SubmissionResult]] = {
+  private def allocateMissingInformees(
+      transactionInfo: TransactionInfo,
+  ): Future[Seq[SubmissionResult]] = {
     val parties: Set[Party] = transactionInfo._3.nodes.values.flatMap(_.informeesOfNode)(breakOut)
     partyManagementService.getParties(parties.toSeq).flatMap { partyDetails =>
       val missingParties = parties -- partyDetails.map(_.party)
@@ -265,7 +267,7 @@ final class ApiSubmissionService private (
     }
   }
 
-  private def handleResult(transactionInfo: TransactionInfo): Future[SubmissionResult] =
+  private def submitTransaction(transactionInfo: TransactionInfo): Future[SubmissionResult] =
     transactionInfo match {
       case (submitterInfo, transactionMeta, transaction) =>
         timedFuture(
