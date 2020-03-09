@@ -4,6 +4,10 @@
 Upgrading and extending DAML applications
 #########################################
 
+**Note:** Cross-SDK upgrades are only supported if you compile to
+DAML-LF 1.8 by specifying ``--target=1.8`` in the ``build-options``
+field in your ``daml.yaml``.
+
 In applications backed by a centralized database controlled by a
 single operator, it is possible to upgrade an application in a single
 step that migrates all existing data to a new data model.
