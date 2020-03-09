@@ -1316,9 +1316,8 @@ private class JdbcLedgerDao(
           divulgences,
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
-            val keyValue = valueSerializer
-              .deserializeValue(keyStream)
-              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
+            val keyValue = ValueSerializer
+              .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
               .ensureNoCid
               .fold(
                 coid => sys.error(s"Found contract ID $coid in a contract key"),

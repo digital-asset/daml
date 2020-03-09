@@ -16,8 +16,9 @@ object ValueSerializer {
       .encodeVersionedValueWithCustomVersion(ValueCoder.CidEncoder, value)
       .fold(error => sys.error(s"$errorContext (${error.errorMessage})"), _.toByteArray)
 
-  def deserializeValue(
+  private def deserializeValue(
       stream: InputStream,
+      errorContext: Option[String],
   ): VersionedValue[AbsoluteContractId] =
     ValueCoder
       .decodeVersionedValue(
@@ -25,8 +26,20 @@ object ValueSerializer {
         ValueOuterClass.VersionedValue.parseFrom(
           Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT)))
       .fold(
-        error => sys.error(error.errorMessage),
+        error =>
+          sys.error(errorContext.fold(error.errorMessage)(ctx => s"$ctx (${error.errorMessage})")),
         identity
       )
+
+  def deserializeValue(
+      stream: InputStream,
+  ): VersionedValue[AbsoluteContractId] =
+    deserializeValue(stream, None)
+
+  def deserializeValue(
+      stream: InputStream,
+      errorContext: String,
+  ): VersionedValue[AbsoluteContractId] =
+    deserializeValue(stream, Some(errorContext))
 
 }
