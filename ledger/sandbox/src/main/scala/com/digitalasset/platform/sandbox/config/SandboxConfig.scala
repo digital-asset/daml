@@ -76,7 +76,9 @@ object SandboxConfig {
   lazy val default: SandboxConfig =
     nextDefault.copy(
       partyConfig = nextDefault.partyConfig.copy(
-        implicitPartyAllocation = false // unnecessary: parties are always allocated implicitly
+        // In Sandbox, parties are always allocated implicitly. Enabling this would result in an
+        // extra `writeService.allocateParty` call, which is unnecessary and bad for performance.
+        implicitPartyAllocation = false,
       ),
       seeding = None,
     )
