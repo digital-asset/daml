@@ -63,7 +63,7 @@ object CommandCompletionsTable {
             status_message
           from participant_command_completions
           where
-            completion_offset between $startInclusive and $endExclusive and
+            completion_offset >= $startInclusive and completion_offset < $endExclusive and
             (
               (application_id is null and submitting_party is null)
               or
