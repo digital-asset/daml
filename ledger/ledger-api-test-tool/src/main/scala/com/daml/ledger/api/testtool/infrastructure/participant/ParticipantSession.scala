@@ -9,7 +9,7 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerServices
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse,
+  GetLedgerConfigurationResponse
 }
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
@@ -85,7 +85,7 @@ private[participant] final class ParticipantSession(
         end,
         services,
         ttl,
-        config.waitForParties
+        config.partyAllocation,
       )
 
   private[testtool] def close(): Unit = {

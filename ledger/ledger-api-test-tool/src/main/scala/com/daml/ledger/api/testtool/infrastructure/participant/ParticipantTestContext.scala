@@ -7,7 +7,11 @@ import java.time.{Clock, Duration, Instant}
 
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.daml.ledger.api.testtool.infrastructure.{Identification, LedgerServices}
+import com.daml.ledger.api.testtool.infrastructure.{
+  Identification,
+  LedgerServices,
+  PartyAllocationConfiguration
+}
 import com.digitalasset.ledger.api.refinements.ApiTypes.TemplateId
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
@@ -98,18 +102,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
     referenceOffset: LedgerOffset,
     services: LedgerServices,
     ttl: Duration,
-    waitForPartiesEnabled: Boolean
+    partyAllocation: PartyAllocationConfiguration,
 )(implicit ec: ExecutionContext) {
 
   import ParticipantTestContext._
 
-  val begin = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
+  val begin: LedgerOffset =
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
   /**
     * A reference to the moving ledger end. If you want a fixed reference to the offset at
     * a given point in time, use [[currentEnd]]
     */
-  val end = LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+  val end: LedgerOffset =
+    LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   private[this] val identifierPrefix = s"$applicationId-$endpointId-$identifierSuffix"
 
@@ -205,7 +211,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       otherParticipants: Iterable[ParticipantTestContext],
       expectedParties: Set[Party],
   ): Future[Unit] =
-    if (waitForPartiesEnabled) {
+    if (partyAllocation.waitForAllParticipants) {
       eventually {
         val participants = otherParticipants.toSet + this
         Future
@@ -621,4 +627,20 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.configManagement.setTimeModel(
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
+
+  private[infrastructure] def preallocateParties(
+      n: Int,
+      participants: Iterable[ParticipantTestContext],
+  ): Future[Vector[Party]] =
+    for {
+      parties <- if (partyAllocation.allocateParties) {
+        allocateParties(n)
+      } else {
+        reservePartyNames(n)
+      }
+      _ <- waitForParties(participants, parties.toSet)
+    } yield parties
+
+  private def reservePartyNames(n: Int): Future[Vector[Party]] =
+    Future.successful(Vector.fill(n)(Party(nextPartyHintId())))
 }
