@@ -89,7 +89,7 @@ object WebSocketService {
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
 
-  private def formatEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
+  private def renderEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
     JsObject(Map("events" -> JsArray(events)) ++ offset.map("offset" -> _).toList)
 
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
@@ -250,8 +250,6 @@ class WebSocketService(
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  @volatile private var lastSeenOffset: Option[JsValue] = None
-
   private[http] def transactionMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -318,7 +316,7 @@ class WebSocketService(
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
-        .via(heartBeatFlow)
+        .via(renderEventsAndEmitHeartbeats)
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -329,20 +327,22 @@ class WebSocketService(
     }
   }
 
-  private def heartBeatFlow: Flow[EventsAndOffset, JsValue, NotUsed] =
-    Flow[(Vector[JsObject], Option[JsValue])]
+  private def renderEventsAndEmitHeartbeats: Flow[EventsAndOffset, JsValue, NotUsed] =
+    Flow[EventsAndOffset]
       .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
       .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
-        case (None, a) => // override empty state
+        case (None, a) =>
+          // override empty state, capture the last seen offset
           Some((a, a))
-        case (Some((s, _)), (Vector(), None)) => // heartbeat message, keep the previous state
-          Some((s, (Vector.empty[JsObject], s._2)))
-        case (Some(_), a) => // override non-empty state
+        case (Some((s, _)), (Vector(), None)) =>
+          // heartbeat message, keep the previous state, report the last seen offset
+          Some((s, (Vector(), s._2)))
+        case (Some(_), a) =>
+          // override non-empty state, capture the last seen offset
           Some((a, a))
       }
-      .map {
-        case None => formatEvents(Vector.empty, None)
-        case Some((_, a)) => formatEvents(a._1, a._2)
+      .collect {
+        case Some((_, a)) => renderEvents(a._1, a._2)
       }
 
   private def removePhantomArchives[A, B](remove: Boolean) =
