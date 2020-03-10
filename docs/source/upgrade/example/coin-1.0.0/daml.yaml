@@ -5,10 +5,10 @@ sdk-version: 0.0.0
 # BEGIN
 name: coin
 version: 1.0.0
-parties: [Alice, Bob]
 dependencies:
   - daml-prim
   - daml-stdlib
 # END
+parties: [Alice, Bob]
 source: daml
 build-options: [--target=1.8]
