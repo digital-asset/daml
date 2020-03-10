@@ -3,14 +3,15 @@
 
 sdk-version: 0.0.0
 # BEGIN
-name: coin
-version: 2.0.0
-parties: [Alice, Bob]
+name: coin-upgrade
+version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
 data-dependencies:
   - path/to/coin-1.0.0.dar
+  - path/to/coin-2.0.0.dar
 # END
+parties: [Alice, Bob]
 source: daml
 build-options: [--target=1.8]
