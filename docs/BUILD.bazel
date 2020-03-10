@@ -345,6 +345,9 @@ genrule(
         "//compiler/damlc:daml-base-rst-docs",
         "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
+        "//language-support/ts/daml-react:docs",
+        "//language-support/ts/daml-ledger:docs",
+        "//language-support/ts/daml-types:docs",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -376,6 +379,14 @@ genrule(
         unzip -o ../$(locations //language-support/java:javadoc) -d html/app-dev/bindings-java/javadocs
         # Remove JAR metadata
         rm -r html/app-dev/bindings-java/javadocs/META-INF
+
+        # Copy generated documentation for typescript libraries
+        mkdir -p html/app-dev/bindings-ts/daml-react
+        mkdir -p html/app-dev/bindings-ts/daml-ledger
+        mkdir -p html/app-dev/bindings-ts/daml-types
+        tar -xzf ../$(location //language-support/ts/daml-react:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-react/
+        tar -xzf ../$(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-ledger/
+        tar -xzf ../$(location //language-support/ts/daml-types:docs) --strip-components 1 -C html/app-dev/bindings-ts/daml-types/
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
