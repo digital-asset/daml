@@ -83,6 +83,7 @@ function promisifyStream<T extends object, K, I extends string, State>(
   const iterator = pEvent.iterator(stream, 'change', {rejectionEvents: ['close'], multiArgs: true});
   const next = async () => {
     const {done, value} = await iterator.next();
+    console.log(`---2 value: ${JSON.stringify(value)}`);
     expect(done).toBe(false);
     return value;
   };
