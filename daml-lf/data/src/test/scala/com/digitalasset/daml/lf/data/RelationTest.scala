@@ -45,9 +45,13 @@ class RelationTest extends PropSpec with Matchers with PropertyChecks {
     }
   }
 
-  property("flattening is the inverse of grouping") {
+  property("flattening is the inverse of grouping for non empty relations") {
     forAll { m: Map[Int, Set[Char]] =>
-      flatten(m).toSeq.groupBy(_._1).mapValues(_.map(_._2).toSet) shouldEqual m
+      // an empty map and a map with exclusively empty values represent
+      // the same relationship but the underlying structure is different
+      whenever(m.values.forall(_.nonEmpty)) {
+        flatten(m).toSeq.groupBy(_._1).mapValues(_.map(_._2).toSet) shouldEqual m
+      }
     }
   }
 }

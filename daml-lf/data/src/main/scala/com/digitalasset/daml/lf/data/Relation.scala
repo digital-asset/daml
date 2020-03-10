@@ -38,9 +38,9 @@ object Relation {
 
     def flatten[A, B](relation: Relation[A, B]): Iterator[(A, B)] =
       for {
-        key <- relation.keysIterator
-        value <- relation(key)
-      } yield (key, value)
+        kvs <- relation.iterator
+        value <- kvs._2
+      } yield (kvs._1, value)
   }
 
 }
