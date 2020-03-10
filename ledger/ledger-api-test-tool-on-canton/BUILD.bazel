@@ -65,6 +65,9 @@ conformance_test(
     ],
     runner = "@//bazel_tools/client_server/runner:runner",
     server = ":canton-test-runner-with-dependencies",
+    # NOTE (MK): Canton tries to access ~/.ammonite/cache for the coursier cache which fails with sandboxing
+    # and caching. This might be fixable by overriding COURSIER_CACHE.
+    tags = ["local"],
     test_tool_args = [
         "--verbose",
         "--include=SemanticTests",
