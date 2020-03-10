@@ -5,8 +5,8 @@
 
 module ScriptTest where
 
+import DA.Foldable
 import DA.Time
-
 import Daml.Script
 
 template T
@@ -167,3 +167,11 @@ auth (alice, bob) = do
   proposal <- submit alice $ createCmd (TProposal alice bob)
   _ <- submit bob $ exerciseCmd proposal Accept
   pure ()
+
+traceOrder : Script ()
+traceOrder = do
+  let y: Script () = abort "foobar"
+  forA_ [0,1] $ \i -> do
+    debug "abc"
+    x <- getTime
+    debug "def"

@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.{
   ParticipantSessionConfiguration,
-  ParticipantSessionManager,
+  ParticipantSessionManager
 }
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +28,8 @@ private[testtool] final class LedgerSession(
               port,
               config.ssl,
               config.commandTtlFactor,
-              config.waitForParties),
+              config.partyAllocation,
+            ),
           )
       })
       .map(_.map(endpointIdProvider() -> _))

@@ -25,6 +25,7 @@ import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{
   BuildInfo,
   CommandConfiguration,
+  PartyConfiguration,
   SubmissionConfiguration
 }
 import com.digitalasset.platform.index.JdbcIndex
@@ -42,6 +43,7 @@ import scala.concurrent.ExecutionContext
 final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
+    partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
     readService: ReadService,
     writeService: WriteService,
@@ -95,7 +97,8 @@ final class StandaloneApiServer(
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               defaultLedgerConfiguration = initialConditions.config,
               commandConfig = commandConfig,
-              submissionConfig = SubmissionConfiguration.default,
+              partyConfig = partyConfig,
+              submissionConfig = submissionConfig,
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,

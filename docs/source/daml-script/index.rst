@@ -9,12 +9,6 @@ DAML Script
 
    daml-script-docs
 
-**WARNING:** DAML Script is an experimental feature that is actively
-being designed and is *subject to breaking changes*.
-We welcome feedback about DAML script on
-`our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Script>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
 DAML scenarios provide a simple API for experimenting with DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
@@ -25,7 +19,8 @@ DAML script addresses this problem by providing you with an API with
 the simplicity of DAML scenarios and all the benefits such as being
 able to reuse your DAML types and logic while running against an
 actual ledger. This means that you can use it to test automation
-logic, your UI but also for ledger initialization where scenarios
+logic, your UI but also for
+:ref:`ledger initialization <script-ledger-initialization>` where scenarios
 cannot be used (with the exception of :doc:`/tools/sandbox`).
 
 You can also use DAML Script interactively using :doc:`/daml-repl/index`.
@@ -111,7 +106,7 @@ respect this. In ``Commands`` we use ``createCmd`` instead of
    :start-after: -- INITIALIZE_PROPOSAL_BEGIN
    :end-before: -- INITIALIZE_PROPOSAL_END
 
-Now that we have created the ``CoinProposal``s, we want ``Alice`` and
+Now that we have created the ``CoinProposal``\ s, we want ``Alice`` and
 ``Bob`` to accept the proposal while the ``Bank`` will ignore the
 proposal that it has created for itself. To do so we use separate
 ``submit`` statements for ``Alice`` and ``Bob`` and call
@@ -196,6 +191,8 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 
 If you open Navigator, you can now see the contracts that have been created.
 
+.. _script-ledger-initialization:
+
 Using DAML Script for Ledger Initialization
 ===========================================
 
@@ -203,10 +200,10 @@ You can use DAML script to initialize a ledger on startup. To do so,
 specify an ``init-script: ScriptExample:initializeFixed`` field in
 your ``daml.yaml``. This will automatically be picked up by ``daml
 start`` and used to initialize sandbox. Since it is often useful to
-create a party with a specific party id during development, you can
+create a party with a specific party identifier during development, you can
 use the ``allocatePartyWithHint`` function which accepts not only the
-display name but also a hint for the party id. On Sandbox, the hint
-will be used directly as the party id of the newly allocated
+display name but also a hint for the party identifier. On Sandbox, the hint
+will be used directly as the party identifier of the newly allocated
 party. This allows us to implement ``initializeFixed`` as a small
 wrapper around the ``initialize`` function we defined above:
 
@@ -234,8 +231,9 @@ translated to DAML script but there are a few things to keep in mind:
    so you cannot call functions like ``fetch`` directly. This is
    intentional. Your initialization scripts should not be able to
    create transactions that a ledger client would not be able to
-   create. If you need, you can create a choice and call that via
-   ``createAndExercise``.
+   create. If you want to call methods not exposed via the Ledger API,
+   you can create a new template with a single choice
+   and call that via ``createAndExercise``.
 #. You need to replace calls to ``getParty x`` by
    ``allocatePartyWithHint x (PartyIdHint x)``.
 

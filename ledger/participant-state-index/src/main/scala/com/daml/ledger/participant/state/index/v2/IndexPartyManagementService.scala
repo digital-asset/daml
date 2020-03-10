@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, Party}
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, PartyEntry}
 
 import scala.concurrent.Future
@@ -17,7 +17,9 @@ import scala.concurrent.Future
 trait IndexPartyManagementService {
   def getParticipantId(): Future[ParticipantId]
 
-  def listParties(): Future[List[PartyDetails]]
+  def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+
+  def listKnownParties(): Future[List[PartyDetails]]
 
   def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed]
 }

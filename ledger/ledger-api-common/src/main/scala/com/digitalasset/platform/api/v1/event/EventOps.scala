@@ -87,6 +87,11 @@ object EventOps {
   implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
     def eventId: String = event.kind.fold(_.eventId, _.eventId)
     def childEventIds: Seq[String] = event.kind.fold(_.childEventIds, _ => Nil)
+    def filterChildEventIds(f: String => Boolean): TreeEvent =
+      event.kind.fold(
+        exercise =>
+          TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
+        create => TreeEvent(TreeCreated(create)))
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
     def templateId: Option[Identifier] = event.kind.fold(_.templateId, _.templateId)
   }

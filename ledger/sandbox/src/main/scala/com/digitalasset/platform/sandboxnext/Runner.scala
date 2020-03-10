@@ -60,55 +60,64 @@ import scala.util.Try
   *   - does not support scenarios
   */
 class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
-  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] = {
-    implicit val system: ActorSystem = ActorSystem("sandbox")
-    implicit val materializer: Materializer = Materializer(system)
+  private val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
+    case LedgerIdMode.Static(ledgerId) =>
+      Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
+    case LedgerIdMode.Dynamic =>
+      None
+  }
 
-    val specifiedLedgerId: Option[v1.LedgerId] = config.ledgerIdMode match {
-      case LedgerIdMode.Static(ledgerId) =>
-        Some(Ref.LedgerString.assertFromString(ledgerId.unwrap))
-      case LedgerIdMode.Dynamic =>
-        None
+  private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
+      String,
+      String,
+      String,
+      StartupMode) =
+    config.jdbcUrl match {
+      case Some(url) if url.startsWith("jdbc:postgresql:") =>
+        ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
+      case Some(url) if url.startsWith("jdbc:h2:mem:") =>
+        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.ResetAndStart)
+      case Some(url) if url.startsWith("jdbc:h2:") =>
+        throw new InvalidDatabaseException(
+          "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
+      case Some(url) if url.startsWith("jdbc:sqlite:") =>
+        ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
+      case Some(url) =>
+        throw new InvalidDatabaseException(s"Unknown database: $url")
+      case None =>
+        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
     }
 
-    val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
-        String,
-        String,
-        String,
-        StartupMode) =
-      config.jdbcUrl match {
-        case Some(url) if url.startsWith("jdbc:postgresql:") =>
-          ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
-        case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-          ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.ResetAndStart)
-        case Some(url) if url.startsWith("jdbc:h2:") =>
-          throw new InvalidDatabaseException(
-            "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
-        case Some(url) if url.startsWith("jdbc:sqlite:") =>
-          ("SQLite", url, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
-        case Some(url) =>
-          throw new InvalidDatabaseException(s"Unknown database: $url")
-        case None =>
-          ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
+  private val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
+
+  private val seeding = config.seeding.getOrElse {
+    throw new InvalidConfigException(
+      "This version of Sandbox will not start without a seeding mode. Please specify an appropriate seeding mode.")
+  }
+
+  if (config.scenario.isDefined) {
+    throw new InvalidConfigException(
+      """|This version of Sandbox does not support initialization scenarios. Please use DAML Script instead.
+         |A migration guide for converting your scenarios to DAML Script is available at:
+         |https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization
+         |""".stripMargin.stripLineEnd)
+  }
+
+  override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
+    newLoggingContext { implicit logCtx =>
+      implicit val system: ActorSystem = ActorSystem("sandbox")
+      implicit val materializer: Materializer = Materializer(system)
+
+      val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
+        case TimeProviderType.Static =>
+          val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
+          (Some(backend), backend.changes)
+        case TimeProviderType.WallClock =>
+          val clock = Clock.systemUTC()
+          (None, new RegularHeartbeat(clock, HeartbeatInterval))
       }
 
-    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
-    val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
-      case TimeProviderType.Static =>
-        val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
-        (Some(backend), backend.changes)
-      case TimeProviderType.WallClock =>
-        val clock = Clock.systemUTC()
-        (None, new RegularHeartbeat(clock, HeartbeatInterval))
-    }
-
-    val seeding = config.seeding.getOrElse {
-      throw new InvalidConfigException(
-        "This version of Sandbox will not start without a seeding mode. Please specify an appropriate seeding mode.")
-    }
-
-    val owner = newLoggingContext { implicit logCtx =>
-      for {
+      val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
         _ <- AkkaResourceOwner.forActorSystem(() => system)
@@ -181,6 +190,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     portFile = config.portFile,
                   ),
                   commandConfig = config.commandConfig,
+                  partyConfig = config.partyConfig,
                   submissionConfig = config.submissionConfig,
                   readService = ledger,
                   writeService = ledger,
@@ -212,10 +222,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
             apiServer => Future.successful((Some(apiServer.port), StartupMode.ResetAndStart))
         )
       } yield apiServer.port
-    }
 
-    owner.acquire()
-  }
+      owner.acquire()
+    }
 
   private def uploadDar(from: File, to: KeyValueParticipantState)(
       implicit executionContext: ExecutionContext

@@ -12,7 +12,11 @@ import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
+import com.digitalasset.platform.configuration.{
+  CommandConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 
@@ -27,6 +31,7 @@ final case class SandboxConfig(
     timeProviderType: Option[TimeProviderType],
     timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
+    partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
@@ -53,6 +58,9 @@ object SandboxConfig {
       timeProviderType = None,
       timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
+      partyConfig = PartyConfiguration.default.copy(
+        implicitPartyAllocation = true,
+      ),
       submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
@@ -66,5 +74,12 @@ object SandboxConfig {
     )
 
   lazy val default: SandboxConfig =
-    nextDefault.copy(seeding = None)
+    nextDefault.copy(
+      partyConfig = nextDefault.partyConfig.copy(
+        // In Sandbox, parties are always allocated implicitly. Enabling this would result in an
+        // extra `writeService.allocateParty` call, which is unnecessary and bad for performance.
+        implicitPartyAllocation = false,
+      ),
+      seeding = None,
+    )
 }

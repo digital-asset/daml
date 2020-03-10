@@ -48,6 +48,7 @@ EOF
 da_scala_library(
     name = "test-lib",
     srcs = glob(["src/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",

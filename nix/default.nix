@@ -202,6 +202,7 @@ in rec {
     base64 = pkgs.coreutils;
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
+    grep = pkgs.gnugrep;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
@@ -261,7 +262,6 @@ in rec {
     ftop = pkgs.ftop;
     gcc7 = pkgs.gcc7;
     glibc = pkgs.glibc;
-    gnugrep = pkgs.gnugrep;
     iputils = pkgs.iputils;
     less = pkgs.less;
     ltrace = pkgs.ltrace;

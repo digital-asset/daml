@@ -56,7 +56,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
       def next(): (Long, Transaction) = {
         val ledgerOffset = rows.getLong("ledger_offset")
         val transaction = TransactionSerializer
-          .deserializeTransaction(rows.getBytes("transaction"))
+          .deserializeTransaction(rows.getBinaryStream("transaction"))
           .getOrElse(
             sys.error(s"failed to deserialize transaction with ledger offset $ledgerOffset"))
 

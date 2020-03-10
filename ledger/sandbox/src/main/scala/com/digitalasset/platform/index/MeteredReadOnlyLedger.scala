@@ -44,7 +44,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
     val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
     val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
-    val parties: Timer = metrics.timer("daml.index.parties")
+    val getParties: Timer = metrics.timer("daml.index.get_parties")
+    val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
     val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
@@ -74,18 +75,23 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
-      forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+      forParty: Party
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId
+  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
     timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
 
-  override def parties: Future[List[PartyDetails]] =
-    timedFuture(Metrics.parties, ledger.parties)
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    timedFuture(Metrics.getParties, ledger.getParties(parties))
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(beginOffset)

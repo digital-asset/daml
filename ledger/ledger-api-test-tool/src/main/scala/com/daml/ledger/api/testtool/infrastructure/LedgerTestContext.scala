@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.infrastructure
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   Participant,
   ParticipantAllocation,
-  Participants,
+  Participants
 }
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 
@@ -42,11 +42,9 @@ private[testtool] final class LedgerTestContext private[infrastructure] (
     Future
       .sequence(allocation.partyCounts.map(partyCount => {
         val participant = nextParticipant()
-        for {
-          parties <- participant.allocateParties(partyCount.count)
-          partiesSet = parties.toSet
-          _ <- participant.waitForParties(participants, partiesSet)
-        } yield Participant(participant, parties: _*)
+        participant
+          .preallocateParties(partyCount.count, participants)
+          .map(parties => Participant(participant, parties: _*))
       }))
       .map(Participants(_: _*))
 

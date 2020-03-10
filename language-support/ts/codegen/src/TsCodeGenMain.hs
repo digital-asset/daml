@@ -1,6 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE DerivingStrategies #-}
 module TsCodeGenMain (main) where
 
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -18,6 +18,7 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
+import Data.Hashable
 
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
@@ -28,7 +29,6 @@ import Data.Graph
 import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
-import System.IO.Extra
 import System.Directory
 import System.FilePath hiding ((<.>))
 import qualified System.FilePath as FP
@@ -36,6 +36,43 @@ import qualified System.FilePath as FP
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import qualified DA.Daml.Project.Types as DATypes
+
+-- Referenced from 'writePackageJson'. Lifted here for easy
+-- maintenance.
+data ConfigConsts = ConfigConsts
+  { pkgDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion
+  , pkgDevDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion
+  , pkgScripts :: HMS.HashMap ScriptName Script
+  }
+configConsts :: T.Text -> ConfigConsts
+configConsts sdkVersion = ConfigConsts
+  { pkgDependencies = HMS.fromList
+      [ (NpmPackageName "@mojotech/json-type-validation", NpmPackageVersion "^3.1.0")
+      , (NpmPackageName "@daml/types", NpmPackageVersion sdkVersion)
+      ]
+  , pkgDevDependencies = HMS.fromList
+      [ (NpmPackageName "@typescript-eslint/eslint-plugin", NpmPackageVersion "2.11.0")
+      , (NpmPackageName "@typescript-eslint/parser", NpmPackageVersion "2.11.0")
+      , (NpmPackageName "eslint", NpmPackageVersion "^6.7.2")
+      , (NpmPackageName "typescript", NpmPackageVersion "~3.7.3")
+      ]
+  , pkgScripts = HMS.fromList
+      [ (ScriptName "build", Script "tsc --build")
+      , (ScriptName "lint", Script "eslint --ext .ts --max-warnings 0 src/")
+      ]
+  }
+newtype NpmPackageName = NpmPackageName {unNpmPackageName :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
+newtype NpmPackageVersion = NpmPackageVersion {unNpmPackageVersion :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON)
+newtype ScriptName = ScriptName {unScriptName :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
+newtype Script = Script {unScript :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON)
 
 data Options = Options
     { optInputDars :: [FilePath]
@@ -111,8 +148,8 @@ mergePackageMap ps = foldM merge Map.empty ps
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    version <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
-    sdkVersion <- case version of
+    sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
+    sdkVersion <- case sdkVersionOrErr of
           Left _ -> fail "Invalid SDK version"
           Right v -> pure v
     pkgs <- readPackages optInputDars
@@ -123,41 +160,40 @@ main = do
           forM (Map.toList pkgMap) $
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = unPackageId pkgId
-                     name = packageNameText pkgId mbPkgName
-                     asName = if name == id then "itself" else name
+                     pkgName = packageNameText pkgId mbPkgName
+                     asName = if pkgName == id then "itself" else pkgName
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
-                 deps <- daml2ts Daml2TsParams{..}
-                 pure (name, deps)
+                 daml2ts Daml2TsParams{..}
         whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
-newtype Scope = Scope {unscope :: String}
-newtype Dependency = Dependency {undependency :: T.Text}  deriving (Eq, Ord)
+newtype Scope = Scope {unScope :: T.Text}
+newtype Dependency = Dependency {unDependency :: T.Text}  deriving (Eq, Ord)
 
 -- Gives the scope 'foo' given a directory path like '/path/to/foo'.
 -- The scope 'foo' is the '@foo' part of a package name in an import
 -- declaration.
 scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . takeFileName
+scopeOfScopeDir = Scope . T.pack . takeFileName
 
 data Daml2TsParams = Daml2TsParams
   { opts :: Options  -- cli args
   , pkgMap :: Map.Map PackageId (Maybe PackageName, Package)
   , pkgId :: PackageId
   , pkg :: Package
-  , mbPkgName :: Maybe PackageName
+  , pkgName :: T.Text
   , sdkVersion :: SdkVersion
   }
 
 -- Write the files for a single package.
-daml2ts :: Daml2TsParams -> IO [Dependency]
+daml2ts :: Daml2TsParams -> IO (T.Text, [Dependency])
 daml2ts Daml2TsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2ts'.
-        packageDir = scopeDir </> T.unpack (packageNameText pkgId mbPkgName)
+        packageDir = scopeDir </> T.unpack pkgName
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
@@ -168,16 +204,13 @@ daml2ts Daml2TsParams {..} = do
     createDirectoryIfMissing True packageSrcDir
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    T.writeFileUtf8 (packageSrcDir </> "packageId.ts") $ T.unlines
-        ["export default '" <> unPackageId pkgId <> "';"]
     dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
-    -- Now write 'package.json', 'tsconfig.json' and '.eslint.rc.json'
-    -- files into the package dir. The 'package.json' needs the
-    -- dependencies.
+    -- Now write package metadata.
+    writePackageIdTs packageSrcDir pkgId
     writeTsConfig packageDir
     writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
-    pure dependencies
+    pure (pkgName, dependencies)
     where
       -- Write the .ts file for a single DAML-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
@@ -246,7 +279,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           if lenModName == 1
             then "."
             else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> T.pack $ "@" <> scope
+        PRImport _ -> "@" <> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -526,98 +559,81 @@ onLast f = \case
     [l] -> [f l]
     x : xs -> x : onLast f xs
 
+writePackageIdTs :: FilePath -> PackageId -> IO ()
+writePackageIdTs dir pkgId =
+    T.writeFileUtf8 (dir </> "packageId.ts") $ T.unlines
+      ["export default '" <> unPackageId pkgId <> "';"]
+
 writeTsConfig :: FilePath -> IO ()
-writeTsConfig dir = writeFileUTF8 (dir </> "tsconfig.json") $ unlines
-    [ "{"
-    , "  \"compilerOptions\": {"
-    , "    \"target\": \"es5\","
-    , "    \"lib\": ["
-    , "      \"dom\","
-    , "      \"es2015\""
-    , "     ],"
-    , "    \"strict\": true,"
-    , "    \"noUnusedLocals\": true,"
-    , "    \"noUnusedParameters\": false,"
-    , "    \"noImplicitReturns\": true,"
-    , "    \"noFallthroughCasesInSwitch\": true,"
-    , "    \"outDir\": \"lib\","
-    , "    \"module\": \"commonjs\","
-    , "    \"declaration\": true,"
-    , "    \"sourceMap\": true"
-    , "  },"
-    , "  \"include\": [\"src/**/*.ts\"],"
-    , "}"
-    ]
+writeTsConfig dir =
+  BSL.writeFile (dir </> "tsconfig.json") $ encodePretty tsConfig
+  where
+    tsConfig :: Value
+    tsConfig = object
+      [ "compilerOptions" .= object
+        [ "target" .= ("es5" :: T.Text)
+        , "lib" .= (["dom", "es2015"] :: [T.Text])
+        , "strict" .= True
+        , "noUnusedLocals" .= False
+        , "noImplicitReturns" .= True
+        , "noFallthroughCasesInSwitch" .= True
+        , "outDir" .= ("lib" :: T.Text)
+        , "module" .= ("commonjs" :: T.Text)
+        , "declaration" .= True
+        , "sourceMap" .= True
+        ]
+      , "include" .= (["src/**/*.ts"] :: [T.Text])
+      ]
 
 writeEsLintConfig :: FilePath -> IO ()
-writeEsLintConfig dir = writeFileUTF8 (dir </> ".eslintrc.json") $ unlines
-  [ "{"
-  , "  \"parser\": \"@typescript-eslint/parser\","
-  , "  \"parserOptions\": {"
-  , "    \"project\": \"./tsconfig.json\""
-  , "  },"
-  , "  \"plugins\": ["
-  , "    \"@typescript-eslint\""
-  , "  ],"
-  , "  \"extends\": ["
-  , "    \"eslint:recommended\","
-  , "    \"plugin:@typescript-eslint/eslint-recommended\","
-  , "    \"plugin:@typescript-eslint/recommended\","
-  , "    \"plugin:@typescript-eslint/recommended-requiring-type-checking\""
-  , "  ],"
-  , "  \"rules\": {"
-  , "    \"@typescript-eslint/explicit-function-return-type\": \"off\","
-  , "    \"@typescript-eslint/no-inferrable-types\": \"off\""
-  , "  }"
-  , "}"
-  ]
+writeEsLintConfig dir =
+  BSL.writeFile (dir </> ".eslintrc.json") $ encodePretty esLintConfig
+  where
+    esLintConfig :: Value
+    esLintConfig = object
+      [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
+      , "parserOptions" .= object [("project", "./tsconfig.json")]
+      , "plugins" .= (["@typescript-eslint"] :: [T.Text])
+      , "extends" .= ([
+             "eslint:recommended"
+           , "plugin:@typescript-eslint/eslint-recommended"
+           , "plugin:@typescript-eslint/recommended"
+           , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+           ] :: [T.Text])
+      , "rules" .= object [
+            ("@typescript-eslint/explicit-function-return-type", "off")
+          , ("@typescript-eslint/no-inferrable-types", "off") ]
+      ]
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
 writePackageJson packageDir sdkVersion (Scope scope) depends =
-  writeFileUTF8 (packageDir </> "package.json") $ unlines
-  (["{"
-   , "  \"private\": true,"
-   , "  \"name\": \"" <> packageName <> "\","
-   , "  \"version\": \"" <> version <> "\","
-   , "  \"description\": \"Produced by daml2ts\","
-   , "  \"license\": \"Apache-2.0\","
-   , "  \"dependencies\": {"
-   , "    \"@daml/types\": \"" <> version <> "\","
-   , "    \"@mojotech/json-type-validation\": \"^3.1.0\"" ++ if not $ null dependencies then ", " else ""
-   ] ++ dependencies ++
-    ["  },"
-    , "  \"scripts\": {"
-    , "    \"build\": \"tsc --build\","
-    , "    \"lint\": \"eslint --ext .ts src/ --max-warnings 0\""
-    , "  },"
-    , "  \"devDependencies\": {"
-    , "    \"@typescript-eslint/eslint-plugin\": \"^2.11.0\","
-    , "    \"@typescript-eslint/parser\": \"^2.11.0\","
-    , "    \"eslint\": \"^6.7.2\","
-    , "    \"typescript\": \"~3.7.3\""
-    , "  }"
-    , "}"
-    ])
+  BSL.writeFile (packageDir </> "package.json") $
+    encodePretty (packageJson (NpmPackageName name) (NpmPackageVersion version) dependencies)
   where
-    version = versionToString sdkVersion
-    packageName =  packageNameOfPackageDir packageDir
-    dependencies = withCommas [ "    \"" <> pkg <> "\": \"" <> version <> "\""
-                              | d <- depends
-                              , let pkg = "@" ++ scope ++ "/" ++ T.unpack (undependency d)
-                              ]
-
-    -- From the path to a package like '/path/to/daml2ts/d14e08'
-    -- calculates '@daml2ts/d14e08' suitable for use as the "name" field
-    -- of a 'package.json'.
-    packageNameOfPackageDir :: FilePath -> String
+    version = versionToText sdkVersion
+    name = packageNameOfPackageDir packageDir
+    dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
+       | d <- depends
+       , let pkg = "@" <> scope <> "/" <> unDependency d
+       ]
+    packageNameOfPackageDir :: FilePath -> T.Text
     packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
       where
-        scope = unscope $ scopeOfScopeDir (takeDirectory packageDir)
-        package = takeFileName packageDir
+        scope = unScope $ scopeOfScopeDir (takeDirectory packageDir)
+        package = T.pack $ takeFileName packageDir
 
-    withCommas :: [String] -> [String]
-    withCommas [] = []
-    withCommas ms = reverse (head ms' : map (++ ",") (tail ms')) where ms' = reverse ms
+    packageJson :: NpmPackageName -> NpmPackageVersion -> HMS.HashMap NpmPackageName NpmPackageVersion -> Value
+    packageJson name version@(NpmPackageVersion sdkVersion) dependencies = object
+      [ "private" .= True
+      , "name" .= name
+      , "version" .= version
+      , "description" .= ("Generated by daml2ts" :: T.Text)
+      , "dependencies" .= (pkgDependencies config <> dependencies)
+      , "devDependencies" .= pkgDevDependencies config
+      , "scripts" .= pkgScripts config
+      ]
+      where
+        config = configConsts sdkVersion
 
 -- This type describes the format of a "top-level" 'package.json'. We
 -- expect such files to have the format
@@ -629,6 +645,7 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
 --   ],
 --   ... perhaps other stuff ...
 -- }
+
 data PackageJson = PackageJson
   { workspaces :: [T.Text]
   , otherFields :: Object
@@ -646,31 +663,22 @@ instance ToJSON PackageJson where
 setupWorkspace :: FilePath -> [(T.Text, [Dependency])] -> FilePath -> IO ()
 setupWorkspace optOutputDir dependencies file = do
   let (g, nodeFromVertex) = graphFromEdges'
-        (map (\(a, ds) -> (a, a, map undependency ds)) dependencies)
+        (map (\(a, ds) -> (a, a, map unDependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      scope = T.pack (unscope $ scopeOfScopeDir optOutputDir)
+      scope = scopeOfScopeDir optOutputDir
         -- 'scope' we expect to be something like "daml2ts".
-  let ourPackages = map ((scope <> "/") <>) ps
+  let ourWorkspaces = map ((unScope scope <> "/") <>) ps
   bytes <- BSL.readFile file
   case decode bytes :: Maybe PackageJson of
     Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
-    Just oldPackageJson -> transformAndWrite ourPackages scope oldPackageJson
+    Just oldPackageJson -> transformAndWrite ourWorkspaces scope oldPackageJson
   where
-    transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
-    transformAndWrite ourPackages scope oldPackageJson = do
-      let damlTypes = [T.pack "daml-types"]
-      --   * Old versions of our packages should be removed;
-          keepPackages =
-            [ T.pack x
-            | x <- [T.unpack y | y <- workspaces oldPackageJson]
-            , isNothing $ stripPrefix (T.unpack scope) x
-            ]
-      --  * Our packages need to come after 'daml-types' if it exists;
-      --  * Our packages need to come before any other existing packages.
-          allPackages =
-            case stripInfix damlTypes keepPackages of
-              Nothing -> ourPackages ++ keepPackages
-              Just (before, after) -> before ++ damlTypes ++ ourPackages ++ after
-      BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allPackages}
+    transformAndWrite :: [T.Text] -> Scope -> PackageJson -> IO ()
+    transformAndWrite ourWorkspaces (Scope scope) oldPackageJson = do
+      let keepWorkspaces = filter (not . T.isPrefixOf scope) $ workspaces oldPackageJson
+            -- Old versions of our packages should be removed.
+          allWorkspaces = ourWorkspaces ++ keepWorkspaces
+            -- Our packages need to come before any other existing packages.
+      BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allWorkspaces}
       putStrLn $ "'" <> file <> "' updated."

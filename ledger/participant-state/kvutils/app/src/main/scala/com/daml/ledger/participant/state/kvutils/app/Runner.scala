@@ -53,17 +53,18 @@ class Runner[T <: ReadWriteService, Extra](
               _ <- new StandaloneIndexerServer(
                 system,
                 readService = ledger,
-                factory.indexerConfig(participantConfig),
-                factory.indexerMetricRegistry(participantConfig),
+                factory.indexerConfig(participantConfig, config),
+                factory.indexerMetricRegistry(participantConfig, config),
               ).acquire()
               _ <- new StandaloneApiServer(
                 factory.apiServerConfig(participantConfig, config),
                 factory.commandConfig(config),
+                factory.partyConfig(config),
                 factory.submissionConfig(config),
                 readService = ledger,
                 writeService = ledger,
                 authService = factory.authService(config),
-                factory.apiServerMetricRegistry(participantConfig),
+                factory.apiServerMetricRegistry(participantConfig, config),
                 factory.timeServiceBackend(config),
                 config.seeding,
               ).acquire()

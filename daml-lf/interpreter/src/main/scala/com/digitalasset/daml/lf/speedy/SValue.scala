@@ -7,6 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -217,6 +218,20 @@ object SValue {
     val None: X = apply(SValue.None)
     val Token: X = apply(SValue.Token)
     def bool(b: Boolean) = if (b) True else False
+  }
+
+  private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
+
+  private def entry(key: String, value: SValue) = {
+    val args = new util.ArrayList[SValue](2)
+    args.add(SText(key))
+    args.add(value)
+    SStruct(entryFields, args)
+  }
+
+  def toList(textMap: STextMap): SList = {
+    val entries = SortedLookupList(textMap.textMap).toImmArray
+    SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
   }
 
   def fromValue(value0: V[V.ContractId]): SValue = {

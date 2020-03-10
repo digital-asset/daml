@@ -7,6 +7,9 @@ module Test where
 
 import DA.Time
 
+import Iou()
+import IouTrade()
+
 template Dummy
   with
     operator : Party
@@ -94,7 +97,7 @@ template DummyFactory
 data OptionalInteger = SomeInteger Int | NoInteger
   deriving (Eq, Show)
 
-data NestedOptionalInteger = Nested {value: OptionalInteger}
+data NestedOptionalInteger = NestedOptionalInteger {value: OptionalInteger}
   deriving (Eq, Show)
 
 template ParameterShowcase

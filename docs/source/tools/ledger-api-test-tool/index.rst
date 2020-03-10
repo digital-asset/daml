@@ -6,7 +6,7 @@ Ledger API Test Tool
 
 The Ledger API Test Tool is a command line tool for testing the correctness of
 implementations of the :doc:`Ledger API
-</app-dev/index>`, i.e. DAML ledgers. For example, it
+</app-dev/ledger-api>`, i.e. DAML ledgers. For example, it
 will show you if there are consistency or conformance problem with your
 implementation.
 
