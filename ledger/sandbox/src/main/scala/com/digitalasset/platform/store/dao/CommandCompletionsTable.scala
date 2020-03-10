@@ -20,7 +20,7 @@ object CommandCompletionsTable {
     long("completion_offset") ~ date("record_time") ~ str("command_id") ~ str("transaction_id") map {
       case offset ~ recordTime ~ commandId ~ transactionId =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
           completions = Seq(Completion(commandId, Some(Status()), transactionId)))
     }
 
@@ -29,7 +29,7 @@ object CommandCompletionsTable {
       "status_message") map {
       case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
           completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))))
     }
 
@@ -37,7 +37,7 @@ object CommandCompletionsTable {
     long("completion_offset") ~ date("record_time") map {
       case offset ~ recordTime =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
           completions = Seq())
     }
 
