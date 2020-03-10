@@ -35,6 +35,12 @@ object Relation {
 
       mutMap.toMap
     }
+
+    def flatten[A, B](relation: Relation[A, B]): Iterator[(A, B)] =
+      for {
+        key <- relation.keysIterator
+        value <- relation(key)
+      } yield (key, value)
   }
 
 }

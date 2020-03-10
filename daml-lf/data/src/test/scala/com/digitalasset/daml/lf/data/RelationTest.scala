@@ -44,4 +44,10 @@ class RelationTest extends PropSpec with Matchers with PropertyChecks {
       }
     }
   }
+
+  property("flattening is the inverse of grouping") {
+    forAll { m: Map[Int, Set[Char]] =>
+      flatten(m).toSeq.groupBy(_._1).mapValues(_.map(_._2).toSet) shouldEqual m
+    }
+  }
 }
