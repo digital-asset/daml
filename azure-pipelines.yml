@@ -98,6 +98,7 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           bazel build //release:release
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+        condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
