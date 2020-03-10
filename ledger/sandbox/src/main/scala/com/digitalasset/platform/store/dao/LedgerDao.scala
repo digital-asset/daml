@@ -8,8 +8,8 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, TransactionId}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -32,9 +32,7 @@ import scala.concurrent.Future
 
 trait LedgerReadDao extends ReportsHealth {
 
-  type LedgerOffset = Long
-
-  type ExternalOffset = LedgerString
+  type LedgerOffset = Offset
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
@@ -43,7 +41,7 @@ trait LedgerReadDao extends ReportsHealth {
   def lookupLedgerEnd(): Future[LedgerOffset]
 
   /** Looks up the current external ledger end offset*/
-  def lookupExternalLedgerEnd(): Future[Option[LedgerString]]
+  def lookupInitialLedgerEnd(): Future[Option[LedgerOffset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
   def lookupActiveOrDivulgedContract(
@@ -51,12 +49,12 @@ trait LedgerReadDao extends ReportsHealth {
       forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
   /** Looks up the current ledger configuration, if it has been set. */
-  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
+  def lookupLedgerConfiguration(): Future[Option[(LedgerOffset, Configuration)]]
 
   /** Returns a stream of configuration entries. */
   def getConfigurationEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, ConfigurationEntry), NotUsed]
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -134,13 +132,13 @@ trait LedgerReadDao extends ReportsHealth {
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 
   /** Returns a stream of package upload entries.
-    * @param startInclusive starting offset inclusive
-    * @param endExclusive   ending offset exclusive
+    * @param startExclusive starting offset inclusive
+    * @param endInclusive   ending offset exclusive
     * @return a stream of package entries tupled with their offset
     */
   def getPackageEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed]
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed]
 
   def completions: CommandCompletionsReader[LedgerOffset]
 
@@ -174,15 +172,12 @@ trait LedgerReadDao extends ReportsHealth {
 
 trait LedgerWriteDao extends ReportsHealth {
 
-  type LedgerOffset = Long
-
-  type ExternalOffset = LedgerString
+  type LedgerOffset
 
   /**
     * Initializes the ledger. Must be called only once.
     *
     * @param ledgerId  the ledger id to be stored
-    * @param ledgerEnd the ledger end to be stored
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit]
 
@@ -191,14 +186,11 @@ trait LedgerWriteDao extends ReportsHealth {
     * WARNING: this code cannot be run concurrently on subsequent entry persistence operations!
     *
     * @param offset       the offset to store the ledger entry
-    * @param newLedgerEnd the new ledger end, valid after this operation finishes
     * @param ledgerEntry  the LedgerEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
   def storeLedgerEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse]
 
   /**
@@ -219,14 +211,11 @@ trait LedgerWriteDao extends ReportsHealth {
     * Stores a party allocation or rejection thereof.
     *
     * @param offset       the offset to store the party entry
-    * @param newLedgerEnd the new ledger end, valid after this operation finishes
     * @param partyEntry  the PartyEntry to be stored
     * @return Ok when the operation was successful otherwise a Duplicate
     */
   def storePartyEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       partyEntry: PartyLedgerEntry): Future[PersistenceResponse]
 
   /**
@@ -234,8 +223,6 @@ trait LedgerWriteDao extends ReportsHealth {
     */
   def storeConfigurationEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       recordedAt: Instant,
       submissionId: String,
       participantId: ParticipantId,
@@ -248,8 +235,6 @@ trait LedgerWriteDao extends ReportsHealth {
     */
   def storePackageEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse]
@@ -261,7 +246,4 @@ trait LedgerWriteDao extends ReportsHealth {
 
 }
 
-trait LedgerDao extends LedgerReadDao with LedgerWriteDao {
-  override type LedgerOffset = Long
-  override type ExternalOffset = LedgerString
-}
+trait LedgerDao extends LedgerReadDao with LedgerWriteDao

@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -37,7 +37,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   private object Metrics {
     val lookupLedgerId: Timer = metrics.timer("daml.index.db.lookup_ledger_id")
     val lookupLedgerEnd: Timer = metrics.timer("daml.index.db.lookup_ledger_end")
-    val lookupExternalLedgerEnd: Timer = metrics.timer("daml.index.db.lookup_external_ledger_end")
     val lookupLedgerEntry: Timer = metrics.timer("daml.index.db.lookup_ledger_entry")
     val lookupTransaction: Timer = metrics.timer("daml.index.db.lookup_transaction")
     val lookupLedgerConfiguration: Timer =
@@ -58,11 +57,11 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     timedFuture(Metrics.lookupLedgerId, ledgerDao.lookupLedgerId())
 
-  override def lookupLedgerEnd(): Future[Long] =
+  override def lookupLedgerEnd(): Future[LedgerOffset] =
     timedFuture(Metrics.lookupLedgerEnd, ledgerDao.lookupLedgerEnd())
 
-  override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
-    timedFuture(Metrics.lookupExternalLedgerEnd, ledgerDao.lookupExternalLedgerEnd())
+  override def lookupInitialLedgerEnd(): Future[Option[LedgerOffset]] =
+    timedFuture(Metrics.lookupLedgerEnd, ledgerDao.lookupInitialLedgerEnd())
 
   override def lookupActiveOrDivulgedContract(
       contractId: Value.AbsoluteContractId,
@@ -71,7 +70,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       Metrics.lookupActiveContract,
       ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))
 
-  override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] =
+  override def lookupLedgerEntry(offset: LedgerOffset): Future[Option[LedgerEntry]] =
     timedFuture(Metrics.lookupLedgerEntry, ledgerDao.lookupLedgerEntry(offset))
 
   override def lookupTransaction(
@@ -119,7 +118,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     ledgerDao.getPackageEntries(startInclusive, endExclusive)
 
   /** Looks up the current ledger configuration, if it has been set. */
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(LedgerOffset, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledgerDao.lookupLedgerConfiguration())
 
   /** Get a stream of configuration entries. */
@@ -159,13 +158,9 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def storeLedgerEntry(
-      offset: Long,
-      newLedgerEnd: Long,
-      externalOffset: Option[ExternalOffset],
+      offset: LedgerOffset,
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse] =
-    timedFuture(
-      Metrics.storeLedgerEntry,
-      ledgerDao.storeLedgerEntry(offset, newLedgerEnd, externalOffset, ledgerEntry))
+    timedFuture(Metrics.storeLedgerEntry, ledgerDao.storeLedgerEntry(offset, ledgerEntry))
 
   override def storeInitialState(
       activeContracts: immutable.Seq[ActiveContract],
@@ -184,17 +179,11 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
 
   override def storePartyEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       partyEntry: PartyLedgerEntry): Future[PersistenceResponse] =
-    timedFuture(
-      Metrics.storePartyEntry,
-      ledgerDao.storePartyEntry(offset, newLedgerEnd, externalOffset, partyEntry))
+    timedFuture(Metrics.storePartyEntry, ledgerDao.storePartyEntry(offset, partyEntry))
 
   override def storeConfigurationEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       recordTime: Instant,
       submissionId: String,
       participantId: ParticipantId,
@@ -205,8 +194,6 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       Metrics.storeConfigurationEntry,
       ledgerDao.storeConfigurationEntry(
         offset,
-        newLedgerEnd,
-        externalOffset,
         recordTime,
         submissionId,
         participantId,
@@ -216,14 +203,10 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
 
   override def storePackageEntry(
       offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
       packages: List[(Archive, PackageDetails)],
       entry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] =
-    timedFuture(
-      Metrics.storePackageEntry,
-      ledgerDao.storePackageEntry(offset, newLedgerEnd, externalOffset, packages, entry))
+    timedFuture(Metrics.storePackageEntry, ledgerDao.storePackageEntry(offset, packages, entry))
 
   override def transactionsWriter: TransactionWriter[LedgerOffset] = ledgerDao.transactionsWriter
 }

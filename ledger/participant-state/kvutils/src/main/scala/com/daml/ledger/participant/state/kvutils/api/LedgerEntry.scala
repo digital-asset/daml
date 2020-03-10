@@ -11,7 +11,9 @@ import com.daml.ledger.participant.state.v1.Offset
 /**
   * Defines a log entry or update that may be read from the ledger.
   */
-sealed trait LedgerEntry
+sealed trait LedgerEntry {
+  def offset: Offset
+}
 
 object LedgerEntry {
 

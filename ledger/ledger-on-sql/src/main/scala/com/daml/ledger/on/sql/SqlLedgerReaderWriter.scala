@@ -15,13 +15,7 @@ import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
-  BatchingLedgerStateOperations,
-  LedgerStateAccess,
-  LedgerStateOperations,
-  SubmissionValidator,
-  ValidatingCommitter
-}
+import com.daml.ledger.validator._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
@@ -32,7 +26,6 @@ import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -52,7 +45,7 @@ final class SqlLedgerReaderWriter(
   private val committer = new ValidatingCommitter[Index](
     () => timeProvider.getCurrentTime,
     SubmissionValidator.create(SqlLedgerStateAccess),
-    latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
+    latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
 
   override def currentHealth(): HealthStatus = Healthy
@@ -60,22 +53,14 @@ final class SqlLedgerReaderWriter(
   override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        offset.getOrElse(StartOffset).components.head,
+        offset.getOrElse(StartOffset).value.toLong,
         RangeSource((start, end) => {
           Source
-            .futureSource(database
-              .inReadTransaction(s"Querying events [$start, $end[ from log") { queries =>
+            .future(database
+              .inReadTransaction(s"Querying events ]$start, $end] from log") { queries =>
                 Future.fromTry(queries.selectFromLog(start, end))
-              }
-              .map { result =>
-                if (result.length < end - start) {
-                  val missing = TreeSet(start until end: _*) -- result.map(_._1)
-                  Source.failed(
-                    new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
-                } else {
-                  Source(result)
-                }
               })
+            .mapConcat(identity)
             .mapMaterializedValue(_ => NotUsed)
         }),
       )
@@ -106,7 +91,7 @@ final class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val logger = ContextualizedLogger.get(classOf[SqlLedgerReaderWriter])
 
-  private val StartOffset: Offset = Offset(Array(StartIndex))
+  private val StartOffset: Offset = Offset.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
@@ -180,7 +165,7 @@ object SqlLedgerReaderWriter {
               Future.fromTry(queries.insertHeartbeatIntoLog(timestamp))
             }
             .onComplete {
-              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo + 1)
+              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo)
               case Failure(exception) => logger.error("Publishing heartbeat failed.", exception)
           }))
       .map(_ => ())

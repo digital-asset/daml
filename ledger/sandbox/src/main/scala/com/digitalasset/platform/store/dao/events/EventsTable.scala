@@ -10,6 +10,7 @@ import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, Workflo
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
 import com.digitalasset.platform.store.dao.LedgerDao
 import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.digitalasset.platform.store.Conversions._
 
 /**
   * Data access object for a table representing raw transactions nodes that

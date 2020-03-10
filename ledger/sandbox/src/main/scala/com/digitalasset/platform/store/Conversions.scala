@@ -14,6 +14,7 @@ import anorm.{
   SqlParser,
   ToStatement
 }
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 
 object Conversions {
@@ -107,4 +108,12 @@ object Conversions {
     : ParameterMetaData[Ref.ContractIdString] =
     subStringMetaParameter(strParamMetaData)
 
+  implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
+    override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
+      s.setString(index, v.value)
+  }
+  def offset(name: String): RowParser[Offset] = SqlParser.get[Ref.LedgerString](name).map(Offset(_))
+
+  implicit def columnToOffset(implicit c: Column[Ref.LedgerString]): Column[Offset] =
+    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset(_)))
 }

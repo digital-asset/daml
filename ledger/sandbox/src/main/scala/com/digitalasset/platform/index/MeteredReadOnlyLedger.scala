@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -59,17 +59,17 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def ledgerEntries(
-      offset: Option[Long],
-      endOpt: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+      offset: Option[Offset],
+      endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(offset, endOpt)
 
-  override def ledgerEnd: Long = ledger.ledgerEnd
+  override def ledgerEnd: Offset = ledger.ledgerEnd
 
   override def completions(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long],
+      beginInclusive: Option[Offset],
+      endExclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
+      parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     ledger.completions(beginInclusive, endExclusive, applicationId, parties)
 
   override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
@@ -86,7 +86,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
 
   override def lookupTransaction(
       transactionId: TransactionId
-  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
+  ): Future[Option[(Offset, LedgerEntry.Transaction)]] =
     timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
@@ -95,7 +95,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def listKnownParties(): Future[List[PartyDetails]] =
     timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
 
-  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
+  override def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(beginOffset)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
@@ -107,18 +107,18 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
-  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+  override def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
     ledger.packageEntries(beginOffset)
 
   override def close(): Unit = {
     ledger.close()
   }
 
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
     timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      offset: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledger.configurationEntries(offset)
 
   override def deduplicateCommand(

@@ -5,6 +5,7 @@ package com.digitalasset.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -12,10 +13,10 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 private[dao] object CommandCompletionsReader {
 
   private def offsetFor(response: CompletionStreamResponse): LedgerDao#LedgerOffset =
-    response.checkpoint.get.offset.get.getAbsolute.toLong
+    Offset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
   def apply(dispatcher: DbDispatcher): CommandCompletionsReader[LedgerDao#LedgerOffset] =
-    (from: Long, to: Long, appId: ApplicationId, parties: Set[Ref.Party]) => {
+    (from: Offset, to: Offset, appId: ApplicationId, parties: Set[Ref.Party]) => {
       val query = CommandCompletionsTable.prepareGet(from, to, appId, parties)
       Source
         .future(dispatcher.executeSql("get_completions") { implicit connection =>
@@ -35,13 +36,13 @@ trait CommandCompletionsReader[LedgerOffset] {
     *
     * TODO Drop the LedgerOffset from the source when we replace the Dispatcher mechanism
     *
-    * @param startInclusive starting offset inclusive
-    * @param endExclusive   ending offset exclusive
+    * @param startExclusive starting offset inclusive
+    * @param endInclusive   ending offset exclusive
     * @return a stream of command completions tupled with their offset
     */
   def getCommandCompletions(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset,
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]): Source[(LedgerOffset, CompletionStreamResponse), NotUsed]
 

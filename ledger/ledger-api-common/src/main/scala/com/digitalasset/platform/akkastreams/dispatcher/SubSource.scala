@@ -14,10 +14,10 @@ sealed abstract class SubSource[Index: Ordering, T]
     extends ((Index, Index) => Source[(Index, T), NotUsed]) {
 
   /** Returns a Source emitting items for the given range */
-  def subSource(startInclusive: Index, endExclusive: Index): Source[(Index, T), NotUsed]
+  def subSource(startExclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed]
 
-  override def apply(startInclusive: Index, endExclusive: Index): Source[(Index, T), NotUsed] =
-    subSource(startInclusive, endExclusive)
+  override def apply(startExclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed] =
+    subSource(startExclusive, endInclusive)
 }
 
 object SubSource {
@@ -29,22 +29,23 @@ object SubSource {
     * @param readElement   reads the element on the given index
     */
   final case class OneAfterAnother[Index: Ordering, T](
-      readSuccessor: (Index, T) => Index,
+      readSuccessor: Index => Index,
       readElement: Index => Future[T])
       extends SubSource[Index, T] {
     override def subSource(
-        startInclusive: Index,
-        endExclusive: Index): Source[(Index, T), NotUsed] =
+        startExclusive: Index,
+        endInclusive: Index): Source[(Index, T), NotUsed] = {
       Source
-        .unfoldAsync[Index, (Index, T)](startInclusive) { i =>
-          if (i == endExclusive) Future.successful(None)
-          else
-            readElement(i).map { t =>
-              val nextIndex = readSuccessor(i, t)
-              Some((nextIndex, (i, t)))
+        .unfoldAsync[Index, (Index, T)](readSuccessor(startExclusive)) { index =>
+          if (Ordering[Index].gt(index, endInclusive)) Future.successful(None)
+          else {
+            readElement(index).map { t =>
+              val nextIndex = readSuccessor(index)
+              Some((nextIndex, (index, t)))
             }(DirectExecutionContext)
+          }
         }
-
+    }
   }
 
   /**
@@ -56,8 +57,8 @@ object SubSource {
       getRange: (Index, Index) => Source[(Index, T), NotUsed])
       extends SubSource[Index, T] {
     override def subSource(
-        startInclusive: Index,
-        endExclusive: Index): Source[(Index, T), NotUsed] = getRange(startInclusive, endExclusive)
+        startExclusive: Index,
+        endInclusive: Index): Source[(Index, T), NotUsed] = getRange(startExclusive, endInclusive)
   }
 
 }

@@ -49,15 +49,15 @@ final class InMemoryLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
-  override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(beginExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        offset
-          .map(_.components.head.toInt)
+        beginExclusive
+          .map(_.toLedgerString.toInt)
           .getOrElse(StartIndex),
-        OneAfterAnother[Int, List[LedgerEntry]](
-          (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
+        OneAfterAnother[Index, List[LedgerEntry]](
+          (index: Index) => index + 1,
+          (index: Index) => Future.successful(List(retrieveLogEntry(index))),
         ),
       )
       .mapConcat { case (_, updates) => updates }
@@ -182,9 +182,9 @@ object InMemoryLedgerReaderWriter {
       .map(_ => ())
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
-    val offset = Offset(Array(log.size.toLong))
+    val offset = Offset.fromLong(log.size.toLong)
     val entry = createEntry(offset)
     log += entry
-    log.size
+    log.size - 1
   }
 }

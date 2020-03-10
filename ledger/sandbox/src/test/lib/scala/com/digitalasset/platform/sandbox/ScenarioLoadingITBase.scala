@@ -129,7 +129,7 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyFactory)
           lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("8", "", Seq.empty, None))
+          resp.last should equal(GetActiveContractsResponse("00000008", "", Seq.empty, None))
         }
       }
 

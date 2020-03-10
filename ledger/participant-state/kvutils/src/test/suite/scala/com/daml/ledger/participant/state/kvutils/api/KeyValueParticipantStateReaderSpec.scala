@@ -33,18 +33,23 @@ class KeyValueParticipantStateReaderSpec
     with Matchers
     with AkkaBeforeAndAfterAll {
 
-  private val start: Instant = Instant.from(ZonedDateTime.of(2020, 1, 1, 12, 0, 0, 0, UTC))
+  def theOffset(first: Long, second: Long = 0, third: Long = 0) = {
+    Offset.assertFromString(
+      (((BigInt(first) << 32) + BigInt(second) << 32) + BigInt(third)).toString()
+    )
+  }
 
+  private val start: Instant = Instant.from(ZonedDateTime.of(2020, 1, 1, 12, 0, 0, 0, UTC))
   "participant state reader" should {
     "stream offsets and heartbeats from the start" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(1, 1)), aLogEntryId(1), aWrappedLogEntry),
-        Heartbeat(Offset(Array(1, 2)), start.plusSeconds(1)),
-        LedgerRecord(Offset(Array(1, 3)), aLogEntryId(3), aWrappedLogEntry),
-        Heartbeat(Offset(Array(1, 4)), start.plusSeconds(2)),
-        Heartbeat(Offset(Array(1, 5)), start.plusSeconds(3)),
-        LedgerRecord(Offset(Array(1, 6)), aLogEntryId(6), aWrappedLogEntry),
+        LedgerRecord(theOffset(1, 1), aLogEntryId(1), aWrappedLogEntry),
+        Heartbeat(theOffset(1, 2), start.plusSeconds(1)),
+        LedgerRecord(theOffset(1, 3), aLogEntryId(3), aWrappedLogEntry),
+        Heartbeat(theOffset(1, 4), start.plusSeconds(2)),
+        Heartbeat(theOffset(1, 5), start.plusSeconds(3)),
+        LedgerRecord(theOffset(1, 6), aLogEntryId(6), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
@@ -52,90 +57,93 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(stream).map { actual =>
         actual should have size 6
         actual shouldBe Seq(
-          Offset(Array(1, 1, 0)),
-          Offset(Array(1, 2, 0)),
-          Offset(Array(1, 3, 0)),
-          Offset(Array(1, 4, 0)),
-          Offset(Array(1, 5, 0)),
-          Offset(Array(1, 6, 0)),
+          theOffset(1, 1, 0),
+          theOffset(1, 2, 0),
+          theOffset(1, 3, 0),
+          theOffset(1, 4, 0),
+          theOffset(1, 5, 0),
+          theOffset(1, 6, 0),
         )
       }
     }
 
     "stream offsets and heartbeats from a given offset" in {
       val reader = readerStreamingFrom(
-        offset = Some(Offset(Array(1, 4))),
-        LedgerRecord(Offset(Array(1, 5)), aLogEntryId(5), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(1, 6)), aLogEntryId(6), aWrappedLogEntry),
-        Heartbeat(Offset(Array(1, 7)), start.plusSeconds(2)),
-        Heartbeat(Offset(Array(1, 8)), start.plusSeconds(3)),
-        LedgerRecord(Offset(Array(1, 9)), aLogEntryId(9), aWrappedLogEntry),
-        Heartbeat(Offset(Array(1, 10)), start.plusSeconds(4)),
-        LedgerRecord(Offset(Array(1, 11)), aLogEntryId(11), aWrappedLogEntry),
+        offset = Some(theOffset(1, 4)),
+        LedgerRecord(theOffset(1, 5), aLogEntryId(5), aWrappedLogEntry),
+        LedgerRecord(theOffset(1, 6), aLogEntryId(6), aWrappedLogEntry),
+        Heartbeat(theOffset(1, 7), start.plusSeconds(2)),
+        Heartbeat(theOffset(1, 8), start.plusSeconds(3)),
+        LedgerRecord(theOffset(1, 9), aLogEntryId(9), aWrappedLogEntry),
+        Heartbeat(theOffset(1, 10), start.plusSeconds(4)),
+        LedgerRecord(theOffset(1, 11), aLogEntryId(11), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(Offset(Array(1, 4, 0))))
+      val stream = instance.stateUpdates(Some(theOffset(1, 4, 0)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 7
         actual shouldBe Seq(
-          Offset(Array(1, 5, 0)),
-          Offset(Array(1, 6, 0)),
-          Offset(Array(1, 7, 0)),
-          Offset(Array(1, 8, 0)),
-          Offset(Array(1, 9, 0)),
-          Offset(Array(1, 10, 0)),
-          Offset(Array(1, 11, 0)),
+          theOffset(1, 5, 0),
+          theOffset(1, 6, 0),
+          theOffset(1, 7, 0),
+          theOffset(1, 8, 0),
+          theOffset(1, 9, 0),
+          theOffset(1, 10, 0),
+          theOffset(1, 11, 0),
         )
       }
     }
 
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
-        offset = Some(Offset(Array(1, 1))),
-        LedgerRecord(Offset(Array(1, 2)), aLogEntryId(2), aWrappedLogEntry),
-      )
+        offset = Some(theOffset(1, 1)),
+        LedgerRecord(theOffset(1, 2), aLogEntryId(2), aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(Offset(Array(1, 1, 0))))
+      val stream = instance.stateUpdates(Some(theOffset(1, 1, 0)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 1
-        actual shouldBe Seq(Offset(Array(1, 2, 0)))
+        actual shouldBe Seq(theOffset(1, 2, 0))
       }
     }
 
     "append index to internal offset" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(1)), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(2)), aLogEntryId(2), aWrappedLogEntry),
+        LedgerRecord(theOffset(1), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(theOffset(2), aLogEntryId(2), aWrappedLogEntry)
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
 
       offsetsFrom(stream).map { actual =>
         actual should have size 2
-        actual shouldBe Seq(Offset(Array(1, 0)), Offset(Array(2, 0)))
+        actual shouldBe Seq(theOffset(1, 0), theOffset(2, 0))
       }
     }
 
     "skip events before specified offset" in {
-      val reader = readerStreamingFromAnyOffset(
-        LedgerRecord(Offset(Array(1)), aLogEntryId(1), aWrappedLogEntry),
-        LedgerRecord(Offset(Array(2)), aLogEntryId(2), aWrappedLogEntry),
-        Heartbeat(Offset(Array(3)), start),
-        LedgerRecord(Offset(Array(4)), aLogEntryId(4), aWrappedLogEntry),
+      val records = List(
+        LedgerRecord(theOffset(1), aLogEntryId(1), aWrappedLogEntry),
+        LedgerRecord(theOffset(2), aLogEntryId(2), aWrappedLogEntry),
+        Heartbeat(theOffset(3), start),
+        LedgerRecord(theOffset(4), aLogEntryId(4), aWrappedLogEntry)
       )
-      val instance = new KeyValueParticipantStateReader(reader)
+
+      def getInstance(offset: Option[Offset], items: LedgerEntry*) =
+        new KeyValueParticipantStateReader(readerStreamingFrom(offset = offset, items: _*))
+
+      val instances = records.tails.flatMap {
+        case first :: rest =>
+          List(Option(first.offset) -> getInstance(Some(first.offset), rest: _*))
+        case _ => Nil
+      }.toMap + (None -> getInstance(None, records: _*))
 
       Future
         .sequence(
-          Seq(
-            offsetsFrom(instance.stateUpdates(None)),
-            offsetsFrom(instance.stateUpdates(Some(Offset(Array(1, 0))))),
-            offsetsFrom(instance.stateUpdates(Some(Offset(Array(3, 0))))),
-            offsetsFrom(instance.stateUpdates(Some(Offset(Array(4, 0))))),
-          )
+          Seq(None, Some(theOffset(1, 0)), Some(theOffset(3, 0)), Some(theOffset(4, 0)))
+            .map(offset => offsetsFrom(instances(offset).stateUpdates(offset)))
         )
         .map {
           case Seq(all, afterFirst, beforeLast, afterLast) =>
@@ -150,8 +158,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelope),
-      )
+        LedgerRecord(theOffset(0, 0), aLogEntryId(0), anInvalidEnvelope))
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -169,8 +176,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelopeMessage),
-      )
+        LedgerRecord(theOffset(0, 0), aLogEntryId(0), anInvalidEnvelopeMessage))
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>

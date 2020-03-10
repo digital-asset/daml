@@ -25,9 +25,9 @@ trait Dispatcher[Index] extends AutoCloseable {
 
   /** Returns a stream of elements with the next index from start (inclusive) to end (exclusive) */
   def startingAt[T](
-      startInclusive: Index,
+      startExclusive: Index,
       subSource: SubSource[Index, T],
-      endExclusive: Option[Index] = None): Source[(Index, T), NotUsed]
+      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed]
 }
 
 object Dispatcher {
