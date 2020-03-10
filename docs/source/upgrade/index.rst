@@ -150,7 +150,7 @@ Building and deploying coin-2.0.0
 
 Now we setup the project for the improved coins containing the *amount* field. This project contains only the ``CoinWithAmount`` template. The upgrade templates are in a third ``coin-upgrade`` package. While it would be possible to include the upgrade templates in the same package, this means that the package containing the new ``CoinWithAmount`` template depends on the previous version. With the approach taken here of keeping the upgrade templates in a separate package, the ``coin-1.0.0`` package is no longer needed once we have upgraded all coins.
 
-It's worth stressing here that extensions always need to go into separate packages. We cannot just add the new definitions to the original project, rebuild and re-deploy. This is because the cryptographically computed package identifier would change, and would not match the package identifier of the original ``Coin`` contracts from ``coin-1.0.0`` which are live of the ledger.
+It's worth stressing here that extensions always need to go into separate packages. We cannot just add the new definitions to the original project, rebuild and re-deploy. This is because the cryptographically computed package identifier would change, and would not match the package identifier of the original ``Coin`` contracts from ``coin-1.0.0`` which are live on the ledger.
 
 Here is the new project config:
 
