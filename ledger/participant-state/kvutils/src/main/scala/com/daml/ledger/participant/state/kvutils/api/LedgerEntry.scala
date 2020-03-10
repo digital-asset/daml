@@ -8,7 +8,9 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.v1.Offset
 
-sealed trait LedgerEntry
+sealed trait LedgerEntry {
+  def offset: Offset
+}
 
 object LedgerEntry {
 

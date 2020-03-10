@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, Ti
 import com.digitalasset.ledger.api.health.ReportsHealth
 
 trait LedgerReader extends ReportsHealth {
-  def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed]
+  def events(beginExclusive: Option[Offset]): Source[LedgerEntry, NotUsed]
 
   /**
     * Get the ledger's ID from which this reader instance streams events.

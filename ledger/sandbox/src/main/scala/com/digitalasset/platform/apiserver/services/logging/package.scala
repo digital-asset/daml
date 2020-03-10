@@ -14,9 +14,9 @@ package object logging {
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
   private[services] def begin(o: LedgerOffset): (String, String) =
-    "offset" -> offsetValue(o)
+    "begin" -> offsetValue(o)
   private[services] def end(o: Option[LedgerOffset]): (String, String) =
-    "offset" -> nullableOffsetValue(o)
+    "end" -> nullableOffsetValue(o)
   private[services] def offset(o: Option[LedgerOffset]): (String, String) =
     "offset" -> nullableOffsetValue(o)
   private[this] def nullableOffsetValue(o: Option[LedgerOffset]): String =

@@ -101,11 +101,13 @@ class InMemoryLedger(
   override def currentHealth(): HealthStatus = Healthy
 
   override def ledgerEntries(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+      beginExclusive: Option[Offset],
+      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries
-      .getSource(beginInclusive, endExclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
+      .getSource(beginExclusive, endInclusive)
+      .collect {
+        case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
+      }
 
   // mutable state
   private var acs = acs0
@@ -114,16 +116,18 @@ class InMemoryLedger(
     scala.collection.mutable.Map.empty
 
   override def completions(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long],
+      beginExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
+      parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     entries
-      .getSource(beginInclusive, endExclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) => (offset + 1, entry) }
+      .getSource(beginExclusive, endInclusive)
+      .collect {
+        case (offset, InMemoryLedgerEntry(entry)) => (offset, entry)
+      }
       .collect(CompletionFromTransaction(applicationId.unwrap, parties))
 
-  override def ledgerEnd: Long = entries.ledgerEnd
+  override def ledgerEnd: Offset = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
   override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
@@ -132,7 +136,8 @@ class InMemoryLedger(
         entries.ledgerEnd,
         Source
           .fromIterator[ActiveContract](() =>
-            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList)))
+            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList))
+      )
     })
 
   override def lookupContract(
@@ -163,7 +168,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
-        handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
+        handleSuccessfulTx(entries.nextTransactionId, submitterInfo, transactionMeta, transaction)
         SubmissionResult.Acknowledged
       }
     )
@@ -241,18 +246,18 @@ class InMemoryLedger(
   override def close(): Unit = ()
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
 
-    Try(Tag.unwrap(transactionId).toLong) match {
+    Try(Tag.unwrap(transactionId)) match {
       case Failure(_) =>
         Future.successful(None)
       case Success(n) =>
         Future.successful(
-          entries
-            .getEntryAt(n)
-            .collect {
-              case InMemoryLedgerEntry(t: LedgerEntry.Transaction) =>
-                (n, t) // the transaction id is also the offset
+          entries.items
+            .collectFirst {
+              case (offset, InMemoryLedgerEntry(t: LedgerEntry.Transaction))
+                  if t.transactionId == n =>
+                (offset, t)
             })
     }
   }
@@ -295,7 +300,7 @@ class InMemoryLedger(
       SubmissionResult.Acknowledged
     })
 
-  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
+  override def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
@@ -310,7 +315,7 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
-  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
+  override def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
     entries.getSource(Some(beginOffset), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
     }
@@ -380,16 +385,18 @@ class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
     Future.successful(this.synchronized {
       ledgerConfiguration.map(config => ledgerEnd -> config)
     })
 
   override def configurationEntries(
-      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startInclusive, None)
-      .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
+      .getSource(startExclusive, None)
+      .collect {
+        case (offset, InMemoryConfigEntry(entry)) => offset -> entry
+      }
 
   override def deduplicateCommand(
       deduplicationKey: String,

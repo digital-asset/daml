@@ -6,5 +6,5 @@ package com.daml.ledger.on
 package object sql {
   type Index = Long
 
-  val StartIndex: Index = 1
+  val StartIndex: Index = 0
 }

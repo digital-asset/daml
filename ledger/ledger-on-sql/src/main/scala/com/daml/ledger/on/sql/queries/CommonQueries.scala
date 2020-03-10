@@ -33,7 +33,7 @@ trait CommonQueries extends Queries {
       start: Index,
       end: Index,
   ): Try[immutable.Seq[(Index, LedgerEntry)]] = Try {
-    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end ORDER BY sequence_no"
+    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no > $start AND sequence_no <= $end ORDER BY sequence_no"
       .as(
         (long("sequence_no")
           ~ get[Option[InputStream]]("entry_id")
@@ -41,13 +41,13 @@ trait CommonQueries extends Queries {
           ~ get[Option[Long]]("heartbeat_timestamp")).map {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
-              Offset(Array(index)),
+              Offset.fromLong(index),
               DamlLogEntryId.parseFrom(entryId),
               envelope,
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
             index -> LedgerEntry.Heartbeat(
-              Offset(Array(index)),
+              Offset.fromLong(index),
               Instant.ofEpochMilli(heartbeatTimestamp),
             )
           case _ =>

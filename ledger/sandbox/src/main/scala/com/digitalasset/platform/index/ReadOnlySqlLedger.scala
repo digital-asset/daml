@@ -7,6 +7,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
@@ -85,7 +86,7 @@ object ReadOnlySqlLedger {
 
 private class ReadOnlySqlLedger(
     ledgerId: LedgerId,
-    headAtInitialization: Long,
+    headAtInitialization: Offset,
     ledgerDao: LedgerReadDao,
 )(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {

@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
@@ -40,16 +40,16 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def ledgerId: LedgerId
 
   def ledgerEntries(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed]
+      beginExclusive: Option[Offset],
+      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed]
 
-  def ledgerEnd: Long
+  def ledgerEnd: Offset
 
   def completions(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long],
+      beginInclusive: Option[Offset],
+      endExclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Ref.Party]): Source[(Long, CompletionStreamResponse), NotUsed]
+      parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed]
 
   def snapshot(filter: TransactionFilter): Future[LedgerSnapshot]
 
@@ -62,14 +62,14 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def lookupTransaction(
       transactionId: TransactionId
-  ): Future[Option[(Long, LedgerEntry.Transaction)]]
+  ): Future[Option[(Offset, LedgerEntry.Transaction)]]
 
   // Party management
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 
   def listKnownParties(): Future[List[PartyDetails]]
 
-  def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed]
+  def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]
@@ -78,12 +78,12 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
-  def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed]
+  def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed]
 
   // Configuration management
-  def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]]
+  def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]]
   def configurationEntries(
-      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed]
+      startInclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed]
 
   /** Deduplicates commands.
     * Returns None if this is the first time the command is submitted
