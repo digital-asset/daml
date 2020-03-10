@@ -4,6 +4,7 @@
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
+load("//rules_daml:daml-build.bzl", "daml_build_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 
@@ -598,18 +599,17 @@ daml_test(
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
 )
 
-sh_test(
-    name = "daml-upgrade-example",
-    srcs = ["source/upgrade/example/run.sh"],
-    args = [
-        "$(location //compiler/damlc)",
-    ],
-    data = [
-        "//compiler/damlc",
-    ] + glob(["source/upgrade/example/**"]),
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
-    ],
+daml_build_test(
+    name = "daml-upgrade-example-v1",
+    project_dir = "source/upgrade/example/coinV1",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-v2",
+    dar_dict = {
+        "daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
+    },
+    project_dir = "source/upgrade/example/coinV2",
 )
 
 filegroup(

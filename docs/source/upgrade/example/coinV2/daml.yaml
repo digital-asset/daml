@@ -10,7 +10,7 @@ dependencies:
   - daml-prim
   - daml-stdlib
 data-dependencies:
-  - ../coinV1/.daml/dist/coin-1.0.0.dar
+  - path/to/coin-1.0.0.dar
 # END
 source: daml
 build-options: [--target=1.8]
