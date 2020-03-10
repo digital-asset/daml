@@ -17,7 +17,13 @@ latest commit on master.
 
 1. **[STABLE]** Coordinate with the product and marketing teams to define
    release highlights, tweets, blog posts, as well as timeline for publishing
-   the release. Define a version number, `$VERSION`.
+   the release. Define a version number, `$VERSION`. The following command may
+   be useful as a starting point; it will list all changes between the previous
+   stable release and the latest snapshot release:
+
+   ```
+   ./release.sh changes stable latest
+   ```
 
 1. Pull the latest master branch of the `daml` repository and create a new,
    clean branch off it. For a snapshot, run `./release.sh snapshot HEAD`; for
@@ -170,6 +176,16 @@ latest commit on master.
    both the changes in this release (i.e. since the last snapshot) and the
    complete list of changes since the last stable release. Use the raw output
    of `unreleased.sh`.
+
+   You can produce the changes since the previous (snapshot or stable) release
+   by running:
+   ```
+   ./release.sh changes previous latest
+   ```
+   and the changes between the latest stable and the previous release with:
+   ```
+   ./release.sh changes stable previous
+   ```
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
    announcements (public Slack, Twitter, etc.).
