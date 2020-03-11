@@ -96,10 +96,10 @@ The second disadvantage, which has far-reaching consequences, is that not everyt
 
 #. Certain advanced type system features also cannot be reconstructed, as they are erased in the process of compiling DAML LF binaries. This includes the ``DataKinds``, ``DeriveGeneric``, and ``FunctionalDependencies`` extensions from GHC. This may result in some definitions being unavailable when importing a module that uses these advanced features.
 
-.. TODO (#4932): Add warnings for these features, and add a comment here.
-
 #. Prior to DAML LF version 1.8, typeclasses could not be reconstructed from DAML archives. This means if you have an archive that is compiled with an older version of DAML LF, typeclasses and typeclass instances will not be carried over via data-dependencies, and you will not be able to call functions that rely on typeclass instances.
 
 #. When possible, typeclass instances will be reconstructed using the typeclass definitions from dependencies (such as the typeclass definitions from ``daml-stdlib``). But if the typeclass methods or signature has changed, you will get an instance for a reconstructed typeclass instead, which will not interoperate with code from dependencies. So this is something to keep in mind when typeclass definitions have changed.
+
+.. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on bullet #2.
 
 Given this long list of disadvantages, data-dependencies are a tool that is only recommended when dependencies cannot be used. In particular, data-dependencies should only be used to interface with deployed code on a ledger, such as to interact with a deployed DAML model or to upgrade of a deployed DAML model. See the :ref:`upgrade documentation <upgrade-overview>` for more details on the latter.
