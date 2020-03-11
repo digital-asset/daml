@@ -183,7 +183,7 @@ object Cli {
                 .fromCrtFile(path)
                 .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
 
-      opt[String]("auth-jwt-ec256-crt")
+      opt[String]("auth-jwt-es256-crt")
         .optional()
         .validate(v =>
           Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
@@ -195,7 +195,7 @@ object Cli {
                 .fromCrtFile(path, Algorithm.ECDSA256(_, null))
                 .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))))
 
-      opt[String]("auth-jwt-ec512-crt")
+      opt[String]("auth-jwt-es512-crt")
         .optional()
         .validate(v =>
           Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
