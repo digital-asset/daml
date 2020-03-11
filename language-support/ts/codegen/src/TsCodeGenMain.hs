@@ -578,13 +578,19 @@ writeIndexTs packageSrcDir modules =
   T.writeFileUtf8 (packageSrcDir </> "index.ts") (T.unlines lines)
   where
     lines :: [T.Text]
-    lines = header <> concatMap entry modules
+    lines = header <> concatMap entry modules <> footer
 
     header :: [T.Text]
     header =
       [ "import __packageId from \"./packageId\""
-      , "export const packageId = __packageId;"
+      , "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      , "  export const packageId = __packageId;"
+      , "}"
       ]
+
+    footer :: [T.Text]
+    footer = [ "export default __All;" ]
 
     entry :: Module -> [T.Text]
     entry mod
@@ -602,7 +608,11 @@ writeIndexTs packageSrcDir modules =
       ]
 
     exportDecl :: T.Text -> [T.Text] -> [T.Text]
-    exportDecl = go 0
+    exportDecl var name =
+      [ "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      ] <>  go 2 var name <>
+      ["}"]
       where
         spaces i = T.pack $ replicate i ' '
 
@@ -649,15 +659,16 @@ writeEsLintConfig dir =
       [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
       , "parserOptions" .= object [("project", "./tsconfig.json")]
       , "plugins" .= (["@typescript-eslint"] :: [T.Text])
-      , "extends" .= ([
-             "eslint:recommended"
-           , "plugin:@typescript-eslint/eslint-recommended"
-           , "plugin:@typescript-eslint/recommended"
-           , "plugin:@typescript-eslint/recommended-requiring-type-checking"
-           ] :: [T.Text])
-      , "rules" .= object [
-            ("@typescript-eslint/explicit-function-return-type", "off")
-          , ("@typescript-eslint/no-inferrable-types", "off") ]
+      , "extends" .= (
+          [ "eslint:recommended"
+          , "plugin:@typescript-eslint/eslint-recommended"
+          , "plugin:@typescript-eslint/recommended"
+          , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+          ] :: [T.Text])
+      , "rules" .= object
+          [ ("@typescript-eslint/explicit-function-return-type", "off")
+          , ("@typescript-eslint/no-inferrable-types", "off")
+          ]
       ]
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
