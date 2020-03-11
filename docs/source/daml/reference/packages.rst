@@ -12,7 +12,7 @@ This page gives reference information on DAML package dependencies:
 DAML archives
 *************
 
-When a DAML project is compiled, the compiler produces a `DAML archive`. These are platform-independent packages of compiled DAML code, that can be uploaded to a DAML ledger or imported in other DAML projects.
+When a DAML project is compiled, the compiler produces a `DAML archive`. These are platform-independent packages of compiled DAML code that can be uploaded to a DAML ledger or imported in other DAML projects.
 
 DAML archives have a ``.dar`` file ending. By default, when you run ``daml build``, it will generate the ``.dar`` file in the ``.daml/dist`` folder in the project root folder. For example, running ``daml build`` in project ``foo`` with project version ``0.0.1`` will result in a DAML archive ``.daml/dist/foo-0.0.1.dar``.
 
@@ -62,7 +62,7 @@ Sometimes you will have multiple packages with the same exported module name. In
 
   import "foo" Foo
 
-By default, all modules of ``foo`` are made available when importing ``foo`` as a dependency. To control which modules of ``foo`` get exported, you may add an ``exposed-modules`` field in the ``daml.yaml`` file for ``foo``:
+By default, all modules of ``foo`` are made available when importing ``foo`` as a dependency. To limit which modules of ``foo`` get exported, you may add an ``exposed-modules`` field in the ``daml.yaml`` file for ``foo``:
 
   exposed-modules:
   - Foo
@@ -86,7 +86,7 @@ You can also import a ``.dalf`` file via data-dependencies.
 
 When importing packages this way, the DAML compiler will attempt to reconstruct the DAML interface from the compiled DAML-LF binaries included in the DAML archive.
 
-Compared to dependencies, there are certain disadvantages to this method.
+To allow `data-dependencies` to work across SDK versions, they have to abstract over some details which are not compatible across SDK versions. This means that there are some DAML features that cannot be recovered when using `data-dependencies`.
 
 The first disadvantage is that the reconstruction process used for data-dependencies is slower than the direct import process used for dependencies, so it will negatively affect the speed of compilation.
 
