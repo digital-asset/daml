@@ -8,6 +8,8 @@ import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
+import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.crypto
@@ -16,19 +18,19 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
-import org.scalatest.mockito.MockitoSugar
+import org.mockito.Mockito.{times, verify, when}
+import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{Assertion, WordSpec}
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.{ExecutionContext, Future}
 
-class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
+class KeyValueParticipantStateWriterSpec extends WordSpec {
   implicit val executionContext: ExecutionContext = ExecutionContext.global
 
   "participant state writer" should {
     "submit a transaction" in {
-      val transactionCaptor = ArgumentCaptor.forClass(classOf[Array[Byte]])
+      val transactionCaptor = captor[Array[Byte]]
       val writer = createWriter(Some(transactionCaptor))
       val instance = new KeyValueParticipantStateWriter(writer)
       val recordTime = newRecordTime()
@@ -42,7 +44,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
     }
 
     "upload a package" in {
-      val packageUploadCaptor = ArgumentCaptor.forClass(classOf[Array[Byte]])
+      val packageUploadCaptor = captor[Array[Byte]]
       val writer = createWriter(Some(packageUploadCaptor))
       val instance = new KeyValueParticipantStateWriter(writer)
 
@@ -52,7 +54,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
     }
 
     "submit a configuration" in {
-      val configurationCaptor = ArgumentCaptor.forClass(classOf[Array[Byte]])
+      val configurationCaptor = captor[Array[Byte]]
       val writer = createWriter(Some(configurationCaptor))
       val instance = new KeyValueParticipantStateWriter(writer)
 
@@ -62,7 +64,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
     }
 
     "allocate a party without hint" in {
-      val partyAllocationCaptor = ArgumentCaptor.forClass(classOf[Array[Byte]])
+      val partyAllocationCaptor = captor[Array[Byte]]
       val writer = createWriter(Some(partyAllocationCaptor))
       val instance = new KeyValueParticipantStateWriter(writer)
 
@@ -73,11 +75,15 @@ class KeyValueParticipantStateWriterSpec extends WordSpec with MockitoSugar {
   }
 
   private def verifyEnvelope(written: Array[Byte])(
-      assertion: DamlSubmission => Boolean): Assertion =
+      assertion: DamlSubmission => Boolean
+  ): Assertion =
     Envelope.openSubmission(written) match {
       case Right(value) => assert(assertion(value) === true)
       case _ => fail()
     }
+}
+
+object KeyValueParticipantStateWriterSpec {
 
   private val aParty = Ref.Party.assertFromString("aParty")
 
