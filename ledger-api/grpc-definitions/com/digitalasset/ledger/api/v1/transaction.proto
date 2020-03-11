@@ -73,6 +73,8 @@ message TreeEvent {
     oneof kind {
         CreatedEvent created = 1;
         ExercisedEvent exercised = 2;
+        EnteredViewEvent enteredView = 3;
+        LeftViewEvent leftView = 4;
     }
 }
 
@@ -100,7 +102,6 @@ message Transaction {
   google.protobuf.Timestamp effective_at = 4;
 
   // The collection of events.
-  // Only contains ``CreatedEvent`` or ``ArchivedEvent``.
   // Required
   repeated Event events = 5;
 

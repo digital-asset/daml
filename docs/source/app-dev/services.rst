@@ -1,6 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _ledger-api-services:
+   
 The Ledger API services
 #######################
 
@@ -38,6 +40,8 @@ Glossary
 - A ``submission`` is a proposed transaction, consisting of a list of ``commands``, which correspond to the top-level ``actions`` in that transaction.
 - A ``completion`` indicates the success or failure of a ``submission``.
 
+.. _ledger-api-submission-services:
+  
 Submitting commands to the ledger
 *********************************
 
@@ -135,6 +139,8 @@ Verbosity
 
 See :ref:`verbosity` above.
 
+.. _ledger-api-utility-services:
+
 Utility services
 ****************
 
@@ -171,12 +177,14 @@ This configuration includes maximum and minimum values for the difference in Led
 
 For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.LedgerConfigurationService>`.
 
-.. _time-service:
+.. _ledger-api-testing-services:
 
 Testing services
 ****************
 
 **These are only for use for testing with the Sandbox, not for on production ledgers.**
+
+.. _time-service:
 
 Time service
 ============

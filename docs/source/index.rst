@@ -70,6 +70,7 @@ DAML SDK documentation
    concepts/glossary
    concepts/ledger-model/index
    concepts/identity-and-package-management
+   concepts/architectural-model
 
 .. toctree::
    :titlesonly:

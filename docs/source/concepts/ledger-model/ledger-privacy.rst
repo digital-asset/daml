@@ -243,6 +243,7 @@ the painter:
 .. image:: ./images/divulgence-for-disclosure-counteroffer.svg
    :align: center
    :width: 100%
+   :name: da-paint-counteroffer-example
 
 In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
 This now requires an additional contract type, compared to the original paint offer example.
