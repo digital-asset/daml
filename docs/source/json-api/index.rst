@@ -1,6 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _json-api:
+
 HTTP JSON API Service
 #####################
 
@@ -15,7 +17,7 @@ or `on Slack <https://hub.daml.com/slack/>`_.
 Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
 
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
+API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
@@ -30,7 +32,7 @@ complicating concerns, including but not limited to:
 - temporal queries (e.g. active contracts *as of a certain time*), and
 - ledger metaprogramming (e.g. retrieving packages and templates).
 
-For these and other features, use :doc:`the Ledger API </app-dev/index>`
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
 .. toctree::

@@ -90,7 +90,7 @@ object Cli {
       opt[String](name = "scenario")
         .action((x, c) => c.copy(scenario = Some(x)))
         .text(
-          "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it. " +
+          "If set, the sandbox will execute the given scenario on startup and store all the contracts created by it.  (deprecated)" +
             "Note that when using --postgres-backend the scenario will be ran only if starting from a fresh database, _not_ when resuming from an existing one. " +
             "Two identifier formats are supported: Module.Name:Entity.Name (preferred) and Module.Name.Entity.Name (deprecated, will print a warning when used)." +
             "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
@@ -183,7 +183,7 @@ object Cli {
                 .fromCrtFile(path)
                 .valueOr(err => sys.error(s"Failed to create RSA256 verifier: $err"))))))
 
-      opt[String]("auth-jwt-ec256-crt")
+      opt[String]("auth-jwt-es256-crt")
         .optional()
         .validate(v =>
           Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))
@@ -195,7 +195,7 @@ object Cli {
                 .fromCrtFile(path, Algorithm.ECDSA256(_, null))
                 .valueOr(err => sys.error(s"Failed to create ECDSA256 verifier: $err"))))))
 
-      opt[String]("auth-jwt-ec512-crt")
+      opt[String]("auth-jwt-es512-crt")
         .optional()
         .validate(v =>
           Either.cond(v.length > 0, (), "Certificate file path must be a non-empty string"))

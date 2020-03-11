@@ -68,6 +68,14 @@ if [[ -z "$port_file" ]]; then
   exit 2
 fi
 
+# Change HOME since Canton uses ammonite in the default configuration
+# which tries to write to ~/.ammonite/cache which is read-only
+# when sandboxing is enabled.
+export HOME=$(mktemp -d)
+# ammonite calls System.getProperty('user.home') which does not
+# read $HOME.
+command+=("--wrapper_script_flag=--jvm_flag=-Duser.home=$HOME")
+
 # Redirect the Canton logs to a file for now, because they're really, really noisy.
 echo >&2 'Starting Canton...'
 "${command[@]}" &
@@ -84,6 +92,7 @@ function stop() {
   status=$?
   kill -INT "$pid" || :
   rm -f "$port_file" || :
+  rm -rf "$HOME" || :
   exit "$status"
 }
 

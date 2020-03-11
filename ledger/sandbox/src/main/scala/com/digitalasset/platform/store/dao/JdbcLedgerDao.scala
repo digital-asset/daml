@@ -113,7 +113,6 @@ private class JdbcLedgerDao(
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
-    valueSerializer: ValueSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
@@ -365,7 +364,8 @@ private class JdbcLedgerDao(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
       externalOffset: Option[ExternalOffset],
-      partyEntry: PartyLedgerEntry): Future[PersistenceResponse] = {
+      partyEntry: PartyLedgerEntry,
+  ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_party_entry") { implicit conn =>
       updateLedgerEnd(newLedgerEnd, externalOffset)
 
@@ -384,17 +384,21 @@ private class JdbcLedgerDao(
                 "participant_id" -> participantId,
                 "party" -> partyDetails.party,
                 "display_name" -> partyDetails.displayName,
-                "is_local" -> partyDetails.isLocal
+                "is_local" -> partyDetails.isLocal,
               )
               .execute()
-
-            storeParty(partyDetails.party, partyDetails.displayName, offset)
-
+            SQL_INSERT_PARTY
+              .on(
+                "party" -> partyDetails.party,
+                "display_name" -> partyDetails.displayName,
+                "ledger_offset" -> offset,
+              )
+              .execute()
             PersistenceResponse.Ok
           }).recover {
             case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
-                s"Ignoring duplicate party submission for submissionId $submissionIdOpt, participantId $participantId")
+                s"Ignoring duplicate party submission with ID ${partyDetails.party} for submissionId $submissionIdOpt, participantId $participantId")
               conn.rollback()
               PersistenceResponse.Duplicate
           }.get
@@ -622,10 +626,8 @@ private class JdbcLedgerDao(
               "key" -> c.key
                 .map(
                   k =>
-                    valueSerializer
-                      .serializeValue(k.key)
-                      .getOrElse(
-                        sys.error(s"failed to serialize contract key value! cid:${c.id.coid}")))
+                    ValueSerializer
+                      .serializeValue(k.key, s"Failed to serialize key for contract ${c.id.coid}"))
           )
         )
 
@@ -1319,9 +1321,8 @@ private class JdbcLedgerDao(
           divulgences,
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
-            val keyValue = valueSerializer
-              .deserializeValue(keyStream)
-              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
+            val keyValue = ValueSerializer
+              .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
               .ensureNoCid
               .fold(
                 coid => sys.error(s"Found contract ID $coid in a contract key"),
@@ -1452,7 +1453,11 @@ private class JdbcLedgerDao(
     Future.successful(LedgerSnapshot(endExclusive, contractStream))
   }
 
-  private val SQL_SELECT_PARTIES =
+  private val SQL_SELECT_MULTIPLE_PARTIES =
+    SQL(
+      "select party, display_name, ledger_offset, explicit from parties where party in ({parties})")
+
+  private val SQL_SELECT_ALL_PARTIES =
     SQL("select party, display_name, ledger_offset, explicit from parties")
 
   private val PartyDataParser: RowParser[ParsedPartyData] =
@@ -1463,43 +1468,32 @@ private class JdbcLedgerDao(
       "explicit"
     )
 
-  override def getParties: Future[List[PartyDetails]] =
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     dbDispatcher
       .executeSql("load_parties") { implicit conn =>
-        SQL_SELECT_PARTIES
+        SQL_SELECT_MULTIPLE_PARTIES
+          .on("parties" -> parties)
           .as(PartyDataParser.*)
       }
-      .map(
-        _.map(
-          d =>
-            // TODO: isLocal should be based on equality of participantId reported in an
-            // update and the id given to participant in a command-line argument
-            // (See issue #2026)
-            PartyDetails(Party.assertFromString(d.party), d.displayName, isLocal = true)))(
-        executionContext)
+      .map(_.map(constructPartyDetails))(executionContext)
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    dbDispatcher
+      .executeSql("load_all_parties") { implicit conn =>
+        SQL_SELECT_ALL_PARTIES
+          .as(PartyDataParser.*)
+      }
+      .map(_.map(constructPartyDetails))(executionContext)
+
+  private def constructPartyDetails(data: ParsedPartyData): PartyDetails =
+    // TODO: isLocal should be based on equality of participantId reported in an
+    //       update and the id given to participant in a command-line argument
+    //       (See issue #2026)
+    PartyDetails(Party.assertFromString(data.party), data.displayName, isLocal = true)
 
   private val SQL_INSERT_PARTY =
     SQL("""insert into parties(party, display_name, ledger_offset, explicit)
-          |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
-
-  private def storeParty(party: Party, displayName: Option[String], offset: LedgerOffset)(
-      implicit conn: Connection): PersistenceResponse = {
-    Try {
-      SQL_INSERT_PARTY
-        .on(
-          "party" -> (party: String),
-          "display_name" -> displayName,
-          "ledger_offset" -> offset
-        )
-        .execute()
-      PersistenceResponse.Ok
-    }.recover {
-      case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
-        logger.warn(s"Party with ID $party already exists")
-        conn.rollback()
-        PersistenceResponse.Duplicate
-    }.get
-  }
+        |values ({party}, {display_name}, {ledger_offset}, 'true')""".stripMargin)
 
   private val SQL_SELECT_PACKAGES =
     SQL("""select package_id, source_description, known_since, size
@@ -1749,7 +1743,6 @@ object JdbcLedgerDao {
       dbDispatcher,
       ContractSerializer,
       TransactionSerializer,
-      ValueSerializer,
       KeyHasher,
       dbType,
       executionContext,

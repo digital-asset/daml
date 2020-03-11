@@ -71,7 +71,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
               .toScala
             _ <- index.use { ledgerDao =>
               eventually { (_, _) =>
-                ledgerDao.getParties
+                ledgerDao
+                  .listKnownParties()
                   .map(parties => parties.map(_.displayName))
                   .map(_ shouldBe Seq(Some("Alice")))
               }
@@ -118,7 +119,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
                 .toScala
               _ <- index.use { ledgerDao =>
                 eventually { (_, _) =>
-                  ledgerDao.getParties
+                  ledgerDao
+                    .listKnownParties()
                     .map(parties => parties.map(_.displayName))
                     .map(_ shouldBe Seq(Some("Alice"), Some("Bob"), Some("Carol")))
                 }

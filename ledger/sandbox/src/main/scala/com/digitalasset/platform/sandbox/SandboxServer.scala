@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.nio.file.Files
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -211,7 +211,11 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = ParticipantState.Configuration(0, config.timeModel)
+    val defaultConfiguration = ParticipantState.Configuration(
+      generation = 0,
+      timeModel = config.timeModel,
+      maxDeduplicationTime = Duration.ofDays(1),
+    )
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
@@ -291,6 +295,7 @@ final class SandboxServer(
                 timeProvider = timeProvider,
                 defaultLedgerConfiguration = defaultConfiguration,
                 commandConfig = config.commandConfig,
+                partyConfig = config.partyConfig,
                 submissionConfig = config.submissionConfig,
                 optTimeServiceBackend = observingTimeServiceBackend,
                 metrics = metrics,
@@ -323,6 +328,11 @@ final class SandboxServer(
           authService.getClass.getSimpleName,
           config.seeding.fold("no")(_.toString.toLowerCase),
         )
+        if (config.scenario.nonEmpty) {
+          logger.withoutContext.warn(
+            """Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
+              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+        }
         apiServer
       }
     }

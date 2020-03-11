@@ -59,14 +59,19 @@ object Version {
     * Handling of older versions is handled by [[Envelope.open]] which performs the migration to latest version.
     *
     * Version history:
-    *   0: Initial version
+    *   0: * Initial version
     *
-    *   1: Use hashing to serialize contract keys. Backwards incompatible to avoid having to do two lookups
-    *      of a single contract key.
+    *   1: * Use hashing to serialize contract keys. Backwards incompatible to avoid having to do two lookups
+    *        of a single contract key.
     *
-    *   2: Deprecate use of relative contract identifiers. The transaction is submitted with absolute contract
-    *      identifiers. Backwards incompatible to remove unnecessary traversal of the transaction when consuming
-    *      it and to make it possible to remove DamlLogEntryId.
+    *   2: * Deprecate use of relative contract identifiers. The transaction is submitted with absolute contract
+    *        identifiers. Backwards incompatible to remove unnecessary traversal of the transaction when consuming
+    *        it and to make it possible to remove DamlLogEntryId.
+    *
+    *   3: * Add an explicit deduplication time window to each submission. Backwards incompatible because
+    *        it is unclear how to set a sensible default value while the submission time us unknown.
+    *      * Add submissionTime in DamlTransactionEntry and used this time instead ledgerTime to derive
+    *        contract ids.
     */
-  val version: Long = 2
+  val version: Long = 3
 }

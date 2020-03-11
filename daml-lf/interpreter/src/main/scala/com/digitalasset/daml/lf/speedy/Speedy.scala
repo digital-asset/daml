@@ -276,13 +276,13 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)] = None,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
         checkSubmitterInMaintainers,
         compiledPackages,
-        seedWithTime,
+        transactionSeedAndSubmissionTime,
       )
 
     // Used from repl.

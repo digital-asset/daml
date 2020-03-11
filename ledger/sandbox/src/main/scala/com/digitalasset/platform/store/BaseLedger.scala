@@ -36,10 +36,10 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import scalaz.syntax.tag.ToTagOps
 
 class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
@@ -100,12 +100,16 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId
+  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
       .lookupTransaction(TransactionId.unwrap(transactionId))
 
-  override def parties: Future[List[domain.PartyDetails]] =
-    ledgerDao.getParties
+  override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
+    ledgerDao.getParties(parties)
+
+  override def listKnownParties(): Future[List[domain.PartyDetails]] =
+    ledgerDao.listKnownParties()
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
     dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))
