@@ -327,6 +327,8 @@ class WebSocketService(
     }
   }
 
+  // TODO(Leo): #4955 make sure the heartbeat contains the last seen offset,
+  // including the offset from the last empty/filtered out block of events
   private def renderEventsAndEmitHeartbeats: Flow[EventsAndOffset, JsValue, NotUsed] =
     Flow[EventsAndOffset]
       .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
@@ -375,13 +377,6 @@ class WebSocketService(
     TextMessage(
       JsObject("error" -> JsString(errorMsg)).compactPrint
     )
-
-  private def prepareFilters(
-      ids: Iterable[domain.TemplateId.RequiredPkg],
-      queryExpr: Map[String, JsValue]): CompiledQueries =
-    ids.iterator.map { tid =>
-      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
-    }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
