@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
+import java.time.Instant
+
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
 /** Information provided by the submitter of changes submitted to the ledger.
@@ -25,10 +27,19 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
   *   by DAML applications to deduce from the record time reported by the
   *   ledger whether a change that they submitted has been lost in transit.
   *
+  * @param deduplicateUntil: the time until which the command should be deduplicated.
+  *   Command deduplication is already performed by the participant.
+  *   The ledger may choose to perform additional (cross-participant)
+  *   command deduplication. If it chooses to do so, it must follow the
+  *   same rules as the participant:
+  *   - Deduplication is based on the (submitter, commandId) tuple.
+  *   - Commands must not be deduplicated after the `deduplicateUntil` time has passed.
+  *   - Commands should not be deduplicated after the command was rejected.
   */
 final case class SubmitterInfo(
     submitter: Party,
     applicationId: ApplicationId,
     commandId: CommandId,
-    maxRecordTime: Timestamp //TODO: this should be a regular Instant
+    maxRecordTime: Timestamp, //TODO: this should be a regular Instant
+    deduplicateUntil: Instant,
 )
