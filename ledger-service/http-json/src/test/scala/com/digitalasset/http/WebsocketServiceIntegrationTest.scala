@@ -441,6 +441,17 @@ class WebsocketServiceIntegrationTest
 object WebsocketServiceIntegrationTest {
   import spray.json._
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def foldWhile[S, A, T](zero: S)(f: (S, A) => (S \/ T)): Sink[A, Future[Option[T]]] =
+    Flow[A]
+      .scan(-\/(zero): S \/ T)((st, a) =>
+        st match {
+          case -\/(s) => f(s, a)
+          case \/-(_) => st
+      })
+      .collect { case \/-(t) => t }
+      .toMat(Sink.headOption)(Keep.right)
+
   private case class SimpleScenario(
       id: String,
       path: Uri.Path,
