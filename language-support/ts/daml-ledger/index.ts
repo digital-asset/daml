@@ -79,11 +79,6 @@ function isRecordWith<Field extends string>(field: Field, x: unknown): x is Reco
   return typeof x === 'object' && x !== null && field in x;
 }
 
-function isHeartbeat<T extends object, K, I extends string>(events: readonly Event<T, K, I>[],
-                                                            json: unknown): boolean {
-  return events.length == 0 && isRecordWith('offset', json);
-}
-
 /**
  * Type for queries against the `/v1/query` and `/v1/stream/query` endpoints
  * of the JSON API.
@@ -370,22 +365,21 @@ class Ledger {
     ws.onmessage = event => {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
-        console.log(`---0 json: ${JSON.stringify(json)}`);
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
-        if (isHeartbeat(events, json)) {
-          console.log("---0 heartbeat");
-          // NOTE(MH): If we receive the marker indicating that we are switching
-          // from the ACS to the live stream and we haven't received any events
-          // yet, we signal this by pretending we received an empty list of
-          // events. This never does any harm.
+        if (events.length == 0 && isRecordWith('offset', json)) {
           if (!haveSeenEvents) {
-            console.log("---0 heartbeat haveSeenEvents");
+            // NOTE(MH): If we receive the marker indicating that we are switching
+            // from the ACS to the live stream and we haven't received any events
+            // yet, we signal this by pretending we received an empty list of
+            // events. This never does any harm.
             haveSeenEvents = true;
             emitter.emit('change', state, []);
           }
         } else {
           state = change(state, events);
-          haveSeenEvents = true;
+          if (isRecordWith('offset', json)) {
+            haveSeenEvents = true;
+          }
           emitter.emit('change', state, events);
         }
       } else if (isRecordWith('warnings', json)) {
@@ -429,7 +423,6 @@ class Ledger {
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     const request = {templateIds: [template.templateId], query};
     const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]) => {
-      console.log(`---1 events: ${JSON.stringify(events)}`);
       const archiveEvents: Set<ContractId<T>> = new Set();
       const createEvents: CreateEvent<T, K, I>[] = [];
       for (const event of events) {
@@ -439,11 +432,9 @@ class Ledger {
           archiveEvents.add(event.archived.contractId);
         }
       }
-      const result = contracts
+      return contracts
         .concat(createEvents)
         .filter(contract => !archiveEvents.has(contract.contractId));
-      console.log(`---1 contracts: ${JSON.stringify(result)}`);
-      return result
     };
     return this.streamSubmit(template, 'v1/stream/query', request, [], change);
   }
