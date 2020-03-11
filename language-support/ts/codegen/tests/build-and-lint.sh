@@ -51,5 +51,9 @@ $DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
 $YARN install --frozen-lockfile
 $YARN workspaces run build
 $YARN workspaces run lint
-cd build-and-lint
+
+# Invoke 'yarn test' in the 'build-and-lint-test' package
+# directory. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+cd build-and-lint-test
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test
