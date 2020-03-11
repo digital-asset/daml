@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService}
 import scala.util.Try
 
 trait AbstractSandboxFixture extends BeforeAndAfterAll {
@@ -44,11 +44,10 @@ trait AbstractSandboxFixture extends BeforeAndAfterAll {
 
   private[this] val actorSystemName = this.getClass.getSimpleName
 
-  protected lazy val sandboxExecutionContext: ExecutionContext =
+  protected lazy val sandboxExecutionContext: ExecutionContextExecutorService =
     ExecutionContext.fromExecutorService(
       Executors.newCachedThreadPool(
         new ThreadFactoryBuilder()
-          .setDaemon(true)
           .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
           .setUncaughtExceptionHandler((thread, _) =>
             logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
@@ -65,7 +64,9 @@ trait AbstractSandboxFixture extends BeforeAndAfterAll {
   override protected def afterAll(): Unit = {
     executionSequencerFactory.close()
     materializer.shutdown()
-    Await.result(system.terminate(), 30.seconds)
+    Await.result(system.terminate(), 10.seconds)
+    sandboxExecutionContext.shutdown()
+    sandboxExecutionContext.awaitTermination(10, SECONDS)
     super.afterAll()
   }
 
