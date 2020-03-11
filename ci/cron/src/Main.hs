@@ -23,10 +23,8 @@ import qualified Data.Text as Text
 import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
-import qualified Network.HTTP.Types.Header as Header
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
-import qualified System.Environment as Env
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as Temp
 import qualified System.Process as System
@@ -88,24 +86,6 @@ http_get url = do
       (200, Just body) -> return (body, response & HTTP.responseHeaders & map (\(n, v) -> (n & CI.foldedCase & BS.toString, BS.toString v)) & H.fromList)
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
-
-http_post :: String -> Header.RequestHeaders -> LBS.ByteString -> IO LBS.ByteString
-http_post url headers body = do
-    manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-language@digitalasset.com)") : headers,
-                             HTTP.method = "POST",
-                             HTTP.requestBody = HTTP.RequestBodyBS $ BS.fromString $ LBS.toString body }
-    -- DEBUG
-    putStrLn $ "About to POST to " <> url <> "\n" <> show body
-    response <- HTTP.httpLbs request manager
-    let status = Status.statusCode $ HTTP.responseStatus response
-    -- DEBUG
-    putStrLn $ "Received " <> show status <> " with:\n" <> show (HTTP.responseBody response)
-    case status `quot` 100 of
-      2 -> return $ HTTP.responseBody response
-      _ -> Exit.die $ "POST " <> url <> " failed with " <> show status <> "."
 
 newtype Version = Version (Int, Int, Int)
   deriving (Eq, Ord)
@@ -308,42 +288,6 @@ instance JSON.ToJSON SubmitBlog where
                      "blog_author_id" JSON..= (11513309969 :: Integer),
                      "meta_description" JSON..= summary]
 
-tell_hubspot :: GitHubVersion -> IO ()
-tell_hubspot latest = do
-    putStrLn $ "Publishing "<> name latest <> " to Hubspot..."
-    desc <- http_post "https://api.github.com/markdown"
-                      [("Content-Type", "application/json")]
-                      (JSON.encode $ JSON.object [("text", JSON.String $ Text.pack $ notes latest),
-                                                  ("mode", "gfm"),
-                                                  ("context", "digital-asset/daml")])
-    -- DEBUG
-    putStrLn $ "About to read date " <> (show $ published_at latest) <> " to epoch ms"
-    date <- (read <$> (<> "000")) . init <$> (shell $ "date -d " <> published_at latest <> " +%s")
-    -- DEBUG
-    putStrLn $ "date read as " <> show date
-    let summary = "Release notes for version " <> name latest <> "."
-    -- DEBUG
-    putStrLn "Fetching hs token from env"
-    token <- Env.getEnv "HUBSPOT_TOKEN"
-    submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
-                             [("Content-Type", "application/json")]
-                             $ JSON.encode $ SubmitBlog { body = LBS.toString desc,
-                                                          date,
-                                                          summary,
-                                                          version = name latest }
-    case JSON.decode submit_blog of
-      Nothing -> do
-          -- DEBUG
-          putStrLn "About to die because blog id could not be parsed"
-          Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
-      Just BlogId { blog_id } -> do
-          -- DEBUG
-          putStrLn $ "Parsed blog ID as " <> show blog_id
-          _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id </> "publish-action?hapikey=" <> token)
-                         [("Content-Type", "application/json")]
-                         (JSON.encode $ JSON.object [("action", "schedule-publish")])
-          return ()
-
 data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
 instance JSON.FromJSON GitHubVersion where
     parseJSON = JSON.withObject "GitHubVersion" $ \v -> GitHubVersion
@@ -405,9 +349,3 @@ main = do
                 Exit.exitSuccess
             else do
                 push_to_s3 docs_folder
-                if to_v (name gh_latest) > prev_latest
-                then do
-                    putStrLn "New version detected, telling HubSpot"
-                    tell_hubspot gh_latest
-                else
-                    putStrLn "Not a new release, not telling HubSpot."
