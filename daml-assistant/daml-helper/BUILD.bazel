@@ -62,3 +62,31 @@ package_app(
     binary = ":daml-helper",
     visibility = ["//visibility:public"],
 )
+
+da_haskell_test(
+    name = "ledger-tls",
+    srcs = glob(["test/**/*.hs"]),
+    data = [
+        "daml-helper",
+        "test-certificates/ca.crt",
+        "test-certificates/client.crt",
+        "test-certificates/client.pem",
+        "test-certificates/server.crt",
+        "test-certificates/server.pem",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.Tls.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)

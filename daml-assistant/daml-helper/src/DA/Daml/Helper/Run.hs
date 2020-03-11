@@ -10,6 +10,8 @@ module DA.Daml.Helper.Run
     , runStart
 
     , LedgerFlags(..)
+    , ClientSSLConfig(..)
+    , ClientSSLKeyCertPair(..)
     , JsonFlag(..)
     , runDeploy
     , runLedgerAllocateParties
@@ -841,6 +843,7 @@ data LedgerFlags = LedgerFlags
   { hostM :: Maybe String
   , portM :: Maybe Int
   , tokFileM :: Maybe FilePath
+  , sslConfigM :: Maybe ClientSSLConfig
   }
 
 getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
@@ -855,7 +858,7 @@ getTokFromFile tokFileM = do
       return (Just (Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
-getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM} = do
+getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM,sslConfigM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
     tokM <- getTokFromFile tokFileM
