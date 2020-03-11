@@ -31,7 +31,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Array[Byte]]
-      val writer = createWriter(Some(transactionCaptor))
+      val writer = createWriter(transactionCaptor)
       val instance = new KeyValueParticipantStateWriter(writer)
       val recordTime = newRecordTime()
 
@@ -45,7 +45,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
 
     "upload a package" in {
       val packageUploadCaptor = captor[Array[Byte]]
-      val writer = createWriter(Some(packageUploadCaptor))
+      val writer = createWriter(packageUploadCaptor)
       val instance = new KeyValueParticipantStateWriter(writer)
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
@@ -55,7 +55,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
 
     "submit a configuration" in {
       val configurationCaptor = captor[Array[Byte]]
-      val writer = createWriter(Some(configurationCaptor))
+      val writer = createWriter(configurationCaptor)
       val instance = new KeyValueParticipantStateWriter(writer)
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
@@ -65,7 +65,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
 
     "allocate a party without hint" in {
       val partyAllocationCaptor = captor[Array[Byte]]
-      val writer = createWriter(Some(partyAllocationCaptor))
+      val writer = createWriter(partyAllocationCaptor)
       val instance = new KeyValueParticipantStateWriter(writer)
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
@@ -95,9 +95,9 @@ object KeyValueParticipantStateWriterSpec {
 
   private val aConfiguration: Configuration = Configuration(1, TimeModel.reasonableDefault)
 
-  private def createWriter(captor: Option[ArgumentCaptor[Array[Byte]]] = None): LedgerWriter = {
+  private def createWriter(captor: ArgumentCaptor[Array[Byte]]): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(anyString(), captor.map(_.capture()).getOrElse(any[Array[Byte]]())))
+    when(writer.commit(anyString(), captor.capture()))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
     writer
