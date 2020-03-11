@@ -16,7 +16,7 @@ import io.grpc.Status
 import io.grpc.stub.AbstractStub
 import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.control.NonFatal
 
 trait ServiceCallAuthTests
@@ -24,8 +24,6 @@ trait ServiceCallAuthTests
     with SandboxFixtureWithAuth
     with SuiteResourceManagementAroundAll
     with Matchers {
-
-  override implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   def serviceCallName: String
 

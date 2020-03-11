@@ -62,6 +62,8 @@ class ScalaCodeGenIT
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
+  // Needs a non-serial execution context because beforeAll() is blocking
+  // Does not have issues with Bazel, as test are not actually asynchronous due to the use of whenReady()
   override implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   override protected def packageFiles: List[File] = List(
