@@ -5,6 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 
+import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import scopt.Read
 import scopt.Read.{intRead, stringRead}
@@ -13,7 +14,7 @@ object Cli {
 
   private def endpointRead: Read[(String, Int)] = new Read[(String, Int)] {
     val arity = 2
-    val reads = { (s: String) =>
+    val reads: String => (String, Int) = { s: String =>
       splitAddress(s) match {
         case (k, v) => stringRead.reads(k) -> intRead.reads(v)
       }
@@ -147,15 +148,21 @@ object Cli {
       .action((_, c) => c.copy(allTests = true))
       .text("""Run all default and optional tests. Respects the --exclude flag.""")
 
-    opt[Unit]("no-wait-for-parties")
-      .action((_, c) => c.copy(waitForParties = false))
-      .text("""Do not wait for parties to be allocated on all participants.""")
-      .hidden()
-
     opt[Unit]("shuffle-participants")
       .action((_, c) => c.copy(shuffleParticipants = true))
       .text("""Shuffle the list of participants used in a test.
           |By default participants are used in the order they're given.""".stripMargin)
+
+    opt[Unit]("no-wait-for-parties")
+      .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.ClosedWorld))
+      .text("""Do not wait for parties to be allocated on all participants.""")
+      .hidden()
+
+    opt[Unit]("open-world")
+      .action((_, c) => c.copy(partyAllocation = PartyAllocationConfiguration.OpenWorld))
+      .text("""|Do not allocate parties explicitly.
+           |Instead, expect the ledger to allocate parties dynamically.
+           |Party names must be their hints.""".stripMargin)
 
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))

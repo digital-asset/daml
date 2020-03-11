@@ -7,21 +7,22 @@ import java.time.Clock
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawBytes, RawKeyValuePairs}
+import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.{ByteString, Empty}
-import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
-import org.scalatest.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Inside, Matchers}
 
 import scala.concurrent.Future
 import scala.util.Try
 
-class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSugar with Inside {
+class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
   "validate" should {
     "return success in case of no errors during processing of submission" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
@@ -94,8 +95,8 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
       val expectedLogResult: Int = 3
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val logEntryValueCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
-      val logEntryIdCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
+      val logEntryValueCaptor = captor[RawBytes]
+      val logEntryIdCaptor = captor[RawBytes]
       when(
         mockStateOperations.appendToLog(logEntryIdCaptor.capture(), logEntryValueCaptor.capture()))
         .thenReturn(Future.successful(expectedLogResult))
@@ -115,13 +116,11 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
               verify(mockStateOperations, times(0)).writeState(any[RawKeyValuePairs]())
               logEntryValueCaptor.getAllValues should have size 1
               logEntryIdCaptor.getAllValues should have size 1
-              val actualLogEntryIdBytes = ByteString
-                .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
+              val actualLogEntryIdBytes = ByteString.copyFrom(logEntryIdCaptor.getValue)
               val expectedLogEntryIdBytes = ByteString.copyFrom(expectedLogEntryId.toByteArray)
               actualLogEntryIdBytes should be(expectedLogEntryIdBytes)
-              ByteString
-                .copyFrom(logEntryValueCaptor.getValue.asInstanceOf[RawBytes]) should not equal ByteString
-                .copyFrom(logEntryIdCaptor.getValue.asInstanceOf[RawBytes])
+              val actualLogEntryValueBytes = ByteString.copyFrom(logEntryValueCaptor.getValue)
+              actualLogEntryValueBytes should not equal actualLogEntryIdBytes
           }
         }
     }
@@ -131,10 +130,10 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
       val expectedLogResult: Int = 7
       when(mockStateOperations.readState(any[Seq[RawBytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val writtenKeyValuesCaptor = ArgumentCaptor.forClass(classOf[RawKeyValuePairs])
+      val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
       when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
         .thenReturn(Future.successful(()))
-      val logEntryCaptor = ArgumentCaptor.forClass(classOf[RawBytes])
+      val logEntryCaptor = captor[RawBytes]
       when(mockStateOperations.appendToLog(any[RawBytes](), logEntryCaptor.capture()))
         .thenReturn(Future.successful(expectedLogResult))
       val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
@@ -149,7 +148,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
             case Right(actualLogResult) =>
               actualLogResult should be(expectedLogResult)
               writtenKeyValuesCaptor.getAllValues should have size 1
-              val writtenKeyValues = writtenKeyValuesCaptor.getValue.asInstanceOf[RawKeyValuePairs]
+              val writtenKeyValues = writtenKeyValuesCaptor.getValue
               writtenKeyValues should have size 1
               Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
               logEntryCaptor.getAllValues should have size 1
@@ -179,6 +178,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with MockitoSu
         }
     }
   }
+}
+
+object SubmissionValidatorSpec {
 
   private def aLogEntry(): DamlLogEntry =
     DamlLogEntry

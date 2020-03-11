@@ -122,6 +122,7 @@ message DamlSubmitterInfo {
   string command_id = 2;
   string application_id = 3;
   google.protobuf.Timestamp maximum_record_time = 4;
+  google.protobuf.Timestamp deduplicate_until = 5;
 }
 
 // DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -153,6 +154,9 @@ message DamlTransactionEntry {
 
   // The nonce used to generate contract ids
   bytes submission_seed = 5;
+
+  // The time used to derive contract ids
+  google.protobuf.Timestamp submission_time = 6;
 }
 
 // A transaction rejection entry.

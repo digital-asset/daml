@@ -11,11 +11,17 @@ import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import com.daml.ledger.api.testtool.tests.TransactionService.{
   comparableTransactionTrees,
-  comparableTransactions,
+  comparableTransactions
 }
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
+import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.client.binding.Value.encode
+import com.digitalasset.ledger.test_stable.Iou.Iou
+import com.digitalasset.ledger.test_stable.Iou.Iou._
+import com.digitalasset.ledger.test_stable.Iou.IouTransfer._
+import com.digitalasset.ledger.test_stable.IouTrade.IouTrade
+import com.digitalasset.ledger.test_stable.IouTrade.IouTrade._
 import com.digitalasset.ledger.test_stable.Test.Agreement._
 import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
 import com.digitalasset.ledger.test_stable.Test.Choice1._
@@ -28,6 +34,7 @@ import com.digitalasset.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
+import scala.collection.mutable
 import scala.concurrent.Future
 
 class TransactionService(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -137,34 +144,92 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test(
-    "TXDeduplicateCommands",
-    "Commands with identical submitter, command identifier, and application identifier should be accepted and deduplicated",
-    allocate(TwoParties),
+    "TXTreeBlinding",
+    "Trees should be served according to the blinding/projection rules",
+    allocate(TwoParties, SingleParty, SingleParty)
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case Participants(
+        Participant(alpha, alice, gbp_bank),
+        Participant(beta, bob),
+        Participant(delta, dkk_bank)) =>
       for {
-        aliceRequest <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        _ <- ledger.submitAndWait(aliceRequest)
-        _ <- ledger.submitAndWait(aliceRequest)
-        aliceTransactions <- ledger.flatTransactions(alice)
+        gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
+        gbpTransfer <- alpha.exerciseAndGetContract(
+          gbp_bank,
+          gbpIouIssue.exerciseIou_Transfer(_, alice))
+        dkkIouIssue <- delta.create(dkk_bank, Iou(dkk_bank, dkk_bank, "DKK", 110, Nil))
+        dkkTransfer <- delta.exerciseAndGetContract(
+          dkk_bank,
+          dkkIouIssue.exerciseIou_Transfer(_, bob))
 
-        // now let's create another command that uses same applicationId and commandId, but submitted by Bob
-        bobRequestTemplate <- ledger.submitAndWaitRequest(bob, Dummy(bob).create.command)
-        bobRequest = bobRequestTemplate
-          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
-          .update(_.commands.applicationId := aliceRequest.getCommands.applicationId)
-        _ <- ledger.submitAndWait(bobRequest)
-        bobTransactions <- ledger.flatTransactions(bob)
+        aliceIou1 <- eventually {
+          alpha.exerciseAndGetContract[Iou](alice, gbpTransfer.exerciseIouTransfer_Accept(_))
+        }
+        aliceIou <- eventually {
+          alpha.exerciseAndGetContract[Iou](alice, aliceIou1.exerciseIou_AddObserver(_, bob))
+        }
+        bobIou <- eventually {
+          beta.exerciseAndGetContract[Iou](bob, dkkTransfer.exerciseIouTransfer_Accept(_))
+        }
+
+        trade <- eventually {
+          alpha.create(
+            alice,
+            IouTrade(alice, bob, aliceIou, gbp_bank, "GBP", 100, dkk_bank, "DKK", 110))
+        }
+        tree <- eventually { beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou)) }
+
+        aliceTree <- alpha.transactionTreeById(tree.transactionId, alice)
+        bobTree <- beta.transactionTreeById(tree.transactionId, bob)
+        gbpTree <- alpha.transactionTreeById(tree.transactionId, gbp_bank)
+        dkkTree <- delta.transactionTreeById(tree.transactionId, dkk_bank)
+
       } yield {
-        assert(
-          aliceTransactions.length == 1,
-          s"Only one transaction was expected to be seen by $alice but ${aliceTransactions.length} appeared",
-        )
+        def treeIsWellformed(tree: TransactionTree): Unit = {
+          val eventsToObserve = mutable.Map.empty[String, TreeEvent] ++= tree.eventsById
 
-        assert(
-          bobTransactions.length == 1,
-          s"Expected a transaction to be seen by $bob but ${bobTransactions.length} appeared",
-        )
+          def go(eventId: String): Unit = {
+            eventsToObserve.remove(eventId) match {
+              case Some(TreeEvent(Exercised(exercisedEvent))) =>
+                exercisedEvent.childEventIds.foreach(go)
+              case Some(TreeEvent(_)) =>
+                ()
+              case None =>
+                throw new AssertionError(
+                  s"Referenced eventId $eventId is not available as node in the transaction.")
+            }
+          }
+          tree.rootEventIds.foreach(go)
+          assert(
+            eventsToObserve.isEmpty,
+            s"After traversing the transaction, there are still unvisited nodes: $eventsToObserve")
+        }
+
+        treeIsWellformed(aliceTree)
+        treeIsWellformed(bobTree)
+        treeIsWellformed(gbpTree)
+        treeIsWellformed(dkkTree)
+
+        // both bob and alice see the entire transaction:
+        // 1x Exercise IouTrade.IouTrade_Accept
+        // 2 x Iou transfer with 4 nodes each (see below)
+        //
+        assert(aliceTree.eventsById.size == 9)
+        assert(bobTree.eventsById.size == 9)
+
+        assert(aliceTree.rootEventIds.size == 1)
+        assert(bobTree.rootEventIds.size == 1)
+
+        // banks only see the transfer of their issued Iou:
+        // Exercise Iou.Iou_Transfer -> Create IouTransfer
+        // Exercise IouTransfer.IouTransfer_Accept -> Create Iou
+        assert(gbpTree.eventsById.size == 4)
+        assert(dkkTree.eventsById.size == 4)
+
+        // the exercises are the root nodes
+        assert(gbpTree.rootEventIds.size == 2)
+        assert(dkkTree.rootEventIds.size == 2)
+
       }
   }
 

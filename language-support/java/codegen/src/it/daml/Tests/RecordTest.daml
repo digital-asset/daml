@@ -45,7 +45,7 @@ template Foo
     where
         signatory owner
 
-data ParametrizedContractId a = ParametricContractId
+data ParametrizedContractId a = ParametrizedContractId
     with
         parametrizedContractId: ContractId a
 

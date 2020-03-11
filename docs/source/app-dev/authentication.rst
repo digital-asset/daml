@@ -1,6 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _authentication:
+
 Authentication
 ##############
 
@@ -13,10 +15,9 @@ To run your application against a :doc:`deployed ledger </deploy/index>`, you wi
 Introduction
 ************
 
-The main way for a DAML application to interact with a DAML ledger is through the :doc:`gRPC ledger API </app-dev/grpc/index>`.
-
-This API can be used to request changes to the ledger (e.g., "*Alice wants to exercise choice X on contract Y*),
-or to read data from the ledger (e.g., "*Alice wants to see all active contracts*").
+The :doc:`Ledger API </app-dev/ledger-api>` is used to request changes to the ledger (e.g., "*Alice
+wants to exercise choice X on contract Y*), or to read data from the ledger (e.g., "*Alice wants to
+see all active contracts*").
 
 What requests are valid is defined by :ref:`integrity <da-model-integrity>` and :ref:`privacy <da-model-privacy>` parts the :ref:`DA Ledger Model <da-ledgers>`.
 This model is defined in terms of :ref:`DAML parties <glossary-party>`,

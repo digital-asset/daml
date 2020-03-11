@@ -14,9 +14,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -115,12 +114,14 @@ class ImplicitPartyAdditionIT
       Ref.Party.assertFromString(submitter),
       Ref.LedgerString.assertFromString("appId"),
       Ref.LedgerString.assertFromString(commandId),
-      Time.Timestamp.assertFromInstant(MRT)
+      Time.Timestamp.assertFromInstant(MRT),
+      DeduplicateUntil,
     )
 
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = let,
       workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionTime = let.addMicros(1000),
       submissionSeed = None,
       optUsedPackages = None,
     )
@@ -130,6 +131,7 @@ class ImplicitPartyAdditionIT
 
   val LET = Instant.EPOCH.plusSeconds(10)
   val MRT = Instant.EPOCH.plusSeconds(10)
+  val DeduplicateUntil = Instant.now.plusSeconds(3600)
 
   "A Ledger" should {
     "implicitly add parties mentioned in a transaction" in allFixtures { ledger =>
@@ -191,7 +193,7 @@ class ImplicitPartyAdditionIT
           .ledgerEntries(None, None)
           .take(2)
           .runWith(Sink.seq)
-        parties <- ledger.parties
+        parties <- ledger.listKnownParties()
       } yield {
         createResult shouldBe SubmissionResult.Acknowledged
         exerciseResult shouldBe SubmissionResult.Acknowledged

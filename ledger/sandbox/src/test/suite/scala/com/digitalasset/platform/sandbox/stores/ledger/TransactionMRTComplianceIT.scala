@@ -94,11 +94,13 @@ class TransactionMRTComplianceIT
         submitter = Ref.Party.assertFromString("submitter"),
         applicationId = Ref.LedgerString.assertFromString("appId"),
         commandId = Ref.LedgerString.assertFromString("cmdId"),
-        maxRecordTime = Time.Timestamp.assertFromInstant(MRT)
+        maxRecordTime = Time.Timestamp.assertFromInstant(MRT),
+        deduplicateUntil = Instant.EPOCH
       )
       val transactionMeta = TransactionMeta(
         ledgerEffectiveTime = Time.Timestamp.assertFromInstant(LET),
         workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+        submissionTime = Time.Timestamp.assertFromInstant(ST),
         submissionSeed = seed,
         optUsedPackages = None,
       )

@@ -229,6 +229,7 @@ object KeyValueConsumption {
         workflowId = Some(txEntry.getWorkflowId)
           .filter(_.nonEmpty)
           .map(parseLedgerString("WorkflowId")),
+        submissionTime = parseTimestamp(txEntry.getSubmissionTime),
         submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
         optUsedPackages = None,
       ),

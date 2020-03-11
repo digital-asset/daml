@@ -307,7 +307,7 @@ Application, ledger client, integration
 
 **Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger <#ledger-daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
-There's a lot of information available about application development, starting with the :doc:`/app-dev/index` page.
+There's a lot of information available about application development, starting with the :doc:`/app-dev/app-arch` page.
 
 Ledger API
 ==========

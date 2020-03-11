@@ -4,7 +4,8 @@
 package com.digitalasset.platform.store.dao
 
 import java.io.File
-import java.time.Instant
+import java.time.{Duration, Instant}
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.stream.scaladsl.{Sink, Source}
@@ -38,12 +39,13 @@ import com.digitalasset.ledger.api.domain.{
   Filters,
   InclusiveFilters,
   LedgerId,
+  PartyDetails,
   RejectionReason,
   TransactionFilter
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry}
+import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.Resource
 import com.digitalasset.testing.postgresql.PostgresAroundAll
@@ -265,7 +267,8 @@ class JdbcLedgerDaoSpec
 
     val defaultConfig = Configuration(
       generation = 0,
-      timeModel = TimeModel.reasonableDefault
+      timeModel = TimeModel.reasonableDefault,
+      Duration.ofDays(1),
     )
 
     "be able to persist and load configuration" in {
@@ -404,6 +407,168 @@ class JdbcLedgerDaoSpec
           offset3 -> ConfigurationEntry
             .Accepted(s"refuse-config-$offset3", participantId, lastConfig)
         )
+      }
+    }
+
+    "store and retrieve all parties" in {
+      val alice = PartyDetails(
+        party = Ref.Party.assertFromString(s"Alice-${UUID.randomUUID()}"),
+        displayName = Some("Alice Arkwright"),
+        isLocal = true,
+      )
+      val bob = PartyDetails(
+        party = Ref.Party.assertFromString(s"Bob-${UUID.randomUUID()}"),
+        displayName = Some("Bob Bobertson"),
+        isLocal = true,
+      )
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
+      val offset1 = nextOffset()
+      for {
+        response <- ledgerDao.storePartyEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = alice,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        offset2 = nextOffset()
+        response <- ledgerDao.storePartyEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = bob,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        parties <- ledgerDao.listKnownParties()
+      } yield {
+        parties should contain allOf (alice, bob)
+      }
+    }
+
+    "retrieve a single party, if they exist" in {
+      val party = Ref.Party.assertFromString(s"Carol-${UUID.randomUUID()}")
+      val nonExistentParty = UUID.randomUUID().toString
+      val carol = PartyDetails(
+        party = party,
+        displayName = Some("Carol Carlisle"),
+        isLocal = true,
+      )
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
+      val offset = nextOffset()
+      for {
+        response <- ledgerDao.storePartyEntry(
+          offset,
+          offset + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = carol,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        carolPartyDetails <- ledgerDao.getParties(Seq(party))
+        noPartyDetails <- ledgerDao.getParties(Seq(nonExistentParty))
+      } yield {
+        carolPartyDetails should be(Seq(carol))
+        noPartyDetails should be(Seq.empty)
+      }
+    }
+
+    "retrieve multiple parties" in {
+      val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
+      val eveParty = Ref.Party.assertFromString(s"Eve-${UUID.randomUUID()}")
+      val nonExistentParty = UUID.randomUUID().toString
+      val dan = PartyDetails(
+        party = danParty,
+        displayName = Some("Dangerous Dan"),
+        isLocal = true,
+      )
+      val eve = PartyDetails(
+        party = eveParty,
+        displayName = Some("Dangerous Dan"),
+        isLocal = true,
+      )
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
+      val offset1 = nextOffset()
+      for {
+        response <- ledgerDao.storePartyEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = dan,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        offset2 = nextOffset()
+        response <- ledgerDao.storePartyEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = eve,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        parties <- ledgerDao.getParties(Seq(danParty, eveParty, nonExistentParty))
+      } yield {
+        parties should contain only (dan, eve)
+      }
+    }
+
+    "inform the caller if they try to write a duplicate party" in {
+      val fred = PartyDetails(
+        party = Ref.Party.assertFromString(s"Fred-${UUID.randomUUID()}"),
+        displayName = Some("Fred Flintstone"),
+        isLocal = true,
+      )
+      val participantId = Ref.ParticipantId.assertFromString("participant-0")
+      val offset1 = nextOffset()
+      for {
+        response <- ledgerDao.storePartyEntry(
+          offset1,
+          offset1 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = fred,
+          ),
+        )
+        _ = response should be(PersistenceResponse.Ok)
+        offset2 = nextOffset()
+        response <- ledgerDao.storePartyEntry(
+          offset2,
+          offset2 + 1,
+          None,
+          PartyLedgerEntry.AllocationAccepted(
+            submissionIdOpt = Some(UUID.randomUUID().toString),
+            participantId = participantId,
+            recordTime = Instant.now,
+            partyDetails = fred,
+          ),
+        )
+      } yield {
+        response should be(PersistenceResponse.Duplicate)
       }
     }
 

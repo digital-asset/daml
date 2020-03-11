@@ -151,14 +151,30 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
               (name, mbVersion) -> (name, mbVersion)
         pure (pkgNameVersion name mbVersion, LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) dalf)
 
-    -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks.
+    -- All transitive packages from DARs specified in  `dependencies`. This is only used for unit-id collision checks
+    -- and dependencies on newer LF versions.
     transitiveDependencies <- fmap concat $ forM depsExtracted $ \ExtractedDar{..} -> forM edDalfs $ \zipEntry -> do
        let bytes = BSL.toStrict $ ZipArchive.fromEntry zipEntry
        (pkgId, pkg) <- liftIO $
             either (fail . DA.Pretty.renderPretty) pure $
             Archive.decodeArchive Archive.DecodeAsMain bytes
        let (pkgName, mbPkgVer) = LF.packageMetadataFromFile (ZipArchive.eRelativePath zipEntry) pkg pkgId
-       pure (pkgId, pkgNameVersion pkgName mbPkgVer)
+       pure (pkgId, (pkgNameVersion pkgName mbPkgVer, LF.packageLfVersion pkg))
+
+
+    -- We perform this check before checking for unit id collisions since it provides a more useful error message.
+    let newerLfDeps =
+          filter (\(_, ver) -> ver > optDamlLfVersion opts) $ concat
+            [ [ ((LF.dalfPackageId dalfPkg, unitId), (LF.packageLfVersion . LF.extPackagePkg . LF.dalfPackagePkg) dalfPkg)
+              | (unitId, dalfPkg) <- pkgs <> MS.toList dependencies
+              ]
+            , [ ((pkgId, unitId), version)
+              | (pkgId, (unitId, version)) <- transitiveDependencies
+              ]
+            ]
+    when (not $ null newerLfDeps) $
+        errorIO $ "Targeted LF version " <> DA.Pretty.renderPretty (optDamlLfVersion opts) <> " but dependencies have newer LF versions: " ++
+          intercalate ", " [ T.unpack (LF.unPackageId pkgId) <> " (" <> unitIdString unitId <> "): " <> DA.Pretty.renderPretty ver | ((pkgId, unitId), ver) <- newerLfDeps ]
 
     let unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
             [ [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
@@ -166,13 +182,13 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             , [ (unitId, Set.singleton (LF.dalfPackageId dalfPkg))
               | (unitId, dalfPkg) <- MS.toList dependencies ]
             , [ (unitId, Set.singleton pkgId)
-              | (pkgId, unitId) <- transitiveDependencies
+              | (pkgId, (unitId, _)) <- transitiveDependencies
               ]
             ]
     when (not $ MS.null unitIdConflicts) $ do
         fail $ "Transitive dependencies with same unit id but conflicting package ids: "
             ++ intercalate ", "
-                [ show k <> " [" <> intercalate "," (map show (Set.toList v)) <> "]"
+                [ show k <> " [" <> intercalate "," (map (T.unpack . LF.unPackageId) (Set.toList v)) <> "]"
                 | (k,v) <- MS.toList unitIdConflicts ]
 
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgs dependencies

@@ -40,15 +40,27 @@ DAML SDK documentation
    :hidden:
    :caption: Building applications
 
-   app-dev/index
-   DAML Script <daml-script/index>
+   app-dev/app-arch
+   app-dev/authentication
+   app-dev/ledger-api
+   app-dev/bindings-ts/index
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
    app-dev/grpc/index
    app-dev/bindings-x-lang/index
-   app-dev/app-arch
-   app-dev/authentication
+   DAML Script <daml-script/index>
+   upgrade/index
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Deploying to DAML ledgers
+
+   deploy/index
+   deploy/generic_ledger
+   deploy/ledger-topologies
 
 .. toctree::
    :titlesonly:
@@ -76,15 +88,6 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Deploying
-
-   deploy/index
-   deploy/ledger-topologies
-
-.. toctree::
-   :titlesonly:
-   :maxdepth: 2
-   :hidden:
    :caption: Examples
 
    examples/examples
@@ -98,7 +101,6 @@ DAML SDK documentation
    experimental/warning
    daml-integration-kit/index
    tools/ledger-api-test-tool/index
-   upgrade/index
    json-api/index
    DAML Triggers <triggers/index>
    DAML Repl <daml-repl/index>

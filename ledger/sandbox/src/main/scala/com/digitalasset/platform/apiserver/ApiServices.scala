@@ -33,7 +33,11 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.configuration.{CommandConfiguration, SubmissionConfiguration}
+import com.digitalasset.platform.configuration.{
+  CommandConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -74,6 +78,7 @@ object ApiServices {
       timeProvider: TimeProvider,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
+      partyConfig: PartyConfiguration,
       submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: MetricRegistry,
@@ -82,7 +87,8 @@ object ApiServices {
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): Future[ApiServices] = {
+      logCtx: LoggingContext
+  ): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // still trying to keep it tidy in case we want to split it later
@@ -104,12 +110,14 @@ object ApiServices {
           contractStore,
           writeService,
           submissionService,
+          partyManagementService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           seedService,
           new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
           ApiSubmissionService.Configuration(
-            submissionConfig.maxDeduplicationTime
+            submissionConfig.maxDeduplicationTime,
+            partyConfig.implicitPartyAllocation,
           ),
           metrics,
         )
@@ -137,7 +145,6 @@ object ApiServices {
           commandConfig.maxParallelSubmissions,
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
-          commandConfig.historySize,
           commandConfig.retentionPeriod,
           submissionConfig.maxDeduplicationTime
         ),

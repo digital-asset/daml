@@ -59,6 +59,7 @@ class Runner[T <: ReadWriteService, Extra](
               _ <- new StandaloneApiServer(
                 factory.apiServerConfig(participantConfig, config),
                 factory.commandConfig(config),
+                factory.partyConfig(config),
                 factory.submissionConfig(config),
                 readService = ledger,
                 writeService = ledger,

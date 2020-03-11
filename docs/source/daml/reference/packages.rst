@@ -15,7 +15,7 @@ DAML archives
 When a DAML project is build with ``daml build``, build artifacts are generated in the hidden
 directory ``.daml/dist/`` relative to the project root directory. The main build artifact of a
 project is the `DAML archive`, recognized by the ``.dar`` file ending. DAML archives are platform
-independent. They can be deployed on a ledger (see :ref:`deploy <deploy-ref_index>`) or can be
+independent. They can be deployed on a ledger (see :ref:`deploy <deploy-ref_overview>`) or can be
 imported into other projects as a package dependency.
 
 Importing DAML archives

@@ -98,6 +98,7 @@ jobs:
           eval "$(./dev-env/bin/dade-assist)"
           bazel build //release:release
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+        condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -266,10 +267,12 @@ jobs:
           gitHubConnection: 'garyverhaegen-da'
           repositoryName: '$(Build.Repository.Name)'
           action: 'create'
-          target: '$(Build.SourceVersion)'
-          tagSource: 'auto'
+          target: '$(release_sha)'
+          tagSource: 'manual'
+          tag: 'v$(release_tag)'
           assets: $(Build.StagingDirectory)/release/*
           assetUploadMode: 'replace'
+          title: 'v$(release_tag)'
           addChangeLog: false
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
@@ -295,7 +298,7 @@ jobs:
 
           sudo mkdir -p /nix
           sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
+          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
           eval "$(dev-env/bin/dade-assist)"
           GCS_KEY=$(mktemp)
           cleanup () {

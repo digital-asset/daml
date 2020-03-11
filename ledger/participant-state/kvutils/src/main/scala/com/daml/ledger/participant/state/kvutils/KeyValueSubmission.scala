@@ -65,6 +65,7 @@ object KeyValueSubmission {
           .setWorkflowId(meta.workflowId.getOrElse(""))
           .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(x =>
             ByteString.copyFrom(x.toByteArray)))
+          .setSubmissionTime(buildTimestamp(meta.submissionTime))
       )
       .build
   }
