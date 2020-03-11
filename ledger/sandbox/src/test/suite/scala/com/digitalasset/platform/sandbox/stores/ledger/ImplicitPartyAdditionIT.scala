@@ -121,6 +121,7 @@ class ImplicitPartyAdditionIT
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = let,
       workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionTime = let.addMicros(1000),
       submissionSeed = None,
       optUsedPackages = None,
     )

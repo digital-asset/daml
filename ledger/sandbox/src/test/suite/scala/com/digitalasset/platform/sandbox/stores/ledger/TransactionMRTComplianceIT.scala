@@ -100,6 +100,7 @@ class TransactionMRTComplianceIT
       val transactionMeta = TransactionMeta(
         ledgerEffectiveTime = Time.Timestamp.assertFromInstant(LET),
         workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+        submissionTime = Time.Timestamp.assertFromInstant(ST),
         submissionSeed = seed,
         optUsedPackages = None,
       )
