@@ -375,7 +375,7 @@ object Transaction {
    * @dependsOnTime: indicate the transaction computation depends on ledger
    *        time.
    */
-  final case class MetaData(
+  final case class Metadata(
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean

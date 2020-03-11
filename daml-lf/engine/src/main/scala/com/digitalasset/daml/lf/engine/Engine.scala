@@ -52,7 +52,7 @@ final class Engine(nextRandomInt: () => Int) {
   private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
     _compiledPackages)
 
-  // We want to make the submissionTime different from the ledgerTime,
+  // We want that people do not rely on submissionTime=ledgerTime,
   // then we pick a random time +/- 10 micro seconds around ledger time
   private def deriveSubmissionTime(ledgerTime: Time.Timestamp) =
     ledgerTime.addMicros((nextRandomInt() % 11).toLong)
@@ -88,7 +88,7 @@ final class Engine(nextRandomInt: () => Int) {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: Option[crypto.Hash],
-  ): Result[(Transaction.Transaction, Transaction.MetaData)] = {
+  ): Result[(Transaction.Transaction, Transaction.Metadata)] = {
     val submissionTime = deriveSubmissionTime(cmds.ledgerEffectiveTime)
     _commandTranslation
       .preprocessCommands(cmds)
@@ -120,7 +120,7 @@ final class Engine(nextRandomInt: () => Int) {
                           sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                     (pkgIds + pkgId) union transitiveDeps
                 }
-                tx -> Transaction.MetaData(
+                tx -> Transaction.Metadata(
                   submissionTime = submissionTime,
                   usedPackages = deps,
                   dependsOnTime = dependsOnTime,

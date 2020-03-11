@@ -163,7 +163,7 @@ object KVTest {
       submissionSeed: Option[crypto.Hash],
       additionalContractDataTy: String,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     for {
       s <- get[KVTestState]
       (tx, meta) = s.engine
@@ -197,12 +197,12 @@ object KVTest {
       submitter: Party,
       submissionSeed: Option[crypto.Hash],
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      transaction: (Transaction.AbsTransaction, Transaction.MetaData),
+      transaction: (Transaction.AbsTransaction, Transaction.Metadata),
       submissionSeed: Option[crypto.Hash],
       mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
