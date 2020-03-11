@@ -316,7 +316,7 @@ class WebSocketService(
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
-        .via(renderEventsAndEmitHeartbeats)
+        .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
