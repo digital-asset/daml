@@ -17,4 +17,5 @@ def ts_docs(pkg_name):
           $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md $(SRCS)
           tar czf $@ docs
         """,
+        visibility = ["//visibility:public"],
     ) if not is_windows else None

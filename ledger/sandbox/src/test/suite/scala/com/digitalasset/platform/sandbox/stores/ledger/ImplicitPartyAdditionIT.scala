@@ -114,12 +114,14 @@ class ImplicitPartyAdditionIT
       Ref.Party.assertFromString(submitter),
       Ref.LedgerString.assertFromString("appId"),
       Ref.LedgerString.assertFromString(commandId),
-      Time.Timestamp.assertFromInstant(MRT)
+      Time.Timestamp.assertFromInstant(MRT),
+      DeduplicateUntil,
     )
 
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = let,
       workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionTime = let.addMicros(1000),
       submissionSeed = None,
       optUsedPackages = None,
     )
@@ -129,6 +131,7 @@ class ImplicitPartyAdditionIT
 
   val LET = Instant.EPOCH.plusSeconds(10)
   val MRT = Instant.EPOCH.plusSeconds(10)
+  val DeduplicateUntil = Instant.now.plusSeconds(3600)
 
   "A Ledger" should {
     "implicitly add parties mentioned in a transaction" in allFixtures { ledger =>

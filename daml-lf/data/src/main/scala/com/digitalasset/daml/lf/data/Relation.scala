@@ -35,6 +35,12 @@ object Relation {
 
       mutMap.toMap
     }
+
+    def flatten[A, B](relation: Relation[A, B]): Iterator[(A, B)] =
+      for {
+        kvs <- relation.iterator
+        value <- kvs._2
+      } yield (kvs._1, value)
   }
 
 }

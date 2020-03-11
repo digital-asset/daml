@@ -163,7 +163,7 @@ object KVTest {
       submissionSeed: Option[crypto.Hash],
       additionalContractDataTy: String,
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     for {
       s <- get[KVTestState]
       (tx, meta) = s.engine
@@ -197,24 +197,26 @@ object KVTest {
       submitter: Party,
       submissionSeed: Option[crypto.Hash],
       cmds: Command*,
-  ): KVTest[(Transaction.AbsTransaction, Transaction.MetaData)] =
+  ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     runCommand(submitter, submissionSeed, defaultAdditionalContractDataTy, cmds: _*)
 
   def submitTransaction(
       submitter: Party,
-      transaction: (Transaction.AbsTransaction, Transaction.MetaData),
+      transaction: (Transaction.AbsTransaction, Transaction.Metadata),
       submissionSeed: Option[crypto.Hash],
       mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
-  ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+      deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       submInfo = SubmitterInfo(
         submitter = submitter,
         applicationId = Ref.LedgerString.assertFromString("test"),
         commandId = commandId,
-        maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000)
+        maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
+        deduplicateUntil =
+          testState.recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
       )
       (tx, txMetaData) = transaction
       subm = KeyValueSubmission.transactionToSubmission(
@@ -222,6 +224,7 @@ object KVTest {
         meta = TransactionMeta(
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
           workflowId = None,
+          submissionTime = txMetaData.submissionTime,
           submissionSeed = submissionSeed,
           optUsedPackages = Some(txMetaData.usedPackages)
         ),

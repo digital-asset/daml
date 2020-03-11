@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
@@ -62,10 +61,11 @@ private[kvutils] case class ProcessTransactionSubmission(
   private val submitterInfo = txEntry.getSubmitterInfo
   private val submitter = Party.assertFromString(submitterInfo.getSubmitter)
   private lazy val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
-  private val submissionSeed =
-    Some(txEntry.getSubmissionSeed.toByteArray)
-      .filterNot(_.isEmpty)
-      .map(crypto.Hash.assertFromBytes)
+
+  private val submissionSeedAndTime =
+    Conversions
+      .parseOptHash(txEntry.getSubmissionSeed)
+      .map(_ -> Conversions.parseTimestamp(txEntry.getSubmissionTime))
 
   private def contractIsActiveAndVisibleToSubmitter(contractState: DamlContractState): Boolean = {
     val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
@@ -161,7 +161,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     val ctx = Metrics.interpretTimer.time()
     try {
       engine
-        .validate(relTx, txLet, participantId, submissionSeed)
+        .validate(relTx, txLet, participantId, submissionSeedAndTime)
         .consume(lookupContract, lookupPackage, lookupKey)
         .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), _ => pass)
     } finally {

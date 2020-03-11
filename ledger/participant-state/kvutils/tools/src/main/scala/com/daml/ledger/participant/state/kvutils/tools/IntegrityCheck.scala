@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.tools
 
 import java.io.{DataInputStream, FileInputStream}
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
@@ -50,7 +51,8 @@ object IntegrityCheck extends App {
   val engine = Engine()
   val defaultConfig = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault
+    timeModel = TimeModel.reasonableDefault,
+    maxDeduplicationTime = Duration.ofDays(1),
   )
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 

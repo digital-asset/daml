@@ -43,6 +43,7 @@ DAML SDK documentation
    app-dev/app-arch
    app-dev/authentication
    app-dev/ledger-api
+   app-dev/bindings-ts/index
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js

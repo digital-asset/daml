@@ -30,7 +30,8 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
-import System.FilePath hiding ((<.>))
+import System.FilePath hiding ((<.>), (</>))
+import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
 import qualified System.FilePath as FP
 
 import DA.Daml.Project.Consts
@@ -78,6 +79,7 @@ data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
     , optInputPackageJson :: Maybe FilePath
+    , optScope :: Scope -- Defaults to 'daml.js'.
     }
 
 optionsParser :: Parser Options
@@ -89,12 +91,18 @@ optionsParser = Options
     <*> strOption
         (  short 'o'
         <> metavar "DIR"
-        <> help "Output directory for the generated TypeScript files"
+        <> help "Output directory for the generated packages"
         )
     <*> optional (strOption
         (  short 'p'
         <> metavar "PACKAGE-JSON"
         <> help "Path to an existing 'package.json' to update"
+        ))
+    <*> (Scope . ("@" <>) <$> strOption
+        (  short 's'
+        <> metavar "SCOPE"
+        <> value "daml.js"
+        <> help "The NPM scope name for the generated packages; defaults to daml.js"
         ))
 
 optionsParserInfo :: ParserInfo Options
@@ -169,14 +177,8 @@ main = do
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
 
-newtype Scope = Scope {unScope :: T.Text}
+newtype Scope = Scope T.Text
 newtype Dependency = Dependency {unDependency :: T.Text}  deriving (Eq, Ord)
-
--- Gives the scope 'foo' given a directory path like '/path/to/foo'.
--- The scope 'foo' is the '@foo' part of a package name in an import
--- declaration.
-scopeOfScopeDir :: FilePath -> Scope
-scopeOfScopeDir = Scope . T.pack . takeFileName
 
 data Daml2TsParams = Daml2TsParams
   { opts :: Options  -- cli args
@@ -197,16 +199,18 @@ daml2ts Daml2TsParams {..} = do
           -- The directory into which we write this package e.g. '/path/to/daml2ts/davl-0.0.4'.
         packageSrcDir = packageDir </> "src"
           -- Where the source files of this package are written e.g. '/path/to/daml2ts/davl-0.0.4/src'.
-        scope = scopeOfScopeDir scopeDir
-          -- The scope e.g. 'daml2ts'.
+        scope = optScope
+          -- The scope e.g. '@daml.js'.
           -- We use this, for example, when generating import declarations e.g.
-          --   import * as pkgd14e08_DA_Internal_Template from '@daml2ts/d14e08/lib/DA/Internal/Template';
+          --   import * as pkgd14e08_DA_Internal_Template from '@daml.js/d14e08/lib/DA/Internal/Template';
     createDirectoryIfMissing True packageSrcDir
+    let modules = NM.toList (packageModules pkg)
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
     dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     -- Now write package metadata.
     writePackageIdTs packageSrcDir pkgId
+    writeIndexTs packageSrcDir modules
     writeTsConfig packageDir
     writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
@@ -218,7 +222,7 @@ daml2ts Daml2TsParams {..} = do
         case genModule pkgMap scope pkgId mod of
           Nothing -> pure []
           Just (modTxt, ds) -> do
-            let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) FP.<.> "ts"
+            let outputFile = packageSrcDir </> T.unpack (modPath (unModuleName (moduleName mod))) FP.<.> "ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
             pure ds
@@ -245,7 +249,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     serDefs = defDataTypes mod
     modRefs refs = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
     modHeader =
-      [ "// Generated from " <> T.intercalate "/" (unModuleName modName) <> ".daml"
+      [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
@@ -257,7 +261,7 @@ genModule pkgMap (Scope scope) curPkgId mod
                       (PackageRef, ModuleName) -> T.Text -> T.Text
     importDecl pkgMap modRef@(pkgRef, modName) rootPath =
       "import * as " <>  genModuleRef modRef <> " from '" <>
-      T.intercalate "/" ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
+      modPath ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
       "';"
 
     -- Produce a package name for a package ref.
@@ -269,7 +273,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
-    -- Calculate the base part of a package ref string. For foreign
+    -- Calculate the root part of a package ref string. For foreign
     -- imports that's something like '@daml2ts'. For self refences
     -- something like '../../'.
     pkgRootPath :: ModuleName -> PackageRef -> T.Text
@@ -278,8 +282,8 @@ genModule pkgMap (Scope scope) curPkgId mod
         PRSelf ->
           if lenModName == 1
             then "."
-            else T.intercalate "/" (replicate (lenModName - 1) "..")
-        PRImport _ -> "@" <> scope
+            else modPath $ replicate (lenModName - 1) (T.pack "..")
+        PRImport _ -> scope
       where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
@@ -543,10 +547,20 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
 
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of
-    PRSelf -> modNameStr
-    PRImport pkgId -> "pkg" <> unPackageId pkgId <> "_" <> modNameStr
+    PRSelf -> modVar "" name
+    PRImport pkgId -> modVar ("pkg" <> unPackageId pkgId <> "_") name
   where
-    modNameStr = T.intercalate "_" (unModuleName modName)
+    name = unModuleName modName
+
+-- Calculate a variable name from a module name e.g. 'modVar "__"
+-- ["A", "B"]' is '__A_B'.
+modVar :: T.Text -> [T.Text] -> T.Text
+modVar prefix parts = prefix <> T.intercalate "_" parts
+
+-- Calculate a filepath from a module name e.g. 'modPath [".", "A",
+-- "B"]' is "./A/B".
+modPath :: [T.Text] -> T.Text
+modPath parts = T.intercalate "/" parts
 
 onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
@@ -563,6 +577,62 @@ writePackageIdTs :: FilePath -> PackageId -> IO ()
 writePackageIdTs dir pkgId =
     T.writeFileUtf8 (dir </> "packageId.ts") $ T.unlines
       ["export default '" <> unPackageId pkgId <> "';"]
+
+writeIndexTs :: FilePath -> [Module] -> IO ()
+writeIndexTs packageSrcDir modules =
+  T.writeFileUtf8 (packageSrcDir </> "index.ts") (T.unlines lines)
+  where
+    lines :: [T.Text]
+    lines = header <> concatMap entry modules <> footer
+
+    header :: [T.Text]
+    header =
+      [ "import __packageId from \"./packageId\""
+      , "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      , "  export const packageId = __packageId;"
+      , "}"
+      ]
+
+    footer :: [T.Text]
+    footer = [ "export default __All;" ]
+
+    entry :: Module -> [T.Text]
+    entry mod
+      | null $ defDataTypes mod = []
+      | otherwise = importDecl var path <> exportDecl var name
+      where
+        name = unModuleName (moduleName mod)
+        var = modVar "__" name
+        path = "\"" <> modPath ("." : name) <> "\""
+
+    importDecl :: T.Text -> T.Text -> [T.Text]
+    importDecl var path =
+      [ "/* eslint-disable @typescript-eslint/camelcase */"
+      , "import * as " <> var <> " from "  <> path <> ";"
+      ]
+
+    exportDecl :: T.Text -> [T.Text] -> [T.Text]
+    exportDecl var name =
+      [ "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      ] <>  go 2 var name <>
+      ["}"]
+      where
+        spaces i = T.pack $ replicate i ' '
+
+        go :: Int -> T.Text -> [T.Text] -> [T.Text]
+        go indent var [m] = let ws = spaces indent in
+          [ ws <> "/* eslint-disable @typescript-eslint/no-unused-vars */"
+          , ws <> "export import " <> m <> " = " <> var <> ";"
+          ]
+        go indent var (m : parts) = let ws = spaces indent in
+          [ ws <> "/* eslint-disable @typescript-eslint/no-namespace */"
+          , ws <> "export namespace " <> m <> " {"
+          ] <>
+          go (indent + 2) var parts <>
+          [ ws <> "}" ]
+        go _ _ [] = []
 
 writeTsConfig :: FilePath -> IO ()
 writeTsConfig dir =
@@ -594,15 +664,16 @@ writeEsLintConfig dir =
       [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
       , "parserOptions" .= object [("project", "./tsconfig.json")]
       , "plugins" .= (["@typescript-eslint"] :: [T.Text])
-      , "extends" .= ([
-             "eslint:recommended"
-           , "plugin:@typescript-eslint/eslint-recommended"
-           , "plugin:@typescript-eslint/recommended"
-           , "plugin:@typescript-eslint/recommended-requiring-type-checking"
-           ] :: [T.Text])
-      , "rules" .= object [
-            ("@typescript-eslint/explicit-function-return-type", "off")
-          , ("@typescript-eslint/no-inferrable-types", "off") ]
+      , "extends" .= (
+          [ "eslint:recommended"
+          , "plugin:@typescript-eslint/eslint-recommended"
+          , "plugin:@typescript-eslint/recommended"
+          , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+          ] :: [T.Text])
+      , "rules" .= object
+          [ ("@typescript-eslint/explicit-function-return-type", "off")
+          , ("@typescript-eslint/no-inferrable-types", "off")
+          ]
       ]
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
@@ -614,12 +685,11 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     name = packageNameOfPackageDir packageDir
     dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
        | d <- depends
-       , let pkg = "@" <> scope <> "/" <> unDependency d
+       , let pkg = scope <> "/" <> unDependency d
        ]
     packageNameOfPackageDir :: FilePath -> T.Text
-    packageNameOfPackageDir packageDir = "@" <> scope <> "/" <> package
+    packageNameOfPackageDir packageDir = scope <> "/" <> package
       where
-        scope = unScope $ scopeOfScopeDir (takeDirectory packageDir)
         package = T.pack $ takeFileName packageDir
 
     packageJson :: NpmPackageName -> NpmPackageVersion -> HMS.HashMap NpmPackageName NpmPackageVersion -> Value
@@ -627,6 +697,8 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
       [ "private" .= True
       , "name" .= name
       , "version" .= version
+      , "main" .= ("lib/index.js" :: T.Text)
+      , "types" .= ("lib/index.d.ts" :: T.Text)
       , "description" .= ("Generated by daml2ts" :: T.Text)
       , "dependencies" .= (pkgDependencies config <> dependencies)
       , "devDependencies" .= pkgDevDependencies config
@@ -666,17 +738,17 @@ setupWorkspace optOutputDir dependencies file = do
         (map (\(a, ds) -> (a, a, map unDependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
         -- Topologically order our packages.
-      scope = scopeOfScopeDir optOutputDir
-        -- 'scope' we expect to be something like "daml2ts".
-  let ourWorkspaces = map ((unScope scope <> "/") <>) ps
+      outBaseDir = T.pack $ takeFileName optOutputDir
+        -- The leaf directory of the output directory (e.g. often 'daml2ts').
+  let ourWorkspaces = map ((outBaseDir <> "/") <>) ps
   bytes <- BSL.readFile file
   case decode bytes :: Maybe PackageJson of
     Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
-    Just oldPackageJson -> transformAndWrite ourWorkspaces scope oldPackageJson
+    Just oldPackageJson -> transformAndWrite ourWorkspaces outBaseDir oldPackageJson
   where
-    transformAndWrite :: [T.Text] -> Scope -> PackageJson -> IO ()
-    transformAndWrite ourWorkspaces (Scope scope) oldPackageJson = do
-      let keepWorkspaces = filter (not . T.isPrefixOf scope) $ workspaces oldPackageJson
+    transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
+    transformAndWrite ourWorkspaces outBaseDir oldPackageJson = do
+      let keepWorkspaces = filter (not . T.isPrefixOf outBaseDir) $ workspaces oldPackageJson
             -- Old versions of our packages should be removed.
           allWorkspaces = ourWorkspaces ++ keepWorkspaces
             -- Our packages need to come before any other existing packages.

@@ -234,38 +234,6 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test(
-    "TXDeduplicateCommands",
-    "Commands with identical submitter, command identifier, and application identifier should be accepted and deduplicated",
-    allocate(TwoParties),
-  ) {
-    case Participants(Participant(ledger, alice, bob)) =>
-      for {
-        aliceRequest <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        _ <- ledger.submitAndWait(aliceRequest)
-        _ <- ledger.submitAndWait(aliceRequest)
-        aliceTransactions <- ledger.flatTransactions(alice)
-
-        // now let's create another command that uses same applicationId and commandId, but submitted by Bob
-        bobRequestTemplate <- ledger.submitAndWaitRequest(bob, Dummy(bob).create.command)
-        bobRequest = bobRequestTemplate
-          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
-          .update(_.commands.applicationId := aliceRequest.getCommands.applicationId)
-        _ <- ledger.submitAndWait(bobRequest)
-        bobTransactions <- ledger.flatTransactions(bob)
-      } yield {
-        assert(
-          aliceTransactions.length == 1,
-          s"Only one transaction was expected to be seen by $alice but ${aliceTransactions.length} appeared",
-        )
-
-        assert(
-          bobTransactions.length == 1,
-          s"Expected a transaction to be seen by $bob but ${bobTransactions.length} appeared",
-        )
-      }
-  }
-
-  test(
     "TXRejectEmptyFilter",
     "A query with an empty transaction filter should be rejected with an INVALID_ARGUMENT status",
     allocate(SingleParty),

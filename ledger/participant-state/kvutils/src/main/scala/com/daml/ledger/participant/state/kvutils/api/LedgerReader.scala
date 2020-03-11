@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.time.Duration
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
@@ -22,6 +24,7 @@ trait LedgerReader extends ReportsHealth {
 object LedgerReader {
   val DefaultConfiguration = Configuration(
     generation = 0,
-    timeModel = TimeModel.reasonableDefault
+    timeModel = TimeModel.reasonableDefault,
+    maxDeduplicationTime = Duration.ofDays(1),
   )
 }
