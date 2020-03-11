@@ -47,7 +47,7 @@ class TrackerImplTest
       .toMat(TestSink.probe[NotUsed])(Keep.both)
       .run()
     queue = q
-    sut = new TrackerImpl(q, 10)
+    sut = new TrackerImpl(q)
     consumer = sink
   }
 

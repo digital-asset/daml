@@ -149,75 +149,61 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
   test(
     "CSduplicateSubmitAndWait",
-    "SubmitAndWait should be idempotent when reusing the same command identifier",
+    "SubmitAndWait should fail on duplicate requests",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWait(request)
-        _ <- ledger.submitAndWait(request)
-        transactions <- ledger.flatTransactions(party)
+        failure <- ledger.submitAndWait(request).failed
       } yield {
-        assert(
-          transactions.size == 1,
-          s"Expected only 1 transaction, but received ${transactions.size}",
-        )
-
+        assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
       }
   }
 
   test(
     "CSduplicateSubmitAndWaitForTransactionId",
-    "SubmitAndWaitForTransactionId should be idempotent when reusing the same command identifier",
+    "SubmitAndWaitForTransactionId should fail on duplicate requests",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        transactionId1 <- ledger.submitAndWaitForTransactionId(request)
-        transactionId2 <- ledger.submitAndWaitForTransactionId(request)
+        _ <- ledger.submitAndWaitForTransactionId(request)
+        failure <- ledger.submitAndWaitForTransactionId(request).failed
       } yield {
-        assert(
-          transactionId1 == transactionId2,
-          s"The transaction identifiers did not match: transactionId1=$transactionId1, transactionId2=$transactionId2",
-        )
+        assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
       }
   }
 
   test(
     "CSduplicateSubmitAndWaitForTransaction",
-    "SubmitAndWaitForTransaction should be idempotent when reusing the same command identifier",
+    "SubmitAndWaitForTransaction should fail on duplicate requests",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        transaction1 <- ledger.submitAndWaitForTransaction(request)
-        transaction2 <- ledger.submitAndWaitForTransaction(request)
+        _ <- ledger.submitAndWaitForTransaction(request)
+        failure <- ledger.submitAndWaitForTransaction(request).failed
       } yield {
-        assert(
-          transaction1 == transaction2,
-          s"The transactions did not match: transaction1=$transaction1, transaction2=$transaction2",
-        )
+        assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
       }
   }
 
   test(
     "CSduplicateSubmitAndWaitForTransactionTree",
-    "SubmitAndWaitForTransactionTree should be idempotent when reusing the same command identifier",
+    "SubmitAndWaitForTransactionTree should fail on duplicate requests",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
       for {
         request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        transactionTree1 <- ledger.submitAndWaitForTransactionTree(request)
-        transactionTree2 <- ledger.submitAndWaitForTransactionTree(request)
+        _ <- ledger.submitAndWaitForTransactionTree(request)
+        failure <- ledger.submitAndWaitForTransactionTree(request).failed
       } yield {
-        assert(
-          transactionTree1 == transactionTree2,
-          s"The transaction trees did not match: transactionTree1=$transactionTree1, transactionTree2=$transactionTree2",
-        )
+        assertGrpcError(failure, Status.Code.ALREADY_EXISTS, "")
       }
   }
 
