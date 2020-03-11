@@ -221,7 +221,7 @@ daml2ts Daml2TsParams {..} = do
         case genModule pkgMap scope pkgId mod of
           Nothing -> pure []
           Just (modTxt, ds) -> do
-            let outputFile = packageSrcDir </> modPath (unModuleName (moduleName mod)) FP.<.> "ts"
+            let outputFile = packageSrcDir </> T.unpack (modPath (unModuleName (moduleName mod))) FP.<.> "ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
             pure ds
@@ -248,7 +248,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     serDefs = defDataTypes mod
     modRefs refs = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
     modHeader =
-      [ "// Generated from " <> T.intercalate "/" (unModuleName modName) <> ".daml"
+      [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
@@ -260,7 +260,7 @@ genModule pkgMap (Scope scope) curPkgId mod
                       (PackageRef, ModuleName) -> T.Text -> T.Text
     importDecl pkgMap modRef@(pkgRef, modName) rootPath =
       "import * as " <>  genModuleRef modRef <> " from '" <>
-      T.intercalate "/" ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
+      modPath ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
       "';"
 
     -- Produce a package name for a package ref.
@@ -281,7 +281,7 @@ genModule pkgMap (Scope scope) curPkgId mod
         PRSelf ->
           if lenModName == 1
             then "."
-            else T.intercalate "/" (replicate (lenModName - 1) "..")
+            else modPath $ replicate (lenModName - 1) (T.pack "..")
         PRImport _ -> scope
       where lenModName = length (unModuleName modName)
 
@@ -551,11 +551,15 @@ genModuleRef (pkgRef, modName) = case pkgRef of
   where
     name = unModuleName modName
 
+-- Calculate a variable name from a module name e.g. 'modVar "__"
+-- ["A", "B"]' is '__A_B'.
 modVar :: T.Text -> [T.Text] -> T.Text
 modVar prefix parts = prefix <> T.intercalate "_" parts
 
-modPath :: [T.Text] -> FilePath
-modPath parts = joinPath $ map T.unpack parts
+-- Calculate a filepath from a module name e.g. 'modPath [".", "A",
+-- "B"]' is "./A/B".
+modPath :: [T.Text] -> T.Text
+modPath parts = T.pack (joinPath $ map T.unpack parts)
 
 onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
@@ -599,7 +603,7 @@ writeIndexTs packageSrcDir modules =
       where
         name = unModuleName (moduleName mod)
         var = modVar "__" name
-        path = "\"" <> T.pack (modPath ("." : name)) <> "\""
+        path = "\"" <> modPath ("." : name) <> "\""
 
     importDecl :: T.Text -> T.Text -> [T.Text]
     importDecl var path =
