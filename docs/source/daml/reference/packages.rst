@@ -37,7 +37,7 @@ To do so, you first need to generate the DAML archive of ``foo``. Go into ``/hom
 
 Next, we will update the project config for ``bar`` to use the generated DAML archive as a depndency. Go into ``/home/user/bar`` and change the ``dependencies`` field in ``daml.yaml`` to point to the created `DAML archive`:
 
-..code-block:: yaml
+.. code-block:: yaml
 
   dependencies:
     - daml-prim
@@ -46,19 +46,19 @@ Next, we will update the project config for ``bar`` to use the generated DAML ar
 
 The import path can also be absolute, for example, by changing the last line to:
 
-..code-block::
+.. code-block::
 
     - /home/user/foo/foo.dar
 
 When you run ``daml build`` in ``bar`` project, the compiler will make the definitions in ``foo.dar`` available for importing. For example, if ``foo`` exports the module ``Foo``, you can import it in the usual way:
 
-..code-block:: daml
+.. code-block:: daml
 
   import Foo
 
 Sometimes you will have multiple packages with the same exported module name. In that case, you must also specify which package the module comes from, as follows:
 
-..code-block:: daml
+.. code-block:: daml
 
   import "foo" Foo
 
