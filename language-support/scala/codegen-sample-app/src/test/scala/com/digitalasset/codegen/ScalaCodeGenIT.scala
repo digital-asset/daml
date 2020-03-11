@@ -50,7 +50,7 @@ import scala.util.{Failure, Success, Try}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ScalaCodeGenIT
-    extends AsyncWordSpec
+    extends WordSpec
     with Matchers
     with ScalaFutures
     with Inside
@@ -62,9 +62,7 @@ class ScalaCodeGenIT
   override implicit lazy val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = Span(20, Seconds), interval = Span(250, Millis))
 
-  // Needs a non-serial execution context because beforeAll() is blocking
-  // Does not have issues with Bazel, as test are not actually asynchronous due to the use of whenReady()
-  override implicit def executionContext: ExecutionContext = ExecutionContext.global
+  implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   override protected def packageFiles: List[File] = List(
     requiredResource("language-support/scala/codegen-sample-app/MyMain.dar"),
