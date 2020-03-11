@@ -18,7 +18,7 @@ DAML archives have a ``.dar`` file ending. By default, when you run ``daml build
 
 You can specify a different path for the DAML archive by using the ``-o`` flag:
 
-.. code-block::
+.. code-block:: sh
 
   daml build -o foo.dar
 
@@ -46,7 +46,7 @@ Next, we will update the project config for ``bar`` to use the generated DAML ar
 
 The import path can also be absolute, for example, by changing the last line to:
 
-.. code-block::
+.. code-block:: yaml
 
     - /home/user/foo/foo.dar
 
