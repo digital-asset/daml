@@ -10,7 +10,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 # directory. It is referenced from the 'build-and-lint' test that
 # follows.
 daml_compile(
-    name = "build-and-lint-pkg",
+    name = "build-and-lint-1.0.0",
     srcs = glob(["daml/**/*.daml"]),
     main_src = "daml/Main.daml",
 )
@@ -28,7 +28,7 @@ daml_compile(
 #       npm packages);
 #     - Source artifacts:
 #       - 'ts/codegen/tests/daml/*'
-#         The DAML that goes into the DAR ('build-and-lint-pkg.dar');
+#         The DAML that goes into the DAR ('build-and-lint-1.0.0.dar');
 #       - 'ts/codegen/tests/ts/*'
 #         A skeleton yarn workspaces root containing a TypeScript package
 #         'build-and-lint' which houses the test driver 'test.ts'.
@@ -43,10 +43,10 @@ daml_compile(
 #          __tests__/
 #            test.ts
 #      daml2ts/
-#        build-and-lint-pkg/  -- The TypeScript generated from 'build-and-lint-pkg.dar'
+#        build-and-lint-1.0.0/  -- The TypeScript generated from 'build-and-lint-1.0.0.dar'
 #        057eed/
 #        ...
-#      package.json  -- Enumeration of the workspaces : build-and-lint-pkg, daml2ts/057eed, ...
+#      package.json  -- Enumeration of the workspaces : build-and-lint, daml2ts/build-and-lint-1.0.0, ...
 #      node_modules/
 #        @daml/
 #          types/
@@ -54,7 +54,7 @@ daml_compile(
 #        ...
 #
 # In more detail, the actions of 'build-and-lint' are to:
-#  - Invoke 'daml2ts' on 'build-and-lint-pkg.dar' produce TypeScript bindings (
+#  - Invoke 'daml2ts' on 'build-and-lint-1.0.0.dar' produce TypeScript bindings (
 #    in the 'daml2ts' directory);
 #  - Invoke from 'root':
 #    - 'yarn workspaces run install';
@@ -63,7 +63,7 @@ daml_compile(
 #  - Finally, invoke 'yarn test' from the 'root/build-and-lint' directory.
 #
 # That last step causes 'build-and-lint/src/__tests__/test.ts' to be executed which:
-#  - Spins up a sandbox running the 'build-and-lint-pkg.dar';
+#  - Spins up a sandbox running the 'build-and-lint-1.0.0.dar';
 #  - Spins up a http-json-api connected to the sandbox;
 #  - Evaluates assertions of http-json-api specified ledger operations
 #    involving contracts defined by the dar;
@@ -79,7 +79,7 @@ sh_test(
         "$(location //:daml2ts)",
         "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
-        "$(location :build-and-lint-pkg.dar)",
+        "$(location :build-and-lint-1.0.0.dar)",
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
@@ -91,7 +91,7 @@ sh_test(
         "//:daml2ts",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
-        ":build-and-lint-pkg.dar",
+        ":build-and-lint-1.0.0.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
     ] + glob(
