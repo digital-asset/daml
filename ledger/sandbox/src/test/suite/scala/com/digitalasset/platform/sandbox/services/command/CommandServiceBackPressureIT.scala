@@ -24,7 +24,7 @@ import io.grpc.Status
 import org.scalatest.{Assertion, AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -35,8 +35,6 @@ class CommandServiceBackPressureIT
     with SandboxFixture
     with TestCommands
     with SuiteResourceManagementAroundAll {
-
-  override implicit def executionContext: ExecutionContext = ExecutionContext.global
 
   private val commands = 50
 
