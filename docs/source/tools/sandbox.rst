@@ -147,7 +147,7 @@ which generates the following files:
 Generating EC keys
 ==================
 
-To generate EC (elliptic curve) 256-bit keys for testing purposes, use the following command
+To generate keys to be used with ES256 for testing purposes, use the following command
 
 .. code-block:: none
 
@@ -158,7 +158,7 @@ which generates the following files:
 - ``ecdsa256.key``: the private key in PEM/DER/PKCS#1 format
 - ``ecdsa256.crt``: a self-signed certificate containing the public key, in PEM/DER/X.509 Certificate format
 
-Similarly, you can use the following command for EC 512-bit keys:
+Similarly, you can use the following command for ES512 keys:
 
 .. code-block:: none
 
