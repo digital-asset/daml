@@ -74,6 +74,8 @@ Importing a DAML archive via data-dependencies
 
 A secondary method for importing a DAML archive, which can be used when the DAML SDK versions do not match, is to import a DAML archive via the ``data-dependencies`` field in ``daml.yaml``:
 
+.. code-block:: yaml
+
   dependencies:
   - daml-prim
   - daml-stdlib
