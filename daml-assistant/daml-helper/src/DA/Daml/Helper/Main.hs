@@ -1,5 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
@@ -228,6 +229,36 @@ commandParser = subparser $ fold
         <$> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag
+        <*> sslConfig
+
+    sslConfig :: Parser (Maybe ClientSSLConfig)
+    sslConfig = do
+        tls <- switch $ mconcat
+            [ long "tls"
+            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
+            ]
+        mbCACert <- optional $ strOption $ mconcat
+            [ long "cacrt"
+            , help "The crt file to be used as the the trusted root CA."
+            ]
+        mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
+            (strOption $ mconcat
+                 [ long "pem"
+                 , help "The pem file to be used as the private key in mutual authentication."
+                 ]
+            )
+            (strOption $ mconcat
+                 [ long "crt"
+                 , help "The crt file to be used as the cert chain in mutual authentication."
+                 ]
+            )
+        return $ case (tls, mbCACert, mbClientKeyCertPair) of
+            (False, Nothing, Nothing) -> Nothing
+            (_, _, _) -> Just ClientSSLConfig
+                { serverRootCert = mbCACert
+                , clientSSLKeyCertPair = mbClientKeyCertPair
+                , clientMetadataPlugin = Nothing
+                }
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
