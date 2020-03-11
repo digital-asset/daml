@@ -30,8 +30,8 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 //noinspection DuplicatedCode
@@ -39,8 +39,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
     extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
-
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
