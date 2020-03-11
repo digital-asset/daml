@@ -1021,6 +1021,13 @@ Contracts Query Stream
 List currently active contracts that match a given query, with
 continuous updates.
 
+An optional ``offset`` returned by a prior query (see output examples
+below) may be specified *first*, as a separate body.  It must be a
+string, and if specified, the stream will begin immediately *after* the
+response body that included that offset::
+
+    {"offset": "5609"}
+
 ``application/json`` body must be sent first, formatted according to the
 :doc:`search-query-language`::
 
