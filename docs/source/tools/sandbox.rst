@@ -70,7 +70,7 @@ To start Sandbox with authentication based on `JWT <https://jwt.io/>`__ tokens,
 use one of the following command line options:
 
 - ``--auth-jwt-rs256-crt=<filename>``.
-  The sandbox will expect all tokens to be signed with RS256 (RSA DSA with SHA-256) with the public key loaded from the given X.509 certificate file.
+  The sandbox will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given X.509 certificate file.
   Both PEM-encoded certificates (text files starting with ``-----BEGIN CERTIFICATE-----``)
   and DER-encoded certificates (binary files) are supported.
 
@@ -85,7 +85,7 @@ use one of the following command line options:
   and DER-encoded certificates (binary files) are supported.
 
 - ``--auth-jwt-rs256-jwks=<url>``.
-  The sandbox will expect all tokens to be signed with RS256 (RSA DSA with SHA-256) with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
+  The sandbox will expect all tokens to be signed with RS256 (RSA Signature with SHA-256) with the public key loaded from the given `JWKS <https://tools.ietf.org/html/rfc7517>`__ URL.
 
 .. warning::
 
