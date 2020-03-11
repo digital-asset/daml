@@ -10,7 +10,6 @@ final case class CommandConfiguration(
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
-    historySize: Int,
     retentionPeriod: FiniteDuration
 )
 
@@ -21,7 +20,6 @@ object CommandConfiguration {
       maxParallelSubmissions = 128,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
-      historySize = 5000,
       retentionPeriod = 24.hours
     )
 }

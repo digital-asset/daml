@@ -1000,7 +1000,7 @@ private class JdbcLedgerDao(
 
     dbDispatcher
       .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
-        CommandCompletionsTable.prepareInsert(offset + 1, ledgerEntry.entry).map(_.execute())
+        CommandCompletionsTable.prepareInsert(offset, ledgerEntry.entry).map(_.execute())
         val resp = insertEntry(ledgerEntry)
         updateLedgerEnd(newLedgerEnd, externalOffset)
         resp
