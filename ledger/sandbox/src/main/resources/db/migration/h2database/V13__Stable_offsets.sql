@@ -1,3 +1,11 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+---------------------------------------------------------------------------------------------------
+-- V13: Stable Offsets
+--
+-- Stable offsets are stored as varchar and can be sorted lexicographically.
+---------------------------------------------------------------------------------------------------
 ALTER TABLE parameters ALTER COLUMN ledger_end DROP NOT NULL;
 
 set referential_integrity false;
