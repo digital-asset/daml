@@ -78,7 +78,7 @@ data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
     , optInputPackageJson :: Maybe FilePath
-    , optScope :: Scope -- Defaults to '@daml.js'.
+    , optScope :: Scope -- Defaults to 'daml.js'.
     }
 
 optionsParser :: Parser Options
@@ -97,11 +97,11 @@ optionsParser = Options
         <> metavar "PACKAGE-JSON"
         <> help "Path to an existing 'package.json' to update"
         ))
-    <*> (Scope <$> strOption
+    <*> (Scope . ("@" <>) <$> strOption
         (  short 's'
         <> metavar "SCOPE"
-        <> value "@daml.js"
-        <> help "The NPM scope name for the generated packages; defaults to @daml.js"
+        <> value "daml.js"
+        <> help "The NPM scope name for the generated packages; defaults to daml.js"
         ))
 
 optionsParserInfo :: ParserInfo Options
@@ -272,7 +272,7 @@ genModule pkgMap (Scope scope) curPkgId mod
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
 
-    -- Calculate the base part of a package ref string. For foreign
+    -- Calculate the root part of a package ref string. For foreign
     -- imports that's something like '@daml2ts'. For self refences
     -- something like '../../'.
     pkgRootPath :: ModuleName -> PackageRef -> T.Text
