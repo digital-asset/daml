@@ -30,7 +30,8 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
-import System.FilePath hiding ((<.>))
+import System.FilePath hiding ((<.>), (</>))
+import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
 import qualified System.FilePath as FP
 
 import DA.Daml.Project.Consts
@@ -559,7 +560,7 @@ modVar prefix parts = prefix <> T.intercalate "_" parts
 -- Calculate a filepath from a module name e.g. 'modPath [".", "A",
 -- "B"]' is "./A/B".
 modPath :: [T.Text] -> T.Text
-modPath parts = T.pack (joinPath $ map T.unpack parts)
+modPath parts = T.intercalate "/" parts
 
 onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
