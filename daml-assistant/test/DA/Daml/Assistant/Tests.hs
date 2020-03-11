@@ -340,7 +340,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     ]
 
 testAscendants :: Tasty.TestTree
-testAscendants = Tasty.testGroup "DA.Daml.Assistant.ascendants"
+testAscendants = Tasty.testGroup "DA.Daml.Project.Util.ascendants"
     [ Tasty.testCase "unit tests" $ do
         Tasty.assertEqual "empty path" ["."] (ascendants "")
         Tasty.assertEqual "curdir path" ["."] (ascendants ".")
