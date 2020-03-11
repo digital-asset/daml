@@ -20,7 +20,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
     sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
-    certDir <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> "test-certificates")
+    certDir <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper")
     withTempFile $ \portFile ->
         withBinaryFile nullDevice ReadWriteMode $ \devNull ->
         defaultMain $ withResource (createSandbox devNull sandbox portFile (certDir </> "server.crt", certDir </> "server.pem") (certDir </> "ca.crt")) destroySandbox $ \getSandbox ->
