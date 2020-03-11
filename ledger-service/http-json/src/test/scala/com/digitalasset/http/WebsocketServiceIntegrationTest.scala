@@ -13,9 +13,11 @@ import com.digitalasset.http.json.DomainJsonEncoder
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
+import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
 import scalaz.syntax.apply._
 import scalaz.syntax.tag._
+import scalaz.syntax.std.option._
 import spray.json.JsValue
 
 import scala.concurrent.{Await, Future}
@@ -87,13 +89,22 @@ class WebsocketServiceIntegrationTest
       .filterNot(_ contains "heartbeat")
       .toMat(Sink.seq)(Keep.right)
 
-  private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
+  private def singleClientQueryStream(
+      serviceUri: Uri,
+      query: String,
+      offset: Option[domain.Offset] = None): Source[Message, NotUsed] = {
+    import spray.json._, json.JsonProtocol._
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
         subprotocol = validSubprotocol))
-    Source
-      .single(TextMessage(query))
+    offset
+      .cata(
+        off =>
+          Source.fromIterator(() =>
+            Seq(Map("offset" -> off.unwrap).toJson.compactPrint, query).iterator),
+        Source single query)
+      .map(TextMessage(_))
       .via(webSocketFlow)
   }
 
@@ -261,11 +272,11 @@ class WebsocketServiceIntegrationTest
                   GotAcs(ctid)
               }
 
-            case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
-              Future.successful(GotLive(ctid))
+            case (GotAcs(ctid), Offset(JsString(off), Events(JsArray(Vector()), _))) =>
+              Future.successful(GotLive(domain.Offset(off), ctid))
 
             case (
-                GotLive(consumedCtid),
+                GotLive(preOffset, consumedCtid),
                 evtsWrapper @ ContractDelta(
                   Vector((fstId, fst), (sndId, snd)),
                   Vector(observeConsumed))) =>
@@ -288,7 +299,7 @@ class WebsocketServiceIntegrationTest
                           ))
                     }
                 }
-                ShouldHaveEnded(2)
+                ShouldHaveEnded(preOffset, 2)
               }
           }
 
@@ -297,7 +308,16 @@ class WebsocketServiceIntegrationTest
         _ = creation._1 shouldBe 'success
         iouCid = getContractId(getResult(creation._2))
         lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
-      } yield lastState should ===(ShouldHaveEnded(2))
+        liveOffset = inside(lastState) {
+          case ShouldHaveEnded(off, 2) => off
+        }
+        rescan <- (singleClientQueryStream(uri, query, Some(liveOffset))
+          via parseResp runWith remainingDeltas)
+      } yield
+        inside(rescan) {
+          case (Vector((fstId, fst), (sndId, snd)), Vector(observeConsumed)) =>
+            Set(fstId, sndId, observeConsumed.contractId) should have size 3
+        }
   }
 
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
@@ -330,17 +350,17 @@ class WebsocketServiceIntegrationTest
                 }
             }: Future[StreamState]
 
-          case (GotAcs(ctid), Offset(JsString(_), Events(JsArray(Vector()), _))) =>
-            Future.successful(GotLive(ctid))
+          case (GotAcs(ctid), Offset(JsString(off), Events(JsArray(Vector()), _))) =>
+            Future.successful(GotLive(domain.Offset(off), ctid))
 
           case (
-              GotLive(archivedCid),
+              GotLive(off, archivedCid),
               ContractDelta(Vector(), Vector(observeArchivedCid))
               ) =>
             Future {
               (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
               (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
-              ShouldHaveEnded(0)
+              ShouldHaveEnded(off, 0)
             }
         }
 
@@ -357,7 +377,7 @@ class WebsocketServiceIntegrationTest
           cid1,
           cid2)
 
-      } yield lastState shouldBe ShouldHaveEnded(0)
+      } yield inside(lastState) { case ShouldHaveEnded(_, 0) => 1 shouldBe 1 }
   }
 
   "fetch should receive all contracts when empty request specified" in withHttpService {
@@ -395,7 +415,7 @@ class WebsocketServiceIntegrationTest
       flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 
-  val parseResp: Flow[Message, JsValue, NotUsed] = {
+  private val parseResp: Flow[Message, JsValue, NotUsed] = {
     import spray.json._
     Flow[Message]
       .mapAsync(1) {
@@ -407,6 +427,15 @@ class WebsocketServiceIntegrationTest
         case _ => true
       }
   }
+
+  private val remainingDeltas: Sink[JsValue, Future[ContractDelta.T]] =
+    Sink.fold[ContractDelta.T, JsValue]((Vector.empty, Vector.empty)) { (acc, jsv) =>
+      import scalaz.std.tuple._, scalaz.std.vector._, scalaz.syntax.semigroup._
+      jsv match {
+        case ContractDelta(c, a) => acc |+| ((c, a))
+        case _ => acc
+      }
+    }
 }
 
 object WebsocketServiceIntegrationTest {
@@ -420,14 +449,18 @@ object WebsocketServiceIntegrationTest {
   private sealed abstract class StreamState extends Product with Serializable
   private case object NothingYet extends StreamState
   private final case class GotAcs(firstCid: String) extends StreamState
-  private final case class GotLive(firstCid: String) extends StreamState
-  private final case class ShouldHaveEnded(msgCount: Int) extends StreamState
+  private final case class GotLive(liveStartOff: domain.Offset, firstCid: String)
+      extends StreamState
+  private final case class ShouldHaveEnded(liveStartOff: domain.Offset, msgCount: Int)
+      extends StreamState
 
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
+    type T = (Vector[(String, JsValue)], Vector[domain.ArchivedContract])
+
     def unapply(
         jsv: JsValue
-    ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
+    ): Option[T] =
       for {
         JsObject(eventsWrapper) <- Some(jsv)
         JsArray(sums) <- eventsWrapper.get("events")
