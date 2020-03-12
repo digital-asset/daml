@@ -148,12 +148,27 @@ trait LedgerReadDao extends ReportsHealth {
     * @param deduplicationKey The key used to deduplicate commands
     * @param submittedAt The time when the command was submitted
     * @param deduplicateUntil The time until which the command should be deduplicated
-    * @return
+    * @return whether the command is a duplicate or not
     */
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult]
+
+  /**
+    * Remove all expired deduplication entries. This method has to be called
+    * periodically to ensure that the deduplication cache does not grow unboundedly.
+    *
+    * @param currentTime The current time. This should use the same source of time as
+    *                    the `deduplicateUntil` argument of [[deduplicateCommand]].
+    *
+    * @return when DAO has finished removing expired entries. Clients do not
+    *         need to wait for the operation to finish, it is safe to concurrently
+    *         call deduplicateCommand().
+    */
+  def removeExpiredDeduplicationData(
+      currentTime: Instant,
+  ): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

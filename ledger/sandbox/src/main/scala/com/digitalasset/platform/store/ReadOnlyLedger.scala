@@ -87,9 +87,30 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   /** Deduplicates commands.
     * Returns None if this is the first time the command is submitted
-    * Returns Some(entry) if the command was submitted before */
+    * Returns Some(entry) if the command was submitted before
+    *
+    * Note: The deduplication cache is used by the submission service,
+    * it does not modify any on-ledger data.
+    */
   def deduplicateCommand(
       deduplicationKey: String,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult]
+
+  /**
+    * Remove all expired deduplication entries. This method has to be called
+    * periodically to ensure that the deduplication cache does not grow unboundedly.
+    *
+    * @param currentTime The current time. This should use the same source of time as
+    *                    the `deduplicateUntil` argument of [[deduplicateCommand]].
+    * @return when DAO has finished removing expired entries. Clients do not
+    *         need to wait for the operation to finish, it is safe to concurrently
+    *         call deduplicateCommand().
+    *
+    * Note: The deduplication cache is used by the submission service,
+    * it does not modify any on-ledger data.
+    */
+  def removeExpiredDeduplicationData(
+      currentTime: Instant,
+  ): Future[Unit]
 }
