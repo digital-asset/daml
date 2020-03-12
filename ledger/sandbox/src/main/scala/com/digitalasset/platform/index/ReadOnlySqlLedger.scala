@@ -115,7 +115,7 @@ private class ReadOnlySqlLedger(
   // of the deduplication time window.
   private val (deduplicationCleanupKillSwitch, deduplicationCleanupDone) =
     Source
-      .tick[Unit](0.millis, 100.millis, ())
+      .tick[Unit](0.millis, 10.minutes, ())
       .mapAsync[Unit](1)(_ => ledgerDao.removeExpiredDeduplicationData(Instant.now()))
       .viaMat(KillSwitches.single)(Keep.right[Cancellable, UniqueKillSwitch])
       .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
