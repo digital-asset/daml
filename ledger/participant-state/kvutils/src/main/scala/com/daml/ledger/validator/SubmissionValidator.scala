@@ -122,6 +122,10 @@ class SubmissionValidator[LogResult](
       ) => Future[T],
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
+      case Right(_: Envelope.BatchMessage) =>
+        Future.successful(
+          Left(ValidationFailed.ValidationError("Validation of batches is not supported.")))
+
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)

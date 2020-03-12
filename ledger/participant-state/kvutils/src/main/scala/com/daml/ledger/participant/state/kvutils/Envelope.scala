@@ -24,6 +24,8 @@ object Envelope {
 
   final case class StateValueMessage(value: Proto.DamlStateValue) extends Message
 
+  final case class BatchMessage(value: Proto.DamlSubmissionBatch) extends Message
+
   private def enclose(
       kind: Proto.Envelope.MessageKind,
       bytes: ByteString,
@@ -52,6 +54,9 @@ object Envelope {
   def enclose(stateValue: Proto.DamlStateValue): ByteString = enclose(stateValue, true)
   def enclose(stateValue: Proto.DamlStateValue, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
+
+  def enclose(batch: Proto.DamlSubmissionBatch): ByteString =
+    enclose(Proto.Envelope.MessageKind.BATCH, batch.toByteString, false)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
     openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
@@ -84,6 +89,9 @@ object Envelope {
         case Proto.Envelope.MessageKind.STATE_VALUE =>
           parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
+        case Proto.Envelope.MessageKind.BATCH =>
+          parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage)).right
+            .map(BatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${envelope.getKind}")
       }
