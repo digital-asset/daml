@@ -24,7 +24,7 @@ import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class WebsocketServiceIntegrationTest
-  extends AsyncFreeSpec
+    extends AsyncFreeSpec
     with Matchers
     with Inside
     with StrictLogging
@@ -104,8 +104,8 @@ class WebsocketServiceIntegrationTest
   }
 
   private def singleClientFetchStream(
-                                       serviceUri: Uri,
-                                       request: String): Source[Message, NotUsed] = {
+      serviceUri: Uri,
+      request: String): Source[Message, NotUsed] = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch")),
@@ -124,8 +124,8 @@ class WebsocketServiceIntegrationTest
   }
 
   private def initialAccountCreate(
-                                    serviceUri: Uri,
-                                    encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+      serviceUri: Uri,
+      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
     val command = accountCreateCommand(domain.Party("Alice"), "abc123")
     postCreateCommand(command, encoder, serviceUri)
   }
@@ -272,10 +272,10 @@ class WebsocketServiceIntegrationTest
               Future.successful(GotLive(ctid))
 
             case (
-              GotLive(consumedCtid),
-              evtsWrapper @ ContractDelta(
-              Vector((fstId, fst), (sndId, snd)),
-              Vector(observeConsumed))) =>
+                GotLive(consumedCtid),
+                evtsWrapper @ ContractDelta(
+                  Vector((fstId, fst), (sndId, snd)),
+                  Vector(observeConsumed))) =>
               Future {
                 observeConsumed.contractId should ===(consumedCtid)
                 Set(fstId, sndId, consumedCtid) should have size 3
@@ -283,11 +283,11 @@ class WebsocketServiceIntegrationTest
                   case JsObject(obj) =>
                     inside(obj get "events") {
                       case Some(
-                      JsArray(
-                      Vector(
-                      Archived(_, _),
-                      Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                      Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
+                          JsArray(
+                            Vector(
+                              Archived(_, _),
+                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
                         Set((amt1, ixes1), (amt2, ixes2)) should ===(
                           Set(
                             (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
@@ -318,14 +318,14 @@ class WebsocketServiceIntegrationTest
         postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
 
       def resp(
-                cid1: domain.ContractId,
-                cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+          cid1: domain.ContractId,
+          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
         Sink.foldAsync(NothingYet: StreamState) {
 
           case (
-            NothingYet,
-            ContractDelta(Vector((cid, c)), Vector())
-            ) =>
+              NothingYet,
+              ContractDelta(Vector((cid, c)), Vector())
+              ) =>
             (cid: String) shouldBe (cid1.unwrap: String)
             postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
               case (statusCode, _) =>
@@ -341,9 +341,9 @@ class WebsocketServiceIntegrationTest
             Future.successful(GotLive(ctid))
 
           case (
-            GotLive(archivedCid),
-            ContractDelta(Vector(), Vector(observeArchivedCid))
-            ) =>
+              GotLive(archivedCid),
+              ContractDelta(Vector(), Vector(observeArchivedCid))
+              ) =>
             Future {
               (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
               (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
@@ -398,9 +398,9 @@ class WebsocketServiceIntegrationTest
   }
 
   private def wsConnectRequest[M](
-                                   uri: Uri,
-                                   subprotocol: Option[String],
-                                   flow: Flow[Message, Message, M]) =
+      uri: Uri,
+      subprotocol: Option[String],
+      flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 
   val parseResp: Flow[Message, JsValue, NotUsed] = {
@@ -449,9 +449,9 @@ object WebsocketServiceIntegrationTest {
   import spray.json._
 
   private case class SimpleScenario(
-                                     id: String,
-                                     path: Uri.Path,
-                                     flow: Flow[Message, Message, NotUsed])
+      id: String,
+      path: Uri.Path,
+      flow: Flow[Message, Message, NotUsed])
 
   private sealed abstract class StreamState extends Product with Serializable
   private case object NothingYet extends StreamState
@@ -462,8 +462,8 @@ object WebsocketServiceIntegrationTest {
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
     def unapply(
-                 jsv: JsValue
-               ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
+        jsv: JsValue
+    ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
         JsObject(eventsWrapper) <- Some(jsv)
         JsArray(sums) <- eventsWrapper.get("events")
