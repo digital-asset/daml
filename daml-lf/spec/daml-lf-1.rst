@@ -1891,12 +1891,12 @@ Type order
 ~~~~~~~~~~~
 
 In this section, we define a strict partial order relation ``<ₜ`` on
-types. In the following we assume that ``<`` and ``≤`` are
+types. In the following, we will assume that ``<`` and ``≤`` are
 respectively the strict and non-strict natural ordering when applied
 on numeric values (i.e., ``Int64``, ``Numeric``, ``Date``, and
 ``Timestamp`` literals) or the respectively the strict and non-strict
-when applied on string-like values (i.e. ``Text`` and ``Party``
-literals).
+lexicographic when applied on string-like values (i.e. ``Text`` and
+``Party`` literals).
 
 Formally, ``<ₜ`` is defined as the least transitive relation
 on types that verifies the following rules::
@@ -1998,12 +1998,12 @@ on types that verifies the following rules::
     σ₁ <ₜ σ₂
   ———————————————————————————————————————————————————
     τ σ₁ <ₜ τ σ₂
-  
 
-``<ₜ`` is undefined on types containing variables, quantifiers or type
-synonymes.  ``≤ₜ`` is the reflexive closure of ``<ₜ``.
 
-  
+Note that ``<ₜ`` is undefined on types containing variables, quantifiers
+or type synonymes.  ``≤ₜ`` is defined as the reflexive closure of ``<ₜ``.
+
+
 Expression evaluation
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -2478,13 +2478,22 @@ behavior.
 Generic comparison functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+The following builtin functions define a order on a subset of the
+so-called `comparable values`. Comparable values are all the LF values
+except type abstractions, functions, partially applied builtins and
+updates.
+
 * ``LESS_EQ : ∀ (α:*). α → α → 'Bool'``
 
-  The builtin function ``LESS_EQ`` defines a partial order on values.
+  The builtin function ``LESS_EQ`` returns ``'True'`` if the first
+  argument is smaller than or equal to the second argument,
+  ``'False'`` otherwise. The function raises a runtime error if the
+  arguments are incomparable.
 
   [*Available in version >= 1.dev*]
-  
-  Formally it is defined by the following rules::
+
+  Formally the builtin function ``LESS_EQ`` is defined by the
+  following rules::
 
     —————————————————————————————————————————————————————————————————————— EvLessEqUnit
       𝕆('LESS_EQ' @σ () ()) = Ok 'True'
@@ -2619,7 +2628,7 @@ Generic comparison functions
       𝕆('LESS_EQ' @('TextMap' σ)
                     [t₁  ↦ v₁ ; …; tₙ  ↦ vₙ ]
                     [t₁' ↦ v₁'; …; tₙ' ↦ vₙ']) = r
-          
+
     —————————————————————————————————————————————————————————————————————— EvLessEqTypeRep
       𝕆('LESS_EQ' @σ ('type_rep' @σ₁) ('type_rep' @σ₂)) = Ok (σ₁ ≤ₜ σ₂)
 
@@ -2636,35 +2645,46 @@ Generic comparison functions
       𝕆('LESS_EQ' @σ ('to_any' @τ v) ('to_any' @τ v')) = r
 
     —————————————————————————————————————————————————————————————————————— EvLessEqAbs
-      𝕆('LESS_EQ' @(σ → τ) v v' = Err 'Try to compare functions' 
+      𝕆('LESS_EQ' @(σ → τ) v v' = Err 'Try to compare functions'
 
     —————————————————————————————————————————————————————————————————————— EvLessEqTyAbs
-      𝕆('LESS_EQ' @(∀ α : k . σ) v v' = Err 'Try to compare functions' 
+      𝕆('LESS_EQ' @(∀ α : k . σ) v v' = Err 'Try to compare functions'
 
     —————————————————————————————————————————————————————————————————————— EvLessEqUpdate
-      𝕆('LESS_EQ' @('Update' σ) v v' = Err 'Try to compare functions' 
+      𝕆('LESS_EQ' @('Update' σ) v v' = Err 'Try to compare functions'
 
 ..
   FIXME: https://github.com/digital-asset/daml/issues/2256
     Handle contract ids
 
-      
+
 * ``GREATER_EQ : ∀ (α:*). α → α → 'Bool'``
 
-  The builtin function ``EQUAL`` is a shortcut for the function::
-
-    'GREATER_EQ' ≡
-        Λ α : ⋆. λ x : α . λ x : b.
-	    'LESS_EQ' @α y x
+  The builtin function ``GREATER_EQ`` returns ``'True'`` if the first
+  argument is greater than or equal to the second argument,
+  ``'False'`` otherwise. The function raises a runtime error if the
+  arguments are incomparable.
 
   [*Available in version >= 1.dev*]
 
+  Formally the function is defined as a shortcut for the function::
+
+    'GREATER_EQ' ≡
+        Λ α : ⋆. λ x : α . λ y : b.
+	    'LESS_EQ' @α y x
+
 * ``EQUAL : ∀ (α:*). α → α → 'Bool'``
 
-  The builtin function ``EQUAL`` is a shortcut for the function::
+  The builtin function ``EQUAL`` returns ``'True'`` if the first
+  argument is equal to the second argument, ``'False'`` otherwise. The
+  function raises a runtime error if the arguments are incomparable.
+
+  [*Available in version >= 1.dev*]
+
+  Formally the function is defined as a shortcut for the function::
 
     'EQUAL' ≡
-        Λ α : ⋆. λ x : α . λ x : b.
+        Λ α : ⋆. λ x : α . λ y : b.
 	    'case' 'LESS_EQ' @α x y 'of'
 	            'True' → 'GREATER_EQ' @α x y
 		'|' 'False' → 'False'
@@ -2673,27 +2693,37 @@ Generic comparison functions
 
 * ``LESS : ∀ (α:*). α → α → 'Bool'``
 
-  The builtin function ``LESS`` is a shortcut for the function::
+  The builtin function ``LESS`` returns ``'True'`` if the first
+  argument is strictly less that the second argument, ``'False'``
+  otherwise. The function raises a runtime error if the arguments are
+  incomparable.
+
+  [*Available in version >= 1.dev*]
+
+  Formally the function is defined as a shortcut for the function::
 
     'LESS' ≡
-        Λ α : ⋆. λ x : α . λ x : b.
+        Λ α : ⋆. λ x : α . λ y : b.
 	    'case' 'EQUAL' @α x y 'of'
 	           'True' → 'False'
 	       '|' 'False' → 'LESS_EQ' α x y
 
-  [*Available in version >= 1.dev*]
-
 * ``GREATER : ∀ (α:*). α → α → 'Bool'``
 
-  The builtin function ``LESS`` is a shortcut for the function::
+  The builtin function ``LESS`` returns ``'True'`` if the first
+  argument is strictly greater that the second argument, ``'False'``
+  otherwise. The function raises a runtime error if the arguments are
+  incomparable.
+
+  [*Available in version >= 1.dev*]
+
+  Formally the function is defined as a shortcut for the function::
 
     'GREATER' ≡
-        Λ α : ⋆. λ x : α . λ x : b.
+        Λ α : ⋆. λ x : α . λ y : b.
 	    'case' 'EQUAL' @α x y 'of'
 	          'True' → 'False'
 	      '|' 'False' → 'GREATER_EQ' α x y
-
-  [*Available in version >= 1.dev*]
 
 Boolean functions
 ~~~~~~~~~~~~~~~~~
