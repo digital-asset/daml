@@ -601,14 +601,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x0EFFFF, // biggest code point of the Supplementary Plan 14
           0x0F0000, // smallest code point of the Supplementary Plans 15-16
           0x10AE2D,
-          0x10FFFF, // biggest code point of the Supplementary Plans 15-16
+          0x10FFFF // biggest code point of the Supplementary Plans 15-16
         )
 
-        forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldEqual Right(
-            SText("'" + new String(Character.toChars(cp)) + "'"),
-          ),
-        )
+        forEvery(testCases)(
+          cp =>
+            eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldEqual Right(
+              SText("'" + new String(Character.toChars(cp)) + "'"),
+          ))
       }
 
       "rejects surrogate code points " in {
@@ -619,7 +619,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x00DBFF, // biggest high surrogate
           0x00DC00, // smallest low surrogate
           0x00DDE0,
-          0x00DFFF, // biggest surrogate
+          0x00DFFF // biggest surrogate
         )
 
         forEvery(testCases)(cp =>
@@ -1438,7 +1438,7 @@ object SBuiltinTest {
 
     """
 
-  val compiledPackages  =
+  val compiledPackages =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
   private def eval(e: Expr): Either[SError, SValue] = {
