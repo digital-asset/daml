@@ -115,6 +115,7 @@ da_scala_test(
         ":Account.dar",
         "//docs:quickstart-model.dar",
     ],
+    flaky = True,
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
