@@ -135,11 +135,11 @@ abstract class ScenarioLoadingITBase
 
       "return them in an transaction service" in {
 
-        val beginOffset =
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val resultsF =
           newTransactionClient(ledgerId())
-            .getTransactions(beginOffset, None, transactionFilter)
+            .getTransactions(startExclusive, None, transactionFilter)
             .take(4)
             .runWith(Sink.seq)
 
@@ -186,11 +186,11 @@ abstract class ScenarioLoadingITBase
       }
 
       "event ids are the same as contract ids (transaction service)" in {
-        val beginOffset =
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val client = newTransactionClient(ledgerId())
         val resultsF = client
-          .getTransactions(beginOffset, None, transactionFilter)
+          .getTransactions(startExclusive, None, transactionFilter)
           .take(4)
           .runWith(Sink.seq)
 

@@ -50,10 +50,10 @@ final class SqlLedgerReaderWriter(
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        offset.getOrElse(StartOffset).value.toLong,
+        startExclusive.getOrElse(StartOffset).value.toLong,
         RangeSource((start, end) => {
           Source
             .future(database

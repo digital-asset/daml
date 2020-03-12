@@ -165,8 +165,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validate(txReq.update(_.optionalEnd := None), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual None
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual None
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             hasExpectedFilters(req)
@@ -181,8 +181,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         })), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             inside(filtersByParty.headOption.value) {
@@ -201,8 +201,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         })), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             inside(filtersByParty.headOption.value) {
@@ -220,8 +220,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
           sut.validate(txReq.update(_.optionalTraceContext := None), ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             val filtersByParty = req.filter.filtersByParty
             filtersByParty should have size 1
             hasExpectedFilters(req)
@@ -234,8 +234,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validate(txReq, ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             hasExpectedFilters(req)
             req.verbose shouldEqual verbose
             hasExpectedTraceContext(req)
@@ -249,8 +249,8 @@ class TransactionServiceRequestValidatorTest extends WordSpec with ValidatorTest
         inside(sut.validateTree(txTreeReq, ledgerEnd, offsetOrdering)) {
           case Right(req) =>
             req.ledgerId shouldEqual expectedLedgerId
-            req.begin shouldEqual domain.LedgerOffset.LedgerBegin
-            req.end shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
+            req.startExclusive shouldEqual domain.LedgerOffset.LedgerBegin
+            req.endInclusive shouldEqual Some(domain.LedgerOffset.Absolute(absoluteOffset))
             req.parties should have size 1
             req.parties.headOption.value shouldEqual party
             req.verbose shouldEqual verbose

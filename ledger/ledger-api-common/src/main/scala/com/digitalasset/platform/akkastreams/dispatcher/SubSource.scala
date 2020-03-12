@@ -51,7 +51,7 @@ object SubSource {
   /**
     * Applicable when the persistence layer supports efficient range queries.
     *
-    * @param getRange (startInclusive, endExclusive) => Source[(Index, T), NotUsed]
+    * @param getRange (startExclusive, endInclusive) => Source[(Index, T), NotUsed]
     */
   final case class RangeSource[Index: Ordering, T](
       getRange: (Index, Index) => Source[(Index, T), NotUsed])

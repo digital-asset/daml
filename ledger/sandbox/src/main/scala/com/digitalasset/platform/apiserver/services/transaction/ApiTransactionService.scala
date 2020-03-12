@@ -68,29 +68,29 @@ final class ApiTransactionService private (
   override def getTransactions(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] =
     withEnrichedLoggingContext(
-      logging.begin(request.begin),
-      logging.end(request.end),
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit logCtx =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
-        .transactions(request.begin, request.end, request.filter, request.verbose)
+        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.logErrorsOnStream)
     }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] =
     withEnrichedLoggingContext(
-      logging.begin(request.begin),
-      logging.end(request.end),
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
     ) { implicit logCtx =>
       logger.debug(s"Received $request")
       transactionsService
         .transactionTrees(
-          request.begin,
-          request.end,
+          request.startExclusive,
+          request.endInclusive,
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
           request.verbose
         )

@@ -13,10 +13,10 @@ package object logging {
     "parties" -> StructuredArguments.toString(parties.toArray)
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
-  private[services] def begin(o: LedgerOffset): (String, String) =
-    "begin" -> offsetValue(o)
-  private[services] def end(o: Option[LedgerOffset]): (String, String) =
-    "end" -> nullableOffsetValue(o)
+  private[services] def startExclusive(o: LedgerOffset): (String, String) =
+    "startExclusive" -> offsetValue(o)
+  private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =
+    "endInclusive" -> nullableOffsetValue(o)
   private[services] def offset(o: Option[LedgerOffset]): (String, String) =
     "offset" -> nullableOffsetValue(o)
   private[this] def nullableOffsetValue(o: Option[LedgerOffset]): String =

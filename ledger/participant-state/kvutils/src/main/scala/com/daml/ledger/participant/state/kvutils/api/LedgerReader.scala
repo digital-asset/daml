@@ -26,11 +26,11 @@ trait LedgerReader extends ReportsHealth {
     * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord]]) or
     * as a heartbeat ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.Heartbeat]]).
     *
-    * @param beginExclusive offset right after which updates must be streamed; in case not specified updates
+    * @param startExclusive offset right after which updates must be streamed; in case not specified updates
     *                       must be returned from the beginning
     * @return stream of updates
     */
-  def events(beginExclusive: Option[Offset]): Source[LedgerEntry, NotUsed]
+  def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed]
 
   /**
     * Get the ledger's ID from which this reader instance streams events.

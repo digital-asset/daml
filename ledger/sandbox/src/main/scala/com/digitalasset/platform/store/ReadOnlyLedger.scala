@@ -40,14 +40,14 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def ledgerId: LedgerId
 
   def ledgerEntries(
-      beginExclusive: Option[Offset],
+      startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed]
 
   def ledgerEnd: Offset
 
   def completions(
-      beginInclusive: Option[Offset],
-      endExclusive: Option[Offset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       applicationId: ApplicationId,
       parties: Set[Ref.Party]): Source[(Offset, CompletionStreamResponse), NotUsed]
 
@@ -69,7 +69,7 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def listKnownParties(): Future[List[PartyDetails]]
 
-  def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed]
+  def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed]
 
   // Package management
   def listLfPackages(): Future[Map[PackageId, PackageDetails]]
@@ -78,12 +78,12 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
 
-  def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed]
+  def packageEntries(startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed]
 
   // Configuration management
   def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]]
   def configurationEntries(
-      startInclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed]
+      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed]
 
   /** Deduplicates commands.
     * Returns None if this is the first time the command is submitted

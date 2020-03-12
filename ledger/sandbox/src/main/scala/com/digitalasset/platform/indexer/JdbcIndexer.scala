@@ -98,10 +98,10 @@ class InitializedJdbcIndexerFactory private[indexer] (
 }
 
 /**
-  * @param beginAfterExternalOffset The last offset received from the read service.
+  * @param startExclusive The last offset received from the read service.
   */
 class JdbcIndexer private[indexer] (
-    beginAfterExternalOffset: Option[Offset],
+    startExclusive: Option[Offset],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: MetricRegistry,
@@ -344,7 +344,7 @@ class JdbcIndexer private[indexer] (
         Metrics.setup()
 
         val (killSwitch, completionFuture) = readService
-          .stateUpdates(beginAfterExternalOffset)
+          .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>

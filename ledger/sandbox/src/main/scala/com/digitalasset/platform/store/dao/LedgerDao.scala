@@ -97,20 +97,18 @@ trait LedgerReadDao extends ReportsHealth {
   /**
     * Returns a stream of ledger entries
     *
-    * @param startInclusive starting offset inclusive
-    * @param endExclusive   ending offset exclusive
     * @return a stream of ledger entries tupled with their offset
     */
   def getLedgerEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed]
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed]
 
   /**
     * Returns a snapshot of the ledger.
     * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
     */
   def getActiveContractSnapshot(
-      untilExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
       filter: TransactionFilter
   ): Future[LedgerSnapshot]
 
@@ -121,8 +119,8 @@ trait LedgerReadDao extends ReportsHealth {
   def listKnownParties(): Future[List[PartyDetails]]
 
   def getPartyEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset
   ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
 
   /** Returns a list of all known DAML-LF packages */
@@ -132,8 +130,6 @@ trait LedgerReadDao extends ReportsHealth {
   def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 
   /** Returns a stream of package upload entries.
-    * @param startExclusive starting offset inclusive
-    * @param endInclusive   ending offset exclusive
     * @return a stream of package entries tupled with their offset
     */
   def getPackageEntries(

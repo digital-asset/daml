@@ -49,10 +49,10 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   private val dispatcher = Dispatcher[Offset]("inmemory-ledger", Offset.empty, ledgerEnd)
 
   def getSource(
-      beginExclusive: Option[Offset],
+      startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, T), NotUsed] =
     dispatcher.startingAt(
-      beginExclusive.getOrElse(ledgerBeginning),
+      startExclusive.getOrElse(ledgerBeginning),
       RangeSource(
         (exclusiveStart, inclusiveEnd) =>
           Source[(Offset, T)](

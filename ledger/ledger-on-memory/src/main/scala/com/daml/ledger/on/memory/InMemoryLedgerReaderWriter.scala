@@ -49,10 +49,10 @@ final class InMemoryLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
-  override def events(beginExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        beginExclusive
+        startExclusive
           .map(_.toLedgerString.toInt)
           .getOrElse(StartIndex),
         OneAfterAnother[Index, List[LedgerEntry]](

@@ -94,12 +94,12 @@ abstract class LedgerBackedIndexService(
   }
 
   override def transactionTrees(
-      begin: LedgerOffset,
-      endAt: Option[LedgerOffset],
+      startExclusive: LedgerOffset,
+      endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    acceptedTransactions(begin, endAt)
+    acceptedTransactions(startExclusive, endInclusive)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -113,12 +113,12 @@ abstract class LedgerBackedIndexService(
       }
 
   override def transactions(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      startExclusive: domain.LedgerOffset,
+      endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionsResponse, NotUsed] =
-    acceptedTransactions(begin, endAt)
+    acceptedTransactions(startExclusive, endInclusive)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -139,12 +139,12 @@ abstract class LedgerBackedIndexService(
   }
 
   private def acceptedTransactions(
-      beginExclusive: domain.LedgerOffset,
+      startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset])
     : Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] = {
     val converter = new OffsetConverter()
 
-    converter.toAbsolute(beginExclusive).flatMapConcat { begin =>
+    converter.toAbsolute(startExclusive).flatMapConcat { begin =>
       endInclusive
         .map(converter.toAbsolute(_).map(Some(_)))
         .getOrElse(Source.single(None))
@@ -207,11 +207,11 @@ abstract class LedgerBackedIndexService(
   }
 
   override def getCompletions(
-      begin: LedgerOffset,
+      startExclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionStreamResponse, NotUsed] =
-    new OffsetConverter().toAbsolute(begin).flatMapConcat { beginOpt =>
+    new OffsetConverter().toAbsolute(startExclusive).flatMapConcat { beginOpt =>
       ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
     }
 
@@ -247,9 +247,9 @@ abstract class LedgerBackedIndexService(
   override def listKnownParties(): Future[List[PartyDetails]] =
     ledger.listKnownParties()
 
-  override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
+  override def partyEntries(startExclusive: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
     Source
-      .future(Future.fromTry(Offset.fromString(beginOffset.value)))
+      .future(Future.fromTry(Offset.fromString(startExclusive.value)))
       .flatMapConcat(ledger.partyEntries)
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
@@ -259,9 +259,10 @@ abstract class LedgerBackedIndexService(
       }
   }
 
-  override def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
+  override def packageEntries(
+      startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
     Source
-      .future(Future.fromTry(Offset.fromString(beginOffset.value)))
+      .future(Future.fromTry(Offset.fromString(startExclusive.value)))
       .flatMapConcat(ledger.packageEntries)
       .map(_._2.toDomain)
 

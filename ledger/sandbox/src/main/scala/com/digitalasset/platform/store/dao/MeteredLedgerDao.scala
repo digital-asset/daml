@@ -83,16 +83,16 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     timedFuture(Metrics.lookupKey, ledgerDao.lookupKey(key, forParty))
 
   override def getActiveContractSnapshot(
-      untilExclusive: LedgerOffset,
+      endInclusive: LedgerOffset,
       filter: TransactionFilter
   ): Future[LedgerSnapshot] =
-    ledgerDao.getActiveContractSnapshot(untilExclusive, filter)
+    ledgerDao.getActiveContractSnapshot(endInclusive, filter)
 
   override def getLedgerEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset
   ): Source[(LedgerOffset, LedgerEntry), NotUsed] =
-    ledgerDao.getLedgerEntries(startInclusive, endExclusive)
+    ledgerDao.getLedgerEntries(startExclusive, endInclusive)
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledgerDao.getParties(parties))
@@ -101,10 +101,10 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     timedFuture(Metrics.listKnownParties, ledgerDao.listKnownParties())
 
   override def getPartyEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset
   ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
-    ledgerDao.getPartyEntries(startInclusive, endExclusive)
+    ledgerDao.getPartyEntries(startExclusive, endInclusive)
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledgerDao.listLfPackages)
@@ -113,9 +113,9 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     timedFuture(Metrics.getLfArchive, ledgerDao.getLfArchive(packageId))
 
   override def getPackageEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] =
-    ledgerDao.getPackageEntries(startInclusive, endExclusive)
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] =
+    ledgerDao.getPackageEntries(startExclusive, endInclusive)
 
   /** Looks up the current ledger configuration, if it has been set. */
   override def lookupLedgerConfiguration(): Future[Option[(LedgerOffset, Configuration)]] =
@@ -123,9 +123,9 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   /** Get a stream of configuration entries. */
   override def getConfigurationEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
-    ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
+      startExclusive: LedgerOffset,
+      endInclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
+    ledgerDao.getConfigurationEntries(startExclusive, endInclusive)
 
   override val completions: CommandCompletionsReader[LedgerOffset] = ledgerDao.completions
 

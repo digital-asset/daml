@@ -36,8 +36,6 @@ trait CommandCompletionsReader[LedgerOffset] {
     *
     * TODO Drop the LedgerOffset from the source when we replace the Dispatcher mechanism
     *
-    * @param startExclusive starting offset inclusive
-    * @param endInclusive   ending offset exclusive
     * @return a stream of command completions tupled with their offset
     */
   def getCommandCompletions(

@@ -250,7 +250,7 @@ class JdbcLedgerDaoSpec
     }
 
     "be able to persist configuration rejection" in {
-      val beginOffset = nextOffset()
+      val startExclusive = nextOffset()
       val offset = nextOffset()
       val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
@@ -266,7 +266,7 @@ class JdbcLedgerDaoSpec
         )
         storedConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
         entries <- ledgerDao
-          .getConfigurationEntries(beginOffset, offset)
+          .getConfigurationEntries(startExclusive, offset)
           .runWith(Sink.seq)
 
       } yield {
@@ -280,7 +280,7 @@ class JdbcLedgerDaoSpec
     }
 
     "refuse to persist invalid configuration entry" in {
-      val beginOffset = nextOffset()
+      val startExclusive = nextOffset()
       val offset0 = nextOffset()
       val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
@@ -333,7 +333,7 @@ class JdbcLedgerDaoSpec
         )
         lastConfigActual <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).get)
 
-        entries <- ledgerDao.getConfigurationEntries(beginOffset, offset3).runWith(Sink.seq)
+        entries <- ledgerDao.getConfigurationEntries(startExclusive, offset3).runWith(Sink.seq)
       } yield {
         resp0 shouldEqual PersistenceResponse.Ok
         resp1 shouldEqual PersistenceResponse.Duplicate

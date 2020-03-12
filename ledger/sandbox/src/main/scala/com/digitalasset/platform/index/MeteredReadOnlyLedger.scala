@@ -59,18 +59,18 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def ledgerEntries(
-      offset: Option[Offset],
+      startExclusive: Option[Offset],
       endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
-    ledger.ledgerEntries(offset, endOpt)
+    ledger.ledgerEntries(startExclusive, endOpt)
 
   override def ledgerEnd: Offset = ledger.ledgerEnd
 
   override def completions(
-      beginInclusive: Option[Offset],
-      endExclusive: Option[Offset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       applicationId: ApplicationId,
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
-    ledger.completions(beginInclusive, endExclusive, applicationId, parties)
+    ledger.completions(startExclusive, endInclusive, applicationId, parties)
 
   override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     ledger.snapshot(filter)
@@ -95,8 +95,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def listKnownParties(): Future[List[PartyDetails]] =
     timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
 
-  override def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
-    ledger.partyEntries(beginOffset)
+  override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
+    ledger.partyEntries(startExclusive)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
     timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
@@ -107,8 +107,9 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
-  override def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    ledger.packageEntries(beginOffset)
+  override def packageEntries(
+      startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
+    ledger.packageEntries(startExclusive)
 
   override def close(): Unit = {
     ledger.close()
@@ -118,8 +119,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
-      offset: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
-    ledger.configurationEntries(offset)
+      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
+    ledger.configurationEntries(startExclusive)
 
   override def deduplicateCommand(
       deduplicationKey: String,

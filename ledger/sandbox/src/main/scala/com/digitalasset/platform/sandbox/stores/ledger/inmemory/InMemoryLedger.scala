@@ -101,10 +101,10 @@ class InMemoryLedger(
   override def currentHealth(): HealthStatus = Healthy
 
   override def ledgerEntries(
-      beginExclusive: Option[Offset],
+      startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries
-      .getSource(beginExclusive, endInclusive)
+      .getSource(startExclusive, endInclusive)
       .collect {
         case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
       }
@@ -116,12 +116,12 @@ class InMemoryLedger(
     scala.collection.mutable.Map.empty
 
   override def completions(
-      beginExclusive: Option[Offset],
+      startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       applicationId: ApplicationId,
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     entries
-      .getSource(beginExclusive, endInclusive)
+      .getSource(startExclusive, endInclusive)
       .collect {
         case (offset, InMemoryLedgerEntry(entry)) => (offset, entry)
       }
@@ -300,8 +300,8 @@ class InMemoryLedger(
       SubmissionResult.Acknowledged
     })
 
-  override def partyEntries(beginOffset: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    entries.getSource(Some(beginOffset), None).collect {
+  override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
@@ -315,8 +315,9 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
-  override def packageEntries(beginOffset: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
-    entries.getSource(Some(beginOffset), None).collect {
+  override def packageEntries(
+      startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
+    entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
     }
 
