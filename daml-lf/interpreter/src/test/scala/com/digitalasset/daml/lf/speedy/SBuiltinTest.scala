@@ -1438,14 +1438,14 @@ object SBuiltinTest {
 
     """
 
-  val compilePackages  =
+  val compiledPackages  =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
       checkSubmitterInMaintainers = true,
-      compiledPackages = compilePackages,
+      compiledPackages = compiledPackages,
       scenario = false,
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)

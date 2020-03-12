@@ -26,10 +26,16 @@ object Ordering extends scala.math.Ordering[SValue] {
     (xs zip ys).to[ImmArray] ++: stack
 
   private def compareIdentifier(name1: Ref.TypeConName, name2: Ref.TypeConName): Int = {
-    val c1 = name1.packageId compareTo name2.packageId
-    lazy val c2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
-    def c3 = name1.qualifiedName.name compareTo name2.qualifiedName.name
-    if (c1 != 0) c1 else if (c2 != 0) c2 else c3
+    val compare1 = name1.packageId compareTo name2.packageId
+    if (compare1 != 0) {
+      compare1
+    } else {
+      val compare2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
+      if (compare2 != 0)
+        compare2
+      else
+        name1.qualifiedName.name compareTo name2.qualifiedName.name
+    }
   }
 
   val builtinTypeIdx =
@@ -62,7 +68,7 @@ object Ordering extends scala.math.Ordering[SValue] {
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
       case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
-        throw new IllegalArgumentException(s"cannot compare types $typ")
+        throw SErrorCrash(s"cannot compare types $typ")
     }
 
   @tailrec
@@ -134,6 +140,7 @@ object Ordering extends scala.math.Ordering[SValue] {
 
     lp(0)
   }
+
   @tailrec
   // Only value of the same type can be compared.
   private[this] def compareValue(stack0: FrontStack[(SValue, SValue)]): Int =
@@ -232,13 +239,14 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SPAP(_, _, _) =>
               throw SErrorCrash("functions are not comparable")
           }
-        }(fallback = throw new IllegalAccessException("try to compare unrelated type"))
+        }(fallback = throw SErrorCrash("try to compare unrelated type"))
         if (x != 0)
           x
         else
           compareValue(toPush ++: stack)
     }
 
+  @throws[SErrorCrash]
   def compare(v1: SValue, v2: SValue): Int =
     compareValue(FrontStack((v1, v2)))
 
