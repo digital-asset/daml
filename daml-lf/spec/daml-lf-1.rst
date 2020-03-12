@@ -2427,7 +2427,7 @@ updates.
       𝕆('LESS_EQ' @⟨ ⟩ ⟨ ⟩ ⟨ ⟩) = Ok 'True'
 
       𝕆('LESS_EQ' @τ₀ v₀ v₀') = Err t
-    —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadErr1
+    —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadErr
       𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ ⟩
                    ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Err t
@@ -2437,13 +2437,6 @@ updates.
       𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ  ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ  ⟩
       	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Ok 'False'
-
-      𝕆('LESS_EQ' @τ₀ v₀ v₀') = Ok 'True'
-      𝕆('LESS_EQ' @τ₀ v₀' v₀) = Err t
-    —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadErr2
-      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ  ⟩
-                   ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ  ⟩
-      	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Err t
 
       𝕆('LESS_EQ' @τ₀ v₀ v₀') = Ok 'True'
       𝕆('LESS_EQ' @τ₀ v₀' v₀) = Ok 'False'
