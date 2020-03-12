@@ -110,7 +110,7 @@ object Arguments {
 
       opt[String]("crt")
         .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
         .validate(path => validatePath(path, "The file specified via --crt does not exist"))
         .action(crtConfig)
 
@@ -122,6 +122,13 @@ object Arguments {
           arguments.copy(tlsConfig = arguments.tlsConfig.fold(
             Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+      opt[Unit]("tls")
+        .optional()
+        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
 
       opt[Unit]("database")
         .hidden()

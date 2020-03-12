@@ -30,7 +30,7 @@ final case class TlsConfiguration(
       Some(
         GrpcSslContexts
           .forClient()
-          .keyManager(keyCertChainFile.orNull, keyFileOrFail)
+          .keyManager(keyCertChainFile.orNull, keyFile.orNull)
           .trustManager(trustCertCollectionFile.orNull)
           .build()
       )
