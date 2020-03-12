@@ -8,6 +8,7 @@ import DA.Bazel.Runfiles
 import DA.PortFile
 import Data.List.Extra (isInfixOf)
 import System.Environment.Blank
+import System.Exit
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
@@ -21,33 +22,75 @@ main = do
     damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
     sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
     certDir <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper")
-    withTempFile $ \portFile ->
-        withBinaryFile nullDevice ReadWriteMode $ \devNull ->
-        defaultMain $ withResource (createSandbox devNull sandbox portFile (certDir </> "server.crt", certDir </> "server.pem") (certDir </> "ca.crt")) destroySandbox $ \getSandbox ->
+    defaultMain $
         testGroup "TLS"
-            [ testCase "Party management" $ do
-                  p <- sandboxPort <$> getSandbox
-                  let ledgerOpts =
-                          [ "--host=localhost", "--port", show p
-                          , "--cacrt", certDir </> "ca.crt"
-                          , "--pem", certDir </> "client.pem"
-                          , "--crt", certDir </> "client.crt"
-                          ]
-                  out <- readProcess damlHelper
-                      ("ledger" : "list-parties" : ledgerOpts)
-                      ""
-                  assertInfixOf "no parties are known" out
-                  out <- readProcess damlHelper
-                      ("ledger" : "allocate-party" : "Alice" : ledgerOpts)
-                      ""
-                  assertInfixOf "Allocated 'Alice' for 'Alice'" out
-                  out <- readProcess damlHelper
-                      ("ledger" : "list-parties" : ledgerOpts)
-                      ""
-                  assertInfixOf "PartyDetails {party = 'Alice', displayName = \"Alice\", isLocal = True}" out
-            -- TODO (MK) Once we have a ledger server (e.g. sandbox) that supports
-            -- TLS without client auth, we should test this here as well.
-            ]
+           [ withSandbox sandbox certDir "none" $ \getSandboxPort ->
+                 testGroup "client-auth: none"
+                     [ testCase "succeeds without client cert" $ do
+                           p <- sandboxPort <$> getSandboxPort
+                           let ledgerOpts =
+                                   [ "--host=localhost" , "--port", show p
+                                   , "--cacrt", certDir </> "ca.crt"
+                                   ]
+                           out <- readProcess damlHelper
+                               ("ledger" : "list-parties" : ledgerOpts)
+                               ""
+                           assertInfixOf "no parties are known" out
+                     ]
+           , withSandbox sandbox certDir "optional" $ \getSandboxPort ->
+                 testGroup "client-auth: optional"
+                     [ testCase "succeeds without client cert" $ do
+                           p <- sandboxPort <$> getSandboxPort
+                           let ledgerOpts =
+                                   [ "--host=localhost" , "--port", show p
+                                   , "--cacrt", certDir </> "ca.crt"
+                                   ]
+                           out <- readProcess damlHelper
+                               ("ledger" : "list-parties" : ledgerOpts)
+                               ""
+                           assertInfixOf "no parties are known" out
+                     ]
+           , withSandbox sandbox certDir "require" $ \getSandboxPort ->
+                 testGroup "client-auth: require"
+                     [ testCase "fails without client cert" $ do
+                           p <- sandboxPort <$> getSandboxPort
+                           let ledgerOpts =
+                                   [ "--host=localhost" , "--port", show p
+                                   , "--cacrt", certDir </> "ca.crt"
+                                   ]
+                           (exit, stderr, stdout) <- readProcessWithExitCode damlHelper
+                               ("ledger" : "list-parties" : ledgerOpts)
+                               ""
+                           assertInfixOf "Listing parties" stderr
+                           -- Sadly we do not seem to get a better error for this.
+                           assertInfixOf "GRPCIOTimeout" stdout
+                           exit @?= ExitFailure 1
+                     , testCase "succeeds with client cert" $ do
+                           p <- sandboxPort <$> getSandboxPort
+                           let ledgerOpts =
+                                   [ "--host=localhost" , "--port", show p
+                                   , "--cacrt", certDir </> "ca.crt"
+                                   , "--pem", certDir </> "client.pem"
+                                   , "--crt", certDir </> "client.crt"
+                                   ]
+                           out <- readProcess damlHelper
+                               ("ledger" : "list-parties" : ledgerOpts)
+                               ""
+                           assertInfixOf "no parties are known" out
+                     ]
+           ]
+  where withSandbox sandbox certDir auth f =
+            withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
+            withResource newTempFile snd $ \getPortFile ->
+            let createSandbox' = do
+                    devNull <- getDevNull
+                    (portFile, _) <- getPortFile
+                    createSandbox devNull sandbox portFile
+                        (certDir </> "server.crt", certDir </> "server.pem")
+                        (certDir </> "ca.crt")
+                        auth
+            in withResource createSandbox' destroySandbox f
+
 
 -- TODO Factor this out into a shared module across tests
 data SandboxResource = SandboxResource
@@ -55,11 +98,11 @@ data SandboxResource = SandboxResource
     , sandboxPort :: Int
     }
 
-createSandbox :: Handle -> FilePath -> FilePath -> (FilePath, FilePath) -> FilePath -> IO SandboxResource
-createSandbox devNull sandbox portFile (crt, key) cacrt = mask $ \unmask -> do
+createSandbox :: Handle -> FilePath -> FilePath -> (FilePath, FilePath) -> FilePath -> String -> IO SandboxResource
+createSandbox _devNull sandbox portFile (crt, key) cacrt clientAuth = mask $ \unmask -> do
     ph <- createProcess
-        (proc sandbox ["--port=0", "--port-file", portFile, "--crt", crt, "--pem", key, "--cacrt", cacrt])
-        { std_out = UseHandle devNull }
+        (proc sandbox ["--port=0", "--port-file", portFile, "--crt", crt, "--pem", key, "--cacrt", cacrt, "--client-auth", clientAuth])
+--        { std_out = UseHandle devNull }
     let waitForStart = do
             port <- readPortFile maxRetries portFile
             pure (SandboxResource ph port)
