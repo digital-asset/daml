@@ -223,6 +223,10 @@ object Ordering extends scala.math.Ordering[SValue] {
             case map2: STextMap =>
               0 -> ImmArray((toList(map1), toList(map2)))
           }
+          case map1: SGenMap => {
+            case map2: SGenMap =>
+              0 -> ImmArray((toList(map1), toList(map2)))
+          }
           case SStruct(_, args1) => {
             case SStruct(_, args2) =>
               0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]

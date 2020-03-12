@@ -217,17 +217,20 @@ object SValue {
 
   private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
-  private def entry(key: String, value: SValue) = {
+  private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)
-    args.add(SText(key))
+    args.add(key)
     args.add(value)
     SStruct(entryFields, args)
   }
 
   def toList(textMap: STextMap): SList = {
     val entries = SortedLookupList(textMap.textMap).toImmArray
-    SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
+    SList(FrontStack(entries.map { case (k, v) => entry(SText(k), v) }))
   }
+
+  def toList(textMap: SGenMap): SList =
+    SList(FrontStack(textMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
 
   def fromValue(value0: V[V.ContractId]): SValue = {
     value0 match {
