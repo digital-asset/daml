@@ -89,9 +89,7 @@ For example, you can import ``foo.dar`` as follows:
   data-dependencies:
   - ../foo/foo.dar
 
-When importing packages this way, the DAML compiler will attempt to reconstruct the DAML interface from the compiled DAML-LF binaries included in the DAML archive.
-
-To allow ``data-dependencies`` to work across SDK versions, they have to abstract over some details which are not compatible across SDK versions. This means that there are some DAML features that cannot be recovered when using ``data-dependencies``. In particular:
+When importing packages this way, the DAML compiler will try to reconstruct the original DAML interface from the compiled binaries. However, to allow ``data-dependencies`` to work across SDK versions, the compiler has to abstract over some details which are not compatible across SDK versions. This means that there are some DAML features that cannot be recovered when using ``data-dependencies``. In particular:
 
 #. Export lists cannot be recovered, so imports via ``data-dependencies`` can access definitions that were originally hidden. This means it is up to the importing module to respect the data abstraction of the original module. Note that this is the same for all code that runs on the ledger, since the ledger does not provide special support for data abstraction.
 
