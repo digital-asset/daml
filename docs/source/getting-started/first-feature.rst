@@ -19,7 +19,12 @@ This means:
 
 We will see that DAML lets us implement these guarantees in a direct and intuitive way.
 
-There are two parts to building the messaging feature: the DAML model and the UI.
+There are three parts to building and running the messaging feature: 
+
+    1. Adding the necessary changes to the DAML model  
+    2. Making the corresponding changes in the UI
+    3. Running the new feature. In order to do that *we need to restart the DAML Sandbox and the JSON API server* 
+
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
 DAML Changes
@@ -48,8 +53,7 @@ The interesting part is the ``signatory`` clause: both the ``sender`` and ``rece
 This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
-Copy the following choice to the ``User`` template after the ``AddFriend`` choice.
-(Make sure the indentation matches ``AddFriend``.)
+Copy the following choice to the ``User`` template after the ``AddFriend`` choice. The indentation for the ``User`` choice must match the one of ``AddFriend`` . *Make sure you save the file after copying the code*.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
@@ -72,7 +76,7 @@ TypeScript Code Generation
 
 Remember that we interface with the DAML model from the UI components using generated TypeScript.
 Since we have changed our DAML code, we also need to rerun the TypeScript code generator.
-Let's do this by running::
+Open a new terminal Let's do this by running::
 
   daml build
   daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
@@ -102,7 +106,7 @@ MessageList Component
 
 The goal of the ``MessageList`` component is to query all ``Message`` contracts where the ``receiver`` is the current user, and display their contents and senders in a list.
 The entire component is shown below.
-You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components``.
+You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
 
@@ -125,7 +129,7 @@ MessageEdit Component
 ---------------------
 
 Next we need the ``MessageEdit`` component to compose and send messages to selected friends.
-Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components``.
+Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
 
@@ -164,7 +168,7 @@ Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for
   :end-before: // IMPORTS_END
 
 Next, find where the *Network* ``Segment`` closes, towards the end of the component.
-This is where we'll add a new ``Segment`` for *Messages*.
+This is where we'll add a new ``Segment`` for *Messages*. Make sure you've saved the file after copying the code.
 
 .. literalinclude:: code/ui-after/MainView.tsx
   :start-after: // MESSAGES_SEGMENT_BEGIN
@@ -175,24 +179,22 @@ You can see we simply follow the formatting of the previous panels and include t
 That is all for the implementation!
 Let's give the new functionality a spin.
 
-Running the New App
+Running the New Feature
 ===================
 
-To start up the new app, open up your terminal application.
-First make sure your previously run commands are terminated, in particular the ``daml-start.sh`` command.
-You can do this by hitting ``Ctrl-C`` in the terminal window where you ran the command.
-This shuts down the previous instances of the sandbox and JSON API server: it is important that we start our new app with new instances of these components.
+As previously mentioned, we need to restart the DAML Sandbox and the JSON API, in order to get the messaging feature up and running. 
 
-Having done that, first restart the DAML sandbox and JSON API server in the root ``create-daml-app`` folder::
+First, navigate to the terminal window where the ``daml-start.sh`` is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox and JSON API server: it is important that we start our new app with new instances of these components.
+
+Next restart the DAML sandbox and JSON API server in the root ``create-daml-app`` folder::
 
     ./daml-start.sh
 
-Then in another terminal window, change to the ``ui`` folder and restart the application::
+As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all the friends and their connections are lost. 
 
-    cd ui
-    yarn start
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI. 
 
-You should see the same login page as before at http://localhost:3000.
+Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
 Go ahead and add some friends, and log in as some of those friends in separate browser windows to add yourself back.
 Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some friends to message!
