@@ -107,8 +107,7 @@ We'll first look at ``App.tsx``, which is the entry point to our application.
 An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 Hooks allow you to share and update state across components, avoiding having to thread it through manually.
 We take advantage of hooks in particular to share ledger state across components.
-We use custom *DAML React hooks* to query the ledger for contracts, create new contracts, and exercise choices.
-This library uses the :doc:`HTTP JSON API </json-api/index>` behind the scenes.
+We use custom `DAML React hooks <https://www.npmjs.com/package/@daml/react>`_ to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ . 
 
 .. TODO Link to DAML react hooks API
 
@@ -158,3 +157,7 @@ This gets triggered when you click the icon next to a user's name in the *Networ
 
 This should give you a taste of how the UI works alongside a DAML ledger.
 You'll see this more as you develop :doc:`your first feature <first-feature>` for our social network.
+
+.. rubric:: Footnotes
+
+.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <https://www.npmjs.com/package/@daml/ledger>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`.  
