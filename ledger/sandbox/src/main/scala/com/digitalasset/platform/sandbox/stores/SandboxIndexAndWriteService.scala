@@ -116,7 +116,12 @@ object SandboxIndexAndWriteService {
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {
-      _ <- new HeartbeatScheduler(timeProvider, ledger.publishHeartbeat)
+      _ <- new HeartbeatScheduler(timeProvider, 1.seconds, "heartbeats", ledger.publishHeartbeat)
+      _ <- new HeartbeatScheduler(
+        TimeProvider.UTC,
+        10.minutes,
+        "deduplication cache maintenance",
+        ledger.removeExpiredDeduplicationData)
     } yield
       new IndexAndWriteService {
         override val indexService: IndexService = indexSvc
@@ -130,6 +135,8 @@ object SandboxIndexAndWriteService {
 
   private class HeartbeatScheduler(
       timeProvider: TimeProvider,
+      interval: FiniteDuration,
+      name: String,
       onTimeChange: Instant => Future[Unit],
   )(implicit mat: Materializer)
       extends ResourceOwner[Unit] {
@@ -138,8 +145,7 @@ object SandboxIndexAndWriteService {
       timeProvider match {
         case timeProvider: TimeProvider.UTC.type =>
           Resource(Future {
-            val interval = 1.seconds
-            logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
+            logger.debug(s"Scheduling $name in intervals of {}", interval)
             Source
               .tick(0.seconds, interval, ())
               .mapAsync[Unit](1)(
