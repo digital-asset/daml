@@ -20,9 +20,9 @@ final class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toHexaString: Ref.HexaString = Ref.HexaString.encode(bytes)
+  def toHexString: Ref.HexString = Ref.HexString.encode(bytes)
 
-  override def toString: String = s"Hash($toHexaString)"
+  override def toString: String = s"Hash($toHexString)"
 
   override def equals(other: Any): Boolean =
     other match {
@@ -271,8 +271,8 @@ object Hash {
 
   }
 
-  def fromHexaString(s: Ref.HexaString): Either[String, Hash] = {
-    val bytes = Ref.HexaString.decode(s)
+  def fromHexString(s: Ref.HexString): Either[String, Hash] = {
+    val bytes = Ref.HexString.decode(s)
     Either.cond(
       bytes.length == underlyingHashLength,
       new Hash(bytes),
@@ -282,8 +282,8 @@ object Hash {
 
   def fromString(s: String): Either[String, Hash] =
     for {
-      hexaString <- Ref.HexaString.fromString(s)
-      hash <- fromHexaString(hexaString)
+      hexaString <- Ref.HexString.fromString(s)
+      hash <- fromHexString(hexaString)
     } yield hash
 
   def assertFromString(s: String): Hash =

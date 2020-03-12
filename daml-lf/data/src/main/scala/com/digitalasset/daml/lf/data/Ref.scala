@@ -15,8 +15,8 @@ object Ref {
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
   /* Encoding of byte array */
-  type HexaString = IdString.HexaString
-  val HexaString = IdString.HexaString
+  type HexString = IdString.HexString
+  val HexString = IdString.HexString
 
   type PackageName = IdString.PackageName
   val PackageName: IdString.PackageName.type = IdString.PackageName
