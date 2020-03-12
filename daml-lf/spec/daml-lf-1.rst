@@ -2426,41 +2426,41 @@ updates.
     —————————————————————————————————————————————————————————————————————— EvLessEqStructEmpty
       𝕆('LESS_EQ' @⟨ ⟩ ⟨ ⟩ ⟨ ⟩) = Ok 'True'
 
-      𝕆('LESS_EQ' @τ₁ v₀ v₀') = Err t
+      𝕆('LESS_EQ' @τ₀ v₀ v₀') = Err t
     —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadErr1
-      𝕆('LESS_EQ' @⟨ f₀: τ₁,  f₁: τ₁, …,  fₙ: τₙ ⟩
+      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ ⟩
-   	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Err t
+                   ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Err t
 
       𝕆('LESS_EQ' @τ₁ v₀ v₀') = Ok 'False'
     ————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadBigger
-      𝕆('LESS_EQ' @⟨ f₀: τ₁,  f₁: τ₁, …,  fₙ: τₙ  ⟩
+      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ  ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ  ⟩
       	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Ok 'False'
 
-      𝕆('LESS_EQ' @τ₁ v₀ v₀') = Ok 'True'
-      𝕆('LESS_EQ' @τ₁ v₀' v₀) = Err t
+      𝕆('LESS_EQ' @τ₀ v₀ v₀') = Ok 'True'
+      𝕆('LESS_EQ' @τ₀ v₀' v₀) = Err t
     —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadErr2
-      𝕆('LESS_EQ' @⟨ f₀: τ₁,  f₁: τ₁, …,  fₙ: τₙ  ⟩
+      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ  ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ  ⟩
       	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Err t
 
-      𝕆('LESS_EQ' @τ₁ v₀ v₀') = Ok 'True'
-      𝕆('LESS_EQ' @τ₁ v₀' v₀) = Ok 'False'
+      𝕆('LESS_EQ' @τ₀ v₀ v₀') = Ok 'True'
+      𝕆('LESS_EQ' @τ₀ v₀' v₀) = Ok 'False'
     ————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyHeadSmaller
-      𝕆('LESS_EQ' @⟨ f₀: τ₁,  f₁: τ₁, …,  fₙ: τₙ  ⟩
+      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ  ⟩
                    ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ  ⟩
-   	           ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Ok 'True'
+                   ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = Ok 'True'
 
-      𝕆('LESS_EQ' @τ₁ v₀ v₀') = Ok 'True'
-      𝕆('LESS_EQ' @τ₁ v₀' v₀) = Ok 'True'
+      𝕆('LESS_EQ' @τ₀ v₀ v₀') = Ok 'True'
+      𝕆('LESS_EQ' @τ₀ v₀' v₀) = Ok 'True'
       𝕆('LESS_EQ' @⟨ f₁: τ₁, …,  fₙ: τₙ  ⟩
                    ⟨ f₁= v₁, …,  fₘ= vₘ  ⟩
-   	           ⟨ f₁= v₁', …, fₘ= vₘ' ⟩) = r
+                   ⟨ f₁= v₁', …, fₘ= vₘ' ⟩) = r
     —————————————————————————————————————————————————————————————————————— EvLessEqStructNonEmptyTail
-      'LESS_EQ' @⟨ f₀: τ₁,  f₁: τ₁, …,  fₙ: τₙ ⟩
-                 ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ ⟩
-   	         ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = r
+      𝕆('LESS_EQ' @⟨ f₀: τ₀,  f₁: τ₁, …,  fₙ: τₙ ⟩
+                   ⟨ f₀= v₀,  f₁= v₁, …,  fₘ= vₘ ⟩
+                   ⟨ f₀= v₀', f₁= v₁', …, fₘ= vₘ' ⟩) = r
 
       'enum' T ↦ E₁: σ₁ | … | Eₘ: σₘ  ∈  〚Ξ〛Mod
     —————————————————————————————————————————————————————————————————————— EvLessEqEnum
@@ -2481,7 +2481,7 @@ updates.
       𝕆('LESS_EQ' @⟨ f₁: τ₁'[α₁ ↦ σ₁, …, αₙ ↦ σₙ],
                        …, fₙ: τₙ'[α₁ ↦ σ₁, …, αₙ ↦ σₙ]⟩
                    ⟨ f₁= v₁, …,  fₘ = vₘ ⟩
-   	           ⟨ f₁= v₁', …, fₘ = vₘ' ⟩) = r
+   	               ⟨ f₁= v₁', …, fₘ = vₘ' ⟩) = r
     —————————————————————————————————————————————————————————————————————— EvLessEqRecord
       𝕆('LESS_EQ' @σ (Mod:T @σ₁  … @σₙ  { f₁ = v₁ , …, fₘ = vₘ  })
                      (Mod:T @σ₁' … @σₙ' { f₁ = v₁', …, fₘ = vₘ' })) =  r
@@ -2493,8 +2493,8 @@ updates.
       𝕆('LESS_EQ' @σ (Cons @τ vₕ vₜ)  (Nil @τ')) = Ok 'False'
 
       𝕆('LESS_EQ' @⟨ h:τ,    t: 'List' τ ⟩
-                   ⟨ h= v₁,  t= vₘ       ⟩
-                   ⟨ h= v₁', t= vₘ'      ⟩) = r
+                   ⟨ h= vₕ,  t= vₜ       ⟩
+                   ⟨ h= vₕ', t= vₜ'      ⟩) = r
     —————————————————————————————————————————————————————————————————————— EvLessEqListConsCons
       𝕆('LESS_EQ' @σ (Cons @τ vₕ vₜ) (Cons @τ' vₕ vₜ)) = r
 
