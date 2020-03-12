@@ -74,6 +74,20 @@ class SubmissionValidator[LogResult](
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
     runValidation(envelope, correlationId, recordTime, participantId, commit)
 
+  private val batchValidator = new BatchValidator[LogResult](allocateLogEntryId, ledgerStateAccess)
+  private[validator] def validateAndCommitWithBatchValidator(
+      envelope: RawBytes,
+      correlationId: String,
+      recordTime: Timestamp,
+      participantId: ParticipantId,
+  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
+    batchValidator.validate(recordTime, participantId, envelope).map { results =>
+      // FIXME(JM): HACK
+      Right(results.last)
+    }
+
+  //runValidation(envelope, correlationId, recordTime, participantId, commit)
+
   def validateAndTransform[U](
       envelope: Bytes,
       correlationId: String,

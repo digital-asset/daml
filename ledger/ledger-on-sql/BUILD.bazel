@@ -48,6 +48,10 @@ supported_databases = [
         "runtime_deps": [
             "@maven//:org_postgresql_postgresql",
         ],
+        "conformance_test_tool_args": [
+            "--concurrent-test-runs=10",
+            "--timeout-scale-factor=4",
+        ],
         "conformance_test_server_main": "com.daml.ledger.on.sql.MainWithEphemeralPostgresql",
     },
     {
