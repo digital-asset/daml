@@ -6,7 +6,7 @@ package com.digitalasset.platform.index
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Transaction, Value}
+import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, Transaction}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, NodeInfo}
 
 object Disclosure {
