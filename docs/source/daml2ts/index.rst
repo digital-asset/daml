@@ -189,23 +189,25 @@ The thing to note is how the definition of the ``Add`` case has given rise to a 
 Enums
 ~~~~~
 
-DAML enumerations map naturally to TypeScript.
+Given a DAML enumeration like this,
 
 .. code-block:: daml
    :linenos:
 
    data Color = Red | Blue | Yellow
 
-The companion TypeScript type is the following.
+the generated TypeScript will consist of a type declaration and the definition of an associated companion object.
 
 .. code-block:: typescript
    :linenos:
 
-   enum Color {
-     Red = 'Red',
-     Blue = 'Blue',
-     Yellow = 'Yellow',
-   }
+   type Color = | 'Red' | 'Blue' | 'Yellow'
+
+   const Color : {readonly Red: Color; readonly Blue: Color; readonly Yellow: Color} = {
+     Red: 'Red',
+     Blue: 'Blue',
+     Yellow: 'Yellow',
+   } as const;
 
 Templates and choices
 ~~~~~~~~~~~~~~~~~~~~~
