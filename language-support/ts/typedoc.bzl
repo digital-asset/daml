@@ -14,8 +14,8 @@ def ts_docs(pkg_name):
         cmd = """
           # NOTE: we need the --ignoreCompilerErrors flag because we get errors when tsc is trying to
           # resolve the imported packages.
-          $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md $(SRCS)
-          tar czf $@ docs
+          $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md --stripInternal $(SRCS)
+          tar -hczf $@ docs
         """,
         visibility = ["//visibility:public"],
     ) if not is_windows else None
