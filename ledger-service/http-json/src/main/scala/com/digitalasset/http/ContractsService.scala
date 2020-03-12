@@ -288,7 +288,6 @@ class ContractsService(
       : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
-    // TODO SC use startOffset
     import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
     ContractsFetch.GraphExtensions._
     val contractsAndBoundary = startOffset.cata(
