@@ -19,20 +19,14 @@ object Disclosure {
         nodeId -> e.stakeholders
     }
 
-  def forTransactionTree[Nid, Cid, Val](
-      disclosure: GenTransaction[Nid, Cid, Val] => Relation[Nid, Party])(
-      tx: GenTransaction[Nid, Cid, Val]): Relation[Nid, Party] = {
-
-    val createAndExercise: Set[Nid] =
+  def forTransactionTree(tx: Transaction): Relation[NodeId, Party] = {
+    val createAndExercise: Set[NodeId] =
       tx.nodes.collect {
         case p @ (_, _: NodeInfo.Create) => p
         case p @ (_, _: NodeInfo.Exercise) => p
       }.keySet
 
-    disclosure(tx).filterKeys(createAndExercise)
+    Blinding.blind(tx).disclosure.filterKeys(createAndExercise)
   }
-
-  val forTransactionTree: Transaction => Relation[NodeId, Party] =
-    forTransactionTree[NodeId, TContractId, Value[TContractId]](Blinding.blind(_).disclosure)
 
 }
