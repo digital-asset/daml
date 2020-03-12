@@ -10,8 +10,18 @@ import scalaz.OneAnd
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
-class PartiesService(listAllParties: LedgerClientJwt.ListKnownParties)(
-    implicit ec: ExecutionContext) {
+class PartiesService(
+    listAllParties: LedgerClientJwt.ListKnownParties,
+    allocateParty: LedgerClientJwt.AllocateParty
+)(implicit ec: ExecutionContext) {
+
+//  def allocate(jwt: Jwt, request: domain.AllocatePartyRequest): Future[InvalidUserInput \/ domain.PartyDetails] = for {
+//    idHint <- request.identifierHint.traverse(domain.Party.toLedgerApi)
+//
+//
+////    allocateParty(jwt, identifierHint, request.displayName)
+//    .map(domain.PartyDetails.fromLedgerApi)
+//  } yield ???
 
   // TODO(Leo) memoize this calls or listAllParties()?
   def allParties(jwt: Jwt): Future[List[domain.PartyDetails]] = {
@@ -48,3 +58,5 @@ class PartiesService(listAllParties: LedgerClientJwt.ListKnownParties)(
     else requested -- found.map(_.identifier)
 
 }
+
+object PartiesService {}
