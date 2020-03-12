@@ -163,20 +163,6 @@ object domain {
   type Party = lar.Party
   val Party = lar.Party
 
-//  object Party {
-//    private[http] val tag = lar.Party
-//
-//    def apply(p: String): Party = tag(p)
-//
-//    def unwrap(p: Party): String = tag.unwrap(p)
-//
-//    def unsubst[F[_]](fa: F[Party]): F[String] = tag.unsubst(fa)
-//
-//    def toLedgerApi(p: domain.Party): Error \/ Ref.Party =
-//      \/.fromEither(Ref.Party.fromString(Party.unwrap(p)))
-//        .leftMap(e => Error('AllocatePartyRequest_toLedgerApi, e))
-//  }
-
   object TemplateId {
     type OptionalPkg = TemplateId[Option[String]]
     type RequiredPkg = TemplateId[String]
