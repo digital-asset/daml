@@ -27,7 +27,10 @@ case class Config(
     ledgerPort: Int,
     darPath: File,
     wallclockTime: Boolean,
-    accessTokenFile: Option[Path])
+    accessTokenFile: Option[Path],
+    // We use the presence of a root CA as a proxy for whether to enable TLS or not.
+    rootCa: Option[File],
+)
 
 case class Test0(dar: Dar[(PackageId, Package)], runner: TestRunner) {
   val scriptId = Identifier(dar.main._1, QualifiedName.assertFromString("ScriptTest:test0"))
@@ -322,12 +325,16 @@ object SingleParticipant {
       .action { (f, c) =>
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
+
+    opt[File]("cacrt")
+      .optional()
+      .action((d, c) => c.copy(rootCa = Some(d)))
   }
 
   private val applicationId = ApplicationId("DAML Script Tests")
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, false, None)) match {
+    configParser.parse(args, Config(0, null, false, None, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>
@@ -343,7 +350,12 @@ object SingleParticipant {
         val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
 
         val runner =
-          new TestRunner(participantParams, dar, config.wallclockTime, tokenHolder.flatMap(_.token))
+          new TestRunner(
+            participantParams,
+            dar,
+            config.wallclockTime,
+            tokenHolder.flatMap(_.token),
+            config.rootCa)
         config.accessTokenFile match {
           case None =>
             TraceOrder(dar, runner).runTests()

@@ -53,7 +53,7 @@ object RunnerMain {
           applicationId = ApplicationId.unwrap(applicationId),
           ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
           commandClient = CommandClientConfiguration.default,
-          sslContext = None,
+          sslContext = config.tlsConfig.flatMap(_.client),
           token = tokenHolder.flatMap(_.token),
         )
         val timeProvider: TimeProvider =
