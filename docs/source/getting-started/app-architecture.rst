@@ -160,4 +160,4 @@ You'll see this more as you develop :doc:`your first feature <first-feature>` fo
 
 .. rubric:: Footnotes
 
-.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <https://www.npmjs.com/package/@daml/ledger>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`.  
+.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <https://www.npmjs.com/package/@daml/ledger>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`. 
