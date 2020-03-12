@@ -12,10 +12,10 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 
 private[dao] object CommandCompletionsReader {
 
-  private def offsetFor(response: CompletionStreamResponse): LedgerDao#LedgerOffset =
+  private def offsetFor(response: CompletionStreamResponse): Offset =
     Offset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
-  def apply(dispatcher: DbDispatcher): CommandCompletionsReader[LedgerDao#LedgerOffset] =
+  def apply(dispatcher: DbDispatcher): CommandCompletionsReader[Offset] =
     (from: Offset, to: Offset, appId: ApplicationId, parties: Set[Ref.Party]) => {
       val query = CommandCompletionsTable.prepareGet(from, to, appId, parties)
       Source

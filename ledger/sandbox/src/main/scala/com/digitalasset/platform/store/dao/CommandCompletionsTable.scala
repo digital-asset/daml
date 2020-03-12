@@ -4,6 +4,7 @@
 package com.digitalasset.platform.store.dao
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -49,8 +50,8 @@ object CommandCompletionsTable {
   // TODO returns rows there the application_id and submitting_party
   // TODO are null. Remove as soon as checkpoints are gone.
   def prepareGet(
-      startExclusive: LedgerDao#LedgerOffset,
-      endInclusive: LedgerDao#LedgerOffset,
+      startExclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]): SimpleSql[Row] =
     SQL"""select
@@ -75,7 +76,7 @@ object CommandCompletionsTable {
 
   // The insert will be prepared only if this entry contains all the information
   // necessary to be rendered as part of the completion service
-  def prepareInsert(offset: LedgerDao#LedgerOffset, entry: LedgerEntry): Option[SimpleSql[Row]] =
+  def prepareInsert(offset: Offset, entry: LedgerEntry): Option[SimpleSql[Row]] =
     entry match {
       case LedgerEntry.Checkpoint(recordTime) =>
         Some(

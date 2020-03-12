@@ -149,7 +149,7 @@ private class JdbcLedgerDao(
   private val SQL_INITIALIZE = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
-  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
     dbDispatcher.executeSql("initialize_ledger_parameters") { implicit conn =>
       val _ = SQL_INITIALIZE
         .on("LedgerId" -> ledgerId.unwrap, "LedgerEnd" -> ledgerEnd)
@@ -163,7 +163,7 @@ private class JdbcLedgerDao(
   private val SQL_UPDATE_LEDGER_END = SQL(
     "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
 
-  private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
+  private def updateLedgerEnd(ledgerEnd: Offset)(implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
       .on("LedgerEnd" -> ledgerEnd)
       .execute()
@@ -208,7 +208,7 @@ private class JdbcLedgerDao(
   private val acceptType = "accept"
   private val rejectType = "reject"
 
-  private val configurationEntryParser: RowParser[(LedgerOffset, ConfigurationEntry)] =
+  private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
     (offset("ledger_offset") ~
       str("typ") ~
       str("submission_id") ~
@@ -249,8 +249,8 @@ private class JdbcLedgerDao(
       }
 
   override def getConfigurationEntries(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset): Source[(LedgerOffset, ConfigurationEntry), NotUsed] =
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_configuration_entries",
@@ -273,7 +273,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storeConfigurationEntry(
-      offset: LedgerOffset,
+      offset: Offset,
       recordedAt: Instant,
       submissionId: String,
       participantId: ParticipantId,
@@ -351,7 +351,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePartyEntry(
-      offset: LedgerOffset,
+      offset: Offset,
       partyEntry: PartyLedgerEntry,
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_party_entry") { implicit conn =>
@@ -409,7 +409,7 @@ private class JdbcLedgerDao(
   private val SQL_GET_PARTY_ENTRIES = SQL(
     "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  private val partyEntryParser: RowParser[(LedgerOffset, PartyLedgerEntry)] =
+  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] =
     (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -457,8 +457,8 @@ private class JdbcLedgerDao(
       }
 
   override def getPartyEntries(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] = {
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_party_entries",
@@ -543,10 +543,10 @@ private class JdbcLedgerDao(
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     dbDispatcher.executeSql("lookup_contract_by_key")(implicit conn => lookupKeySync(key, forParty))
 
-  private def storeContract(offset: LedgerOffset, contract: ActiveContract)(
+  private def storeContract(offset: Offset, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
-  private def archiveContract(offset: LedgerOffset, cid: AbsoluteContractId)(
+  private def archiveContract(offset: Offset, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
     SQL_ARCHIVE_CONTRACT
       .on(
@@ -592,7 +592,7 @@ private class JdbcLedgerDao(
     }
   }
 
-  private def storeContracts(offset: LedgerOffset, contracts: immutable.Seq[ActiveContract])(
+  private def storeContracts(offset: Offset, contracts: immutable.Seq[ActiveContract])(
       implicit connection: Connection): Unit = {
 
     // An ACS contract contains several collections (e.g., witnesses or divulgences).
@@ -746,7 +746,7 @@ private class JdbcLedgerDao(
     * Invalid transactions trigger a rollback of the current SQL transaction.
     */
   private def updateActiveContractSet(
-      offset: LedgerOffset,
+      offset: Offset,
       submitter: Option[Party],
       tx: Transaction,
       globalDivulgence: Relation[AbsoluteContractId, Party],
@@ -846,10 +846,8 @@ private class JdbcLedgerDao(
       }
   }
 
-  private def storeTransaction(
-      offset: LedgerOffset,
-      tx: LedgerEntry.Transaction,
-      txBytes: Array[Byte])(implicit connection: Connection): Unit = {
+  private def storeTransaction(offset: Offset, tx: LedgerEntry.Transaction, txBytes: Array[Byte])(
+      implicit connection: Connection): Unit = {
     SQL_INSERT_TRANSACTION
       .on(
         "ledger_offset" -> offset,
@@ -884,7 +882,7 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def storeRejection(offset: LedgerOffset, rejection: LedgerEntry.Rejection)(
+  private def storeRejection(offset: Offset, rejection: LedgerEntry.Rejection)(
       implicit connection: Connection): Unit = {
     val (rejectionDescription, rejectionType) = writeRejectionReason(rejection.rejectionReason)
     SQL_INSERT_REJECTION
@@ -902,7 +900,7 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def storeCheckpoint(offset: LedgerOffset, checkpoint: LedgerEntry.Checkpoint)(
+  private def storeCheckpoint(offset: Offset, checkpoint: LedgerEntry.Checkpoint)(
       implicit connection: Connection): Unit = {
     SQL_INSERT_CHECKPOINT
       .on("ledger_offset" -> offset, "recorded_at" -> checkpoint.recordedAt)
@@ -928,7 +926,7 @@ private class JdbcLedgerDao(
 
   //TODO: test it for failures..
   override def storeLedgerEntry(
-      offset: LedgerOffset,
+      offset: Offset,
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse] = {
     import PersistenceResponse._
 
@@ -1015,8 +1013,8 @@ private class JdbcLedgerDao(
 
   override def storeInitialState(
       activeContracts: immutable.Seq[ActiveContract],
-      ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
-      newLedgerEnd: LedgerOffset
+      ledgerEntries: immutable.Seq[(Offset, LedgerEntry)],
+      newLedgerEnd: Offset
   ): Future[Unit] = {
     // A map to look up offset by transaction ID
     // Needed to store contracts: in the database, we store the offset at which a contract was created,
@@ -1104,7 +1102,7 @@ private class JdbcLedgerDao(
 
   private def toLedgerEntry(
       parsedEntry: ParsedEntry,
-      disclosureOpt: Option[Relation[EventId, Party]]): (LedgerOffset, LedgerEntry) =
+      disclosureOpt: Option[Relation[EventId, Party]]): (Offset, LedgerEntry) =
     parsedEntry match {
       case ParsedEntry(
           "transaction",
@@ -1170,7 +1168,7 @@ private class JdbcLedgerDao(
           s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
     }
 
-  override def lookupLedgerEntry(offset: LedgerOffset): Future[Option[LedgerEntry]] = {
+  override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] = {
     dbDispatcher
       .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
         val entry = SQL_SELECT_ENTRY
@@ -1182,7 +1180,7 @@ private class JdbcLedgerDao(
   }
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
+      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
     dbDispatcher
       .executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
         val entry = SQL_SELECT_TRANSACTION
@@ -1378,8 +1376,8 @@ private class JdbcLedgerDao(
   private val PageSize = 100
 
   override def getLedgerEntries(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed] =
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         s"load_ledger_entries",
@@ -1430,7 +1428,7 @@ private class JdbcLedgerDao(
         })
 
   override def getActiveContractSnapshot(
-      endInclusive: LedgerOffset,
+      endInclusive: Offset,
       filter: TransactionFilter): Future[LedgerSnapshot] = {
 
     val contractStream =
@@ -1566,7 +1564,7 @@ private class JdbcLedgerDao(
       |""".stripMargin)
 
   override def storePackageEntry(
-      offset: LedgerOffset,
+      offset: Offset,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] = {
@@ -1623,7 +1621,7 @@ private class JdbcLedgerDao(
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
     "select * from package_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  private val packageEntryParser: RowParser[(LedgerOffset, PackageLedgerEntry)] =
+  private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
     (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
@@ -1642,8 +1640,8 @@ private class JdbcLedgerDao(
       }
 
   override def getPackageEntries(
-      startExclusive: LedgerOffset,
-      endInclusive: LedgerOffset): Source[(LedgerOffset, PackageLedgerEntry), NotUsed] = {
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] = {
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_package_entries",
@@ -1741,7 +1739,7 @@ private class JdbcLedgerDao(
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
 
-  override val completions: CommandCompletionsReader[LedgerOffset] =
+  override val completions: CommandCompletionsReader[Offset] =
     CommandCompletionsReader(dbDispatcher)
 }
 
