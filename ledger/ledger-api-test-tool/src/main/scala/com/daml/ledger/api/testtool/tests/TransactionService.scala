@@ -866,11 +866,14 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
-        agreement <- alpha
-          .exerciseAndGetContract[Agreement](
+        // TODO eventually is a temporary workaround. It should take into account
+        // TODO that the contract needs to hit the target node before a choice
+        // TODO is executed on it.
+        agreement <- eventually {
+          alpha.exerciseAndGetContract[Agreement](
             receiver,
-            agreementFactory.exerciseAgreementFactoryAccept,
-          )
+            agreementFactory.exerciseAgreementFactoryAccept)
+        }
         triProposalTemplate = TriProposal(operator, giver, giver)
         triProposal <- alpha.create(operator, triProposalTemplate)
         _ <- eventually {

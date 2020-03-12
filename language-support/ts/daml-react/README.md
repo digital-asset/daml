@@ -1,52 +1,115 @@
 # @daml/react
 
-> Library to interact with a DAML ledger from a React application.
+> React framework for DAML applications
 
-## Install
+## Documentation
 
-### npm:
-
-```sh
-npm install @daml/react
-```
-
-### yarn:
-
-```sh
-yarn add @daml/react
-```
+Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/app-dev/bindings-ts/daml-react/index.html).
 
 ## Usage
 
-The best place to get you started is [Create DAML App](https://github.com/digital-asset/create-daml-app)
-and the [Quickstart Guide](https://docs.daml.com/getting-started/quickstart.html).
+The best way to get you started quickly is to look at [Create DAMLApp](https://github.com/digital-asset/create-daml-app)
+and to read the [QuickstartGuide](https://docs.daml.com/getting-started/quickstart.html).
 
-Here is a Typescript/React example:
+To get an overview on how to build a DAML application, please read the [application architecture overview](https://docs.daml.com/app-dev/index.html).
+
+To use `@daml/react` your application needs to be connected to the JSON API of a DAML ledger. If
+your JSON API server for the ledger runs on the local host on port 7575, set 
+
+``` json
+"proxy": "http://localhost:7575"
+``` 
+
+in your `package.json` and wrap your main component in the `DamlLedger` component of `@daml/react`
 
 ```typescript
-import {useParty, ...} from @daml/react
-```
+import DamlLeddger from @daml/react
 
-React entry point:
-
-```typescript
 const App: React.FC = () => {
-  const [credentials, setCredentials] = useState<Credentials | undefined>();
-
-  return credentials
-    ? <DamlLedger credentials={credentials}>
-        <MainScreen onLogout={() => setCredentials(undefined)}/>
-      </DamlLedger>
-    : <LoginScreen onLogin={setCredentials}/>;
+     <DamlLedger
+      token: <your authentication token>
+      httpBaseUrl?: <optional http base url>
+      wsBaseUrl?: <optional websocket base url>
+      party: <the logged in party>
+    >
+      <MainScreen />
+    </DamlLedger>
 }
 ```
-DAML Ledger API | Code
-----------------|-----
-Get the logged in party | `const party = useParty();` <br> `...` <br> `<h1> You're logged in as {party} </h1>`
-Exercise a choice on a contract | `const [exerciseChoice] = useExercise(ContractTemplate.ChoiceName)` <br> `...` <br> `onClick={() => exerciseChoice(contractId, arguments)}`
-Query the ledger | `const {loading: isLoading, contracts: queryResult} = useQuery(ContractTemplate, () => ({field: value}), [dependency1, dependency2, ... ]) ` 
-Query for contract keys | `const contracts = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])` 
-Reload the query results | `reload = useReload();` <br> `...` <br> `onClick={() => reload()}`
+
+Now you can use the following React hooks to interact with a DAML ledger:
+
+`useParty`
+----------
+`useParty` returns the party, for which commands are currently send to the ledger.
+
+```typescript
+const party = useParty()
+```
+
+`useExercise`
+-------------
+`useExercise` returns a function to exercise a choice by contract id.
+
+```typescript
+const [exerciseChoice] = useExercise(ContractTemplate.ChoiceName)
+const onClick = () => exerciseChoice(contractId, argument)
+```
+
+`useExerciseByKey`
+------------------
+`useExerciseByKey` returns a function to exercise a choice by contract key.
+
+```typescript
+const [exerciseByKey] = useExerciseByKey(ContractTemplate.ChoiceName)
+const onClick = () => exerciseByKey(key, argument)
+```
+
+`useQuery`
+----------
+`useQuery` returns the contracts matching a given query. The query matches for a given contract
+template and specified field values of the contracts of that template.
+
+```typescript
+const {contracts, isLoading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
+dependency2, ...])
+```
+
+`useReload`
+-----------
+`useReload` returns a function to reload the results of queries.
+
+```typescript
+const reload = useReload()
+const onClick = reload
+```
+
+`useStreamQuery`
+----------------
+`useStreamQuery` has the same signature as `useQuery`, but it constantly refreshes the results.
+
+```typescript
+const {contracts, isLoading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
+dependency2, ...])
+```
+
+`useFetchByKey`
+---------------
+`useFetchByKey` returns the unique contract of a given template and a given contract key.
+
+```typescript
+const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])
+```
+
+`useStreamFetchByKey`
+---------------------
+`useStreamFetchByKey` has the same signature as `useFetchByKey`, but it constantly keeps refreshes 
+the result.
+
+```typescript
+const {contract, isLoading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])
+```
+
 
 ## Source
 https://github.com/digital-asset/daml.

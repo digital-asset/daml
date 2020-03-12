@@ -30,7 +30,8 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
-import System.FilePath hiding ((<.>))
+import System.FilePath hiding ((<.>), (</>))
+import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
 import qualified System.FilePath as FP
 
 import DA.Daml.Project.Consts
@@ -221,7 +222,7 @@ daml2ts Daml2TsParams {..} = do
         case genModule pkgMap scope pkgId mod of
           Nothing -> pure []
           Just (modTxt, ds) -> do
-            let outputFile = packageSrcDir </> modPath (unModuleName (moduleName mod)) FP.<.> "ts"
+            let outputFile = packageSrcDir </> T.unpack (modPath (unModuleName (moduleName mod))) FP.<.> "ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
             pure ds
@@ -248,7 +249,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     serDefs = defDataTypes mod
     modRefs refs = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
     modHeader =
-      [ "// Generated from " <> T.intercalate "/" (unModuleName modName) <> ".daml"
+      [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
@@ -260,7 +261,7 @@ genModule pkgMap (Scope scope) curPkgId mod
                       (PackageRef, ModuleName) -> T.Text -> T.Text
     importDecl pkgMap modRef@(pkgRef, modName) rootPath =
       "import * as " <>  genModuleRef modRef <> " from '" <>
-      T.intercalate "/" ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
+      modPath ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
       "';"
 
     -- Produce a package name for a package ref.
@@ -281,7 +282,7 @@ genModule pkgMap (Scope scope) curPkgId mod
         PRSelf ->
           if lenModName == 1
             then "."
-            else T.intercalate "/" (replicate (lenModName - 1) "..")
+            else modPath $ replicate (lenModName - 1) (T.pack "..")
         PRImport _ -> scope
       where lenModName = length (unModuleName modName)
 
@@ -551,11 +552,15 @@ genModuleRef (pkgRef, modName) = case pkgRef of
   where
     name = unModuleName modName
 
+-- Calculate a variable name from a module name e.g. 'modVar "__"
+-- ["A", "B"]' is '__A_B'.
 modVar :: T.Text -> [T.Text] -> T.Text
 modVar prefix parts = prefix <> T.intercalate "_" parts
 
-modPath :: [T.Text] -> FilePath
-modPath parts = joinPath $ map T.unpack parts
+-- Calculate a filepath from a module name e.g. 'modPath [".", "A",
+-- "B"]' is "./A/B".
+modPath :: [T.Text] -> T.Text
+modPath parts = T.intercalate "/" parts
 
 onHead :: (a -> a) -> [a] -> [a]
 onHead f = \case
@@ -578,13 +583,19 @@ writeIndexTs packageSrcDir modules =
   T.writeFileUtf8 (packageSrcDir </> "index.ts") (T.unlines lines)
   where
     lines :: [T.Text]
-    lines = header <> concatMap entry modules
+    lines = header <> concatMap entry modules <> footer
 
     header :: [T.Text]
     header =
       [ "import __packageId from \"./packageId\""
-      , "export const packageId = __packageId;"
+      , "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      , "  export const packageId = __packageId;"
+      , "}"
       ]
+
+    footer :: [T.Text]
+    footer = [ "export default __All;" ]
 
     entry :: Module -> [T.Text]
     entry mod
@@ -593,7 +604,7 @@ writeIndexTs packageSrcDir modules =
       where
         name = unModuleName (moduleName mod)
         var = modVar "__" name
-        path = "\"" <> T.pack (modPath ("." : name)) <> "\""
+        path = "\"" <> modPath ("." : name) <> "\""
 
     importDecl :: T.Text -> T.Text -> [T.Text]
     importDecl var path =
@@ -602,7 +613,11 @@ writeIndexTs packageSrcDir modules =
       ]
 
     exportDecl :: T.Text -> [T.Text] -> [T.Text]
-    exportDecl = go 0
+    exportDecl var name =
+      [ "/* eslint-disable @typescript-eslint/no-namespace */"
+      , "namespace __All {"
+      ] <>  go 2 var name <>
+      ["}"]
       where
         spaces i = T.pack $ replicate i ' '
 
@@ -649,15 +664,16 @@ writeEsLintConfig dir =
       [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
       , "parserOptions" .= object [("project", "./tsconfig.json")]
       , "plugins" .= (["@typescript-eslint"] :: [T.Text])
-      , "extends" .= ([
-             "eslint:recommended"
-           , "plugin:@typescript-eslint/eslint-recommended"
-           , "plugin:@typescript-eslint/recommended"
-           , "plugin:@typescript-eslint/recommended-requiring-type-checking"
-           ] :: [T.Text])
-      , "rules" .= object [
-            ("@typescript-eslint/explicit-function-return-type", "off")
-          , ("@typescript-eslint/no-inferrable-types", "off") ]
+      , "extends" .= (
+          [ "eslint:recommended"
+          , "plugin:@typescript-eslint/eslint-recommended"
+          , "plugin:@typescript-eslint/recommended"
+          , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+          ] :: [T.Text])
+      , "rules" .= object
+          [ ("@typescript-eslint/explicit-function-return-type", "off")
+          , ("@typescript-eslint/no-inferrable-types", "off")
+          ]
       ]
 
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()

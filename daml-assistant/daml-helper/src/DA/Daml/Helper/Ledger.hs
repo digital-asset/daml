@@ -1,7 +1,8 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Helper.Ledger (
-    LedgerArgs(..), Token(..),
+    LedgerArgs(..), Token(..), L.ClientSSLConfig(..),
+    L.ClientSSLKeyCertPair(..),
     listParties, PartyDetails(..), Party(..),
     lookupParty,
     allocateParty,
@@ -18,7 +19,9 @@ import qualified Data.Text.Lazy as Text(pack)
 data LedgerArgs = LedgerArgs
   { host :: String
   , port :: Int
-  , tokM :: Maybe Token }
+  , tokM :: Maybe Token
+  , sslConfigM :: Maybe L.ClientSSLConfig
+  }
 
 instance Show LedgerArgs where
     show LedgerArgs{host,port} = host <> ":" <> show port
@@ -51,5 +54,9 @@ run hp ls = do
     let LedgerArgs{host,port,tokM} = hp
     let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
     let timeout = 30 :: L.TimeoutSeconds
-    let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
+    let ledgerClientConfig =
+            L.configOfHostAndPort
+                (L.Host $ fromString host)
+                (L.Port port)
+                (sslConfigM hp)
     L.runLedgerService ls' timeout ledgerClientConfig

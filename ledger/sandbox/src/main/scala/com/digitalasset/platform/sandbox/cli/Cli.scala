@@ -19,6 +19,7 @@ import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
+import io.netty.handler.ssl.ClientAuth
 import scopt.{OptionParser, Read}
 
 import scala.util.Try
@@ -33,6 +34,15 @@ object Cli {
     override def arity: Int = 1
 
     override val reads: String => Duration = Duration.parse
+  }
+
+  private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
+    case "none" => ClientAuth.NONE
+    case "optional" => ClientAuth.OPTIONAL
+    case "require" => ClientAuth.REQUIRE
+    case s =>
+      throw new IllegalArgumentException(
+        s"""$s is not a valid client authentication mode. Must be one of "none", "optional" or "require"""")
   }
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
@@ -118,6 +128,14 @@ object Cli {
           config.copy(tlsConfig = config.tlsConfig
             .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
               Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+      opt[ClientAuth]("client-auth")
+        .optional()
+        .text("TLS: The client authentication mode. Must be one of none, optional or require. Defaults to required.")
+        .action((clientAuth, config) =>
+          config.copy(tlsConfig = config.tlsConfig
+            .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
+              Some(c.copy(clientAuth = clientAuth)))))
 
       opt[Int]("maxInboundMessageSize")
         .action((x, c) => c.copy(maxInboundMessageSize = x))

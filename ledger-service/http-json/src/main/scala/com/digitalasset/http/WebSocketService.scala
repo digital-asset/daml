@@ -29,7 +29,7 @@ import scalaz.std.map._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsObject, JsString, JsTrue, JsValue}
+import spray.json.{JsArray, JsObject, JsString, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -39,20 +39,21 @@ object WebSocketService {
 
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
+  private type EventsAndOffset = (Vector[JsObject], Option[JsValue])
+
   private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
       domain.ActiveContract[LfV] => Option[Positive],
   )
 
-  val heartBeat: String = JsObject("heartbeat" -> JsString("ping")).compactPrint
-  private val liveMarker = JsObject("live" -> JsTrue)
-
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
     import json.JsonProtocol._, spray.json._
-    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsValue = {
+    def render(
+        implicit lfv: LfV <~< JsValue,
+        pos: Pos <~< Map[String, JsValue]): EventsAndOffset = {
       import ContractStreamStep._
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
       val InsertDeleteStep(inserts, deletes) =
@@ -73,7 +74,7 @@ object WebSocketService {
           Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
         case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
       }
-      JsObject(Map("events" -> JsArray(events)) ++ offsetAfter.map("offset" -> _).toList)
+      (events, offsetAfter)
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
@@ -87,6 +88,9 @@ object WebSocketService {
 
     def nonEmpty: Boolean = errors.nonEmpty || step.nonEmpty
   }
+
+  private def renderEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
+    JsObject(Map("events" -> JsArray(events)) ++ offset.map("offset" -> _).toList)
 
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
     val maxCost = 200L
@@ -242,6 +246,8 @@ class WebSocketService(
   import util.ErrorOps._
   import com.digitalasset.http.json.JsonProtocol._
 
+  private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
   private[http] def transactionMessageHandler[A: StreamQuery](
@@ -249,16 +255,13 @@ class WebSocketService(
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] =
     wsMessageHandler[A](jwt, jwtPayload)
-      .via(applyConfig(keepAlive = TextMessage.Strict(heartBeat)))
+      .via(applyConfig)
       .via(connCounter)
 
-  private def applyConfig[A](keepAlive: A): Flow[A, A, NotUsed] = {
-    val config = wsConfig.getOrElse(Config.DefaultWsConfig)
+  private def applyConfig[A]: Flow[A, A, NotUsed] =
     Flow[A]
       .takeWithin(config.maxDuration)
       .throttle(config.throttleElem, config.throttlePer, config.maxBurst, config.mode)
-      .keepAlive(config.heartBeatPer, () => keepAlive)
-  }
 
   @SuppressWarnings(
     Array("org.wartremover.warts.NonUnitStatements", "org.wartremover.warts.JavaSerializable"))
@@ -279,8 +282,6 @@ class WebSocketService(
         NotUsed
       }
 
-  private val wsReadTimeout = (wsConfig getOrElse Config.DefaultWsConfig).maxDuration
-
   private def wsMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -289,7 +290,7 @@ class WebSocketService(
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
-          msg.toStrict(wsReadTimeout).map(m => Q.parse(decoder, m.text))
+          msg.toStrict(config.maxDuration).map(m => Q.parse(decoder, m.text))
         case _ =>
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
@@ -315,6 +316,7 @@ class WebSocketService(
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
+        .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
     } else {
@@ -324,6 +326,23 @@ class WebSocketService(
             s"unresolved templateIds: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
     }
   }
+
+  // TODO(Leo): #4955 make sure the heartbeat contains the last seen offset,
+  // including the offset from the last empty/filtered out block of events
+  private def renderEventsAndEmitHeartbeats: Flow[EventsAndOffset, JsValue, NotUsed] =
+    Flow[EventsAndOffset]
+      .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
+      .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
+        case (Some((s, _)), (Vector(), None)) =>
+          // heartbeat message, keep the previous state, report the last seen offset
+          Some((s, (Vector(), s._2)))
+        case (_, a) =>
+          // override state, capture the last seen offset
+          Some((a, a))
+      }
+      .collect {
+        case Some((_, a)) => renderEvents(a._1, a._2)
+      }
 
   private def removePhantomArchives[A, B](remove: Boolean) =
     if (remove) removePhantomArchives_[A, B]
@@ -358,13 +377,6 @@ class WebSocketService(
     TextMessage(
       JsObject("error" -> JsString(errorMsg)).compactPrint
     )
-
-  private def prepareFilters(
-      ids: Iterable[domain.TemplateId.RequiredPkg],
-      queryExpr: Map[String, JsValue]): CompiledQueries =
-    ids.iterator.map { tid =>
-      (tid, contractsService.valuePredicate(tid, queryExpr).toFunPredicate)
-    }.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
