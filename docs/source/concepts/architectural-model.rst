@@ -67,7 +67,7 @@ Replication and concensus ensures that all writer nodes agree on the contents of
 Conceptually, they form a single source even though participants may connect only to a subset of the writer nodes.
 
 Multiple sources appear with interoperability in :ref:`partitioned ledger topologies <partitioned-topologies>`.
-Interoperability makes it possible that an atomic transaction uses the output contracts of transactions that have been recorded to different deployedledgers.
+Interoperability makes it possible that an atomic transaction uses the output contracts of transactions that have been recorded to different deployed ledgers.
 For example, when an organization initially deploys two workflows to two ledgers, it can later compose those workflows into a larger workflow that spans the deployed ledger.
 In this setup, each deployed ledger constitutes a source for the virtual shared ledger.
 Multiple sources can also be used to improve horizontal scaling of the atomic commit protocol.
@@ -109,11 +109,11 @@ To keep the transaction stream consistent, `P1` additionally outputs a ``LeftVie
 This event signals that the participant no longer outputs events concerning this contract; in particular not when the contract is archived.
 The contract is no longer reported in the active contract service and cannot be used by command submissions.
 
-Conversely, `P2` outpus an ``EnteredViewEvent``\ s some time before the ``ArchivedEvent`` on the transaction stream.
+Conversely, `P2` outputs an ``EnteredViewEvent``\ s some time before the ``ArchivedEvent`` on the transaction stream.
 This event signals that the participant starts outputting events concerning this contract.
 The contract is reported in the active contract service and can be used by command submission.
 The ``EnteredViewEvent`` contains all the information in a ``CreatedEvent``;
-the only difference is that ``EnteredViewEvent``\ s may occur several times whereas there should be only at mose one ``CreatedEvent`` for each contract.
+the only difference is that ``EnteredViewEvent``\ s may occur several times whereas there should be only at most one ``CreatedEvent`` for each contract.
 
 These events are generated when the underlying commit protocol synchronizes between the different sources.
 This may happen as part of command submission or for other reasons, e.g., load balancing.
@@ -188,7 +188,7 @@ the participant's transaction service output satisfy the following guarantees:
 #. The outputs on both streams are ordered such that their causal order for party `A` is the same as on the virtual shared ledger.
 
 Similarly, the active contract service provides the set of contracts that are active at the returned offset according to the transaction service output.
-That is, all events from the transaction event stream are included in the provided set of contracts.
+That is, the effects of all events from the transaction event stream are taken into account in the provided set of contracts.
 In particular, the set of active contracts and contract keys can be kept up to date by processing the events from the flat transaction stream (or the transaction tree stream) without having to take events with earlier offsets into account.
 
 Ledger implementations typically provide stronger ordering guarantees.
@@ -221,7 +221,7 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
    Alice will therefore see the creation of the `Iou` before the creation of the `CounterOffer`,
    because the `CounterOffer` is created in the same commit as the **Fetch** of the `Iou`.
    
-#. *Causality is not tracked through applications.*
+#. *Out-of-band causality is not respected.*
 
    From now on, we consider the workflow where Alice splits up her commit into two as follows:
 
@@ -242,7 +242,7 @@ Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as 
    So if participants delayed outputting the **Create** action for the `CounterOffer` until a **Create** event for the `Iou` contract was published, this delay might last forever and liveness is lost.
    Causality therefore does not capture data flow through applications.
    
-#. *Witnessed events do not induce causal order.*
+#. *Divulged actions do not induce causal order.*
 
    The painter witnesses the fetching of Alice's `Iou` when the `ShowIou` contract is archived.
    The painter also witnesses archival of the `Iou` when Alice exercises the transfer choice as a consequence of the painter accepting the `CounterOffer`.
