@@ -229,8 +229,8 @@ object SValue {
     SList(FrontStack(entries.map { case (k, v) => entry(SText(k), v) }))
   }
 
-  def toList(textMap: SGenMap): SList =
-    SList(FrontStack(textMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
+  def toList(genMap: SGenMap): SList =
+    SList(FrontStack(genMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
 
   def fromValue(value0: V[V.ContractId]): SValue = {
     value0 match {
