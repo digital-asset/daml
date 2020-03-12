@@ -164,6 +164,20 @@ Similarly, you can use the following command for ES512 keys:
 
   openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name secp521r1) -keyout ecdsa512.key -out ecdsa512.crt
 
+.. _sandbox-tls:
+
+Running with TLS
+****************
+
+To enable TLS, you need to specify the private key for your server and
+the certificate chain via ``daml sandbox --pem server.pem --crt
+server.crt``.  By default, Sandbox requires client authentication as
+well. You can set a custom root CA certificate used to validate client
+certificates via ``--cacrt ca.crt``. You can change the client
+authentication mode via ``--client-auth none`` which will disable it
+completely, ``--client-auth optional`` which makes it optional or
+specify the default explicitly via ``-.client-auth require``.
+
 Command-line reference
 **********************
 
