@@ -30,9 +30,8 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
-import System.FilePath hiding ((<.>), (</>))
-import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
-import qualified System.FilePath as FP
+import System.FilePath.Posix hiding ((<.>)) -- Make sure we generate / on all platforms.
+import qualified System.FilePath.Posix as FP
 
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
