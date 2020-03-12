@@ -11,19 +11,18 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
 import com.digitalasset.daml.lf.value.Value
-import com.google.common.io.BaseEncoding
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
-import scala.util.control.{NoStackTrace, NonFatal}
+import scala.util.control.NoStackTrace
 
 final class Hash private (private val bytes: Array[Byte]) {
 
   def toByteArray: Array[Byte] = bytes.clone()
 
-  def toHexaString: String = Hash.hexEncoding.encode(bytes)
+  def toHexString: Ref.HexString = Ref.HexString.encode(bytes)
 
-  override def toString: String = s"Hash($toHexaString)"
+  override def toString: String = s"Hash($toHexString)"
 
   override def equals(other: Any): Boolean =
     other match {
@@ -47,8 +46,6 @@ object Hash {
 
   private val version = 0.toByte
   private val underlyingHashLength = 32
-
-  private val hexEncoding = BaseEncoding.base16().lowerCase()
 
   private case class HashingError(msg: String) extends Exception with NoStackTrace
 
@@ -274,19 +271,20 @@ object Hash {
 
   }
 
-  def fromString(s: String): Either[String, Hash] = {
-    def error = s"Cannot parse hash $s"
-    try {
-      val bytes = hexEncoding.decode(s)
-      Either.cond(
-        bytes.length == underlyingHashLength,
-        new Hash(bytes),
-        error,
-      )
-    } catch {
-      case NonFatal(_) => Left(error)
-    }
+  def fromHexString(s: Ref.HexString): Either[String, Hash] = {
+    val bytes = Ref.HexString.decode(s)
+    Either.cond(
+      bytes.length == underlyingHashLength,
+      new Hash(bytes),
+      s"Cannot parse hash $s",
+    )
   }
+
+  def fromString(s: String): Either[String, Hash] =
+    for {
+      hexaString <- Ref.HexString.fromString(s)
+      hash <- fromHexString(hexaString)
+    } yield hash
 
   def assertFromString(s: String): Hash =
     data.assertRight(fromString(s))
