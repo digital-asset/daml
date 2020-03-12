@@ -423,7 +423,7 @@ class InMemoryLedger(
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
     Future.successful {
       this.synchronized {
-        commands.filter(p => p._2.deduplicateUntil.isAfter(currentTime))
+        commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
         ()
       }
     }
