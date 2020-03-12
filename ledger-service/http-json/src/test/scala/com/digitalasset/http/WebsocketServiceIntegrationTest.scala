@@ -9,21 +9,22 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.digitalasset.http.json.DomainJsonEncoder
+import com.digitalasset.http.json.{DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.{AsyncFreeSpec, BeforeAndAfterAll, Inside, Matchers}
+import org.scalatest._
+import scalaz.\/-
 import scalaz.std.option._
 import scalaz.syntax.apply._
 import scalaz.syntax.tag._
-import spray.json.JsValue
+import spray.json.{JsNull, JsString, JsValue}
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class WebsocketServiceIntegrationTest
-    extends AsyncFreeSpec
+  extends AsyncFreeSpec
     with Matchers
     with Inside
     with StrictLogging
@@ -81,10 +82,15 @@ class WebsocketServiceIntegrationTest
     }
   }
 
-  private val collectResultsAsRawString: Sink[Message, Future[Seq[String]]] =
+  private val collectResultsAsTextMessageSkipHeartbeats: Sink[Message, Future[Seq[String]]] =
     Flow[Message]
-      .map(_.toString)
-      .filterNot(_ contains "heartbeat")
+      .collect { case m: TextMessage => m.getStrictText }
+      .filterNot(isHeartbeat)
+      .toMat(Sink.seq)(Keep.right)
+
+  private val collectResultsAsTextMessage: Sink[Message, Future[Seq[String]]] =
+    Flow[Message]
+      .collect { case m: TextMessage => m.getStrictText }
       .toMat(Sink.seq)(Keep.right)
 
   private def singleClientQueryStream(serviceUri: Uri, query: String): Source[Message, NotUsed] = {
@@ -98,8 +104,8 @@ class WebsocketServiceIntegrationTest
   }
 
   private def singleClientFetchStream(
-      serviceUri: Uri,
-      request: String): Source[Message, NotUsed] = {
+                                       serviceUri: Uri,
+                                       request: String): Source[Message, NotUsed] = {
     val webSocketFlow = Http().webSocketClientFlow(
       WebSocketRequest(
         uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch")),
@@ -118,8 +124,8 @@ class WebsocketServiceIntegrationTest
   }
 
   private def initialAccountCreate(
-      serviceUri: Uri,
-      encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
+                                    serviceUri: Uri,
+                                    encoder: DomainJsonEncoder): Future[(StatusCode, JsValue)] = {
     val command = accountCreateCommand(domain.Party("Alice"), "abc123")
     postCreateCommand(command, encoder, serviceUri)
   }
@@ -130,13 +136,13 @@ class WebsocketServiceIntegrationTest
         _ <- initialIouCreate(uri)
 
         clientMsg <- singleClientQueryStream(uri, """{"templateIds": ["Iou:Iou"]}""")
-          .runWith(collectResultsAsRawString)
+          .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
-          case Seq(result, liveBegin) =>
+          case result +: heartbeats =>
             result should include(""""issuer":"Alice"""")
             result should include(""""amount":"999.99"""")
-            liveBegin should include(""""offset":"""")
+            Inspectors.forAll(heartbeats)(assertHeartbeat)
         }
   }
 
@@ -146,13 +152,14 @@ class WebsocketServiceIntegrationTest
         _ <- initialAccountCreate(uri, encoder)
 
         clientMsg <- singleClientFetchStream(uri, fetchRequest)
-          .runWith(collectResultsAsRawString)
+          .runWith(collectResultsAsTextMessage)
       } yield
         inside(clientMsg) {
-          case Seq(result, liveBegin) =>
+          case result +: heartbeats =>
             result should include(""""owner":"Alice"""")
             result should include(""""number":"abc123"""")
-            liveBegin should include(""""offset":"""")
+            result should not include (""""offset":"""")
+            Inspectors.forAll(heartbeats)(assertHeartbeat)
         }
   }
 
@@ -163,13 +170,13 @@ class WebsocketServiceIntegrationTest
       clientMsg <- singleClientQueryStream(
         uri,
         """{"templateIds": ["Iou:Iou", "Unknown:Template"]}""")
-        .runWith(collectResultsAsRawString)
+        .runWith(collectResultsAsTextMessage)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result, liveBegin) =>
+        case warning +: result +: heartbeats =>
           warning should include("\"warnings\":{\"unknownTemplateIds\":[\"Unk")
           result should include("\"issuer\":\"Alice\"")
-          liveBegin should include(""""offset":"""")
+          Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
   }
 
@@ -180,21 +187,21 @@ class WebsocketServiceIntegrationTest
       clientMsg <- singleClientFetchStream(
         uri,
         """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}, {"templateId": "Unknown:Template", "key": ["Alice", "abc123"]}]""")
-        .runWith(collectResultsAsRawString)
+        .runWith(collectResultsAsTextMessage)
     } yield
       inside(clientMsg) {
-        case Seq(warning, result, liveBegin) =>
+        case warning +: result +: heartbeats =>
           warning should include("""{"warnings":{"unknownTemplateIds":["Unk""")
           result should include(""""owner":"Alice"""")
           result should include(""""number":"abc123"""")
-          liveBegin should include(""""offset":"""")
+          Inspectors.forAll(heartbeats)(assertHeartbeat)
       }
   }
 
   "query endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientQueryStream(uri, "{}")
-        .runWith(collectResultsAsRawString)
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
 
       val result = Await.result(clientMsg, 10.seconds)
 
@@ -205,7 +212,7 @@ class WebsocketServiceIntegrationTest
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientFetchStream(uri, """[abcdefg!]""")
-        .runWith(collectResultsAsRawString)
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
 
       val result = Await.result(clientMsg, 10.seconds)
 
@@ -265,10 +272,10 @@ class WebsocketServiceIntegrationTest
               Future.successful(GotLive(ctid))
 
             case (
-                GotLive(consumedCtid),
-                evtsWrapper @ ContractDelta(
-                  Vector((fstId, fst), (sndId, snd)),
-                  Vector(observeConsumed))) =>
+              GotLive(consumedCtid),
+              evtsWrapper @ ContractDelta(
+              Vector((fstId, fst), (sndId, snd)),
+              Vector(observeConsumed))) =>
               Future {
                 observeConsumed.contractId should ===(consumedCtid)
                 Set(fstId, sndId, consumedCtid) should have size 3
@@ -276,11 +283,11 @@ class WebsocketServiceIntegrationTest
                   case JsObject(obj) =>
                     inside(obj get "events") {
                       case Some(
-                          JsArray(
-                            Vector(
-                              Archived(_, _),
-                              Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
-                              Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
+                      JsArray(
+                      Vector(
+                      Archived(_, _),
+                      Created(IouAmount(amt1), MatchedQueries(NumList(ixes1), _)),
+                      Created(IouAmount(amt2), MatchedQueries(NumList(ixes2), _))))) =>
                         Set((amt1, ixes1), (amt2, ixes2)) should ===(
                           Set(
                             (BigDecimal("42.42"), Vector(BigDecimal(0), BigDecimal(2))),
@@ -311,14 +318,14 @@ class WebsocketServiceIntegrationTest
         postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
 
       def resp(
-          cid1: domain.ContractId,
-          cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
+                cid1: domain.ContractId,
+                cid2: domain.ContractId): Sink[JsValue, Future[StreamState]] =
         Sink.foldAsync(NothingYet: StreamState) {
 
           case (
-              NothingYet,
-              ContractDelta(Vector((cid, c)), Vector())
-              ) =>
+            NothingYet,
+            ContractDelta(Vector((cid, c)), Vector())
+            ) =>
             (cid: String) shouldBe (cid1.unwrap: String)
             postArchiveCommand(templateId, cid2, encoder, uri).flatMap {
               case (statusCode, _) =>
@@ -334,9 +341,9 @@ class WebsocketServiceIntegrationTest
             Future.successful(GotLive(ctid))
 
           case (
-              GotLive(archivedCid),
-              ContractDelta(Vector(), Vector(observeArchivedCid))
-              ) =>
+            GotLive(archivedCid),
+            ContractDelta(Vector(), Vector(observeArchivedCid))
+            ) =>
             Future {
               (observeArchivedCid.contractId.unwrap: String) shouldBe (archivedCid: String)
               (observeArchivedCid.contractId: domain.ContractId) shouldBe (cid1: domain.ContractId)
@@ -376,13 +383,14 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        clientMsgs <- singleClientFetchStream(uri, "[]").runWith(collectResultsAsRawString)
+        clientMsgs <- singleClientFetchStream(uri, "[]").runWith(
+          collectResultsAsTextMessageSkipHeartbeats)
       } yield {
         inside(clientMsgs) {
           case Seq(errorMsg) =>
             // TODO(Leo) #4417: expected behavior is to return all active contracts (???). Make sure it is consistent with stream/query
-//            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
-//            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
+            //            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
+            //            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
             errorMsg should include(
               s""""error":"Cannot resolve any templateId from request: List()""")
         }
@@ -390,9 +398,9 @@ class WebsocketServiceIntegrationTest
   }
 
   private def wsConnectRequest[M](
-      uri: Uri,
-      subprotocol: Option[String],
-      flow: Flow[Message, Message, M]) =
+                                   uri: Uri,
+                                   subprotocol: Option[String],
+                                   flow: Flow[Message, Message, M]) =
     Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 
   val parseResp: Flow[Message, JsValue, NotUsed] = {
@@ -407,15 +415,43 @@ class WebsocketServiceIntegrationTest
         case _ => true
       }
   }
+
+  private def assertHeartbeat(str: String): Assertion =
+    inside(
+      SprayJson
+        .decode[EventsBlock](str)) {
+      case \/-(eventsBlock) =>
+        eventsBlock.events shouldBe Vector.empty[JsValue]
+        inside(eventsBlock.offset) {
+          case JsString(offset) =>
+            offset.length should be > 0
+          case JsNull =>
+            Succeeded
+        }
+    }
+
+  private def isHeartbeat(str: String): Boolean =
+    SprayJson
+      .decode[EventsBlock](str)
+      .map { b =>
+        val isEmpty: Boolean = (b.events: Vector[JsValue]) == Vector.empty[JsValue]
+        val hasOffset: Boolean = b.offset match {
+          case JsString(offset) => offset.length > 0
+          case JsNull => true
+          case _ => false
+        }
+        isEmpty && hasOffset
+      }
+      .valueOr(_ => false)
 }
 
 object WebsocketServiceIntegrationTest {
   import spray.json._
 
   private case class SimpleScenario(
-      id: String,
-      path: Uri.Path,
-      flow: Flow[Message, Message, NotUsed])
+                                     id: String,
+                                     path: Uri.Path,
+                                     flow: Flow[Message, Message, NotUsed])
 
   private sealed abstract class StreamState extends Product with Serializable
   private case object NothingYet extends StreamState
@@ -426,8 +462,8 @@ object WebsocketServiceIntegrationTest {
   private object ContractDelta {
     private val tagKeys = Set("created", "archived", "error")
     def unapply(
-        jsv: JsValue
-    ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
+                 jsv: JsValue
+               ): Option[(Vector[(String, JsValue)], Vector[domain.ArchivedContract])] =
       for {
         JsObject(eventsWrapper) <- Some(jsv)
         JsArray(sums) <- eventsWrapper.get("events")
@@ -474,4 +510,10 @@ object WebsocketServiceIntegrationTest {
   private object Created extends JsoField("created")
   private object Archived extends JsoField("archived")
   private object MatchedQueries extends JsoField("matchedQueries")
+
+  private final case class EventsBlock(events: Vector[JsValue], offset: JsValue)
+  private object EventsBlock {
+    import DefaultJsonProtocol._
+    implicit val EventsBlockFormat: RootJsonFormat[EventsBlock] = jsonFormat2(EventsBlock.apply)
+  }
 }
