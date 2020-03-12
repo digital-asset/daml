@@ -47,23 +47,16 @@ Now you can use the following React hooks to interact with a DAML ledger:
 const party = useParty()
 ```
 
-`useExercise`
+`useLedger`
 -------------
-`useExercise` returns a function to exercise a choice by contract id.
+`useLedger` returns an instance of the `Ledger` class of @daml/ledger to interact with the DAML
+ledger.
 
 ```typescript
-const [exerciseChoice] = useExercise(ContractTemplate.ChoiceName)
-const onClick = () => exerciseChoice(contractId, argument)
+const ledger = useLedger()
+const newContract = await ledger.create(ContractTemplate, arguments)
 ```
 
-`useExerciseByKey`
-------------------
-`useExerciseByKey` returns a function to exercise a choice by contract key.
-
-```typescript
-const [exerciseByKey] = useExerciseByKey(ContractTemplate.ChoiceName)
-const onClick = () => exerciseByKey(key, argument)
-```
 
 `useQuery`
 ----------

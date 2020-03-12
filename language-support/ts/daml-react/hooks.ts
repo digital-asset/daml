@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Choice, ContractId, Template } from "@daml/types";
-import { CreateEvent, Query } from '@daml/ledger';
+import Ledger, { CreateEvent, Query } from '@daml/ledger';
 import { useState, useContext, useEffect } from "react";
 import { DamlLedgerState, DamlLedgerContext } from './context'
 
@@ -31,6 +31,13 @@ const useDamlState = (): DamlLedgerState => {
 export const useParty = () => {
   const state = useDamlState();
   return state.party;
+}
+
+/**
+ * React Hook that returns the Ledger instance to interact with the connected DAML ledger.
+ */
+export const useLedger = (): Ledger => {
+  return useDamlState().ledger;
 }
 
 /**
@@ -131,6 +138,7 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
  * @ignore
  */
 export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
+  console.log('useExercise is deprecated. Please use "useLedger" instead.');
   const state = useDamlState();
   const exercise = async (cid: ContractId<T>, argument: C) => {
     const [result] = await state.ledger.exercise(choice, cid, argument);
@@ -147,6 +155,7 @@ export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (c
  * @ignore
  */
 export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
+  console.log('useExerciseByKey is deprecated. Please use "useLedger" instead.');
   const state = useDamlState();
   const exerciseByKey = async (key: K, argument: C) => {
     const [result] = await state.ledger.exerciseByKey(choice, key, argument);
