@@ -17,7 +17,7 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.{Bitraverse, Liskov, NonEmptyList}
+import scalaz.{Liskov, NonEmptyList}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
@@ -26,7 +26,7 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.std.map._
-import scalaz.std.option.{none, some}
+import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
@@ -48,15 +48,15 @@ object WebSocketService {
       domain.ActiveContract[LfV] => Option[Positive],
   )
 
-  private def withOptPrefix[I, L, O](fst: I => (L \/ O))(snd: (L, I) => O): Flow[I, O, NotUsed] =
+  private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
     Flow[I]
-      .scan((none[L], none[O])) { (s, i) =>
-        val (ol, _) = s
-        ol.cata(
-          l => (none, some(snd(l, i))),
-          fst(i) fold (l => (some(l), none), o => (none, some(o))))
+      .scan(none[L \/ (Option[L], I)]) { (s, i) =>
+        s match {
+          case Some(-\/(l)) => Some(\/-((some(l), i)))
+          case None | Some(\/-(_)) => Some(prefix(i) toLeftDisjunction ((none, i)))
+        }
       }
-      .collect { case (_, Some(o)) => o }
+      .collect { case Some(\/-(oli)) => oli }
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
@@ -324,13 +324,15 @@ class WebSocketService(
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
-      .via(withOptPrefix { ejv: (InvalidUserInput \/ JsValue) =>
-        ejv
-          .flatMap(jv =>
-            Bitraverse[\/].bisequence(
-              readStartingOffset(jv) toLeftDisjunction Q.parse(decoder, jv).strengthL(None)))
-          .sequence: domain.StartingOffset \/ (Error \/ (Option[domain.StartingOffset], A))
-      }((offPrefix, ejv) => ejv flatMap (jv => Q.parse(decoder, jv) strengthL Some(offPrefix))))
+      .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
+      .map {
+        case (oeso, ejv) =>
+          for {
+            offPrefix <- oeso.sequence
+            jv <- ejv
+            a <- Q.parse(decoder, jv)
+          } yield (offPrefix, a)
+      }
       .flatMapConcat {
         case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
