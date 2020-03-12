@@ -73,7 +73,6 @@ da_scala_library(
         ":value_java_proto",
         "//daml-lf/data",
         "//daml-lf/language",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
