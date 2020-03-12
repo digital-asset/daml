@@ -56,12 +56,6 @@ When you run ``daml build`` in ``bar`` project, the compiler will make the defin
 
   import Foo
 
-Sometimes you will have multiple packages with the same exported module name. In that case, you must also specify which package the module comes from, as follows:
-
-.. code-block:: daml
-
-  import "foo" Foo
-
 By default, all modules of ``foo`` are made available when importing ``foo`` as a dependency. To limit which modules of ``foo`` get exported, you may add an ``exposed-modules`` field in the ``daml.yaml`` file for ``foo``:
 
   exposed-modules:
@@ -103,3 +97,48 @@ The second disadvantage, which has far-reaching consequences, is that not everyt
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on bullet #2.
 
 Given this long list of disadvantages, data-dependencies are a tool that is only recommended when dependencies cannot be used. In particular, data-dependencies should only be used to interface with deployed code on a ledger, such as to interact with a deployed DAML model or to upgrade of a deployed DAML model. See the :ref:`upgrade documentation <upgrade-overview>` for more details on the latter.
+
+Handling module name collisions
+*******************************
+
+Sometimes you will have multiple packages with the same module name. In that case, a simple import will fail, since the compiler doesn't know which package to load. Fortunately, there are a few tools you can use to approach this problem.
+
+The first is to use package qualified imports. Supposing you have packages with different names, ``foo`` and ``bar``, which both expose a module ``X``. You can select which on you want with package qualified imports.
+
+To get ``X`` from ``foo``:
+
+.. code-block:: daml
+
+  import "foo" X
+
+To get ``X`` from ``bar``:
+
+.. code-block:: daml
+
+  import "bar" X
+
+To get both, you need to rename the module as you perform the import:
+
+.. code-block:: daml
+
+  import "foo" X as FooX
+  import "bar" X as BarX
+
+Sometimes, package qualified imports will not help, because you are importing two packages with the same name. For example, if you're loading different versions of the same package. To handle this case, you need the ``--package`` build option.
+
+Suppose you are importing packages ``foo-1.0.0`` and ``foo-2.0.0``. Notice they have the same name ``foo`` but different versions. To get modules that are exposed in both packages, you will need to provide module aliases. You can do this by passing the ``--package`` build option. Open ``daml.yaml`` and add the following ``build-options``:
+
+.. code-block:: yaml
+
+  build-options:
+  - '--package'
+  - 'foo-1.0.0 with (X as Foo1.X)'
+  - '--package'
+  - 'foo-2.0.0 with (X as Foo2.X)'
+
+Now you will be able to import both ``X`` by using the new names:
+
+.. code-block:: daml
+
+  import qualified Foo1.X
+  import qualified Foo2.X
