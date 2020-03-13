@@ -292,6 +292,7 @@ genrule(
     srcs = glob([
         "configs/pdf/**",
         "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
     ]) + [
         ":sources",
     ],
@@ -339,6 +340,7 @@ genrule(
     srcs = glob([
         "configs/html/**",
         "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
     ]) + [
         ":sources",
         ":theme",

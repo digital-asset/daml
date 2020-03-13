@@ -107,6 +107,7 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageList.tsx
+  :language: tsx
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
 
@@ -130,6 +131,7 @@ Again we show the entire component here; you should copy this into a new ``Messa
 .. TODO Include file in template with placeholder for component logic.
 
 .. literalinclude:: code/ui-after/MessageEdit.tsx
+  :language: tsx
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
 
@@ -159,7 +161,7 @@ We want to add a new panel to house our messaging UI.
 Open the ``ui/src/components/MainView.tsx`` file and start by adding imports for the two new components.
 
 .. literalinclude:: code/ui-after/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // IMPORTS_BEGIN
   :end-before: // IMPORTS_END
 
@@ -167,6 +169,7 @@ Next, find where the *Network* ``Segment`` closes, towards the end of the compon
 This is where we'll add a new ``Segment`` for *Messages*.
 
 .. literalinclude:: code/ui-after/MainView.tsx
+  :language: tsx
   :start-after: // MESSAGES_SEGMENT_BEGIN
   :end-before: // MESSAGES_SEGMENT_END
 

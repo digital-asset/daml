@@ -101,6 +101,7 @@ You can navigate there within Visual Studio Code using the file explorer on the 
 We'll first look at ``App.tsx``, which is the entry point to our application.
 
 .. literalinclude:: code/ui-before/App.tsx
+  :language: tsx
   :start-after: // APP_BEGIN
   :end-before: // APP_END
 
@@ -122,7 +123,7 @@ The ``MainScreen`` is a simple frame around the ``MainView`` component, which ho
 It uses DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
@@ -141,7 +142,7 @@ This means that results are updated as they come in - there is no need for perio
 Another example, showing how to *update* ledger state, is how we exercise the ``AddFriend`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
@@ -152,7 +153,7 @@ For example, ``addFriend`` is passed to the ``UserList`` component as an argumen
 This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // USERLIST_BEGIN
   :end-before: // USERLIST_END
 
