@@ -23,7 +23,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model  
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that *we need to restart the DAML Sandbox and the JSON API server* 
+    3. Running the new feature. In order to do that we need to terminate the previous ``./daml-start.ch`` process and run it again.  
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
@@ -182,13 +182,13 @@ Let's give the new functionality a spin.
 Running the New Feature
 =======================
 
-As previously mentioned, we need to restart the DAML Sandbox and the JSON API, in order to get the messaging feature up and running. 
+We need to terminate the previous ``./daml-start.ch`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running the ``./daml-start.ch`` again we will 
 
-First, navigate to the terminal window where the ``daml-start.sh`` is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox and JSON API server: it is important that we start our new app with new instances of these components.
+  - Compile our DAML code into a *DAR file contatining the new feature*
+  - Run a fresh instance of the *Sandbox with the new DAR file*
+  - Start the HTTP JSON API 
 
-Next restart the DAML sandbox and JSON API server in the root ``create-daml-app`` folder::
-
-    ./daml-start.sh
+First, navigate to the terminal window where the ``daml-start.sh`` is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all the friends and their connections are lost. 
 
