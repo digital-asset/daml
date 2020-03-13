@@ -59,14 +59,17 @@ The last part of the DAML model is the operation to add friends, called a *choic
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list. Here is a quick explanation of the code: 
 
-There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
+    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name, which is in this case ``AddFriend``.
+    - The return type of a choice is defined next. In this case it is ``ContractId User``.
+    - After that we pass arguments for the choice with ``with`` keyword and for ``AddFriend`` this is  ``friend: Party``.
+    - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case it would be the logged in user with the defined ``username``.  
+    - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
+    - After passing some checks current contract is archived with ``archive self`` 
+    - New contract containig the new friend added to the list is creted with ``create this with friends = friend :: friends``
 
-    - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
-    - The return type is ``ContractId User``, a reference to the new contract for the calling code.
-    - The new ``friend: Party`` is passed as an argument to the choice.
-    - The ``controller``, the party able to exercise the choice, is the one named on the ``User`` contract.
+This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
 
 Let's move on to how our DAML model is reflected and used on the UI side.
 
