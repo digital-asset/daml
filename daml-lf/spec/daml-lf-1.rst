@@ -3076,7 +3076,7 @@ List functions
 Text map functions
 ~~~~~~~~~~~~~~~~~~
 
-**Entry order**: The operations under return always a map with entries
+**Entry order**: The operations below always return a map with entries
 ordered by keys.
 
 * ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
@@ -3122,8 +3122,8 @@ ordered by keys.
 Generic map functions
 ~~~~~~~~~~~~~~~~~~~~~
 
-**Entry order**: The operations under return always a map with entries
-ordered by keys according the comparison function ``LESS``.
+**Entry order**: The operations below always return a map with entries
+ordered by keys according to the comparison function ``LESS``.
 
 * ``GENMAP_EMPTY : ∀ α. ∀ β. 'GenMap' α β``
 
@@ -3136,7 +3136,7 @@ ordered by keys according the comparison function ``LESS``.
   Inserts a new key and value in the map. If the key is already
   present according the builtin function ``EQUAL``, the associated
   value is replaced with the supplied value, otherwise the key/value
-  is inserted in order according the builtin function ``LESS`` applied
+  is inserted in order according to the builtin function ``LESS`` applied
   on keys. This raises a runtime error if it tries to compare
   incomparable values.
 
@@ -3200,7 +3200,7 @@ ordered by keys according the comparison function ``LESS``.
       𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
         'Ok' (Some wᵢ)
 
-      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for any i ∈ 1, …, n
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for all i ∈ 1, …, n
     —————————————————————————————————————————————————————————————————————— EvGenMapLookupAbsent
       𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
         'Ok' None
@@ -3226,7 +3226,7 @@ ordered by keys according the comparison function ``LESS``.
       𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
         Ok' 〚v₁ ↦ w₁; … ; vᵢ₋₁ ↦ wᵢ₋₁; vᵢ₊₁ ↦ wᵢ₊₁; … ; vₙ ↦ wₙ〛
 
-      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for any i ∈ 1, …, n
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for all i ∈ 1, …, n
     —————————————————————————————————————————————————————————————————————— EvGenMapDeleteAbsent
       𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
         'Ok' 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛
@@ -3234,7 +3234,7 @@ ordered by keys according the comparison function ``LESS``.
 * ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
 
   Get the list of keys in the map. The keys are returned in the order
-  they appears in the map.
+  they appear in the map.
 
   [*Available in versions >= 1.dev*]
 
@@ -3251,8 +3251,8 @@ ordered by keys according the comparison function ``LESS``.
 
 * ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
 
-  Get the list of values in the map. The keys are returned in the
-  order they appears in the map.
+  Get the list of values in the map. The values are returned in the
+  order they appear in the map (i.e. sorted by key).
 
   [*Available in versions >= 1.dev*]
 
@@ -3804,4 +3804,3 @@ program using the builtin type ``GENMAP`` or the functions
 .. eval: (flyspell-mode 1)
 .. eval: (set-input-method "TeX")
 .. End:
-
