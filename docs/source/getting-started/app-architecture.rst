@@ -63,7 +63,7 @@ That is what the ``AddFriend`` choice does: after checking some preconditions, i
 
     - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``AddFriend``.
     - The return type of a choice is defined next. In this case it is ``ContractId User``.
-    - After that we pass arguments for the choice with ``with`` keyword and for ``AddFriend`` this is  ``friend: Party``.
+    - After that we pass arguments for the choice with ``with`` keyword. Here this is the friend we are trying to add.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case it would be the logged in user with the defined ``username``.  
     - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
     - After passing some checks current contract is archived with ``archive self`` 
