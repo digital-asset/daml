@@ -28,6 +28,7 @@ da_scala_test(
     deps = [
         ":codegen-common",
         "//daml-assistant/scala-daml-project-config",
+        "//libs-scala/build-info",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )

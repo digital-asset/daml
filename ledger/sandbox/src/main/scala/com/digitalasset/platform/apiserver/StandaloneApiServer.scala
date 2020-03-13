@@ -14,6 +14,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
@@ -23,7 +24,6 @@ import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{
-  BuildInfo,
   CommandConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
