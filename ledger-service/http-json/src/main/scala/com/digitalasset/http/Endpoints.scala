@@ -63,6 +63,8 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
     case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(allParties(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
+    case req @ HttpRequest(POST, Uri.Path("/v1/admin/parties/allocate"), _, _, _) =>
+      httpResponse(allocateParty(req))
   }
 
   def create(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
@@ -218,6 +220,26 @@ class Endpoints(
       result <- either(resp.bitraverse(toJsValue(_), toJsValue(_)))
 
     } yield result
+
+  def allocateParty(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+    for {
+      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+
+      (jwt, _, reqBody) = t3
+
+      cmd <- either(
+        SprayJson.decode[domain.AllocatePartyRequest](reqBody).liftErr(InvalidUserInput)
+      ): ET[domain.AllocatePartyRequest]
+
+      allocatedParty <- eitherT(
+        handleFutureFailure(
+          partiesService.allocate(jwt, cmd)
+        )
+      ): ET[domain.PartyDetails]
+
+      jsVal <- either(SprayJson.encode(allocatedParty).liftErr(ServerError)): ET[JsValue]
+
+    } yield domain.OkResponse(jsVal)
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover {

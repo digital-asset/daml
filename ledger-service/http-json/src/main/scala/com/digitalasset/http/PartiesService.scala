@@ -34,7 +34,9 @@ class PartiesService(
         request.identifierHint.traverse(toLedgerApi)
       ): ET[Option[Ref.Party]]
 
-      apiParty <- rightT(allocateParty(jwt, idHint, request.displayName))
+      apiParty <- rightT(
+        allocateParty(jwt, idHint, request.displayName)
+      ): ET[api.domain.PartyDetails]
 
       domainParty = domain.PartyDetails.fromLedgerApi(apiParty)
 
