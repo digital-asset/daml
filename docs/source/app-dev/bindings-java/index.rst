@@ -37,7 +37,7 @@ The Java bindings library is composed of:
 
     The Reactive Layer also exposes the main interface representing a client
     connecting via the Ledger API. This interface is called ``LedgerClient`` and the
-    main implementation working against the DAML Ledger is the ``DamlLedgerClient``.
+    main implementation working against a DAML Ledger is the ``DamlLedgerClient``.
 
     Can be found in the java package ``com.daml.ledger.rxjava``.
 - The Reactive Components
@@ -62,7 +62,7 @@ For more information on Java code generation, see :doc:`/app-dev/bindings-java/c
 Connecting to the ledger: LedgerClient
 ======================================
 
-Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a DA ledger.
+Connections to the ledger are made by creating instance of classes that implement the interface ``LedgerClient``. The class ``DamlLedgerClient`` implements this interface, and is used to connect to a DAML ledger.
 
 This class provides access to the ledgerId, and all clients that give access to the various ledger services, such as the active contract set, the transaction service, the time service, etc. This is described :ref:`below <ledger-api-java-binding-connecting>`. Consult the `JavaDoc for DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_ for full details.
 
@@ -89,7 +89,7 @@ for the application, the application ``LedgerView`` is updated to contain that c
 Writing automations: Bot
 ========================
 
-The ``Bot`` is an abstraction used to write automation for the DAML Ledger. It is conceptually
+The ``Bot`` is an abstraction used to write automation for a DAML Ledger. It is conceptually
 defined by two aspects: 
 
 - the ``LedgerView``

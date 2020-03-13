@@ -87,6 +87,7 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 

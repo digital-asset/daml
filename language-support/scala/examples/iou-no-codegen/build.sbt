@@ -21,7 +21,7 @@ lazy val application = project
   .settings(
     name := "application",
     commonSettings,
-    libraryDependencies ++= applicationDependencies,
+    libraryDependencies ++= applicationDependencies
   )
 
 lazy val commonSettings = Seq(
@@ -35,10 +35,10 @@ lazy val commonSettings = Seq(
     "-Xlint:_,-unused"
   ),
   resolvers ++= daResolvers,
-  classpathTypes += "maven-plugin",
+  classpathTypes += "maven-plugin"
 )
 
 lazy val applicationDependencies = Seq(
   "com.daml.scala" %% "bindings" % daSdkVersion,
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+  "com.daml.scala" %% "bindings-akka" % daSdkVersion
 )

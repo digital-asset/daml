@@ -4,14 +4,12 @@
 module DA.Test.Repl (main) where
 
 import Control.Monad.Extra
-import Control.Exception.Safe
 import DA.Bazel.Runfiles
-import DA.PortFile
+import DA.Test.Sandbox
 import Data.Foldable
 import System.Environment.Blank
 import System.Exit
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
 import System.Process
 import Test.Tasty
@@ -24,14 +22,11 @@ main = do
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
-    withTempFile $ \portFile ->
-        withBinaryFile nullDevice ReadWriteMode $ \devNull ->
-        defaultMain $ withResource (createSandbox devNull sandbox portFile testDar) destroySandbox $ \getSandbox ->
+    defaultMain $ withSandbox defaultSandboxConf { dars = [testDar] } $ \getSandboxPort ->
         let testInteraction' testName steps =
                 testCase testName $ do
-                  p <- sandboxPort <$> getSandbox
-                  testInteraction damlc p scriptDar testDar steps
+                    p <- getSandboxPort
+                    testInteraction damlc p scriptDar testDar steps
         in testGroup "repl"
             [ testInteraction' "create and query"
                   [ input "alice <- allocateParty \"Alice\""
@@ -148,27 +143,3 @@ readPrompt :: Handle -> Assertion
 readPrompt h = do
     res <- replicateM 6 (hGetChar h)
     res @?= "daml> "
-
-data SandboxResource = SandboxResource
-    { sandboxProcess :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
-    , sandboxPort :: Int
-    }
-
-createSandbox :: Handle -> FilePath -> FilePath -> FilePath -> IO SandboxResource
-createSandbox devNull sandbox portFile dar = mask $ \unmask -> do
-    ph <- createProcess
-        (proc sandbox ["--port=0", "--port-file", portFile, "-w", dar])
-        { std_out = UseHandle devNull }
-    let waitForStart = do
-            port <- readPortFile maxRetries portFile
-            pure (SandboxResource ph port)
-    unmask (waitForStart `onException` cleanupProcess ph)
-
-destroySandbox :: SandboxResource -> IO ()
-destroySandbox = cleanupProcess . sandboxProcess
-
-nullDevice :: FilePath
-nullDevice
-    -- taken from typed-process
-    | isWindows = "\\\\.\\NUL"
-    | otherwise =  "/dev/null"

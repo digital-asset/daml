@@ -33,7 +33,7 @@ PingPongMain.java
 
 The entry point for the Java code is the main class ``src/main/java/examples/pingpong/grpc/PingPongMain.java``. Look at this class to see:
 
-- how to connect to and interact with the DAML Ledger via the Java bindings
+- how to connect to and interact with a DAML Ledger via the Java bindings
 - how to use the Reactive layer to build an automation for both parties.
 
 At high level, the code does the following steps:

@@ -57,6 +57,10 @@ USAGE
       dade_copyright_arg=check
       buildifier_target=//:buildifier
       ;;
+    --scalafmt-diff)
+      shift
+      scalafmt_args+=(--mode=diff --diff-branch=origin/master)
+      ;;
     *)
       echo "fmt.sh: unknown argument $1" >&2
       exit 1
@@ -115,7 +119,7 @@ done
 trap - EXIT
 
 # check for scala code style
-run ./scalafmt.sh "${scalafmt_args[@]:-}"
+run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
 run bazel run "$buildifier_target"

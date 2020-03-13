@@ -8,10 +8,18 @@ load(
 
 da_haskell_library(
     name = "test-utils",
-    srcs = glob(["DA/Test/Util.hs"]),
+    srcs = glob(["DA/Test/**/*.hs"]),
     hackage_deps = [
         "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
         "text",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
 )

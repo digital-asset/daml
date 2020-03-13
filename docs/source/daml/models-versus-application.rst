@@ -37,7 +37,7 @@ Functionality not going into the DAML models then must go into the application. 
 Looking at the ledger from a data synchronization perspective
 *************************************************************
 
-On the other hand, when doing data synchronization most of the inter-process communication between parties belongs on the ledger. This perspective is grounded in the fact that DA’s platform acts as a messaging bus where the messages are subject to certain guarantees:
+On the other hand, when doing data synchronization most of the inter-process communication between parties belongs on the ledger. This perspective is grounded in the fact that the ledger infrastructure acts as a messaging bus where the messages are subject to certain guarantees:
 
 * The initiating party is authentic
 * Messages conform to DAML model specification

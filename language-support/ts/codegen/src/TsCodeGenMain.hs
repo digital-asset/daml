@@ -347,20 +347,21 @@ genDefDataType curPkgId conName mod tpls def =
                      ["daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"]
             in ((typeDesc, serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
-          let
-            typeDesc =
-                [ "export enum " <> conName <> " {"] ++
-                [ "  " <> cons <> " = " <> "\'" <> cons <> "\'" <> ","
-                | VariantConName cons <- enumCons] ++
-                [ "}"
-                , "daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"
-                ]
-            serDesc =
-                ["() => jtv.oneOf<" <> conName <> ">" <> "("] ++
-                ["  jtv.constant(" <> conName <> "." <> cons <> ")," | VariantConName cons <- enumCons] ++
-                [");"]
+          let cs = map unVariantConName enumCons
+              typeDesc = "" : ["  | '" <> cons <> "'" | cons <- cs]
+              -- The complete definition of the companion object.
+              serDesc =
+                [ "export const " <> conName <> ": daml.Serializable<" <> conName <> "> & {"] <>
+                [ "  readonly " <> cons <> ": " <> conName <> ";" | cons <- cs ] ++
+                ["} = {"] ++
+                ["  " <> cons <> ": '" <> cons <> "'," | cons <- cs] ++
+                ["  decoder: () => jtv.oneOf<" <> conName <> ">" <> "("] ++
+                ["      jtv.constant(" <> conName <> "." <> cons <> ")," | cons <- cs] ++
+                ["  ),"] ++
+                ["} as const;"] ++
+                ["daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"]
           in
-          ((typeDesc, makeNameSpace serDesc), Set.empty)
+          ((makeType typeDesc, serDesc), Set.empty)
         DataRecord fields ->
             let (fieldNames, fieldTypesLf) = unzip [(unFieldName x, t) | (x, t) <- fields]
                 (fieldTypesTs, fieldSers) = unzip (map (genType (moduleName mod)) fieldTypesLf)
@@ -448,12 +449,6 @@ genDefDataType curPkgId conName mod tpls def =
             ["export const " <> conName <> serHeader <> " ({"] ++
             map ("  " <>) (onLast (<> ",") (onHead ("decoder: " <>) serDesc)) ++
             ["})"]
-        makeNameSpace serDesc =
-            [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-            , "export namespace " <> conName <> " {"
-            ] ++
-            map ("  " <>) (onHead ("export const decoder = " <>) serDesc) ++
-            ["}"]
         genBranch (VariantConName cons, t) =
           let (typ, ser) = genType (moduleName mod) t in
           ( "  |  { tag: '" <> cons <> "'; value: " <> typ <> " }"

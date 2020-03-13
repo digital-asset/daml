@@ -105,7 +105,7 @@ object HttpServiceTestFixture {
             ledgerF.map(_._1.close()),
             httpServiceF.flatMap(_._1.unbind()),
           ) map (_ fallbackTo Future.successful(())))
-        .flatMap(_ => Future fromTry ta)
+        .transform(_ => ta)
     }
   }
 

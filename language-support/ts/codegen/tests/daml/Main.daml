@@ -32,6 +32,10 @@ template AllTypes with
     tuple: (Int, Text)
     enum: Color
     enumList: [Color]
+    enumList2: [Color]
+    optcol1: OptColor1
+    optcol2: OptColor2
+    optcol3: OptColor2
     variant: Expr Int
     optionalVariant: Expr Int
     sumProd : Quux
@@ -81,6 +85,18 @@ data Foo a b = Foo {
   y: Foo b a;
   z: b
 }
+
+-- Non-polymorhpic variant
+data OptColor1 =
+    Color1 Color
+  | Transparent1
+  deriving (Show, Eq)
+
+-- Non-polymorphic sum of products
+data OptColor2 =
+    Color2 {color2 : Color}
+  | Transparent2
+  deriving (Show, Eq)
 
 data Expr a =
     Lit a

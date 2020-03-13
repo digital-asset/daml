@@ -30,4 +30,4 @@ For community users (ie on Slack and Stack Overflow):
   We can't answer questions in private messages or over email, so please only ask questions in the ``#public`` channel.
 - **Level of support**: We're happy to answer questions about error messages you're encountering, or discuss DAML design questions. However, we can't provide more extensive consultation on how to build your DAML application or the languages, frameworks, libraries and tools you may use to build it.
 
-If you need private support, or want consultation from DA about how to build your DAML application, we offer paid support. Please contact us to ask about pricing.
+If you need private support, or want consultation from Digital Asset about how to build your DAML application, they offer paid support. Please contact Digital Asset to ask about pricing.
