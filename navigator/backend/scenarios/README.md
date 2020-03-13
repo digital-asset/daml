@@ -28,16 +28,17 @@ As an example, assuming your current working directory is the project root, you 
 
 #### Usage with TLS
 
-If you want to use a secure channel (e.g.: to test against an authenticated sandbox), certificates are provided in the `tls` directory.
+If you want to use a secure channel (e.g.: to test against an authenticated sandbox), you can use the test certificates in ``//ledger/test-common/test-certificates``.
 
 To use them, run the sandbox as follows:
 
+       bazel build //ledger/test-common/test-certificates
        bazel run --run_under="cd $PWD && " \
        //ledger/sandbox:sandbox-binary -- --scenario Main:example dist/rental.dar
-       --pem tls/server.pem --crt tls/server.crt --cacrt tls/ca.crt
+       --pem $PWD/bazel-bin/ledger/test-common/test-certificates/server.pem --crt $PWD/bazel-bin/ledger/test-common/test-certificates/server.crt --cacrt $PWD/bazel-bin/ledger/test-common/test-certificates/ca.crt
 
 And run navigator as follows:
 
        bazel run --run_under="cd $PWD && " \
        //navigator/backend:navigator-binary -- server \
-       --pem tls/client.pem --crt tls/client.crt --cacrt tls/ca.crt
+       --pem $PWD/bazel-bin/ledger/test-common/test-certificates/client.pem --crt $PWD/bazel-bin/ledger/test-common/test-certificates/client.crt --cacrt $PWD/bazel-bin/ledger/test-common/test-certificates/ca.crt

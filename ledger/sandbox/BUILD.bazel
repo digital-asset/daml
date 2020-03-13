@@ -259,6 +259,7 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
