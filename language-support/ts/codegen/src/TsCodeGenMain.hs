@@ -78,7 +78,7 @@ newtype Script = Script {unScript :: T.Text}
 data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
-    , optInputPackageJson :: Maybe FilePath
+    , optInputPackageJson :: FilePath
     , optScope :: Scope -- Defaults to 'daml.js'.
     }
 
@@ -93,11 +93,12 @@ optionsParser = Options
         <> metavar "DIR"
         <> help "Output directory for the generated packages"
         )
-    <*> optional (strOption
+    <*> strOption
         (  short 'p'
         <> metavar "PACKAGE-JSON"
-        <> help "Path to an existing 'package.json' to update"
-        ))
+        <> value "package.json"
+        <> help "Path to a 'package.json' to update (or create if missing)"
+        )
     <*> (Scope . ("@" <>) <$> strOption
         (  short 's'
         <> metavar "SCOPE"
@@ -172,7 +173,7 @@ main = do
                      asName = if pkgName == id then "itself" else pkgName
                  T.putStrLn $ "Generating " <> id <> " as " <> asName
                  daml2ts Daml2TsParams{..}
-        whenJust optInputPackageJson $ setupWorkspace optOutputDir dependencies
+        setupWorkspace optInputPackageJson optOutputDir dependencies
 
 packageNameText :: PackageId -> Maybe PackageName -> T.Text
 packageNameText pkgId mbPkgIdent = maybe (unPackageId pkgId) unPackageName mbPkgIdent
@@ -727,8 +728,17 @@ instance ToJSON PackageJson where
 
 -- Read the provided 'package.json'; transform it to include the
 -- provided workspaces; write it back to disk.
-setupWorkspace :: FilePath -> [(T.Text, [Dependency])] -> FilePath -> IO ()
-setupWorkspace optOutputDir dependencies file = do
+setupWorkspace :: FilePath -> FilePath -> [(T.Text, [Dependency])] -> IO ()
+setupWorkspace optInputPackageJson optOutputDir dependencies = do
+  -- If the file designated by 'optInputPackageJson' doesn't yet
+  -- exist, create it.
+  packageJsonExists <- doesFileExist optInputPackageJson
+  when (not packageJsonExists) $ do
+    BSL.writeFile optInputPackageJson $
+      encodePretty (object
+                    [ "private" .= True
+                    , "workspaces" .= ([] :: [T.Text])
+                    ])
   let (g, nodeFromVertex) = graphFromEdges'
         (map (\(a, ds) -> (a, a, map unDependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
@@ -736,9 +746,9 @@ setupWorkspace optOutputDir dependencies file = do
       outBaseDir = T.pack $ takeFileName optOutputDir
         -- The leaf directory of the output directory (e.g. often 'daml2ts').
   let ourWorkspaces = map ((outBaseDir <> "/") <>) ps
-  bytes <- BSL.readFile file
+  bytes <- BSL.readFile optInputPackageJson
   case decode bytes :: Maybe PackageJson of
-    Nothing -> fail $ "Error decoding JSON from '" <> file <> "'"
+    Nothing -> fail $ "Error decoding JSON from '" <> optInputPackageJson <> "'"
     Just oldPackageJson -> transformAndWrite ourWorkspaces outBaseDir oldPackageJson
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
@@ -747,5 +757,5 @@ setupWorkspace optOutputDir dependencies file = do
             -- Old versions of our packages should be removed.
           allWorkspaces = ourWorkspaces ++ keepWorkspaces
             -- Our packages need to come before any other existing packages.
-      BSL.writeFile file $ encodePretty oldPackageJson{workspaces=allWorkspaces}
-      putStrLn $ "'" <> file <> "' updated."
+      BSL.writeFile optInputPackageJson $ encodePretty oldPackageJson{workspaces=allWorkspaces}
+      putStrLn $ "'" <> optInputPackageJson <> "' created or updated."
