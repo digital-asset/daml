@@ -7,7 +7,6 @@ import java.io.File
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.configuration.BuildInfo
 import scopt.Read
 import scopt.Read.{intRead, stringRead}
 
@@ -171,7 +170,7 @@ object Cli {
 
     opt[Unit]("version")
       .optional()
-      .action((_, c) => { println(BuildInfo.Version); sys.exit(0); c })
+      .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
       .text("Prints the version on stdout and exit.")
 
     help("help").text("Prints this usage text")

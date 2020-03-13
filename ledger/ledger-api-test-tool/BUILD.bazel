@@ -28,6 +28,10 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
+load(
+    "@build_environment//:configuration.bzl",
+    "mvn_version",
+)
 
 daml_compile(
     name = "PackageManagementTest",
@@ -108,6 +112,8 @@ da_scala_binary(
         "src/main/resources/logback.xml",
         ":PackageManagementTest",
         "//ledger/test-common:dar-files",
+    ] + [
+        "//:MVN_VERSION",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
