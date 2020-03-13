@@ -188,7 +188,7 @@ We need to terminate the previous ``./daml-start.ch`` process and run it again, 
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API 
 
-First, navigate to the terminal window where the ``daml-start.sh`` is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
+First, navigate to the terminal window where the ``daml-start.sh`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all the friends and their connections are lost. 
 
