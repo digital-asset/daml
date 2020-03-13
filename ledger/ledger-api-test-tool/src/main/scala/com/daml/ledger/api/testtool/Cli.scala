@@ -7,6 +7,7 @@ import java.io.File
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.configuration.BuildInfo
 import scopt.Read
 import scopt.Read.{intRead, stringRead}
 
@@ -167,6 +168,11 @@ object Cli {
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
+
+    opt[Unit]("version")
+      .optional()
+      .action((_, c) => { println(BuildInfo.Version); sys.exit(0); c })
+      .text("Prints the version on stdout and exit.")
 
     help("help").text("Prints this usage text")
 
