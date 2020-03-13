@@ -180,7 +180,7 @@ That is all for the implementation!
 Let's give the new functionality a spin.
 
 Running the New Feature
-===================
+=======================
 
 As previously mentioned, we need to restart the DAML Sandbox and the JSON API, in order to get the messaging feature up and running. 
 
