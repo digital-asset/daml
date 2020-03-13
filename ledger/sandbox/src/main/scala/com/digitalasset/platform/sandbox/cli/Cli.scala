@@ -158,7 +158,7 @@ object Cli {
         .action((id, c) =>
           c.copy(
             ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
-        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
+        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
 
       opt[String]("log-level")
         .optional()
