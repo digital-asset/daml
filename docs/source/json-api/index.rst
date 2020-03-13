@@ -1003,8 +1003,6 @@ Fetch All Known Parties
 HTTP Response
 =============
 
-:ref:`com.digitalasset.ledger.api.v1.CreateCommand`
-
 The response is the same as for the POST method above.
 
 Allocate a New Party
