@@ -11,7 +11,6 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -42,7 +41,7 @@ trait CommonQueries extends Queries {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
               Offset(Array(index)),
-              DamlLogEntryId.parseFrom(entryId),
+              ByteString.readFrom(entryId),
               ByteString.readFrom(envelope),
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>

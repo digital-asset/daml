@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocationEntry,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.{Heartbeat, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
@@ -193,10 +193,11 @@ object KeyValueParticipantStateReaderSpec {
 
   private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
-  private def aLogEntryId(index: Int): DamlLogEntryId =
+  private def aLogEntryId(index: Int): Bytes =
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
       .build
+      .toByteString
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerEntry*): LedgerReader = {
     val reader = mock[LedgerReader]

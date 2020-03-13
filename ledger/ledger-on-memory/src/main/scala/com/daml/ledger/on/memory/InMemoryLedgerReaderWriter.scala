@@ -12,16 +12,10 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{Bytes, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
-  BatchingLedgerStateOperations,
-  LedgerStateAccess,
-  LedgerStateOperations,
-  SubmissionValidator,
-  ValidatingCommitter
-}
+import com.daml.ledger.validator._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
@@ -102,8 +96,7 @@ private class InMemoryLedgerStateOperations(
 
   override def appendToLog(key: Key, value: Value): Future[Index] =
     Future.successful {
-      val entryId = KeyValueCommitting.unpackDamlLogEntryId(key)
-      appendEntry(log, LedgerEntry.LedgerRecord(_, entryId, value))
+      appendEntry(log, LedgerEntry.LedgerRecord(_, key, value))
     }
 }
 
