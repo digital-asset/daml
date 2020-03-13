@@ -184,7 +184,7 @@ Running the New Feature
 
 We need to terminate the previous ``./daml-start.ch`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running the ``./daml-start.ch`` again we will 
 
-  - Compile our DAML code into a *DAR file contatining the new feature*
+  - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API 
 
