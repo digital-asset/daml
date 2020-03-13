@@ -30,7 +30,7 @@ final class Offset(val value: ByteString) extends AnyVal with Ordered[Offset] {
 }
 
 object Offset {
-  def empty: Offset = new Offset(ByteString.EMPTY)
+  def empty: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
 
   def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
 }
