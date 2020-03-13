@@ -63,7 +63,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/v1/query"), _, _, _) => httpResponse(query(req))
     case req @ HttpRequest(GET, Uri.Path("/v1/parties"), _, _, _) => httpResponse(allParties(req))
     case req @ HttpRequest(POST, Uri.Path("/v1/parties"), _, _, _) => httpResponse(parties(req))
-    case req @ HttpRequest(POST, Uri.Path("/v1/admin/parties/allocate"), _, _, _) =>
+    case req @ HttpRequest(POST, Uri.Path("/v1/parties/allocate"), _, _, _) =>
       httpResponse(allocateParty(req))
   }
 

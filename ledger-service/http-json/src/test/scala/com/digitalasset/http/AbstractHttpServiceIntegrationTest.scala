@@ -905,30 +905,66 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "admin/parties/allocate should allocate a new party" in withHttpServiceAndClient {
-    (uri, _, _, _) =>
-      val request = domain.AllocatePartyRequest(
-        Some(domain.Party(s"Carol${uniqueId()}")),
-        Some("Carol & Co. LLC")
-      )
-      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+  "parties/allocate should allocate a new party" in withHttpServiceAndClient { (uri, _, _, _) =>
+    val request = domain.AllocatePartyRequest(
+      Some(domain.Party(s"Carol${uniqueId()}")),
+      Some("Carol & Co. LLC")
+    )
+    val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/admin/parties/allocate")), json = json)
+    postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = json)
+      .flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
+            case \/-(response) =>
+              response.status shouldBe StatusCodes.OK
+              val newParty = response.result
+              Some(newParty.identifier) shouldBe request.identifierHint
+              newParty.displayName shouldBe request.displayName
+              newParty.isLocal shouldBe true
+
+              getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
+                case (status, output) =>
+                  status shouldBe StatusCodes.OK
+                  inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                    case \/-(response) =>
+                      response.status shouldBe StatusCodes.OK
+                      response.result should contain(newParty)
+                  }
+              }
+          }
+      }: Future[Assertion]
+  }
+
+  "parties/allocate should allocate a new party without any hints" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = JsObject())
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
-            inside(
-              decode2[domain.OkResponse, domain.PartyDetails, Unit](output)
-            ) {
+            inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
               case \/-(response) =>
                 response.status shouldBe StatusCodes.OK
-                Some(response.result.identifier) shouldBe request.identifierHint
-                response.result.displayName shouldBe request.displayName
+                val newParty = response.result
+                newParty.identifier.unwrap.length should be > 0
+                newParty.displayName shouldBe None
+                newParty.isLocal shouldBe true
+
+                getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
+                  case (status, output) =>
+                    status shouldBe StatusCodes.OK
+                    inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                      case \/-(response) =>
+                        response.status shouldBe StatusCodes.OK
+                        response.result should contain(newParty)
+                    }
+                }
             }
-        }
+        }: Future[Assertion]
   }
 
-  "admin/parties/allocate should return BadRequest error if party ID hint is invalid PartyIdString" in withHttpServiceAndClient {
+  "parties/allocate should return BadRequest error if party ID hint is invalid PartyIdString" in withHttpServiceAndClient {
     (uri, _, _, _) =>
       val request = domain.AllocatePartyRequest(
         Some(domain.Party(s"Carol-!")),
@@ -936,7 +972,7 @@ abstract class AbstractHttpServiceIntegrationTest
       )
       val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/admin/parties/allocate")), json = json)
+      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = json)
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.BadRequest
