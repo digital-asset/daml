@@ -76,7 +76,7 @@ TypeScript Code Generation
 
 Remember that we interface with the DAML model from the UI components using generated TypeScript.
 Since we have changed our DAML code, we also need to rerun the TypeScript code generator.
-Open a new terminal Let's do this by running::
+Open a new terminal and run the following commands::
 
   daml build
   daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
