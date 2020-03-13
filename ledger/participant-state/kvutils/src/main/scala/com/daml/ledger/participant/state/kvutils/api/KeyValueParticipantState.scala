@@ -13,6 +13,18 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.health.HealthStatus
 
+/**
+  * Implements read and write operations required for running a participant server.
+  *
+  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[ReadService]] and [[WriteService]],
+  * respectively.
+  * Will report [[com.digitalasset.ledger.api.health.Healthy]] as health status only if both
+  * `reader` and `writer` are healthy.
+  *
+  * @param reader  [[LedgerReader]] instance to adapt
+  * @param writer  [[LedgerWriter]] instance to adapt
+  * @param materializer materializer to use when streaming updates from `reader`
+  */
 class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
     implicit materializer: Materializer)
     extends ReadService

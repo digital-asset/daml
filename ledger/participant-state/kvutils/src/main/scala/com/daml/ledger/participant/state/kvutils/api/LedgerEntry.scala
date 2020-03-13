@@ -8,16 +8,30 @@ import java.time.Instant
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.Offset
 
+/**
+  * Defines a log entry or update that may be read from the ledger.
+  */
 sealed trait LedgerEntry
 
 object LedgerEntry {
 
+  /**
+    * A log entry read from the ledger.
+    * @param offset  offset of log entry
+    * @param entryId opaque ID of log entry
+    * @param envelope  opaque contents of log entry
+    */
   final class LedgerRecord(
       val offset: Offset,
       val entryId: Bytes,
       val envelope: Bytes
   ) extends LedgerEntry
 
+  /**
+    * A heart beat read from the ledger.
+    * @param offset  offset of heartbeat log entry
+    * @param instant timestamp of heartbeat
+    */
   final case class Heartbeat(offset: Offset, instant: Instant) extends LedgerEntry
 
   object LedgerRecord {
