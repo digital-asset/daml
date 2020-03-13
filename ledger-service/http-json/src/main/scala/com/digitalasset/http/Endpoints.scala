@@ -78,7 +78,7 @@ class Endpoints(
       ): ET[domain.CreateCommand[ApiRecord]]
 
       ac <- eitherT(
-        handleFutureFailure(commandService.create(jwt, jwtPayload, cmd))
+        handleFutureEitherFailure(commandService.create(jwt, jwtPayload, cmd))
       ): ET[domain.ActiveContract[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(ac).liftErr(ServerError)): ET[JsValue]
@@ -104,7 +104,7 @@ class Endpoints(
       resolvedCmd = cmd.copy(argument = apiArg, reference = resolvedRef)
 
       resp <- eitherT(
-        handleFutureFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
+        handleFutureEitherFailure(commandService.exercise(jwt, jwtPayload, resolvedCmd))
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -122,7 +122,7 @@ class Endpoints(
       ): ET[domain.CreateAndExerciseCommand[ApiRecord, ApiValue]]
 
       resp <- eitherT(
-        handleFutureFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
+        handleFutureEitherFailure(commandService.createAndExercise(jwt, jwtPayload, cmd))
       ): ET[domain.ExerciseResponse[ApiValue]]
 
       jsVal <- either(SprayJson.encode1(resp).liftErr(ServerError)): ET[JsValue]
@@ -232,16 +232,21 @@ class Endpoints(
       ): ET[domain.AllocatePartyRequest]
 
       allocatedParty <- eitherT(
-        handleFutureFailure(
-          partiesService.allocate(jwt, cmd)
-        )
+        handleFutureEitherFailure(partiesService.allocate(jwt, cmd))
       ): ET[domain.PartyDetails]
 
       jsVal <- either(SprayJson.encode(allocatedParty).liftErr(ServerError)): ET[JsValue]
 
     } yield domain.OkResponse(jsVal)
 
-  private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
+  private def handleFutureEitherFailure[B](fa: Future[Error \/ B]): Future[Error \/ B] =
+    fa.recover {
+      case NonFatal(e) =>
+        logger.error("Future failed", e)
+        -\/(ServerError(e.description))
+    }
+
+  private def handleFutureEitherFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
     fa.map(_.liftErr(ServerError)).recover {
       case NonFatal(e) =>
         logger.error("Future failed", e)

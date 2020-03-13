@@ -18,9 +18,9 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.{decode2, objectField}
+import com.digitalasset.http.json.SprayJson.{decode1, decode2, objectField}
 import com.digitalasset.http.json._
-import com.digitalasset.http.util.ClientUtil.boxedRecord
+import com.digitalasset.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil
 import com.digitalasset.jwt.JwtSigner
@@ -79,7 +79,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   implicit val `AHS mat`: Materializer = Materializer(`AHS asys`)
   implicit val `AHS aesf`: ExecutionSequencerFactory =
     new AkkaExecutionSequencerPool(testId)(`AHS asys`)
-  import shapeless.tag, tag.@@ // used for subtyping to make `AHS ec` beat executionContext
+  import shapeless.tag
+  import tag.@@ // used for subtyping to make `AHS ec` beat executionContext
   implicit val `AHS ec`: ExecutionContext @@ this.type = tag[this.type](`AHS asys`.dispatcher)
 
   protected def withHttpServiceAndClient[A]
@@ -786,9 +787,9 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testCreateCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder): Assertion = {
-    import util.ErrorOps._
-    import json.JsonProtocol._
     import encoder.implicits._
+    import json.JsonProtocol._
+    import util.ErrorOps._
 
     val command0: domain.CreateCommand[v.Record] = iouCreateCommand()
 
@@ -902,6 +903,51 @@ abstract class AbstractHttpServiceIntegrationTest
           errorMsg should include("Cannot read JSON: <[]>")
           errorMsg should include("must be a list with at least 1 element")
       }: Future[Assertion]
+  }
+
+  "admin/parties/allocate should allocate a new party" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val request = domain.AllocatePartyRequest(
+        Some(domain.Party(s"Carol${uniqueId()}")),
+        Some("Carol & Co. LLC")
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+
+      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/admin/parties/allocate")), json = json)
+        .flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.OK
+            inside(
+              decode2[domain.OkResponse, domain.PartyDetails, Unit](output)
+            ) {
+              case \/-(response) =>
+                response.status shouldBe StatusCodes.OK
+                Some(response.result.identifier) shouldBe request.identifierHint
+                response.result.displayName shouldBe request.displayName
+            }
+        }
+  }
+
+  "admin/parties/allocate should return BadRequest error if party ID hint is invalid PartyIdString" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val request = domain.AllocatePartyRequest(
+        Some(domain.Party(s"Carol-!")),
+        Some("Carol & Co. LLC")
+      )
+      val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
+
+      postJsonRequest(uri = uri.withPath(Uri.Path("/v1/admin/parties/allocate")), json = json)
+        .flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.BadRequest
+            inside(
+              decode1[domain.ErrorResponse, Vector[String]](output)
+            ) {
+              case \/-(response) =>
+                response.status shouldBe StatusCodes.BadRequest
+                response.errors.length shouldBe 1
+            }
+        }
   }
 
   "fetch by contractId" in withHttpService { (uri, encoder, decoder) =>
