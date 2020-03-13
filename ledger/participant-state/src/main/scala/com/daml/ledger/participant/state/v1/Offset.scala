@@ -3,41 +3,34 @@
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-
-import scala.util.Try
+import com.google.protobuf.ByteString
 
 /** Offsets into streams with hierarchical addressing.
   *
   * We use these [[Offset]]'s to address changes to the participant state.
-  * Offsets are arbitrary string values. Offset strings must be strict
-  * monotonically increasing according to lexicographical ordering.
+  * Offsets are opaque values that must be must be strictly
+  * increasing according to lexicographical ordering.
   *
   * Ledger implementations are advised to future proof their design
-  * of offsets by reserving the first (few) characters to a version
+  * of offsets by reserving the first (few) bytes for a version
   * indicator, followed by the specific offset scheme for that version.
   * This way it is possible in the future to switch to a different versioning
   * scheme, while making sure that previously created offsets are always
   * less than newer offsets.
   *
   */
-final case class Offset private (value: String) extends Ordered[Offset] {
+final class Offset(val value: ByteString) extends AnyVal with Ordered[Offset] {
 
-  def toLedgerString: LedgerString = LedgerString.assertFromString(toString)
+  override def toString: String = ???
 
-  override def toString: String = value.toString()
+  override def compare(that: Offset): Int =
+    ByteString.unsignedLexicographicalComparator().compare(value, that.value)
 
-  override def compare(that: Offset): Int = value.compareTo(that.value)
+  def toByteArray: Array[Byte] = value.toByteArray
 }
 
 object Offset {
+  def empty: Offset = new Offset(ByteString.EMPTY)
 
-  def empty: Offset = Offset("")
-
-  def assertFromString(s: String): Offset =
-    Offset(s)
-
-  def fromString(s: String): Try[Offset] = Try(assertFromString(s))
-
-  def fromLong(l: Long, padding: Int = 8): Offset = assertFromString(s"%0${padding}d".format(l))
+  def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
 }

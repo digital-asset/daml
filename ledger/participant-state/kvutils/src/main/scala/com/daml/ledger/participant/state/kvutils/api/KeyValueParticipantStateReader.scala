@@ -19,7 +19,7 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
 
   override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
     Source
-      .single(beginAfter.map(KVOffset.onlyKeepSignificantIndex))
+      .single(beginAfter.map(KVOffset.onlyKeepHighestIndex))
       .flatMapConcat(reader.events)
       .flatMapConcat {
         case LedgerEntry.Heartbeat(offset, instant) =>
@@ -32,11 +32,11 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
               case Envelope.LogEntryMessage(logEntry) =>
                 val logEntryId = DamlLogEntryId.parseFrom(entryId)
                 val updates = KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry)
-                val updateOffset: (Offset, Long) => Offset =
-                  if (updates.size > 1) KVOffset.addSubIndex else (offset, _) => offset
+                val updateOffset: (Offset, Int) => Offset =
+                  if (updates.size > 1) KVOffset.setMiddleIndex else (offset, _) => offset
                 val updatesWithOffsets = Source(updates).zipWithIndex.map {
                   case (update, index) =>
-                    updateOffset(offset, index) -> update
+                    updateOffset(offset, index.toInt) -> update
                 }
                 Right(updatesWithOffsets)
               case _ =>

@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Bytes, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{KVOffset, Bytes, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -53,7 +53,7 @@ final class InMemoryLedgerReaderWriter(
     dispatcher
       .startingAt(
         startExclusive
-          .map(_.toLedgerString.toInt)
+          .map(KVOffset.highestIndex(_).toInt)
           .getOrElse(StartIndex),
         OneAfterAnother[Index, List[LedgerEntry]](
           (index: Index) => index + 1,
@@ -182,9 +182,10 @@ object InMemoryLedgerReaderWriter {
       .map(_ => ())
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
-    val offset = Offset.fromLong(log.size.toLong)
+    val entryAtIndex = log.size
+    val offset = KVOffset.fromLong(entryAtIndex.toLong)
     val entry = createEntry(offset)
     log += entry
-    log.size - 1
+    entryAtIndex
   }
 }

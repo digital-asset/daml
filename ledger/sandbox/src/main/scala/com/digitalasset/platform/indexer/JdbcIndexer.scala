@@ -19,6 +19,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
@@ -112,7 +113,7 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedRecordTime = Instant.now()
 
   @volatile
-  private var lastReceivedOffset: LedgerString = _
+  private var lastReceivedOffset: Offset = _
 
   object Metrics {
 
@@ -140,7 +141,7 @@ class JdbcIndexer private[indexer] (
         lastReceivedOffsetName,
         () =>
           new Gauge[LedgerString] {
-            override def getValue: LedgerString = lastReceivedOffset
+            override def getValue: LedgerString = ApiOffset.toApiString(lastReceivedOffset)
         })
 
       metrics.gauge(
@@ -158,7 +159,7 @@ class JdbcIndexer private[indexer] (
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedOffset = offset.toLedgerString
+    lastReceivedOffset = offset
     lastReceivedRecordTime = update.recordTime.toInstant
 
     val externalOffset = offset

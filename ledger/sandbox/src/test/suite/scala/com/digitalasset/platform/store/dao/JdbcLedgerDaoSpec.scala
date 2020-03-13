@@ -40,6 +40,7 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
@@ -67,9 +68,14 @@ class JdbcLedgerDaoSpec
   private[this] var ledgerDao: LedgerDao = _
 
   private val nextOffset: () => Offset = {
+    val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
     () =>
-      Offset.fromLong(counter.getAndIncrement())
+      Offset.fromBytes((base + counter.getAndIncrement()).toByteArray)
+  }
+
+  implicit class OffsetToLong(offset: Offset) {
+    def toLong: Long = BigInt(offset.toByteArray).toLong
   }
 
   override def beforeAll(): Unit = {
@@ -82,8 +88,7 @@ class JdbcLedgerDaoSpec
           .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
           .acquire()
         ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, executionContext)
-        _ <- Resource.fromFuture(
-          ledgerDao.initializeLedger(LedgerId("test-ledger"), Offset.fromLong(0)))
+        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), Offset.empty))
       } yield ledgerDao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)
@@ -650,7 +655,7 @@ class JdbcLedgerDaoSpec
 
     "be able to produce a valid snapshot" in {
       def genCreateTransaction(offset: Offset) = {
-        val id = offset.toLedgerString
+        val id = ApiOffset.toApiString(offset)
         val txId = s"trId$id"
         val absCid = AbsoluteContractId(s"cId$id")
         val let = Instant.now
@@ -681,7 +686,7 @@ class JdbcLedgerDaoSpec
       }
 
       def genExerciseTransaction(offset: Offset, targetCid: AbsoluteContractId) = {
-        val id = offset.toLedgerString
+        val id = ApiOffset.toApiString(offset)
         val txId = s"trId$id"
         val let = Instant.now
         LedgerEntry.Transaction(
@@ -827,10 +832,10 @@ class JdbcLedgerDaoSpec
           aliceSpecificTemplatesSnapshot.offset shouldEqual snapshotOffset
         }
         withClue("snapshot offset (2): ") {
-          snapshotOffset.toLedgerString.toLong shouldEqual (startingOffset.toLedgerString.toLong + N + 1)
+          snapshotOffset.toLong shouldEqual (startingOffset.toLong + N + 1)
         }
         withClue("ending offset: ") {
-          endingOffset.toLedgerString.toLong shouldEqual (snapshotOffset.toLedgerString.toLong + M)
+          endingOffset.toLong shouldEqual (snapshotOffset.toLong + M)
         }
         withClue("alice wildcard snapshot size: ") {
           (aliceWildcardSnapshotSize - aliceStartingSnapshotSize) shouldEqual (N - 1)
@@ -852,7 +857,7 @@ class JdbcLedgerDaoSpec
 
     /** A transaction that creates the given key */
     def txCreateContractWithKey(let: Instant, offset: Offset, party: Party, key: String) = {
-      val id = offset.toLedgerString
+      val id = offset.toLong
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -887,7 +892,7 @@ class JdbcLedgerDaoSpec
 
     /** A transaction that archives the given contract with the given key */
     def txArchiveContract(let: Instant, offset: Offset, party: Party, cid: Offset, key: String) = {
-      val id = offset.toLedgerString
+      val id = offset.toLong
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -901,7 +906,7 @@ class JdbcLedgerDaoSpec
             HashMap(
               event(s"transactionId$id", id) -> NodeExercises(
                 nodeSeed = None,
-                targetCoid = AbsoluteContractId(s"contractId${cid.toLedgerString}"),
+                targetCoid = AbsoluteContractId(s"contractId${cid.toLong}"),
                 templateId = someTemplateId,
                 choiceId = Ref.ChoiceName.assertFromString("Archive"),
                 optLocation = None,
@@ -935,7 +940,7 @@ class JdbcLedgerDaoSpec
         party: Party,
         key: String,
         result: Option[Offset]) = {
-      val id = offset.toLedgerString
+      val id = ApiOffset.toApiString(offset)
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -966,7 +971,7 @@ class JdbcLedgerDaoSpec
 
     /** A transaction that fetches a contract Id */
     def txFetch(let: Instant, offset: Offset, party: Party, cid: Offset) = {
-      val id = offset.toLedgerString
+      val id = ApiOffset.toApiString(offset)
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -979,7 +984,7 @@ class JdbcLedgerDaoSpec
           GenTransaction(
             HashMap(
               event(s"transactionId$id", id) -> NodeFetch(
-                coid = AbsoluteContractId(s"contractId$cid.toLedgerString"),
+                coid = AbsoluteContractId(s"contractId${cid.toLong}"),
                 templateId = someTemplateId,
                 optLocation = None,
                 actingParties = Some(Set(party)),
@@ -1163,7 +1168,7 @@ class JdbcLedgerDaoSpec
       val offset2 = nextOffset()
       val offset3 = nextOffset()
       def emptyTxWithDivulgedContracts(offset: Offset) = {
-        val id = offset.toLedgerString
+        val id = ApiOffset.toApiString(offset)
         PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
             Some(s"commandId$id"),
@@ -1183,7 +1188,9 @@ class JdbcLedgerDaoSpec
 
       for {
         // First try and index a transaction fetching a completely unknown contract.
-        _ <- ledgerDao.storeLedgerEntry(offset1, txFetch(let, offset1, bob, Offset.fromLong(0)))
+        _ <- ledgerDao.storeLedgerEntry(
+          offset1,
+          txFetch(let, offset1, bob, ApiOffset.assertFromString("0")))
         res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
 
         // Then index a transaction that just divulges the contract to bob.

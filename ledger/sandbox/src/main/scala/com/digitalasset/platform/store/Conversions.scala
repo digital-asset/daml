@@ -110,10 +110,11 @@ object Conversions {
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setString(index, v.value)
+      s.setBytes(index, v.toByteArray)
   }
-  def offset(name: String): RowParser[Offset] = SqlParser.get[Ref.LedgerString](name).map(Offset(_))
+  def offset(name: String): RowParser[Offset] =
+    SqlParser.get[Array[Byte]](name).map(Offset.fromBytes)
 
-  implicit def columnToOffset(implicit c: Column[Ref.LedgerString]): Column[Offset] =
-    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset(_)))
+  implicit def columnToOffset(implicit c: Column[Array[Byte]]): Column[Offset] =
+    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromBytes))
 }

@@ -6,11 +6,11 @@ package com.digitalasset.platform.store.dao.events
 import java.sql.Connection
 import java.util.Date
 
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.digitalasset.platform.index.Disclosure
-import com.digitalasset.platform.store.dao.LedgerDao
 
-private[dao] object TransactionWriter extends TransactionWriter[LedgerDao#LedgerOffset] {
+private[dao] object TransactionWriter extends TransactionWriter {
 
   def apply(
       applicationId: Option[ApplicationId],
@@ -20,7 +20,7 @@ private[dao] object TransactionWriter extends TransactionWriter[LedgerDao#Ledger
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+        offset: Offset,
       transaction: Transaction,
   )(implicit connection: Connection): Unit = {
 
@@ -79,7 +79,7 @@ private[dao] object TransactionWriter extends TransactionWriter[LedgerDao#Ledger
 
 }
 
-private[dao] trait TransactionWriter[LedgerOffset] {
+private[dao] trait TransactionWriter {
 
   def apply(
       applicationId: Option[ApplicationId],
@@ -89,7 +89,7 @@ private[dao] trait TransactionWriter[LedgerOffset] {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerOffset,
+      offset: Offset,
       transaction: Transaction,
   )(implicit connection: Connection): Unit
 

@@ -9,11 +9,12 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.platform.ApiOffset
 
 private[dao] object CommandCompletionsReader {
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
-    Offset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
+    ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
 
   def apply(dispatcher: DbDispatcher): CommandCompletionsReader[Offset] =
     (from: Offset, to: Offset, appId: ApplicationId, parties: Set[Ref.Party]) => {

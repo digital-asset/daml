@@ -6,11 +6,11 @@ package com.digitalasset.platform.store.dao.events
 import java.util.Date
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.dao.LedgerDao
-import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 /**
   * Data access object for a table representing raw transactions nodes that
@@ -103,7 +103,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       create: Create,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
@@ -180,7 +180,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       exercise: Exercise,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
@@ -212,7 +212,7 @@ private[events] object EventsTable {
 
   private def archive(
       contractId: ContractId,
-      consumedAt: LedgerDao#LedgerOffset,
+      consumedAt: Offset,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "consumed_at" -> consumedAt,
@@ -282,7 +282,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =
     transaction

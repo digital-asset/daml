@@ -37,10 +37,12 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 import scala.concurrent.Future
 
@@ -60,7 +62,7 @@ abstract class LedgerBackedIndexService(
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
-            LedgerOffset.Absolute(offset.toLedgerString),
+            toAbsolute(offset),
             acsStream
               .mapConcat { ac =>
                 EventFilter(ac)(filter)
@@ -134,7 +136,7 @@ abstract class LedgerBackedIndexService(
       case LedgerOffset.LedgerBegin => Source.single(Offset.empty)
       case LedgerOffset.LedgerEnd => Source.single(currentEnd)
       case LedgerOffset.Absolute(offset) =>
-        Offset.fromString(offset).fold(Source.failed, off => Source.single(off))
+        ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
     }
   }
 
@@ -153,22 +155,22 @@ abstract class LedgerBackedIndexService(
             Source.empty
 
           case Some(end) if begin > end =>
-            Source.failed(
-              ErrorFactories.invalidArgument(s"End offset $end is before Begin offset $begin."))
+            Source.failed(ErrorFactories.invalidArgument(
+              s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
 
           case endOpt @ (None | Some(_)) =>
             ledger
               .ledgerEntries(Some(begin), endOpt)
               .collect {
                 case (offset, t: LedgerEntry.Transaction) =>
-                  (LedgerOffset.Absolute(offset.toLedgerString), t)
+                  (toAbsolute(offset), t)
               }
         }
     }
   }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    Future.successful(LedgerOffset.Absolute(ledger.ledgerEnd.toLedgerString))
+    Future.successful(toAbsolute(ledger.ledgerEnd))
 
   override def getTransactionById(
       transactionId: TransactionId,
@@ -179,11 +181,7 @@ abstract class LedgerBackedIndexService(
       .map(_.flatMap {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToFlatTransaction(
-              LedgerOffset.Absolute(offset.toLedgerString),
-              transaction,
-              filter,
-              verbose = true)
+            .ledgerEntryToFlatTransaction(toAbsolute(offset), transaction, filter, verbose = true)
             .map(tx => GetFlatTransactionResponse(Option(tx)))
       })(DEC)
   }
@@ -198,13 +196,16 @@ abstract class LedgerBackedIndexService(
         case (offset, transaction) =>
           TransactionConversion
             .ledgerEntryToTransactionTree(
-              LedgerOffset.Absolute(offset.toLedgerString),
+              toAbsolute(offset),
               transaction,
               filter.filtersByParty.keySet,
               verbose = true)
             .map(tx => GetTransactionResponse(Option(tx)))
       })(DEC)
   }
+
+  def toAbsolute(offset: Offset): LedgerOffset.Absolute =
+    LedgerOffset.Absolute(ApiOffset.toApiString(offset))
 
   override def getCompletions(
       startExclusive: LedgerOffset,
@@ -249,7 +250,7 @@ abstract class LedgerBackedIndexService(
 
   override def partyEntries(startExclusive: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
     Source
-      .future(Future.fromTry(Offset.fromString(startExclusive.value)))
+      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
       .flatMapConcat(ledger.partyEntries)
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
@@ -262,7 +263,7 @@ abstract class LedgerBackedIndexService(
   override def packageEntries(
       startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
     Source
-      .future(Future.fromTry(Offset.fromString(startExclusive.value)))
+      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
       .flatMapConcat(ledger.packageEntries)
       .map(_._2.toDomain)
 
@@ -273,9 +274,7 @@ abstract class LedgerBackedIndexService(
   override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
     ledger
       .lookupLedgerConfiguration()
-      .map(
-        _.map { case (offset, config) => (LedgerOffset.Absolute(offset.toLedgerString), config) })(
-        DEC)
+      .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Retrieve configuration entries. */
   override def configurationEntries(
@@ -283,7 +282,7 @@ abstract class LedgerBackedIndexService(
     Source
       .future(
         startExclusive
-          .map(off => Future.fromTry(Offset.fromString(off.value).map(Some(_))))
+          .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
       .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
 

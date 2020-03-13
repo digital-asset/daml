@@ -10,8 +10,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.{breakOut, immutable}
@@ -38,13 +38,13 @@ trait CommonQueries extends Queries {
           ~ get[Option[Long]]("heartbeat_timestamp")).map {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
-              Offset.fromLong(index),
+              KVOffset.fromLong(index),
               entryId,
               envelope,
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
             index -> LedgerEntry.Heartbeat(
-              Offset.fromLong(index),
+              KVOffset.fromLong(index),
               Instant.ofEpochMilli(heartbeatTimestamp),
             )
           case _ =>

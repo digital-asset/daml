@@ -73,6 +73,8 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
 
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+
 private final case class ParsedEntry(
     typ: String,
     transactionId: Option[TransactionId],
@@ -254,7 +256,8 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_configuration_entries",
-        Some(s"bounds: ]$startExclusive, $endInclusive] queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_CONFIGURATION_ENTRIES
             .on(
@@ -462,7 +465,8 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_party_entries",
-        Some(s"bounds: ]$startExclusive, $endInclusive] queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_PARTY_ENTRIES
             .on(
@@ -1381,7 +1385,8 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         s"load_ledger_entries",
-        Some(s"bounds: ]$startExclusive, $endInclusive] query-offset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] query-offset $queryOffset")) {
         implicit conn =>
           val parsedEntries = SQL_GET_LEDGER_ENTRIES
             .on(
@@ -1435,16 +1440,17 @@ private class JdbcLedgerDao(
       PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
         dbDispatcher.executeSql(
           "load_active_contracts",
-          Some(s"bounds: ]0, $endInclusive] queryOffset $queryOffset")) { implicit conn =>
-          SQL_SELECT_ACTIVE_CONTRACTS
-            .on(
-              "endInclusive" -> endInclusive,
-              "queryOffset" -> queryOffset,
-              "pageSize" -> PageSize,
-              "template_parties" -> byPartyAndTemplate(filter),
-              "wildcard_parties" -> justByParty(filter),
-            )
-            .as(ContractDataParser.*)(conn)
+          Some(s"bounds: ]0, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
+          implicit conn =>
+            SQL_SELECT_ACTIVE_CONTRACTS
+              .on(
+                "endInclusive" -> endInclusive,
+                "queryOffset" -> queryOffset,
+                "pageSize" -> PageSize,
+                "template_parties" -> byPartyAndTemplate(filter),
+                "wildcard_parties" -> justByParty(filter),
+              )
+              .as(ContractDataParser.*)(conn)
         }
       }.mapAsync(1) { contractResult =>
         dbDispatcher
@@ -1645,7 +1651,8 @@ private class JdbcLedgerDao(
     PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
       dbDispatcher.executeSql(
         "load_package_entries",
-        Some(s"bounds: [$startExclusive, $endInclusive[ queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_PACKAGE_ENTRIES
             .on(

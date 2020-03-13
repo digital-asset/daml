@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
 }
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
@@ -29,7 +30,7 @@ private[platform] object CompletionFromTransaction {
     Some(
       Checkpoint(
         recordTime = Some(fromInstant(recordTime)),
-        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(ApiOffset.toApiString(offset))))))
 
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled

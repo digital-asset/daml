@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, Sourc
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -21,6 +22,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -152,18 +154,18 @@ private final class SqlLedger(
     mergedSources
       .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
-        val startOffset = dispatcher.getHead().toLedgerString.toLong
+        val startOffset = KVOffset.highestIndex(dispatcher.getHead())
         // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
             case (persist, i) =>
               val offset = startOffset + i + 1
-              persist(Offset.fromLong(offset))
+              persist(KVOffset.fromLong(offset))
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
-            dispatcher.signalNewHead(Offset.fromLong(startOffset + queue.length)) //signalling downstream subscriptions
+            dispatcher.signalNewHead(KVOffset.fromLong(startOffset + queue.length)) //signalling downstream subscriptions
           }
       }
       .toMat(Sink.ignore)(Keep.left[Queues, Future[Done]])
@@ -200,7 +202,7 @@ private final class SqlLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     enqueue { offset =>
-      val transactionId = offset.toLedgerString
+      val transactionId = ApiOffset.toApiString(offset)
 
       val (transactionForIndex, disclosureForIndex, globalDivulgence) =
         Ledger.convertToCommittedTransaction(transactionId, transaction)
@@ -489,7 +491,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         case ((offset, entries), entryOrBump) =>
           entryOrBump match {
             case LedgerEntryOrBump.Entry(entry) =>
-              (offset + 1, entries :+ Offset.fromLong(offset + 1) -> entry)
+              (offset + 1, entries :+ KVOffset.fromLong(offset + 1) -> entry)
             case LedgerEntryOrBump.Bump(increment) =>
               (offset + increment, entries)
           }
@@ -497,8 +499,8 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
     val contracts = acs.activeContracts.values.toList
     for {
-      _ <- copyPackages(packages, timeProvider.getCurrentTime, Offset.fromLong(ledgerEnd))
-      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, Offset.fromLong(ledgerEnd))
+      _ <- copyPackages(packages, timeProvider.getCurrentTime, KVOffset.fromLong(ledgerEnd))
+      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, KVOffset.fromLong(ledgerEnd))
     } yield ()
   }
 

@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -53,7 +54,7 @@ final class SqlLedgerReaderWriter(
   override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        startExclusive.getOrElse(StartOffset).value.toLong,
+        KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
         RangeSource((start, end) => {
           Source
             .future(database
@@ -91,7 +92,7 @@ final class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val logger = ContextualizedLogger.get(classOf[SqlLedgerReaderWriter])
 
-  private val StartOffset: Offset = Offset.fromLong(StartIndex)
+  private val StartOffset: Offset = KVOffset.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 

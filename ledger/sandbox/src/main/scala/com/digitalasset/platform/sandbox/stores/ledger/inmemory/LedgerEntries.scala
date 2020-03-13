@@ -7,11 +7,13 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import org.slf4j.LoggerFactory
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 import scala.collection.immutable.TreeMap
 
@@ -27,22 +29,22 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
   private def store(item: T): Offset = {
     val Entries(newOffset, _) = state.updateAndGet({
       case Entries(ledgerEnd, ledger) =>
-        val newEnd = Offset.fromLong(ledgerEnd.value.toLong + 1)
+        val newEnd = KVOffset.fromLong(KVOffset.highestIndex(ledgerEnd) + 1)
         Entries(newEnd, ledger + (newEnd -> item))
     })
     if (logger.isTraceEnabled())
-      logger.trace("Recording `{}` at offset `{}`", identify(item): Any, newOffset: Any)
+      logger.trace("Recording `{}` at offset `{}`", identify(item): Any, newOffset.toApiString: Any)
     newOffset
   }
 
   def incrementOffset(increment: Int): Offset = {
     val Entries(newOffset, _) = state.updateAndGet({
       case Entries(ledgerEnd, ledger) =>
-        val newEnd = Offset.fromLong(ledgerEnd.value.toLong + increment)
+        val newEnd = KVOffset.fromLong(KVOffset.highestIndex(ledgerEnd) + increment)
         Entries(newEnd, ledger)
     })
     if (logger.isTraceEnabled())
-      logger.trace("Bumping offset to `{}`", newOffset)
+      logger.trace("Bumping offset to `{}`", newOffset.toApiString)
     newOffset
   }
 
@@ -67,12 +69,12 @@ private[ledger] class LedgerEntries[T](identify: T => String) {
     newHead
   }
 
-  def ledgerBeginning: Offset = Offset.fromLong(0)
+  def ledgerBeginning: Offset = KVOffset.fromLong(0)
 
   def items = state.get().items.iterator
 
   def ledgerEnd: Offset = state.get().ledgerEnd
 
   def nextTransactionId: Ref.LedgerString =
-    Ref.LedgerString.fromLong(ledgerEnd.value.toLong + 1)
+    Ref.LedgerString.fromLong(KVOffset.highestIndex(ledgerEnd) + 1)
 }
