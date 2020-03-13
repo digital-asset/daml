@@ -6,13 +6,13 @@
 Scala bindings
 ##############
 
-This page provides a basic Scala programmer's introduction to working with Digital Asset distributed ledger,
+This page provides a basic Scala programmer's introduction to working with DAML Ledgers,
 using the Scala programming language and the **Ledger API**.
 
 Introduction
 ============
 
-The Scala bindings is a client implementation of the **Ledger API**. The Scala bindings library lets you write applications that connect to the Digital Asset distributed ledger using the Scala programming language.
+The Scala bindings is a client implementation of the **Ledger API**. The Scala bindings library lets you write applications that connect to a DAML Ledger using the Scala programming language.
 
 There are two main components:
 

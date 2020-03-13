@@ -50,6 +50,6 @@ Contract identifiers
 When an instance of a template (that is, a contract) is added to the ledger, it's assigned a unique identifier, of type ``ContractId <name of template>``.
 
 The runtime representation of these identifiers depends on the execution
-environment: a contract identifier from the Sandbox looks different to one on the DA Platform.
+environment: a contract identifier from the Sandbox may look different to ones on other DAML Ledgers.
 
 You can use ``==`` and ``/=`` on contract identifiers of the same type.

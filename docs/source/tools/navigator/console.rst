@@ -9,7 +9,7 @@ Navigator Console
 
   Navigator Database </tools/navigator/database>
 
-The Navigator Console is a terminal-based front-end for inspecting and modifying a Digital Asset ledger. It's useful for DAML developers, app developers, or business analysts who want to debug or analyse a ledger by exploring it manually.
+The Navigator Console is a terminal-based front-end for inspecting and modifying a DAML Ledger. It's useful for DAML developers, app developers, or business analysts who want to debug or analyse a ledger by exploring it manually.
 
 You can use the Console to:
 
@@ -256,7 +256,7 @@ To see useful information about the status of both Navigator Console and the led
 Choosing a party
 ================
 
-Privacy is an important aspect of a Digital Asset ledger: parties can only access the contracts on the ledger that they are authorized to. This means that, before you can interact with the ledger, you must assume the role of a particular party.
+Privacy is an important aspect of a DAML Ledger: parties can only access the contracts on the ledger that they are authorized to. This means that, before you can interact with the ledger, you must assume the role of a particular party.
 
 The currently active party is displayed left of the prompt sign (``>``).
 To assume the role of a different party, use the ``party`` command::
@@ -272,7 +272,7 @@ Advancing time
 
 You can advance the time of the DAML Sandbox. This can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
-(For obvious reasons, this feature does not exist on the Digital Asset ledger.)
+(For obvious reasons, this feature does not exist on all DAML Ledgers.)
 
 To display the current ledger time, use the ``time`` command::
 
@@ -487,12 +487,12 @@ In many cases, a simple one-to-one correspondence between users and their respec
       OPERATOR { party = "OPERATOR" }
   }
 
-Using Navigator with the Digital Asset ledger
-=============================================
+Using Navigator with DAML Ledgers
+=================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
 
-To run Navigator against a secured Digital Asset Ledger, configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
+To run Navigator against a secured DAML Ledger, configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 
 Details of these parameters are explained in the command line help::
 
