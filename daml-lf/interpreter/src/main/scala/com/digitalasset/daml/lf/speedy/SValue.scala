@@ -108,9 +108,7 @@ sealed trait SValue {
         STextMap(value.transform((_, v) => v.mapContractId(f)))
       case SGenMap(value) =>
         SGenMap(
-          value.foldLeft(TreeMap.empty[SValue, SValue](svalue.Ordering)) {
-            case (acc, (k, v)) => acc.updated(k.mapContractId(f), v.mapContractId(f))
-          }
+          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) }
         )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
@@ -156,12 +154,14 @@ object SValue {
   final case class SGenMap(genMap: TreeMap[SValue, SValue]) extends SValue
 
   object SGenMap {
-    val Empty = SGenMap(TreeMap.empty(svalue.Ordering))
+    implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
 
-    def apply(xs: Iterator[(SValue, SValue)]): SGenMap =
-      SGenMap(xs.foldLeft(TreeMap.empty[SValue, SValue](svalue.Ordering)) {
-        case (acc, (k, v)) => acc.updated(k, v)
-      })
+    val Empty = SGenMap(TreeMap.empty)
+
+    def apply(xs: Iterator[(SValue, SValue)]): SGenMap = {
+      type O[_] = TreeMap[SValue, SValue]
+      SGenMap(xs.to[O])
+    }
 
     def apply(xs: (SValue, SValue)*): SGenMap =
       SGenMap(xs.iterator)
@@ -289,11 +289,7 @@ object SValue {
 
       case V.ValueGenMap(entries) =>
         SGenMap(
-          entries
-            .foldLeft(TreeMap.newBuilder[SValue, SValue](svalue.Ordering)) {
-              case (b, (k, v)) => b += (fromValue(k) -> fromValue(v))
-            }
-            .result()
+          entries.iterator.map { case (k, v) => fromValue(k) -> fromValue(v) }
         )
 
       case V.ValueVariant(Some(id), variant, value) =>
