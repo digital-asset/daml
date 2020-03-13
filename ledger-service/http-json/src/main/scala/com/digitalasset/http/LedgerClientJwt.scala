@@ -110,9 +110,9 @@ object LedgerClientJwt {
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
 
   def allocateParty(client: LedgerClient): AllocateParty =
-    (jwt, identifierHing, displayName) =>
+    (jwt, identifierHint, displayName) =>
       client.partyManagementClient.allocateParty(
-        hint = identifierHing,
+        hint = identifierHint,
         displayName = displayName,
         token = bearer(jwt))
 }
