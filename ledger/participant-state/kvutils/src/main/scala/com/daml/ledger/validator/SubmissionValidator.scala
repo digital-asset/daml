@@ -170,7 +170,6 @@ class SubmissionValidator[LogResult](
 }
 
 object SubmissionValidator {
-  type RawBytes = Bytes
   type RawKeyValuePairs = Seq[(Bytes, Bytes)]
 
   type StateMap = Map[DamlStateKey, DamlStateValue]
@@ -212,14 +211,16 @@ object SubmissionValidator {
       inputState
     )
 
-  // FIXME(erdemik): Make output deterministic or document that it is not.
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState): (Bytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates =
-      damlStateUpdates.map {
-        case (key, value) => keyToBytes(key) -> valueToBytes(value)
-      }.toSeq
+      damlStateUpdates
+        .map {
+          case (key, value) => keyToBytes(key) -> valueToBytes(value)
+        }
+        .toSeq
+        .sortBy(_._1.asReadOnlyByteBuffer())
     (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
