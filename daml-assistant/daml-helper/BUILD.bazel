@@ -85,5 +85,6 @@ da_haskell_test(
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
