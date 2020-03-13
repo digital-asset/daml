@@ -152,7 +152,7 @@ object Cli {
         .text("The JDBC connection URL to a Postgres database containing the username and password as well. If present, the Sandbox will use the database to persist its data.")
         .action((url, config) => config.copy(jdbcUrl = Some(url)))
 
-      //TODO (robert): Think about all implications of allowing users to set the ledger ID.
+      // TODO (robert): Think about all implications of allowing users to set the ledger ID.
       opt[String]("ledgerid")
         .optional()
         .action((id, c) =>
