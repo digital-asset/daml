@@ -61,7 +61,7 @@ The last part of the DAML model is the operation to add friends, called a *choic
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
 That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list. Here is a quick explanation of the code: 
 
-    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name, which is in this case ``AddFriend``.
+    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``AddFriend``.
     - The return type of a choice is defined next. In this case it is ``ContractId User``.
     - After that we pass arguments for the choice with ``with`` keyword and for ``AddFriend`` this is  ``friend: Party``.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case it would be the logged in user with the defined ``username``.  
