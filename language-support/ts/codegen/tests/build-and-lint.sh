@@ -20,12 +20,14 @@ YARN=$(rlocation "$TEST_WORKSPACE/$2")
 DAML2TS=$(rlocation "$TEST_WORKSPACE/$3")
 SANDBOX=$(rlocation "$TEST_WORKSPACE/$4")
 JSON_API=$(rlocation "$TEST_WORKSPACE/$5")
+# language-support/ts/codegen/tests/daml/.daml/dist/daml-1.0.0.dar
 DAR=$(rlocation "$TEST_WORKSPACE/$6")
+# language-support/ts/codegen/tests/ts/package.json
 PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
+# language-support/ts/codegen/tests/ts
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
-VERSION="${10}"
 
 TMP_DIR=$(mktemp -d)
 TMP_DAML_TYPES=$TMP_DIR/daml-types
@@ -35,7 +37,7 @@ cleanup() {
   rm -rf $TMP_DIR
 }
 trap cleanup EXIT
-echo "TMP_DIR = $TMP_DIR"
+
 mkdir -p $TMP_DAML_TYPES
 mkdir -p $TMP_DAML_LEDGER
 
@@ -45,10 +47,13 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-$DAML2TS -o generated/src/daml $DAR
-sed -i "s/0.0.0-SDKVERSION/${VERSION}/" generated/package.json
+$DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
 $YARN install --frozen-lockfile
-cd generated
-$YARN build
-$YARN lint
+$YARN workspaces run build
+$YARN workspaces run lint
+
+# Invoke 'yarn test' in the 'build-and-lint-test' package
+# directory. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+cd build-and-lint-test
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test

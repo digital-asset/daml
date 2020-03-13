@@ -17,6 +17,7 @@ object Tests {
     "ActiveContractsServiceIT" -> (new ActiveContractsService(_)),
     "CommandServiceIT" -> (new CommandService(_)),
     "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
+    "CommandDeduplicationIT" -> (new CommandDeduplication(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),

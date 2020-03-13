@@ -3,5 +3,5 @@
 
 -- @ WARN Module names should always match file names
 
-daml 1.2
+
 module ModuleNameMismatch where

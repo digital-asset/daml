@@ -1,72 +1,19 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _deploy-ref_index:
+.. _deploy-ref_overview:
 
-Deploying to DAML Ledgers
-*************************
+Overview of DAML ledgers
+========================
 
-To run a DAML application, you'll need to deploy it to a DAML ledger.
+This is an overview of DAML deployment options. Instructions on how to deploy to a specific ledger
+are available in the following section.
 
-How to Deploy
-=============
+Commercial Integrations
+-----------------------
 
-You can deploy to:
-
-- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs.
-- Other available DAML ledgers. For information on these options and their stage of development, see the :ref:`tables below <deploy-ref_available>`.
-
-To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
-
-Once you have retrieved your access token, you can provide it by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
-
-.. code-block:: none
-
-   $ daml deploy --host=<HOSTNAME> --port=<PORT> --access-token-file=<TOKEN-FILE>
-
-This command will deploy your project to the ledger. This has two steps:
-
-#. It will allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing. The command looks through the list of parties known to the ledger, sees if any party is missing by comparing display names, and adds any missing party via the party management service of the Ledger API.
-
-#. It will upload the project's compiled DAR file to the ledger via the package management service of the Ledger API. This will make the templates defined in the current project available to the users of the ledger.
-
-Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following section to the project's ``daml.yaml`` file:
-
-If the ledger has no authenication, the ``--access-token-file`` flag may be ommitted.
-
-.. code-block:: yaml
-
-   ledger:
-       host: <HOSTNAME>
-       port: <PORT>
-
-You can also use the ``daml ledger`` command for more fine-grained deployment options, and to interact with the ledger more generally. Try running ``daml ledger --help`` to get a list of available ledger commands:
-
-.. code-block:: none
-
-   $ daml ledger --help
-   Usage: daml ledger COMMAND
-     Interact with a remote DAML ledger. You can specify the ledger in daml.yaml
-     with the ledger.host and ledger.port options, or you can pass the --host and
-     --port flags to each command below. If the ledger is authenticated, you should
-     pass the name of the file containing the token using the --access-token-file
-     flag.
-
-   Available options:
-     -h,--help                Show this help text
-
-   Available commands:
-     list-parties             List parties known to ledger
-     allocate-parties         Allocate parties on ledger
-     upload-dar               Upload DAR file to ledger
-     navigator                Launch Navigator on ledger
-
-.. _deploy-ref_available:
-
-Available DAML Products
-=======================
-
-The following table lists commercially supported DAML ledgers and environments that are available for production use today.
+The following table lists commercially supported DAML ledgers and environments that are available
+for production use today.
 
 .. list-table::
    :header-rows: 1
@@ -87,7 +34,7 @@ The following table lists commercially supported DAML ledgers and environments t
 .. _deploy-ref_open_source:
 
 Open Source Integrations
-========================
+------------------------
 
 The following table lists open source DAML integrations.
 
@@ -110,7 +57,7 @@ The following table lists open source DAML integrations.
 .. _deploy-ref_in_development:
 
 DAML Ledgers in Development
-===========================
+---------------------------
 
 The following table lists the ledgers that are implementing support for running DAML.
 

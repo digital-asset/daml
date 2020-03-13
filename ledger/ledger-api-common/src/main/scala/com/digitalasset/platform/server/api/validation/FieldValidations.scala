@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.server.api.validation
 
+import java.time.Duration
+
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Identifier
@@ -79,6 +81,24 @@ trait FieldValidations {
 
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
+
+  def validateDeduplicationTime(
+      durationO: Option[com.google.protobuf.duration.Duration],
+      maxDeduplicationTime: Duration,
+      fieldName: String): Either[StatusRuntimeException, Duration] = durationO match {
+    case None =>
+      Right(maxDeduplicationTime)
+    case Some(duration) =>
+      val result = Duration.ofSeconds(duration.seconds, duration.nanos.toLong)
+      if (result.isNegative)
+        Left(invalidField(fieldName, "Duration must be positive"))
+      else if (result.compareTo(maxDeduplicationTime) > 0)
+        Left(invalidField(
+          fieldName,
+          s"The given deduplication time of $result exceeds the maximum deduplication time of $maxDeduplicationTime"))
+      else
+        Right(result)
+  }
 
   def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
     for {

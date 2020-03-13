@@ -231,7 +231,7 @@ pom_file = rule(
         ),
         "component_version": attr.label(
             allow_single_file = True,
-            default = "//:component-version",
+            default = "//:MVN_VERSION",
         ),
         "target": attr.label(
             mandatory = True,

@@ -3,7 +3,7 @@
 
 -- @ ERROR Not in scope: data constructor ‘RelTime’
 
-daml 1.2 module RelTimeDetailsHidden2 where
+module RelTimeDetailsHidden2 where
 
 import DA.Time
 

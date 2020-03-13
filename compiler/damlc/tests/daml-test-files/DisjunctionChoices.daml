@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.2
-daml 1.2
+
 module DisjunctionChoices where
 
 template FeatureAssignment with

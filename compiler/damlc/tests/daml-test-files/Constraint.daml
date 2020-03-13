@@ -3,7 +3,7 @@
 
 {-# LANGUAGE ExistentialQuantification #-}
 
-daml 1.2
+
 module Constraint where
 
 data Foo a = Show a => Foo {fieldA : a}

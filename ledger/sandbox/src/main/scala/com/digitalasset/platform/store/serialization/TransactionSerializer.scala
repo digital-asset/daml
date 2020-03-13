@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.store.serialization
 
+import java.io.InputStream
+
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -16,7 +18,7 @@ trait TransactionSerializer {
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]]
 
-  def deserializeTransaction(blob: Array[Byte]): Either[
+  def deserializeTransaction(stream: InputStream): Either[
     DecodeError,
     GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]]
 
@@ -35,7 +37,7 @@ object TransactionSerializer extends TransactionSerializer {
       )
       .map(_.toByteArray())
 
-  override def deserializeTransaction(blob: Array[Byte]): Either[
+  override def deserializeTransaction(stream: InputStream): Either[
     DecodeError,
     GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
@@ -43,7 +45,7 @@ object TransactionSerializer extends TransactionSerializer {
         TransactionCoder.EventIdDecoder,
         ValueCoder.AbsCidDecoder,
         TransactionOuterClass.Transaction.parseFrom(
-          Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
+          Decode.damlLfCodedInputStream(stream, Reader.PROTOBUF_RECURSION_LIMIT))
       )
       .map(_.transaction)
 

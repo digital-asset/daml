@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR range=18:12-19:1; Empty record update
-daml 1.2
+
 module EmptyWith where
 
 data Foo = Foo with -- this should be fine

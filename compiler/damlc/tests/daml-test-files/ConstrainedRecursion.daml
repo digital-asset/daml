@@ -4,7 +4,7 @@
 -- @INFO range=12:1-13:21; Use foldl
 -- @INFO range=16:1-17:17; Use foldl
 -- @INFO range=20:1-21:17; Use foldl
-daml 1.2
+
 module ConstrainedRecursion where
 
 import DA.Assert

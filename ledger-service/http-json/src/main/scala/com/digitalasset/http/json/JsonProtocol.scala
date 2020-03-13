@@ -12,8 +12,8 @@ import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import scalaz.{-\/, NonEmptyList, \/-}
 import scalaz.syntax.std.option._
+import scalaz.{-\/, NonEmptyList, \/-}
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -146,14 +146,6 @@ object JsonProtocol extends DefaultJsonProtocol {
         deserializationError(s"$what requires either key or contractId field")
     }
 
-  // implicit val ContractLookupRequestFormat
-  //   : RootJsonReader[domain.ContractLookupRequest[JsValue]] = {
-  //   case JsObject(fields) =>
-  //     val id = decodeContractRef(fields, "ContractLookupRequest")
-  //     domain.ContractLookupRequest(id)
-  //   case _ => deserializationError("ContractLookupRequest must be an object")
-  // }
-
   implicit val EnrichedContractKeyFormat: RootJsonFormat[domain.EnrichedContractKey[JsValue]] =
     jsonFormat2(domain.EnrichedContractKey.apply[JsValue])
 
@@ -240,8 +232,8 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
     domain.CommandMeta)
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
-    domain.CreateCommand[JsObject])
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
+    domain.CreateCommand[JsValue])
 
   implicit val ExerciseCommandFormat
     : RootJsonFormat[domain.ExerciseCommand[JsValue, domain.ContractLocator[JsValue]]] =
@@ -275,6 +267,10 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
+  implicit val CreateAndExerciseCommandFormat
+    : RootJsonFormat[domain.CreateAndExerciseCommand[JsValue, JsValue]] =
+    jsonFormat5(domain.CreateAndExerciseCommand[JsValue, JsValue])
+
   implicit val ExerciseResponseFormat: RootJsonFormat[domain.ExerciseResponse[JsValue]] =
     jsonFormat2(domain.ExerciseResponse[JsValue])
 
@@ -288,8 +284,8 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
     }
 
-  implicit val OkResponseFormat: RootJsonFormat[domain.OkResponse[JsValue, JsValue]] = jsonFormat3(
-    domain.OkResponse[JsValue, JsValue])
+  implicit def OkResponseFormat[A: JsonFormat, B: JsonFormat]
+    : RootJsonFormat[domain.OkResponse[A, B]] = jsonFormat3(domain.OkResponse[A, B])
 
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse[JsValue]] = jsonFormat2(
     domain.ErrorResponse[JsValue])
@@ -299,15 +295,22 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def read(json: JsValue): domain.ServiceWarning = json match {
         case JsObject(fields) if fields.contains("unknownTemplateIds") =>
           UnknownTemplateIdsFormat.read(json)
+        case JsObject(fields) if fields.contains("unknownParties") =>
+          UnknownPartiesFormat.read(json)
         case _ =>
-          deserializationError(s"Expected JsObject(unknownTemplateIds -> JsArray(...)), got: $json")
+          deserializationError(
+            s"Expected JsObject(unknownTemplateIds | unknownParties -> JsArray(...)), got: $json")
       }
 
       override def write(obj: domain.ServiceWarning): JsValue = obj match {
         case x: domain.UnknownTemplateIds => UnknownTemplateIdsFormat.write(x)
+        case x: domain.UnknownParties => UnknownPartiesFormat.write(x)
       }
     }
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)
+
+  implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
+    domain.UnknownParties)
 }

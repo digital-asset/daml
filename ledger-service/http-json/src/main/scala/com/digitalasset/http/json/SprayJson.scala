@@ -4,8 +4,12 @@
 package com.digitalasset.http.json
 
 import com.digitalasset.util.ExceptionOps._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.syntax.bitraverse._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}
 import spray.json.{JsValue, JsonReader, _}
+
+import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object SprayJson {
@@ -44,10 +48,48 @@ object SprayJson {
   def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
     \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.description))
 
+  def decode1[F[_], A](a: JsValue)(
+      implicit ev1: JsonReader[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: JsonReader[A]): JsonReaderError \/ F[A] =
+    for {
+      fj <- decode[F[JsValue]](a)
+      fa <- fj.traverse(decode[A](_))
+    } yield fa
+
+  def decode2[F[_, _], A, B](a: JsValue)(
+      implicit ev1: JsonReader[F[JsValue, JsValue]],
+      ev2: Bitraverse[F],
+      ev3: JsonReader[A],
+      ev4: JsonReader[B]): JsonReaderError \/ F[A, B] =
+    for {
+      fjj <- decode[F[JsValue, JsValue]](a)
+      fab <- fjj.bitraverse(decode[A](_), decode[B](_))
+    } yield fab
+
   def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
     import spray.json._
     \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.description))
   }
+
+  def encode1[F[_], A](fa: F[A])(
+      implicit ev1: JsonWriter[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: JsonWriter[A]): JsonWriterError \/ JsValue =
+    for {
+      fj <- fa.traverse(encode[A](_))
+      jsVal <- encode[F[JsValue]](fj)
+    } yield jsVal
+
+  def encode2[F[_, _], A, B](fab: F[A, B])(
+      implicit ev1: JsonWriter[F[JsValue, JsValue]],
+      ev2: Bitraverse[F],
+      ev3: JsonWriter[A],
+      ev4: JsonWriter[B]): JsonWriterError \/ JsValue =
+    for {
+      fjj <- fab.bitraverse(encode[A](_), encode[B](_))
+      jsVal <- encode[F[JsValue, JsValue]](fjj)
+    } yield jsVal
 
   def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
     case b: JsObject => \/-(b)

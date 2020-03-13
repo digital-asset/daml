@@ -8,13 +8,15 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
-import qualified Data.Aeson.Types as Aeson
+import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.Typeable
 import Network.HTTP.Client
 import Network.HTTP.Types
@@ -185,294 +187,130 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
-    -- Note(MK): The hacks around daml-prim which were already not quite right, e.g.,
-    -- we didn’t include daml-prim from all SDK versions, are broken completely
-    -- now that we split daml-prim into multiple packages. Therefore, we
-    -- disable this for now.
+     , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "init-script-example"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: init-script-example"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          , "  - daml-script"
+          , "parties:"
+          , "- Alice"
+          , "init-script: Main:init"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "daml 1.2"
+          , "module Main where"
+          , "import Daml.Script"
+          , "template T with p : Party where signatory p"
+          , "init : Script ()"
+          , "init = do"
+          , "  alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+          , "  alice `submit` createCmd (T alice)"
+          , "  pure ()"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator"
+              , "no"
+              , "--sandbox-port"
+              , show sandboxPort
+              , "--json-api-port"
+              , show jsonApiPort
+              ]
+        withCurrentDirectory projDir $
+          withCreateProcess startProc $ \_ _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $ do
+              -- The hard-coded secret for testing is "secret".
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/query"
+              let queryRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        ["templateIds" Aeson..= [Aeson.String "Main:T"]]
+                    }
+              manager <- newManager defaultManagerSettings
+              queryResponse <- httpLbs queryRequest manager
+              statusCode (responseStatus queryResponse) @?= 200
+              case Aeson.decode (responseBody queryResponse) of
+                Just (Aeson.Object body)
+                  | Just (Aeson.Array result) <- HashMap.lookup "result" body
+                  -> length result @?= 1
+                _ -> assertFailure "Expected JSON object in response body"
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
+     , testCase "sandbox-options is picked up" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "sandbox-options"
+        createDirectoryIfMissing True (projDir </> "daml")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: sandbox-options"
+          , "version: \"1.0\""
+          , "source: daml"
+          , "sandbox-options:"
+          , "  - --wall-clock-time"
+          , "  - --ledgerid=MyLedger"
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          ]
+        writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
+          [ "daml 1.2"
+          , "module Main where"
+          , "template T with p : Party where signatory p"
+          ]
+        sandboxPort :: Int <- fromIntegral <$> getFreePort
+        jsonApiPort :: Int <- fromIntegral <$> getFreePort
+        let startProc = shell $ unwords
+              [ "daml"
+              , "start"
+              , "--start-navigator=no"
+              , "--sandbox-port=" <> show sandboxPort
+              , "--json-api-port=" <> show jsonApiPort
+              ]
+        withCurrentDirectory projDir $
+          withCreateProcess startProc $ \_ _ _ startPh ->
+            race_ (waitForProcess' startProc startPh) $ do
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              waitForHttpServer (threadDelay 100000) ("http://localhost:" <> show jsonApiPort <> "/v1/query") headers
 
-    -- See https://github.com/digital-asset/daml/issues/3704
-
-    --  , testCaseSteps "Build migration package" $ \step -> withTempDir $ \tmpDir -> do
-    --     -- it's important that we have fresh empty directories here!
-    --     let projectA = tmpDir </> "a-1.0"
-    --     let projectB = tmpDir </> "a-2.0"
-    --     let projectUpgrade = tmpDir </> "upgrade"
-    --     let projectRollback = tmpDir </> "rollback"
-    --     let aDar = projectA </> "projecta.dar"
-    --     let bDar = projectB </> "projectb.dar"
-    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-    --     let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
-    --     let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
-    --     step "Creating project a-1.0 ..."
-    --     createDirectoryIfMissing True (projectA </> "daml")
-    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-    --         [ "{-# LANGUAGE EmptyCase #-}"
-    --         , "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyA"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Int"
-    --         , "    p : Party"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"1.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
-    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-    --     step "Creating project a-2.0 ..."
-    --     createDirectoryIfMissing True (projectB </> "daml")
-    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-    --         [ "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyB"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Int"
-    --         , "    p : Party"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"2.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
-    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-    --     step "Creating upgrade/rollback project"
-    --     -- We use -o to verify that we do not depend on the
-    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-    --     callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
-    --     step "Build migration project"
-    --     withCurrentDirectory projectUpgrade $
-    --         callCommandQuiet "daml build"
-    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
-    --     step "Build rollback project"
-    --     withCurrentDirectory projectRollback $
-    --         callCommandQuiet "daml build"
-    --     assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
-    --     step "Merging upgrade dar"
-    --     callCommandQuiet $
-    --       unwords
-    --           [ "daml damlc merge-dars"
-    --           , bDar
-    --           , upgradeDar
-    --           , "--dar-name"
-    --           , bWithUpgradesDar
-    --           ]
-    --     assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
-    --   , testCaseSteps "Build migration package with generics" $ \step -> withTempDir $ \tmpDir -> do
-    --     -- it's important that we have fresh empty directories here!
-    --     let projectA = tmpDir </> "a-1.0"
-    --     let projectB = tmpDir </> "a-2.0"
-    --     let projectUpgrade = tmpDir </> "upgrade"
-    --     let aDar = projectA </> "projecta.dar"
-    --     let bDar = projectB </> "projectb.dar"
-    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-    --     step "Creating project a-1.0 ..."
-    --     createDirectoryIfMissing True (projectA </> "daml")
-    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-    --         [ "{-# LANGUAGE EmptyCase #-}"
-    --         , "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyA"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Int"
-    --         , "    p : Party"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"1.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build -o " <> aDar
-    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-    --     step "Creating project a-2.0 ..."
-    --     createDirectoryIfMissing True (projectB </> "daml")
-    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-    --         [ "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyB"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Int"
-    --         , "    p : Party"
-    --         , "    new : Optional Text"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"2.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build -o " <> bDar
-    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-    --     step "Creating upgrade/rollback project"
-    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-    --     step "Generate generic instances"
-    --     writeFileUTF8 (projectUpgrade </> "daml" </> "Main.daml") $ unlines
-    --        [ "daml 1.2"
-    --        , "module Main where"
-    --        , "import MainA qualified as A"
-    --        , "import MainB qualified as B"
-    --        , "import MainAGenInstances()"
-    --        , "import MainBGenInstances()"
-    --        , "import DA.Upgrade"
-    --        , "import DA.Generics"
-    --        , "instance Convertible A.Foo B.Foo"
-    --        , "instance Convertible B.Foo A.Foo"
-    --        ]
-    --     callCommandQuiet $
-    --         unwords
-    --             [ "daml"
-    --             , "damlc"
-    --             , "generate-generic-src"
-    --             , "--srcdir"
-    --             , projectUpgrade </> "daml"
-    --             , "--qualify"
-    --             , "A"
-    --             , aDar
-    --             ]
-    --     callCommandQuiet $
-    --         unwords
-    --             [ "daml"
-    --             , "damlc"
-    --             , "generate-generic-src"
-    --             , "--srcdir"
-    --             , projectUpgrade </> "daml"
-    --             , "--qualify"
-    --             , "B"
-    --             , bDar
-    --             ]
-    --     step "Build migration project"
-    --     withCurrentDirectory projectUpgrade $
-    --         callCommandQuiet "daml build --generated-src"
-    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
-
-    -- , testCaseSteps "Build migration package in LF 1.dev with Numerics" $ \step -> withTempDir $ \tmpDir -> do
-    --     -- it's important that we have fresh empty directories here!
-    --     let projectA = tmpDir </> "a-1.0"
-    --     let projectB = tmpDir </> "a-2.0"
-    --     let projectUpgrade = tmpDir </> "upgrade"
-    --     let projectRollback = tmpDir </> "rollback"
-    --     let aDar = projectA </> "projecta.dar"
-    --     let bDar = projectB </> "projectb.dar"
-    --     let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
-    --     let rollbackDar= projectRollback </> distDir </> "rollback-0.0.1.dar"
-    --     let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
-    --     step "Creating project a-1.0 ..."
-    --     createDirectoryIfMissing True (projectA </> "daml")
-    --     writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-    --         [ "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyA"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Numeric 5"
-    --         , "    p : Party"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectA </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"1.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectA $ callCommandQuiet $ "daml build --target 1.dev -o " <> aDar
-    --     assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
-    --     step "Creating project a-2.0 ..."
-    --     createDirectoryIfMissing True (projectB </> "daml")
-    --     writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
-    --         [ "daml 1.2"
-    --         , "module Main where"
-    --         , "data OnlyB"
-    --         , "data Both"
-    --         , "template Foo"
-    --         , "  with"
-    --         , "    a : Numeric 5"
-    --         , "    p : Party"
-    --         , "  where"
-    --         , "    signatory p"
-    --         ]
-    --     writeFileUTF8 (projectB </> "daml.yaml") $ unlines
-    --         [ "sdk-version: " <> sdkVersion
-    --         , "name: a"
-    --         , "version: \"2.0\""
-    --         , "source: daml"
-    --         , "exposed-modules: [Main]"
-    --         , "dependencies:"
-    --         , "  - daml-prim"
-    --         , "  - daml-stdlib"
-    --         ]
-    --     -- We use -o to test that we do not depend on the name of the dar
-    --     withCurrentDirectory projectB $ callCommandQuiet $ "daml build --target 1.dev -o " <> bDar
-    --     assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
-    --     step "Creating upgrade/rollback project"
-    --     -- We use -o to verify that we do not depend on the
-    --     callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, aDar, bDar]
-    --     callCommandQuiet $ unwords ["daml", "migrate", projectRollback, bDar, aDar]
-    --     step "Build migration project"
-    --     withCurrentDirectory projectUpgrade $
-    --         callCommandQuiet "daml build --target 1.dev"
-    --     assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist upgradeDar
-    --     step "Build rollback project"
-    --     withCurrentDirectory projectRollback $
-    --         callCommandQuiet "daml build --target 1.dev"
-    --     assertBool "rollback-0.0.1.dar was not created" =<< doesFileExist rollbackDar
-    --     step "Merging upgrade dar"
-    --     callCommandQuiet $
-    --       unwords
-    --           [ "daml damlc merge-dars"
-    --           , bDar
-    --           , upgradeDar
-    --           , "--dar-name"
-    --           , bWithUpgradesDar
-    --           ]
-    --     assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
+              manager <- newManager defaultManagerSettings
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/create"
+              let createRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        ["templateId" Aeson..= Aeson.String "Main:T"
+                        ,"payload" Aeson..= [Aeson.String "Alice"]
+                        ]
+                    }
+              createResponse <- httpLbs createRequest manager
+              -- If the ledger id or wall clock time is not picked up this would fail.
+              statusCode (responseStatus createResponse) @?= 200
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess startPh
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree

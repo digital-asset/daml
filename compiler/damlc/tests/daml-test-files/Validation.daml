@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 {-# LANGUAGE ApplicativeDo #-}
-daml 1.2
+
 module Validation where
 
 import DA.NonEmpty

@@ -1,6 +1,5 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-daml 1.2
 -- | Map - A `Map` is an associative array data type composed of a
 -- collection of key/value pairs such that each possible key appears
 -- at most once in the collection.

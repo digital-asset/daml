@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
-daml 1.2
 
 module LibraryModules where
 
@@ -50,6 +49,5 @@ import DA.TextMap
 import DA.Time
 import DA.Traversable
 import DA.Tuple
-import DA.Upgrade
 import DA.Validation
 import Prelude

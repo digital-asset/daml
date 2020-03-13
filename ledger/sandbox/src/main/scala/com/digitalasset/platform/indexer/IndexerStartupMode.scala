@@ -6,9 +6,11 @@ package com.digitalasset.platform.indexer
 sealed trait IndexerStartupMode
 
 object IndexerStartupMode {
+
   case object ValidateAndStart extends IndexerStartupMode
 
   case object MigrateAndStart extends IndexerStartupMode
 
   case object MigrateOnly extends IndexerStartupMode
+
 }

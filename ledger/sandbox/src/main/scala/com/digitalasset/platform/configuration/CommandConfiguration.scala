@@ -10,20 +10,16 @@ final case class CommandConfiguration(
     maxParallelSubmissions: Int,
     maxCommandsInFlight: Int,
     limitMaxCommandsInFlight: Boolean,
-    historySize: Int,
-    retentionPeriod: FiniteDuration,
-    commandTtl: FiniteDuration,
+    retentionPeriod: FiniteDuration
 )
 
 object CommandConfiguration {
-  lazy val default =
+  lazy val default: CommandConfiguration =
     CommandConfiguration(
       inputBufferSize = 512,
       maxParallelSubmissions = 128,
       maxCommandsInFlight = 256,
       limitMaxCommandsInFlight = true,
-      historySize = 5000,
-      retentionPeriod = 24.hours,
-      commandTtl = 20.seconds,
+      retentionPeriod = 24.hours
     )
 }

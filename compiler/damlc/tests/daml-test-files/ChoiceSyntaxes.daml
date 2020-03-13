@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Check that all syntaxes for defining choices can be parsed.
-daml 1.2
+
 module ChoiceSyntaxes where
 
 template T with

@@ -3,7 +3,7 @@
 
 -- @INFO Use if
 
-daml 1.2
+
 module NoCaseOfCase where
 
 -- GHC's case-of-case transformation would turn this into something like

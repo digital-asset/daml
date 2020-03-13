@@ -8,6 +8,7 @@ load("//ledger/ledger-api-test-tool:conformance.bzl", "server_conformance_test")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "mvn_version")
 
 compile_deps = [
     "//daml-lf/archive:daml_lf_archive_reader",
@@ -36,6 +37,7 @@ compile_deps = [
     "//ledger/participant-state/kvutils",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
+    "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
     "@maven//:ch_qos_logback_logback_classic",
@@ -57,7 +59,6 @@ compile_deps = [
     "@maven//:io_netty_netty_common",
     "@maven//:io_netty_netty_handler",
     "@maven//:io_netty_netty_transport",
-    "@maven//:io_zipkin_brave_brave",
     "@maven//:net_logstash_logback_logstash_logback_encoder",
     "@maven//:org_flywaydb_flyway_core",
     "@maven//:org_scala_lang_modules_scala_java8_compat_2_12",
@@ -83,7 +84,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ) + [
-            "//:COMPONENT-VERSION",
+            "//:MVN_VERSION",
         ],
     tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [
@@ -103,7 +104,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ) + [
-            "//:COMPONENT-VERSION",
+            "//:MVN_VERSION",
         ],
     tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
     visibility = [
@@ -159,17 +160,15 @@ genrule(
     name = "sandbox-tarball",
     srcs = [
         ":sandbox-binary_deploy.jar",
-        "//:component-version",
     ],
     outs = ["sandbox-tarball.tar.gz"],
     cmd = """
-        VERSION=$$(cat $(location //:component-version))
         mkdir -p sandbox-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-$$VERSION.jar
+        cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
         tar zcf $$out sandbox
-    """,
+    """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
 
@@ -231,6 +230,7 @@ da_scala_library(
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
@@ -287,6 +287,7 @@ da_scala_test_suite(
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
         "//libs-scala/grpc-utils",
+        "//libs-scala/ports",
         "//libs-scala/postgresql-testing",
         "//libs-scala/resources",
         "//libs-scala/timer-utils",
@@ -347,6 +348,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
@@ -362,6 +365,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--include=LotsOfPartiesIT",
     ],
 )
@@ -373,6 +378,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--all-tests",
         "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
@@ -384,7 +391,35 @@ server_conformance_test(
     name = "conformance-test-config-management",
     servers = SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-command-deduplication",
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--open-world",
+        "--include=CommandDeduplicationIT",
+    ],
+)
+
+server_conformance_test(
+    name = "conformance-test-contract-id-seeding",
+    server_args = [
+        "--contract-id-seeding=weak",
+    ],
+    servers = SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--open-world",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -392,6 +427,7 @@ NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -399,6 +435,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
+            "--contract-id-seeding=weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -412,9 +449,12 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--all-tests",
-        "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
+        "--exclude=ConfigManagementServiceIT",
     ],
 )
 
@@ -425,7 +465,11 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--all-tests",
+        "--exclude=ClosedWorldIT",
+        "--exclude=CommandDeduplicationIT",
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -437,6 +481,8 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
+        "--verbose",
+        "--open-world",
         "--include=ConfigManagementServiceIT",
     ],
 )

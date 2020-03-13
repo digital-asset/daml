@@ -12,7 +12,8 @@ final case class TlsConfiguration(
     enabled: Boolean,
     keyCertChainFile: Option[File], // mutual auth is disabled if null
     keyFile: Option[File],
-    trustCertCollectionFile: Option[File] // System default if null
+    trustCertCollectionFile: Option[File], // System default if null
+    clientAuth: ClientAuth = ClientAuth.REQUIRE // Client auth setting used by the server. This is not used in the client configuration.
 ) {
 
   def keyFileOrFail: File =
@@ -29,7 +30,7 @@ final case class TlsConfiguration(
       Some(
         GrpcSslContexts
           .forClient()
-          .keyManager(keyCertChainFile.orNull, keyFileOrFail)
+          .keyManager(keyCertChainFile.orNull, keyFile.orNull)
           .trustManager(trustCertCollectionFile.orNull)
           .build()
       )
@@ -46,7 +47,7 @@ final case class TlsConfiguration(
             keyFileOrFail
           )
           .trustManager(trustCertCollectionFile.orNull)
-          .clientAuth(ClientAuth.REQUIRE)
+          .clientAuth(clientAuth)
           .build
       )
     else None

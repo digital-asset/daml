@@ -1,6 +1,8 @@
 .. Copyright (c) 2020 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _json-api:
+
 HTTP JSON API Service
 #####################
 
@@ -15,7 +17,7 @@ or `on Slack <https://hub.daml.com/slack/>`_.
 Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
 
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
-API </app-dev/index>` to interact with a ledger by providing *basic active contract set functionality*:
+API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
 
 - creating contracts,
 - exercising choices on contracts,
@@ -30,7 +32,7 @@ complicating concerns, including but not limited to:
 - temporal queries (e.g. active contracts *as of a certain time*), and
 - ledger metaprogramming (e.g. retrieving packages and templates).
 
-For these and other features, use :doc:`the Ledger API </app-dev/index>`
+For these and other features, use :doc:`the Ledger API </app-dev/ledger-api>`
 instead.
 
 .. toctree::
@@ -546,6 +548,111 @@ HTTP Response
 
 Formatted similar to :ref:`Exercise by Contract ID response <exercise-response>`.
 
+Create and Exercise in the Same Transaction
+*******************************************
+
+This command allows creating a contract and exercising a choice on the newly created contract in the same transaction.
+
+HTTP Request
+============
+
+- URL: ``/v1/create-and-exercise``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "templateId": "Iou:Iou",
+      "payload": {
+        "observers": [],
+        "issuer": "Alice",
+        "amount": "999.99",
+        "currency": "USD",
+        "owner": "Alice"
+      },
+      "choice": "Iou_Transfer",
+      "argument": {
+        "newOwner": "Bob"
+      }
+    }
+
+Where:
+
+- ``templateId`` -- the initial contract template identifier, in the same format as in same as in the :ref:`create request <create-request>`,
+- ``payload`` -- the initial contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`,
+- ``choice`` -- DAML contract choice, that is being exercised,
+- ``argument`` -- contract choice argument(s).
+
+HTTP Response
+=============
+
+Please note that the response below is for a consuming choice, so it contains:
+
+- ``created`` and ``archived`` events for the initial contract (``"contractId": "#1:0"``), which was created and archived right away when a consuming choice was exercised on it,
+- a ``created`` event for the contract that is the result of the choice exercise (``"contractId": "#1:2"``).
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": {
+        "exerciseResult": "#1:2",
+        "events": [
+          {
+            "created": {
+              "observers": [],
+              "agreementText": "",
+              "payload": {
+                "observers": [],
+                "issuer": "Alice",
+                "amount": "999.99",
+                "currency": "USD",
+                "owner": "Alice"
+              },
+              "signatories": [
+                "Alice"
+              ],
+              "contractId": "#1:0",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:Iou"
+            }
+          },
+          {
+            "archived": {
+              "contractId": "#1:0",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:Iou"
+            }
+          },
+          {
+            "created": {
+              "observers": [
+                "Bob"
+              ],
+              "agreementText": "",
+              "payload": {
+                "iou": {
+                  "observers": [],
+                  "issuer": "Alice",
+                  "amount": "999.99",
+                  "currency": "USD",
+                  "owner": "Alice"
+                },
+                "newOwner": "Bob"
+              },
+              "signatories": [
+                "Alice"
+              ],
+              "contractId": "#1:2",
+              "templateId": "a3b788b4dc18dc060bfb82366ae6dc055b1e361d646d5cfdb1b729607e344336:Iou:IouTransfer"
+            }
+          }
+        ]
+      },
+      "status": 200
+    }
 
 Fetch Contract by Contract ID
 *****************************
@@ -803,12 +910,28 @@ Nonempty HTTP Response with Unknown Template IDs Warning
         "status": 200
     }
 
-Fetch All Known Parties
-***********************
+Fetch Parties by Identifiers
+****************************
 
 - URL: ``/v1/parties``
-- Method: ``GET``
-- Content: <EMPTY>
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    ["Alice", "Bob", "Dave"]
+
+If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) error:
+
+.. code-block:: json
+
+    {
+      "status": 400,
+      "errors": [
+        "JsonReaderError. Cannot read JSON: <[]>. Cause: spray.json.DeserializationException: must be a list with at least 1 element"
+      ]
+    }
 
 HTTP Response
 =============
@@ -819,14 +942,68 @@ HTTP Response
 .. code-block:: json
 
     {
-        "status": 200,
-        "result": [
-            {
-                "party": "Alice",
-                "isLocal": true
-            }
-        ]
+      "status": 200,
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Bob",
+          "displayName": "Bob & Co. LLC",
+          "isLocal": true
+        },
+        {
+          "identifier": "Dave",
+          "isLocal": true
+        }
+      ]
     }
+
+Please note that the order of the party objects in the response is not guaranteed to match the order of the passed party identifiers.
+
+Where
+
+- ``identifier`` -- a stable unique identifier of a DAML party,
+- ``displayName`` -- optional human readable name associated with the party. Might not be unique,
+- ``isLocal`` -- true if party is hosted by the backing participant.
+
+HTTP Response with Unknown Parties Warning
+============================================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "result": [
+        {
+          "identifier": "Alice",
+          "displayName": "Alice & Co. LLC",
+          "isLocal": true
+        }
+      ],
+      "warnings": {
+        "unknownParties": [
+          "Erin"
+        ]
+      },
+      "status": 200
+    }
+
+Fetch All Known Parties
+***********************
+
+- URL: ``/v1/parties``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+The response is the same as for the POST method above.
 
 Streaming API
 *************
@@ -862,107 +1039,94 @@ output a series of JSON documents, each ``payload`` formatted according
 to :doc:`lf-value-specification`::
 
     {
-        "events": [
-            {
-                "created": {
+        "events": [{
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
                     "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "999.99",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#1:0",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
+                    "issuer": "Alice",
+                    "amount": "999.99",
+                    "currency": "USD",
+                    "owner": "Alice"
                 },
-                "matchedQueries": [
-                    1,
-                    2
-                ]
-            }
-        ]
+                "signatories": ["Alice"],
+                "contractId": "#1:0",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [1, 2]
+        }]
     }
 
 where ``matchedQueries`` indicates the 0-based indices into the request
 list of queries that matched this contract.
 
-When the stream reaches the end of contracts that existed when the
-request started, you'll receive a special message indicating the start
-of "live" updates.  For example, you might use it to turn off an initial
-"loading" indicator::
+Every ``events`` block following the end of contracts that existed when
+the request started includes an ``offset``.  The stream is guaranteed to
+send an offset immediately at the beginning of this "live" data, which
+may or may not contain any ``events``; if it does not contain events and
+no events were emitted before, it may be ``null`` or a string;
+otherwise, it will be a string.  For example, you might use it to turn
+off an initial "loading" indicator::
 
-    {"live": true}
+    {
+        "events": [],
+        "offset": "2"
+    }
 
 To keep the stream alive, you'll occasionally see messages like this,
-which can be safely ignored::
+which can be safely ignored if you do not need to capture the last seen ledger offset::
 
-    {"heartbeat": "ping"}
+    {"events":[],"offset":"5609"}
+
+where ``offset`` is the last seen ledger offset.
 
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
 
     {
-        "events": [
-            {
-                "archived": {
-                    "contractId": "#1:0",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                }
-            },
-            {
-                "created": {
-                    "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "42.42",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#2:1",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                },
-                "matchedQueries": [
-                    0,
-                    2
-                ]
-            },
-            {
-                "created": {
-                    "observers": [],
-                    "agreementText": "",
-                    "payload": {
-                        "observers": [],
-                        "issuer": "Alice",
-                        "amount": "957.57",
-                        "currency": "USD",
-                        "owner": "Alice"
-                    },
-                    "signatories": [
-                        "Alice"
-                    ],
-                    "contractId": "#2:2",
-                    "templateId": "b70bbfbc77a4790f66d4840cb19f657dd20848f5e2f64e39ad404a6cbd98cf75:Iou:Iou"
-                },
-                "matchedQueries": [
-                    1,
-                    2
-                ]
+        "events": [{
+            "archived": {
+                "contractId": "#1:0",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
             }
-        ]
+        }, {
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "42.42",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "signatories": ["Alice"],
+                "contractId": "#2:1",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [0, 2]
+        }, {
+            "created": {
+                "observers": [],
+                "agreementText": "",
+                "payload": {
+                    "observers": [],
+                    "issuer": "Alice",
+                    "amount": "957.57",
+                    "currency": "USD",
+                    "owner": "Alice"
+                },
+                "signatories": ["Alice"],
+                "contractId": "#2:2",
+                "templateId": "eb3b150383a979d6765b8570a17dd24ae8d8b63418ee5fd20df20ad2a1c13976:Iou:Iou"
+            },
+            "matchedQueries": [1, 2]
+        }],
+        "offset": "3"
     }
 
-If any template IDs are found not to resolve, the first non-heartbeat
-element of the stream will report them::
+If any template IDs are found not to resolve, the first element of the stream will report them::
 
     {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 

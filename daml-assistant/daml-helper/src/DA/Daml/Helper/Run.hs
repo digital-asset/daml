@@ -4,13 +4,14 @@ module DA.Daml.Helper.Run
     ( runDamlStudio
     , runInit
     , runNew
-    , runMigrate
     , runJar
     , runDaml2ts
     , runListTemplates
     , runStart
 
     , LedgerFlags(..)
+    , ClientSSLConfig(..)
+    , ClientSSLKeyCertPair(..)
     , JsonFlag(..)
     , runDeploy
     , runLedgerAllocateParties
@@ -39,6 +40,7 @@ module DA.Daml.Helper.Run
     , SandboxOptions(..)
     , NavigatorOptions(..)
     , JsonApiOptions(..)
+    , ScriptOptions(..)
     ) where
 
 import Control.Concurrent
@@ -54,6 +56,7 @@ import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
+import DA.PortFile
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Lazy as TL
@@ -79,6 +82,7 @@ import qualified Web.JWT as JWT
 import Data.Aeson
 import Data.Aeson.Text
 
+import DA.Directory
 import DA.Daml.Helper.Ledger as Ledger
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
@@ -317,9 +321,9 @@ runJar jarPath mbLogbackPath remainingArgs = do
 
 runDaml2ts :: [String] -> IO ()
 runDaml2ts remainingArgs = do
-  daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-  withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
-    (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
+    daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
+    withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
+      (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do
@@ -640,28 +644,6 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
 
--- | Create a project containing code to migrate a running system between two given packages.
-runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
-runMigrate targetFolder pkgPath1 pkgPath2
- = do
-    pkgPath1Abs <- makeAbsolute pkgPath1
-    pkgPath2Abs <- makeAbsolute pkgPath2
-    -- Create a new project
-    runNew targetFolder (Just "migrate") [] [pkgPath1Abs, pkgPath2Abs]
-
-    -- Call damlc to create the upgrade source files.
-    procConfig <- toAssistantCommand
-        [ "damlc"
-        , "migrate"
-        , "--srcdir"
-        , "daml"
-        , "--project-root"
-        , targetFolder
-        , pkgPath1
-        , pkgPath2
-        ]
-    runProcess_ procConfig
-
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
 
@@ -706,12 +688,11 @@ navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
 withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
-withSandbox (SandboxPort port) args a = do
+withSandbox (SandboxPort port) args a = withTempFile $ \portFile -> do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
-    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port] ++ args) $ \ph -> do
+    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
-        -- TODO We need to figure out what a sane timeout for this step.
-        waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
+        _port <- readPortFile maxRetries portFile
         a ph
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
@@ -771,6 +752,16 @@ newtype WaitForSignal = WaitForSignal Bool
 newtype SandboxOptions = SandboxOptions [String]
 newtype NavigatorOptions = NavigatorOptions [String]
 newtype JsonApiOptions = JsonApiOptions [String]
+newtype ScriptOptions = ScriptOptions [String]
+
+withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
+withOptsFromProjectConfig fieldName cliOpts projectConfig = do
+    optsYaml :: [String] <-
+        fmap (fromMaybe []) $
+        requiredE ("Failed to parse " <> fieldName) $
+        queryProjectConfig [fieldName] projectConfig
+    pure (optsYaml ++ cliOpts)
+
 
 runStart
     :: Maybe SandboxPort
@@ -782,6 +773,7 @@ runStart
     -> SandboxOptions
     -> NavigatorOptions
     -> JsonApiOptions
+    -> ScriptOptions
     -> IO ()
 runStart
   sandboxPortM
@@ -793,6 +785,7 @@ runStart
   (SandboxOptions sandboxOpts)
   (NavigatorOptions navigatorOpts)
   (JsonApiOptions jsonApiOpts)
+  (ScriptOptions scriptOpts)
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
@@ -800,10 +793,33 @@ runStart
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
+    mbInitScript :: Maybe String <-
+        requiredE "Failed to parse init-script" $
+        queryProjectConfig ["init-script"] projectConfig
+    sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOpts projectConfig
+    navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOpts projectConfig
+    jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
+    scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
+            whenJust mbInitScript $ \initScript -> do
+                procScript <- toAssistantCommand $
+                    [ "script"
+                    , "--dar"
+                    , darPath
+                    , "--script-name"
+                    , initScript
+                    , if any (`elem` ["-w", "--wall-clock-time"]) sandboxOpts
+                        then "--wall-clock-time"
+                        else "--static-time"
+                    , "--ledger-host"
+                    , "localhost"
+                    , "--ledger-port"
+                    , case sandboxPort of SandboxPort port -> show port
+                    ] ++ scriptOpts
+                runProcess_ procScript
             whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
@@ -827,6 +843,7 @@ data LedgerFlags = LedgerFlags
   { hostM :: Maybe String
   , portM :: Maybe Int
   , tokFileM :: Maybe FilePath
+  , sslConfigM :: Maybe ClientSSLConfig
   }
 
 getTokFromFile :: Maybe FilePath -> IO (Maybe Token)
@@ -841,7 +858,7 @@ getTokFromFile tokFileM = do
       return (Just (Token tok))
 
 getHostAndPortDefaults :: LedgerFlags -> IO LedgerArgs
-getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM} = do
+getHostAndPortDefaults LedgerFlags{hostM,portM,tokFileM,sslConfigM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
     tokM <- getTokFromFile tokFileM

@@ -10,7 +10,7 @@ import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStream
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerSessionConfiguration,
   LedgerTestSuiteRunner,
-  LedgerTestSummary,
+  LedgerTestSummary
 }
 import org.slf4j.LoggerFactory
 
@@ -113,7 +113,7 @@ object LedgerApiTestTool {
         config.tlsConfig,
         config.commandSubmissionTtlScaleFactor,
         config.loadScaleFactor,
-        config.waitForParties
+        config.partyAllocation,
       ),
       testsToRun.values.toVector,
       identifierSuffix,

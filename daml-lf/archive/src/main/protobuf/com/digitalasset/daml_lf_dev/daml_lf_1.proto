@@ -37,13 +37,14 @@
 //        2019-09-17: Drop support for Decimal
 //        2019-09-30: Add interning of strings and dotted names
 //        2019-11-04: Add Type representation values
+// * 8 -- 2019-11-22: Rename Map to TextMap
+//        2019-11-28: Rename Tuple to Struct
+//        2019-12-03: Add type synonyms
+//        2020-02-20: Add PackageMetadata.
 // * dev (special staging area for the next version to be released)
 //        2019-11-12: Add Generic Map (GenMap)
-//        2019-11-22: Rename Map to TextMap
-//        2019-11-28: Rename Tuple to Struct
 //        2019-12-03: Add (experimental) text primitives.
 //        2019-12-05: Add Generic Equality builtin
-//        2020-02-20: Add PackageMetadata.
 
 syntax = "proto3";
 package daml_lf_1;
@@ -114,7 +115,7 @@ message TypeConName {
 }
 
 // A fully qualified reference to a type synonym name.
-// *Available in versions >= 1.dev*
+// *Available in versions >= 1.8*
 message TypeSynName {
 
   // Module where the type is defined.
@@ -337,7 +338,7 @@ message Type {
   }
 
   // Fully applied type constructor 'TySyn'
-  // *Available in versions >= 1.dev*
+  // *Available in versions >= 1.8*
   message Syn {
 
     // Name of the type synonym
@@ -394,7 +395,7 @@ message Type {
     // *Must be between 0 and 37 (bounds inclusive)*
     // use standard signed long for future usage.
     sint64 nat = 11;
-    Syn syn = 12; // *Available in versions >= 1.dev*
+    Syn syn = 12; // *Available in versions >= 1.8*
   }
 
   reserved 6; // This was list. Removed in favour of PrimType.LIST
@@ -1366,7 +1367,7 @@ message DefDataType {
 }
 
 // Type synonym definition
-// *Available in versions >= 1.dev*
+// *Available in versions >= 1.8*
 message DefTypeSyn {
 
   // name of the defined type synonym
@@ -1436,7 +1437,7 @@ message Module {
   // repeated string scenario_tests = 3; // Removed in favour of DefValue.is_test.
   reserved 3;
   FeatureFlags flags = 4;
-  repeated DefTypeSyn synonyms = 9;
+  repeated DefTypeSyn synonyms = 9; // *Available in versions >= 1.8*
   repeated DefDataType data_types = 5;
   repeated DefValue values = 6;
   repeated DefTemplate templates = 7;
@@ -1447,13 +1448,13 @@ message InternedDottedName {
 }
 
 message PackageMetadata {
-  int32 name_interned_str = 1; // *Available in versions >= 1.dev*
-  int32 version_interned_str = 2; // *Available in versions >= 1.dev*
+  int32 name_interned_str = 1; // *Available in versions >= 1.8*
+  int32 version_interned_str = 2; // *Available in versions >= 1.8*
 }
 
 message Package {
   repeated Module modules = 1;
   repeated string interned_strings = 2; // *Available in versions >= 1.6*
   repeated InternedDottedName interned_dotted_names = 3; // *Available in versions >= 1.7*
-  PackageMetadata metadata = 4; // *Available in versions >= 1.dev* // *Required in versions >= 1.dev*
+  PackageMetadata metadata = 4; // *Available and required in versions >= 1.8*
 }

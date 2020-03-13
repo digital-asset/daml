@@ -11,7 +11,6 @@ module DA.Daml.Assistant.Env
     , getDamlEnv
     , testDamlEnv
     , getDamlPath
-    , getDamlAssistantPath
     , getProjectPath
     , getSdk
     , getDispatchEnv
@@ -33,7 +32,7 @@ import Data.Maybe
 getDamlEnv :: DamlPath -> IO Env
 getDamlEnv envDamlPath = do
     envDamlAssistantSdkVersion <- getDamlAssistantSdkVersion
-    envDamlAssistantPath <- getDamlAssistantPath envDamlPath envDamlAssistantSdkVersion
+    envDamlAssistantPath <- getDamlAssistantPath envDamlPath
     envProjectPath <- getProjectPath
     (envSdkVersion, envSdkPath) <- getSdk envDamlPath envProjectPath
     envLatestStableSdkVersion <- getLatestStableSdkVersion envDamlPath
@@ -95,18 +94,16 @@ testDamlEnv Env{..} = firstJustM (\(test, msg) -> unlessMaybeM test (pure msg))
 
 -- | Determine the absolute path to the assistant. Can be overriden with
 -- DAML_ASSISTANT env var.
-getDamlAssistantPath :: DamlPath -> Maybe DamlAssistantSdkVersion -> IO DamlAssistantPath
-getDamlAssistantPath damlPath damlVersion =
+getDamlAssistantPath :: DamlPath -> IO DamlAssistantPath
+getDamlAssistantPath damlPath =
     overrideWithEnvVar damlAssistantEnvVar DamlAssistantPath $
-        pure (getDamlAssistantPathDefault damlPath damlVersion)
+        pure (getDamlAssistantPathDefault damlPath)
 
 -- | Determine the absolute path to the assistant. Note that there is no
 -- daml-head on Windows at the moment.
-getDamlAssistantPathDefault :: DamlPath -> Maybe DamlAssistantSdkVersion -> DamlAssistantPath
-getDamlAssistantPathDefault (DamlPath damlPath) damlVersion =
-  let commandNameNoExt
-          | Just (DamlAssistantSdkVersion v) <- damlVersion, isHeadVersion v = "daml-head"
-          | otherwise = "daml"
+getDamlAssistantPathDefault :: DamlPath -> DamlAssistantPath
+getDamlAssistantPathDefault (DamlPath damlPath) =
+  let commandNameNoExt = "daml"
       commandName
           | isWindows = commandNameNoExt <.> "cmd"
           | otherwise = commandNameNoExt

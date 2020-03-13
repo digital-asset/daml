@@ -23,10 +23,8 @@ import qualified Data.Text as Text
 import qualified Data.Traversable as Traversable
 import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Client.TLS as TLS
-import qualified Network.HTTP.Types.Header as Header
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
-import qualified System.Environment as Env
 import qualified System.Exit as Exit
 import qualified System.IO.Extra as Temp
 import qualified System.Process as System
@@ -62,11 +60,13 @@ shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
 
-robustly_download_nix_packages :: IO ()
-robustly_download_nix_packages = do
+robustly_download_nix_packages :: String -> IO ()
+robustly_download_nix_packages v = do
     h (10 :: Integer)
     where
-        cmd = "nix-build nix -A tools -A cached"
+        cmd = if to_v v < to_v "0.13.55"
+              then "nix-build nix -A tools -A cached"
+              else "nix-build nix -A tools -A ci-cached"
         h n = do
             (exit, out, err) <- shell_exit_code cmd
             case (exit, n) of
@@ -89,36 +89,24 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-http_post :: String -> Header.RequestHeaders -> LBS.ByteString -> IO LBS.ByteString
-http_post url headers body = do
-    manager <- HTTP.newManager TLS.tlsManagerSettings
-    request' <- HTTP.parseRequest url
-    -- Be polite
-    let request = request' { HTTP.requestHeaders = ("User-Agent", "DAML cron (team-daml-language@digitalasset.com)") : headers,
-                             HTTP.method = "POST",
-                             HTTP.requestBody = HTTP.RequestBodyBS $ BS.fromString $ LBS.toString body }
-    -- DEBUG
-    putStrLn $ "About to POST to " <> url <> "\n" <> show body
-    response <- HTTP.httpLbs request manager
-    let status = Status.statusCode $ HTTP.responseStatus response
-    -- DEBUG
-    putStrLn $ "Received " <> show status <> " with:\n" <> show (HTTP.responseBody response)
-    case status `quot` 100 of
-      2 -> return $ HTTP.responseBody response
-      _ -> Exit.die $ "POST " <> url <> " failed with " <> show status <> "."
-
-newtype Version = Version (Int, Int, Int)
+newtype Version = Version (Int, Int, Int, Maybe String)
   deriving (Eq, Ord)
 
 instance Show Version where
-    show (Version (a, b, c)) = show a <> "." <> show b <> "." <> show c
+    show (Version (a, b, c, q)) = show a <> "." <> show b <> "." <> show c <> Maybe.maybe "" (\qual -> "-" <> qual) q
 
 to_v :: String -> Version
-to_v s = case map read $ Split.splitOn "." s of
-    [major, minor, patch] -> Version (major, minor, patch)
+to_v s = case Split.splitOn "-" s of
+    [prefix, qualifier] -> let (major, minor, patch) = parse_stable prefix
+                           in Version (major, minor, patch, Just qualifier)
+    [stable] -> let (major, minor, patch) = parse_stable stable
+                in Version (major, minor, patch, Nothing)
     _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
+    where parse_stable s = case map read $ Split.splitOn "." s of
+              [major, minor, patch] -> (major, minor, patch)
+              _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
-build_docs_folder :: String -> [String] -> String -> IO String
+build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
 build_docs_folder path versions latest = do
     restore_sha $ do
         let old = path </> "old"
@@ -126,7 +114,8 @@ build_docs_folder path versions latest = do
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
-        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\version -> do
+        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\gh_version -> do
+            let version = name gh_version
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
             old_version_exists <- exists $ old </> version
@@ -139,7 +128,7 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. Too old to rebuild, copying over..."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
                     return Nothing
@@ -154,11 +143,11 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Not found. Building..."
                     build version new
-                    return $ Just version
+                    return $ Just gh_version
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -170,19 +159,21 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Checks, reusing existing."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Check failed. Rebuilding..."
                     build version new
-                    return $ Just version
+                    return $ Just gh_version
             else do
                 putStrLn "  Not found. Building..."
                 build version new
-                return $ Just version)
+                return $ Just gh_version)
         putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
         copy (new </> latest </> "*") (new <> "/")
         putStrLn "Creating versions.json..."
-        create_versions_json documented_versions new
+        let (releases, snapshots) = List.partition (not . prerelease) documented_versions
+        create_versions_json releases (new </> "versions.json")
+        create_versions_json snapshots (new </> "snapshots.json")
         return new
     where
         restore_sha io =
@@ -209,9 +200,29 @@ build_docs_folder path versions latest = do
             if to_v version < to_v "0.13.44"
             then do
                 shell_ "git -c user.name=CI -c user.email=CI@example.com cherry-pick 0c4f9d7f92c4f2f7e2a75a0d85db02e20cbb497b"
-            else pure ()
-            robustly_download_nix_packages
-            shell_ "bazel build //docs:docs"
+                build_helper version path
+            else if to_v version < to_v "0.13.55"
+            then do
+                build_helper version path
+            -- Starting after 0.13.54, we have changed the way in which we
+            -- trigger releases. Rather than releasing the current commit by
+            -- changing the VERSION file, we now mark an existing commit as the
+            -- source code for a release by changing the LATEST file. However,
+            -- release notes still need to be taken from the release commit
+            -- (i.e. the one that changes the LATEST file, not the one being
+            -- pointed to).
+            else do
+                -- The release-triggering commit does not have a tag, so we
+                -- need to find it by walking through the git history of the
+                -- LATEST file.
+                sha <- find_commit_for_version version
+                Control.Exception.bracket
+                    (shell_ $ "git checkout " <> sha <> " -- docs/source/support/release-notes.rst")
+                    (\_ -> shell_ "git reset --hard")
+                    (\_ -> build_helper version path)
+        build_helper version path = do
+            robustly_download_nix_packages version
+            shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
             checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
@@ -220,22 +231,41 @@ build_docs_folder path versions latest = do
             -- Not going through Aeson because it represents JSON objects as
             -- unordered maps, and here order matters.
             let versions_json = versions
+                                & map name
                                 & List.sortOn (Data.Ord.Down . to_v)
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
-            writeFile (path </> "versions.json") versions_json
+            writeFile path versions_json
 
-fetch_s3_versions :: IO (Set.Set Version)
+find_commit_for_version :: String -> IO String
+find_commit_for_version version = do
+    release_commits <- lines <$> shell "git log --format=%H origin/master -- LATEST"
+    ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
+    let expected = ver_sha <> " " <> version
+    matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
+        latest <- init <$> (shell $ "git show " <> sha <> ":LATEST")
+        if latest == expected
+        then return $ Just sha
+        else return Nothing)
+    case matching of
+      [sha] -> return sha
+      _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
+
+fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
-    temp <- shell "mktemp"
-    shell_ $ "aws s3 cp s3://docs-daml-com/versions.json " <> temp
-    s3_raw <- shell $ "cat " <> temp
-    let type_annotated_value :: Maybe JSON.Object
-        type_annotated_value = JSON.decode $ LBS.fromString s3_raw
-    case type_annotated_value of
-      Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
-      Nothing -> Exit.die "Failed to get versions from s3"
+    releases <- fetch "versions.json"
+    snapshots <- fetch "snapshots.json"
+    return (releases, snapshots)
+    where fetch file = do
+              temp <- shell "mktemp"
+              shell_ $ "aws s3 cp s3://docs-daml-com/" <> file <> " " <> temp
+              s3_raw <- shell $ "cat " <> temp
+              let type_annotated_value :: Maybe JSON.Object
+                  type_annotated_value = JSON.decode $ LBS.fromString s3_raw
+              case type_annotated_value of
+                  Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
+                  Nothing -> Exit.die "Failed to get versions from s3"
 
 push_to_s3 :: String -> IO ()
 push_to_s3 doc_folder = do
@@ -250,65 +280,6 @@ push_to_s3 doc_folder = do
     shell_ $ "aws cloudfront create-invalidation"
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
-
-data BlogId = BlogId { blog_id :: Integer } deriving Show
-instance JSON.FromJSON BlogId where
-    parseJSON = JSON.withObject "BlogId" $ \v -> BlogId
-        <$> v JSON..: Text.pack "id"
-
-data SubmitBlog = SubmitBlog {
-                      body :: String,
-                      date :: Integer,
-                      summary :: String,
-                      version :: String
-                  } deriving Show
-instance JSON.ToJSON SubmitBlog where
-    toJSON SubmitBlog{body, date, summary, version} =
-    -- content_group_id and blog_author_id reference existing items in HubSpot
-        JSON.object ["name" JSON..= ("Release of DAML SDK " <> version),
-                     "post_body" JSON..= body,
-                     "content_group_id" JSON..= (11411412838 :: Integer),
-                     "publish_date" JSON..= date,
-                     "post_summary" JSON..= summary,
-                     "slug" JSON..= version,
-                     "blog_author_id" JSON..= (11513309969 :: Integer),
-                     "meta_description" JSON..= summary]
-
-tell_hubspot :: GitHubVersion -> IO ()
-tell_hubspot latest = do
-    putStrLn $ "Publishing "<> name latest <> " to Hubspot..."
-    desc <- http_post "https://api.github.com/markdown"
-                      [("Content-Type", "application/json")]
-                      (JSON.encode $ JSON.object [("text", JSON.String $ Text.pack $ notes latest),
-                                                  ("mode", "gfm"),
-                                                  ("context", "digital-asset/daml")])
-    -- DEBUG
-    putStrLn $ "About to read date " <> (show $ published_at latest) <> " to epoch ms"
-    date <- (read <$> (<> "000")) . init <$> (shell $ "date -d " <> published_at latest <> " +%s")
-    -- DEBUG
-    putStrLn $ "date read as " <> show date
-    let summary = "Release notes for version " <> name latest <> "."
-    -- DEBUG
-    putStrLn "Fetching hs token from env"
-    token <- Env.getEnv "HUBSPOT_TOKEN"
-    submit_blog <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts?hapikey=" <> token)
-                             [("Content-Type", "application/json")]
-                             $ JSON.encode $ SubmitBlog { body = LBS.toString desc,
-                                                          date,
-                                                          summary,
-                                                          version = name latest }
-    case JSON.decode submit_blog of
-      Nothing -> do
-          -- DEBUG
-          putStrLn "About to die because blog id could not be parsed"
-          Exit.die $ "No blog id from HubSpot: \n" <> LBS.toString submit_blog
-      Just BlogId { blog_id } -> do
-          -- DEBUG
-          putStrLn $ "Parsed blog ID as " <> show blog_id
-          _ <- http_post ("https://api.hubapi.com/content/api/v2/blog-posts/" <> show blog_id </> "publish-action?hapikey=" <> token)
-                         [("Content-Type", "application/json")]
-                         (JSON.encode $ JSON.object [("action", "schedule-publish")])
-          return ()
 
 data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
 instance JSON.FromJSON GitHubVersion where
@@ -340,40 +311,36 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-fetch_gh_versions :: IO (Set.Set Version, GitHubVersion)
+fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
 fetch_gh_versions = do
     resp <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    let releases = filter (not . prerelease) resp
-    let versions = Set.fromList $ map (to_v . name) releases
-    let latest = List.maximumOn (to_v . name) releases
-    return (versions, latest)
+    let latest = List.maximumOn (to_v . name) $ filter (not . prerelease) resp
+    return (resp, latest)
+
+same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
+same_versions s3_versions gh_versions =
+    let gh_releases = Set.fromList $ map (to_v . name) $ filter (not . prerelease) gh_versions
+        gh_snapshots = Set.fromList $ map (to_v . name) $ filter prerelease gh_versions
+    in s3_versions == (gh_releases, gh_snapshots)
 
 main :: IO ()
 main = do
-    robustly_download_nix_packages
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
-    let prev_latest = List.maximum $ Set.toList s3_versions_before
-    if prev_latest == to_v (name gh_latest)
+    if same_versions s3_versions_before gh_versions
     then do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
         Temp.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
-            docs_folder <- build_docs_folder temp_dir (map show $ Set.toList gh_versions) $ name gh_latest
+            docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
             s3_versions_after <- fetch_s3_versions
-            if s3_versions_after == gh_versions
+            if same_versions s3_versions_after gh_versions
             then do
                 putStrLn "No more new version, another process must have pushed already."
                 Exit.exitSuccess
             else do
                 push_to_s3 docs_folder
-                if to_v (name gh_latest) > prev_latest
-                then do
-                    putStrLn "New version detected, telling HubSpot"
-                    tell_hubspot gh_latest
-                else
-                    putStrLn "Not a new release, not telling HubSpot."

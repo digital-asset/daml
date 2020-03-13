@@ -252,7 +252,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
   private def createClient: Future[LedgerClient] =
     LedgerClient.fromBuilder(
       NettyChannelBuilder
-        .forAddress(config.ledgerHost, config.ledgerPort)
+        .forAddress(config.ledgerHost, config.ledgerPort.value)
         .maxInboundMessageSize(config.ledgerInboundMessageSizeMax),
       LedgerClientConfiguration(
         config.appId,

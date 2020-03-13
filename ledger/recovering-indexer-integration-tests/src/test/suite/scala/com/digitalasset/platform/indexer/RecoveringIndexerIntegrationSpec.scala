@@ -24,6 +24,7 @@ import com.digitalasset.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.testing.LogCollector
 import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
@@ -70,7 +71,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
               .toScala
             _ <- index.use { ledgerDao =>
               eventually { (_, _) =>
-                ledgerDao.getParties
+                ledgerDao
+                  .listKnownParties()
                   .map(parties => parties.map(_.displayName))
                   .map(_ shouldBe Seq(Some("Alice")))
               }
@@ -117,7 +119,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
                 .toScala
               _ <- index.use { ledgerDao =>
                 eventually { (_, _) =>
-                  ledgerDao.getParties
+                  ledgerDao
+                    .listKnownParties()
                     .map(parties => parties.map(_.displayName))
                     .map(_ shouldBe Seq(Some("Alice"), Some("Bob"), Some("Carol")))
                 }
@@ -188,7 +191,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       participantId: ParticipantId,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     InMemoryLedgerReaderWriter
-      .owner(ledgerId, participantId)
+      .singleParticipantOwner(ledgerId, participantId)
       .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 
   private def participantServer(
@@ -201,7 +204,9 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
       participantState <- newParticipantState(Some(ledgerId), participantId)
+      actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
       _ <- new StandaloneIndexerServer(
+        actorSystem,
         participantState,
         IndexerConfig(
           participantId,

@@ -1,7 +1,7 @@
 sdk-version: __VERSION__
 name: quickstart
 source: daml
-scenario: Main:setup
+init-script: Setup:initialize
 parties:
   - Alice
   - Bob
@@ -13,6 +13,7 @@ exposed-modules:
 dependencies:
   - daml-prim
   - daml-stdlib
+  - daml-script
 codegen:
   scala:
     package-prefix: com.digitalasset.quickstart.iou.model

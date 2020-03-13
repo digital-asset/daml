@@ -25,6 +25,7 @@ import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxClientResource
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion
@@ -44,7 +45,7 @@ object TestUtil {
       implicit executionContext: ExecutionContext
   ): Future[Assertion] = {
     val config = SandboxConfig.default.copy(
-      port = 0,
+      port = Port.Dynamic,
       damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = Some(TimeProviderType.WallClock),

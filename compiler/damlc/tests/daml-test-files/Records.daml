@@ -3,7 +3,7 @@
 
 -- @ ERROR B's Company is run by B and they are 3 years old
 {-# LANGUAGE FlexibleContexts #-}
-daml 1.2
+
 module Records where
 
 import DA.Record -- for type annotations using HasField

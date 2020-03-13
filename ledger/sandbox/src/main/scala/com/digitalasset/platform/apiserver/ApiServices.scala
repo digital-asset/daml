@@ -6,9 +6,8 @@ package com.digitalasset.platform.apiserver
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, WriteService}
+import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -34,7 +33,11 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.configuration.{
+  CommandConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -75,14 +78,17 @@ object ApiServices {
       timeProvider: TimeProvider,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
+      partyConfig: PartyConfiguration,
+      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: MetricRegistry,
       healthChecks: HealthChecks,
-      seedService: Option[() => crypto.Hash]
+      seedService: Option[SeedService]
   )(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory,
-      logCtx: LoggingContext): Future[ApiServices] = {
+      logCtx: LoggingContext
+  ): Future[ApiServices] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // still trying to keep it tidy in case we want to split it later
@@ -95,6 +101,7 @@ object ApiServices {
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
     val configManagementService: IndexConfigManagementService = indexService
+    val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val apiSubmissionService =
@@ -102,9 +109,16 @@ object ApiServices {
           ledgerId,
           contractStore,
           writeService,
+          submissionService,
+          partyManagementService,
           defaultLedgerConfiguration.timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId, seedService),
+          seedService,
+          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
+          ApiSubmissionService.Configuration(
+            submissionConfig.maxDeduplicationTime,
+            partyConfig.implicitPartyAllocation,
+          ),
           metrics,
         )
 
@@ -131,9 +145,8 @@ object ApiServices {
           commandConfig.maxParallelSubmissions,
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
-          commandConfig.historySize,
           commandConfig.retentionPeriod,
-          commandConfig.commandTtl
+          submissionConfig.maxDeduplicationTime
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LowLevelCommandServiceAccess.LocalServices(

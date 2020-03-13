@@ -23,8 +23,9 @@ import com.digitalasset.ledger.client.configuration.{
 }
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
-import io.grpc.ServerBuilder
+import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
+import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Files, Paths}
 import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
@@ -58,8 +59,8 @@ object ReplServiceMain extends App {
   val clients = Await.result(Runner.connect(participantParams, clientConfig), 30.seconds)
 
   val server =
-    ServerBuilder
-      .forPort(0)
+    NettyServerBuilder
+      .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
       .addService(new ReplService(clients, ec, materializer))
       .maxInboundMessageSize(maxMessageSize)
       .build

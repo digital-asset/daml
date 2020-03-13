@@ -105,4 +105,13 @@ package object v2 {
       size: Long,
       knownSince: Instant,
       sourceDescription: Option[String])
+
+  sealed abstract class CommandDeduplicationResult extends Product with Serializable
+
+  /** This is the first time the command was submitted. */
+  case object CommandDeduplicationNew extends CommandDeduplicationResult
+
+  /** This command was submitted before. */
+  final case class CommandDeduplicationDuplicate(deduplicateUntil: Instant)
+      extends CommandDeduplicationResult
 }

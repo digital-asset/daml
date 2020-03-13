@@ -8,7 +8,12 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{
+  CommandDeduplicationDuplicate,
+  CommandDeduplicationNew,
+  CommandDeduplicationResult,
+  PackageDetails
+}
 import com.daml.ledger.participant.state.v1.{
   ApplicationId => _,
   LedgerId => _,
@@ -25,18 +30,17 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
-  CommandId,
   LedgerId,
   PartyDetails,
   RejectionReason,
+  TransactionFilter,
   TransactionId
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.platform.index
 import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -59,6 +63,11 @@ final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
 final case class InMemoryConfigEntry(entry: ConfigurationEntry) extends InMemoryEntry
 final case class InMemoryPartyEntry(entry: PartyLedgerEntry) extends InMemoryEntry
 final case class InMemoryPackageEntry(entry: PackageLedgerEntry) extends InMemoryEntry
+
+final case class CommandDeduplicationEntry(
+    deduplicationKey: String,
+    deduplicateUntil: Instant,
+)
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -100,8 +109,9 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var deduplicator = Deduplicator()
   private var ledgerConfiguration: Option[Configuration] = None
+  private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
+    scala.collection.mutable.Map.empty
 
   override def completions(
       beginInclusive: Option[Long],
@@ -116,11 +126,13 @@ class InMemoryLedger(
   override def ledgerEnd: Long = entries.ledgerEnd
 
   // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     Future.successful(this.synchronized {
       LedgerSnapshot(
         entries.ledgerEnd,
-        Source.fromIterator[ActiveContract](() => acs.activeContracts.valuesIterator))
+        Source
+          .fromIterator[ActiveContract](() =>
+            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList)))
     })
 
   override def lookupContract(
@@ -151,20 +163,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
-        val (newDeduplicator, isDuplicate) =
-          deduplicator.checkAndAdd(
-            submitterInfo.submitter,
-            ApplicationId(submitterInfo.applicationId),
-            CommandId(submitterInfo.commandId))
-        deduplicator = newDeduplicator
-        if (isDuplicate)
-          logger.warn(
-            "Ignoring duplicate submission for applicationId {}, commandId {}",
-            submitterInfo.applicationId: Any,
-            submitterInfo.commandId)
-        else
-          handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
-
+        handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
         SubmissionResult.Acknowledged
       }
     )
@@ -258,7 +257,12 @@ class InMemoryLedger(
     }
   }
 
-  override def parties: Future[List[PartyDetails]] =
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    Future.successful(this.synchronized {
+      parties.flatMap(party => acs.parties.get(party).toList).toList
+    })
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
       acs.parties.values.toList
     })
@@ -266,7 +270,8 @@ class InMemoryLedger(
   override def publishPartyAllocation(
       submissionId: SubmissionId,
       party: Party,
-      displayName: Option[String]): Future[SubmissionResult] =
+      displayName: Option[String]
+  ): Future[SubmissionResult] =
     Future.successful(this.synchronized[SubmissionResult] {
       val ids = acs.parties.keySet
       if (ids.contains(party)) {
@@ -386,4 +391,32 @@ class InMemoryLedger(
       .getSource(startInclusive, None)
       .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
 
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
+    Future.successful {
+      this.synchronized {
+        val entry = commands.get(deduplicationKey)
+        if (entry.isEmpty) {
+          // No previous entry - new command
+          commands += (deduplicationKey -> CommandDeduplicationEntry(
+            deduplicationKey,
+            deduplicateUntil))
+          CommandDeduplicationNew
+        } else {
+          val previousDeduplicateUntil = entry.get.deduplicateUntil
+          if (submittedAt.isAfter(previousDeduplicateUntil)) {
+            // Previous entry expired - new command
+            commands += (deduplicationKey -> CommandDeduplicationEntry(
+              deduplicationKey,
+              deduplicateUntil))
+            CommandDeduplicationNew
+          } else {
+            // Existing previous entry - deduplicate command
+            CommandDeduplicationDuplicate(previousDeduplicateUntil)
+          }
+        }
+      }
+    }
 }

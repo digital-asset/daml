@@ -19,11 +19,11 @@ da_scala_library(
     ],
     deps = [
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -42,6 +42,7 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
@@ -66,14 +67,20 @@ da_scala_library(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//ledger/participant-state/kvutils/app",
+        "//ledger/sandbox",
         "//libs-scala/contextualized-logging",
         "//libs-scala/resources",
+        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
     ],
 )
 
@@ -96,11 +103,34 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--port=6865",
+        "--contract-id-seeding=weak",
+        "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
+        "--verbose",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
+    ],
+)
+
+conformance_test(
+    name = "conformance-test-multi-participant",
+    ports = [
+        6865,
+        6866,
+    ],
+    server = ":app",
+    server_args = [
+        "--contract-id-seeding=weak",
+        "--participant participant-id=example1,port=6865",
+        "--participant participant-id=example2,port=6866",
+    ],
+    test_tool_args = [
+        "--verbose",
+        "--all-tests",
+        "--exclude=ConfigManagementServiceIT",
+        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -109,9 +139,11 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--port=6865",
+        "--contract-id-seeding=weak",
+        "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
+        "--verbose",
         "--include=ConfigManagementServiceIT",
     ],
 )

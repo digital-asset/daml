@@ -6,7 +6,7 @@
 -- @INFO Redundant ==
 -- @INFO Evaluate
 
-daml 1.2
+
 module ShortCircuit where
 
 import DA.Action

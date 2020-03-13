@@ -73,7 +73,7 @@ message DamlSubmission {
 //
 // Please read comments in [[com.daml.ledger.participant.state.v1.package]]
 // and  [[com.daml.ledger.participant.state.kvutils.package]] for background
-// information. See example implementation in [[InMemoryKVParticipantState]].
+// information.
 message DamlLogEntry {
   // The record time at which this entry was committed.
   google.protobuf.Timestamp record_time = 1;
@@ -122,6 +122,7 @@ message DamlSubmitterInfo {
   string command_id = 2;
   string application_id = 3;
   google.protobuf.Timestamp maximum_record_time = 4;
+  google.protobuf.Timestamp deduplicate_until = 5;
 }
 
 // DAML transaction entry, used in both `DamlSubmission` and `DamlLogEntry`.
@@ -150,6 +151,12 @@ message DamlTransactionEntry {
   // the bounds for valid timestamps in relation to the ledger record time
   // (the time at which the transaction is committed).
   google.protobuf.Timestamp ledger_effective_time = 4;
+
+  // The nonce used to generate contract ids
+  bytes submission_seed = 5;
+
+  // The time used to derive contract ids
+  google.protobuf.Timestamp submission_time = 6;
 }
 
 // A transaction rejection entry.
@@ -304,7 +311,7 @@ message DamlPartyAllocationRejectionEntry {
 message DamlStateKey {
   oneof key {
     string package_id = 1;
-    DamlContractId contract_id = 2;
+    string contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
     string party = 4;
     DamlContractKey contract_key = 5;
@@ -325,11 +332,6 @@ message DamlStateValue {
     DamlConfigurationEntry configuration_entry = 6;
     DamlSubmissionDedupValue submission_dedup = 7;
   }
-}
-
-message DamlContractId {
-  DamlLogEntryId entry_id = 1;
-  int64 node_id = 2;
 }
 
 message DamlCommandDedupKey {
@@ -420,7 +422,7 @@ message DamlPartyAllocation {
 message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
-  DamlContractId contract_id = 1;
+  string contract_id = 1;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test

@@ -70,14 +70,15 @@ import qualified Google.Rpc.Status as LL
 -- commands.proto
 
 data Commands = Commands
-    { lid    :: LedgerId
-    , wid    :: Maybe WorkflowId
-    , aid    :: ApplicationId
-    , cid    :: CommandId
-    , party  :: Party
-    , leTime :: Timestamp
-    , mrTime :: Timestamp
-    , coms   :: [Command]
+    { lid       :: LedgerId
+    , wid       :: Maybe WorkflowId
+    , aid       :: ApplicationId
+    , cid       :: CommandId
+    , party     :: Party
+    , leTime    :: Timestamp
+    , mrTime    :: Timestamp
+    , dedupTime :: Maybe LL.Duration
+    , coms      :: [Command]
     }
 
 data Command

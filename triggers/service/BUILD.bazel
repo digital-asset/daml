@@ -7,6 +7,7 @@ load(
     "da_scala_library",
     "da_scala_test",
 )
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 da_scala_library(
     name = "trigger-service-lib",
@@ -70,6 +71,7 @@ da_scala_test(
         "//ledger/ledger-api-common",
         "//ledger/participant-state",
         "//ledger/sandbox",
+        "//libs-scala/ports",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_typesafe_akka_akka_actor_typed_2_12",
         "@maven//:com_typesafe_akka_akka_http_core_2_12",
@@ -84,7 +86,6 @@ genrule(
     srcs =
         glob(["test-model/*.daml"]) + [
             "//triggers/daml:daml-trigger.dar",
-            "//:VERSION",
         ],
     outs = ["test-model.dar"],
     cmd = """
@@ -94,7 +95,7 @@ genrule(
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
       cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: test-model
 source: daml
 version: 0.0.1
@@ -105,7 +106,7 @@ dependencies:
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location test-model.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )

@@ -1,7 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
 -- | Class of data structures that can be traversed from left to right, performing an action on each element.
 -- You typically would want to import this module qualified to avoid clashes with
 -- functions defined in `Prelude`. Ie.:

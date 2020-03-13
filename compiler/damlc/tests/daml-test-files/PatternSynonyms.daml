@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 {-# LANGUAGE PatternSynonyms #-}
-daml 1.2
+
 module PatternSynonyms where
 
 type Box = Optional

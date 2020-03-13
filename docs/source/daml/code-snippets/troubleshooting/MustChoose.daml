@@ -3,7 +3,7 @@
 
 {-# LANGUAGE PartialTypeSignatures #-}
 
-daml 1.2
+
 module MustChoose where
 
 import DA.Time

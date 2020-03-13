@@ -8,17 +8,16 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -45,8 +44,10 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
     val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
     val getParties: Timer = metrics.timer("daml.index.db.get_parties")
+    val listKnownParties: Timer = metrics.timer("daml.index.db.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
     val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
+    val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
@@ -81,20 +82,26 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   override def getActiveContractSnapshot(
       untilExclusive: LedgerOffset,
-      filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+      filter: TransactionFilter
+  ): Future[LedgerSnapshot] =
     ledgerDao.getActiveContractSnapshot(untilExclusive, filter)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
-  override def getParties: Future[List[PartyDetails]] =
-    timedFuture(Metrics.getParties, ledgerDao.getParties)
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    timedFuture(Metrics.getParties, ledgerDao.getParties(parties))
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    timedFuture(Metrics.listKnownParties, ledgerDao.listKnownParties())
 
   override def getPartyEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed] =
     ledgerDao.getPartyEntries(startInclusive, endExclusive)
 
   override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
@@ -119,6 +126,14 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     ledgerDao.getConfigurationEntries(startInclusive, endExclusive)
 
   override val completions: CommandCompletionsReader[LedgerOffset] = ledgerDao.completions
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
+    timedFuture(
+      Metrics.deduplicateCommand,
+      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

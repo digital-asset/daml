@@ -11,7 +11,16 @@ import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.client.binding.Primitive.{Party, TemplateId}
 import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.{Dummy, DummyFactory, DummyWithParam}
+import com.digitalasset.ledger.test_stable.Test.Witnesses._
+import com.digitalasset.ledger.test_stable.Test.Divulgence2._
+import com.digitalasset.ledger.test_stable.Test.{
+  Divulgence1,
+  Divulgence2,
+  Dummy,
+  DummyFactory,
+  DummyWithParam,
+  Witnesses => TestWitnesses
+}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -327,6 +336,53 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
         assert(
           flatTransaction.transactionId == transactionTree.transactionId,
           s"EventId ${dummyEvent.eventId} did not resolve to the same flat transaction (${flatTransaction.transactionId}) and transaction tree (${transactionTree.transactionId}).",
+        )
+      }
+  }
+
+  test(
+    "ACSnoWitnessedContracts",
+    "The ActiveContractService should not return witnessed contracts",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      for {
+        witnesses <- ledger.create(alice, TestWitnesses(alice, bob, bob))
+        _ <- ledger.exercise(bob, witnesses.exerciseWitnessesCreateNewWitnesses(_))
+        bobContracts <- ledger.activeContracts(bob)
+        aliceContracts <- ledger.activeContracts(alice)
+      } yield {
+        assert(
+          bobContracts.size == 2,
+          s"Expected to receive 2 active contracts for $bob, but received ${bobContracts.size}.",
+        )
+        assert(
+          aliceContracts.size == 1,
+          s"Expected to receive 1 active contracts for $alice, but received ${aliceContracts.size}.",
+        )
+      }
+  }
+
+  test(
+    "ACSnoDivulgedContracts",
+    "The ActiveContractService should not return divulged contracts",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      for {
+        divulgence1 <- ledger.create(alice, Divulgence1(alice))
+        divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+        _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(_, divulgence1))
+        bobContracts <- ledger.activeContracts(bob)
+        aliceContracts <- ledger.activeContracts(alice)
+      } yield {
+        assert(
+          bobContracts.size == 1,
+          s"Expected to receive 1 active contracts for $bob, but received ${bobContracts.size}.",
+        )
+        assert(
+          aliceContracts.size == 2,
+          s"Expected to receive 2 active contracts for $alice, but received ${aliceContracts.size}.",
         )
       }
   }

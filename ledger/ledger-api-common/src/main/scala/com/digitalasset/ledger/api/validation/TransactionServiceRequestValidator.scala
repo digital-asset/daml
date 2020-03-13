@@ -36,8 +36,6 @@ class TransactionServiceRequestValidator(
 
   private def matchId(input: LedgerId): Result[LedgerId] = matchLedgerId(ledgerId)(input)
 
-  private val rightNone = Right(None)
-
   case class PartialValidation(
       ledgerId: domain.LedgerId,
       transactionFilter: TransactionFilter,

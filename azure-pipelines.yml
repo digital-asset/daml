@@ -27,13 +27,13 @@ jobs:
       - bash: |
           set -euo pipefail
           if [ "$(Build.Reason)" == "PullRequest" ]; then
-              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse 'HEAD^2')"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse 'HEAD^1')"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base --fork-point 'HEAD^1' 'HEAD^2')"
+              echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD^2)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git merge-base $(git rev-parse HEAD^1) $(git rev-parse HEAD^2))"
           else
               echo "##vso[task.setvariable variable=branch;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD)"
-              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD)"
+              echo "##vso[task.setvariable variable=master;isOutput=true]$(git rev-parse HEAD^1)"
+              echo "##vso[task.setvariable variable=fork_point;isOutput=true]$(git rev-parse HEAD^1)"
           fi
         name: out
 
@@ -69,47 +69,61 @@ jobs:
       - bash: ci/check-changelog.sh
 
   - job: Linux
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
       name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
         parameters:
-          name: linux
+          release_tag: $(release_tag)
+          name: 'linux'
+          is_release: variables.is_release
+      - bash: |
+          set -euo pipefail
+          eval "$(./dev-env/bin/dade-assist)"
+          bazel build //release:release
+          ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+        condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: macOS
+    dependsOn:
+      - check_for_release
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
     variables:
-      nix-cache-key: $(Build.StagingDirectory)/macos-nix-key
-      nix-cache-path: /tmp/nix-cache/
       bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
       bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(nix-cache-key)
-        displayName: nix cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(nix-cache-key) | v2
-          path: $(nix-cache-path)
       - bash: |
           set -euo pipefail
-          if [[ -e $(nix-cache-path) ]]; then
-              DIR=$(pwd)
-              sudo mkdir /nix && sudo chown $USER /nix
-              cd /nix
-              tar xzf $(nix-cache-path)/nix.tar.gz
-              cd $DIR
-              curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
-          fi
-        displayName: restore cache
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
         displayName: bazel repo cache key
       - task: CacheBeta@0
@@ -118,143 +132,116 @@ jobs:
           path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
+          release_tag: $(release_tag)
           name: macos
-      - bash: |
-          set -euo pipefail
-          if [[ ! -e $(nix-cache-path) ]]; then
-              mkdir -p $(nix-cache-path)
-              cd /nix
-              GZIP=-9 tar czf $(nix-cache-path)/nix.tar.gz store var
-          fi
-        displayName: create nix cache
+          is_release: variables.is_release
       - bash: mkdir -p $(bazel-repo-cache-path)
         displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
   - job: Windows
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
     steps:
       - template: ci/report-start.yml
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-windows.yml
+        parameters:
+          release_tag: $(release_tag)
+          is_release: variables.is_release
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
-  - job: perf
-    timeoutInMinutes: 60
-    pool:
-      name: 'linux-pool'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Perf test logs'
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
-
-  - job: Windows_signing
-    # Signing is a separate job so that we can make sure that we only sign on releases.
-    # Since the release check is run on Linux, we do not have access to that information
-    # in the regular Windows step.
-    dependsOn: [ "Windows", "Linux" ]
-    pool:
-      name: 'windows-pool'
-    condition: and(succeeded(), eq(dependencies.Linux.outputs['release.has_released'], 'true'))
+  - job: check_for_release
+    dependsOn:
+      - git_sha
     variables:
-      unsigned-installer: $[ dependencies.Windows.outputs['publish.artifact-unsigned-windows-installer'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+    pool:
+      name: "linux-pool"
     steps:
-      - template: ci/report-start.yml
-      - checkout: self
-        persistCredentials: true
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(unsigned-installer)
-          targetPath: $(Build.StagingDirectory)/
       - bash: |
           set -euo pipefail
-          INSTALLER=daml-sdk-$(cat VERSION)-windows.exe
-          mv "$(Build.StagingDirectory)/$(unsigned-installer)" "$(Build.StagingDirectory)/$INSTALLER"
-          chmod +x "$(Build.StagingDirectory)/$INSTALLER"
-          cleanup () {
-              rm -f signing_key.pfx
+
+          ./release.sh check
+
+          is_release_commit() {
+              changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
+              stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
+              snapshot="LATEST"
+              [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
-          trap cleanup EXIT
-          echo "$SIGNING_KEY" | base64 -d > signing_key.pfx
-          MSYS_NO_PATHCONV=1 signtool.exe sign '/f' signing_key.pfx '/fd' sha256 '/tr' "http://timestamp.digicert.com" '/v' "$(Build.StagingDirectory)/$INSTALLER"
-          rm signing_key.pfx
-          echo "##vso[task.setvariable variable=artifact-windows-installer;isOutput=true]$INSTALLER"
-          echo "##vso[task.setvariable variable=has_released;isOutput=true]true"
-        name: signing
-        env:
-          SIGNING_KEY: $(microsoft-code-signing)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          targetPath: $(Build.StagingDirectory)/$(signing.artifact-windows-installer)
-          artifactName: $(signing.artifact-windows-installer)
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
+
+          if is_release_commit; then
+              echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
+              echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
+              echo "##vso[task.setvariable variable=release_sha;isOutput=true]$(cat LATEST | awk '{print $1}')"
+              echo "##vso[task.setvariable variable=release_tag;isOutput=true]$(cat LATEST | awk '{print $2}')"
+          else
+              echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
+          fi
+        name: out
 
   - job: release
-    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+    condition: and(succeeded(),
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
     variables:
-      artifact-linux: $[ dependencies.Linux.outputs['publish.artifact'] ]
-      artifact-macos: $[ dependencies.macOS.outputs['publish.artifact'] ]
-      artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
-      artifact-windows-installer: $[ dependencies.Windows_signing.outputs['signing.artifact-windows-installer'] ]
+      linux-tarball: $[ dependencies.Linux.outputs['publish.tarball'] ]
+      macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
+      windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
+      windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - bash: |
           set -euxo pipefail
-          if git tag v$(cat VERSION); then
-            git push origin v$(cat VERSION)
+          if git tag v$(release_tag) $(release_sha); then
+            git push origin v$(release_tag)
             mkdir $(Build.StagingDirectory)/release
           else
             echo "##vso[task.setvariable variable=skip-github]TRUE"
           fi
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-linux)
+          artifactName: $(linux-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-macos)
+          artifactName: $(macos-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-windows)
+          artifactName: $(windows-tarball)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - task: DownloadPipelineArtifact@0
         inputs:
-          artifactName: $(artifact-windows-installer)
+          artifactName: $(windows-installer)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
@@ -280,10 +267,12 @@ jobs:
           gitHubConnection: 'garyverhaegen-da'
           repositoryName: '$(Build.Repository.Name)'
           action: 'create'
-          target: '$(Build.SourceVersion)'
-          tagSource: 'auto'
+          target: '$(release_sha)'
+          tagSource: 'manual'
+          tag: 'v$(release_tag)'
           assets: $(Build.StagingDirectory)/release/*
           assetUploadMode: 'replace'
+          title: 'v$(release_tag)'
           addChangeLog: false
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
@@ -291,22 +280,25 @@ jobs:
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
-    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    dependsOn: [ "check_for_release" ]
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(succeeded(),
-                   eq( dependencies.Linux.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows.outputs['release.has_released'], 'true' ),
-                   eq( dependencies.Windows_signing.outputs['signing.has_released'], 'true' ),
-                   eq( dependencies.macOS.outputs['release.has_released'], 'true' ))
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
       - checkout: self
       - bash: |
           set -euo pipefail
 
+          git checkout $(release_sha)
+          export DAML_SDK_RELEASE_VERSION=$(release_tag)
+
           sudo mkdir -p /nix
           sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
+          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
           eval "$(dev-env/bin/dade-assist)"
           GCS_KEY=$(mktemp)
           cleanup () {
@@ -317,9 +309,9 @@ jobs:
           gcloud auth activate-service-account --key-file=$GCS_KEY
           export BOTO_CONFIG=/dev/null
 
-          bazel build //ledger/api-server-damlonx/reference-v2:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/api-server-damlonx/reference-v2/reference-ledger-dump.out \
-                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(cat VERSION)
+          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
+          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
+                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
@@ -330,8 +322,7 @@ jobs:
       - Linux
       - macOS
       - Windows
-      - Windows_signing
-      - perf
+      - check_for_release
       - release
       - check_standard_change_label
       - write_ledger_dump
@@ -351,14 +342,10 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      Windows_signing.start: $[ dependencies.Windows_signing.outputs['start.time'] ]
-      Windows_signing.machine: $[ dependencies.Windows_signing.outputs['start.machine'] ]
-      Windows_signing.end: $[ dependencies.Windows_signing.outputs['end.time'] ]
-      Windows_signing.status: $[ dependencies.Windows_signing.result ]
-      perf.start: $[ dependencies.perf.outputs['start.time'] ]
-      perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
-      perf.end: $[ dependencies.perf.outputs['end.time'] ]
-      perf.status: $[ dependencies.perf.result ]
+      check_for_release.start: $[ dependencies.check_for_release.outputs['start.time'] ]
+      check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
+      check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
+      check_for_release.status: $[ dependencies.check_for_release.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
@@ -397,32 +384,21 @@ jobs:
           # Note: this is going to get the PR branch commit, not the
           # result of the merge (i.e. this is not using the same commit as the
           # other jobs in this build).
-          #
-          # We have seen errors getting this commit from GitHub, which we
-          # suspect are transient network errors, so adding simple exponential
-          # backoff to mitigate.
-          BACKOFF=1
           tell_gary() {
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha) up to BACKOFF=$BACKOFF.\"}" \
+                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
                    $(Slack.team-daml-ci)
           }
-          trap tell_gary EXIT
-          while !  git fetch origin $(branch_sha); do
-            if (( $BACKOFF > 500 )); then
-              echo "Could not get commit $(branch_sha); something is very wrong."
-              exit 1
-            else
-              sleep $BACKOFF
-              let "BACKOFF = $BACKOFF * 2"
-            fi
-          done
-          if (( $BACKOFF > 1 )); then
+          if ! git fetch origin $(branch_sha); then
               tell_gary
+              echo "Failed to fetch commit: $(branch_sha) from origin."
+              echo "Remotes:"
+              git remote -v
+              echo "Job status: $(Agent.JobStatus)."
+              exit 1
           fi
-          trap - EXIT
           git checkout $(branch_sha)
 
           eval "$(./dev-env/bin/dade-assist)"
@@ -441,14 +417,10 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "Windows_signing": {"start": "$(Windows_signing.start)",
-                                        "machine": "$(Windows_signing.machine)",
-                                        "end": "$(Windows_signing.end)",
-                                        "status": "$(Windows_signing.status)"},
-                    "perf": {"start": "$(perf.start)",
-                             "machine": "$(perf.machine)",
-                             "end": "$(perf.end)",
-                             "status": "$(perf.status)"},
+                    "check_for_release": {"start": "$(check_for_release.start)",
+                                          "machine": "$(check_for_release.machine)",
+                                          "end": "$(check_for_release.end)",
+                                          "status": "$(check_for_release.status)"},
                     "check_standard_change_label": {"start": "$(std_change.start)",
                                                     "machine": "$(std_change.machine)",
                                                     "end": "$(std_change.end)",
@@ -500,7 +472,7 @@ jobs:
               cat $REPORT
           fi
 
-          # Linux, macOS, perf, check_std_change_label and Windows are always
+          # Linux, macOS, check_std_change_label and Windows are always
           # required and should always succeed.
           #
           # windows_signing, release and write_ledger_dump only run on releases
@@ -508,9 +480,7 @@ jobs:
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
-              || "$(perf.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
-              || "$(Windows_signing.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1
           fi
@@ -540,31 +510,21 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          # We have seen errors getting this commit from GitHub, which we
-          # suspect are transient network errors, so adding simple exponential
-          # backoff to mitigate.
-          BACKOFF=1
           tell_gary() {
               curl -XPOST \
                    -i \
                    -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha) up to BACKOFF=$BACKOFF.\"}" \
+                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
                    $(Slack.team-daml-ci)
           }
-          trap tell_gary EXIT
-          while !  git fetch origin $(branch_sha); do
-            if (( $BACKOFF > 500 )); then
-              echo "Could not get commit $(branch_sha); something is very wrong."
-              exit 1
-            else
-              sleep $BACKOFF
-              let "BACKOFF = $BACKOFF * 2"
-            fi
-          done
-          if (( $BACKOFF > 1 )); then
+          if ! git fetch origin $(branch_sha); then
               tell_gary
+              echo "Failed to fetch commit: $(branch_sha) from origin."
+              echo "Remotes:"
+              git remote -v
+              echo "Job status: $(Agent.JobStatus)."
+              exit 1
           fi
-          trap - EXIT
           git checkout $(branch_sha)
 
 

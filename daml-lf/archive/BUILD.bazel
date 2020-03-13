@@ -28,6 +28,7 @@ LF_MAJOR_VERSIONS = [
 LF_VERSIONS = [
     "1.6",
     "1.7",
+    "1.8",
     "dev",
 ]
 
@@ -143,7 +144,6 @@ da_scala_library(
         "//daml-lf/data",
         "//daml-lf/language",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:commons_io_commons_io",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )
@@ -151,17 +151,22 @@ da_scala_library(
 da_scala_test_suite(
     name = "daml_lf_archive_reader_tests",
     size = "small",
-    srcs = glob(["src/test/scala/**/*.scala"]),
+    srcs = glob(
+        ["src/test/scala/**/*.scala"],
+        exclude = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
+    ),
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
         ":daml_lf_1.6_archive_proto_srcs",
         ":daml_lf_1.7_archive_proto_srcs",
+        ":daml_lf_1.8_archive_proto_srcs",
     ],
     scalacopts = lf_scalacopts,
     deps = [
         ":daml_lf_1.6_archive_java_proto",
         ":daml_lf_1.7_archive_java_proto",
+        ":daml_lf_1.8_archive_java_proto",
         ":daml_lf_archive_reader",
         ":daml_lf_dev_archive_java_proto",
         "//bazel_tools/runfiles:scala_runfiles",
@@ -173,6 +178,26 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
         "@maven//:org_scalaz_scalaz_scalacheck_binding_2_12",
+    ],
+)
+
+da_scala_test_suite(
+    name = "daml_lf_archive_reader_zipbomb_tests",
+    srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
+    data = [
+        "//libs_python:zblg",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["dont-run-on-darwin"],  # This test is too memory intensive for the MacOS nodes on CI
+    deps = [
+        ":daml_lf_1.6_archive_java_proto",
+        ":daml_lf_1.7_archive_java_proto",
+        ":daml_lf_1.8_archive_java_proto",
+        ":daml_lf_archive_reader",
+        ":daml_lf_dev_archive_java_proto",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/data",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

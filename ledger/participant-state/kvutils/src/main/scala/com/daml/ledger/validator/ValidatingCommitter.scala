@@ -8,8 +8,7 @@ import java.time.Instant
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -22,10 +21,10 @@ class ValidatingCommitter[LogResult](
   def commit(
       correlationId: String,
       envelope: Array[Byte],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[SubmissionResult] =
-    withEnrichedLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+  )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
+    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
       validator
-        .validateAndCommit(
+        .validateAndCommitWithLoggingContext(
           envelope,
           correlationId,
           Timestamp.assertFromInstant(now()),

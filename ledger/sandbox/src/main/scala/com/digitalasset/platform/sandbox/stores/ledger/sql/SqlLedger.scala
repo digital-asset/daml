@@ -38,7 +38,6 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry,
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
-import scalaz.syntax.tag._
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
@@ -68,34 +67,32 @@ object SqlLedger {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
     implicit val ec: ExecutionContext = DEC
 
-    new FlywayMigrations(jdbcUrl).migrate()
-
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
+      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate())
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerDao = new MeteredLedgerDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
-      ledger <- ResourceOwner
-        .forFutureCloseable(
-          () =>
-            new SqlLedgerFactory(ledgerDao).createSqlLedger(
-              ledgerId,
-              participantId,
-              timeProvider,
-              startMode,
-              acs,
-              packages,
-              initialLedgerEntries,
-              queueDepth,
-              // we use `maxConnections` for the maximum batch size, since it doesn't make sense to try to
-              // persist more ledger entries concurrently than we have SQL executor threads and SQL
-              // connections available.
-              maxConnections,
-          ))
+      ledger <- ResourceOwner.forFutureCloseable(
+        () =>
+          new SqlLedgerFactory(ledgerDao).createSqlLedger(
+            ledgerId,
+            participantId,
+            timeProvider,
+            startMode,
+            acs,
+            packages,
+            initialLedgerEntries,
+            queueDepth,
+            // we use `maxConnections` for the maximum batch size, since it doesn't make sense to
+            // try to persist more ledger entries concurrently than we have SQL executor threads and
+            // SQL connections available.
+            maxConnections,
+        ))
     } yield ledger
   }
 }
@@ -475,7 +472,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       packages: InMemoryPackageStore,
   ): Future[LedgerId] = {
-    logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+    logger.info(s"Found existing ledger with ID: $foundLedgerId")
     if (initialLedgerEntries.nonEmpty) {
       logger.warn(
         s"Initial ledger entries provided, presumably from scenario, but there is an existing database, and thus they will not be used.")

@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
+
 
 module BasicTests where
 import DA.Time
@@ -507,3 +507,18 @@ data Nesting146 = Nesting146 {x: Nesting147}
 data Nesting147 = Nesting147 {x: Nesting148}
 data Nesting148 = Nesting148 {x: Nesting149}
 data Nesting149 = Nesting149 {x: Int}
+
+template TimeGetter with
+    p : Party
+  where
+    signatory p
+    controller p can
+      GetTime : Time
+        do
+         t <- getTime
+         pure t
+      FactorialOfThree: Int
+        do
+          pure $ product [1, 2, 3]
+
+

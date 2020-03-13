@@ -9,11 +9,9 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value
-
 import scalaz.Equal
 
 import scala.annotation.tailrec
-
 import scala.collection.immutable.HashMap
 
 case class VersionedTransaction[Nid, Cid](
@@ -55,7 +53,7 @@ case class VersionedTransaction[Nid, Cid](
 /** General transaction type
   *
   * Abstracts over NodeId type and ContractId type
-  * ContractId restricts the occurence of contractIds
+  * ContractId restricts the occurrence of contractIds
   * either AbsoluteContractId if only absolute ids occur
   * or ContractId when both absolute and relative ids are allowed
   *
@@ -65,11 +63,6 @@ case class VersionedTransaction[Nid, Cid](
   *
   * @param nodes The nodes of this transaction.
   * @param roots References to the root nodes of the transaction.
-  * @param optUsedPackages The set of packages used during command processing.
-  *                     This is a hint for what packages are required to validate
-  *                     the transaction using the current interpreter.
-  *                     The used packages are not serialized using [[TransactionCoder]].
-  *
   * Users of this class may assume that all instances are well-formed, i.e., `isWellFormed.isEmpty`.
   * For performance reasons, users are not required to call `isWellFormed`.
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
@@ -77,8 +70,6 @@ case class VersionedTransaction[Nid, Cid](
 final case class GenTransaction[Nid, +Cid, +Val](
     nodes: HashMap[Nid, GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
-    optUsedPackages: Option[Set[PackageId]],
-    transactionSeed: Option[crypto.Hash] = None,
 ) extends value.CidContainer[GenTransaction[Nid, Cid, Val]] {
 
   import GenTransaction._
@@ -146,7 +137,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     * Used to for example compute the roots of per-party projections from the
     * transaction.
     */
-  final def foldWithPathState[A, B](globalState0: A, pathState0: B)(
+  def foldWithPathState[A, B](globalState0: A, pathState0: B)(
       op: (A, B, Nid, GenNode[Nid, Cid, Val]) => (A, B),
   ): A = {
     var globalState = globalState0
@@ -214,24 +205,25 @@ final case class GenTransaction[Nid, +Cid, +Val](
     errors ++ orphaned
   }
 
+  def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
+    fold(Map.empty[Cid2, Nid]) {
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
+        acc.updated(create.coid, nid)
+      case (acc, _) => acc
+    }
+
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
-    *
-    * @note [[uncheckedVariance]] only to avoid the contains problem
-    *       <https://stackoverflow.com/questions/8360413/selectively-disable-subsumption-in-scala-correctly-type-list-contains>.
-    *       We can get away with it because we don't admit ''any'' overrides.
-    *       However, requiring [[Equal]]`[Val2]` as `isReplayedBy` does would
-    *       also solve the contains problem.  Food for thought
     */
-  final def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
+  def equalForest[Cid2 >: Cid, Val2 >: Val](other: GenTransaction[_, Cid2, Val2]): Boolean =
     compareForest(other)(_ == _)
 
   /**
     * Compares two Transactions up to renaming of Nids. with the specified comparision of nodes
     * Nid is irrelevant to the content of the transaction.
     */
-  final def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
+  def compareForest[Nid2, Cid2, Val2](other: GenTransaction[Nid2, Cid2, Val2])(
       compare: (GenNode[Nothing, Cid, Val], GenNode[Nothing, Cid2, Val2]) => Boolean,
   ): Boolean = {
     @tailrec
@@ -284,7 +276,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     *
     * @note This function is asymmetric.
     */
-  final def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
+  def isReplayedBy[Nid2, Cid2 >: Cid, Val2 >: Val](
       other: GenTransaction[Nid2, Cid2, Val2],
   )(implicit ECid: Equal[Cid2], EVal: Equal[Val2]): Boolean =
     compareForest(other)(Node.isReplayedBy(_, _))
@@ -326,6 +318,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 }
 
 object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTransaction] {
+
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
 
   case class NotWellFormedError[Nid](nid: Nid, reason: NotWellFormedErrorReason)
@@ -339,15 +332,13 @@ object GenTransaction extends value.CidContainer3WithDefaultCidResolver[GenTrans
       f2: A2 => B2,
       f3: A3 => B3,
   ): GenTransaction[A1, A2, A3] => GenTransaction[B1, B2, B3] = {
-    case GenTransaction(nodes, roots, optUsedPackages, transactionSeed) =>
+    case GenTransaction(nodes, roots) =>
       GenTransaction(
         nodes = nodes.map {
           case (nodeId, node) =>
             f1(nodeId) -> GenNode.map3(f1, f2, f3)(node)
         },
-        roots = roots.map(f1),
-        optUsedPackages,
-        transactionSeed,
+        roots = roots.map(f1)
       )
   }
 }
@@ -374,6 +365,25 @@ object Transaction {
     *
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
+
+  /* Transaction meta data
+   * @param submissionTime: submission time
+   * @param usedPackages The set of packages used during command processing.
+   *        This is a hint for what packages are required to validate
+   *        the transaction using the current interpreter.
+   *        The used packages are not serialized using [[TransactionCoder]].
+   * @dependsOnTime: indicate the transaction computation depends on ledger
+   *        time.
+   */
+  final case class Metadata(
+      submissionTime: Time.Timestamp,
+      usedPackages: Set[PackageId],
+      dependsOnTime: Boolean
+  )
+
+  type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
+
+  type AbsNode = GenNode.WithTxValue[NodeId, Value.AbsoluteContractId]
 
   /** Errors that can happen during building transactions. */
   sealed abstract class TransactionError extends Product with Serializable

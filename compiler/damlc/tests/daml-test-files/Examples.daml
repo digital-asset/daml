@@ -3,7 +3,7 @@
 
 -- @ IGNORE
 
-daml 1.2
+
 module Examples where
 
 -- commented modules currently fail to compile or type-check in LF

@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @SINCE-LF 1.dev
-daml 1.2 module TemplateTypeRep2 where
+module TemplateTypeRep2 where
 
 template T1
   with

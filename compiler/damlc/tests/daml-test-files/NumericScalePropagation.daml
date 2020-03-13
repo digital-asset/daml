@@ -6,7 +6,7 @@
 --
 -- @SINCE-LF 1.7
 
-daml 1.2
+
 
 module NumericScalePropagation where
 

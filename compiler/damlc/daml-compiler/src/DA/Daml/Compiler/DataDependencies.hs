@@ -4,7 +4,6 @@
 module DA.Daml.Compiler.DataDependencies
     ( Config (..)
     , generateSrcPkgFromLf
-    , generateGenInstancesPkgFromLf
     , prefixDependencyModule
     ) where
 
@@ -12,7 +11,12 @@ import DA.Pretty
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans.Writer.CPS
+import qualified Data.DList as DL
+import Data.Foldable (fold)
+import Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HMS
 import Data.List.Extra
+import Data.Semigroup.FixedPoint
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Map.Strict as MS
@@ -21,6 +25,7 @@ import Data.Either
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Development.IDE.Types.Location
+import GHC.Generics (Generic)
 import Safe
 import System.FilePath
 
@@ -31,7 +36,6 @@ import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
-import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim
@@ -43,7 +47,6 @@ import qualified DA.Daml.LF.TypeChecker.Check as LF
 import qualified DA.Daml.LF.TypeChecker.Env as LF
 import DA.Daml.Options
 
-import DA.Daml.Preprocessor.Generics
 import SdkVersion
 
 data Config = Config
@@ -54,8 +57,9 @@ data Config = Config
         -- ^ maps a package reference to a unit id
     , configSelfPkgId :: LF.PackageId
         -- ^ package id for this package, we need it to build a closed LF.World
-    , configStablePackages :: Set LF.PackageId
-        -- ^ set of package ids for stable packages
+    , configStablePackages :: MS.Map LF.PackageId UnitId
+        -- ^ map from a package id of a stable package to the unit id
+        -- of the corresponding package, i.e., daml-prim/daml-stdlib.
     , configDependencyPackages :: Set LF.PackageId
         -- ^ set of package ids for dependencies (not data-dependencies)
     , configSdkPrefix :: [T.Text]
@@ -68,6 +72,8 @@ data Env = Env
         -- ^ True if refences to this module should be qualified
     , envWorld :: LF.World
         -- ^ World built from dependencies, stable packages, and current package.
+    , envHiddenRefMap :: HMS.HashMap Ref Bool
+        -- ^ Set of references that should be hidden, not exposed.
     , envDepClassMap :: DepClassMap
         -- ^ Map of typeclasses from dependencies.
     , envDepInstances :: MS.Map LF.TypeSynName [LF.Qualified LF.Type]
@@ -160,13 +166,36 @@ isDuplicate env ty1 ty2 =
             esyn2 <- LF.expandTypeSynonyms ty2
             pure (LF.alphaEquiv esyn1 esyn2)
 
+data ImportOrigin = FromCurrentSdk UnitId | FromPackage LF.PackageId
+    deriving (Eq, Ord)
+
 -- | A module reference coming from DAML-LF.
 data ModRef = ModRef
-    { modRefPackageQualify :: Bool
-    -- ^ If True, we use a package-qualified import.
-    , modRefUnitId :: UnitId
-    , modRefModule :: LF.ModuleName
+    { modRefModule :: LF.ModuleName
+    , modRefOrigin :: ImportOrigin
     } deriving (Eq, Ord)
+
+modRefImport :: Config -> ModRef -> LImportDecl GhcPs
+modRefImport Config{..} ModRef{..} = noLoc ImportDecl
+    { ideclSourceSrc = NoSourceText
+    , ideclName = (noLoc . mkModuleName . T.unpack . LF.moduleNameString) modName
+    , ideclPkgQual = Nothing
+    , ideclSource = False
+    , ideclSafe = False
+    , ideclImplicit = False
+    , ideclQualified = False
+    , ideclAs = Nothing
+    , ideclHiding = Nothing
+    , ideclExt = noExt
+    }
+  where
+      modName = case modRefOrigin of
+          FromCurrentSdk _ -> LF.ModuleName (configSdkPrefix <> LF.unModuleName modRefModule)
+          FromPackage importPkgId
+             | importPkgId == configSelfPkgId -> modRefModule
+             -- The module names from the current package are the only ones that are not modified
+             | otherwise -> prefixDependencyModule importPkgId modRefModule
+
 
 -- | Monad for generating a value together with its module references.
 newtype Gen t = Gen (Writer (Set ModRef) t)
@@ -261,13 +290,14 @@ generateSrcFromLf env = noLoc mod
 
     classDecls :: [Gen (LHsDecl GhcPs)]
     classDecls = do
-        LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
+        defTypeSyn@LF.DefTypeSyn{..} <- NM.toList . LF.moduleSynonyms $ envMod env
         fields <- case synType of
             LF.TStruct fields -> [fields]
             LF.TUnit -> [[]]
             _ -> []
         LF.TypeSynName [name] <- [synName]
         guard (synName `MS.notMember` classReexportMap)
+        guard (shouldExposeDefTypeSyn defTypeSyn)
         let occName = mkOccName clsName . T.unpack $ sanitize name
         pure $ do
             supers <- sequence
@@ -325,21 +355,15 @@ generateSrcFromLf env = noLoc mod
             lname = mkRdrName (LF.unExprValName lfName) :: Located RdrName
             sig = TypeSig noExt [lname] . HsWC noExt . HsIB noExt <$> ltype
             lsigD = noLoc . SigD noExt <$> sig :: Gen (LHsDecl GhcPs)
-        let lvalD = noLoc . ValD noExt <$> mkStubBind env lname
+        let lvalD = noLoc . ValD noExt <$> mkStubBind env lname lfType
         [ lsigD, lvalD ]
 
     -- | Generate instance declarations from dictionary functions.
     instanceDecls :: [Gen (Maybe (LHsDecl GhcPs))]
     instanceDecls = do
-        LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
+        dval@LF.DefValue {..} <- NM.toList $ LF.moduleValues $ envMod env
         Just dfunSig <- [getDFunSig dvalBinder]
-        -- TODO (MK)
-        -- This is a temporary measure to be able to import DA.Upgrade.
-        -- This should be replaced by a proper filter based on Erased
-        -- but that’s not yet used in 0.13.51 which we use by testing.
-        -- see https://github.com/digital-asset/daml/issues/4470.
-        guard (LF.qualObject (dfhName $ dfsHead dfunSig) `notElem` map (LF.TypeSynName . pure) ["MetaEquiv", "GenConvertible"])
-        guard (isDFunBody dvalBody)
+        guard (shouldExposeInstance dval)
         let clsName = LF.qualObject $ dfhName $ dfsHead dfunSig
         case find (isDuplicate env (snd dvalBinder) . LF.qualObject) (MS.findWithDefault [] clsName $ envDepInstances env) of
             Just qualInstance ->
@@ -358,28 +382,45 @@ generateSrcFromLf env = noLoc mod
                     , cid_datafam_insts = []
                     , cid_overlap_mode = Nothing
                     }
-      where
-        -- | Check that the body matches that of a dictionary function,
-        -- as opposed to a superclass projection function.
-        isDFunBody :: LF.Expr -> Bool
-        isDFunBody = \case
-            LF.ETyLam _ body -> isDFunBody body
-            LF.ETmLam _ body -> isDFunBody body
-            LF.EStructCon _ -> True
-            _ -> False
 
+    hiddenRefMap :: HMS.HashMap Ref Bool
+    hiddenRefMap = envHiddenRefMap env
+
+    isHidden :: Ref -> Bool
+    isHidden ref =
+        case HMS.lookup ref hiddenRefMap of
+            Nothing -> error
+                ("Internal Error: Missing type dependency from hiddenRefMap: "
+                <> show ref)
+            Just b -> b
+
+    qualify :: a -> LF.Qualified a
+    qualify x = LF.Qualified
+        { qualPackage = LF.PRImport (configSelfPkgId config)
+        , qualModule = lfModName
+        , qualObject = x
+        }
 
     shouldExposeDefDataType :: LF.DefDataType -> Bool
-    shouldExposeDefDataType typeDef
-        = not (defDataTypeIsOldTypeClass typeDef)
+    shouldExposeDefDataType LF.DefDataType{..}
+        = not (isHidden (RTypeCon (qualify dataTypeCon)))
+
+    shouldExposeDefTypeSyn :: LF.DefTypeSyn -> Bool
+    shouldExposeDefTypeSyn LF.DefTypeSyn{..}
+        = not (isHidden (RTypeSyn (qualify synName)))
 
     shouldExposeDefValue :: LF.DefValue -> Bool
     shouldExposeDefValue LF.DefValue{..}
         | (lfName, lfType) <- dvalBinder
         = not ("$" `T.isPrefixOf` LF.unExprValName lfName)
-        && not (typeHasOldTypeclass env lfType)
+        && not (any isHidden (DL.toList (refsFromType lfType)))
         && (LF.moduleNameString lfModName /= "GHC.Prim")
         && not (LF.unExprValName lfName `Set.member` classMethodNames)
+
+    shouldExposeInstance :: LF.DefValue -> Bool
+    shouldExposeInstance LF.DefValue{..}
+        = isDFunBody dvalBody
+        && not (isHidden (RValue (qualify (fst dvalBinder))))
 
     convDataCons :: T.Text -> LF.DataCons -> Gen [LConDecl GhcPs]
     convDataCons dataTypeCon0 = \case
@@ -388,7 +429,7 @@ generateSrcFromLf env = noLoc mod
             pure [ mkConDecl occName (RecCon (noLoc fields')) ]
         LF.DataVariant cons -> do
             sequence
-                [ mkConDecl (occNameFor conName) . details <$> convType env reexportedClasses ty
+                [ mkConDecl (occNameFor conName) <$> convConDetails ty
                 | (conName, ty) <- cons
                 ]
         LF.DataEnum cons -> do
@@ -414,42 +455,30 @@ generateSrcFromLf env = noLoc mod
             , con_args = details
             }
 
-        -- In DAML we have sums of products, in DAML-LF a variant only has
-        -- a single field. Here we combine them back into a single type.
-        details :: HsType GhcPs -> HsConDeclDetails GhcPs
-        details = \case
-            HsRecTy _ext fs -> RecCon $ noLoc fs
-            ty -> PrefixCon [noLoc ty]
+        convConDetails :: LF.Type -> Gen (HsConDeclDetails GhcPs)
+        convConDetails = \case
 
+            -- | variant record constructor
+            LF.TConApp LF.Qualified{..} _
+                | LF.TypeConName ns <- qualObject
+                , length ns == 2 ->
+                    case MS.lookup ns (sumProdRecords $ envMod env) of
+                        Nothing ->
+                            error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." ns)
+                        Just fs ->
+                            RecCon . noLoc <$> mapM (uncurry (mkConDeclField env)) fs
+
+            -- | normal payload
+            ty ->
+                PrefixCon . pure . noLoc <$> convType env reexportedClasses ty
 
     -- imports needed by the module declarations
     imports
      =
-        [ noLoc $
-        ImportDecl
-            { ideclExt = noExt
-            , ideclSourceSrc = NoSourceText
-            , ideclName =
-                  noLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRefModule
-            , ideclPkgQual = do
-                guard modRefPackageQualify -- we don’t do package qualified imports
-                    -- for modules that should come from the current SDK.
-                Just $ StringLiteral NoSourceText $ mkFastString $
-                    -- Package qualified imports for the current package
-                    -- need to use "this" instead of the package id.
-                    if modRefUnitId == unitId
-                        then "this"
-                        else T.unpack . LF.unPackageName . fst $ LF.splitUnitId modRefUnitId
-            , ideclSource = False
-            , ideclSafe = False
-            , ideclImplicit = False
-            , ideclQualified = True
-            , ideclAs = Nothing
-            , ideclHiding = Nothing
-            } :: LImportDecl GhcPs
-        | ModRef{..} <- Set.toList modRefs
+        [ modRefImport config modRef
+        | modRef@ModRef{..} <- Set.toList modRefs
          -- don’t import ourselves
-        , not (modRefModule == lfModName && modRefUnitId == unitId)
+        , not (modRefModule == lfModName && modRefOrigin == FromPackage (configSelfPkgId config))
         -- GHC.Prim doesn’t need to and cannot be explicitly imported (it is not exposed since the interface file is black magic
         -- hardcoded in GHC).
         , modRefModule /= LF.ModuleName ["CurrentSdk", "GHC", "Prim"]
@@ -487,26 +516,50 @@ mkDataDecl env thisModule occName tyVars cons = do
 -- | Make a binding of the form "x = error \"data-dependency stub\"". If a qualified name is passed,
 -- we turn the left-hand side into the unqualified form of that name (LHS
 -- must always be unqualified), and the right-hand side remains qualified.
-mkStubBind :: Env -> Located RdrName -> Gen (HsBind GhcPs)
-mkStubBind env lname = do
-    -- Note that a simple recursive binding x = x
-    -- will fall apart in the presence of AmbiguousTypes. We
-    -- could in principle fix this via TypeApplications but generating
-    -- a call to `error` is simpler and avoids the issue.
+mkStubBind :: Env -> Located RdrName -> LF.Type -> Gen (HsBind GhcPs)
+mkStubBind env lname ty = do
+    -- Producing an expression that GHC will accept for
+    -- an arbitrary type:
+    --
+    -- 1. A simple recursive binding x = x falls apart in the presence of
+    --    AllowAmbiguousTypes.
+    -- 2. TypeApplications could in theory fix this but GHC is
+    --    extremely pedantic when it comes to which type variables are
+    --    in scope, e.g., the following is an error
+    --
+    --    f :: (forall a. Show a => a -> String)
+    --    f = f @a -- not in scope error
+    --
+    --    So making that actually work is very annoying.
+    -- 3. One would hope that just calling `error` does the trick but that
+    --    fails due to ImpredicativeTypes in something like Lens s t a b -> Lens s t a b.
+    --
+    -- The solution we use is to count the number of arguments and add wildcard
+    -- matches so that the type variable in `error`s type only needs to be
+    -- unified with the non-impredicative result.
     lexpr <- mkErrorCall env "data-dependency stub"
+    let args = countFunArgs ty
     let lgrhs = noLoc $ GRHS noExt [] lexpr :: LGRHS GhcPs (LHsExpr GhcPs)
         grhss = GRHSs noExt [lgrhs] (noLoc $ EmptyLocalBinds noExt)
         lnameUnqual = noLoc . mkRdrUnqual . rdrNameOcc $ unLoc lname
         matchContext = FunRhs lnameUnqual Prefix NoSrcStrict
-        lmatch = noLoc $ Match noExt matchContext [] Nothing grhss
+        lmatch = noLoc $ Match noExt matchContext (replicate args $ noLoc (WildPat noExt)) Nothing grhss
         lalts = noLoc [lmatch]
         bind = FunBind noExt lnameUnqual (MG noExt lalts Generated) WpHole []
     pure bind
+  where
+    countFunArgs = \case
+        (arg LF.:-> t)
+          | isConstraint arg -> countFunArgs t
+          | otherwise -> 1 + countFunArgs t
+        LF.TForall _ t -> countFunArgs t
+        _ -> 0
+
 
 mkErrorCall :: Env -> String -> Gen (LHsExpr GhcPs)
 mkErrorCall env msg = do
-    ghcErr <- genStableModule env (stringToUnitId "daml-prim") (LF.ModuleName ["GHC", "Err"])
-    dataString <- genStableModule env (stringToUnitId "daml-prim") (LF.ModuleName ["Data", "String"])
+    ghcErr <- genStableModule env primUnitId (LF.ModuleName ["GHC", "Err"])
+    dataString <- genStableModule env primUnitId (LF.ModuleName ["Data", "String"])
     let errorFun = noLoc $ HsVar noExt $ noLoc $ mkOrig ghcErr $ mkOccName varName "error" :: LHsExpr GhcPs
     let fromStringFun = noLoc $ HsVar noExt $ noLoc $ mkOrig dataString $ mkOccName varName "fromString" :: LHsExpr GhcPs
     let errorMsg = noLoc $ HsLit noExt (HsString (SourceText $ show msg) $ mkFastString msg) :: LHsExpr GhcPs
@@ -535,16 +588,15 @@ isConstraint = \case
 genModule :: Env -> LF.PackageRef -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
     let Config{..} = envConfig env
-        (packageQualified, modName') = case pkgRef of
+        origin = case pkgRef of
             LF.PRImport pkgId
-                | pkgId `Set.member` configDependencyPackages -> (False, prefixDependencyModule pkgId modName)
-                | pkgId `Set.member` configStablePackages -> (False, prefixModuleName configSdkPrefix modName)
-            _ -> (True, modName)
-        unitId = configGetUnitId pkgRef
-    genModuleAux packageQualified unitId modName'
+                | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
+                | otherwise -> FromPackage pkgId
+            LF.PRSelf -> FromPackage configSelfPkgId
+    genModuleAux (envConfig env) origin modName
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
-genStableModule env unitId = genModuleAux False unitId . prefixModuleName (configSdkPrefix $ envConfig env)
+genStableModule env currentSdkPkg = genModuleAux (envConfig env) (FromCurrentSdk currentSdkPkg)
 
 prefixModuleName :: [T.Text] -> LF.ModuleName -> LF.ModuleName
 prefixModuleName prefix (LF.ModuleName mod) = LF.ModuleName (prefix <> mod)
@@ -552,12 +604,15 @@ prefixModuleName prefix (LF.ModuleName mod) = LF.ModuleName (prefix <> mod)
 prefixDependencyModule :: LF.PackageId -> LF.ModuleName -> LF.ModuleName
 prefixDependencyModule (LF.PackageId pkgId) = prefixModuleName ["Pkg_" <> pkgId]
 
-genModuleAux :: Bool -> UnitId -> LF.ModuleName -> Gen Module
-genModuleAux isQualified unitId modName = do
-    let ghcModName = mkModuleName . T.unpack $ LF.moduleNameString modName
-        modRef = ModRef isQualified unitId modName
+genModuleAux :: Config -> ImportOrigin -> LF.ModuleName -> Gen Module
+genModuleAux conf origin moduleName = do
+    let modRef = ModRef moduleName origin
+    let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
+    let unitId = case origin of
+            FromCurrentSdk unitId -> unitId
+            FromPackage pkgId -> configGetUnitId conf (LF.PRImport pkgId)
     emitModRef modRef
-    pure $ mkModule unitId ghcModName
+    pure $ mkModule unitId ghcModuleName
 
 -- | We cannot refer to a class C reexported from the current module M using M.C. Therefore
 -- we have to rewrite it to the original module. The map only contains type synonyms reexported
@@ -595,7 +650,7 @@ convType env reexported =
                 tyvar = HsTyVar noExt NotPromoted . noLoc
                     . mkOrig ghcMod . mkOccName clsName $ T.unpack tyname
             args <- mapM (convType env reexported) lfArgs
-            pure $ HsParTy noExt (noLoc $ foldl (HsAppTy noExt . noLoc) tyvar (map noLoc args))
+            pure $ HsParTy noExt (noLoc $ foldl' (HsAppTy noExt . noLoc) tyvar (map noLoc args))
 
         ty | Just text <- getPromotedText ty ->
             pure $ HsTyLit noExt (HsStrTy NoSourceText (mkFastString $ T.unpack text))
@@ -614,11 +669,6 @@ convType env reexported =
                     ghcMod <- genModule env qualPackage qualModule
                     pure . HsTyVar noExt NotPromoted . noLoc
                         . mkOrig ghcMod . mkOccName varName $ T.unpack name
-                n@[_name0, _name1] -> case MS.lookup n (sumProdRecords $ envMod env) of
-                    Nothing ->
-                        error $ "Internal error: Could not find generated record type: " <> T.unpack (T.intercalate "." n)
-                    Just fs ->
-                        HsRecTy noExt <$> mapM (uncurry (mkConDeclField env)) fs
                 cs -> errTooManyNameComponents cs
         LF.TApp ty1 ty2 -> do
             ty1' <- convType env reexported ty1
@@ -734,7 +784,7 @@ mkTyConTypeUnqual tyCon = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occNa
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf config pkg = do
+generateSrcPkgFromLf envConfig pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     let fp =
             toNormalizedFilePath $
@@ -746,14 +796,12 @@ generateSrcPkgFromLf config pkg = do
           (showSDocForUser fakeDynFlags alwaysQualify $
            ppr $ generateSrcFromLf $ env mod))
   where
-    env m = Env
-        { envConfig = config
-        , envQualifyThisModule = False
-        , envDepClassMap = buildDepClassMap config
-        , envDepInstances = buildDepInstances config
-        , envWorld = buildWorld config
-        , envMod = m
-        }
+    env envMod = Env {..}
+    envQualifyThisModule = False
+    envDepClassMap = buildDepClassMap envConfig
+    envDepInstances = buildDepInstances envConfig
+    envWorld = buildWorld envConfig
+    envHiddenRefMap = buildHiddenRefMap envConfig envWorld
     header =
         [ "{-# LANGUAGE NoDamlSyntax #-}"
         , "{-# LANGUAGE NoImplicitPrelude #-}"
@@ -764,106 +812,173 @@ generateSrcPkgFromLf config pkg = do
         , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods #-}"
         ]
 
-genericInstances :: Env -> LF.PackageId -> ([ImportDecl GhcPs], [HsDecl GhcPs])
-genericInstances env externPkgId =
-    ( [unLoc imp | imp <- hsmodImports src]
-    , [ unLoc $
-      generateGenericInstanceFor
-          (nameOccName genClassName)
-          tcdLName
-          -- NOTE (MK) Using the package id as the unit id
-          -- sounds very sketchy but is only used for a debugging
-          -- command that should be removed soon.
-          (stringToUnitId $ T.unpack $ LF.unPackageId externPkgId)
-          (noLoc $
-           mkModuleName $
-           T.unpack $ LF.moduleNameString $ LF.moduleName $ envMod env)
-          tcdTyVars
-          tcdDataDefn
-      | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
-      ])
+-- | A reference that can appear in a type or expression. We need to track
+-- all of these in order to control what gets hidden in data-dependencies.
+data Ref
+    = RTypeCon (LF.Qualified LF.TypeConName)
+        -- ^ necessary to track hidden types and old-style typeclasses
+    | RTypeSyn (LF.Qualified LF.TypeSynName)
+        -- ^ necessary to track hidden new-style typeclasses
+    | RValue (LF.Qualified LF.ExprValName)
+        -- ^ necessary to track hidden typeclass instances
+    deriving (Eq, Ord, Show, Generic)
+
+instance Hashable Ref
+
+type RefGraph = HMS.HashMap Ref (Bool, [Ref])
+
+-- | Calculate the set of all references that should be hidden.
+buildHiddenRefMap :: Config -> LF.World -> HMS.HashMap Ref Bool
+buildHiddenRefMap config world =
+    case leastFixedPointBy (||) refGraphList of
+        Left ref -> error
+            ("Internal error: missing reference in RefGraph "
+            <> show ref)
+        Right m -> m
   where
-    src = unLoc $ generateSrcFromLf env
-
-
-generateGenInstancesPkgFromLf ::
-       Config
-    -> LF.PackageId
-    -> LF.Package
-    -> String
-    -> [(NormalizedFilePath, String)]
-generateGenInstancesPkgFromLf config pkgId pkg qual =
-    catMaybes
-        [ generateGenInstanceModule
-            Env
-                { envConfig = config
-                , envQualifyThisModule = True
-                , envMod = mod
-                , envDepClassMap = buildDepClassMap config
-                , envDepInstances = buildDepInstances config
-                , envWorld = buildWorld config
-                }
-            pkgId
-            qual
-        | mod <- NM.toList $ LF.packageModules pkg
+    refGraphList :: [(Ref, Bool, [Ref])]
+    refGraphList =
+        [ (ref, hidden, deps)
+        | (ref, (hidden, deps)) <- HMS.toList refGraph
         ]
 
-generateGenInstanceModule ::
-       Env -> LF.PackageId -> String -> Maybe (NormalizedFilePath, String)
-generateGenInstanceModule env externPkgId qual
-    | not $ null instances =
-        Just
-            ( toNormalizedFilePath modFilePath
-            , unlines $
-              header ++
-              nubSort imports ++
-              map (showSDocForUser fakeDynFlags alwaysQualify . ppr) genImports ++
-              [ replace (modName <> ".") (modNameQual <> ".") $
-                 unlines $
-                 map
-                     (showSDocForUser fakeDynFlags alwaysQualify . ppr)
-                     instances
-              ])
-    | otherwise = Nothing
+    refGraph :: RefGraph
+    refGraph = foldl' visitRef HMS.empty (rootRefs config world)
+
+    visitRef :: RefGraph -> Ref -> RefGraph
+    visitRef !refGraph ref
+        | HMS.member ref refGraph
+            = refGraph -- already in the map
+        | ref == RTypeCon erasedTCon
+            = HMS.insert ref (True, []) refGraph -- Erased is always erased
+
+        | RTypeCon tcon <- ref
+        , Right defDataType <- LF.lookupDataType tcon world
+        , refs <- DL.toList (refsFromDefDataType defDataType)
+        , hidden <- defDataTypeIsOldTypeClass defDataType
+        , refGraph' <- HMS.insert ref (hidden, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | RTypeSyn tsyn <- ref
+        , Right defTypeSyn <- LF.lookupTypeSyn tsyn world
+        , refs <- DL.toList (refsFromDefTypeSyn defTypeSyn)
+        , refGraph' <- HMS.insert ref (False, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | RValue val <- ref
+        , Right dval@LF.DefValue{..} <- LF.lookupValue val world
+        , refs <- if hasDFunSig dvalBinder -- we only care about typeclass instances
+            then DL.toList (refsFromDFun dval)
+            else mempty
+        , refGraph' <- HMS.insert ref (False, refs) refGraph
+            = foldl' visitRef refGraph' refs
+
+        | otherwise
+            = error ("Unknown reference to type dependency " <> show ref)
+
+-- | Get the list of type constructors that this type references.
+-- This uses difference lists to reduce overhead.
+refsFromType :: LF.Type -> DL.DList Ref
+refsFromType = go
   where
-    instances = genInstances
-    genImportsAndInstances = genericInstances env externPkgId
-    genImports = [idecl{ideclQualified = True} | idecl <- fst genImportsAndInstances]
-    genInstances = snd genImportsAndInstances
+    go = \case
+        LF.TCon tcon -> pure (RTypeCon tcon)
+        LF.TSynApp tsyn xs -> pure (RTypeSyn tsyn) <> foldMap go xs
+        LF.TVar _ -> mempty
+        LF.TBuiltin _ -> mempty
+        LF.TNat _ -> mempty
+        LF.TApp a b -> go a <> go b
+        LF.TForall _ b -> go b
+        LF.TStruct fields -> foldMap (go . snd) fields
 
-    mod = envMod env
+refsFromDefTypeSyn :: LF.DefTypeSyn -> DL.DList Ref
+refsFromDefTypeSyn = refsFromType . LF.synType
 
-    modFilePath = (joinPath $ splitOn "." modName) ++ qual ++ "GenInstances" ++ ".daml"
-    modName = T.unpack $ LF.moduleNameString $ LF.moduleName mod
-    modNameQual = modName <> qual
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE EmptyCase #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports #-}"
-        , "module " <> modNameQual <> "GenInstances" <> " where"
+refsFromDefDataType :: LF.DefDataType -> DL.DList Ref
+refsFromDefDataType = refsFromDataCons . LF.dataCons
+
+refsFromDataCons :: LF.DataCons -> DL.DList Ref
+refsFromDataCons = \case
+    LF.DataRecord fields -> foldMap (refsFromType . snd) fields
+    LF.DataVariant cons -> foldMap (refsFromType . snd) cons
+    LF.DataEnum _ -> mempty
+
+rootRefs :: Config -> LF.World -> DL.DList Ref
+rootRefs config world = fold
+    [ modRootRefs (configSelfPkgId config) mod
+    | mod <- NM.toList (LF.packageModules (LF.getWorldSelf world))
+    ]
+
+modRootRefs :: LF.PackageId -> LF.Module -> DL.DList Ref
+modRootRefs pkgId mod = fold
+    [ DL.fromList
+        [ RTypeCon (qualify (LF.dataTypeCon defDataType))
+        | defDataType <- NM.toList (LF.moduleDataTypes mod)
         ]
-    imports =
-        [ "import qualified " <> modNameQual
-        , "import qualified DA.Generics"
+    , DL.fromList
+        [ RTypeSyn (qualify (LF.synName defTypeSyn))
+        | defTypeSyn <- NM.toList (LF.moduleSynonyms mod)
         ]
+    , DL.fromList
+        [ RValue (qualify (fst dvalBinder))
+        | LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
+        , hasDFunSig dvalBinder
+        ]
+    , fold
+        [ refsFromType (snd dvalBinder)
+        | LF.DefValue{..} <- NM.toList (LF.moduleValues mod)
+        , not (hasDFunSig dvalBinder)
+        ]
+    ]
+  where
+    qualify :: a -> LF.Qualified a
+    qualify = LF.Qualified (LF.PRImport pkgId) (LF.moduleName mod)
 
--- | Returns 'True' if an LF type contains a reference to an
--- old-style typeclass. See 'tconIsOldTypeclass' for more details.
-typeHasOldTypeclass :: Env -> LF.Type -> Bool
-typeHasOldTypeclass env = \case
-    LF.TVar _ -> False
-    LF.TCon tcon -> tconIsOldTypeclass env tcon
-    LF.TSynApp _ _ -> False
-        -- Type synonyms came after the switch to new-style
-        -- typeclasses, so we can assume there are no old-style
-        -- typeclasses being referenced.
-    LF.TApp a b -> typeHasOldTypeclass env a || typeHasOldTypeclass env b
-    LF.TBuiltin _ -> False
-    LF.TForall _ b -> typeHasOldTypeclass env b
-    LF.TStruct fields -> any (typeHasOldTypeclass env . snd) fields
-    LF.TNat _ -> False
+-- | Check that an expression matches the body of a dictionary function.
+isDFunBody :: LF.Expr -> Bool
+isDFunBody = \case
+    LF.ETyLam _ body -> isDFunBody body
+    LF.ETmLam _ body -> isDFunBody body
+    LF.EStructCon _ -> True
+    _ -> False
 
--- | Determine whether a typecon refers to an old-style
+-- | Get the relevant references from a dictionary function.
+refsFromDFun :: LF.DefValue -> DL.DList Ref
+refsFromDFun LF.DefValue{..}
+    = refsFromType (snd dvalBinder)
+    <> refsFromDFunBody dvalBody
+
+-- | Extract instance references from a dictionary function, and possibly some
+-- more value references that get swept up by accident. This is general enough
+-- to catch both @$f...@ generic dictionary functions, and @$d...@ specialised
+-- dictionary functions.
+--
+-- Read https://wiki.haskell.org/Inlining_and_Specialisation for more info on
+-- dictionary function specialisation.
+refsFromDFunBody :: LF.Expr -> DL.DList Ref
+refsFromDFunBody = \case
+    LF.ETyLam _ body -> refsFromDFunBody body
+    LF.ETmLam (_, ty) body -> refsFromType ty <> refsFromDFunBody body
+    LF.EStructCon fields -> foldMap refsFromDFunField fields
+    LF.EStructProj _fieldName a -> refsFromDFunBody a
+    LF.ETyApp a b -> refsFromDFunBody a <> refsFromType b
+    LF.ETmApp a b -> refsFromDFunBody a <> refsFromDFunBody b
+    LF.EVal val -> pure (RValue val)
+    LF.ELet (LF.Binding (_, ty) a) b -> refsFromType ty <> refsFromDFunBody a <> refsFromDFunBody b
+    LF.EBuiltin _ -> mempty
+    LF.EVar _ -> mempty
+    t -> error ("Unhandled expression type in dictionary function body: " <> show t)
+  where
+    -- | We only care about superclasses instances.
+    refsFromDFunField :: (LF.FieldName, LF.Expr) -> DL.DList Ref
+    refsFromDFunField (fieldName, fieldBody)
+        | isSuperClassField fieldName
+        = refsFromDFunBody fieldBody
+
+        | otherwise
+        = mempty
+
+-- | Determine whether a data type def is for an old-style
 -- typeclass. By "old-style" I mean a typeclass based on
 -- nominal LF record types. There's no foolproof way of
 -- determining this, but we can approximate it by taking
@@ -880,12 +995,6 @@ typeHasOldTypeclass env = \case
 -- typeclass and therefore any functions that use this type
 -- will not be exposed via the data-dependency mechanism,
 -- (see 'generateSrcFromLf').
-tconIsOldTypeclass :: Env -> LF.Qualified LF.TypeConName -> Bool
-tconIsOldTypeclass env tcon =
-    case envLookupDataType tcon env of
-        Nothing -> error ("Unknown reference to type " <> show tcon)
-        Just dtype -> defDataTypeIsOldTypeClass dtype
-
 defDataTypeIsOldTypeClass :: LF.DefDataType -> Bool
 defDataTypeIsOldTypeClass LF.DefDataType{..}
     | LF.DataRecord fields <- dataCons
@@ -899,26 +1008,6 @@ defDataTypeIsOldTypeClass LF.DefDataType{..}
         case fieldType of
             LF.TUnit LF.:-> _ -> True
             _ -> False
-
-envLookupDataType :: LF.Qualified LF.TypeConName -> Env -> Maybe LF.DefDataType
-envLookupDataType tcon env = do
-    mod <- envLookupModuleOf tcon env
-    NM.lookup (LF.qualObject tcon) (LF.moduleDataTypes mod)
-
-envLookupModuleOf :: LF.Qualified a -> Env -> Maybe LF.Module
-envLookupModuleOf qual = envLookupModule (LF.qualPackage qual) (LF.qualModule qual)
-
-envLookupModule :: LF.PackageRef -> LF.ModuleName -> Env -> Maybe LF.Module
-envLookupModule pkgRef modName env = do
-    pkg <- envLookupPackage pkgRef env
-    NM.lookup modName (LF.packageModules pkg)
-
-envLookupPackage :: LF.PackageRef -> Env -> Maybe LF.Package
-envLookupPackage ref env = MS.lookup refPkgId configPackages
-    where Config{..} = envConfig env
-          refPkgId = case ref of
-              LF.PRSelf -> configSelfPkgId
-              LF.PRImport pkgId -> pkgId
 
 getClassMethodName :: LF.FieldName -> Maybe T.Text
 getClassMethodName (LF.FieldName fieldName) =
@@ -946,6 +1035,12 @@ data DFunHead
           { dfhName :: LF.Qualified LF.TypeSynName -- ^ name of type synonym
           , dfhArgs :: [LF.Type] -- ^ arguments
           }
+
+-- | Is this the type signature for a dictionary function? Note that this
+-- accepts both generic dictionary functions "$f..." and specialised
+-- dictionary functions "$d...".
+hasDFunSig :: (LF.ExprValName, LF.Type) -> Bool
+hasDFunSig binder = isJust (getDFunSig binder)
 
 -- | Break a value type signature down into a dictionary function signature.
 getDFunSig :: (LF.ExprValName, LF.Type) -> Maybe DFunSig
@@ -1010,14 +1105,12 @@ convDFunSig env reexported DFunSig{..} = do
       . HsParTy noExt . noLoc
       . HsForAllTy noExt binders . noLoc
       . HsQualTy noExt (noLoc (map noLoc context)) . noLoc
-      $ foldl (HsAppTy noExt . noLoc) cls (map noLoc args)
+      $ foldl' (HsAppTy noExt . noLoc) cls (map noLoc args)
 
 getPromotedText :: LF.Type -> Maybe T.Text
 getPromotedText = \case
-    LF.TApp (LF.TCon LF.Qualified {..}) argTy
-        | qualPackage == LF.PRImport (LF.PackageId "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97")
-        , qualModule == LF.ModuleName ["DA", "Internal", "PromotedText"]
-        , ["PromotedText"] <- LF.unTypeConName qualObject
+    LF.TApp (LF.TCon qtcon) argTy
+        | qtcon == promotedTextTCon
         ->
             case argTy of
                 LF.TStruct [(LF.FieldName text, LF.TUnit)]
@@ -1026,3 +1119,20 @@ getPromotedText = \case
                 _ ->
                     error ("Unexpected argument type to DA.Internal.PromotedText: " <> show argTy)
     _ -> Nothing
+
+stableTCon :: T.Text -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
+stableTCon packageId moduleName tconName = LF.Qualified
+    { qualPackage = LF.PRImport (LF.PackageId packageId)
+    , qualModule = LF.ModuleName moduleName
+    , qualObject = LF.TypeConName [tconName]
+    }
+
+erasedTCon, promotedTextTCon :: LF.Qualified LF.TypeConName
+erasedTCon = stableTCon
+    "76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f"
+    ["DA", "Internal", "Erased"]
+    "Erased"
+promotedTextTCon = stableTCon
+    "d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97"
+    ["DA", "Internal", "PromotedText"]
+    "PromotedText"

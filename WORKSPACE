@@ -42,13 +42,13 @@ load("//bazel_tools:os_info.bzl", "os_info")
 
 os_info(name = "os_info")
 
-load("//bazel_tools:sdk_version.bzl", "sdk_version")
+load("//bazel_tools:build_environment.bzl", "build_environment")
 
-sdk_version(name = "sdk_version")
+build_environment(name = "build_environment")
 
 dadew(name = "dadew")
 
-load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
 load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
 
 ghc_dwarf(name = "ghc_dwarf")
@@ -142,6 +142,26 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+nixpkgs_package(
+    name = "openssl_nix",
+    attribute_path = "openssl",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "openssl_dev_env",
+    nix_include = ["bin/openssl"],
+    nix_label = "@openssl_nix",
+    nix_paths = ["bin/openssl"],
+    tools = ["openssl"],
+    win_include = ["bin"],
+    win_paths = ["bin/openssl.exe"],
+    win_tool = "openssl",
+)
+
 # Tar & gzip dependency
 nixpkgs_package(
     name = "tar_nix",
@@ -223,14 +243,18 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
+nix_ghc_deps = common_nix_file_deps + [
+    "//nix:ghc.nix",
+    "//nix:with-packages-wrapper.nix",
+    "//nix:overrides/ghc-8.6.5.nix",
+    "//nix:overrides/ghc-8.6.3-binary.nix",
+]
+
 nixpkgs_package(
     name = "hlint_nix",
     attribute_path = "hlint",
     nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps + [
-        "//nix:overrides/hlint-2.1.15.nix",
-        "//nix:overrides/haskell-src-exts-1.21.0.nix",
-    ],
+    nix_file_deps = nix_ghc_deps,
     repositories = dev_env_nix_repos,
 )
 
@@ -278,17 +302,10 @@ filegroup(
     repositories = dev_env_nix_repos,
 ) if is_linux else None
 
-nix_ghc_deps = common_nix_file_deps + [
-    "//nix:ghc.nix",
-    "//nix:with-packages-wrapper.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
-    "//nix:overrides/ghc-8.6.3-binary.nix",
-]
-
 # This is used to get ghc-pkg on Linux.
 nixpkgs_package(
     name = "ghc_nix",
-    attribute_path = "ghc.ghc",
+    attribute_path = "ghcStatic",
     build_file_content = """
 package(default_visibility = ["//visibility:public"])
 exports_files(glob(["lib/**/*"]))
@@ -321,7 +338,9 @@ haskell_register_ghc_nixpkgs(
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
     compiler_flags = common_ghc_flags + [
         "-fexternal-dynamic-refs",
-    ] + (["-g3"] if enable_ghc_dwarf else ["-optl-s"]),
+    ] + (["-g3"] if enable_ghc_dwarf else ([
+        "-optl-unexported_symbols_list=*",
+    ] if is_darwin else ["-optl-s"])),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],

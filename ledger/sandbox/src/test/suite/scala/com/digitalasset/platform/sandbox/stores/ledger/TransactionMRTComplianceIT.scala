@@ -14,8 +14,9 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -79,22 +80,29 @@ class TransactionMRTComplianceIT
   }
 
   val LET = Instant.EPOCH.plusSeconds(2)
+  val ST = LET.plusNanos(3)
   val MRT = Instant.EPOCH.plusSeconds(5)
 
   "A Ledger" should {
     "reject transactions with a record time after the MRT" in allFixtures { ledger =>
-      val dummyTransaction =
-        GenTransaction[NodeId, TContractId, Value[TContractId]](HashMap.empty, ImmArray.empty, None)
+      val seed = Some(crypto.Hash.hashPrivateKey(this.getClass.getName))
+
+      val dummyTransaction: Transaction.AbsTransaction =
+        GenTransaction(HashMap.empty, ImmArray.empty)
 
       val submitterInfo = SubmitterInfo(
-        Ref.Party.assertFromString("submitter"),
-        Ref.LedgerString.assertFromString("appId"),
-        Ref.LedgerString.assertFromString("cmdId"),
-        Time.Timestamp.assertFromInstant(MRT)
+        submitter = Ref.Party.assertFromString("submitter"),
+        applicationId = Ref.LedgerString.assertFromString("appId"),
+        commandId = Ref.LedgerString.assertFromString("cmdId"),
+        maxRecordTime = Time.Timestamp.assertFromInstant(MRT),
+        deduplicateUntil = Instant.EPOCH
       )
       val transactionMeta = TransactionMeta(
-        Time.Timestamp.assertFromInstant(LET),
-        Some(Ref.LedgerString.assertFromString("wfid"))
+        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(LET),
+        workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+        submissionTime = Time.Timestamp.assertFromInstant(ST),
+        submissionSeed = seed,
+        optUsedPackages = None,
       )
 
       ledger

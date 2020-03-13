@@ -5,16 +5,15 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.nio.file.Files
-import java.security.SecureRandom
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.dec.DirectExecutionContext
@@ -23,8 +22,8 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
+import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
@@ -46,6 +45,7 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -118,7 +118,7 @@ object SandboxServer {
       // nested resource so we can release it independently when restarting
       apiServerResource: Resource[ApiServer],
   ) {
-    def port(implicit executionContext: ExecutionContext): Future[Int] =
+    def port(implicit executionContext: ExecutionContext): Future[Port] =
       apiServer.map(_.port)
 
     private[SandboxServer] def apiServer(
@@ -131,7 +131,7 @@ object SandboxServer {
             Materializer,
             MetricRegistry,
             InMemoryPackageStore,
-            Int // port number
+            Port,
         ) => Resource[ApiServer]
     )(implicit executionContext: ExecutionContext): Future[SandboxState] =
       for {
@@ -174,29 +174,15 @@ final class SandboxServer(
     sandboxState.flatMap(_.apiServer)
 
   // Only used in testing; hopefully we can get rid of it soon.
-  def port: Int =
+  def port: Port =
     Await.result(portF(DirectExecutionContext), AsyncTolerance)
 
-  def portF(implicit executionContext: ExecutionContext): Future[Int] =
+  def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
-
-  /** the reset service is special, since it triggers a server shutdown */
-  private def resetService(
-      ledgerId: LedgerId,
-      authorizer: Authorizer,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): SandboxResetService =
-    new SandboxResetService(
-      ledgerId,
-      () => executionContext,
-      () => resetAndRestartServer()(executionContext),
-      authorizer,
-    )
 
   def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
-    // Need to run this async otherwise the callback kills the server under the in-flight reset service request!
     // TODO: eliminate the state mutation somehow
     sandboxState = sandboxState.flatMap(
       _.reset(
@@ -209,7 +195,8 @@ final class SandboxServer(
             Some(port),
         )))
 
-    // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
+    // Wait for the services to be closed, so we can guarantee that future API calls after finishing
+    // the reset will never be handled by the old one.
     apiServicesClosed
   }
 
@@ -218,13 +205,17 @@ final class SandboxServer(
       metrics: MetricRegistry,
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
-      currentPort: Option[Int],
+      currentPort: Option[Port],
   ): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = ParticipantState.Configuration(0, config.timeModel)
+    val defaultConfiguration = ParticipantState.Configuration(
+      generation = 0,
+      timeModel = config.timeModel,
+      maxDeduplicationTime = Duration.ofDays(1),
+    )
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
@@ -267,12 +258,6 @@ final class SandboxServer(
           )
       }
 
-      val seedService =
-        if (config.useSortableCid)
-          Some(crypto.Hash.secureRandom(SecureRandom.getInstanceStrong.generateSeed(32)))
-        else
-          None
-
       for {
         indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
         ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
@@ -284,33 +269,48 @@ final class SandboxServer(
           "index" -> indexAndWriteService.indexService,
           "write" -> indexAndWriteService.writeService,
         )
-        // NOTE: Re-use the same port after reset.
+        observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
+        _ <- observingTimeServiceBackend
+          .map(_.changes.flatMap(source =>
+            ResourceOwner.forTry(() =>
+              Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
+                .map(_ => ()))))
+          .getOrElse(ResourceOwner.unit)
+          .acquire()
+        // the reset service is special, since it triggers a server shutdown
+        resetService = new SandboxResetService(
+          ledgerId,
+          () => resetAndRestartServer(),
+          authorizer,
+        )
         apiServer <- new LedgerApiServer(
           (mat: Materializer, esf: ExecutionSequencerFactory) =>
             ApiServices
               .create(
-                participantId,
-                indexAndWriteService.writeService,
-                indexAndWriteService.indexService,
-                authorizer,
-                SandboxServer.engine,
-                timeProvider,
-                defaultConfiguration,
-                config.commandConfig,
-                timeServiceBackendO
-                  .map(TimeServiceBackend.withObserver(_, indexAndWriteService.publishHeartbeat)),
-                metrics,
-                healthChecks,
-                seedService,
+                participantId = participantId,
+                writeService = indexAndWriteService.writeService,
+                indexService = indexAndWriteService.indexService,
+                authorizer = authorizer,
+                engine = SandboxServer.engine,
+                timeProvider = timeProvider,
+                defaultLedgerConfiguration = defaultConfiguration,
+                commandConfig = config.commandConfig,
+                partyConfig = config.partyConfig,
+                submissionConfig = config.submissionConfig,
+                optTimeServiceBackend = observingTimeServiceBackend,
+                metrics = metrics,
+                healthChecks = healthChecks,
+                seedService = config.seeding.map(SeedService(_)),
               )(mat, esf, logCtx)
-              .map(_.withServices(List(resetService(ledgerId, authorizer, executionContext)))),
+              .map(_.withServices(List(resetService))),
+          // NOTE: Re-use the same port after reset.
           currentPort.getOrElse(config.port),
           config.maxInboundMessageSize,
           config.address,
           config.tlsConfig.flatMap(_.server),
           List(
             AuthorizationInterceptor(authService, executionContext),
-            resetService(ledgerId, authorizer, executionContext),
+            resetService,
           ),
           metrics
         ).acquire()
@@ -318,15 +318,21 @@ final class SandboxServer(
       } yield {
         Banner.show(Console.out)
         logger.withoutContext.info(
-          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}",
+          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
           BuildInfo.Version,
           ledgerId,
           apiServer.port.toString,
           config.damlPackages,
           timeProviderType.description,
           ledgerType,
-          authService.getClass.getSimpleName
+          authService.getClass.getSimpleName,
+          config.seeding.fold("no")(_.toString.toLowerCase),
         )
+        if (config.scenario.nonEmpty) {
+          logger.withoutContext.warn(
+            """Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
+              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
+        }
         apiServer
       }
     }
@@ -360,7 +366,7 @@ final class SandboxServer(
     Await.result(sandboxState.flatMap(_.release()), AsyncTolerance)
   }
 
-  private def writePortFile(port: Int)(implicit executionContext: ExecutionContext): Future[Unit] =
+  private def writePortFile(port: Port)(implicit executionContext: ExecutionContext): Future[Unit] =
     config.portFile
       .map(path => Future(Files.write(path, Seq(port.toString).asJava)).map(_ => ()))
       .getOrElse(Future.successful(()))

@@ -6,7 +6,6 @@ package com.daml.ledger.on.sql
 import java.io.{BufferedReader, FileNotFoundException}
 import java.math.BigInteger
 import java.nio.charset.Charset
-import java.nio.file.Paths
 import java.security.MessageDigest
 import java.util
 
@@ -46,8 +45,7 @@ class ImmutableMigrationsSpec extends WordSpec {
 
 object ImmutableMigrationsSpec {
   private val migrationsResourcePath = "com/daml/ledger/on/sql/migrations"
-  private val migrationsDirectoryPath =
-    Paths.get(s"ledger/ledger-on-sql/src/main/resources/$migrationsResourcePath")
+  private val hashMigrationsScriptPath = "ledger/ledger-on-sql/hash-migrations.sh"
 
   private def flywayScanner(configuration: FluentConfiguration) =
     new Scanner(
@@ -64,15 +62,8 @@ object ImmutableMigrationsSpec {
       resourceScanner: Scanner[_],
   ): String = {
     val resource = Option(resourceScanner.getResource(digestFile))
-      .getOrElse(
-        throw new FileNotFoundException(
-          s""""$digestFile" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running:
-           |shasum -a 256 '${migrationsDirectoryPath.resolve(sourceFile)}' \\
-           |  | awk '{print $$1}' \\
-           |  > '${migrationsDirectoryPath.resolve(digestFile)}'
-           |""".stripMargin,
-        ),
-      )
+      .getOrElse(throw new FileNotFoundException(
+        s"""\"$digestFile\" is missing. If you are introducing a new Flyway migration step, you need to create an SHA-256 digest file by running $hashMigrationsScriptPath."""))
     new BufferedReader(resource.read()).readLine()
   }
 

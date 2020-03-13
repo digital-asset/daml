@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -15,9 +15,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -113,15 +112,19 @@ trait LedgerReadDao extends ReportsHealth {
     */
   def getActiveContractSnapshot(
       untilExclusive: LedgerOffset,
-      filter: TemplateAwareFilter
+      filter: TransactionFilter
   ): Future[LedgerSnapshot]
 
+  /** Returns a list of party details for the parties specified. */
+  def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
+
   /** Returns a list of all known parties. */
-  def getParties: Future[List[PartyDetails]]
+  def listKnownParties(): Future[List[PartyDetails]]
 
   def getPartyEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
+      endExclusive: LedgerOffset
+  ): Source[(LedgerOffset, PartyLedgerEntry), NotUsed]
 
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]
@@ -140,6 +143,17 @@ trait LedgerReadDao extends ReportsHealth {
 
   def completions: CommandCompletionsReader[LedgerOffset]
 
+  /** Deduplicates commands.
+    *
+    * @param deduplicationKey The key used to deduplicate commands
+    * @param submittedAt The time when the command was submitted
+    * @param deduplicateUntil The time until which the command should be deduplicated
+    * @return
+    */
+  def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

@@ -3,19 +3,11 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.util.ExceptionOps._
 import scalaz.Show
-import scalaz.syntax.show._
 
 final case class JsonError(message: String)
 
-object JsonError {
-  def toJsonError(e: String) = JsonError(e)
-
-  def toJsonError[E: Show](e: E) = JsonError(e.shows)
-
-  def toJsonError(e: Throwable) = JsonError(e.description)
-
+object JsonError extends (String => JsonError) {
   implicit val ShowInstance: Show[JsonError] = Show shows { f =>
     s"JsonError: ${f.message}"
   }

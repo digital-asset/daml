@@ -13,6 +13,8 @@ import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
@@ -42,13 +44,17 @@ class SubmissionValidator[LogResult](
     checkForMissingInputs: Boolean = false,
 )(implicit executionContext: ExecutionContext) {
 
+  private val logger = ContextualizedLogger.get(getClass)
+
   def validate(
       envelope: RawBytes,
       correlationId: String,
       recordTime: Timestamp,
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, Unit]] =
-    runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
+    newLoggingContext { implicit logCtx =>
+      runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
+    }
 
   def validateAndCommit(
       envelope: RawBytes,
@@ -56,6 +62,16 @@ class SubmissionValidator[LogResult](
       recordTime: Timestamp,
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, LogResult]] =
+    newLoggingContext { implicit logCtx =>
+      validateAndCommitWithLoggingContext(envelope, correlationId, recordTime, participantId)
+    }
+
+  private[validator] def validateAndCommitWithLoggingContext(
+      envelope: RawBytes,
+      correlationId: String,
+      recordTime: Timestamp,
+      participantId: ParticipantId,
+  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
     runValidation(envelope, correlationId, recordTime, participantId, commit)
 
   def validateAndTransform[U](
@@ -69,7 +85,9 @@ class SubmissionValidator[LogResult](
           LogEntryAndState,
           LedgerStateOperations[LogResult]) => Future[U]
   ): Future[Either[ValidationFailed, U]] =
-    runValidation(envelope, correlationId, recordTime, participantId, transform)
+    newLoggingContext { implicit logCtx =>
+      runValidation(envelope, correlationId, recordTime, participantId, transform)
+    }
 
   private def commit(
       logEntryId: DamlLogEntryId,
@@ -102,7 +120,7 @@ class SubmissionValidator[LogResult](
           LogEntryAndState,
           LedgerStateOperations[LogResult],
       ) => Future[T],
-  ): Future[Either[ValidationFailed, T]] =
+  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
@@ -135,6 +153,7 @@ class SubmissionValidator[LogResult](
             case Failure(exception: ValidationFailed) =>
               Success(Left(exception))
             case Failure(exception) =>
+              logger.error("Unexpected failure during submission validation.", exception)
               Success(Left(ValidationError(exception.getLocalizedMessage)))
           }
         }
@@ -212,5 +231,7 @@ object SubmissionValidator {
     Envelope.enclose(value).toByteArray
 
   private[validator] def bytesToStateValue(value: RawBytes): DamlStateValue =
-    Envelope.openStateValue(value).right.get
+    Envelope
+      .openStateValue(value)
+      .fold(message => throw new IllegalStateException(message), identity)
 }

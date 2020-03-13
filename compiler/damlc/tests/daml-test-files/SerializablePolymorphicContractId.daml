@@ -1,6 +1,6 @@
 -- Check that `ContractId a` is serializable whenever `a` is serializable.
 -- @SINCE-LF 1.5
-daml 1.2
+
 module SerializablePolymorphicContractId where
 
 data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a

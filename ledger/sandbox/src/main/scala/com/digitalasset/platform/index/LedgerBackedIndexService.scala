@@ -3,12 +3,15 @@
 
 package com.digitalasset.platform.index
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   AcsUpdateEvent,
   ActiveContractSetSnapshot,
+  CommandDeduplicationResult,
   IndexService,
   PackageDetails
 }
@@ -34,7 +37,12 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
+}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
@@ -52,8 +60,7 @@ abstract class LedgerBackedIndexService(
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
   override def getActiveContractSetSnapshot(
-      txFilter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
-    val filter = EventFilter.byTemplates(txFilter)
+      filter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
     ledger
       .snapshot(filter)
       .map {
@@ -62,25 +69,21 @@ abstract class LedgerBackedIndexService(
             LedgerOffset.Absolute(LedgerString.fromLong(offset)),
             acsStream
               .mapConcat { ac =>
-                val create = toUpdateEvent(ac.id, ac)
-                EventFilter
-                  .filterActiveContractWitnesses(filter, create)
-                  .map(create => ac.workflowId.map(domain.WorkflowId(_)) -> create)
+                EventFilter(ac)(filter)
+                  .map(create =>
+                    create.workflowId.map(domain.WorkflowId(_)) -> toUpdateEvent(create))
                   .toList
               }
           )
       }(mat.executionContext)
   }
 
-  private def toUpdateEvent(
-      cId: Value.AbsoluteContractId,
-      ac: ActiveContract
-  ): AcsUpdateEvent.Create =
+  private def toUpdateEvent(ac: ActiveContract): AcsUpdateEvent.Create =
     AcsUpdateEvent.Create(
       // we use absolute contract ids as event ids throughout the sandbox
       domain.TransactionId(ac.transactionId),
       domain.EventId(ac.eventId),
-      cId,
+      ac.id,
       ac.contract.template,
       ac.contract.arg,
       ac.witnesses,
@@ -100,21 +103,35 @@ abstract class LedgerBackedIndexService(
   override def transactionTrees(
       begin: LedgerOffset,
       endAt: Option[LedgerOffset],
-      filter: domain.TransactionFilter): Source[domain.TransactionTree, NotUsed] =
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetTransactionTreesResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainTree(offset, transaction, filter).toList
+          TransactionConversion
+            .ledgerEntryToTransactionTree(
+              offset,
+              transaction,
+              filter.filtersByParty.keySet,
+              verbose)
+            .map(tx => GetTransactionTreesResponse(Seq(tx)))
+            .toList
       }
 
   override def transactions(
       begin: domain.LedgerOffset,
       endAt: Option[domain.LedgerOffset],
-      filter: domain.TransactionFilter): Source[domain.Transaction, NotUsed] =
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetTransactionsResponse, NotUsed] =
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainFlat(offset, transaction, filter).toList
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(offset, transaction, filter, verbose)
+            .map(tx => GetTransactionsResponse(Seq(tx)))
+            .toList
       }
 
   private class OffsetConverter {
@@ -185,31 +202,37 @@ abstract class LedgerBackedIndexService(
 
   override def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[domain.Transaction]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[GetFlatTransactionResponse]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
     getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainFlat(
-            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
-            transaction,
-            filter)
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(
+              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+              transaction,
+              filter,
+              verbose = true)
+            .map(tx => GetFlatTransactionResponse(Option(tx)))
       })(DEC)
   }
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[domain.TransactionTree]] = {
+      requestingParties: Set[Ref.Party]): Future[Option[GetTransactionResponse]] = {
     val filter =
       domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
     getTransactionById(transactionId)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.ledgerEntryToDomainTree(
-            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
-            transaction,
-            filter)
+          TransactionConversion
+            .ledgerEntryToTransactionTree(
+              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+              transaction,
+              filter.filtersByParty.keySet,
+              verbose = true)
+            .map(tx => GetTransactionResponse(Option(tx)))
       })(DEC)
   }
 
@@ -249,8 +272,11 @@ abstract class LedgerBackedIndexService(
   override def getParticipantId(): Future[ParticipantId] =
     Future.successful(participantId)
 
-  override def listParties(): Future[List[PartyDetails]] =
-    ledger.parties
+  override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
+    ledger.getParties(parties)
+
+  override def listKnownParties(): Future[List[PartyDetails]] =
+    ledger.listKnownParties()
 
   override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
     ledger.partyEntries(beginOffset.value.toLong).map {
@@ -277,4 +303,11 @@ abstract class LedgerBackedIndexService(
   override def configurationEntries(
       startInclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
     ledger.configurationEntries(startInclusive).map(_._2.toDomain)
+
+  /** Deduplicate commands */
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
+    ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 }

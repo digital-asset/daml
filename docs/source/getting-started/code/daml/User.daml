@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-daml 1.2
+
 module User where
 
 -- MAIN_TEMPLATE_BEGIN
@@ -17,12 +17,13 @@ template User with
     maintainer key
 
 -- ADDFRIEND_BEGIN
-    choice AddFriend: ContractId User with
+    nonconsuming choice AddFriend: ContractId User with
         friend: Party
       controller username
       do
         assertMsg "You cannot add yourself as a friend" (friend /= username)
         assertMsg "You cannot add a friend twice" (friend `notElem` friends)
+        archive self
         create this with friends = friend :: friends
 -- ADDFRIEND_END
 
@@ -32,7 +33,7 @@ template User with
         content: Text
       controller sender
       do
-        assertMsg "You must be a friend to send a message" (sender `elem` friends)
+        assertMsg "You must be a friend to send a message" (elem sender friends)
         create Message with sender, receiver = username, content
 -- SENDMESSAGE_END
 

@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.extractor.targets._
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import CustomScoptReaders._
+import com.digitalasset.ports.Port
 import scalaz.OneAnd
 
 import scala.util.Try
@@ -38,7 +39,7 @@ object ConfigParser {
       postgresMultiTableMergeIdentical: Boolean = false,
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
-      ledgerPort: Int = 6865,
+      ledgerPort: Port = Port(6865),
       ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiBytes
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
       templateConfigs: Set[TemplateConfig] = Set.empty,
@@ -47,6 +48,12 @@ object ConfigParser {
       tlsPem: Option[String] = None,
       tlsCrt: Option[String] = None,
       tlsCaCrt: Option[String] = None,
+      // tlsExplicit is used to handle the --tls flag
+      // which allows you to enable tls without any special certs,
+      // i.e., tls without client auth with the default root certs.
+      // If any certificates are set tls is enabled implicitly and
+      // tlsExplicit is redundant.
+      tlsExplicit: Boolean = false,
       accessTokenFile: Option[Path] = None,
   )
 
@@ -170,7 +177,7 @@ object ConfigParser {
 
       opt[Int]('p', "ledger-port")
         .optional()
-        .action((x, c) => c.copy(ledgerPort = x))
+        .action((x, c) => c.copy(ledgerPort = Port(x)))
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 
@@ -230,7 +237,7 @@ object ConfigParser {
         .optional()
         .text(
           s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
-            s"Required if any other TLS parameters are set."
+            s"Required for client authentication."
         )
         .validate(validatePath(_, "The file specified via --crt does not exist"))
         .action { (path, c) =>
@@ -242,6 +249,13 @@ object ConfigParser {
         .validate(validatePath(_, "The file specified via --cacrt does not exist"))
         .action { (path, c) =>
           c.copy(tlsCaCrt = Some(path))
+        }
+
+      opt[Unit]("tls")
+        .optional()
+        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+        .action { (_, c) =>
+          c.copy(tlsExplicit = true)
         }
 
       note("\nAuthentication:")
@@ -297,7 +311,7 @@ object ConfigParser {
       }
 
       val tlsConfig = TlsConfiguration(
-        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined,
+        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined || cliParams.tlsExplicit,
         keyCertChainFile = cliParams.tlsCrt.map(new File(_)),
         keyFile = cliParams.tlsPem.map(new File(_)),
         trustCertCollectionFile = cliParams.tlsCaCrt.map(new File(_))

@@ -23,7 +23,7 @@ if [[ ! -e /nix ]]; then
   sudo mkdir -m 0755 /nix
   sudo chown "$(id -u):$(id -g)" /nix
 
-  curl -sfL https://nixos.org/releases/nix/nix-2.3.2/install | bash
+  curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
 fi
 
 # shellcheck source=../dev-env/lib/ensure-nix
@@ -40,7 +40,7 @@ step "Building dev-env dependencies"
 NIX_FAILED=0
 for i in `seq 10`; do
     NIX_FAILED=0
-    nix-build nix -A tools -A cached 2>&1 | tee nix_log || NIX_FAILED=1
+    nix-build nix -A tools -A ci-cached 2>&1 | tee nix_log || NIX_FAILED=1
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
     if [[ $NIX_FAILED -ne 0 ]] &&

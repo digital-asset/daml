@@ -20,6 +20,7 @@ fi
 NUKE=0
 PROFILING=0
 SKIP_JARS=0
+JUST_DAMLC=0
 for opt in "$@" ; do
   case $opt in
     "--nuke")
@@ -31,12 +32,16 @@ for opt in "$@" ; do
     "--skip-jars")
       SKIP_JARS=1;
       ;;
+    "--damlc")
+      JUST_DAMLC=1;
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
       echo "  --nuke  Remove existing daml installation before installing daml-head."
       echo "  --profiling  Build Haskell executables with profiling enabled."
       echo "  --skip-jars  Skip building and installing the JARs."
+      echo "  --damlc  Update damlc only, if daml-head is already installed."
       exit 1
   esac
 done
@@ -55,13 +60,37 @@ if [ -d $DAML_HOME ] && [ "$NUKE" -ne "0" ] ; then
 fi
 
 readonly DAML_HEAD_SDK="$DAML_HOME/sdk/0.0.0"
-if [ -d $DAML_HEAD_SDK ] ; then
+if [ -d $DAML_HEAD_SDK ] && [ "$JUST_DAMLC" -eq "0" ] ; then
   echo "$(tput setaf 3)Removing existing daml-head installation.$(tput sgr 0)"
   rm -f $DAML_HOME/bin/daml-head
   chmod -R u+w $DAML_HEAD_SDK
   rm -rf $DAML_HEAD_SDK
 fi
 
+if [ -d $DAML_HEAD_SDK ] && [ "$JUST_DAMLC" -ne "0" ] ; then
+  # daml-head is installed, so just replace damlc
+  echo "$(tput setaf 3)Existing daml-head installation found."
+  echo "Building damlc version 0.0.0, this may take a while ...$(tput sgr 0)"
+  echo ""
+
+  function cleanup() {
+    echo "damlc 0.0.0 failed to build/install - if you need help ask on #product-daml"
+    echo "$(tput setaf 3)FAILED TO INSTALL! $(tput sgr 0)"
+  }
+  trap cleanup EXIT
+
+  bazel build $BAZEL_MODE_FLAG //compiler/damlc:damlc-dist.tar.gz
+
+  readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/compiler/damlc/damlc-dist.tar.gz
+  chmod -R u+w $DAML_HEAD_SDK
+  rm -rf $DAML_HEAD_SDK/damlc
+  mkdir -p $DAML_HEAD_SDK/damlc
+  tar xzf $TARBALL -C $DAML_HEAD_SDK/damlc --strip-components 1
+
+  trap - EXIT
+  echo "$(tput setaf 3)Done installing damlc 0.0.0$(tput sgr 0)"
+  exit 0
+fi
 
 echo "$(tput setaf 3)Building version 0.0.0 - this may take a while ...$(tput sgr 0)"
 echo ""
@@ -73,9 +102,9 @@ function cleanup() {
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build $BAZEL_MODE_FLAG //release:sdk-head-tarball.tar.gz
+bazel build $BAZEL_MODE_FLAG //release:sdk-release-tarball.tar.gz
 
-readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-head-tarball.tar.gz
+readonly TARBALL=$(bazel info bazel-bin $BAZEL_MODE_FLAG)/release/sdk-release-tarball.tar.gz
 readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 
@@ -103,21 +132,15 @@ echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 if [ "$SKIP_JARS" -eq "0" ]; then
     echo "$(tput setaf 3)Installing JARs as 100.0.0...$(tput sgr 0)"
 
-    cp "$REPO_ROOT/VERSION" "$REPO_ROOT/VERSION.head-build-in-progress"
-
     function cleanup() {
       echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
-      mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
     }
     trap cleanup EXIT
 
-    echo "0.0.0" > "$REPO_ROOT/VERSION"
-
     bazel build //release:release
     tmp=$(mktemp -d)
-    "$REPO_ROOT/bazel-bin/release/release" --artifacts "$REPO_ROOT/release/artifacts.yaml" --release-dir $tmp --install-head-jars
+    "$REPO_ROOT/bazel-bin/release/release" --release-dir $tmp --install-head-jars
 
-    mv "$REPO_ROOT/VERSION.head-build-in-progress" "$REPO_ROOT/VERSION"
     trap - EXIT
 
     echo "$(tput setaf 3)Done installing JARs as 100.0.0.$(tput sgr 0)"

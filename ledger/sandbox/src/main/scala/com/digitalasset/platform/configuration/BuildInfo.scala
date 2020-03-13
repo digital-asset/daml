@@ -7,7 +7,7 @@ import java.io.{BufferedReader, InputStreamReader}
 
 object BuildInfo {
   val Version: String =
-    Option(this.getClass.getClassLoader.getResourceAsStream("COMPONENT-VERSION")).fold {
+    Option(this.getClass.getClassLoader.getResourceAsStream("MVN_VERSION")).fold {
       "{component version not found on classpath}"
     } { is =>
       try {

@@ -3,7 +3,7 @@
 
 -- Test that rational negative literals bigger or equal -10^38 + 1 pass.
 
-daml 1.2
+
 
 module RationalLowerBoundMax where
 

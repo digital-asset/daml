@@ -76,8 +76,8 @@ private class PackageService(reloadPackageStoreIfChanged: PackageService.ReloadP
     () => state.templateIdMap.all
 
   // See the above comment
-  def resolveChoiceRecordType: ResolveChoiceRecordType =
-    (x, y) => PackageService.resolveChoiceRecordType(state.choiceTypeMap)(x, y)
+  def resolveChoiceArgType: ResolveChoiceArgType =
+    (x, y) => PackageService.resolveChoiceArgType(state.choiceTypeMap)(x, y)
 
   // See the above comment
   def resolveKeyType: ResolveKeyType =
@@ -108,7 +108,7 @@ object PackageService {
   type AllTemplateIds =
     () => Set[TemplateId.RequiredPkg]
 
-  type ResolveChoiceRecordType =
+  type ResolveChoiceArgType =
     (TemplateId.RequiredPkg, Choice) => Error \/ iface.Type
 
   type ResolveKeyType =
@@ -162,13 +162,13 @@ object PackageService {
   private def findTemplateIdByK2(m: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])(
       k: TemplateId.NoPkg): Option[TemplateId.RequiredPkg] = m.get(k)
 
-  def resolveChoiceRecordType(choiceIdMap: ChoiceTypeMap)(
+  def resolveChoiceArgType(choiceIdMap: ChoiceTypeMap)(
       templateId: TemplateId.RequiredPkg,
       choice: Choice): Error \/ iface.Type = {
     val k = (templateId, choice)
     choiceIdMap
       .get(k)
-      .toRightDisjunction(InputError(s"Cannot resolve Choice Record type, given: ${k.toString}"))
+      .toRightDisjunction(InputError(s"Cannot resolve Choice Argument type, given: ${k.toString}"))
   }
 
   def resolveKey(keyTypeMap: KeyTypeMap)(templateId: TemplateId.RequiredPkg): Error \/ iface.Type =

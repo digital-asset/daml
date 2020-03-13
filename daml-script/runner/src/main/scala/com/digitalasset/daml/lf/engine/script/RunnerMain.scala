@@ -84,7 +84,13 @@ object RunnerMain {
           fileContent.parseJson
         })
 
-        val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
+        val runner = try {
+          new Runner(dar, applicationId, commandUpdater, timeProvider)
+        } catch {
+          case e: Throwable =>
+            system.terminate
+            sys.exit(1)
+        }
         val participantParams = config.participantConfig match {
           case Some(file) => {
             val source = Source.fromFile(file)

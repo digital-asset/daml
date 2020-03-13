@@ -3,6 +3,6 @@
 
 -- @ERROR Missing module name
 
-daml 1.2
+
 
 data Foo a = Foo a

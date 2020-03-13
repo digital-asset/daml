@@ -14,12 +14,12 @@ let shared = rec {
     grpc
     grpcurl
     gzip
-    hlint
     imagemagick
     jdk8
     jq
     netcat-gnu
     nodejs
+    openssl
     patchelf
     postgresql_9_6
     protobuf3_8
@@ -36,10 +36,20 @@ let shared = rec {
     postFixup = ''touch $out/share/go/ROOT'';
   });
 
-  ghc = pkgs.haskell.packages.ghc865;
-
   # GHC configured for static linking only.
-  ghcStatic = (import ./ghc.nix { inherit pkgs; }).ghc.override { enableShared = false; };
+  ghcStaticPkgs = (import ./ghc.nix { inherit pkgs; }).override {
+    overrides = self: super: {
+      mkDerivation = args: super.mkDerivation (args // {
+        enableLibraryProfiling = false;
+        doHoogle = false;
+        doHaddock = false;
+        doCheck = false;
+      });
+      hlint = pkgs.haskell.lib.justStaticExecutables super.hlint;
+    };
+  };
+  ghcStatic = ghcStaticPkgs.ghc;
+  hlint = ghcStaticPkgs.hlint;
 
 
   # Java 8 development

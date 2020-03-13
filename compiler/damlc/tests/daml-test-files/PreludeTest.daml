@@ -35,7 +35,7 @@
 -- @INFO Evaluate
 -- @INFO Evaluate
 
-daml 1.2
+
 module PreludeTest where
 
 import DA.List as L

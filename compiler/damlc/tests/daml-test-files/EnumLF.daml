@@ -7,7 +7,7 @@
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["red"]) | .expr | has("enum_con")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["isRed"]) | .expr.abs.body.case.alts | .[0] | has("enum")
 -- @QUERY-LF .modules[] | .data_types[] | select(lf::get_dotted_name($pkg) == ["Tag"]) | (has("enum") | not)
-daml 1.2
+
 module EnumLF where
 
 data Color = Red | Green | Blue

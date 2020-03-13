@@ -28,6 +28,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -46,9 +47,9 @@ object TriggerServiceFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(0, dars, ledgerId), mat))
+      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
       port <- ledger.portF
-    } yield (ledger, port)
+    } yield (ledger, port.value)
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
@@ -81,10 +82,11 @@ object TriggerServiceFixture {
   }
 
   private def ledgerConfig(
-      ledgerPort: Int,
+      ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService] = None): SandboxConfig =
+      authService: Option[AuthService] = None
+  ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,

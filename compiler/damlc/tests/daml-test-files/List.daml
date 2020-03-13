@@ -11,7 +11,7 @@
 -- @INFO Use isNone
 -- @INFO Use isNone
 
-daml 1.2
+
 module List where
 
 import DA.List

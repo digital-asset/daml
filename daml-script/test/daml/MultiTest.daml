@@ -2,10 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
-daml 1.2
-module MultiTest where
 
-import Prelude hiding (getParty, submit, submitMustFail)
+module MultiTest where
 
 import Daml.Script
 

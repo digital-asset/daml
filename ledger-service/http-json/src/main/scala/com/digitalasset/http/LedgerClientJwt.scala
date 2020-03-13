@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.digitalasset.jwt.domain.Jwt
+import com.digitalasset.ledger.api
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
@@ -35,6 +36,9 @@ object LedgerClientJwt {
 
   type GetCreatesAndArchivesSince =
     (Jwt, TransactionFilter, LedgerOffset, Terminates) => Source[Transaction, NotUsed]
+
+  type ListKnownParties =
+    Jwt => Future[List[api.domain.PartyDetails]]
 
   private def bearer(jwt: Jwt): Some[String] = Some(s"Bearer ${jwt.value: String}")
 
@@ -97,4 +101,7 @@ object LedgerClientJwt {
       case _ => false
     }
   }
+
+  def listKnownParties(client: LedgerClient): ListKnownParties =
+    jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
 }

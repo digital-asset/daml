@@ -3,27 +3,16 @@
 
 package com.digitalasset.http
 
-import akka.http.scaladsl.model.{
-  ContentTypes,
-  HttpEntity,
-  HttpMethod,
-  HttpRequest,
-  HttpResponse,
-  StatusCode,
-  StatusCodes,
-  Uri
-}
+import akka.http.scaladsl.model._
 import akka.util.ByteString
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.{ResponseFormats, SprayJson}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.digitalasset.http.json.ResponseFormats
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import spray.json.{JsObject, JsValue}
-import scalaz.{-\/, Show, \/}
-import scalaz.syntax.std.option._
-import scalaz.syntax.show._
-import com.digitalasset.http.json.JsonProtocol._
 import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import scalaz.syntax.std.option._
+import scalaz.{-\/, Show, \/}
+import spray.json.{JsArray, JsString, JsValue}
 
 import scala.concurrent.Future
 
@@ -59,18 +48,19 @@ object EndpointsCompanion {
     httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
 
   private[http] def httpResponseError(error: Error): HttpResponse = {
-    val (status, jsObject) = errorsJsObject(error)
-    httpResponse(status, jsObject)
+    import com.digitalasset.http.json.JsonProtocol._
+    val resp = errorResponse(error)
+    httpResponse(resp.status, resp.toJson)
   }
 
-  private[http] def errorsJsObject(error: Error): (StatusCode, JsObject) = {
+  private[http] def errorResponse(error: Error): domain.ErrorResponse[JsValue] = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-    (status, ResponseFormats.errorsJsObject(status, errorMsg))
+    domain.ErrorResponse(errors = JsArray(JsString(errorMsg)), status = status)
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
@@ -112,8 +102,4 @@ object EndpointsCompanion {
           )
       )
   }
-
-  private[http] def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
-    SprayJson.encode(as).leftMap(e => ServerError(e.shows))
-
 }

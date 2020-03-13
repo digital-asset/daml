@@ -8,7 +8,7 @@
 -- @SINCE-LF 1.7
 -- @ERROR Polymorphic numeric literal. Specify a fixed scale by giving the type, e.g. (2.71828 : Numeric 10)
 
-daml 1.2
+
 
 module NumericLitPoly where
 

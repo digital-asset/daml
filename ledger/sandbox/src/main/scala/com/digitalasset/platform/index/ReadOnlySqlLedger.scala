@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.index
 
-import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
+import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -20,36 +20,30 @@ import com.digitalasset.platform.store.dao.{
 }
 import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
 import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.{Resource, ResourceOwner}
-import scalaz.syntax.tag._
+import com.digitalasset.resources.ResourceOwner
 
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
   val maxConnections = 16
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
-  def apply(
+  def owner(
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): Resource[ReadOnlyLedger] = {
-    implicit val ec: ExecutionContext = mat.executionContext
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     for {
-      dbDispatcher <- DbDispatcher
-        .owner(jdbcUrl, maxConnections, metrics)
-        .acquire()
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
       ledgerReadDao = new MeteredLedgerReadDao(
         JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
         metrics,
       )
       factory = new Factory(ledgerReadDao)
-      ledger <- ResourceOwner
-        .forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
-        .acquire()
+      ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger
   }
 
@@ -77,7 +71,7 @@ object ReadOnlySqlLedger {
         .lookupLedgerId()
         .flatMap {
           case Some(foundLedgerId @ `initialLedgerId`) =>
-            logger.info(s"Found existing ledger with ID: ${foundLedgerId.unwrap}")
+            logger.info(s"Found existing ledger with ID: $foundLedgerId")
             Future.successful(foundLedgerId)
           case Some(foundLedgerId) =>
             Future.failed(
@@ -96,26 +90,24 @@ private class ReadOnlySqlLedger(
 )(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
 
-  private val ledgerEndUpdateKillSwitch = {
-    val offsetUpdates = Source
-      .tick(0.millis, 100.millis, ())
-      .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd())
-
+  private val (ledgerEndUpdateKillSwitch, ledgerEndUpdateDone) =
     RestartSource
-      .withBackoff(
-        minBackoff = 1.second,
-        maxBackoff = 10.seconds,
-        randomFactor = 0.2
-      )(() => offsetUpdates)
+      .withBackoff(minBackoff = 1.second, maxBackoff = 10.seconds, randomFactor = 0.2)(
+        () =>
+          Source
+            .tick(0.millis, 100.millis, ())
+            .mapAsync(1)(_ => ledgerDao.lookupLedgerEnd()))
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
-      .to(Sink.foreach(dispatcher.signalNewHead))
+      .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
       .run()
-  }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
-    ledgerEndUpdateKillSwitch.shutdown()
+    // Terminate the dispatcher first so that it doesn't trigger new queries.
     super.close()
+    ledgerEndUpdateKillSwitch.shutdown()
+    Await.result(ledgerEndUpdateDone, 10.seconds)
+    ()
   }
 }

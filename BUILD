@@ -11,6 +11,7 @@ load(
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 load("@os_info//:os_info.bzl", "is_windows")
+load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sdk_version")
 
 exports_files([".hlint.yaml"])
 
@@ -110,46 +111,60 @@ config_setting(
 exports_files([
     "NOTICES",
     "LICENSE",
-    "VERSION",
     "CHANGELOG",
     "tsconfig.json",
 ])
 
-# FIXME(#448): We're currently assigning version (100+x).y.z to all components
-# in SDK version x.y.z. As long as x < 10, 10x.y.z == (100+x).y.z.  Since we'll
-# stop splitting the SDK into individual components _very_ soon, this rule
-# will not survive until x >= 10.
 genrule(
-    name = "component-version",
-    srcs = ["VERSION"],
-    outs = ["COMPONENT-VERSION"],
-    cmd = """
-        echo -n 10 > $@
-        cat $(location VERSION) >> $@
-    """,
+    name = "mvn_version_file",
+    outs = ["MVN_VERSION"],
+    cmd = "echo -n {mvn} > $@".format(mvn = mvn_version),
 )
 
 genrule(
     name = "sdk-version-hs",
-    srcs = [
-        "VERSION",
-        ":component-version",
-    ],
+    srcs = [],
     outs = ["SdkVersion.hs"],
     cmd = """
-        SDK_VERSION=$$(cat $(location VERSION))
         cat > $@ <<EOF
 module SdkVersion where
 
 import Module (stringToUnitId, UnitId)
+import qualified Data.List.Split as Split
+import qualified Data.List.Extra as List.Extra
 
 sdkVersion :: String
-sdkVersion = "$$SDK_VERSION"
+sdkVersion = "{sdk}"
+
+mvnVersion :: String
+mvnVersion = "{mvn}"
 
 damlStdlib :: UnitId
-damlStdlib = stringToUnitId ("daml-stdlib-" ++ sdkVersion)
+damlStdlib = stringToUnitId ("daml-stdlib-" ++ "{ghc}")
+
+-- | Turns a SemVer string into one suitable for ghc-pkg
+--
+-- The DAML SDK uses semantic versioning, while internally we need a version
+-- string that ghc-pkg can understand. We do that by removing the '-snapshot'
+-- qualifier when present.
+--
+-- Expected version strings:
+-- 0.13.51 -> release, no change
+-- 0.13.51-snapshot.20200212.3024.04e6fa2c -> snapshot release, change to
+--                                         0.13.51.20200212.3024 internally
+-- This logic must stay in sync with bazel_tools/build_environment.bzl.
+toGhcPkgVersion :: String -> String
+toGhcPkgVersion rawVersion =
+    case Split.splitOn "-snapshot" rawVersion of
+      [v] -> v
+      [v, pr] -> v ++ List.Extra.dropEnd 9 pr
+      _ -> rawVersion
 EOF
-    """,
+    """.format(
+        ghc = ghc_version,
+        mvn = mvn_version,
+        sdk = sdk_version,
+    ),
 )
 
 da_haskell_library(
@@ -157,7 +172,9 @@ da_haskell_library(
     srcs = [":sdk-version-hs"],
     hackage_deps = [
         "base",
+        "extra",
         "ghc-lib-parser",
+        "split",
     ],
     visibility = ["//visibility:public"],
 )
@@ -252,6 +269,7 @@ da_haskell_repl(
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/stable-packages:generate-stable-package",
         "//compiler/damlc/tests:daml-doctest",
+        "//compiler/damlc/tests:damlc-test",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//compiler/damlc/tests:integration-dev",
         "//compiler/damlc/tests:packaging",

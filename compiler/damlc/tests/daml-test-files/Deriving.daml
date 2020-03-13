@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- We're testing that `deriving` is working for complicated enough types.
-daml 1.2
+
 module Deriving where
 
 data Formula t

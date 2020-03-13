@@ -19,7 +19,7 @@ import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
-  JsValueToApiValueConverter,
+  JsValueToApiValueConverter
 }
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.util.ExceptionOps._
@@ -32,7 +32,7 @@ import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
-  LedgerIdRequirement,
+  LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader
@@ -126,7 +126,7 @@ object HttpService extends StrictLogging {
         contractDao,
       )
 
-      partiesService = new PartiesService(() => client.partyManagementClient.listKnownParties())
+      partiesService = new PartiesService(LedgerClientJwt.listKnownParties(client))
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
@@ -229,9 +229,8 @@ object HttpService extends StrictLogging {
     val decoder = new DomainJsonDecoder(
       packageService.resolveTemplateId,
       packageService.resolveTemplateRecordType,
-      packageService.resolveChoiceRecordType,
+      packageService.resolveChoiceArgType,
       packageService.resolveKeyType,
-      jsValueToApiValueConverter.jsObjectToApiRecord,
       jsValueToApiValueConverter.jsValueToApiValue,
       jsValueToApiValueConverter.jsValueToLfValue,
     )

@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
 import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
-import { useParty, useReload, useExerciseByKey, useFetchByKey, useQuery } from '@daml/react';
+import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 // IMPORTS_BEGIN
@@ -15,9 +15,9 @@ import MessageList from './MessageList';
 
 const MainView: React.FC = () => {
   const username = useParty();
-  const myUserResult = useFetchByKey(User, () => username, [username]);
+  const myUserResult = useStreamFetchByKey(User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
-  const allUsers = useQuery(User).contracts;
+  const allUsers = useStreamQuery(User).contracts;
 
   // Sorted list of friends of the current user
   const friends = useMemo(() =>
@@ -38,15 +38,6 @@ const MainView: React.FC = () => {
       return false;
     }
   }
-
-  const messageFriend = (friend: Party) =>
-    alert('Messaging parties is not yet implemented.');
-
-  const reload = useReload();
-  React.useEffect(() => {
-    const interval = setInterval(reload, 5000);
-    return () => clearInterval(interval);
-  }, [reload]);
 
   return (
     <Container>
@@ -69,7 +60,6 @@ const MainView: React.FC = () => {
               <PartyListEdit
                 parties={myUser?.friends ?? []}
                 onAddParty={addFriend}
-                onMessageParty={messageFriend}
               />
             </Segment>
             <Segment>
@@ -77,13 +67,6 @@ const MainView: React.FC = () => {
                 <Icon name='globe' />
                 <Header.Content>
                   The Network
-                  <Icon
-                    link
-                    name='sync alternate'
-                    size='small'
-                    style={{marginLeft: '0.5em'}}
-                    onClick={reload}
-                  />
                   <Header.Subheader>Others and their friends</Header.Subheader>
                 </Header.Content>
               </Header>
@@ -105,8 +88,8 @@ const MainView: React.FC = () => {
               <MessageEdit
                 friends={friends.map(user => user.username)}
               />
-            <Divider />
-            <MessageList />
+              <Divider />
+              <MessageList />
             </Segment>
 // MESSAGES_SEGMENT_END
           </Grid.Column>

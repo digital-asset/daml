@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 parameters:
+  is_release: ''
   name: ''
+  release_tag: ''
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -31,6 +33,8 @@ steps:
 
   - bash: ./build.sh "_$(uname)"
     displayName: 'Build'
+    env:
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
 
   - task: PublishBuildArtifacts@1
     condition: failed()
@@ -39,32 +43,46 @@ steps:
       pathtoPublish: 'bazel-testlogs/'
       artifactName: 'Test logs'
 
-  - bash: ci/release.sh
-    displayName: 'Release'
-    condition: and(succeeded(),
-                   eq(variables['System.PullRequest.IsFork'], 'False'))
+  - bash: |
+      set -euo pipefail
+      eval "$(./dev-env/bin/dade-assist)"
+
+      mkdir -p ~/.jfrog
+      cleanup() {
+          rm -f ~/.jfrog/jfrog-cli.conf
+      }
+      trap cleanup EXIT
+      echo "$JFROG_CONFIG_CONTENT" > ~/.jfrog/jfrog-cli.conf
+      unset JFROG_CONFIG_CONTENT
+
+      ./bazel-bin/release/release --release-dir "$(mktemp -d)" --upload
     env:
-      # to connect to bintray
+      DAML_SDK_RELEASE_VERSION: ${{parameters.release_tag}}
       JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
-      # For signing artifacts to be uploaded to Maven Central.
       GPG_KEY: $(gpg-code-signing)
-      # Configuration the Sonatype Open Source Repository Hosting
       MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
       MAVEN_URL: "https://oss.sonatype.org"
-      # For uploading npm packages to npm registry.
-      NPM_TOKEN:  $(NPM_TOKEN)
-    name: release
+      NPM_TOKEN: $(NPM_TOKEN)
+    name: publish_npm_mvn
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'),
+                   eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
-      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
-      cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
-      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+      eval "$(./dev-env/bin/dade-assist)"
+      TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
+      cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
+      echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
     name: publish
-    condition: eq(variables['release.has_released'], 'true')
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
   - task: PublishPipelineArtifact@0
-    condition: eq(variables['release.has_released'], 'true')
     inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
-      artifactName: $(publish.artifact)
-
+      targetPath: $(Build.StagingDirectory)/$(publish.tarball)
+      artifactName: $(publish.tarball)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))

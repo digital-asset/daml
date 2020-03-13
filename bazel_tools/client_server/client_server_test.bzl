@@ -14,6 +14,7 @@ def _client_server_test_impl(ctx):
 set -eou pipefail
 
 runner=$(rlocation "$TEST_WORKSPACE/{runner}")
+runner_args="{runner_args}"
 client=$(rlocation "$TEST_WORKSPACE/{client}")
 server=$(rlocation "$TEST_WORKSPACE/{server}")
 server_args="{server_args}"
@@ -29,9 +30,10 @@ if [ -z "$client_args" ]; then
     done
 fi
 
-$runner "$client" "$client_args" "$server" "$server_args"
+$runner "$client" "$client_args" "$server" "$server_args" "$runner_args"
 """.format(
-            runner = ctx.executable._runner.short_path,
+            runner = ctx.executable.runner.short_path,
+            runner_args = _expand_args(ctx, ctx.attr.runner_args),
             client = ctx.executable.client.short_path,
             client_args = _expand_args(ctx, ctx.attr.client_args),
             client_files = _expand_args(ctx, ctx.attr.client_files),
@@ -43,7 +45,7 @@ $runner "$client" "$client_args" "$server" "$server_args"
     )
 
     runfiles = ctx.runfiles(files = [wrapper], collect_data = True)
-    runfiles = runfiles.merge(ctx.attr._runner[DefaultInfo].default_runfiles)
+    runfiles = runfiles.merge(ctx.attr.runner[DefaultInfo].default_runfiles)
     runfiles = runfiles.merge(ctx.attr.client[DefaultInfo].default_runfiles)
     runfiles = runfiles.merge(ctx.attr.server[DefaultInfo].default_runfiles)
 
@@ -58,12 +60,13 @@ client_server_test = rule(
     test = True,
     executable = True,
     attrs = {
-        "_runner": attr.label(
+        "runner": attr.label(
             cfg = "host",
             allow_single_file = True,
             executable = True,
             default = Label("@//bazel_tools/client_server/runner:runner"),
         ),
+        "runner_args": attr.string_list(),
         "client": attr.label(
             cfg = "target",
             executable = True,
@@ -102,6 +105,7 @@ Example:
   ```bzl
   client_server_test(
     name = "my_test",
+    runner_args = [],
     client = ":my_client",
     client_args = ["--extra-argument"],
     client_files = ["$(rootpath :target-for-client)"]

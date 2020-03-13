@@ -3,206 +3,205 @@
 
 package com.digitalasset.platform.index
 
-import com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.Relation.Relation
+import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => Lf}
+import com.digitalasset.ledger.{CommandId, EventId, TransactionId}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.platform.common.PlatformTypes.{CreateEvent, ExerciseEvent}
-import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
-import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
-import com.digitalasset.platform.server.services.transaction.TransientContractRemover
+import com.digitalasset.ledger.api.v1.event.Event
+import com.digitalasset.ledger.api.v1.transaction.{
+  TreeEvent,
+  Transaction => ApiTransaction,
+  TransactionTree => ApiTransactionTree
+}
+import com.digitalasset.platform.api.v1.event.EventOps.EventOps
+import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
+import com.digitalasset.platform.events.EventIdFormatter.{fromTransactionId, split}
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  assertOrRuntimeEx,
+  lfNodeCreateToEvent,
+  lfNodeCreateToTreeEvent,
+  lfNodeExercisesToEvent,
+  lfNodeExercisesToTreeEvent
+}
 import com.digitalasset.platform.store.entries.LedgerEntry
-import scalaz.Tag
 
 import scala.annotation.tailrec
-import scala.collection.breakOut
 
-trait TransactionConversion {
+object TransactionConversion {
 
-  def ledgerEntryToDomainFlat(
-      offset: domain.LedgerOffset.Absolute,
-      trans: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter
-  ): Option[domain.Transaction] = {
-    val tx = trans.transaction.mapNodeId(domain.EventId(_))
-    val events = engine.Event
-      .collectEvents(tx, trans.explicitDisclosure.map { case (k, v) => domain.EventId(k) -> v })
-    val allEvents = events.roots.toSeq
-      .foldLeft(List.empty[CreateOrArchiveEvent])((l, evId) =>
-        l ::: flattenEvents(events.events, evId, verbose = true))
+  private type ContractId = Lf.AbsoluteContractId
+  private type Transaction = GenTransaction.WithTxValue[EventId, ContractId]
+  private type Node = GenNode.WithTxValue[EventId, ContractId]
+  private type Create = NodeCreate.WithTxValue[ContractId]
+  private type Exercise = NodeExercises.WithTxValue[EventId, ContractId]
 
-    val eventFilter = TemplateAwareFilter(filter)
-    val filteredEvents = TransientContractRemover
-      .removeTransients(allEvents)
-      .flatMap(EventFilter.filterCreateOrArchiveWitnesses(eventFilter, _).toList)
+  private def collect[A](tx: Transaction)(pf: PartialFunction[(EventId, Node), A]): Vector[A] =
+    tx.fold(Vector.empty[A]) {
+      case (nodes, node) if pf.isDefinedAt(node) => nodes :+ pf(node)
+      case (nodes, _) => nodes
+    }
 
-    val submitterIsSubscriber =
-      trans.submittingParty.exists(eventFilter.isSubmitterSubscriber)
+  private def maskCommandId(
+      commandId: Option[CommandId],
+      submittingParty: Option[Ref.Party],
+      requestingParties: Set[Ref.Party],
+  ): String =
+    commandId.filter(_ => submittingParty.exists(requestingParties)).getOrElse("")
 
-    if (filteredEvents.nonEmpty || submitterIsSubscriber) {
-      Some(
-        domain.Transaction(
-          domain.TransactionId(trans.transactionId),
-          if (submitterIsSubscriber) Tag.subst(trans.commandId) else None,
-          trans.workflowId.map(domain.WorkflowId(_)),
-          trans.recordedAt,
-          filteredEvents,
-          offset,
-          None
-        ))
-    } else None
-  }
-
-  def ledgerEntryToDomainTree(
-      offset: domain.LedgerOffset.Absolute,
-      trans: LedgerEntry.Transaction,
-      filter: domain.TransactionFilter): Option[domain.TransactionTree] = {
-
-    val tx = trans.transaction.mapNodeId(domain.EventId(_))
-    filter.filter(tx).map { disclosureByNodeId =>
-      val allEvents = engine.Event
-        .collectEvents(tx, disclosureByNodeId)
-      val events = allEvents.events.map {
-        case (nodeId, value) =>
-          (nodeId, value match {
-            case e: ExerciseEvent[domain.EventId, AbsoluteContractId] =>
-              lfExerciseToDomain(nodeId, e)
-            case c: CreateEvent[AbsoluteContractId] =>
-              lfCreateToDomain(nodeId, c, includeParentWitnesses = true)
-          })
-      }
-
-      val (byId, roots) =
-        removeInvisibleRoots(events, allEvents.roots.toList)
-
-      val subscriberIsSubmitter =
-        trans.submittingParty.exists(TemplateAwareFilter(filter).isSubmitterSubscriber)
-
-      domain.TransactionTree(
-        domain.TransactionId(trans.transactionId),
-        if (subscriberIsSubmitter) Tag.subst(trans.commandId) else None,
-        Tag.subst(trans.workflowId),
-        trans.recordedAt,
-        offset,
-        byId,
-        roots,
-        None
+  private def toFlatEvent(verbose: Boolean): PartialFunction[(EventId, Node), Event] = {
+    case (eventId, node: Create) =>
+      assertOrRuntimeEx(
+        failureContext = "converting a create node to a created event",
+        lfNodeCreateToEvent(verbose, eventId, node)
       )
-    }
+    case (eventId, node: Exercise) if node.consuming =>
+      assertOrRuntimeEx(
+        failureContext = "converting a consuming exercise node to an archived event",
+        lfNodeExercisesToEvent(eventId, node)
+      )
   }
 
-  private case class InvisibleRootRemovalState(
-      rootsWereReplaced: Boolean,
-      eventsById: Map[domain.EventId, CreateOrExerciseEvent],
-      rootEventIds: List[domain.EventId])
-
-  // Remove root nodes that have empty witnesses and put their children in their place as roots.
-  // Do this while there are roots with no witnesses.
-  @tailrec
-  private def removeInvisibleRoots(
-      eventsById: Map[domain.EventId, CreateOrExerciseEvent],
-      rootEventIds: List[domain.EventId])
-    : (Map[domain.EventId, CreateOrExerciseEvent], List[domain.EventId]) = {
-
-    val result =
-      rootEventIds.foldRight(InvisibleRootRemovalState(rootsWereReplaced = false, eventsById, Nil)) {
-        case (eventId, InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, newRoots)) =>
-          val event = eventsById
-            .getOrElse(
-              eventId,
-              throw new IllegalArgumentException(
-                s"Root event id $eventId is not present among transaction nodes ${eventsById.keySet}"))
-          if (event.witnessParties.nonEmpty)
-            InvisibleRootRemovalState(hasInvisibleRoot, filteredEvents, eventId :: newRoots)
-          else
-            InvisibleRootRemovalState(
-              rootsWereReplaced = true,
-              filteredEvents - eventId,
-              event.children ::: newRoots)
+  private def permanent(events: Vector[Event]): Set[String] = {
+    events.foldLeft(Set.empty[String]) { (contractIds, event) =>
+      if (event.isCreated || !contractIds.contains(event.contractId)) {
+        contractIds + event.contractId
+      } else {
+        contractIds - event.contractId
       }
-    if (result.rootsWereReplaced)
-      removeInvisibleRoots(result.eventsById, result.rootEventIds)
-    else (result.eventsById, result.rootEventIds)
-  }
-
-  private def lfCreateToDomain(
-      eventId: domain.EventId,
-      create: CreateEvent[Lf.AbsoluteContractId],
-      includeParentWitnesses: Boolean,
-  ): domain.Event.CreatedEvent = {
-    domain.Event.CreatedEvent(
-      eventId,
-      domain.ContractId(create.contractId.coid),
-      create.templateId,
-      create.argument.value match {
-        case rec @ Lf.ValueRecord(_, _) => rec
-        case _ => throw new RuntimeException(s"Value is not an record.")
-      },
-      if (includeParentWitnesses) create.witnesses
-      else create.stakeholders,
-      create.signatories,
-      create.observers,
-      create.agreementText,
-      create.contractKey.map(_.key.value)
-    )
-  }
-
-  private def lfExerciseToDomain(
-      eventId: domain.EventId,
-      exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId],
-  ): domain.Event.ExercisedEvent = {
-    domain.Event.ExercisedEvent(
-      eventId,
-      domain.ContractId(exercise.contractId.coid),
-      exercise.templateId,
-      exercise.choice,
-      exercise.choiceArgument.value,
-      exercise.actingParties,
-      exercise.isConsuming,
-      exercise.children.toList,
-      exercise.witnesses,
-      exercise.exerciseResult.map(_.value),
-    )
-  }
-
-  private def lfConsumingExerciseToDomain(
-      eventId: domain.EventId,
-      exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId]
-  ): domain.Event.ArchivedEvent = {
-    domain.Event.ArchivedEvent(
-      eventId = eventId,
-      contractId = domain.ContractId(exercise.contractId.coid),
-      templateId = exercise.templateId,
-      // do not include parent witnesses
-      witnessParties = exercise.stakeholders
-    )
-  }
-
-  private def flattenEvents(
-      events: Map[
-        domain.EventId,
-        engine.Event[domain.EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]]],
-      root: domain.EventId,
-      verbose: Boolean): List[domain.Event.CreateOrArchiveEvent] = {
-    val event = events(root)
-    event match {
-      case create: CreateEvent[Lf.AbsoluteContractId @unchecked] =>
-        List(lfCreateToDomain(root, create, includeParentWitnesses = false))
-
-      case exercise: ExerciseEvent[domain.EventId, Lf.AbsoluteContractId] =>
-        val children: List[domain.Event.CreateOrArchiveEvent] =
-          exercise.children.toSeq
-            .flatMap(eventId => flattenEvents(events, eventId, verbose))(breakOut)
-
-        if (exercise.isConsuming) {
-          lfConsumingExerciseToDomain(root, exercise) :: children
-        } else children
-
-      case _ => Nil
     }
   }
-}
 
-object TransactionConversion extends TransactionConversion
+  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+    val toKeep = permanent(events)
+    events.filter(event => toKeep(event.contractId))
+  }
+
+  def ledgerEntryToFlatTransaction(
+      offset: domain.LedgerOffset.Absolute,
+      entry: LedgerEntry.Transaction,
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Option[ApiTransaction] = {
+    val flatEvents = removeTransient(collect(entry.transaction)(toFlatEvent(verbose)))
+    val filtered = flatEvents.flatMap(EventFilter(_)(filter).toList)
+    val requestingParties = filter.filtersByParty.keySet
+    val commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties)
+    Some(
+      ApiTransaction(
+        transactionId = entry.transactionId,
+        commandId = commandId,
+        workflowId = entry.workflowId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        events = filtered,
+        offset = offset.value,
+      )).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
+  }
+
+  private def disclosureForParties(
+      transactionId: TransactionId,
+      transaction: Transaction,
+      parties: Set[Ref.Party],
+  ): Option[Relation[EventId, Ref.Party]] =
+    Some(
+      Blinding
+        .blind(transaction.mapNodeId(split(_).get.nodeId))
+        .disclosure
+        .flatMap {
+          case (nodeId, disclosure) =>
+            List(disclosure.intersect(parties)).collect {
+              case disclosure if disclosure.nonEmpty =>
+                fromTransactionId(transactionId, nodeId) -> disclosure
+            }
+        }
+    ).filter(_.nonEmpty)
+
+  private def isCreateOrExercise(n: Node): Boolean = {
+    n match {
+      case _: Exercise => true
+      case _: Create => true
+      case _ => false
+    }
+  }
+  private def toTreeEvent(
+      verbose: Boolean,
+      disclosure: Relation[EventId, Ref.Party],
+      eventsById: Map[EventId, Node],
+  ): PartialFunction[(EventId, Node), (String, TreeEvent)] = {
+    case (eventId, node: Create) if disclosure.contains(eventId) =>
+      eventId -> assertOrRuntimeEx(
+        failureContext = "converting a create node to a created event",
+        lfNodeCreateToTreeEvent(verbose, eventId, disclosure(eventId), node),
+      )
+    case (eventId, node: Exercise) if disclosure.contains(eventId) =>
+      eventId -> assertOrRuntimeEx(
+        failureContext = "converting an exercise node to an exercise event",
+        lfNodeExercisesToTreeEvent(verbose, eventId, disclosure(eventId), node)
+          .map(_.filterChildEventIds(eventId =>
+            isCreateOrExercise(eventsById(eventId.asInstanceOf[EventId]))))
+      )
+  }
+
+  @tailrec
+  private def newRoots(
+      tx: Transaction,
+      disclosure: Relation[EventId, Ref.Party],
+  ): Seq[String] = {
+    val (replaced, roots) =
+      tx.roots.foldLeft((false, IndexedSeq.empty[EventId])) {
+        case ((replaced, roots), eventId) =>
+          if (isCreateOrExercise(tx.nodes(eventId)) && disclosure.contains(eventId)) {
+            (replaced, roots :+ eventId)
+          } else
+            tx.nodes(eventId) match {
+              case e: Exercise => (true, roots ++ e.children.toIndexedSeq)
+              case _ => (true, roots)
+            }
+      }
+    if (replaced) newRoots(tx.copy(roots = ImmArray(roots)), disclosure) else roots
+  }
+
+  private def applyDisclosure(
+      tx: Transaction,
+      disclosure: Relation[EventId, Ref.Party],
+      verbose: Boolean,
+  ): Option[ApiTransactionTree] =
+    Some(collect(tx)(toTreeEvent(verbose, disclosure, tx.nodes))).collect {
+      case events if events.nonEmpty =>
+        ApiTransactionTree(
+          eventsById = events.toMap,
+          rootEventIds = newRoots(tx, disclosure)
+        )
+    }
+
+  def ledgerEntryToTransactionTree(
+      offset: domain.LedgerOffset.Absolute,
+      entry: LedgerEntry.Transaction,
+      requestingParties: Set[Ref.Party],
+      verbose: Boolean,
+  ): Option[ApiTransactionTree] = {
+    val filteredTree =
+      for {
+        disclosure <- disclosureForParties(
+          entry.transactionId,
+          entry.transaction,
+          requestingParties,
+        )
+        filteredTree <- applyDisclosure(entry.transaction, disclosure, verbose)
+      } yield filteredTree
+
+    filteredTree.map(
+      _.copy(
+        transactionId = entry.transactionId,
+        commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
+        workflowId = entry.workflowId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        offset = offset.value,
+      ))
+  }
+
+}

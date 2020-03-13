@@ -4,18 +4,20 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration}
+import java.time.{Clock, Duration, Instant, LocalDate, ZoneOffset}
 import java.util.UUID
 
-import akka.stream.scaladsl.Sink
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, InsertOrdSet, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext
@@ -52,23 +54,25 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
+  // This can be overriden by tests for those that don't support heartbeats.
+  protected val supportsHeartbeats: Boolean = true
+
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
+      heartbeats: Source[Instant, NotUsed],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
-    newParticipantState(newLedgerId())
+    newParticipantState()
 
-  private def newParticipantState(): ResourceOwner[ParticipantState] =
+  private def newParticipantState(
+      ledgerId: Option[LedgerId] = None,
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
+  ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(None, participantId, testId)
-    }
-
-  private def newParticipantState(ledgerId: LedgerId): ResourceOwner[ParticipantState] =
-    newLoggingContext { implicit logCtx =>
-      participantStateFactory(Some(ledgerId), participantId, testId)
+      participantStateFactory(ledgerId, participantId, testId, heartbeats)
     }
 
   override protected def beforeEach(): Unit = {
@@ -83,7 +87,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   implementationName should {
     "return initial conditions" in {
       val ledgerId = newLedgerId()
-      newParticipantState(ledgerId).use { ps =>
+      newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
         for {
           conditions <- ps
             .getLedgerInitialConditions()
@@ -617,11 +621,40 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       }
     }
 
+    if (supportsHeartbeats) {
+      "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
+        val start = LocalDate.of(2020, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant
+        val heartbeats =
+          Source
+            .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
+            // ensure this doesn't keep running forever, past the length of the test
+            // and make sure we correctly dispatch all events
+            .take(3)
+        newParticipantState(heartbeats = heartbeats)
+          .use { ps =>
+            for {
+              updates <- ps
+                .stateUpdates(beginAfter = None)
+                .idleTimeout(IdleTimeout)
+                .take(3)
+                .runWith(Sink.seq)
+            } yield {
+              updates.map(_._2) should be(
+                Seq(
+                  Update.Heartbeat(Timestamp.assertFromInstant(start)),
+                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(1))),
+                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(2))),
+                ))
+            }
+          }
+      }
+    }
+
     if (isPersistent) {
       "store the ledger ID and re-use it" in {
         val ledgerId = newLedgerId()
         for {
-          retrievedLedgerId1 <- newParticipantState(ledgerId).use { ps =>
+          retrievedLedgerId1 <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
             ps.getLedgerInitialConditions().map(_.ledgerId).runWith(Sink.head)
           }
           retrievedLedgerId2 <- newParticipantState().use { ps =>
@@ -637,10 +670,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         val ledgerId = newLedgerId()
         val attemptedLedgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { _ =>
+          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { _ =>
             Future.unit
           }
-          exception <- newParticipantState(attemptedLedgerId).use { _ =>
+          exception <- newParticipantState(ledgerId = Some(attemptedLedgerId)).use { _ =>
             Future.unit
           }.failed
         } yield {
@@ -654,7 +687,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       "resume where it left off on restart" in {
         val ledgerId = newLedgerId()
         for {
-          _ <- newParticipantState(ledgerId).use { ps =>
+          _ <- newParticipantState(ledgerId = Some(ledgerId)).use { ps =>
             for {
               _ <- ps
                 .allocateParty(None, Some("party-1"), newSubmissionId())
@@ -688,6 +721,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
       maxRecordTime = inTheFuture(10.seconds),
+      deduplicateUntil = inTheFuture(10.seconds).toInstant,
     )
 
   private def theOffset(first: Long, rest: Long*): Offset =
@@ -700,9 +734,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 object ParticipantStateIntegrationSpecBase {
   type ParticipantState = ReadService with WriteService
 
-  private val IdleTimeout = 5.seconds
-  private val emptyTransaction: SubmittedTransaction =
-    GenTransaction(HashMap.empty, ImmArray.empty, Some(InsertOrdSet.empty))
+  private val IdleTimeout: FiniteDuration = 5.seconds
+
+  private val emptyTransaction: Transaction.AbsTransaction =
+    GenTransaction(HashMap.empty, ImmArray.empty)
 
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("test-participant")
   private val sourceDescription = Some("provided by test")
@@ -719,10 +754,16 @@ object ParticipantStateIntegrationSpecBase {
   private def newSubmissionId(): SubmissionId =
     Ref.LedgerString.assertFromString(s"submission-${UUID.randomUUID()}")
 
-  private def transactionMeta(let: Timestamp) = TransactionMeta(
-    ledgerEffectiveTime = let,
-    workflowId = Some(Ref.LedgerString.assertFromString("tests")),
-  )
+  private def transactionMeta(let: Timestamp) =
+    TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("tests")),
+      submissionTime = let.addMicros(-1000),
+      submissionSeed = Some(
+        crypto.Hash.assertFromString(
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
+      optUsedPackages = Some(Set.empty),
+    )
 
   private def matchPackageUpload(
       update: Update,
@@ -743,7 +784,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _, _)), _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }

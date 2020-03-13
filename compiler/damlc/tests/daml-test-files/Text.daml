@@ -9,7 +9,7 @@
 -- @INFO Use isNone
 -- @INFO Use isNone
 
-daml 1.2
+
 module Text where
 
 import DA.Text as T

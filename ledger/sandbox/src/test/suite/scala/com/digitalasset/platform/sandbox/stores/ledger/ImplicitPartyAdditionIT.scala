@@ -14,9 +14,8 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -100,25 +99,31 @@ class ImplicitPartyAdditionIT
       ledger: Ledger,
       submitter: String,
       commandId: String,
-      node: GenNode[NodeId, TContractId, Value[TContractId]]): Future[SubmissionResult] = {
-    val event1: NodeId = NodeId(0)
+      node: Transaction.AbsNode,
+  ): Future[SubmissionResult] = {
+    val event1: Transaction.NodeId = Transaction.NodeId(0)
 
-    val transaction = GenTransaction[NodeId, TContractId, Value[TContractId]](
+    val let = Time.Timestamp.assertFromInstant(LET)
+
+    val transaction: Transaction.AbsTransaction = GenTransaction(
       HashMap(event1 -> node),
       ImmArray(event1),
-      None
     )
 
     val submitterInfo = SubmitterInfo(
       Ref.Party.assertFromString(submitter),
       Ref.LedgerString.assertFromString("appId"),
       Ref.LedgerString.assertFromString(commandId),
-      Time.Timestamp.assertFromInstant(MRT)
+      Time.Timestamp.assertFromInstant(MRT),
+      DeduplicateUntil,
     )
 
     val transactionMeta = TransactionMeta(
-      Time.Timestamp.assertFromInstant(LET),
-      Some(Ref.LedgerString.assertFromString("wfid"))
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionTime = let.addMicros(1000),
+      submissionSeed = None,
+      optUsedPackages = None,
     )
 
     ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
@@ -126,6 +131,7 @@ class ImplicitPartyAdditionIT
 
   val LET = Instant.EPOCH.plusSeconds(10)
   val MRT = Instant.EPOCH.plusSeconds(10)
+  val DeduplicateUntil = Instant.now.plusSeconds(3600)
 
   "A Ledger" should {
     "implicitly add parties mentioned in a transaction" in allFixtures { ledger =>
@@ -187,7 +193,7 @@ class ImplicitPartyAdditionIT
           .ledgerEntries(None, None)
           .take(2)
           .runWith(Sink.seq)
-        parties <- ledger.parties
+        parties <- ledger.listKnownParties()
       } yield {
         createResult shouldBe SubmissionResult.Acknowledged
         exerciseResult shouldBe SubmissionResult.Acknowledged

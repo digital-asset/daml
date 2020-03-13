@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-} -- setField doesn't mention x, because we pass it as a type application
 
-daml 1.2
 
 -- | MOVE DA.Record
 module DA.Internal.Record(HasField(..), Symbol, getFieldPrim, setFieldPrim) where

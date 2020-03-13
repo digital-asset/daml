@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The CallablePayout example.
-daml 1.2
+
 module CallablePayout_Call where
 
 

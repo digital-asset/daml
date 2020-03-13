@@ -8,6 +8,7 @@ package com.digitalasset.ledger.api.v1;
 import "com/digitalasset/ledger/api/v1/value.proto";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 
 
 option java_outer_classname = "CommandsOuterClass";
@@ -58,6 +59,10 @@ message Commands {
   // Required
   repeated Command commands = 8;
 
+  // The length of the time window during which all commands with the same party and command ID will be deduplicated.
+  // Duplicate commands submitted before the end of this window return an ALREADY_EXISTS error.
+  // Optional
+  google.protobuf.Duration deduplication_time = 9;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.

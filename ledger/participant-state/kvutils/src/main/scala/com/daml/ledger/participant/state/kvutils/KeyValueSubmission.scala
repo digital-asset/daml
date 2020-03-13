@@ -8,7 +8,6 @@ import com.daml.ledger.participant.state.v1.{
   Configuration,
   ParticipantId,
   SubmissionId,
-  SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta
 }
@@ -16,6 +15,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.google.protobuf.ByteString
 import Conversions._
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.transaction.Transaction
 
 import scala.collection.JavaConverters._
 
@@ -35,8 +35,10 @@ object KeyValueSubmission {
     *
     * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
-  def transactionOutputs(entryId: DamlLogEntryId, tx: SubmittedTransaction): List[DamlStateKey] = {
-    val effects = InputsAndEffects.computeEffects(entryId, tx)
+  def transactionOutputs(
+      tx: Transaction.AbsTransaction,
+  ): List[DamlStateKey] = {
+    val effects = InputsAndEffects.computeEffects(tx)
     effects.createdContracts.map(_._1) ++ effects.consumedContracts
   }
 
@@ -44,9 +46,10 @@ object KeyValueSubmission {
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
-      tx: SubmittedTransaction): DamlSubmission = {
+      tx: Transaction.AbsTransaction,
+  ): DamlSubmission = {
 
-    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
+    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx, meta)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
 
     DamlSubmission.newBuilder
@@ -60,6 +63,9 @@ object KeyValueSubmission {
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId.getOrElse(""))
+          .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(x =>
+            ByteString.copyFrom(x.toByteArray)))
+          .setSubmissionTime(buildTimestamp(meta.submissionTime))
       )
       .build
   }

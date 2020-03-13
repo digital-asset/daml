@@ -32,7 +32,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
-    data = ["//:COMPONENT-VERSION"],
+    data = ["//:MVN_VERSION"],
     main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
@@ -43,7 +43,7 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [
         "src/main/resources/logback.xml",
-        "//:COMPONENT-VERSION",
+        "//:MVN_VERSION",
     ],
     tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -131,6 +131,7 @@ test_daml_lf_target_versions = [
     "1.3",
     "1.6",
     "1.7",
+    "1.8",
     "1.dev",
 ]
 
@@ -276,6 +277,7 @@ da_scala_test(
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//libs-scala/ports",
         "//libs-scala/resources",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_protobuf_protobuf_java",

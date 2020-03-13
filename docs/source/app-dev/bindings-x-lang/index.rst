@@ -6,20 +6,7 @@ Creating your own bindings
 
 This page gets you started with creating custom bindings for a DAML Ledger.
 
-Introduction
-============
-
-There are currently bindings for the following programming languages:
-
-- :doc:`Java </app-dev/bindings-java/index>`
-
-- :doc:`Scala </app-dev/bindings-scala/index>`
-
-- :doc:`JavaScript (Node.js) </app-dev/bindings-js>`
-
-You can create bindings for any programming language supported by `gRPC <https://grpc.io/docs/>`_.
-
-What do we mean by "bindings"? Bindings for a language consist of two main components:
+Bindings for a language consist of two main components:
 
 - Ledger API
     Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :doc:`/app-dev/grpc/index`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".

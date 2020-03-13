@@ -10,7 +10,7 @@
 -- Test that DAML-LF can hold maxBound :: Int64
 -- @ QUERY-LF .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["bar"]) | .expr.prim_lit | lf::get_int64($pkg) == "9223372036854775807"
 
-daml 1.2 module UseInteger where
+module UseInteger where
 
 foo = 1
 bar = 9223372036854775807 -- maxBound :: Int64 (*)

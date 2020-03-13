@@ -83,7 +83,7 @@ object domain {
       queries: NonEmptyList[GetActiveContractsRequest]
   )
 
-  case class PartyDetails(party: Party, displayName: Option[String], isLocal: Boolean)
+  case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
 
   final case class CommandMeta(
       commandId: Option[CommandId],
@@ -101,6 +101,14 @@ object domain {
       reference: Ref,
       choice: domain.Choice,
       argument: LfV,
+      meta: Option[CommandMeta],
+  )
+
+  final case class CreateAndExerciseCommand[+Payload, +Arg](
+      templateId: TemplateId.OptionalPkg,
+      payload: Payload,
+      choice: domain.Choice,
+      argument: Arg,
       meta: Option[CommandMeta],
   )
 
@@ -294,7 +302,7 @@ object domain {
           fa: ActiveContract[_],
           templateId: TemplateId.RequiredPkg,
           f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceRecordType,
+          g: PackageService.ResolveChoiceArgType,
           h: PackageService.ResolveKeyType,
       ): Error \/ LfType =
         f(templateId)
@@ -379,7 +387,7 @@ object domain {
             fa: EnrichedContractKey[_],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           h(templateId)
@@ -401,7 +409,7 @@ object domain {
         fa: F[_],
         templateId: TemplateId.RequiredPkg,
         f: PackageService.ResolveTemplateRecordType,
-        g: PackageService.ResolveChoiceRecordType,
+        g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
     ): Error \/ LfType
   }
@@ -412,20 +420,6 @@ object domain {
           fa: CreateCommand[A],
       )(f: A => G[B]): G[CreateCommand[B]] =
         f(fa.payload).map(a => fa.copy(payload = a))
-    }
-
-    implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
-      override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
-
-      override def lfType(
-          fa: CreateCommand[_],
-          templateId: TemplateId.RequiredPkg,
-          f: PackageService.ResolveTemplateRecordType,
-          g: PackageService.ResolveChoiceRecordType,
-          h: PackageService.ResolveKeyType,
-      ): Error \/ LfType =
-        f(templateId)
-          .leftMap(e => Error('CreateCommand_hasTemplateId_lfType, e.shows))
     }
   }
 
@@ -462,11 +456,24 @@ object domain {
             fa: ExerciseCommand[_, domain.ContractLocator[_]],
             templateId: TemplateId.RequiredPkg,
             f: PackageService.ResolveTemplateRecordType,
-            g: PackageService.ResolveChoiceRecordType,
+            g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
         ): Error \/ LfType =
           g(templateId, fa.choice)
             .leftMap(e => Error('ExerciseCommand_hasTemplateId_lfType, e.shows))
+      }
+  }
+
+  object CreateAndExerciseCommand {
+    implicit val bitraverseInstance: Bitraverse[CreateAndExerciseCommand] =
+      new Bitraverse[CreateAndExerciseCommand] {
+        override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
+            fab: CreateAndExerciseCommand[A, B])(
+            f: A => G[C],
+            g: B => G[D]): G[CreateAndExerciseCommand[C, D]] = {
+          import scalaz.syntax.applicative._
+          ^(f(fab.payload), g(fab.argument))((p, a) => fab.copy(payload = p, argument = a))
+        }
       }
   }
 
@@ -492,7 +499,7 @@ object domain {
 
   final case class OkResponse[R, W](
       result: R,
-      warnings: Option[W],
+      warnings: Option[W] = Option.empty[W],
       status: StatusCode = StatusCodes.OK,
   ) extends ServiceResponse
 
@@ -521,4 +528,6 @@ object domain {
 
   final case class UnknownTemplateIds(unknownTemplateIds: List[TemplateId.OptionalPkg])
       extends ServiceWarning
+
+  final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
 }

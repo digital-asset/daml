@@ -14,6 +14,7 @@ import scalaz.std.string._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.ports.Port
 
 sealed abstract class SnapshotEndSetting
 object SnapshotEndSetting {
@@ -24,7 +25,7 @@ object SnapshotEndSetting {
 
 final case class ExtractorConfig(
     ledgerHost: String,
-    ledgerPort: Int,
+    ledgerPort: Port,
     ledgerInboundMessageSizeMax: Int,
     from: LedgerOffset,
     to: SnapshotEndSetting,

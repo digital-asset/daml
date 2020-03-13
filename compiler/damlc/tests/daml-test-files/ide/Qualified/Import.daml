@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ ERROR Couldn't match expected type ‘Good.T’ with actual type ‘Bad.T’
-daml 1.2
+
 module Import where
 
 import qualified Good

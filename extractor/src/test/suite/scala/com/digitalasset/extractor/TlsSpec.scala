@@ -41,13 +41,14 @@ class TlsSpec
   }
 
   override protected def config: SandboxConfig =
-    super.config.copy(tlsConfig = Some(TlsConfiguration(true, serverCrt, serverPem, caCrt)))
+    super.config
+      .copy(tlsConfig = Some(TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)))
 
   "Extractor" should "be able to connect with TLS parameters" in {
     val config = baseConfig.copy(
       ledgerPort = serverPort,
-      tlsConfig = TlsConfiguration(true, clientCrt, clientPem, caCrt),
-      to = SnapshotEndSetting.Head
+      tlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt),
+      to = SnapshotEndSetting.Head,
     )
     val extractor =
       new Extractor(config, TextPrintTarget)()

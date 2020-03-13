@@ -5,7 +5,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 
-daml 1.2
 -- | MOVE Prelude DAML-LF types and primitives, apart from templates/contracts.
 module DA.Internal.LF
   ( Party
@@ -29,9 +28,9 @@ module DA.Internal.LF
   , Update
 
   , Scenario
-  , submit
-  , submitMustFail
   , scenario
+
+  , HasSubmit(..)
 
   , HasTime
   , getTime
@@ -201,20 +200,25 @@ instance Action Scenario where
 instance ActionFail Scenario where
     fail = primitive @"SAbort"
 
-infixr 0 `submit`
--- | `submit p u` describes the scenario in which party `p` attempts to update the
--- ledger with update action `u`, and returns the value returned by the underlying
--- update action. This scenario is considered a failure if the underlying update
--- action fails.
-submit : Party -> Update a -> Scenario a
-submit = primitive @"SCommit"
+class HasSubmit m cmds | m -> cmds, cmds -> m where
+  -- | `submit p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p` and returns the value returned by `cmds`.
+  --
+  -- If the transaction fails, `submit` also fails.
+  submit : Party -> cmds a -> m a
 
+  -- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+  -- from party `p`.
+  --
+  -- It only succeeds if the submitting the transaction fails.
+  submitMustFail : Party -> cmds a -> m ()
+
+instance HasSubmit Scenario Update where
+  submit = primitive @"SCommit"
+  submitMustFail = primitive @"SMustFailAt"
+
+infixr 0 `submit`
 infixr 0 `submitMustFail`
--- | `submitMustFail` describes the scenario in which party `p` attempts to update the
--- ledger with update action `u`, and the update is *expected to fail*. Therefore, this
--- scenario fails if the underlying update action *succeeds*.
-submitMustFail : Party -> Update a -> Scenario ()
-submitMustFail = primitive @"SMustFailAt"
 
 -- | Declare you are building a scenario.
 scenario : Scenario a -> Scenario a

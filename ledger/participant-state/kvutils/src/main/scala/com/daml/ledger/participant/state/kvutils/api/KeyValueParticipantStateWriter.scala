@@ -23,9 +23,14 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[SubmissionResult] = {
+      transaction: SubmittedTransaction,
+  ): CompletionStage[SubmissionResult] = {
     val submission =
-      KeyValueSubmission.transactionToSubmission(submitterInfo, transactionMeta, transaction)
+      KeyValueSubmission.transactionToSubmission(
+        submitterInfo,
+        transactionMeta,
+        transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
+      )
     val correlationId = nextSubmissionId()
     commit(correlationId, submission)
   }

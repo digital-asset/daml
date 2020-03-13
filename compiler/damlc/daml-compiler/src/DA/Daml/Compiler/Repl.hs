@@ -14,6 +14,7 @@ import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified               DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
+import Data.Bifunctor (first)
 import qualified               Data.ByteString.Lazy as BSL
 import Data.Foldable
 import Data.Maybe
@@ -137,7 +138,7 @@ runRepl opts mainDar replClient ideState = do
                  let shadow bind
                        | Just newBind  <- mbBind, bind == newBind = "_"
                        | otherwise = bind
-                 go moduleNames (i + 1 :: Int) (map (\(bind, ty) -> (shadow bind, ty)) binds <> [(fromMaybe "_" mbBind, ty)])
+                 go moduleNames (i + 1 :: Int) (map (first shadow) binds <> [(fromMaybe "_" mbBind, ty)])
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -163,7 +164,6 @@ renderModule dflags imports line binds expr = unlines $
      , "{-# LANGUAGE PartialTypeSignatures #-}"
      , "daml 1.2"
      , "module " <> lineModuleName line <> " where"
-     , "import Prelude hiding (submit)"
      , "import Daml.Script"
      ] <>
      map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>

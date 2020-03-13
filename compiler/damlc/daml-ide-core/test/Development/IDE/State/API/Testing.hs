@@ -68,6 +68,7 @@ import qualified DA.Daml.LF.Ast as LF
 import Control.Concurrent.STM
 import Control.Exception.Extra
 import qualified Control.Monad.Reader   as Reader
+import Data.Bifunctor (bimap)
 import Data.Default
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -551,7 +552,7 @@ subgraphToExpectedSubgraph vSubgraph = ExpectedSubGraph vNodes vFields vTplName
 graphToExpectedGraph :: V.Graph -> ExpectedGraph
 graphToExpectedGraph vGraph = ExpectedGraph vSubgrpaghs vEdges
     where vSubgrpaghs = map subgraphToExpectedSubgraph (V.subgraphs vGraph)
-          vEdges = map (\(c1,c2) -> (expectedChcDetails c1, expectedChcDetails c2)) (V.edges vGraph)
+          vEdges = map (bimap expectedChcDetails expectedChcDetails) (V.edges vGraph)
           expectedChcDetails chc = ExpectedChoiceDetails (V.consuming chc)
                                 ((T.unpack . LF.unChoiceName . V.displayChoiceName) chc)
 

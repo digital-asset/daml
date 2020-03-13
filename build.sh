@@ -15,21 +15,16 @@ ARTIFACT_DIRS="${BUILD_ARTIFACTSTAGINGDIRECTORY:-$PWD}"
 
 tag_filter=""
 if [[ "$execution_log_postfix" == "_Darwin" ]]; then
-  tag_filter="-dont-run-on-darwin,-scaladoc"
+  tag_filter="-dont-run-on-darwin,-scaladoc,-pdfdocs"
 fi
 
 # Bazel test only builds targets that are dependencies of a test suite
 # so do a full build first.
 (
   cd compiler
-  # Bazel also limits cache downloads by -j so increasing this to a ridiculous value
-  # helps. Bazel separately controls the number of jobs using CPUs so this should not
-  # overload machines.
-  # This also appears to be what Google uses internally, see
-  # https://github.com/bazelbuild/bazel/issues/6394#issuecomment-436234594.
-  bazel build -j 200 //... --build_tag_filters "$tag_filter"
+  bazel build //... --build_tag_filters "$tag_filter"
 )
-bazel test -j 200 //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+bazel test //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci

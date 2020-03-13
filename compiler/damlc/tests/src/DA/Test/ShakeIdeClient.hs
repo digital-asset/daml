@@ -227,7 +227,7 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             setFilesOfInterest [a]
             expectWarning (a,0,25) "The import of ‘B’ is redundant"
             setBufferModified a "???"
-            expectOneError (a,0,0) "Missing daml version"
+            expectOneError (a,0,0) "parse error on input"
 
     ,   testCase' "Loading two modules with the same name DEL-7175" $ do
             a <- makeFile "foo/Test.daml" "daml 1.2 module Test where"
@@ -1121,6 +1121,34 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- test.*Foo:5:1"
+    , testCase' "debug is lazy" $ do
+        let goodScenario =
+                [ "daml 1.2"
+                , "module LazyDebug where"
+                , "import DA.Foldable"
+                , "import DA.Action.State"
+
+                , "test = scenario $ pure $ runState go 0"
+                , "go : State Int ()"
+                , "go = forA_ [0,1] $ \\x -> do"
+                , "    debug \"foo\""
+                , "    modify (+1)"
+                , "    debug \"bar\""
+                ]
+        f <- makeFile "LazyDebug.daml" $ T.unlines goodScenario
+        setFilesOfInterest [f]
+        let vr = VRScenario f "test"
+        setOpenVirtualResources [vr]
+        let quote s = "&quot;" <> s <> "&quot;"
+        let lineBreak = "<br>  "
+        expectNoErrors
+        expectVirtualResource vr $ T.concat
+            [ "Trace: ", lineBreak
+            , quote "foo", lineBreak
+            , quote "bar", lineBreak
+            , quote "foo", lineBreak
+            , quote "bar"
+            ]
     ]
     where
         testCase' = testCase mbScenarioService

@@ -7,41 +7,49 @@ import java.io.File
 import java.nio.file.Path
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.ledger.api.auth.AuthService
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.CommandConfiguration
+import com.digitalasset.platform.configuration.{
+  CommandConfiguration,
+  PartyConfiguration,
+  SubmissionConfiguration
+}
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.ports.Port
 
 /**
   * Defines the basic configuration for running sandbox
   */
 final case class SandboxConfig(
     address: Option[String],
-    port: Int,
+    port: Port,
     portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
+    partyConfig: PartyConfiguration,
+    submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
-    logLevel: Level,
+    logLevel: Option[Level],
     authService: Option[AuthService],
-    useSortableCid: Boolean
+    seeding: Option[Seeding],
 )
 
 object SandboxConfig {
-  val DefaultPort = 6865
+  val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize = 4194304
+  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  lazy val default =
+  lazy val nextDefault: SandboxConfig =
     SandboxConfig(
       address = None,
       port = DefaultPort,
@@ -50,14 +58,28 @@ object SandboxConfig {
       timeProviderType = None,
       timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
+      partyConfig = PartyConfiguration.default.copy(
+        implicitPartyAllocation = true,
+      ),
+      submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
       eagerPackageLoading = false,
-      logLevel = Level.INFO,
+      logLevel = None, // the default is in logback.xml
       authService = None,
-      useSortableCid = false
+      seeding = Some(Seeding.Strong),
+    )
+
+  lazy val default: SandboxConfig =
+    nextDefault.copy(
+      partyConfig = nextDefault.partyConfig.copy(
+        // In Sandbox, parties are always allocated implicitly. Enabling this would result in an
+        // extra `writeService.allocateParty` call, which is unnecessary and bad for performance.
+        implicitPartyAllocation = false,
+      ),
+      seeding = None,
     )
 }

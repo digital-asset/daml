@@ -104,7 +104,7 @@ def main():
         shutil.rmtree(nix_cache_dir)
 
     # copy to nix cache
-    cmd = ["nix", "copy", "--to", store_url, "-f", "./nix", "tools", "cached"]
+    cmd = ["nix", "copy", "--to", store_url, "-f", "./nix", "tools", "ci-cached"]
     log_cmd(cmd)
     proc = subprocess.run(
             cmd,

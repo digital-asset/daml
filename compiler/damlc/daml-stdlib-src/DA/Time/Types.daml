@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-daml 1.2
 -- | MOVE DA.Time
 module DA.Time.Types
   ( RelTime(..)

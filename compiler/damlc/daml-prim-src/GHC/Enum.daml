@@ -3,7 +3,6 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-missing-methods #-}
-daml 1.2
 
 -- | MOVE Prelude
 --

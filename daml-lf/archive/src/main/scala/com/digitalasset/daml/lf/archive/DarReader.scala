@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
+import java.io._
 import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.data.TryOps.sequence
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml_lf_dev.DamlLf
-import org.apache.commons.io.IOUtils
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
@@ -40,6 +39,18 @@ class DarReader[A](
     } yield Dar(main, deps)
   }
 
+  // Fails if a zip bomb is detected
+  private def slurpWithCaution(zip: ZipInputStream): Try[(Long, InputStream)] =
+    Try {
+      val output = new ByteArrayOutputStream()
+      val buffer = new Array[Byte](4096)
+      for (n <- Iterator.continually(zip.read(buffer)).takeWhile(_ >= 0) if n > 0) {
+        output.write(buffer, 0, n)
+        if (output.size >= EntrySizeThreshold) throw Errors.ZipBomb()
+      }
+      (output.size.toLong, new ByteArrayInputStream(output.toByteArray))
+    }
+
   private def loadZipEntries(name: String, darStream: ZipInputStream): Try[ZipEntries] = {
     @tailrec
     def go(accT: Try[Map[String, (Long, InputStream)]]): Try[Map[String, (Long, InputStream)]] =
@@ -47,12 +58,9 @@ class DarReader[A](
         case Some(entry) =>
           go(
             accT.flatMap { acc =>
-              bracket[Array[Byte], Unit](Try {
-                IOUtils.toByteArray(darStream)
-              })(_ => Try(darStream.closeEntry()))
-                .map { buffer =>
-                  val inputStream: InputStream = new ByteArrayInputStream(buffer)
-                  acc + (entry.getName -> (buffer.length.toLong -> inputStream))
+              bracket(slurpWithCaution(darStream))(_ => Try(darStream.closeEntry()))
+                .map { sizedBytes =>
+                  acc + (entry.getName -> sizedBytes)
                 }
             }
           )
@@ -78,15 +86,18 @@ object Errors {
 
   import DarReader.ZipEntries
 
-  case class InvalidDar(entries: ZipEntries, cause: Throwable)
+  final case class InvalidDar(entries: ZipEntries, cause: Throwable)
       extends RuntimeException(s"Invalid DAR: ${darInfo(entries): String}", cause)
 
-  case class InvalidZipEntry(name: String, entries: ZipEntries)
+  final case class InvalidZipEntry(name: String, entries: ZipEntries)
       extends RuntimeException(
         s"Invalid zip entryName: ${name: String}, DAR: ${darInfo(entries): String}")
 
-  case class InvalidLegacyDar(entries: ZipEntries)
+  final case class InvalidLegacyDar(entries: ZipEntries)
       extends RuntimeException(s"Invalid Legacy DAR: ${darInfo(entries)}")
+
+  final case class ZipBomb()
+      extends RuntimeException(s"An entry is too large, rejected as a possible zip bomb")
 
   private def darInfo(entries: ZipEntries): String =
     s"${entries.name}, content: [${darFileNames(entries).mkString(", "): String}}]"
@@ -98,6 +109,7 @@ object Errors {
 object DarReader {
 
   private val ManifestName = "META-INF/MANIFEST.MF"
+  private val EntrySizeThreshold = 1024 * 1024 * 1024 // 1 GB
 
   private[archive] case class ZipEntries(name: String, entries: Map[String, (Long, InputStream)]) {
 

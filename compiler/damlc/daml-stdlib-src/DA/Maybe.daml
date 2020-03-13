@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE PatternSynonyms #-}
-daml 1.2
 -- | HIDE
 module DA.Maybe(Maybe, pattern Nothing, pattern Just, maybe, module DA.Maybe) where
 

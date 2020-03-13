@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- @ERROR found value cycle
-daml 1.2
+
 module ValueRecursion where
 
 foo : [Int]

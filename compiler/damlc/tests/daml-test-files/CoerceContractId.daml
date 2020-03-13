@@ -3,7 +3,7 @@
 --
 -- Check that `coerceContractId` works properly.
 -- @SINCE-LF 1.5
-daml 1.2
+
 module CoerceContractId where
 
 import DA.Assert

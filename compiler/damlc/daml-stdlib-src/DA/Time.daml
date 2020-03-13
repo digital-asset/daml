@@ -3,7 +3,6 @@
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-daml 1.2
 module DA.Time
   ( RelTime
   , pass

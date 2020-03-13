@@ -1,18 +1,18 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 sh_test(
     name = "test-rule",
     srcs = ["test-scenarios.sh"],
     args = [
-        "$(rootpath //:VERSION)",
+        sdk_version,
         "$(rootpath //compiler/damlc)",
         "$(rootpath //triggers/daml:daml-trigger.dar)",
         "$(rootpath Rule.daml)",
     ],
     data = [
         "Rule.daml",
-        "//:VERSION",
         "//compiler/damlc",
         "//triggers/daml:daml-trigger.dar",
     ],

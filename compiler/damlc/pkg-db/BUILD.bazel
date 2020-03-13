@@ -10,6 +10,7 @@ load(
 DAML_LF_VERSIONS = [
     "1.6",
     "1.7",
+    "1.8",
     "1.dev",
 ]
 

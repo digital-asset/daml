@@ -366,19 +366,21 @@ class Ledger {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
-        state = change(state, events);
-        haveSeenEvents = true;
-        emitter.emit('change', state, events);
-      } else if (isRecordWith('heartbeat', json)) {
-        // NOTE(MH): Threre's nothing to be done with heartbeats.
-      } else if (isRecordWith('live', json) && json.live === true) {
-        // NOTE(MH): If we receive the marker indicating that we are switching
-        // from the ACS to the live stream and we haven't received any events
-        // yet, we signal this by pretending we received an empty list of
-        // events. This never does any harm.
-        if (!haveSeenEvents) {
-          haveSeenEvents = true;
-          emitter.emit('change', state, []);
+        if (events.length == 0 && isRecordWith('offset', json)) {
+          if (!haveSeenEvents) {
+            // NOTE(MH): If we receive the marker indicating that we are switching
+            // from the ACS to the live stream and we haven't received any events
+            // yet, we signal this by pretending we received an empty list of
+            // events. This never does any harm.
+            haveSeenEvents = true;
+            emitter.emit('change', state, []);
+          }
+        } else {
+          state = change(state, events);
+          if (isRecordWith('offset', json)) {
+            haveSeenEvents = true;
+          }
+          emitter.emit('change', state, events);
         }
       } else if (isRecordWith('warnings', json)) {
         console.warn('Ledger.streamQuery warnings', json);

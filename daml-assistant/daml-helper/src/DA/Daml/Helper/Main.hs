@@ -1,5 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
@@ -36,7 +37,6 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
-    | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
@@ -49,6 +49,7 @@ data Command
       , sandboxOptions :: SandboxOptions
       , navigatorOptions :: NavigatorOptions
       , jsonApiOptions :: JsonApiOptions
+      , scriptOptions :: ScriptOptions
       , shutdownStdinClose :: Bool
       }
     | Deploy { flags :: LedgerFlags }
@@ -64,7 +65,6 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
-    , command "migrate" (info (migrateCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -106,11 +106,6 @@ commandParser = subparser $ fold
             <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
         ]
 
-    migrateCmd =  Migrate
-        <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be   located")
-        <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
-        <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
-
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
@@ -124,6 +119,7 @@ commandParser = subparser $ fold
         <*> (SandboxOptions <$> many (strOption (long "sandbox-option" <> metavar "SANDBOX_OPTION" <> help "Pass option to sandbox")))
         <*> (NavigatorOptions <$> many (strOption (long "navigator-option" <> metavar "NAVIGATOR_OPTION" <> help "Pass option to navigator")))
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
+        <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
 
     deployCmdInfo = mconcat
@@ -233,6 +229,36 @@ commandParser = subparser $ fold
         <$> hostFlag
         <*> portFlag
         <*> accessTokenFileFlag
+        <*> sslConfig
+
+    sslConfig :: Parser (Maybe ClientSSLConfig)
+    sslConfig = do
+        tls <- switch $ mconcat
+            [ long "tls"
+            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
+            ]
+        mbCACert <- optional $ strOption $ mconcat
+            [ long "cacrt"
+            , help "The crt file to be used as the the trusted root CA."
+            ]
+        mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
+            (strOption $ mconcat
+                 [ long "pem"
+                 , help "The pem file to be used as the private key in mutual authentication."
+                 ]
+            )
+            (strOption $ mconcat
+                 [ long "crt"
+                 , help "The crt file to be used as the cert chain in mutual authentication."
+                 ]
+            )
+        return $ case (tls, mbCACert, mbClientKeyCertPair) of
+            (False, Nothing, Nothing) -> Nothing
+            (_, _, _) -> Just ClientSSLConfig
+                { serverRootCert = mbCACert
+                , clientSSLKeyCertPair = mbClientKeyCertPair
+                , clientMetadataPlugin = Nothing
+                }
 
     hostFlag :: Parser (Maybe String)
     hostFlag = optional . option str $
@@ -259,7 +285,6 @@ runCommand = \case
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
     New {..} -> runNew targetFolder templateNameM [] []
-    Migrate {..} -> runMigrate targetFolder pkgPathFrom pkgPathTo
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
@@ -274,6 +299,7 @@ runCommand = \case
             sandboxOptions
             navigatorOptions
             jsonApiOptions
+            scriptOptions
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties

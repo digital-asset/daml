@@ -4,7 +4,7 @@
 -- Check that conversion between text and code points works.
 -- @SINCE-LF 1.6
 -- @TODO Move this into Text.daml once support for DAML-LF 1.5 is dropped.
-daml 1.2
+
 module GoodCodePoints where
 
 import DA.Assert

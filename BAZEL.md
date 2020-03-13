@@ -68,7 +68,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ) + [
-            "//:COMPONENT-VERSION",
+            "//:MVN_VERSION",
         ],
     tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [

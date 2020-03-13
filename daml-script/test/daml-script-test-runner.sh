@@ -48,8 +48,10 @@ ScriptTest:test4 SUCCESS
 ScriptTest:testCreateAndExercise SUCCESS
 ScriptTest:testKey SUCCESS
 ScriptTest:time SUCCESS
+ScriptTest:traceOrder SUCCESS
 ScriptTest:partyIdHintTest SUCCESS
 ScriptTest:sleepTest SUCCESS
+ScriptExample:initializeFixed SUCCESS
 EOF
 )"
 

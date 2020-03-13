@@ -107,7 +107,7 @@ getDefaultSdkVersion :: DamlPath -> IO SdkVersion
 getDefaultSdkVersion damlPath = do
     installedVersions <- getInstalledSdkVersions damlPath
     required "There are no installed SDK versions." $
-        maximumMay (filter isStableVersion installedVersions)
+        maximumMay installedVersions
 
 -- | Get the list of available versions afresh. This will fetch.
 -- https://docs.daml.com/versions.json and parse the obtained list

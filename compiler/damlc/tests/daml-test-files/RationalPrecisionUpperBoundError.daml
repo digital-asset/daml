@@ -4,7 +4,7 @@
 -- Test that rational literals with precision higher then e^-10 fail.
 -- @ERROR Rational is out of bounds
 
-daml 1.2
+
 
 module RationalPrecisionUpperBoundError where
 

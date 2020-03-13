@@ -5,6 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -51,16 +52,18 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "bytestring",
         "directory",
         "extra",
         "filepath",
         "process",
         "tasty",
         "tasty-hunit",
+        "zip-archive",
     ],
     main_function = "DamlcTest.main",
     src_strip_prefix = "tests",
-    visibility = ["//visibility:private"],
+    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
         "//compiler/damlc:damlc-lib",
@@ -247,7 +250,6 @@ genrule(
     name = "repl-test",
     srcs = [
         "ReplTest.daml",
-        "//:VERSION",
     ],
     outs = ["repl-test.dar"],
     cmd = """
@@ -256,7 +258,7 @@ genrule(
       mkdir -p $$TMP_DIR/daml
       cp -L $(location ReplTest.daml) $$TMP_DIR/daml
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: repl-test
 source: daml
 version: 0.1.0
@@ -267,7 +269,7 @@ build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location repl-test.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
@@ -426,11 +428,10 @@ sh_test(
     srcs = ["src/stable-packages.sh"],
     args = [
         "$(location //compiler/damlc)",
-        "$(location //:VERSION)",
+        sdk_version,
         "$(POSIX_DIFF)",
     ],
     data = [
-        "//:VERSION",
         "//compiler/damlc",
     ],
     toolchains = [

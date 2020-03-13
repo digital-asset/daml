@@ -6,10 +6,8 @@ package com.digitalasset.resources
 import java.util.Timer
 import java.util.concurrent.{CompletionStage, ExecutorService}
 
-import scala.collection.generic.CanBuildFrom
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -72,6 +70,9 @@ trait ResourceOwner[+A] {
   * Convenient [[ResourceOwner]] factory and sequencing methods.
   */
 object ResourceOwner {
+  def unit: ResourceOwner[Unit] =
+    new FutureResourceOwner(() => Future.unit)
+
   def successful[T](value: T): ResourceOwner[T] =
     new FutureResourceOwner(() => Future.successful(value))
 
@@ -101,32 +102,4 @@ object ResourceOwner {
 
   def forTimer(acquire: () => Timer): ResourceOwner[Timer] =
     new TimerResourceOwner(acquire)
-
-  /**
-    * @see [[Resource.sequence()]]
-    */
-  def sequence[T, C[X] <: TraversableOnce[X]](seq: C[ResourceOwner[T]])(
-      implicit bf: CanBuildFrom[C[ResourceOwner[T]], T, C[T]],
-      executionContext: ExecutionContext,
-  ): ResourceOwner[C[T]] =
-    seq
-      .foldLeft(ResourceOwner.successful(bf()))((builderResource, elementResource) =>
-        for {
-          builder <- builderResource
-          element <- elementResource
-        } yield builder += element)
-      .map(_.result())
-
-  /**
-    * @see [[Resource.sequenceIgnoringValues()]]
-    */
-  def sequenceIgnoringValues[T, C[X] <: TraversableOnce[X]](seq: C[ResourceOwner[T]])(
-      implicit executionContext: ExecutionContext,
-  ): ResourceOwner[Unit] =
-    seq
-      .foldLeft(ResourceOwner.successful(()))((builderResource, elementResource) =>
-        for {
-          _ <- builderResource
-          _ <- elementResource
-        } yield ())
 }

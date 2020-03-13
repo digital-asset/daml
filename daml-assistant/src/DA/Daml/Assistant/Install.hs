@@ -11,6 +11,7 @@ module DA.Daml.Assistant.Install
     , uninstallVersion
     ) where
 
+import DA.Directory
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
@@ -18,7 +19,6 @@ import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
-import DA.Daml.Project.Util
 import Safe
 import Data.List
 import Conduit

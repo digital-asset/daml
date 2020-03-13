@@ -73,6 +73,10 @@ lf_test_versions = [
     [
         daml_compile(
             name = "Test-%s" % target_name,
+            srcs = [
+                "src/main/daml/Iou.daml",
+                "src/main/daml/IouTrade.daml",
+            ],
             main_src = "src/main/daml/Test.daml",
             target = target,
             visibility = ["//visibility:public"],

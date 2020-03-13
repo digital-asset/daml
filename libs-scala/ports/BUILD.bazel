@@ -4,12 +4,22 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
+    "da_scala_test",
 )
 
 da_scala_library(
     name = "ports",
     srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset:ports:__VERSION__"],
     visibility = [
         "//visibility:public",
+    ],
+)
+
+da_scala_test(
+    name = "ports-tests",
+    srcs = glob(["src/test/suite/**/*.scala"]),
+    deps = [
+        ":ports",
     ],
 )

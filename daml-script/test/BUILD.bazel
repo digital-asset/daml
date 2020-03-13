@@ -10,6 +10,7 @@ load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
     name = "script-test",
@@ -17,7 +18,6 @@ genrule(
         glob(["**/*.daml"]) + [
             "//daml-script/daml:daml-script.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
-            "//:VERSION",
         ],
     outs = ["script-test.dar"],
     cmd = """
@@ -29,7 +29,7 @@ genrule(
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
-sdk-version: $$(cat $(location //:VERSION))
+sdk-version: {sdk}
 name: script-test
 source: daml
 version: 0.0.1
@@ -40,7 +40,7 @@ dependencies:
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR
-    """,
+    """.format(sdk = sdk_version),
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
@@ -48,6 +48,7 @@ EOF
 da_scala_library(
     name = "test-lib",
     srcs = glob(["src/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -151,15 +152,20 @@ client_server_test(
     client = ":test_client_multi_participant",
     client_args = [
         "-w",
+        "--target-port=6865",
         "--extra-participant-port=6866",
     ],
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
-    server = "//ledger/api-server-damlonx/reference-v2",
+    runner = "@//bazel_tools/client_server/runner_with_port_check:runner",
+    runner_args = [
+        "6865",
+        "6866",
+    ],
+    server = "//ledger/ledger-on-memory:app",
     server_args = [
-        "--port=6865",
-        "--jdbc-url=jdbc:h2:mem:daml_on_x;db_close_delay=-1;db_close_on_exit=false",
-        "--extra-participant=second-participant,6866,jdbc:h2:mem:daml_on_x2;db_close_delay=-1;db_close_on_exit=false",
+        "--participant participant-id=daml_on_x,port=6865",
+        "--participant participant-id=daml_on_x2,port=6866",
     ],
     server_files = ["$(rootpath :script-test.dar)"],
     tags = ["exclusive"],

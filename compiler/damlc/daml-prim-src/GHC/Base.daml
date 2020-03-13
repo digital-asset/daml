@@ -4,7 +4,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE MagicHash #-}
 
-daml 1.2
 -- | MOVE Prelude
 module GHC.Base
   ( otherwise

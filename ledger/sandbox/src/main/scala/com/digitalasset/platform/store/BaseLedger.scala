@@ -3,9 +3,12 @@
 
 package com.digitalasset.platform.store
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -16,12 +19,16 @@ import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionId}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  LedgerId,
+  TransactionFilter,
+  TransactionId
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.store.dao.LedgerReadDao
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -29,10 +36,10 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
+import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
-import scalaz.syntax.tag.ToTagOps
 
 class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
@@ -73,7 +80,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       endExclusive
     )
 
-  override def snapshot(filter: TemplateAwareFilter): Future[LedgerSnapshot] =
+  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
     // instead of looking up the latest ledger end, we can only take the latest known ledgerEnd in the scope of SqlLedger.
     // If we don't do that, we can miss contracts from a partially inserted batch insert of ledger entries
     // scenario:
@@ -93,12 +100,16 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
   override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] =
+      transactionId: TransactionId
+  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
       .lookupTransaction(TransactionId.unwrap(transactionId))
 
-  override def parties: Future[List[domain.PartyDetails]] =
-    ledgerDao.getParties
+  override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
+    ledgerDao.getParties(parties)
+
+  override def listKnownParties(): Future[List[domain.PartyDetails]] =
+    ledgerDao.listKnownParties()
 
   override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
     dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))
@@ -124,6 +135,12 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def configurationEntries(
       offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getConfigurationEntries))
+
+  override def deduplicateCommand(
+      deduplicationKey: String,
+      submittedAt: Instant,
+      deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
+    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 
   override def close(): Unit = {
     dispatcher.close()

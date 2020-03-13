@@ -38,12 +38,12 @@ class CommandExecutorImpl(
     engine: Engine,
     getPackage: Ref.PackageId => Future[Option[Package]],
     participant: Ref.ParticipantId,
-    randomService: Option[() => crypto.Hash],
 )(implicit ec: ExecutionContext)
     extends CommandExecutor {
 
   override def execute(
       submitter: Party,
+      submissionSeed: Option[crypto.Hash],
       submitted: ApiCommands,
       getContract: Value.AbsoluteContractId => Future[
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
@@ -51,15 +51,14 @@ class CommandExecutorImpl(
       commands: Commands,
   ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
 
-    val submissionSeed = randomService.map(_())
-
     consume(engine.submit(commands, participant, submissionSeed))(
       getPackage,
       getContract,
       lookupKey)
       .map { submission =>
         (for {
-          updateTx <- submission
+          result <- submission
+          (updateTx, meta) = result
           _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(submitter))
         } yield
@@ -68,13 +67,17 @@ class CommandExecutorImpl(
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
-              Time.Timestamp.assertFromInstant(submitted.maximumRecordTime)
+              Time.Timestamp.assertFromInstant(submitted.maximumRecordTime),
+              submitted.deduplicateUntil,
             ),
             TransactionMeta(
               Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap),
+              meta.submissionTime,
+              submissionSeed,
+              Some(meta.usedPackages)
             ),
-            updateTx
+            updateTx,
           )).left.map(ErrorCause.DamlLf)
       }
   }
