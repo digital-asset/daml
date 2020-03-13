@@ -128,7 +128,7 @@ da_haskell_library(
         "extra",
         "file-embed",
         "filepath",
-        "grpc-haskell",
+        "grpc-haskell-core",
         "ghc-lib",
         "ghc-lib-parser",
         "ghcide",

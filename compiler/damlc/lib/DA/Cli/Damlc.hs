@@ -69,7 +69,7 @@ import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import "ghc-lib-parser" Module (unitIdString)
-import Network.GRPC.HighLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
+import Network.GRPC.LowLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
