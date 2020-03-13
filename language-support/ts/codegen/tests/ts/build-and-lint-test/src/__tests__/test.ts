@@ -238,6 +238,10 @@ test('create + fetch & exercise', async () => {
     tuple: {_1: '12', _2: 'mmm'},
     enum: buildAndLint.Main.Color.Red,
     enumList: [buildAndLint.Main.Color.Red, buildAndLint.Main.Color.Blue, buildAndLint.Main.Color.Yellow],
+    enumList2: ['Red', 'Blue', 'Yellow'],
+    optcol1: {tag: 'Transparent1', value: {}},
+    optcol2: {tag: 'Color2', value: {color2: 'Red'}}, // 'Red' is of type Color
+    optcol3: {tag: 'Color2', value: {color2: buildAndLint.Main.Color.Blue}}, // Color.Blue is of type 'Color'
     variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     optionalVariant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},
