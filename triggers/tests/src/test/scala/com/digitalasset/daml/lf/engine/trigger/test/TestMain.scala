@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.engine.trigger.test
 
 import java.nio.file.{Path, Paths}
+import java.io.File
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -16,6 +17,7 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -52,7 +54,9 @@ case class Config(
     ledgerPort: Int,
     darPath: Path,
     timeProviderType: TimeProviderType,
-    accessTokenFile: Option[Path])
+    accessTokenFile: Option[Path],
+    cacrt: Option[File],
+)
 
 // We do not use scalatest here since that doesn’t work nicely with
 // the client_server_test macro.
@@ -87,7 +91,8 @@ class TestRunner(val config: Config) extends StrictLogging {
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
+    sslContext = config.cacrt.flatMap(file =>
+      TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),
     token = tokenHolder.flatMap(_.token)
   )
 
@@ -1044,6 +1049,10 @@ object TestMain {
       .action { (f, c) =>
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
+
+    opt[File]("cacrt")
+      .optional()
+      .action((d, c) => c.copy(cacrt = Some(d)))
   }
 
   private val applicationId = ApplicationId("AscMain test")
@@ -1054,7 +1063,7 @@ object TestMain {
   case class FailedCompletions(num: Long)
 
   def main(args: Array[String]): Unit = {
-    configParser.parse(args, Config(0, null, TimeProviderType.Static, None)) match {
+    configParser.parse(args, Config(0, null, TimeProviderType.Static, None, None)) match {
       case None =>
         sys.exit(1)
       case Some(config) =>

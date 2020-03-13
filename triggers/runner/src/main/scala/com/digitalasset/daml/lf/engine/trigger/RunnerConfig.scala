@@ -3,9 +3,12 @@
 
 package com.digitalasset.daml.lf.engine.trigger
 
+import java.io.File
 import java.nio.file.{Path, Paths}
 import java.time.Duration
+import scala.util.Try
 
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
@@ -19,9 +22,15 @@ case class RunnerConfig(
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     accessTokenFile: Option[Path],
+    tlsConfig: Option[TlsConfiguration],
 )
 
 object RunnerConfig {
+  private def validatePath(path: String, message: String): Either[String, Unit] = {
+    val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
+    if (readable) Right(()) else Left(message)
+  }
+
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 
@@ -70,6 +79,40 @@ object RunnerConfig {
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
 
+    opt[String]("pem")
+      .optional()
+      .text("TLS: The pem file to be used as the private key.")
+      .validate(path => validatePath(path, "The file specified via --pem does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+          Some(c.copy(keyFile = Some(new File(path)))))))
+
+    opt[String]("crt")
+      .optional()
+      .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
+      .validate(path => validatePath(path, "The file specified via --crt does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+          Some(c.copy(keyFile = Some(new File(path)))))))
+
+    opt[String]("cacrt")
+      .optional()
+      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
+          Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+    opt[Unit]("tls")
+      .optional()
+      .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig =
+          arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+
     help("help").text("Print this usage text")
 
     cmd("list")
@@ -111,6 +154,7 @@ object RunnerConfig {
         timeProviderType = null,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
+        tlsConfig = None,
       )
     )
 }

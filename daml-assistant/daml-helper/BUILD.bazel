@@ -106,6 +106,7 @@ $(location @openssl_dev_env//:openssl) x509 -req -in $(location client.csr) -CA 
     tools = [
         "@openssl_dev_env//:openssl",
     ],
+    visibility = ["//visibility:public"],
 )
 
 da_haskell_test(

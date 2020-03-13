@@ -101,6 +101,34 @@ client_server_test(
     server_files = ["$(rootpath :acs.dar)"],
 )
 
+client_server_test(
+    name = "test_wallclock_time_tls",
+    timeout = "long",
+    client = ":test_client",
+    client_args = [
+        "-w",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //daml-assistant/daml-helper:ca.crt))",
+    ],
+    client_files = [
+        "$(rootpath :acs.dar)",
+    ],
+    data = [
+        ":acs.dar",
+        "//daml-assistant/daml-helper:ca.crt",
+        "//daml-assistant/daml-helper:server.crt",
+        "//daml-assistant/daml-helper:server.pem",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "--port=0",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //daml-assistant/daml-helper:server.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //daml-assistant/daml-helper:server.pem))",
+        "--client-auth=none",
+    ],
+    server_files = ["$(rootpath :acs.dar)"],
+)
+
 AUTH_TOKEN = "I_CAN_HAZ_AUTH"
 
 # This is a genrule so we can replace it by something nicer that actually generates the token

@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import ch.qos.logback.core.AppenderBase
 import ch.qos.logback.classic.spi.ILoggingEvent
+import java.io.File
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -22,6 +23,7 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -68,14 +70,17 @@ class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
     val wallclockTime: Boolean,
-    val token: Option[String]) {
+    val token: Option[String],
+    val rootCa: Option[File],
+) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
+    sslContext = rootCa.flatMap(file =>
+      TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),
     token = token,
   )
   val ttl = java.time.Duration.ofSeconds(30)
