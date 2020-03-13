@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{KeyValueCommitting, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{Bytes, KeyValueCommitting, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator.{
@@ -28,7 +28,6 @@ import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import com.digitalasset.resources.ResourceOwner
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -54,7 +53,7 @@ final class InMemoryLedgerReaderWriter(
   override def currentHealth(): HealthStatus =
     Healthy
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
+  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope)
 
   override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
@@ -91,13 +90,13 @@ private class InMemoryLedgerStateOperations(
     extends BatchingLedgerStateOperations[Index] {
   override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.successful {
-      keys.map(keyBytes => state.get(ByteString.copyFrom(keyBytes)))
+      keys.map(keyBytes => state.get(keyBytes))
     }
 
   override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
     Future.successful {
       state ++= keyValuePairs.map {
-        case (keyBytes, valueBytes) => ByteString.copyFrom(keyBytes) -> valueBytes
+        case (keyBytes, valueBytes) => keyBytes -> valueBytes
       }
     }
 

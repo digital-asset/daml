@@ -37,13 +37,13 @@ trait CommonQueries extends Queries {
       .as(
         (long("sequence_no")
           ~ get[Option[InputStream]]("entry_id")
-          ~ get[Option[Array[Byte]]]("envelope")
+          ~ get[Option[InputStream]]("envelope")
           ~ get[Option[Long]]("heartbeat_timestamp")).map {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
               Offset(Array(index)),
               DamlLogEntryId.parseFrom(entryId),
-              envelope,
+              ByteString.readFrom(envelope),
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
             index -> LedgerEntry.Heartbeat(
@@ -58,16 +58,21 @@ trait CommonQueries extends Queries {
 
   override final def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =
     Try {
-      val results = SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
-        .fold(Map.newBuilder[ByteString, Array[Byte]], ColumnAliaser.empty)((builder, row) =>
-          builder += ByteString.readFrom(row[InputStream]("key")) -> row[Value]("value"))
-        .fold(exceptions => throw exceptions.head, _.result())
-      keys.map(key => results.get(ByteString.copyFrom(key)))(breakOut)
+      val results =
+        SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.map(_.toByteArray)})"
+          .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
+            val key = ByteString.readFrom(row[InputStream]("key"))
+            val value = ByteString.readFrom(row[InputStream]("value"))
+            builder += key -> value
+          }
+          .fold(exceptions => throw exceptions.head, _.result())
+      keys.map(results.get)(breakOut)
     }
 
   override final def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
-      case (key, value) => Seq[NamedParameter]("key" -> key, "value" -> value)
+      case (key, value) =>
+        Seq[NamedParameter]("key" -> key.toByteArray, "value" -> value.toByteArray)
     })
   }
 
