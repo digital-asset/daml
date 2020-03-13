@@ -465,37 +465,37 @@ enum BuiltinFunction {
 
   ERROR = 25;
 
-  LEQ_INT64 = 33;
-  LEQ_DECIMAL = 34;  // *Available in versions < 1.7*
-  LEQ_NUMERIC = 112;  // *Available in versions >= 1.7*
-  LEQ_TEXT = 36;
-  LEQ_TIMESTAMP = 37;
-  LEQ_DATE = 67;
-  LEQ_PARTY = 89; // *Available in versions >= 1.1*
+  LEQ_INT64 = 33;         // *Available in versions < 1.dev*
+  LEQ_DECIMAL = 34;       // *Available in versions < 1.7*
+  LEQ_NUMERIC = 112;      // *Available in versions >= 1.7 and < 1.dev*
+  LEQ_TEXT = 36;          // *Available in versions < 1.dev*
+  LEQ_TIMESTAMP = 37;     // *Available in versions < 1.dev*
+  LEQ_DATE = 67;          // *Available in versions < 1.dev*
+  LEQ_PARTY = 89;         // *Available in versions >= 1.1 and < 1.dev*
 
-  LESS_INT64 = 39;
-  LESS_DECIMAL = 40;  // *Available in versions < 1.7*
-  LESS_NUMERIC = 113;  // *Available in versions >= 1.7*
-  LESS_TEXT = 42;
-  LESS_TIMESTAMP = 43;
-  LESS_DATE = 68;
-  LESS_PARTY = 90; // *Available in versions >= 1.1*
+  LESS_INT64 = 39;        // *Available in versions < 1.dev*
+  LESS_DECIMAL = 40;      // *Available in versions < 1.7*
+  LESS_NUMERIC = 113;     // *Available in versions >= 1.7 and < 1.dev*
+  LESS_TEXT = 42;         // *Available in versions < 1.dev*
+  LESS_TIMESTAMP = 43;    // *Available in versions < 1.dev*
+  LESS_DATE = 68;         // *Available in versions < 1.dev*
+  LESS_PARTY = 90;        // *Available in versions >= 1.1 and < 1.dev*
 
-  GEQ_INT64 = 45;
-  GEQ_DECIMAL = 46;  // *Available in versions < 1.7*
-  GEQ_NUMERIC = 114;  // *Available in versions >= 1.7*
-  GEQ_TEXT = 48;
-  GEQ_TIMESTAMP = 49;
-  GEQ_DATE = 69;
-  GEQ_PARTY = 91; // *Available in versions >= 1.1*
+  GEQ_INT64 = 45;         // *Available in versions < 1.dev*
+  GEQ_DECIMAL = 46;       // *Available in versions < 1.7*
+  GEQ_NUMERIC = 114;      // *Available in versions >= 1.7 and < 1.dev*
+  GEQ_TEXT = 48;          // *Available in versions < 1.dev*
+  GEQ_TIMESTAMP = 49;     // *Available in versions < 1.dev*
+  GEQ_DATE = 69;          // *Available in versions < 1.dev*
+  GEQ_PARTY = 91;         // *Available in versions >= 1.1 and < 1.dev*
 
-  GREATER_INT64 = 51;
-  GREATER_DECIMAL = 52;  // *Available in versions < 1.7*
-  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7*
-  GREATER_TEXT = 54;
-  GREATER_TIMESTAMP = 55;
-  GREATER_DATE = 70;
-  GREATER_PARTY = 92; // *Available in versions >= 1.1*
+  GREATER_INT64 = 51;     // *Available in versions < 1.dev*
+  GREATER_DECIMAL = 52;   // *Available in versions < 1.7*
+  GREATER_NUMERIC = 115;  // *Available in versions >= 1.7 and < 1.dev*
+  GREATER_TEXT = 54;      // *Available in versions < 1.dev*
+  GREATER_TIMESTAMP = 55; // *Available in versions < 1.dev*
+  GREATER_DATE = 70;      // *Available in versions < 1.dev*
+  GREATER_PARTY = 92;     // *Available in versions >= 1.1 and < 1.dev*
 
   TO_TEXT_INT64 = 57;
   TO_TEXT_DECIMAL = 58;  // *Available in versions < 1.7*
@@ -533,10 +533,15 @@ enum BuiltinFunction {
   EQUAL_DATE = 83;        // *Available in versions < 1.dev*
   EQUAL_PARTY = 84;       // *Available in versions < 1.dev*
   EQUAL_BOOL = 85;        // *Available in versions < 1.dev*
-  EQUAL_CONTRACT_ID = 86;
+  EQUAL_CONTRACT_ID = 86; // *Available in versions < 1.dev*
   EQUAL_LIST = 87;
-  EQUAL_TYPE_REP = 123;   // *Available in versions < 1.dev*
+  EQUAL_TYPE_REP = 123;   // *Available in versions = 1.8*
+
   EQUAL = 131;            // *Available in versions >= 1.dev*
+  LESS_EQ = 132;          // *Available in versions >= 1.dev*
+  LESS = 133;             // *Available in versions >= 1.dev*
+  GREATER_EQ = 134;       // *Available in versions >= 1.dev*
+  GREATER = 135;          // *Available in versions >= 1.dev*
 
   TRACE = 88;
 
@@ -545,7 +550,7 @@ enum BuiltinFunction {
   TEXT_FROM_CODE_POINTS = 105;  // *Available in versions >= 1.6*
   TEXT_TO_CODE_POINTS = 106; // *Available in versions >= 1.6*
 
-  // Next id is 132. 131 is EQUAL.
+  // Next id is 136. 135 is GREATER.
 
   // EXPERIMENTAL TEXT PRIMITIVES -- these do not yet have stable numbers.
   TEXT_TO_UPPER = 9901; // *Available in versions >= 1.dev*
