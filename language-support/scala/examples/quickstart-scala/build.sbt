@@ -22,7 +22,7 @@ lazy val `scala-codegen` = project
   .settings(
     name := "scala-codegen",
     commonSettings,
-    libraryDependencies ++= codeGenDependencies,
+    libraryDependencies ++= codeGenDependencies
   )
 
 lazy val `application` = project
@@ -30,7 +30,7 @@ lazy val `application` = project
   .settings(
     name := "application",
     commonSettings,
-    libraryDependencies ++= codeGenDependencies ++ applicationDependencies,
+    libraryDependencies ++= codeGenDependencies ++ applicationDependencies
   )
   .dependsOn(`scala-codegen`)
 // </doc-ref:modules>
@@ -47,15 +47,15 @@ lazy val commonSettings = Seq(
     "-Xlint:_,-unused"
   ),
   resolvers ++= daResolvers,
-  classpathTypes += "maven-plugin",
+  classpathTypes += "maven-plugin"
 )
 
 // <doc-ref:dependencies>
 lazy val codeGenDependencies = Seq(
-  "com.daml.scala" %% "bindings" % daSdkVersion,
+  "com.daml.scala" %% "bindings" % daSdkVersion
 )
 
 lazy val applicationDependencies = Seq(
-  "com.daml.scala" %% "bindings-akka" % daSdkVersion,
+  "com.daml.scala" %% "bindings-akka" % daSdkVersion
 )
 // </doc-ref:dependencies>
