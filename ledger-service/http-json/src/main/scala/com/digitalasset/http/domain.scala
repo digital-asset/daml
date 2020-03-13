@@ -74,6 +74,11 @@ object domain {
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
+  final case class ContractKeyStreamRequest[+Off, +LfV](
+      offsetHint: Off,
+      ekey: EnrichedContractKey[LfV],
+  )
+
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
       query: Map[String, JsValue],

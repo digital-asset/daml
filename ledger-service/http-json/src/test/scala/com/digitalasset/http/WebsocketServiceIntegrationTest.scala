@@ -416,6 +416,46 @@ class WebsocketServiceIntegrationTest
       }
   }
 
+  "ContractKeyStreamRequest" - {
+    import spray.json._, json.JsonProtocol._
+    val baseVal =
+      domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
+    val baseMap = baseVal.toJson.asJsObject.fields
+    val offsetHintKey = "offsetHint"
+    val withSome = JsObject(baseMap + (offsetHintKey -> JsString("hi")))
+    val withNone = JsObject(baseMap + (offsetHintKey -> JsNull))
+
+    "initial JSON reader" - {
+      type T = domain.ContractKeyStreamRequest[None.type, JsValue]
+
+      "shares EnrichedContractKey format" in {
+        JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest(None, baseVal))
+      }
+
+      "errors on offsetHint presence" in {
+        a[DeserializationException] shouldBe thrownBy {
+          withSome.convertTo[T]
+        }
+        a[DeserializationException] shouldBe thrownBy {
+          withNone.convertTo[T]
+        }
+      }
+    }
+
+    "resuming JSON reader" - {
+      type T = domain.ContractKeyStreamRequest[Option[Option[domain.Offset]], JsValue]
+
+      "shares EnrichedContractKey format" in {
+        JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest(None, baseVal))
+      }
+
+      "distinguishes null and string" in {
+        withSome.convertTo[T] should ===(domain.ContractKeyStreamRequest(Some(Some("hi")), baseVal))
+        withNone.convertTo[T] should ===(domain.ContractKeyStreamRequest(Some(None), baseVal))
+      }
+    }
+  }
+
   private def wsConnectRequest[M](
       uri: Uri,
       subprotocol: Option[String],
