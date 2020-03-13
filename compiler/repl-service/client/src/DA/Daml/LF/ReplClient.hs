@@ -11,6 +11,8 @@ module DA.Daml.LF.ReplClient
   , loadPackage
   , runScript
   , BackendError
+  , ClientSSLConfig(..)
+  , ClientSSLKeyCertPair(..)
   ) where
 
 import Control.Concurrent

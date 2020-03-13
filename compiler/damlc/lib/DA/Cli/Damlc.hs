@@ -69,7 +69,6 @@ import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import "ghc-lib-parser" Module (unitIdString)
-import Network.GRPC.LowLevel.Client (ClientSSLConfig(..), ClientSSLKeyCertPair(..))
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
@@ -268,7 +267,7 @@ cmdRepl numProcessors =
         <> metavar "TOKEN_PATH"
         <> help "Path to the token-file for ledger authorization"
 
-    sslConfig :: Parser (Maybe ClientSSLConfig)
+    sslConfig :: Parser (Maybe ReplClient.ClientSSLConfig)
     sslConfig = do
         tls <- switch $ mconcat
             [ long "tls"
@@ -278,7 +277,7 @@ cmdRepl numProcessors =
             [ long "cacrt"
             , help "The crt file to be used as the the trusted root CA."
             ]
-        mbClientKeyCertPair <- optional $ liftA2 ClientSSLKeyCertPair
+        mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
             (strOption $ mconcat
                  [ long "pem"
                  , help "The pem file to be used as the private key in mutual authentication."
@@ -291,7 +290,7 @@ cmdRepl numProcessors =
             )
         return $ case (tls, mbCACert, mbClientKeyCertPair) of
             (False, Nothing, Nothing) -> Nothing
-            (_, _, _) -> Just ClientSSLConfig
+            (_, _, _) -> Just ReplClient.ClientSSLConfig
                 { serverRootCert = mbCACert
                 , clientSSLKeyCertPair = mbClientKeyCertPair
                 , clientMetadataPlugin = Nothing
@@ -615,7 +614,7 @@ execRepl
     -> FilePath -> FilePath
     -> String -> String
     -> Maybe FilePath
-    -> Maybe ClientSSLConfig
+    -> Maybe ReplClient.ClientSSLConfig
     -> Command
 execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf = Command Repl (Just projectOpts) effect
   where effect = do
