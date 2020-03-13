@@ -293,6 +293,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BEqualNumeric => SBEqualNumeric
               case BEqualContractId => SBEqual
               case BEqual => SBEqual
+              case BELess => SBLess
+              case BELessEq => SBLessEq
+              case BEGreater => SBGreater
+              case BEGreaterEq => SBGreaterEq
 
               // TextMap
 

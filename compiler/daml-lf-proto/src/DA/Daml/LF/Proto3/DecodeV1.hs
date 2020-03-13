@@ -326,6 +326,12 @@ decodeChoice LF1.TemplateChoice{..} =
 
 decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
 decodeBuiltinFunction = pure . \case
+  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
+  LF1.BuiltinFunctionLESS -> BELessGeneric
+  LF1.BuiltinFunctionLESS_EQ -> BELessEqGeneric
+  LF1.BuiltinFunctionGREATER -> BEGreaterGeneric
+  LF1.BuiltinFunctionGREATER_EQ -> BEGreaterEqGeneric
+
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
   LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqualNumeric
@@ -335,7 +341,6 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
   LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
   LF1.BuiltinFunctionEQUAL_TYPE_REP -> BEEqual BTTypeRep
-  LF1.BuiltinFunctionEQUAL -> BEEqualGeneric
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
