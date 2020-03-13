@@ -179,10 +179,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("MUL_INT64", (a, b) => Some(SInt64(a * b))),
         ("DIV_INT64", (a, b) => if (b == 0) None else Some(SInt64(a / b))),
         ("MOD_INT64", (a, b) => if (b == 0) None else Some(SInt64(a % b))),
-        ("LESS_EQ_INT64", (a, b) => Some(SBool(a <= b))),
-        ("GREATER_EQ_INT64", (a, b) => Some(SBool(a >= b))),
-        ("LESS_INT64", (a, b) => Some(SBool(a < b))),
-        ("GREATER_INT64", (a, b) => Some(SBool(a > b))),
+        ("LESS_EQ @Int64", (a, b) => Some(SBool(a <= b))),
+        ("GREATER_EQ @Int64", (a, b) => Some(SBool(a >= b))),
+        ("LESS @Int64", (a, b) => Some(SBool(a < b))),
+        ("GREATER @Int64", (a, b) => Some(SBool(a > b))),
         ("EQUAL @Int64", (a, b) => Some(SBool(a == b))),
       )
 
@@ -379,6 +379,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         ("GREATER_EQ_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) >= BigDecimal(b)))),
         ("LESS_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) < BigDecimal(b)))),
         ("GREATER_NUMERIC @10", (a, b) => Some(SBool(BigDecimal(a) > BigDecimal(b)))),
+        ("LESS_EQ @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) <= BigDecimal(b)))),
+        ("GREATER_EQ @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) >= BigDecimal(b)))),
+        ("LESS @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) < BigDecimal(b)))),
+        ("GREATER @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) > BigDecimal(b)))),
         ("EQUAL @(Numeric 10)", (a, b) => Some(SBool(BigDecimal(a) == BigDecimal(b)))),
       )
 
@@ -553,10 +557,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
         ("builtin", "reference"),
         ("APPEND_TEXT", (a, b) => Right(SText(a + b))),
-        ("LESS_EQ_TEXT", (a, b) => Right(SBool(unicodeOrdering.lteq(a, b)))),
-        ("GREATER_EQ_TEXT", (a, b) => Right(SBool(unicodeOrdering.gteq(a, b)))),
-        ("LESS_TEXT", (a, b) => Right(SBool(unicodeOrdering.lt(a, b)))),
-        ("GREATER_TEXT", (a, b) => Right(SBool(unicodeOrdering.gt(a, b)))),
+        ("LESS_EQ @Text", (a, b) => Right(SBool(unicodeOrdering.lteq(a, b)))),
+        ("GREATER_EQ @Text", (a, b) => Right(SBool(unicodeOrdering.gteq(a, b)))),
+        ("LESS @Text", (a, b) => Right(SBool(unicodeOrdering.lt(a, b)))),
+        ("GREATER @Text", (a, b) => Right(SBool(unicodeOrdering.gt(a, b)))),
         ("EQUAL @Text", (a, b) => Right(SBool(a == b))),
       )
 
@@ -665,10 +669,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
         ("builtin", "reference"),
-        ("LESS_EQ_TIMESTAMP", (a, b) => Right(SBool(a <= b))),
-        ("GREATER_EQ_TIMESTAMP", (a, b) => Right(SBool(a >= b))),
-        ("LESS_TIMESTAMP", (a, b) => Right(SBool(a < b))),
-        ("GREATER_TIMESTAMP", (a, b) => Right(SBool(a > b))),
+        ("LESS_EQ @Timestamp", (a, b) => Right(SBool(a <= b))),
+        ("GREATER_EQ @Timestamp", (a, b) => Right(SBool(a >= b))),
+        ("LESS @Timestamp", (a, b) => Right(SBool(a < b))),
+        ("GREATER @Timestamp", (a, b) => Right(SBool(a > b))),
         ("EQUAL @Timestamp", (a, b) => Right(SBool(a == b))),
       )
 
@@ -713,10 +717,10 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       val testCases = Table[String, (String, String) => Either[SError, SValue]](
         ("builtin", "reference"),
-        ("LESS_EQ_DATE", (a, b) => Right(SBool(a <= b))),
-        ("GREATER_EQ_DATE", (a, b) => Right(SBool(a >= b))),
-        ("LESS_DATE", (a, b) => Right(SBool(a < b))),
-        ("GREATER_DATE", (a, b) => Right(SBool(a > b))),
+        ("LESS_EQ @Date", (a, b) => Right(SBool(a <= b))),
+        ("GREATER_EQ @Date", (a, b) => Right(SBool(a >= b))),
+        ("LESS @Date", (a, b) => Right(SBool(a < b))),
+        ("GREATER @Date", (a, b) => Right(SBool(a > b))),
         ("EQUAL @Date", (a, b) => Right(SBool(a == b))),
       )
 
