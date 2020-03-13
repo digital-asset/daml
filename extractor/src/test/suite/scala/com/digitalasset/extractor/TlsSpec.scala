@@ -4,7 +4,6 @@
 package com.digitalasset.extractor
 
 import java.io.File
-import java.nio.file.Files
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.config.SnapshotEndSetting
@@ -29,14 +28,8 @@ class TlsSpec
   override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
 
   val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
-    val dir = Files.createTempDirectory("TlsIT")
-    dir.toFile.deleteOnExit()
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
-      val target = dir.resolve(src)
-      target.toFile.deleteOnExit()
-      val stream = getClass.getClassLoader.getResourceAsStream("certificates/" + src)
-      Files.copy(stream, target)
-      Some(target.toFile)
+      Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
     }
   }
 

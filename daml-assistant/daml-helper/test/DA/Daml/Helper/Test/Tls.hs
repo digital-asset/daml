@@ -21,7 +21,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
     sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
-    certDir <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper")
+    certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
     defaultMain $
         testGroup "TLS"
            [ withSandbox sandbox certDir "none" $ \getSandboxPort ->
