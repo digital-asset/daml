@@ -114,9 +114,9 @@ message ArchivedEvent {
 }
 
 // Records that a contract has entered the view of the participant.
-// The contract has been created on a ledger source on which the participant does not represent
+// The contract has been created on a domain on which the participant does not represent
 // all stakeholders of the contract or has previously left the view.
-// Used only for partitioned ledger topologies with multiple sources.
+// Used only for partitioned ledger topologies with multiple domains.
 message EnteredViewEvent {
   // The ID of this particular event.
   // Must be a valid LedgerString (as described in ``value.proto``).
