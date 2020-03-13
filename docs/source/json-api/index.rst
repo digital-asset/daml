@@ -1035,8 +1035,15 @@ different sets of template IDs::
         {"templateIds": ["Iou:Iou"]}
     ]
 
-output a series of JSON documents, each ``payload`` formatted according
-to :doc:`lf-value-specification`::
+An optional ``offset`` returned by a prior query (see output examples
+below) may be specified *before* the above, as a separate body.  It must
+be a string, and if specified, the stream will begin immediately *after*
+the response body that included that offset::
+
+    {"offset": "5609"}
+
+The output is a series of JSON documents, each ``payload`` formatted
+according to :doc:`lf-value-specification`::
 
     {
         "events": [{

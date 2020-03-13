@@ -26,6 +26,7 @@ import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.std.map._
+import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
@@ -46,6 +47,16 @@ object WebSocketService {
       Set[domain.TemplateId.OptionalPkg],
       domain.ActiveContract[LfV] => Option[Positive],
   )
+
+  private def withOptPrefix[I, L](prefix: I => Option[L]): Flow[I, (Option[L], I), NotUsed] =
+    Flow[I]
+      .scan(none[L \/ (Option[L], I)]) { (s, i) =>
+        s match {
+          case Some(-\/(l)) => Some(\/-((some(l), i)))
+          case None | Some(\/-(_)) => Some(prefix(i) toLeftDisjunction ((none, i)))
+        }
+      }
+      .collect { case Some(\/-(oli)) => oli }
 
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
@@ -92,15 +103,30 @@ object WebSocketService {
   private def renderEvents(events: Vector[JsObject], offset: Option[JsValue]): JsObject =
     JsObject(Map("events" -> JsArray(events)) ++ offset.map("offset" -> _).toList)
 
+  private def readStartingOffset(jv: JsValue): Option[Error \/ domain.StartingOffset] =
+    jv match {
+      case JsObject(fields) =>
+        fields get "offset" map { offJv =>
+          import JsonProtocol._
+          if (fields.size > 1)
+            -\/(InvalidUserInput("offset must be specified as a leading, separate object message"))
+          else
+            SprayJson
+              .decode[String](offJv)
+              .liftErr(InvalidUserInput)
+              .map(offStr => domain.StartingOffset(domain.Offset(offStr)))
+        }
+      case _ => None
+    }
+
   private def conflation[P, A]: Flow[StepAndErrors[P, A], StepAndErrors[P, A], NotUsed] = {
     val maxCost = 200L
     Flow[StepAndErrors[P, A]]
       .batchWeighted(
         max = maxCost,
         costFn = {
-          case StepAndErrors(_, ContractStreamStep.LiveBegin(_)) =>
-            // this is how we avoid conflating LiveBegin
-            maxCost
+          case StepAndErrors(errors, ContractStreamStep.LiveBegin(_)) =>
+            1L + errors.length
           case StepAndErrors(errors, step) =>
             val InsertDeleteStep(inserts, deletes) = step.toInsertDelete
             errors.length.toLong + (inserts.length * 2) + deletes.size
@@ -114,7 +140,7 @@ object WebSocketService {
     /** Extra data on success of a predicate. */
     type Positive
 
-    def parse(decoder: DomainJsonDecoder, str: String): Error \/ A
+    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ A
 
     def allowPhantonArchives: Boolean
 
@@ -131,10 +157,10 @@ object WebSocketService {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(decoder: DomainJsonDecoder, str: String): Error \/ SearchForeverRequest = {
+      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ SearchForeverRequest = {
         import JsonProtocol._
         SprayJson
-          .decode[SearchForeverRequest](str)
+          .decode[SearchForeverRequest](jv)
           .liftErr(InvalidUserInput)
       }
 
@@ -191,10 +217,10 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          str: String): Error \/ List[domain.EnrichedContractKey[LfV]] =
+          jv: JsValue): Error \/ List[domain.EnrichedContractKey[LfV]] =
         for {
           as <- SprayJson
-            .decode[List[domain.EnrichedContractKey[JsValue]]](str)
+            .decode[List[domain.EnrichedContractKey[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
         } yield bs
@@ -282,6 +308,7 @@ class WebSocketService(
         NotUsed
       }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def wsMessageHandler[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -290,13 +317,24 @@ class WebSocketService(
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
-          msg.toStrict(config.maxDuration).map(m => Q.parse(decoder, m.text))
+          msg.toStrict(config.maxDuration).map { m =>
+            SprayJson.parse(m.text).liftErr(InvalidUserInput)
+          }
         case _ =>
           Future successful -\/(
             InvalidUserInput("Cannot process your input, Expect a single JSON message"))
       }
+      .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
+      .map {
+        case (oeso, ejv) =>
+          for {
+            offPrefix <- oeso.sequence
+            jv <- ejv
+            a <- Q.parse(decoder, jv)
+          } yield (offPrefix, a)
+      }
       .flatMapConcat {
-        case \/-(a) => getTransactionSourceForParty[A](jwt, jwtPayload, a)
+        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
@@ -304,6 +342,7 @@ class WebSocketService(
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
       jwtPayload: JwtPayload,
+      offPrefix: Option[domain.StartingOffset],
       request: A): Source[Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
@@ -311,7 +350,7 @@ class WebSocketService(
 
     if (resolved.nonEmpty) {
       contractsService
-        .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, Terminates.Never)
+        .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = !Q.allowPhantonArchives))

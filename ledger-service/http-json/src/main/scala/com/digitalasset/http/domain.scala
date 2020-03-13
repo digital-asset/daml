@@ -144,6 +144,8 @@ object domain {
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
   }
 
+  final case class StartingOffset(offset: Offset)
+
   type Choice = lar.Choice
   val Choice = lar.Choice
 
