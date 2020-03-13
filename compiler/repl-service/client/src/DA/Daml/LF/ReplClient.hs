@@ -22,7 +22,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text.Lazy as TL
 import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
-import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
+import Network.GRPC.LowLevel (ClientConfig(..), ClientSSLConfig(..), ClientSSLKeyCertPair(..), Host(..), Port(..), StatusCode(..))
 import qualified Proto3.Suite as Proto
 import qualified ReplService as Grpc
 import System.Environment
@@ -34,6 +34,8 @@ data Options = Options
   { optServerJar :: FilePath
   , optLedgerHost :: String
   , optLedgerPort :: String
+  , optMbAuthTokenFile :: Maybe FilePath
+  , optMbSslConfig :: Maybe ClientSSLConfig
   }
 
 data Handle = Handle
@@ -60,7 +62,23 @@ javaProc args =
 
 withReplClient :: Options -> (Handle -> IO a) -> IO a
 withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
-    replServer <- javaProc ["-jar", optServerJar, portFile, optLedgerHost, optLedgerPort]
+    replServer <- javaProc $ concat
+        [ [ "-jar", optServerJar
+          , "--port-file", portFile
+          , "--ledger-host", optLedgerHost
+          , "--ledger-port", optLedgerPort
+          ]
+        , [ "--access-token-file=" <> tokenFile | Just tokenFile <- [optMbAuthTokenFile] ]
+        , do Just tlsConf <- [ optMbSslConfig ]
+             "--tls" :
+                 concat
+                     [ [ "--cacrt=" <> rootCert | Just rootCert <- [ serverRootCert tlsConf ] ]
+                     , concat
+                           [ ["--crt=" <> clientCert, "--pem=" <> clientPrivateKey]
+                           | Just ClientSSLKeyCertPair{..} <- [ clientSSLKeyCertPair tlsConf ]
+                           ]
+                     ]
+        ]
     withCreateProcess replServer $ \_ _ _ _ph -> do
       port <- readPortFile maxRetries portFile
       let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
