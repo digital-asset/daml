@@ -230,7 +230,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "LESS" -> BELess,
         "LESS_EQ" -> BELessEq,
         "GREATER" -> BEGreater,
-        "GREATER_EQ" -> BEGreater,
+        "GREATER_EQ" -> BEGreaterEq,
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
       )
 

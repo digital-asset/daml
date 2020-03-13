@@ -288,7 +288,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "LESS" -> BELess,
     "LESS_EQ" -> BELessEq,
     "GREATER" -> BEGreater,
-    "GREATER_EQ" -> BEGreater,
+    "GREATER_EQ" -> BEGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 
