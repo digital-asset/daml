@@ -31,6 +31,6 @@ object Queries {
 
   implicit def byteStringToStatement: ToStatement[ByteString] = new ToStatement[ByteString] {
     override def set(s: PreparedStatement, index: Int, v: ByteString): Unit =
-      s.setBytes(index, v.toByteArray)
+      s.setBinaryStream(index, v.newInput(), v.size())
   }
 }
