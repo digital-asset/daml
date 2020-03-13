@@ -456,13 +456,13 @@ cleanTests baseDir = testGroup "daml clean"
 -- | Check we can generate language bindings.
 codegenTests :: FilePath -> TestTree
 codegenTests codegenDir = testGroup "daml codegen"
-    [ codegenTestFor "ts" Nothing
-    , codegenTestFor "java" Nothing
-    , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
+    [ codegenTestFor "ts" Nothing True
+    , codegenTestFor "java" Nothing False
+    , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom") False
     ]
     where
-        codegenTestFor :: String -> Maybe String -> TestTree
-        codegenTestFor lang namespace =
+        codegenTestFor :: String -> Maybe String -> Bool -> TestTree
+        codegenTestFor lang namespace withPackageJson =
             testCase lang $ do
                 createDirectoryIfMissing True codegenDir
                 withCurrentDirectory codegenDir $ do
@@ -473,9 +473,10 @@ codegenTests codegenDir = testGroup "daml codegen"
                         let darFile = projectDir</> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir</> "generated" </> lang
                         callCommandQuiet $
-                          unwords [ "daml", "codegen", lang
+                          unwords ([ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
-                                  , "-o", outDir]
+                                  , "-o", outDir
+                                  ] ++ [ arg | withPackageJson, arg <- ["-p", "package.json" ]])
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
 

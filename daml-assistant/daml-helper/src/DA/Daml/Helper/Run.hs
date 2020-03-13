@@ -55,6 +55,7 @@ import Data.Maybe
 import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import DA.PortFile
 import qualified Data.Text as T
@@ -81,6 +82,7 @@ import Web.Browser
 import qualified Web.JWT as JWT
 import Data.Aeson
 import Data.Aeson.Text
+import Data.Aeson.Encode.Pretty
 
 import DA.Directory
 import DA.Daml.Helper.Ledger as Ledger
@@ -638,6 +640,13 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
+
+    -- Write an empty 'package.json' for daml2ts support.
+    BSL.writeFile (targetFolder </> "package.json") $
+      encodePretty (object
+                    [ "private" .= True
+                    , "workspaces" .= ([] :: [T.Text])
+                    ])
 
     -- Done.
     putStrLn $
