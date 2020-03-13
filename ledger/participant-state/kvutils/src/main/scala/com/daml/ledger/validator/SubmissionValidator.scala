@@ -215,12 +215,10 @@ object SubmissionValidator {
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState): (RawBytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
-    val rawStateUpdates = damlStateUpdates
-      .map {
+    val rawStateUpdates =
+      damlStateUpdates.map {
         case (key, value) => keyToBytes(key) -> valueToBytes(value)
-      }
-      .toSeq
-      .sortBy(_._1.toIterable)
+      }.toSeq
     (Envelope.enclose(logEntry).toByteArray, rawStateUpdates)
   }
 

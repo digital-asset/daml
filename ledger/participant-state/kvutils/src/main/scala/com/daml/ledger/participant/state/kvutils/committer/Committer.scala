@@ -10,11 +10,13 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
+  DamlStateValue
 }
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time
 import org.slf4j.{Logger, LoggerFactory}
+
+import scala.collection.immutable.SortedMap
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
   * It is parametrized by the submission type `Submission` (e.g. PackageUploadEntry) and a committer's partial result
@@ -36,6 +38,8 @@ import org.slf4j.{Logger, LoggerFactory}
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
   */
 private[kvutils] trait Committer[Submission, PartialResult] {
+  import com.daml.ledger.participant.state.kvutils.committing.Common.damlStateKeyOrdering
+
   type StepInfo = String
   type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
   def steps: Iterable[(StepInfo, Step)]
@@ -83,7 +87,7 @@ private[kvutils] trait Committer[Submission, PartialResult] {
         result match {
           case StepContinue(newCState) => cstate = newCState
           case StepStop(logEntry) =>
-            return logEntry -> ctx.getOutputs.toMap
+            return logEntry -> SortedMap(ctx.getOutputs.toSeq: _*)
         }
       }
       sys.error(s"Internal error: Committer ${this.getClass} did not produce a result!")
