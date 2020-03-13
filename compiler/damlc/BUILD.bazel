@@ -66,6 +66,7 @@ da_haskell_binary(
     compiler_flags = [
         "-optl-static",
         "-optl-pthread",
+        "-optl-dynamic",
     ] if is_windows else [],
     data = [
         "//compiler/damlc:ghcversion",
