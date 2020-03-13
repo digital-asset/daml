@@ -58,7 +58,7 @@ trait CommonQueries extends Queries {
   override final def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =
     Try {
       val results =
-        SQL"SELECT key, value FROM #$StateTable WHERE key IN (${keys.map(_.toByteArray)})"
+        SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
           .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
             val key = ByteString.readFrom(row[InputStream]("key"))
             val value = ByteString.readFrom(row[InputStream]("value"))
@@ -71,7 +71,7 @@ trait CommonQueries extends Queries {
   override final def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] = Try {
     executeBatchSql(updateStateQuery, stateUpdates.map {
       case (key, value) =>
-        Seq[NamedParameter]("key" -> key.toByteArray, "value" -> value.toByteArray)
+        Seq[NamedParameter]("key" -> key, "value" -> value)
     })
   }
 

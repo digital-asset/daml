@@ -26,7 +26,7 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
   }
 
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] = Try {
-    SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES (${key.toByteArray}, ${value.toByteArray}) RETURNING sequence_no"
+    SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value) RETURNING sequence_no"
       .as(long("sequence_no").single)
   }
 

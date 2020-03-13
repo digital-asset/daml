@@ -3,9 +3,10 @@
 
 package com.daml.ledger.on.sql.queries
 
-import java.sql.Connection
+import java.sql.{Connection, PreparedStatement}
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.{BatchSql, NamedParameter, ToStatement}
+import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries
 
@@ -26,5 +27,10 @@ object Queries {
     if (params.nonEmpty)
       BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
     ()
+  }
+
+  implicit def byteStringToStatement: ToStatement[ByteString] = new ToStatement[ByteString] {
+    override def set(s: PreparedStatement, index: Int, v: ByteString): Unit =
+      s.setBytes(index, v.toByteArray)
   }
 }

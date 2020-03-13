@@ -27,7 +27,7 @@ final class SqliteQueries(override protected implicit val connection: Connection
 
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
     Try {
-      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES (${key.toByteArray}, ${value.toByteArray})"
+      SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
         .executeInsert()
       ()
     }.flatMap(_ => lastInsertId())
