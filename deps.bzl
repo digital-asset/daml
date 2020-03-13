@@ -31,8 +31,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "6c16cff213b76a4126bdc850956046da5db1daaa"
 
-rules_haskell_version = "eaa89858c44913f65fb48637d75e3190a912f3ae"
-rules_haskell_sha256 = "c2b42f35ecc4c90bf8a5a4d90a1c1e3937513309904809d4c02ce12cf9cc4093"
+rules_haskell_version = "d59ccf9e7785553fd392924fb083d926c7e01134"
+rules_haskell_sha256 = "c29e779f512f72126c774bceb0bee5c01ca8149d30acc400058014f4b2275710"
 rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
 rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
 davl_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
@@ -45,23 +45,20 @@ def daml_deps():
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
+                # Update and remove this patch once this is upstreamed.
+                # See https://github.com/tweag/rules_haskell/pull/1281
+                "@com_github_digital_asset_daml//bazel_tools:haskell-strict-source-names.patch",
                 # The fake libs issue should be fixed in upstream rules_haskell
                 # or GHC. Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
                 # This is a daml specific patch and not upstreamable.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                # This is a daml specific patch and not upstreamable.
-                # rules_haskell should have builtin support for hie-bios.
-                # Remove this patch once that's available.
-                "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 # This fixes a ghc-lib specific build issue and is not upstreamable.
                 # This might also be fixed by using `stack_snapshot` in the future.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
                 # This should be made configurable in rules_haskell.
                 # Remove this patch once that's available.
                 "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
-                # This should be fixed in upstream rules_haskell.
-                "@com_github_digital_asset_daml//bazel_tools:haskell-cffi.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

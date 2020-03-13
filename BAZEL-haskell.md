@@ -226,6 +226,23 @@ alias(
 )
 ```
 
+## Editor integration
+
+The `daml` repository is configured to support [`ghcide`][ghcide] with Bazel
+and the `ghcide` executable is provided by the `dev-env`. Take a look at the
+[setup section][ghcide_setup] for example configurations for various editors.
+`ghcide` has to be built with the same `ghc` as the project you're working on.
+Be sure to either point your editor to the `dev-env` provided `ghcide` by
+absolute path, or make sure that the `dev-env` provided `ghcide` is in `$PATH`
+for your editor.
+
+Note, `ghcide` itself is built by Bazel and to load a target into the editor
+some of its dependencies have to be built by Bazel. This means that start-up
+may take some time if the required artifacts are not built or cached already.
+
+[ghcide]: https://github.com/digital-asset/ghcide
+[ghcide_setup]: https://github.com/digital-asset/ghcide#using-with-vs-code
+
 ## Further reading:
 
 - ["Bazel User Guide"](https://github.com/digital-asset/daml/blob/master/BAZEL.md) (DAML specific)
