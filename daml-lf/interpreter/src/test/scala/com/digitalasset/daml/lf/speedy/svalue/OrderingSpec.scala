@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.speedy.svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, InsertOrdMap, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
@@ -247,10 +247,9 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     lists.map(xs => STextMap(HashMap(keys zip xs: _*)))
   }
 
-//  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
-//    val skeys = keys.map(SGenMap.Key(_))
-//    lists.map(xs => SGenMap(InsertOrdMap(skeys zip xs: _*)))
-//  }
+  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
+    lists.map(xs => SGenMap(keys.iterator zip xs.iterator))
+  }
 
   private def anys = {
     val wrappedInts = ints.map(SAny(AstUtil.TInt64, _))
@@ -292,7 +291,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table("Optional", mkOptionals(texts): _*),
     Table("Int64 Lists", mkLists(lists(ints)): _*),
     Table("Int64 TextMap", mkTextMaps(lists(ints)): _*),
-//    Table("genMap_1", mkGenMaps(ints, lists(ints)): _*),
+    Table("genMap_1", mkGenMaps(ints, lists(ints)): _*),
     // 2 level nested values
     Table("Int64 Option Records of size 2", mkRecord2(mkOptionals(texts), mkOptionals(texts)): _*),
     Table("Text Option Variants ", mkVariant(mkOptionals(texts), mkOptionals(texts)): _*),
@@ -300,7 +299,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table("Text Option Option", mkOptionals(mkOptionals(texts)): _*),
     Table("Int64 Option List", mkLists(optLists(ints)): _*),
     Table("Int64 Option TextMap", mkTextMaps(optLists(ints)): _*),
-//    Table("genMap_2", mkGenMaps(mkOptionals(ints), optLists(ints)): _*),
+    Table("genMap_2", mkGenMaps(mkOptionals(ints), optLists(ints)): _*),
     // any
     Table("any", anys: _*),
   )
@@ -357,7 +356,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         SList(FrontStack(lfFunction)),
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
-      SGenMap(InsertOrdMap.empty) -> SGenMap(InsertOrdMap(SGenMap.Key(SInt64(0)) -> lfFunction)),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
       SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
         SVariant(VariantTypeCon, VariantCon2, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->

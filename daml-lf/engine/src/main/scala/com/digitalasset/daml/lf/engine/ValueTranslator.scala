@@ -165,9 +165,9 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
                   for {
                     key <- go(newNesting, keyType, key0)
                     value <- go(newNesting, valueType, value0)
-                  } yield SGenMap.Key(key) -> value
+                  } yield key -> value
               }
-              .map(l => SGenMap(InsertOrdMap(l.toSeq: _*)))
+              .map(l => SGenMap(l.iterator))
 
           // variants
           case (TTyConApp(tyCon, tyConArgs), ValueVariant(mbVariantId, constructorName, val0)) =>

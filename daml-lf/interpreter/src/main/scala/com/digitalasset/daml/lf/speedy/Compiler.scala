@@ -524,12 +524,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBULookupKey(retrieveByKey.templateId)(
                       SEVar(2), // key with maintainers
-                      SEVar(1), // token
+                      SEVar(1) // token
                     ),
                     SBUInsertLookupNode(retrieveByKey.templateId)(
                       SEVar(3), // key with maintainers
                       SEVar(1), // mb contract id
-                      SEVar(2), // token
+                      SEVar(2) // token
                     ),
                   ) in SEVar(2) // mb contract id
                 }
@@ -564,21 +564,21 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBUFetchKey(retrieveByKey.templateId)(
                       SEVar(2), // key with maintainers
-                      SEVar(1), // token
+                      SEVar(1) // token
                     ),
                     SBUFetch(retrieveByKey.templateId)(
                       SEVar(1), /* coid */
-                      SEVar(2), /* token */
+                      SEVar(2) /* token */
                     ),
                     SBUInsertFetchNode(retrieveByKey.templateId)(
                       SEVar(2), // coid
                       signatories,
                       observers,
-                      SEVar(3), // token
+                      SEVar(3) // token
                     ),
                   ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
                     SEVar(3), // contract id
-                    SEVar(2), // contract
+                    SEVar(2) // contract
                   )
                 }
               }
@@ -1055,7 +1055,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case STextMap(map) => map.values.foreach(goV)
         case SGenMap(values) =>
           values.foreach {
-            case (SGenMap.Key(k), v) =>
+            case (k, v) =>
               goV(k)
               goV(v)
           }
@@ -1130,13 +1130,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SELet(
             SBUFetch(tmplId)(
               SEVar(2), /* coid */
-              SEVar(1), /* token */
+              SEVar(1) /* token */
             ),
             SBUInsertFetchNode(tmplId)(
               SEVar(3), /* coid */
               signatories,
               observers,
-              SEVar(2), /* token */
+              SEVar(2) /* token */
             ),
           ) in SEVar(2) /* fetch result */
         }
@@ -1186,7 +1186,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               signatories,
               observers,
               SEVar(3), /* key */
-              SEVar(2), /* token */
+              SEVar(2) /* token */
             )
         }
     }

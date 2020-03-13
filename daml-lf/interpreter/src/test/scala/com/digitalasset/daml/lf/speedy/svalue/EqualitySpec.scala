@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.speedy.svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, InsertOrdMap, Numeric, Ref, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, Numeric, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
@@ -122,10 +122,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     lists.map(xs => STextMap(HashMap(keys zip xs: _*)))
   }
 
-  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
-    val skeys = keys.map(SGenMap.Key(_))
-    lists.map(xs => SGenMap(InsertOrdMap(skeys zip xs: _*)))
-  }
+  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] =
+    lists.map(xs => SGenMap((keys.iterator) zip (xs.iterator)))
 
   private def anys = {
     val wrappedInts = ints.map(SAny(AstUtil.TInt64, _))
@@ -224,7 +222,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         SList(FrontStack(lfFunction)),
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
-      SGenMap(InsertOrdMap.empty) -> SGenMap(InsertOrdMap(SGenMap.Key(SInt64(0)) -> lfFunction)),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
       SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
         SVariant(VariantTypeCon, VariantCon2, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->

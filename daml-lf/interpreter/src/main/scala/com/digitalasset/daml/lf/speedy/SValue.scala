@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.{HashMap, TreeMap}
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
@@ -67,7 +67,7 @@ sealed trait SValue {
       case STextMap(mVal) =>
         V.ValueTextMap(SortedLookupList(mVal).mapValue(_.toValue))
       case SGenMap(values) =>
-        V.ValueGenMap(ImmArray(values.map { case (k, v) => k.v.toValue -> v.toValue }))
+        V.ValueGenMap(ImmArray(values.map { case (k, v) => k.toValue -> v.toValue }))
       case SContractId(coid) =>
         V.ValueContractId(coid)
       case SAny(_, _) =>
@@ -107,9 +107,9 @@ sealed trait SValue {
       case STextMap(value) =>
         STextMap(value.transform((_, v) => v.mapContractId(f)))
       case SGenMap(value) =>
-        SGenMap((InsertOrdMap.empty[SGenMap.Key, SValue] /: value) {
-          case (acc, (SGenMap.Key(k), v)) => acc + (SGenMap.Key(k.mapContractId(f)) -> v)
-        })
+        SGenMap(
+          value.iterator.map { case (k, v) => k.mapContractId(f) -> v.mapContractId(f) }
+        )
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
@@ -151,25 +151,20 @@ object SValue {
 
   final case class STextMap(textMap: HashMap[String, SValue]) extends SValue
 
-  final case class SGenMap(genMap: InsertOrdMap[SGenMap.Key, SValue]) extends SValue
+  final case class SGenMap(genMap: TreeMap[SValue, SValue]) extends SValue
 
   object SGenMap {
-    case class Key(v: SValue) {
-      override val hashCode: Int = svalue.Hasher.hash(v)
-      override def equals(obj: Any): Boolean = obj match {
-        case Key(v2: SValue) => svalue.Equality.areEqual(v, v2)
-        case _ => false
-      }
+    implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
+
+    val Empty = SGenMap(TreeMap.empty)
+
+    def apply(xs: Iterator[(SValue, SValue)]): SGenMap = {
+      type O[_] = TreeMap[SValue, SValue]
+      SGenMap(xs.to[O])
     }
 
-    object Key {
-      def fromSValue(v: SValue): Either[String, Key] =
-        try {
-          Right(Key(v))
-        } catch {
-          case svalue.Hasher.NonHashableSValue(msg) => Left(msg)
-        }
-    }
+    def apply(xs: (SValue, SValue)*): SGenMap =
+      SGenMap(xs.iterator)
   }
 
   final case class SAny(ty: Type, value: SValue) extends SValue
@@ -203,7 +198,7 @@ object SValue {
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
     val EmptyMap = STextMap(HashMap.empty)
-    val EmptyGenMap = SGenMap(InsertOrdMap.empty)
+    val EmptyGenMap = SGenMap.Empty
     val Token = SToken
   }
 
@@ -222,17 +217,20 @@ object SValue {
 
   private val entryFields = Name.Array(Ast.keyFieldName, Ast.valueFieldName)
 
-  private def entry(key: String, value: SValue) = {
+  private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)
-    args.add(SText(key))
+    args.add(key)
     args.add(value)
     SStruct(entryFields, args)
   }
 
   def toList(textMap: STextMap): SList = {
     val entries = SortedLookupList(textMap.textMap).toImmArray
-    SList(FrontStack(entries.map { case (k, v) => entry(k, v) }))
+    SList(FrontStack(entries.map { case (k, v) => entry(SText(k), v) }))
   }
+
+  def toList(genMap: SGenMap): SList =
+    SList(FrontStack(genMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
 
   def fromValue(value0: V[V.ContractId]): SValue = {
     value0 match {
@@ -290,9 +288,9 @@ object SValue {
         STextMap(map.mapValue(fromValue).toHashMap)
 
       case V.ValueGenMap(entries) =>
-        SGenMap(InsertOrdMap(entries.toSeq.map {
-          case (k, v) => SGenMap.Key(fromValue(k)) -> fromValue(v)
-        }: _*))
+        SGenMap(
+          entries.iterator.map { case (k, v) => fromValue(k) -> fromValue(v) }
+        )
 
       case V.ValueVariant(Some(id), variant, value) =>
         SVariant(id, variant, fromValue(value))
