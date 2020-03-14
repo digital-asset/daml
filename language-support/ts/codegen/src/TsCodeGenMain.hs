@@ -20,6 +20,7 @@ import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
 import Data.Hashable
 
+import Control.Exception
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
@@ -29,6 +30,7 @@ import Data.Graph
 import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
+import System.IO.Error
 import System.Directory
 import System.FilePath hiding ((<.>), (</>))
 import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
@@ -717,7 +719,12 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
 data PackageJson = PackageJson
   { workspaces :: [T.Text]
   , otherFields :: Object
-  } deriving Show
+  }
+  deriving Show
+instance Semigroup PackageJson where
+  l <> r = PackageJson (workspaces l <> workspaces r) (otherFields l <> otherFields r)
+instance Monoid PackageJson where
+  mempty = PackageJson mempty mempty
 instance FromJSON PackageJson where
   parseJSON (Object v) = PackageJson
       <$> v .: "workspaces"
@@ -730,15 +737,6 @@ instance ToJSON PackageJson where
 -- provided workspaces; write it back to disk.
 setupWorkspace :: FilePath -> FilePath -> [(T.Text, [Dependency])] -> IO ()
 setupWorkspace optInputPackageJson optOutputDir dependencies = do
-  -- If the file designated by 'optInputPackageJson' doesn't yet
-  -- exist, create it.
-  packageJsonExists <- doesFileExist optInputPackageJson
-  when (not packageJsonExists) $ do
-    BSL.writeFile optInputPackageJson $
-      encodePretty (object
-                    [ "private" .= True
-                    , "workspaces" .= ([] :: [T.Text])
-                    ])
   let (g, nodeFromVertex) = graphFromEdges'
         (map (\(a, ds) -> (a, a, map unDependency ds)) dependencies)
       ps = map (fst3 . nodeFromVertex) $ reverse (topSort g)
@@ -746,16 +744,20 @@ setupWorkspace optInputPackageJson optOutputDir dependencies = do
       outBaseDir = T.pack $ takeFileName optOutputDir
         -- The leaf directory of the output directory (e.g. often 'daml2ts').
   let ourWorkspaces = map ((outBaseDir <> "/") <>) ps
-  bytes <- BSL.readFile optInputPackageJson
-  case decode bytes :: Maybe PackageJson of
-    Nothing -> fail $ "Error decoding JSON from '" <> optInputPackageJson <> "'"
-    Just oldPackageJson -> transformAndWrite ourWorkspaces outBaseDir oldPackageJson
+  mbBytes <- catchJust (guard . isDoesNotExistError)
+    (Just <$> BSL.readFile optInputPackageJson) (const $ pure Nothing)
+  packageJson <- case mbBytes of
+    Nothing -> pure mempty
+    Just bytes -> case decode bytes :: Maybe PackageJson of
+      Nothing -> fail $ "Error decoding JSON from '" <> optInputPackageJson <> "'"
+      Just packageJson -> pure packageJson
+  transformAndWrite ourWorkspaces outBaseDir packageJson
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()
-    transformAndWrite ourWorkspaces outBaseDir oldPackageJson = do
-      let keepWorkspaces = filter (not . T.isPrefixOf outBaseDir) $ workspaces oldPackageJson
+    transformAndWrite ourWorkspaces outBaseDir packageJson = do
+      let keepWorkspaces = filter (not . T.isPrefixOf outBaseDir) $ workspaces packageJson
             -- Old versions of our packages should be removed.
           allWorkspaces = ourWorkspaces ++ keepWorkspaces
             -- Our packages need to come before any other existing packages.
-      BSL.writeFile optInputPackageJson $ encodePretty oldPackageJson{workspaces=allWorkspaces}
+      BSL.writeFile optInputPackageJson $ encodePretty packageJson{workspaces=allWorkspaces}
       putStrLn $ "'" <> optInputPackageJson <> "' created or updated."
