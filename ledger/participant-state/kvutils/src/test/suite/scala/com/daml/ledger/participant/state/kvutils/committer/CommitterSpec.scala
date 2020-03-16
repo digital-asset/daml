@@ -11,7 +11,8 @@ import com.google.protobuf.ByteString
 import org.scalatest.{Matchers, WordSpec}
 
 class CommitterSpec extends WordSpec with Matchers {
-  private class TestCommitter(outputKeys: Seq[String]) extends Committer[ByteString, ByteString] {
+  type Bytes = ByteString
+  private class TestCommitter(outputKeys: Seq[String]) extends Committer[Bytes, Bytes] {
     private val addKeysStep: Step = (context: CommitContext, _) => {
       val damlStateValue = DamlStateValue.getDefaultInstance
       for (outputKey <- outputKeys) {
@@ -25,7 +26,7 @@ class CommitterSpec extends WordSpec with Matchers {
 
     override def steps: Iterable[(StepInfo, Step)] = Seq(("add keys", addKeysStep))
 
-    override def init(ctx: CommitContext, submission: ByteString): ByteString = submission
+    override def init(ctx: CommitContext, submission: Bytes): Bytes = submission
   }
 
   "Committer" should {
