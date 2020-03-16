@@ -80,8 +80,10 @@ class PartiesService(
     import scalaz.std.iterable._
     import scalaz.syntax.foldable._
 
-    if (found.size == requested.length) Set.empty
-    else requested.toSet -- found.map(_.identifier)
+    val requestedSet: Set[domain.Party] = requested.toSet
+
+    if (found.size == requestedSet.size) Set.empty
+    else requestedSet -- found.map(_.identifier)
   }
 }
 
