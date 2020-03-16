@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.repl
 import akka.actor.ActorSystem
 import akka.stream._
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
@@ -16,6 +17,7 @@ import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
@@ -26,18 +28,99 @@ import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
-import java.nio.file.{Files, Paths}
+import java.io.File
+import java.nio.file.{Files, Path, Paths}
 import java.util.logging.{Level, Logger}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.tag._
 
 object ReplServiceMain extends App {
-  val portFile = args(0)
-  val ledgerHost = args(1)
-  val ledgerPort = args(2).toInt
+  case class Config(
+      portFile: Path,
+      ledgerHost: String,
+      ledgerPort: Int,
+      accessTokenFile: Option[Path],
+      tlsConfig: Option[TlsConfiguration],
+  )
+  object Config {
+    private def validatePath(path: String, message: String): Either[String, Unit] = {
+      val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
+      if (readable) Right(()) else Left(message)
+    }
+    private val parser = new scopt.OptionParser[Config]("repl-service") {
+      opt[String]("port-file")
+        .required()
+        .action((portFile, c) => c.copy(portFile = Paths.get(portFile)))
+
+      opt[String]("ledger-host")
+        .required()
+        .action((host, c) => c.copy(ledgerHost = host))
+
+      opt[Int]("ledger-port")
+        .required()
+        .action((port, c) => c.copy(ledgerPort = port))
+
+      opt[String]("access-token-file")
+        .optional()
+        .action { (tokenFile, c) =>
+          c.copy(accessTokenFile = Some(Paths.get(tokenFile)))
+        }
+
+      opt[String]("pem")
+        .optional()
+        .text("TLS: The pem file to be used as the private key.")
+        .validate(path => validatePath(path, "The file specified via --pem does not exist"))
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+            Some(c.copy(keyFile = Some(new File(path)))))))
+
+      opt[String]("crt")
+        .optional()
+        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
+        .validate(path => validatePath(path, "The file specified via --crt does not exist"))
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+            Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+            Some(c.copy(keyFile = Some(new File(path)))))))
+
+      opt[String]("cacrt")
+        .optional()
+        .text("TLS: The crt file to be used as the the trusted root CA.")
+        .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+            Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
+            Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+      opt[Unit]("tls")
+        .optional()
+        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+    }
+    def parse(args: Array[String]): Option[Config] =
+      parser.parse(
+        args,
+        Config(
+          portFile = null,
+          ledgerHost = null,
+          ledgerPort = 0,
+          accessTokenFile = None,
+          tlsConfig = None)
+      )
+  }
+
+  val config = Config.parse(args) match {
+    case Some(conf) => conf
+    case None =>
+      println("Internal error: invalid command line arguments passed to repl service.")
+      sys.exit(1)
+  }
   val maxMessageSize = 128 * 1024 * 1024
 
   val system = ActorSystem("Repl")
@@ -47,14 +130,14 @@ object ReplServiceMain extends App {
   implicit val ec: ExecutionContext = system.dispatcher
 
   val participantParams =
-    Participants(Some(ApiParameters(ledgerHost, ledgerPort)), Map.empty, Map.empty)
+    Participants(Some(ApiParameters(config.ledgerHost, config.ledgerPort)), Map.empty, Map.empty)
   val applicationId = ApplicationId("daml repl")
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
-    token = None,
+    sslContext = config.tlsConfig.flatMap(_.client),
+    token = config.accessTokenFile.map(new TokenHolder(_)).flatMap(_.token),
   )
   val clients = Await.result(Runner.connect(participantParams, clientConfig), 30.seconds)
 
@@ -65,7 +148,7 @@ object ReplServiceMain extends App {
       .maxInboundMessageSize(maxMessageSize)
       .build
   server.start()
-  Files.write(Paths.get(portFile), Seq(server.getPort.toString).asJava)
+  Files.write(config.portFile, Seq(server.getPort.toString).asJava)
 
   // Bump up the log level
   Logger.getLogger("io.grpc").setLevel(Level.ALL)
