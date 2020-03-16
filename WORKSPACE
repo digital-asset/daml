@@ -142,6 +142,26 @@ dev_env_tool(
     win_tool = "msys2",
 )
 
+nixpkgs_package(
+    name = "openssl_nix",
+    attribute_path = "openssl",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "openssl_dev_env",
+    nix_include = ["bin/openssl"],
+    nix_label = "@openssl_nix",
+    nix_paths = ["bin/openssl"],
+    tools = ["openssl"],
+    win_include = ["bin"],
+    win_paths = ["bin/openssl.exe"],
+    win_tool = "openssl",
+)
+
 # Tar & gzip dependency
 nixpkgs_package(
     name = "tar_nix",

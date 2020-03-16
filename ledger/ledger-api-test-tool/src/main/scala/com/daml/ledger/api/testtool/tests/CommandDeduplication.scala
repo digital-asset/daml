@@ -70,4 +70,122 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
       }
   }
 
+  test(
+    "CDSimpleDeduplicationCommandClient",
+    "Deduplicate commands within the deduplication time window using the command client",
+    allocate(SingleParty),
+  ) {
+    case Participants(Participant(ledger, party)) =>
+      val deduplicationSeconds = 5
+      val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
+      val a = UUID.randomUUID.toString
+
+      for {
+        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
+        requestA = request.update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := a)
+
+        // Submit command A (first TTL window)
+        _ <- ledger.submitAndWait(requestA)
+        failure1 <- ledger.submitAndWait(requestA).failed
+
+        // Wait until the end of first TTL window
+        _ <- Delayed.by(deduplicationSeconds.seconds)(())
+
+        // Submit command A (second TTL window)
+        _ <- ledger.submitAndWait(requestA)
+        failure2 <- ledger.submitAndWait(requestA).failed
+
+        // Inspect created contracts
+        activeContracts <- ledger.activeContracts(party)
+      } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
+        assert(
+          activeContracts.size == 2,
+          s"There should be 2 active contracts, but received $activeContracts",
+        )
+      }
+  }
+
+  test(
+    "CDDeduplicateSubmitter",
+    "Commands with identical submitter and command identifier should be deduplicated by the submission client",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      for {
+        // Submit a command as alice
+        aliceRequest <- ledger.submitRequest(alice, Dummy(alice).create.command)
+        _ <- ledger.submit(aliceRequest)
+        failure1 <- ledger.submit(aliceRequest).failed
+
+        // Submit another command that uses same commandId, but is submitted by Bob
+        bobRequestTemplate <- ledger.submitRequest(bob, Dummy(bob).create.command)
+        bobRequest = bobRequestTemplate
+          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
+        _ <- ledger.submit(bobRequest)
+        failure2 <- ledger.submit(bobRequest).failed
+
+        // Wait for command completions and inspect the ledger state
+        _ <- ledger.firstCompletions(alice)
+        _ <- ledger.firstCompletions(bob)
+        aliceContracts <- ledger.activeContracts(alice)
+        bobContracts <- ledger.activeContracts(bob)
+      } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
+        assert(
+          aliceContracts.length == 1,
+          s"Only one contract was expected to be seen by $alice but ${aliceContracts.length} appeared",
+        )
+
+        assert(
+          bobContracts.length == 1,
+          s"Only one contract was expected to be seen by $bob but ${bobContracts.length} appeared",
+        )
+      }
+  }
+
+  test(
+    "CDDeduplicateSubmitterCommandClient",
+    "Commands with identical submitter and command identifier should be deduplicated by the command client",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      for {
+        // Submit a command as alice
+        aliceRequest <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+        _ <- ledger.submitAndWait(aliceRequest)
+        failure1 <- ledger.submitAndWait(aliceRequest).failed
+
+        // Submit another command that uses same commandId, but is submitted by Bob
+        bobRequestTemplate <- ledger.submitAndWaitRequest(bob, Dummy(bob).create.command)
+        bobRequest = bobRequestTemplate
+          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
+        _ <- ledger.submitAndWait(bobRequest)
+        failure2 <- ledger.submitAndWait(bobRequest).failed
+
+        // Inspect the ledger state
+        aliceContracts <- ledger.activeContracts(alice)
+        bobContracts <- ledger.activeContracts(bob)
+      } yield {
+        assertGrpcError(failure1, Status.Code.ALREADY_EXISTS, "")
+        assertGrpcError(failure2, Status.Code.ALREADY_EXISTS, "")
+
+        assert(
+          aliceContracts.length == 1,
+          s"Only one contract was expected to be seen by $alice but ${aliceContracts.length} appeared",
+        )
+
+        assert(
+          bobContracts.length == 1,
+          s"Only one contract was expected to be seen by $bob but ${bobContracts.length} appeared",
+        )
+      }
+  }
+
 }

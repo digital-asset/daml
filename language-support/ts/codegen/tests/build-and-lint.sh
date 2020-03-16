@@ -2,7 +2,23 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-set -euo pipefail
+set -eou pipefail
+
+# It's sometimes useful to be able to run this test in a filesystem
+# that one can inspect.
+if [[ -z "${BUILD_AND_LINT_TMP_DIR:-}" ]];
+then
+    TMP_DIR=$(mktemp -d)
+    cleanup() {
+        cd /
+        rm -rf $TMP_DIR
+    }
+    trap cleanup EXIT
+else
+    TMP_DIR="$BUILD_AND_LINT_TMP_DIR"
+    rm -rf $TMP_DIR && mkdir -p $TMP_DIR
+fi
+echo "Temp directory : $TMP_DIR"
 
 # --- begin runfiles.bash initialization v2 ---
 # Copy-pasted from the Bazel Bash runfiles library v2.
@@ -29,14 +45,8 @@ TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
 
-TMP_DIR=$(mktemp -d)
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
-cleanup() {
-  cd /
-  rm -rf $TMP_DIR
-}
-trap cleanup EXIT
 
 mkdir -p $TMP_DAML_TYPES
 mkdir -p $TMP_DAML_LEDGER
@@ -51,5 +61,9 @@ $DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
 $YARN install --frozen-lockfile
 $YARN workspaces run build
 $YARN workspaces run lint
-cd build-and-lint
+
+# Invoke 'yarn test' in the 'build-and-lint-test' package
+# directory. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+cd build-and-lint-test
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test

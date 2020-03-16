@@ -3,6 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "daml-helper-lib",
@@ -61,4 +62,29 @@ package_app(
     name = "daml-helper-dist",
     binary = ":daml-helper",
     visibility = ["//visibility:public"],
+)
+
+da_haskell_test(
+    name = "ledger-tls",
+    srcs = glob(["test/**/*.hs"]),
+    data = [
+        "daml-helper",
+        "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
+    ],
+    hackage_deps = [
+        "base",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.Tls.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
 )

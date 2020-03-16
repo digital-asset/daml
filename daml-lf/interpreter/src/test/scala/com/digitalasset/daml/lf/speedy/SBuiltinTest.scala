@@ -601,14 +601,14 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x0EFFFF, // biggest code point of the Supplementary Plan 14
           0x0F0000, // smallest code point of the Supplementary Plans 15-16
           0x10AE2D,
-          0x10FFFF, // biggest code point of the Supplementary Plans 15-16
+          0x10FFFF // biggest code point of the Supplementary Plans 15-16
         )
 
-        forEvery(testCases)(cp =>
-          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldEqual Right(
-            SText("'" + new String(Character.toChars(cp)) + "'"),
-          ),
-        )
+        forEvery(testCases)(
+          cp =>
+            eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldEqual Right(
+              SText("'" + new String(Character.toChars(cp)) + "'"),
+          ))
       }
 
       "rejects surrogate code points " in {
@@ -619,7 +619,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
           0x00DBFF, // biggest high surrogate
           0x00DC00, // smallest low surrogate
           0x00DDE0,
-          0x00DFFF, // biggest surrogate
+          0x00DFFF // biggest surrogate
         )
 
         forEvery(testCases)(cp =>
@@ -905,22 +905,34 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   // test output order of GENMAP_KEYS and GENMAP_VALUES
   "GenMap operations" - {
 
-    //    implicit def valueToKey(v: SValue): SGenMap.Key = SGenMap.Key(v)
-
     def buildMap[X](typ: String, l: (String, X)*) =
       ("GENMAP_EMPTY @Text @Int64" /: l) {
         case (acc, (k, v)) => s"""(GENMAP_INSERT @Text @$typ "$k" $v $acc)"""
       }
 
+    val funT = "Int64 -> Int64"
+    val eitherT = s"Mod:Either ($funT) Int64"
+    val funV = """\(x: Int64) -> x"""
+    val leftV = s"""Mod:Either:Left @($funT) @Int64 ($funV)"""
+    val rightV = s"Mod:Either:Right @($funT) @Int64 1"
+    val emptyMapV = s"GENMAP_EMPTY @($eitherT) @Int64"
+    val nonEmptyMapV1 = s"GENMAP_INSERT @($eitherT) @Int64 ($rightV) 0 ($emptyMapV)"
+    val nonEmptyMapV2 = s"GENMAP_INSERT @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"
+
+    eval(e"$nonEmptyMapV1") shouldBe 'right
+    eval(e"$nonEmptyMapV2") shouldBe 'right
+
     "GENMAP_EMPTY" - {
       "produces an empty GenMap" in {
-        eval(e"GENMAP_EMPTY @Text @Int64") shouldEqual Right(SGenMap(InsertOrdMap.empty))
+        eval(e"GENMAP_EMPTY @Text @Int64") shouldEqual Right(SGenMap.Empty)
       }
     }
 
     val map = buildMap("Int64", "a" -> 1, "b" -> 2, "c" -> 3)
 
     "GENMAP_INSERT" - {
+
+      val builtin = "GENMAP_INSERT"
 
       "inserts as expected" in {
         val e = e"$map"
@@ -938,7 +950,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
 
       "replaces already present key" in {
-        eval(e"""GENMAP_INSERT @Text @Int64 "b" 4 $map""") shouldEqual Right(
+        eval(e"""$builtin @Text @Int64 "b" 4 $map""") shouldEqual Right(
           SValue.fromValue(
             ValueGenMap(
               ImmArray(
@@ -951,10 +963,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
       }
 
-      "crash on non Hashable key" in {
-        val expr =
-          e"""GENMAP_INSERT @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) 1 (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
-        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      "crash when comparing non comparable keys" in {
+        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) 1 ($nonEmptyMapV1)"""
+        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) 1 ($nonEmptyMapV2)"""
+        eval(expr1) shouldBe 'right
+        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
 
@@ -972,10 +985,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"""$builtin @Text @Int64 "d" $map""") shouldEqual Right(SOptional(None))
       }
 
-      "crash on non Hashable key" in {
-        val expr =
-          e"""$builtin @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
-        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      "crash when comparing non comparable keys" in {
+        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV1)"""
+        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV2)"""
+        eval(expr1) shouldBe 'right
+        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
 
@@ -1012,52 +1026,43 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
       }
 
-      "crash on non Hashable key" in {
-        val expr =
-          e"""$builtin @(Int64 -> Int64) @Int64 (\(x: Int64) -> x) (GENMAP_EMPTY @(Int64 -> Int64) @Int64)"""
-        eval(expr) shouldBe Left(SErrorCrash("function are not hashable"))
+      "crash when comparing non comparable keys" in {
+        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV1)"""
+        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV2)"""
+        eval(expr1) shouldBe 'right
+        eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
+
+    val words = List(
+      "slant",
+      "visit",
+      "ranch",
+      "first",
+      "patch",
+      "trend",
+      "sweat",
+      "enter",
+      "cover",
+      "favor",
+    ).zipWithIndex
+
+    val sortedWords = words.sortBy(_._1)
 
     "GENMAP_KEYS" - {
 
       "returns the keys in order" in {
-        val words = List(
-          "slant" -> 0,
-          "visit" -> 1,
-          "ranch" -> 2,
-          "first" -> 3,
-          "patch" -> 4,
-          "trend" -> 5,
-          "sweat" -> 6,
-          "enter" -> 7,
-          "cover" -> 8,
-          "favor" -> 9,
-        )
 
         eval(e"GENMAP_KEYS @Text @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
-          Right(SList(FrontStack(words.map { case (k, _) => SText(k) })))
+          Right(SList(FrontStack(sortedWords.map { case (k, _) => SText(k) })))
       }
     }
 
     "GENMAP_VALUES" - {
 
       "returns the values in order" in {
-        val words = List(
-          "slant" -> 0,
-          "visit" -> 1,
-          "ranch" -> 2,
-          "first" -> 3,
-          "patch" -> 4,
-          "trend" -> 5,
-          "sweat" -> 6,
-          "enter" -> 7,
-          "cover" -> 8,
-          "favor" -> 9,
-        )
-
         eval(e"GENMAP_VALUES @Text @Int64 ${buildMap("Int64", words: _*)}") shouldEqual
-          Right(SList(FrontStack(words.map { case (_, v) => SInt64(v.toLong) })))
+          Right(SList(FrontStack(sortedWords.map { case (_, v) => SInt64(v.toLong) })))
       }
     }
 
@@ -1425,11 +1430,22 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
 object SBuiltinTest {
 
+  private val pkg =
+    p"""
+        module Mod {
+          variant Either A B = Left : A | Right : B ;
+        }
+
+    """
+
+  val compiledPackages =
+    PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
+
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
       checkSubmitterInMaintainers = true,
-      compiledPackages = PureCompiledPackages(Map.empty).right.get,
+      compiledPackages = compiledPackages,
       scenario = false,
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)

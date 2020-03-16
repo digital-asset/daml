@@ -119,3 +119,19 @@ In the prompt, all modules from the main dalf of the DAR passed to
 module is imported and gives you access to the DAML Script API.
 
 At this point, it is not possible to import more modules.
+
+Connecting via TLS
+==================
+
+You can connect to a ledger that requires TLS by passing ``--tls``.  A
+custom root certificate used for validating the server certificate can
+be set via ``--cacrt``. Finally, you can also enable client
+authentication by passing ``--pem client.key --crt client.crt``. If
+``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
+enabled so ``--tls`` is redundant.
+
+Connection to a Ledger with Authentication
+==========================================
+
+If your ledger requires an authentication token you can pass it via
+``--access-token-file``.

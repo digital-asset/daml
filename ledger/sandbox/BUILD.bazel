@@ -35,6 +35,7 @@ compile_deps = [
     "//ledger/participant-state",
     "//ledger/participant-state-index",
     "//ledger/participant-state/kvutils",
+    "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
     "//libs-scala/ports",
@@ -83,9 +84,7 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
+        ),
     tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -103,9 +102,7 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
+        ),
     tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
@@ -197,8 +194,6 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-#TODO: generate dynamic BuildInfo.scala
-
 da_scala_library(
     name = "sandbox-scala-tests-lib",
     srcs = glob(["src/test/lib/**/*.scala"]),
@@ -259,6 +254,7 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [

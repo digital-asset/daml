@@ -167,3 +167,5 @@ texinfo_documents = [
 def setup(sphinx):
     from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
+    from typescript import TypeScriptLexer
+    sphinx.add_lexer("tsx", TypeScriptLexer())

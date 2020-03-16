@@ -1005,6 +1005,48 @@ HTTP Response
 
 The response is the same as for the POST method above.
 
+Allocate a New Party
+********************
+
+This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+
+HTTP Request
+============
+
+- URL: ``/v1/parties/allocate``
+- Method: ``POST``
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "identifierHint": "Carol",
+      "displayName": "Carol & Co. LLC"
+    }
+
+Please refer to :ref:`AllocateParty <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+
+All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
+
+.. code-block:: json
+
+    {}
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": {
+        "identifier": "Carol",
+        "displayName": "Carol & Co. LLC",
+        "isLocal": true
+      },
+      "status": 200
+    }
+
 Streaming API
 *************
 
@@ -1035,8 +1077,15 @@ different sets of template IDs::
         {"templateIds": ["Iou:Iou"]}
     ]
 
-output a series of JSON documents, each ``payload`` formatted according
-to :doc:`lf-value-specification`::
+An optional ``offset`` returned by a prior query (see output examples
+below) may be specified *before* the above, as a separate body.  It must
+be a string, and if specified, the stream will begin immediately *after*
+the response body that included that offset::
+
+    {"offset": "5609"}
+
+The output is a series of JSON documents, each ``payload`` formatted
+according to :doc:`lf-value-specification`::
 
     {
         "events": [{
@@ -1075,9 +1124,11 @@ off an initial "loading" indicator::
     }
 
 To keep the stream alive, you'll occasionally see messages like this,
-which can be safely ignored::
+which can be safely ignored if you do not need to capture the last seen ledger offset::
 
-    {"heartbeat": "ping"}
+    {"events":[],"offset":"5609"}
+
+where ``offset`` is the last seen ledger offset.
 
 After submitting an ``Iou_Split`` exercise, which creates two contracts
 and archives the one above, the same stream will eventually produce::
@@ -1124,8 +1175,7 @@ and archives the one above, the same stream will eventually produce::
         "offset": "3"
     }
 
-If any template IDs are found not to resolve, the first non-heartbeat
-element of the stream will report them::
+If any template IDs are found not to resolve, the first element of the stream will report them::
 
     {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 

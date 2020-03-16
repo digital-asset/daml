@@ -259,7 +259,7 @@ The core concept in DAML is a *contract template* - you used them earlier to cre
 - constraints or conditions on the data on a contract instance
 - additional parties, called observers, who can see the contract instance
 
-For more information about the DA Ledger, consult :ref:`da-ledgers` for an in-depth technical description.
+For more information about DAML Ledgers, consult :ref:`da-ledgers` for an in-depth technical description.
 
 Develop with DAML Studio
 ========================
@@ -452,7 +452,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 ..  Interact with the ledger through the command line
     *************************************************
 
-    All interaction with the DA ledger, be it sandbox or full ledger server, happens via the :doc:`Ledger API </app-dev/ledger-api>``. It is based on `gRPC <https://grpc.io/>`_.
+    All interaction with a DAML ledger, be it sandbox or any other implementation, happens via the :doc:`Ledger API </app-dev/ledger-api>``. It is based on `gRPC <https://grpc.io/>`_.
 
     The Navigator uses this API, as will any :ref:`custom integration <quickstart-application>`.
 
@@ -469,7 +469,7 @@ The ``submit`` function used in this scenario tries to perform a transaction and
 Integrate with the ledger
 *************************
 
-A distributed ledger only forms the core of a full DA Platform application.
+A distributed ledger only forms the core of a full DAML application.
 
 To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
@@ -585,4 +585,4 @@ Some steps you could take next include:
 - :doc:`Learn DAML </daml/intro/0_Intro>`.
 - :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.
-- Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.
+- Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML.

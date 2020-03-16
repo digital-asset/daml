@@ -9,16 +9,17 @@ import java.time.Duration
 import ch.qos.logback.classic.Level
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
+import io.netty.handler.ssl.ClientAuth
 import scopt.{OptionParser, Read}
 
 import scala.util.Try
@@ -33,6 +34,15 @@ object Cli {
     override def arity: Int = 1
 
     override val reads: String => Duration = Duration.parse
+  }
+
+  private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
+    case "none" => ClientAuth.NONE
+    case "optional" => ClientAuth.OPTIONAL
+    case "require" => ClientAuth.REQUIRE
+    case s =>
+      throw new IllegalArgumentException(
+        s"""$s is not a valid client authentication mode. Must be one of "none", "optional" or "require"""")
   }
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
@@ -119,6 +129,14 @@ object Cli {
             .fold(Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))))(c =>
               Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
 
+      opt[ClientAuth]("client-auth")
+        .optional()
+        .text("TLS: The client authentication mode. Must be one of none, optional or require. Defaults to required.")
+        .action((clientAuth, config) =>
+          config.copy(tlsConfig = config.tlsConfig
+            .fold(Some(TlsConfiguration(enabled = true, None, None, None, clientAuth)))(c =>
+              Some(c.copy(clientAuth = clientAuth)))))
+
       opt[Int]("maxInboundMessageSize")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
         .text(
@@ -140,7 +158,7 @@ object Cli {
         .action((id, c) =>
           c.copy(
             ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
-        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
+        .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used.")
 
       opt[String]("log-level")
         .optional()

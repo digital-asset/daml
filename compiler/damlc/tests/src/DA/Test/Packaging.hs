@@ -600,11 +600,12 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options: [--target=1.8]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "daml 1.2 module A where"
               ]
-          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar", "--target=1.8"]
+          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
 
           step "Building b"
           createDirectoryIfMissing True (tmpDir </> "b")
@@ -618,6 +619,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "  - daml-stdlib"
               , "data-dependencies:"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
+              , "build-options: [--target=1.7]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "daml 1.2 module B where"
@@ -634,11 +636,12 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "name: a"
               , "source: ."
               , "dependencies: [daml-prim, daml-stdlib]"
+              , "build-options: [--target=1.8]"
               ]
           writeFileUTF8 (tmpDir </> "a" </> "A.daml") $ unlines
               [ "daml 1.2 module A where"
               ]
-          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar", "--target=1.8"]
+          withCurrentDirectory (tmpDir </> "a") $ callProcessSilent damlc ["build", "-o", tmpDir </> "a" </> "a.dar"]
 
           step "Building b"
           createDirectoryIfMissing True (tmpDir </> "b")
@@ -651,6 +654,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
               , "  - daml-prim"
               , "  - daml-stdlib"
               , "  - " <> show (tmpDir </> "a" </> "a.dar")
+              , "build-options: [--target=1.7]"
               ]
           writeFileUTF8 (tmpDir </> "b" </> "B.daml") $ unlines
               [ "daml 1.2 module B where"

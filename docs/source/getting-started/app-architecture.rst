@@ -59,14 +59,17 @@ The last part of the DAML model is the operation to add friends, called a *choic
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list.
+That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list. Here is a quick explanation of the code: 
 
-There is some boilerplate to set up the choice (full details in the :doc:`DAML reference </daml/reference/choices>`):
+    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``AddFriend``.
+    - The return type of a choice is defined next. In this case it is ``ContractId User``.
+    - After that we pass arguments for the choice with ``with`` keyword. Here this is the friend we are trying to add.
+    - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
+    - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
+    - After passing some checks current contract is archived with ``archive self`` 
+    - A new ``User`` contract with the added friend is created.
 
-    - We make contract archival explicit by marking the choice as ``nonconsuming`` and then calling ``archive self`` in the body (choices which aren't ``nonconsuming`` archive or *consume* the contract implicitly).
-    - The return type is ``ContractId User``, a reference to the new contract for the calling code.
-    - The new ``friend: Party`` is passed as an argument to the choice.
-    - The ``controller``, the party able to exercise the choice, is the one named on the ``User`` contract.
+This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
 
 Let's move on to how our DAML model is reflected and used on the UI side.
 
@@ -101,14 +104,14 @@ You can navigate there within Visual Studio Code using the file explorer on the 
 We'll first look at ``App.tsx``, which is the entry point to our application.
 
 .. literalinclude:: code/ui-before/App.tsx
+  :language: tsx
   :start-after: // APP_BEGIN
   :end-before: // APP_END
 
 An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 Hooks allow you to share and update state across components, avoiding having to thread it through manually.
 We take advantage of hooks in particular to share ledger state across components.
-We use custom *DAML React hooks* to query the ledger for contracts, create new contracts, and exercise choices.
-This library uses the :doc:`HTTP JSON API </json-api/index>` behind the scenes.
+We use custom `DAML React hooks <daml-react/index.html>`_ to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ . 
 
 .. TODO Link to DAML react hooks API
 
@@ -122,7 +125,7 @@ The ``MainScreen`` is a simple frame around the ``MainView`` component, which ho
 It uses DAML React hooks to query and update ledger state.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
 
@@ -141,7 +144,7 @@ This means that results are updated as they come in - there is no need for perio
 Another example, showing how to *update* ledger state, is how we exercise the ``AddFriend`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // ADDFRIEND_BEGIN
   :end-before: // ADDFRIEND_END
 
@@ -152,9 +155,13 @@ For example, ``addFriend`` is passed to the ``UserList`` component as an argumen
 This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx
-  :language: typescript
+  :language: tsx
   :start-after: // USERLIST_BEGIN
   :end-before: // USERLIST_END
 
 This should give you a taste of how the UI works alongside a DAML ledger.
 You'll see this more as you develop :doc:`your first feature <first-feature>` for our social network.
+
+.. rubric:: Footnotes
+
+.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <daml-ledger/index.html>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`. 

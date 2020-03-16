@@ -6,7 +6,7 @@
 DAML Sandbox
 ############
 
-The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a Digital Asset Distributed Ledger. 
+The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a DAML Ledger. 
 
 You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a DAML SDK project. This command will compile the DAML file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``daml.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
 
@@ -163,6 +163,20 @@ Similarly, you can use the following command for ES512 keys:
 .. code-block:: none
 
   openssl req -x509 -nodes -days 3650 -newkey ec:<(openssl ecparam -name secp521r1) -keyout ecdsa512.key -out ecdsa512.crt
+
+.. _sandbox-tls:
+
+Running with TLS
+****************
+
+To enable TLS, you need to specify the private key for your server and
+the certificate chain via ``daml sandbox --pem server.pem --crt
+server.crt``.  By default, Sandbox requires client authentication as
+well. You can set a custom root CA certificate used to validate client
+certificates via ``--cacrt ca.crt``. You can change the client
+authentication mode via ``--client-auth none`` which will disable it
+completely, ``--client-auth optional`` which makes it optional or
+specify the default explicitly via ``-.client-auth require``.
 
 Command-line reference
 **********************

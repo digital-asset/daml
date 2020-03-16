@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.daml.lf.data
 
+import com.google.common.io.BaseEncoding
 import scalaz.Equal
 
 sealed trait StringModule[T] {
@@ -25,6 +26,14 @@ sealed trait StringModule[T] {
   def toStringMap[V](map: Map[T, V]): Map[String, V]
 }
 
+sealed trait HexStringModule[T <: String] extends StringModule[T] {
+
+  def encode(a: Array[Byte]): T
+
+  def decode(a: T): Array[Byte]
+
+}
+
 /** ConcatenableMatchingString are non empty US-ASCII strings built with letters, digits,
   * and some other (parameterizable) extra characters.
   * We use them to represent identifiers. In this way, we avoid
@@ -35,9 +44,7 @@ sealed trait StringModule[T] {
   * Those properties are heavily use to generate some ids by combining other existing
   * ids.
   */
-sealed trait ConcatenableStringModule[T <: String] extends StringModule[T] {
-
-  def encode(a: Array[Byte]): T
+sealed trait ConcatenableStringModule[T <: String, HS <: String] extends StringModule[T] {
 
   def fromLong(i: Long): T
 
@@ -46,24 +53,8 @@ sealed trait ConcatenableStringModule[T <: String] extends StringModule[T] {
   def concat(s: T, ss: T*): Either[String, T]
 
   def assertConcat(s: T, ss: T*): T
-}
 
-sealed trait UnionStringModule[T <: String, TA <: T, TB <: T] extends StringModule[T] {
-
-  def toEither(s: T): Either[TA, TB]
-
-  def isA(s: T): Boolean
-
-  def toA(s: T): Option[TA]
-
-  def assertToVA(s: T): TA
-
-  def isB(s: T): Boolean
-
-  def toB(s: T): Option[TB]
-
-  def assertToVB(s: T): TB
-
+  def fromHexString(s: HS): T
 }
 
 sealed abstract class IdString {
@@ -74,6 +65,8 @@ sealed abstract class IdString {
   //
   // In a language like C# you'll need to use some other unicode char for `$`.
   type Name <: String
+
+  type HexString <: String
 
   // Human-readable package names and versions.
   type PackageName <: String
@@ -101,14 +94,15 @@ sealed abstract class IdString {
   /** Identifiers for contracts */
   type ContractIdString <: String
 
+  val HexString: HexStringModule[HexString]
   val Name: StringModule[Name]
-  val PackageName: ConcatenableStringModule[PackageName]
+  val PackageName: ConcatenableStringModule[PackageName, HexString]
   val PackageVersion: StringModule[PackageVersion]
-  val Party: ConcatenableStringModule[Party]
-  val PackageId: ConcatenableStringModule[PackageId]
+  val Party: ConcatenableStringModule[Party, HexString]
+  val PackageId: ConcatenableStringModule[PackageId, HexString]
   val ParticipantId: StringModule[ParticipantId]
-  val LedgerString: ConcatenableStringModule[LedgerString]
-  val ContractIdString: ConcatenableStringModule[ContractIdString]
+  val LedgerString: ConcatenableStringModule[LedgerString, HexString]
+  val ContractIdString: ConcatenableStringModule[ContractIdString, HexString]
 }
 
 private sealed abstract class StringModuleImpl extends StringModule[String] {
@@ -129,6 +123,24 @@ private sealed abstract class StringModuleImpl extends StringModule[String] {
 
   final def toStringMap[V](map: Map[String, V]): Map[String, V] =
     map
+}
+
+private object HexStringModuleImpl$ extends StringModuleImpl with HexStringModule[String] {
+
+  private val baseEncode = BaseEncoding.base16().lowerCase()
+
+  override def fromString(str: String): Either[String, String] =
+    Either.cond(
+      HexStringModuleImpl$.baseEncode.canDecode(str),
+      str,
+      s"cannot parse HexString $str"
+    )
+
+  override def encode(a: Array[Byte]): T =
+    HexStringModuleImpl$.baseEncode.encode(a)
+
+  override def decode(a: T): Array[Byte] =
+    HexStringModuleImpl$.baseEncode.decode(a)
 }
 
 private final class MatchingStringModule(string_regex: String) extends StringModuleImpl {
@@ -155,7 +167,7 @@ private final class ConcatenableMatchingStringModule(
     extraAllowedChars: Char => Boolean,
     maxLength: Int = Int.MaxValue
 ) extends StringModuleImpl
-    with ConcatenableStringModule[String] {
+    with ConcatenableStringModule[String, String] {
 
   override def fromString(s: String): Either[String, T] =
     if (s.isEmpty)
@@ -166,8 +178,6 @@ private final class ConcatenableMatchingStringModule(
       s.find(c => c > 0x7f || !(c.isLetterOrDigit || extraAllowedChars(c)))
         .fold[Either[String, T]](Right(s))(c =>
           Left(s"""non expected character 0x${c.toInt.toHexString} in "$s""""))
-
-  override def encode(a: Array[Byte]): String = a.map("%02x" format _).mkString
 
   override def fromLong(i: Long): T = i.toString
 
@@ -183,9 +193,13 @@ private final class ConcatenableMatchingStringModule(
   override def assertConcat(s: T, ss: T*): T =
     assertRight(concat(s, ss: _*))
 
+  override def fromHexString(s: String): String = s
 }
 
 private[data] final class IdStringImpl extends IdString {
+
+  override type HexString = String
+  override val HexString: HexStringModule[HexString] = HexStringModuleImpl$
 
   // We are very restrictive with regards to identifiers, taking inspiration
   // from the lexical structure of Java:
@@ -199,7 +213,7 @@ private[data] final class IdStringImpl extends IdString {
   /** Package names are non-empty US-ASCII strings built from letters, digits, minus and underscore.
     */
   override type PackageName = String
-  override val PackageName: ConcatenableStringModule[PackageName] =
+  override val PackageName: ConcatenableStringModule[PackageName, HexString] =
     new ConcatenableMatchingStringModule("-_".contains(_))
 
   /** Package versions are non-empty strings consisting of segments of digits (without leading zeros)
@@ -214,13 +228,13 @@ private[data] final class IdStringImpl extends IdString {
     * empty identifiers, escaping problems, and other similar pitfalls.
     */
   override type Party = String
-  override val Party: ConcatenableStringModule[Party] =
+  override val Party: ConcatenableStringModule[Party, HexString] =
     new ConcatenableMatchingStringModule(":-_ ".contains(_))
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
   override type PackageId = String
-  override val PackageId: ConcatenableStringModule[PackageId] =
+  override val PackageId: ConcatenableStringModule[PackageId, HexString] =
     new ConcatenableMatchingStringModule("-_ ".contains(_))
 
   /**
@@ -230,7 +244,7 @@ private[data] final class IdStringImpl extends IdString {
     */
   // We allow space because the navigator's applicationId used it.
   override type LedgerString = String
-  override val LedgerString: ConcatenableStringModule[LedgerString] =
+  override val LedgerString: ConcatenableStringModule[LedgerString, HexString] =
     new ConcatenableMatchingStringModule("._:-#/ ".contains(_), 255)
 
   override type ParticipantId = String
@@ -240,6 +254,6 @@ private[data] final class IdStringImpl extends IdString {
     * Legacy contractIds.
     */
   override type ContractIdString = LedgerString
-  override val ContractIdString: ConcatenableStringModule[LedgerString] = LedgerString
+  override val ContractIdString: ConcatenableStringModule[LedgerString, HexString] = LedgerString
 
 }

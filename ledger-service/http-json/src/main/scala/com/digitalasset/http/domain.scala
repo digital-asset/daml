@@ -83,7 +83,9 @@ object domain {
       queries: NonEmptyList[GetActiveContractsRequest]
   )
 
-  case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
+  final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
+
+  final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
 
   final case class CommandMeta(
       commandId: Option[CommandId],
@@ -143,6 +145,8 @@ object domain {
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
   }
+
+  final case class StartingOffset(offset: Offset)
 
   type Choice = lar.Choice
   val Choice = lar.Choice

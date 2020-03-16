@@ -221,4 +221,6 @@
   mavenUpload: false
 - target: //triggers/runner:trigger-runner-lib
   type: jar-scala
+- target: //libs-scala/build-info:build-info
+  type: jar-scala
 

@@ -14,6 +14,9 @@ import { DamlLedgerState, DamlLedgerContext } from './context'
 // not make a new network request although they are required to refresh data.
 
 
+/**
+ * @internal
+ */
 const useDamlState = (): DamlLedgerState => {
   const state = useContext(DamlLedgerContext);
   if (!state) {
@@ -22,17 +25,41 @@ const useDamlState = (): DamlLedgerState => {
   return state;
 }
 
+/**
+ * React hook to get the party currently connected to the ledger.
+ */
 export const useParty = () => {
   const state = useDamlState();
   return state.party;
 }
 
+/**
+ * The result of a query against the ledger.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ */
 export type QueryResult<T extends object, K, I extends string> = {
+  /** Contracts matching the query. */
   contracts: readonly CreateEvent<T, K, I>[];
+  /** Indicator for whether the query is executing. */
   loading: boolean;
 }
 
-/// React Hook for a query against the `/v1/query` endpoint of the JSON API.
+/**
+ * React Hook for a ``query`` against the ledger.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ *
+ * @param template The contract template to filter for.
+ * @param queryFactory A function returning a query.
+ * @param queryDeps The dependencies of the query (which trigger a reload when changed).
+ *
+ * @return The result of the query.
+ */
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
@@ -52,12 +79,33 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
   return result;
 }
 
+/**
+ * The result of a ``fetch`` against the ledger.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ */
 export type FetchResult<T extends object, K, I extends string> = {
+  /** Contracts of the given contract template and key. */
   contract: CreateEvent<T, K, I> | null;
+  /** Indicator for whether the fetch is executing. */
   loading: boolean;
 }
 
-/// React Hook for a lookup by key against the `/v1/fetch` endpoint of the JSON API.
+/**
+ * React Hook for a lookup by key against the `/v1/fetch` endpoint of the JSON API.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ *
+ * @param template The template of the contracts to fetch.
+ * @param keyFactory A function returning the contract key of the contracts to fetch.
+ * @param keyDeps Dependencies of this hook (for which the fetch is reexecuted on change).
+ *
+ * @return The fetched contract.
+ */
 export function useFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
   const state = useDamlState();
   const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
@@ -75,7 +123,13 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
   return result;
 }
 
-/// React Hook that returns a function to exercise a choice by contract id.
+/**
+ * React Hook that returns a function to exercise a choice by contract id.
+ *
+ * DEPRECATED. Use [[useLedger]] instead.
+ *
+ * @ignore
+ */
 export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
   const state = useDamlState();
   const exercise = async (cid: ContractId<T>, argument: C) => {
@@ -85,7 +139,13 @@ export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (c
   return exercise;
 }
 
-/// React Hook that returns a function to exercise a choice by key.
+/**
+ * React Hook that returns a function to exercise a choice by key.
+ *
+ * DEPRECATED. Use [[useLedger]] instead.
+ *
+ * @ignore
+ */
 export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
   const state = useDamlState();
   const exerciseByKey = async (key: K, argument: C) => {
@@ -95,7 +155,20 @@ export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C,
   return exerciseByKey;
 }
 
-/// React Hook for a query against the `/v1/stream/query` endpoint of the JSON API.
+/**
+ * React Hook to query the ledger, the returned result is updated as the ledger state changes.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ *
+ * @param template The template of the contracts to match.
+ * @param queryFactory A function returning a query.
+ * @param queryDeps The dependencies of the query (for which a change triggers an update of the result)
+ *
+ * @return The matching contracts.
+ *
+ */
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
@@ -121,7 +194,19 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
   return result;
 }
 
-/// React Hook for a query against the `/v1/stream/fetch` endpoint of the JSON API.
+/**
+ * React Hook to query the ledger. Same as useStreamQuery, but query by contract key instead.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ *
+ * @param template The template of the contracts to match.
+ * @param queryFactory A function returning a contract key.
+ * @param queryDeps The dependencies of the query (for which a change triggers an update of the result)
+ *
+ * @return The matching (unique) contract.
+ */
 export function useStreamFetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, keyFactory: () => K, keyDeps: readonly unknown[]): FetchResult<T, K, I> {
   const [result, setResult] = useState<FetchResult<T, K, I>>({contract: null, loading: false});
   const state = useDamlState();
@@ -145,7 +230,9 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(templ
   return result;
 }
 
-/// React Hook to reload all queries currently present in the store.
+/**
+ * React Hook to reload all active queries.
+ */
 export const useReload = (): () => void => {
   const state = useDamlState();
   return () => state.triggerReload();

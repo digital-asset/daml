@@ -3,9 +3,6 @@
 
 package com.digitalasset.platform.apiserver.services.tracking
 
-import java.util
-import java.util.Collections
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
@@ -28,17 +25,10 @@ import scala.util.{Failure, Success}
 /**
   * Tracks SubmitAndWaitRequests.
   * @param queue The input queue to the tracking flow.
-  * @param historySize The number of command IDs to remember for de-duplicating tracked futures and results.
   */
-final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], historySize: Int)
-    extends Tracker {
+final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput]) extends Tracker {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-
-  require(historySize > 0, "History size must be a positive integer.")
-
-  private val knownResults: util.Map[(String, String), Future[Completion]] =
-    Collections.synchronizedMap(new SizeCappedMap(historySize / 2, historySize))
 
   override def track(request: SubmitAndWaitRequest)(
       implicit ec: ExecutionContext): Future[Completion] = {
@@ -46,15 +36,7 @@ final class TrackerImpl(queue: SourceQueueWithComplete[TrackerImpl.QueueInput], 
       s"tracking command for party: ${request.getCommands.party}, commandId: ${request.getCommands.commandId}")
     val promise = Promise[Completion]
 
-    val storedResult =
-      knownResults.putIfAbsent(
-        (request.getCommands.commandId, request.getCommands.applicationId),
-        promise.future)
-    if (storedResult == null) {
-      submitNewRequest(request, promise)
-    } else {
-      storedResult
-    }
+    submitNewRequest(request, promise)
   }
 
   private def submitNewRequest(request: SubmitAndWaitRequest, promise: Promise[Completion])(
@@ -92,7 +74,7 @@ object TrackerImpl {
         Ctx[Promise[Completion], Completion],
         Materialized[NotUsed, Promise[Completion]]],
       inputBufferSize: Int,
-      historySize: Int)(implicit materializer: Materializer): TrackerImpl = {
+  )(implicit materializer: Materializer): TrackerImpl = {
     val ((queue, mat), foreachMat) = Source
       .queue[QueueInput](inputBufferSize, OverflowStrategy.dropNew)
       .viaMat(tracker)(Keep.both)
@@ -139,7 +121,7 @@ object TrackerImpl {
       )(DirectExecutionContext)
     }(DirectExecutionContext)
 
-    new TrackerImpl(queue, historySize)
+    new TrackerImpl(queue)
   }
 
   type QueueInput = Ctx[Promise[Completion], SubmitRequest]

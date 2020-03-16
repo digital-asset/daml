@@ -6,6 +6,14 @@ import fetch from 'cross-fetch';
 import { EventEmitter } from 'events';
 import WebSocket from 'isomorphic-ws';
 
+/**
+ * A newly created contract.
+ *
+ * @typeparam T The contract template type.
+ * @typeparam K The contract key type.
+ * @typeparam I The contract id type.
+ *
+ */
 export type CreateEvent<T extends object, K = unknown, I extends string = string> = {
   templateId: I;
   contractId: ContractId<T>;
@@ -16,15 +24,31 @@ export type CreateEvent<T extends object, K = unknown, I extends string = string
   payload: T;
 }
 
+/**
+ * An archived contract.
+ *
+ * @typeparam T The contract template type.
+ * @typeparam I The contract id type.
+ */
 export type ArchiveEvent<T extends object, I extends string = string> = {
   templateId: I;
   contractId: ContractId<T>;
 }
 
+/**
+ * An event is either the creation or archival of a contract.
+ *
+ * @typeparam T The contract template type.
+ * @typeparam K The contract key type.
+ * @typeparam I The contract id type.
+ */
 export type Event<T extends object, K = unknown, I extends string = string> =
   | { created: CreateEvent<T, K, I> }
   | { archived: ArchiveEvent<T, I> }
 
+/**
+ * Decoder for a [[CreateEvent]].
+ */
 const decodeCreateEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<CreateEvent<T, K, I>> => jtv.object({
   templateId: jtv.constant(template.templateId),
   contractId: ContractId(template).decoder(),
@@ -35,31 +59,49 @@ const decodeCreateEvent = <T extends object, K, I extends string>(template: Temp
   payload: template.decoder(),
 });
 
+/**
+ * Decoder for a [[CreateEvent]] of unknown contract template.
+ */
 const decodeCreateEventUnknown: jtv.Decoder<CreateEvent<object>> =
   jtv.valueAt(['templateId'], jtv.string()).andThen((templateId) =>
     decodeCreateEvent(lookupTemplate(templateId))
   );
 
+/**
+ * Decoder for an [[ArchiveEvent]].
+ */
 const decodeArchiveEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<ArchiveEvent<T, I>> => jtv.object({
   templateId: jtv.constant(template.templateId),
   contractId: ContractId(template).decoder(),
 });
 
+/**
+ * Decoder for an [[ArchiveEvent]] of unknown contract template.
+ */
 const decodeArchiveEventUnknown: jtv.Decoder<ArchiveEvent<object>> =
   jtv.valueAt(['templateId'], jtv.string()).andThen(templateId =>
     decodeArchiveEvent(lookupTemplate(templateId))
   );
 
+/**
+ * Decoder for an [[Event]].
+ */
 const decodeEvent = <T extends object, K, I extends string>(template: Template<T, K, I>): jtv.Decoder<Event<T, K, I>> => jtv.oneOf<Event<T, K, I>>(
   jtv.object({created: decodeCreateEvent(template)}),
   jtv.object({archived: decodeArchiveEvent(template)}),
 );
 
+/**
+ * Decoder for an [[Event]] with unknown contract template.
+ */
 const decodeEventUnknown: jtv.Decoder<Event<object>> = jtv.oneOf<Event<object>>(
   jtv.object({created: decodeCreateEventUnknown}),
   jtv.object({archived: decodeArchiveEventUnknown}),
 );
 
+/**
+ * @internal
+ */
 async function decodeArchiveResponse<T extends object, K, I extends string>(
   template: Template<T, K, I>,
   archiveMethod: 'archive' | 'archiveByKey',
@@ -75,45 +117,65 @@ async function decodeArchiveResponse<T extends object, K, I extends string>(
   }
 }
 
+/**
+ * @internal
+ */
 function isRecordWith<Field extends string>(field: Field, x: unknown): x is Record<Field, unknown> {
   return typeof x === 'object' && x !== null && field in x;
 }
 
 /**
- * Type for queries against the `/v1/query` and `/v1/stream/query` endpoints
- * of the JSON API.
- * `Query<T>` is the type of queries that are valid when searching for
- * contracts of template type `T`.
+ * `Query<T>` is the type of queries for searching for contracts of template type `T`.
+ *
+ * `Query<T>` is an object consisting of a subset of the fields of `T`.
  *
  * Comparison queries are not yet supported.
  *
  * NB: This type is heavily related to the `DeepPartial` type that can be found
  * in the TypeScript community.
+ *
+ * @typeparam T The contract template type.
+ *
  */
 export type Query<T> = T extends object ? {[K in keyof T]?: Query<T[K]>} : T;
 // TODO(MH): Support comparison queries.
 
 
+/**
+ * Status code and result returned by a call to the ledger.
+ */
 type LedgerResponse = {
   status: number;
   result: unknown;
 }
 
+/**
+ * Error code and messages returned by the ledger.
+ */
 type LedgerError = {
   status: number;
   errors: string[];
 }
 
+/**
+ * @internal
+ */
 const decodeLedgerResponse: jtv.Decoder<LedgerResponse> = jtv.object({
   status: jtv.number(),
   result: jtv.unknownJson(),
 });
 
+/**
+ * @internal
+ */
 const decodeLedgerError: jtv.Decoder<LedgerError> = jtv.object({
   status: jtv.number(),
   errors: jtv.array(jtv.string()),
 });
 
+/**
+ * Event emitted when a stream gets closed.
+ */
 export type StreamCloseEvent = {
   code: number;
   reason: string;
@@ -123,6 +185,10 @@ export type StreamCloseEvent = {
  * Interface for streams returned by the streaming methods of the `Ledger`
  * class. Each `'change'` event contains accumulated state of type `State` as
  * well as the ledger events that triggered the current state change.
+ *
+ * @typeparam T The contract template type.
+ * @typeparam K The contract key type.
+ * @typeparam I The contract id type.
  */
 export interface Stream<T extends object, K, I extends string, State> {
   on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
@@ -134,22 +200,22 @@ export interface Stream<T extends object, K, I extends string, State> {
 
 /**
  * Options for creating a handle to a DAML ledger.
- * - `token` JSON web token used for authentication.
- * - `httpBaseUrl` Optional base URL for the non-streaming endpoints of
- *   the JSON API. If this parameter is not provided, the protocol, host and
- *   port of the `window.location` object are used.
- * - `wsBaseUrl` Optional base URL for the streaming endpoints of the
- *   JSON API. If this parameter is not provided, the base URL for the
- *   non-streaming endpoints is used with the protocol 'http' or 'https'
- *   replaced by 'ws' or 'wss', respectively.
- *   Specifying this parameter explicitly can be useful when the
- *   non-streaming requests are proxied but the streaming request cannot be
- *   proxied, as it is the case with the development server of
- *   `create-react-app`.
  */
 type LedgerOptions = {
+  /** JSON web token used for authentication. */
   token: string;
+  /**
+   * Optional base URL for the non-streaming endpoints of the JSON API. If this parameter is not
+   * provided, the protocol, host and port of the `window.location` object are used.
+   */
   httpBaseUrl?: string;
+  /**
+   * Optional base URL for the streaming endpoints of the JSON API. If this parameter is not
+   * provided, the base URL for the non-streaming endpoints is used with the protocol 'http' or
+   * 'https' replaced by 'ws' or 'wss', respectively.  Specifying this parameter explicitly can be
+   * useful when the non-streaming requests are proxied but the streaming request cannot be proxied,
+   * as it is the case with the development server of `create-react-app`.
+   */
   wsBaseUrl?: string;
 }
 
@@ -162,7 +228,7 @@ class Ledger {
   private readonly wsBaseUrl: string;
 
   /**
-   * Construct a new `Ledger` object.
+   * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
   constructor({token, httpBaseUrl, wsBaseUrl}: LedgerOptions) {
     if (!httpBaseUrl) {
@@ -190,6 +256,8 @@ class Ledger {
   }
 
   /**
+   * @internal
+   *
    * Internal function to submit a command to the JSON API.
    */
   private async submit(endpoint: string, payload: unknown): Promise<unknown> {
@@ -211,11 +279,20 @@ class Ledger {
   }
 
   /**
-   * Retrieve contracts for a given template. When no `query` argument is
-   * given, all contracts visible to the submitting party are returned. When a
-   * `query` argument is given, only those contracts matching the query are
-   * returned. See https://docs.daml.com/json-api/search-query-language.html
-   * for a description of the query language.
+   * Retrieve contracts for a given template.
+   *
+   * When no `query` argument is given, all contracts visible to the submitting party are returned.
+   * When a `query` argument is given, only those contracts matching the query are returned. See
+   * https://docs.daml.com/json-api/search-query-language.html for a description of the query
+   * language.
+   *
+   * @param template The contract template of the contracts to be matched against.
+   * @param query The contract query for the contracts to be matched against.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
    */
   async query<T extends object, K, I extends string>(template: Template<T, K, I>, query?: Query<T>): Promise<CreateEvent<T, K, I>[]> {
     const payload = {templateIds: [template.templateId], query};
@@ -233,6 +310,14 @@ class Ledger {
 
   /**
    * Fetch a contract identified by its contract ID.
+   *
+   * @param template The template of the contract to be fetched.
+   * @param contractId The contract id of the contract to be fetched.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
    */
   async fetch<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<CreateEvent<T, K, I> | null> {
     const payload = {
@@ -245,6 +330,16 @@ class Ledger {
 
   /**
    * Fetch a contract identified by its contract key.
+   *
+   * Same as [[fetch]], but the contract to be fetched is identified by its contract key instead of
+   * its contract id.
+   *
+   * @param template The template of the contract to be fetched.
+   * @param key The contract key of the contract to be fetched.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
    */
   async fetchByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
     if (key === undefined) {
@@ -267,6 +362,14 @@ class Ledger {
 
   /**
    * Create a contract for a given template.
+   *
+   * @param template The template of the contract to be created.
+   * @param payload The template arguments for the contract to be created.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
    */
   async create<T extends object, K, I extends string>(template: Template<T, K, I>, payload: T): Promise<CreateEvent<T, K, I>> {
     const command = {
@@ -279,6 +382,17 @@ class Ledger {
 
   /**
    * Exercise a choice on a contract identified by its contract ID.
+   *
+   * @param choice The choice to exercise.
+   * @param contractId The contract id of the contract to exercise.
+   * @param argument The choice arguments.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam C The type of the contract choice.
+   * @typeparam R The return type of the choice.
+   *
+   * @returns The return value of the choice together with a list of [[event]]'s that where created
+   * as a result of exercising the choice.
    */
   async exercise<T extends object, C, R>(choice: Choice<T, C, R>, contractId: ContractId<T>, argument: C): Promise<[R , Event<object>[]]> {
     const payload = {
@@ -299,6 +413,21 @@ class Ledger {
 
   /**
    * Exercise a choice on a contract identified by its contract key.
+   *
+   * Same as [[exercise]], but the contract is identified by its contract key instead of its
+   * contract id.
+   *
+   * @param choice The choice to exercise.
+   * @param contractId The contract id of the contract to exercise.
+   * @param argument The choice arguments.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam C The type of the contract choice.
+   * @typeparam R The return type of the choice.
+   * @typeparam K The type of the contract key.
+   *
+   * @returns The return value of the choice together with a list of [[event]]'s that where created
+   * as a result of exercising the choice.
    */
   async exerciseByKey<T extends object, C, R, K>(choice: Choice<T, C, R, K>, key: K, argument: C): Promise<[R, Event<object>[]]> {
     if (key === undefined) {
@@ -322,6 +451,14 @@ class Ledger {
 
   /**
    * Archive a contract identified by its contract ID.
+   *
+   * @param template The template of the contract to archive.
+   * @param contractId The contract id of the contract to archive.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
    */
   async archive<T extends object, K, I extends string>(template: Template<T, K, I>, contractId: ContractId<T>): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, 'archive', () => this.exercise(template.Archive, contractId, {}));
@@ -329,12 +466,23 @@ class Ledger {
 
   /**
    * Archive a contract identified by its contract key.
+   * Same as [[archive]], but the contract to be archived is identified by its contract key.
+   *
+   * @param template The template of the contract to be archived.
+   * @param key The contract key of the contract to be archived.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   *
    */
   async archiveByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<ArchiveEvent<T, I>> {
     return decodeArchiveResponse(template, 'archiveByKey', () => this.exerciseByKey(template.Archive, key, {}));
   }
 
   /**
+   * @internal
+   *
    * Internal command to submit a request to a streaming endpoint of the
    * JSON API. Returns a stream consisting of accumulated state together with
    * the events that produced the latest state change. The `change` function
@@ -366,19 +514,21 @@ class Ledger {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
-        state = change(state, events);
-        haveSeenEvents = true;
-        emitter.emit('change', state, events);
-      } else if (isRecordWith('heartbeat', json)) {
-        // NOTE(MH): Threre's nothing to be done with heartbeats.
-      } else if (isRecordWith('live', json) && json.live === true) {
-        // NOTE(MH): If we receive the marker indicating that we are switching
-        // from the ACS to the live stream and we haven't received any events
-        // yet, we signal this by pretending we received an empty list of
-        // events. This never does any harm.
-        if (!haveSeenEvents) {
-          haveSeenEvents = true;
-          emitter.emit('change', state, []);
+        if (events.length == 0 && isRecordWith('offset', json)) {
+          if (!haveSeenEvents) {
+            // NOTE(MH): If we receive the marker indicating that we are switching
+            // from the ACS to the live stream and we haven't received any events
+            // yet, we signal this by pretending we received an empty list of
+            // events. This never does any harm.
+            haveSeenEvents = true;
+            emitter.emit('change', state, []);
+          }
+        } else {
+          state = change(state, events);
+          if (isRecordWith('offset', json)) {
+            haveSeenEvents = true;
+          }
+          emitter.emit('change', state, events);
         }
       } else if (isRecordWith('warnings', json)) {
         console.warn('Ledger.streamQuery warnings', json);
@@ -407,13 +557,19 @@ class Ledger {
 
   /**
    * Retrieve a consolidated stream of events for a given template and query.
-   * The accumulated state is the current set of active contracts matching the
-   * query.
-   * When no `query` argument is
-   * given, all events visible to the submitting party are returned. When a
-   * `query` argument is given, only those create events matching the query are
-   * returned. See https://docs.daml.com/json-api/search-query-language.html
-   * for a description of the query language.
+   *
+   * The accumulated state is the current set of active contracts matching the query. When no
+   * `query` argument is given, all events visible to the submitting party are returned. When a
+   * `query` argument is given, only those create events matching the query are returned. See
+   * https://docs.daml.com/json-api/search-query-language.html for a description of the query
+   * language.
+   *
+   * @param template The contract template to match contracts against.
+   * @param query The query to match contracts agains.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
    */
   streamQuery<T extends object, K, I extends string>(
     template: Template<T, K, I>,
@@ -437,6 +593,15 @@ class Ledger {
     return this.streamSubmit(template, 'v1/stream/query', request, [], change);
   }
 
+  /**
+   * Retrieve a consolidated stream of events for a given template and contract key.
+   *
+   * Same as [[streamQuery]], but instead of a query, match contracts by contract key.
+   *
+   * @typeparam T The contract template type.
+   * @typeparam K The contract key type.
+   * @typeparam I The contract id type.
+   */
   streamFetchByKey<T extends object, K, I extends string>(
     template: Template<T, K, I>,
     key: K,

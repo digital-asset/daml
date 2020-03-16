@@ -104,7 +104,7 @@ object MultiParticipant {
           Map.empty
         )
 
-        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None)
+        val runner = new TestRunner(participantParams, dar, config.wallclockTime, None, None)
         MultiTest(dar, runner).runTests()
         MultiPartyIdHintTest(dar, runner).runTests()
     }

@@ -282,17 +282,24 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
+        "containers",
         "extra",
         "filepath",
+        "jwt",
         "process",
         "regex-tdfa",
         "safe",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
+        "text",
+        "unordered-containers",
     ],
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",
@@ -300,6 +307,7 @@ da_haskell_test(
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 

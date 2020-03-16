@@ -145,7 +145,6 @@ object ApiServices {
           commandConfig.maxParallelSubmissions,
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
-          commandConfig.historySize,
           commandConfig.retentionPeriod,
           submissionConfig.maxDeduplicationTime
         ),

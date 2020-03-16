@@ -8,8 +8,10 @@ package svalue
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -24,10 +26,16 @@ object Ordering extends scala.math.Ordering[SValue] {
     (xs zip ys).to[ImmArray] ++: stack
 
   private def compareIdentifier(name1: Ref.TypeConName, name2: Ref.TypeConName): Int = {
-    val c1 = name1.packageId compareTo name2.packageId
-    lazy val c2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
-    def c3 = name1.qualifiedName.name compareTo name2.qualifiedName.name
-    if (c1 != 0) c1 else if (c2 != 0) c2 else c3
+    val compare1 = name1.packageId compareTo name2.packageId
+    if (compare1 != 0) {
+      compare1
+    } else {
+      val compare2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
+      if (compare2 != 0)
+        compare2
+      else
+        name1.qualifiedName.name compareTo name2.qualifiedName.name
+    }
   }
 
   val builtinTypeIdx =
@@ -60,7 +68,7 @@ object Ordering extends scala.math.Ordering[SValue] {
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
       case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
-        throw new IllegalArgumentException(s"cannot compare types $typ")
+        throw SErrorCrash(s"cannot compare types $typ")
     }
 
   @tailrec
@@ -125,14 +133,14 @@ object Ordering extends scala.math.Ordering[SValue] {
         if (lim == underlyingCidDiscriminatorLength && (//
           cid1.length != underlyingCidDiscriminatorLength && isHexa(cid2) || //
           cid2.length != underlyingCidDiscriminatorLength && isHexa(cid1)))
-          throw new IllegalArgumentException(
-            "Conflicting discriminators between a local and global contract id")
+          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
         else
           cid1.length compareTo cid2.length
       }
 
     lp(0)
   }
+
   @tailrec
   // Only value of the same type can be compared.
   private[this] def compareValue(stack0: FrontStack[(SValue, SValue)]): Int =
@@ -215,6 +223,10 @@ object Ordering extends scala.math.Ordering[SValue] {
             case map2: STextMap =>
               0 -> ImmArray((toList(map1), toList(map2)))
           }
+          case map1: SGenMap => {
+            case map2: SGenMap =>
+              0 -> ImmArray((toList(map1), toList(map2)))
+          }
           case SStruct(_, args1) => {
             case SStruct(_, args2) =>
               0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
@@ -223,21 +235,22 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SAny(t2, v2) =>
               compareType(t1, t2) -> ImmArray((v1, v2))
           }
-          case SContractId(_) => {
-            case SContractId(_) =>
-              throw new IllegalAccessException("Try to compare relative contract ids")
+          case SContractId(RelativeContractId(_)) => {
+            case SContractId(RelativeContractId(_)) =>
+              throw SErrorCrash("relative contract id are not comparable")
           }
           case SPAP(_, _, _) => {
             case SPAP(_, _, _) =>
-              throw new IllegalAccessException("Try to compare functions")
+              throw SErrorCrash("functions are not comparable")
           }
-        }(fallback = throw new IllegalAccessException("Try to compare unrelated type"))
+        }(fallback = throw SErrorCrash("try to compare unrelated type"))
         if (x != 0)
           x
         else
           compareValue(toPush ++: stack)
     }
 
+  @throws[SErrorCrash]
   def compare(v1: SValue, v2: SValue): Int =
     compareValue(FrontStack((v1, v2)))
 

@@ -340,7 +340,7 @@ testGetDispatchEnv = Tasty.testGroup "DA.Daml.Assistant.Env.getDispatchEnv"
     ]
 
 testAscendants :: Tasty.TestTree
-testAscendants = Tasty.testGroup "DA.Daml.Assistant.ascendants"
+testAscendants = Tasty.testGroup "DA.Daml.Project.Util.ascendants"
     [ Tasty.testCase "unit tests" $ do
         Tasty.assertEqual "empty path" ["."] (ascendants "")
         Tasty.assertEqual "curdir path" ["."] (ascendants ".")
@@ -362,7 +362,10 @@ testAscendants = Tasty.testGroup "DA.Daml.Assistant.ascendants"
                    head (ascendants p) == p)
     , Tasty.testProperty "tail . ascendants == ascendants . takeDirectory"
         (\p1 p2 -> let p = dropTrailingPathSeparator (p1 </> p2)
-                   in notNull p1 && notNull p2 && isRelative p2 ==>
+                   in notNull p1 && notNull p2 && p1 </> p2 /= p2 ==>
+                      -- We use `p1 </> p2 /= p2` instead of `isRelative p2`
+                      -- because, on Windows, `isRelative "\\foo" == True`,
+                      -- while `x </> "\\foo" = "\\foo"`.
                       tail (ascendants p) == ascendants (takeDirectory p))
     ]
 
