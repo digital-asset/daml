@@ -16,6 +16,25 @@ import com.digitalasset.platform.store.ErrorCause
 
 import scala.concurrent.Future
 
+/**
+  * The result of command execution.
+  *
+  * @param submitterInfo       The submitter info
+  * @param transactionMeta     The transaction meta-data
+  * @param dependsOnLedgerTime True if the output of command execution depends in any way
+  *                            on the ledger time, as specified through [[Commands.ledgerEffectiveTime]].
+  *                            If this value is false, then the ledger time of the resulting transaction
+  *                            ([[TransactionMeta.ledgerEffectiveTime]] can safely be changed after command
+  *                            interpretation.
+  * @param transaction         The transaction
+  */
+final case class CommandExecutionResult(
+    submitterInfo: SubmitterInfo,
+    transactionMeta: TransactionMeta,
+    transaction: Transaction.Transaction,
+    dependsOnLedgerTime: Boolean,
+)
+
 trait CommandExecutor {
 
   def execute(
@@ -26,5 +45,5 @@ trait CommandExecutor {
         Option[Value.ContractInst[Transaction.Value[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: Commands
-  ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]]
+  ): Future[Either[ErrorCause, CommandExecutionResult]]
 }
