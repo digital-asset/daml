@@ -167,7 +167,7 @@ object SValue {
 
     def apply(xs: Iterator[(SValue, SValue)]): SGenMap = {
       type O[_] = TreeMap[SValue, SValue]
-      xs.foreach { case (k, _) => comparable(k) }
+      xs.map { case p @ (k, _) => comparable(k); p }.to[O]
       SGenMap(xs.to[O])
     }
 
