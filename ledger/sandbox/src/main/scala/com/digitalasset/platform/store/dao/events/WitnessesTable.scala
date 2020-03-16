@@ -31,11 +31,14 @@ sealed abstract class WitnessesTable(tableName: String) {
       transactionId: TransactionId,
       witnesses: DisclosureRelation,
   ): Option[BatchSql] = {
-    if (witnesses.nonEmpty) {
-      val ws = DisclosureRelation
-        .flatten(witnesses)
-        .map { case (nodeId, party) => parameters(transactionId)(nodeId, party) }
-        .toSeq
+    val flattenedWitnesses = DisclosureRelation.flatten(witnesses)
+    if (flattenedWitnesses.nonEmpty) {
+      val ws = flattenedWitnesses.map {
+        case (nodeId, party) => parameters(transactionId)(nodeId, party)
+      }.toSeq
+      if (ws.isEmpty) {
+        sys.error(witnesses.toString)
+      }
       Some(BatchSql(insert, ws.head, ws.tail: _*))
     } else {
       None

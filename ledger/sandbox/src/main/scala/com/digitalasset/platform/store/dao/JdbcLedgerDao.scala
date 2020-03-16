@@ -45,9 +45,11 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.digitalasset.platform.store.dao.events.TransactionWriter
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -952,6 +954,24 @@ private class JdbcLedgerDao(
           Try {
             storeTransaction(offset, tx, txBytes)
 
+            tx.transaction.roots.iterator
+              .map(nid => split(nid).fold(sys.error(s"########## can't split $nid"))(_.nodeId))
+              .toSet
+
+            // TODO Run this directly from the indexer once we no longer
+            // TODO need to validate transactions on the index
+            transactions.storeTransaction(
+              applicationId = tx.applicationId,
+              workflowId = tx.workflowId,
+              transactionId = tx.transactionId,
+              commandId = tx.commandId,
+              submitter = tx.submittingParty,
+              roots = tx.transaction.roots.iterator.map(split(_).map(_.nodeId).get).toSet,
+              ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+              offset = offset,
+              transaction = tx.transaction.mapNodeId(split(_).map(_.nodeId).get),
+            )
+
             // Ensure divulged contracts are known about before they are referred to.
             storeContractData(divulgedContracts)
 
@@ -1706,6 +1726,9 @@ private class JdbcLedgerDao(
       val _ = SQL_TRUNCATE_ALL_TABLES.execute()
       ()
     }
+
+  override val transactions: TransactionWriter[LedgerOffset] =
+    TransactionWriter.apply(dbDispatcher)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
