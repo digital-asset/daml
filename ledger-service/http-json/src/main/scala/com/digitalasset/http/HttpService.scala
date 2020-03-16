@@ -126,7 +126,10 @@ object HttpService extends StrictLogging {
         contractDao,
       )
 
-      partiesService = new PartiesService(LedgerClientJwt.listKnownParties(client))
+      partiesService = new PartiesService(
+        LedgerClientJwt.listKnownParties(client),
+        LedgerClientJwt.allocateParty(client)
+      )
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 

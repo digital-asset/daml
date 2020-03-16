@@ -1483,7 +1483,11 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
       BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
-      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genMap),
+      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS, BELess, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS_EQ, BELessEq, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER, BEGreater, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER_EQ, BEGreaterEq, minVersion = genComparison),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
