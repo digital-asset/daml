@@ -10,10 +10,12 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManage
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
+  GetPartiesRequest,
   ListKnownPartiesRequest,
   PartyDetails => ApiPartyDetails
 }
 import com.digitalasset.ledger.client.LedgerClient
+import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,6 +31,11 @@ object PartyManagementClient {
 
   private val listKnownPartiesRequest = ListKnownPartiesRequest()
 
+  private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
+    GetPartiesRequest(parties.toList)
+  }
 }
 
 final class PartyManagementClient(service: PartyManagementServiceStub)(
@@ -44,6 +51,14 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(
     LedgerClient
       .stub(service, token)
       .listKnownParties(PartyManagementClient.listKnownPartiesRequest)
+      .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
+
+  def getParties(
+      parties: OneAnd[Set, Ref.Party],
+      token: Option[String] = None): Future[List[PartyDetails]] =
+    LedgerClient
+      .stub(service, token)
+      .getParties(PartyManagementClient.getPartiesRequest(parties))
       .map(_.partyDetails.map(PartyManagementClient.details)(collection.breakOut))
 
   def allocateParty(
