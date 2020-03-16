@@ -216,10 +216,8 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
         "@davl//:released/davl-v3.dar",
-        # Note that this will break if we make incompatible changes to 1.dev (which we might).
-        # In that case, feel free to replace it by a newer DAR, ideally built against a stable
-        # LF version.
-        ":dars/old-proj-0.13.51-1.dev.dar",
+        # Feel free to update this to 0.13.55 once that is frozen.
+        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
     ],
     hackage_deps = [
         "base",
