@@ -211,13 +211,17 @@ object SubmissionValidator {
       inputState
     )
 
+  // FIXME(erdemik): More effective sorting for ByteStrings?
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState): (Bytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
     val rawStateUpdates =
-      damlStateUpdates.map {
-        case (key, value) => keyToBytes(key) -> valueToBytes(value)
-      }.toSeq
+      damlStateUpdates
+        .map {
+          case (key, value) => keyToBytes(key) -> valueToBytes(value)
+        }
+        .toSeq
+        .sortBy(_._1.asReadOnlyByteBuffer())
     (Envelope.enclose(logEntry), rawStateUpdates)
   }
 
