@@ -59,17 +59,10 @@ class Runner(
     party: String,
     dar: Dar[(PackageId, Package)],
 ) extends StrictLogging {
-
-  private val triggerIds = TriggerIds.fromDar(dar)
-  if (triggerIds.triggerPackageId != EXPECTED_TRIGGER_PACKAGE_ID) {
-    logger.warn(
-      s"Unexpected package id for daml-trigger library: ${triggerIds.triggerPackageId}, expected ${EXPECTED_TRIGGER_PACKAGE_ID.toString}. This is most likely caused by a mismatch between the SDK version used to build your trigger and the trigger runner.")
-  }
   private val darMap: Map[PackageId, Package] = dar.all.toMap
   private val compiler = Compiler(darMap)
-  private val compiledPackages =
+  val compiledPackages =
     PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-  private val converter = Converter.fromDar(dar, compiledPackages)
   // This is a map from the command ids used on the ledger API to the command ids used internally
   // in the trigger which are just incremented at each step.
   private var commandIdMap: Map[UUID, String] = Map.empty
@@ -80,7 +73,7 @@ class Runner(
   // Handles the result of initialState or update, i.e., (s, [Commands], Text)
   // by submitting the commands, printing the log message and returning
   // the new state
-  def handleStepResult(v: SValue, submit: SubmitRequest => Unit): SValue =
+  def handleStepResult(converter: Converter, v: SValue, submit: SubmitRequest => Unit): SValue =
     v match {
       case SRecord(recordId, _, values)
           if recordId.qualifiedName ==
@@ -140,7 +133,7 @@ class Runner(
     }
   }
 
-  def getTrigger(triggerId: Identifier): (Expr, TypeConApp) = {
+  def getTrigger(triggerId: Identifier): (Expr, TypeConApp, TriggerIds) = {
     val (tyCon: TypeConName, stateTy) =
       dar.main._2.lookupIdentifier(triggerId.qualifiedName).toOption match {
         case Some(DValue(TApp(TTyCon(tcon), stateTy), _, _, _)) => (tcon, stateTy)
@@ -149,17 +142,21 @@ class Runner(
           throw new RuntimeException(errMsg)
         }
       }
-    if (tyCon == triggerIds.getId("Trigger")) {
+    val triggerIds = TriggerIds(tyCon.packageId)
+    if (tyCon == triggerIds.damlTriggerLowLevel("Trigger")) {
       logger.debug("Running low-level trigger")
       val triggerVal = EVal(triggerId)
       val triggerTy = TypeConApp(tyCon, ImmArray(stateTy))
-      (triggerVal, triggerTy)
-    } else if (tyCon == triggerIds.getHighlevelId("Trigger")) {
+      (triggerVal, triggerTy, triggerIds)
+    } else if (tyCon == triggerIds.damlTrigger("Trigger")) {
       logger.debug("Running high-level trigger")
-      val lowTriggerVal = EApp(EVal(triggerIds.getHighlevelId("runTrigger")), EVal(triggerId))
-      val lowStateTy = TApp(TTyCon(triggerIds.getHighlevelId("TriggerState")), stateTy)
-      val lowTriggerTy = TypeConApp(triggerIds.getId("Trigger"), ImmArray(lowStateTy))
-      (lowTriggerVal, lowTriggerTy)
+      val runTrigger = EVal(triggerIds.damlTrigger("runTrigger"))
+      val triggerState = TTyCon(triggerIds.damlTriggerInternal("TriggerState"))
+      val lowLevelTriggerTy = triggerIds.damlTriggerLowLevel("Trigger")
+      val lowTriggerVal = EApp(runTrigger, EVal(triggerId))
+      val lowStateTy = TApp(triggerState, stateTy)
+      val lowTriggerTy = TypeConApp(lowLevelTriggerTy, ImmArray(lowStateTy))
+      (lowTriggerVal, lowTriggerTy, triggerIds)
     } else {
       val errMsg =
         s"Identifier ${triggerId.qualifiedName} does not point to a trigger. Its type must be Daml.Trigger.Trigger or Daml.Trigger.LowLevel.Trigger."
@@ -167,8 +164,10 @@ class Runner(
     }
   }
 
-  def getTriggerHeartbeat(triggerId: Identifier): Option[FiniteDuration] = {
-    val (triggerExpr, triggerTy) = getTrigger(triggerId)
+  def getTriggerHeartbeat(
+      converter: Converter,
+      triggerExpr: Expr,
+      triggerTy: TypeConApp): Option[FiniteDuration] = {
     val heartbeat = compiler.compile(
       ERecProj(triggerTy, Name.assertFromString("heartbeat"), triggerExpr)
     )
@@ -185,8 +184,10 @@ class Runner(
     }
   }
 
-  def getTriggerFilter(triggerId: Identifier): TransactionFilter = {
-    val (triggerExpr, triggerTy) = getTrigger(triggerId)
+  def getTriggerFilter(
+      converter: Converter,
+      triggerExpr: Expr,
+      triggerTy: TypeConApp): TransactionFilter = {
     val registeredTemplates = compiler.compile(
       ERecProj(triggerTy, Name.assertFromString("registeredTemplates"), triggerExpr))
     var machine =
@@ -260,13 +261,14 @@ class Runner(
   }
 
   def getTriggerSink(
-      triggerId: Identifier,
+      converter: Converter,
+      triggerExpr: Expr,
+      triggerTy: TypeConApp,
       timeProviderType: TimeProviderType,
       acs: Seq[CreatedEvent],
       submit: SubmitRequest => Unit,
   ): Sink[TriggerMsg, Future[SExpr]] = {
     logger.info(s"Trigger is running as ${party}")
-    val (triggerExpr, triggerTy) = getTrigger(triggerId)
     val update = compiler.compile(ERecProj(triggerTy, Name.assertFromString("update"), triggerExpr))
     val getInitialState =
       compiler.compile(ERecProj(triggerTy, Name.assertFromString("initialState"), triggerExpr))
@@ -287,7 +289,7 @@ class Runner(
           createdExpr))
     machine.ctrl = Speedy.CtrlExpr(initialState)
     stepToValue(machine)
-    val evaluatedInitialState = handleStepResult(machine.toSValue, submit)
+    val evaluatedInitialState = handleStepResult(converter, machine.toSValue, submit)
     logger.debug(s"Initial state: $evaluatedInitialState")
     Flow[TriggerMsg]
       .mapConcat[TriggerMsg]({
@@ -340,7 +342,7 @@ class Runner(
         machine.ctrl = Speedy.CtrlExpr(
           SEApp(update, Array(SEValue(STimestamp(clientTime)): SExpr, SEValue(messageVal), state)))
         stepToValue(machine)
-        val newState = handleStepResult(machine.toSValue, submit)
+        val newState = handleStepResult(converter, machine.toSValue, submit)
         SEValue(newState)
       }))(Keep.right[NotUsed, Future[SExpr]])
   }
@@ -359,7 +361,9 @@ class Runner(
   }
 
   def runWithACS[T](
-      triggerId: Identifier,
+      converter: Converter,
+      triggerExpr: Expr,
+      triggerTy: TypeConApp,
       timeProviderType: TimeProviderType,
       heartbeat: Option[FiniteDuration],
       acs: Seq[CreatedEvent],
@@ -380,7 +384,8 @@ class Runner(
     }
     source
       .viaMat(msgFlow)(Keep.right[NotUsed, T])
-      .toMat(getTriggerSink(triggerId, timeProviderType, acs, submit))(Keep.both)
+      .toMat(getTriggerSink(converter, triggerExpr, triggerTy, timeProviderType, acs, submit))(
+        Keep.both)
       .run()
   }
 }
@@ -407,12 +412,22 @@ object Runner extends StrictLogging {
       party,
       dar
     )
-    val filter = runner.getTriggerFilter(triggerId)
-    val heartbeat = runner.getTriggerHeartbeat(triggerId)
+    val (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(triggerId)
+    val converter = Converter(runner.compiledPackages, triggerIds)
+    val filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
+    val heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
     for {
       (acs, offset) <- runner.queryACS(client, filter)
       finalState <- runner
-        .runWithACS(triggerId, timeProviderType, heartbeat, acs, offset, filter)
+        .runWithACS(
+          converter,
+          triggerExpr,
+          triggerTy,
+          timeProviderType,
+          heartbeat,
+          acs,
+          offset,
+          filter)
         ._2
     } yield finalState
   }
