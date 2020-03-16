@@ -39,7 +39,7 @@ module BuiltinMod {
     GREATER_EQ @Int64;
   val greater_eq_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
     GREATER_EQ @(Numeric 10);
-  val greater_eq: Text -> Text -> Bool =
+  val greater_eq_text: Text -> Text -> Bool =
     GREATER_EQ @Text;
   val greater_eq_timestamp: Timestamp -> Timestamp -> Bool =
     GREATER_EQ @Timestamp;
