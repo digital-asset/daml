@@ -52,13 +52,13 @@ module BuiltinMod {
   val greater_eq_date: Date -> Date -> Bool =
     GREATER_EQ @Date;
   val greater_int64: Int64 -> Int64 -> Bool =
-    GREATER_EQ @Int64;
+    GREATER @Int64;
   val greater_decimal: (Numeric 10) -> (Numeric 10) -> Bool =
-    GREATER_EQ @(Numeric 10);
+    GREATER @(Numeric 10);
   val greater_text: Text -> Text -> Bool =
     GREATER @Text;
   val greater_party: Party -> Party -> Bool =
-    GREATER_EQ @Party;
+    GREATER @Party;
   val greater_timestamp: Timestamp -> Timestamp -> Bool =
     GREATER @Timestamp;
   val greater_date: Date -> Date -> Bool =

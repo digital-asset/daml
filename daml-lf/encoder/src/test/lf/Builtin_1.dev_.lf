@@ -7,11 +7,11 @@ module BuiltinMod {
     EQUAL;
   val less_eq: forall (a: *). a -> a -> Bool =
     LESS_EQ;
-  val less_int64: forall (a: *). a -> a -> Bool =
+  val less: forall (a: *). a -> a -> Bool =
     LESS;
-  val greater_eq_int64: forall (a: *). a -> a -> Bool =
+  val greater_eq: forall (a: *). a -> a -> Bool =
     GREATER_EQ;
-  val greater_int64: forall (a: *). a -> a -> Bool =
-    GREATER_EQ;
+  val greater: forall (a: *). a -> a -> Bool =
+    GREATER;
 
 }
