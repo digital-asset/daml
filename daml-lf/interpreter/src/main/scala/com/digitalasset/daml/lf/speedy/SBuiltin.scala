@@ -642,14 +642,6 @@ object SBuiltin {
     }
   }
 
-  sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val a = args.get(1).asInstanceOf[SNumeric].value
-      val b = args.get(2).asInstanceOf[SNumeric].value
-      machine.ctrl = CtrlValue.bool(pred(Numeric.compareTo(a, b)))
-    }
-  }
-
   final case object SBLess extends SBCompare(_ < 0)
   final case object SBLessEq extends SBCompare(_ <= 0)
   final case object SBGreater extends SBCompare(_ > 0)

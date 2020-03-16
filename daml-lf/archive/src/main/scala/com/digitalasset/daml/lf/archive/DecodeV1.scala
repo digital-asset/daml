@@ -1411,7 +1411,11 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(
+        LEQ_NUMERIC,
+        BLessEqNumeric,
+        minVersion = numeric,
+      ),
       BuiltinFunctionInfo(LEQ_TEXT, BELessEq, implicitParameters = List(TText)),
       BuiltinFunctionInfo(LEQ_TIMESTAMP, BELessEq, implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(
@@ -1426,7 +1430,11 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(
+        GEQ_NUMERIC,
+        BGreaterEqNumeric,
+        minVersion = numeric,
+      ),
       BuiltinFunctionInfo(GEQ_TEXT, BEGreaterEq, implicitParameters = List(TText)),
       BuiltinFunctionInfo(GEQ_TIMESTAMP, BEGreaterEq, implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(
@@ -1441,7 +1449,11 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(
+        LESS_NUMERIC,
+        BLessNumeric,
+        minVersion = numeric,
+      ),
       BuiltinFunctionInfo(LESS_TEXT, BELess, implicitParameters = List(TText)),
       BuiltinFunctionInfo(LESS_TIMESTAMP, BELess, implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(
@@ -1456,7 +1468,11 @@ private[lf] object DecodeV1 {
         maxVersion = Some(numeric),
         implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
+      BuiltinFunctionInfo(
+        GREATER_NUMERIC,
+        BGreaterNumeric,
+        minVersion = numeric,
+      ),
       BuiltinFunctionInfo(GREATER_TEXT, BEGreater, implicitParameters = List(TText)),
       BuiltinFunctionInfo(GREATER_TIMESTAMP, BEGreater, implicitParameters = List(TTimestamp)),
       BuiltinFunctionInfo(
@@ -1516,7 +1532,8 @@ private[lf] object DecodeV1 {
         EQUAL_NUMERIC,
         BEqualNumeric,
         minVersion = numeric,
-        maxVersion = Some(genComparison)),
+        maxVersion = Some(genComparison)
+      ),
       BuiltinFunctionInfo(
         EQUAL_TEXT,
         BEqual,
