@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueConsumption}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time
@@ -28,7 +29,8 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
             .open(envelope)
             .flatMap {
               case Envelope.LogEntryMessage(logEntry) =>
-                val updates = Source(KeyValueConsumption.logEntryToUpdate(entryId, logEntry))
+                val logEntryId = DamlLogEntryId.parseFrom(entryId)
+                val updates = Source(KeyValueConsumption.logEntryToUpdate(logEntryId, logEntry))
                 val updatesWithOffsets = updates.zipWithIndex.map {
                   case (update, index) =>
                     toReturnedOffset(index, offset) -> update
