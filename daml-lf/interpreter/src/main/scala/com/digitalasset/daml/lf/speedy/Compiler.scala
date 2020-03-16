@@ -312,8 +312,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BTextIntercalate => SBTextIntercalate
 
               // Implemented using normal SExpr
-              case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
-                  BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+              case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BELessEq | BELess |
+                  BEGreaterEq | BEGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
                   BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
                 throw CompileError(s"unexpected $bf")
             })

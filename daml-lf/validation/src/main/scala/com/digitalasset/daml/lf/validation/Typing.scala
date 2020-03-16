@@ -202,10 +202,10 @@ private[validation] object Typing {
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
       BEqual -> tComparison,
-      BLess -> tComparison,
-      BLessEq -> tComparison,
-      BGreater -> tComparison,
-      BGreaterEq -> tComparison,
+      BELess -> tComparison,
+      BELessEq -> tComparison,
+      BEGreater -> tComparison,
+      BEGreaterEq -> tComparison,
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
