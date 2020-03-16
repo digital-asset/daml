@@ -129,7 +129,10 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyFactory)
           lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("00000008", "", Seq.empty, None))
+          val GetActiveContractsResponse(offset, workflowId, activeContracts, _) = resp.last
+          offset should not be empty
+          workflowId shouldBe empty
+          activeContracts shouldBe empty
         }
       }
 
