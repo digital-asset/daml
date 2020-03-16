@@ -134,12 +134,13 @@ class JdbcLedgerDaoSpec
 
     "be able to persist and load contracts" in {
       val offset = nextOffset()
-      val absCid = AbsoluteContractId(s"cId1-$offset")
-      val txId = s"trId-$offset"
-      val workflowId = s"workflowId-$offset"
+      val offsetString = offset.toLong
+      val absCid = AbsoluteContractId(s"cId1-$offsetString")
+      val txId = s"trId-$offsetString"
+      val workflowId = s"workflowId-$offsetString"
       val let = Instant.now
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offset")),
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offsetString")),
         Set(alice)
       )
       val event1 = event(txId, 1)
@@ -148,7 +149,7 @@ class JdbcLedgerDaoSpec
       val transaction = LedgerEntry.Transaction(
         Some("commandId1"),
         txId,
-        Some(s"appID-$offset"),
+        Some(s"appID-$offsetString"),
         Some("Alice"),
         Some(workflowId),
         let,
@@ -208,8 +209,8 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val rejection = LedgerEntry.Rejection(
         Instant.now,
-        s"commandId-$offset",
-        s"applicationId-$offset",
+        s"commandId-${offset.toLong}",
+        s"applicationId-${offset.toLong}",
         "party",
         RejectionReason.Inconsistent("\uED7Eᇫ뭳ꝳꍆꃓ왎"))
 
@@ -232,6 +233,7 @@ class JdbcLedgerDaoSpec
 
     "be able to persist and load configuration" in {
       val offset = nextOffset()
+      val offsetString = offset.toLong
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
         startingConfig <- ledgerDao.lookupLedgerConfiguration()
@@ -239,7 +241,7 @@ class JdbcLedgerDaoSpec
         response <- ledgerDao.storeConfigurationEntry(
           offset,
           Instant.EPOCH,
-          s"submission-$offset",
+          s"submission-$offsetString",
           Ref.ParticipantId.assertFromString("participant-0"),
           defaultConfig,
           None
@@ -257,6 +259,7 @@ class JdbcLedgerDaoSpec
     "be able to persist configuration rejection" in {
       val startExclusive = nextOffset()
       val offset = nextOffset()
+      val offsetString = offset.toLong
       val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
         startingConfig <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2))
@@ -264,7 +267,7 @@ class JdbcLedgerDaoSpec
         response <- ledgerDao.storeConfigurationEntry(
           offset,
           Instant.EPOCH,
-          s"config-rejection-$offset",
+          s"config-rejection-$offsetString",
           participantId,
           proposedConfig,
           Some("bad config")
@@ -279,7 +282,11 @@ class JdbcLedgerDaoSpec
         startingConfig shouldEqual storedConfig
         entries shouldEqual List(
           offset -> ConfigurationEntry
-            .Rejected(s"config-rejection-$offset", participantId, "bad config", proposedConfig)
+            .Rejected(
+              s"config-rejection-$offsetString",
+              participantId,
+              "bad config",
+              proposedConfig)
         )
       }
     }
@@ -287,12 +294,13 @@ class JdbcLedgerDaoSpec
     "refuse to persist invalid configuration entry" in {
       val startExclusive = nextOffset()
       val offset0 = nextOffset()
+      val offsetString0 = offset0.toLong
       val participantId = Ref.ParticipantId.assertFromString("participant-0")
       for {
         config <- ledgerDao.lookupLedgerConfiguration().map(_.map(_._2).getOrElse(defaultConfig))
 
         // Store a new configuration with a known submission id
-        submissionId = s"refuse-config-$offset0"
+        submissionId = s"refuse-config-$offsetString0"
         resp0 <- ledgerDao.storeConfigurationEntry(
           offset0,
           Instant.EPOCH,
@@ -316,10 +324,11 @@ class JdbcLedgerDaoSpec
 
         // Submission with mismatching generation is rejected
         offset2 = nextOffset()
+        offsetString2 = offset2.toLong
         resp2 <- ledgerDao.storeConfigurationEntry(
           offset2,
           Instant.EPOCH,
-          s"refuse-config-$offset2",
+          s"refuse-config-$offsetString2",
           participantId,
           config,
           None
@@ -327,11 +336,12 @@ class JdbcLedgerDaoSpec
 
         // Submission with unique submissionId and correct generation is accepted.
         offset3 = nextOffset()
+        offsetString3 = offset3.toLong
         lastConfig = newConfig.copy(generation = newConfig.generation + 1)
         resp3 <- ledgerDao.storeConfigurationEntry(
           offset3,
           Instant.EPOCH,
-          s"refuse-config-$offset3",
+          s"refuse-config-$offsetString3",
           participantId,
           lastConfig,
           None
@@ -347,16 +357,16 @@ class JdbcLedgerDaoSpec
         lastConfig shouldEqual lastConfigActual
         entries.toList shouldEqual List(
           offset0 -> ConfigurationEntry
-            .Accepted(s"refuse-config-$offset0", participantId, newConfig),
+            .Accepted(s"refuse-config-$offsetString0", participantId, newConfig),
           /* offset1 is duplicate */
           offset2 -> ConfigurationEntry
             .Rejected(
-              s"refuse-config-$offset2",
+              s"refuse-config-${offset2.toLong}",
               participantId,
               "Generation mismatch: expected=2, actual=0",
               config),
           offset3 -> ConfigurationEntry
-            .Accepted(s"refuse-config-$offset3", participantId, lastConfig)
+            .Accepted(s"refuse-config-$offsetString3", participantId, lastConfig)
         )
       }
     }
@@ -599,17 +609,18 @@ class JdbcLedgerDaoSpec
 
     "be able to load contracts within a transaction" in {
       val offset = nextOffset()
-      val absCid = AbsoluteContractId(s"cId$offset")
+      val offsetString = offset.toLong
+      val absCid = AbsoluteContractId(s"cId$offsetString")
       val let = Instant.now
 
-      val transactionId = s"trId$offset"
+      val transactionId = s"trId$offsetString"
       val event1 = event(transactionId, 1)
       val event2 = event(transactionId, 2)
 
       val transaction = LedgerEntry.Transaction(
-        Some(s"commandId$offset"),
+        Some(s"commandId$offsetString"),
         transactionId,
-        Some(s"appID$offset"),
+        Some(s"appID$offsetString"),
         Some("Alice"),
         Some("workflowId"),
         let,
@@ -655,7 +666,7 @@ class JdbcLedgerDaoSpec
 
     "be able to produce a valid snapshot" in {
       def genCreateTransaction(offset: Offset) = {
-        val id = ApiOffset.toApiString(offset)
+        val id = offset.toLong
         val txId = s"trId$id"
         val absCid = AbsoluteContractId(s"cId$id")
         val let = Instant.now
@@ -686,7 +697,7 @@ class JdbcLedgerDaoSpec
       }
 
       def genExerciseTransaction(offset: Offset, targetCid: AbsoluteContractId) = {
-        val id = ApiOffset.toApiString(offset)
+        val id = offset.toLong
         val txId = s"trId$id"
         val let = Instant.now
         LedgerEntry.Transaction(
@@ -774,6 +785,7 @@ class JdbcLedgerDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
+        startingOffsetString = startingOffset.toLong
         aliceStartingSnapshot <- ledgerDao.getActiveContractSnapshot(
           startingOffset,
           aliceWildcardFilter)
@@ -784,7 +796,7 @@ class JdbcLedgerDaoSpec
         mixedStartingSnapshot <- ledgerDao.getActiveContractSnapshot(startingOffset, mixedFilter)
 
         _ <- runSequentially(N, _ => storeCreateTransaction())
-        _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffset"))
+        _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffsetString"))
 
         snapshotOffset <- ledgerDao.lookupLedgerEnd()
 
@@ -940,7 +952,7 @@ class JdbcLedgerDaoSpec
         party: Party,
         key: String,
         result: Option[Offset]) = {
-      val id = ApiOffset.toApiString(offset)
+      val id = offset.toLong
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -958,7 +970,7 @@ class JdbcLedgerDaoSpec
                 KeyWithMaintainers(
                   VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                   Set(party)),
-                result.map(id => AbsoluteContractId(s"contractId$id")),
+                result.map(id => AbsoluteContractId(s"contractId${id.toLong}")),
               )),
             ImmArray(event(s"transactionId$id", id)),
           ),
@@ -971,7 +983,7 @@ class JdbcLedgerDaoSpec
 
     /** A transaction that fetches a contract Id */
     def txFetch(let: Instant, offset: Offset, party: Party, cid: Offset) = {
-      val id = ApiOffset.toApiString(offset)
+      val id = offset.toLong
       PersistenceEntry.Transaction(
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -1004,7 +1016,7 @@ class JdbcLedgerDaoSpec
       val let = Instant.now
       val offset1 = nextOffset()
       val offset2 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       // Scenario: Two concurrent commands create the same contract key.
       // At command interpretation time, the keys do not exist yet.
@@ -1030,7 +1042,7 @@ class JdbcLedgerDaoSpec
       val let = Instant.now
       val offset1 = nextOffset()
       val offset2 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       for {
         _ <- ledgerDao.storeLedgerEntry(
@@ -1051,7 +1063,7 @@ class JdbcLedgerDaoSpec
       val let = Instant.now
       val offset1 = nextOffset()
       val offset2 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       // Scenario: Two concurrent commands: one create and one lookupByKey.
       // At command interpretation time, the lookupByKey does not find any contract.
@@ -1078,7 +1090,7 @@ class JdbcLedgerDaoSpec
       val offset1 = nextOffset()
       val offset2 = nextOffset()
       val offset3 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       // Scenario: Two concurrent commands: one exercise and one lookupByKey.
       // At command interpretation time, the lookupByKey finds a contract.
@@ -1110,7 +1122,7 @@ class JdbcLedgerDaoSpec
       val let = Instant.now
       val offset1 = nextOffset()
       val offset2 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       for {
         _ <- ledgerDao.storeLedgerEntry(
@@ -1134,7 +1146,7 @@ class JdbcLedgerDaoSpec
       val offset1 = nextOffset()
       val offset2 = nextOffset()
       val offset3 = nextOffset()
-      val keyValue = s"key-$offset1"
+      val keyValue = s"key-${offset1.toLong}"
 
       // Scenario: Two concurrent commands: one exercise and one fetch.
       // At command interpretation time, the fetch finds a contract.
@@ -1168,7 +1180,7 @@ class JdbcLedgerDaoSpec
       val offset2 = nextOffset()
       val offset3 = nextOffset()
       def emptyTxWithDivulgedContracts(offset: Offset) = {
-        val id = ApiOffset.toApiString(offset)
+        val id = offset.toLong
         PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
             Some(s"commandId$id"),
@@ -1190,7 +1202,7 @@ class JdbcLedgerDaoSpec
         // First try and index a transaction fetching a completely unknown contract.
         _ <- ledgerDao.storeLedgerEntry(
           offset1,
-          txFetch(let, offset1, bob, ApiOffset.assertFromString("0")))
+          txFetch(let, offset1, bob, ApiOffset.assertFromString("00")))
         res1 <- ledgerDao.lookupLedgerEntryAssert(offset1)
 
         // Then index a transaction that just divulges the contract to bob.

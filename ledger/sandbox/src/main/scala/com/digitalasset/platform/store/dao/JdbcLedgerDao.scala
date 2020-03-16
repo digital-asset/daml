@@ -1169,16 +1169,17 @@ private class JdbcLedgerDao(
         offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
       case invalidRow =>
         sys.error(
-          s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
+          s"invalid ledger entry for offset: ${invalidRow.offset.toApiString}. database row: $invalidRow")
     }
 
   override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] = {
     dbDispatcher
-      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
-        val entry = SQL_SELECT_ENTRY
-          .on("ledger_offset" -> offset)
-          .as(EntryParser.singleOpt)
-        entry.map(e => e -> loadDisclosureOptForEntry(e))
+      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: ${offset.toApiString}")) {
+        implicit conn =>
+          val entry = SQL_SELECT_ENTRY
+            .on("ledger_offset" -> offset)
+            .as(EntryParser.singleOpt)
+          entry.map(e => e -> loadDisclosureOptForEntry(e))
       }
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
   }
