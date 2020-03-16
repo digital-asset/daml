@@ -455,6 +455,14 @@ class JdbcLedgerDaoSpec
       }
     }
 
+    "retrieve zero parties" in {
+      for {
+        noPartyDetails <- ledgerDao.getParties(Seq.empty)
+      } yield {
+        noPartyDetails should be(Seq.empty)
+      }
+    }
+
     "retrieve a single party, if they exist" in {
       val party = Ref.Party.assertFromString(s"Carol-${UUID.randomUUID()}")
       val nonExistentParty = UUID.randomUUID().toString
