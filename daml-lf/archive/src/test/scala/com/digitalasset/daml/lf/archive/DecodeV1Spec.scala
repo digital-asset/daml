@@ -285,22 +285,16 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.ROUND_DECIMAL,
         "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.LEQ_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BLessEqNumeric), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.LESS_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BLessNumeric), TDecimalScale)),
+      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GEQ_DECIMAL,
         "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEqNumeric), TDecimalScale)),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal)),
       (
         DamlLf1.BuiltinFunction.GREATER_DECIMAL,
         "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterNumeric), TDecimalScale)),
+        Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal)),
       (
         DamlLf1.BuiltinFunction.TO_TEXT_DECIMAL,
         "1",
@@ -317,10 +311,7 @@ class DecodeV1Spec
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
         "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale)),
-      (
-        DamlLf1.BuiltinFunction.EQUAL_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BEqualNumeric), TDecimalScale)),
+      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(

@@ -638,16 +638,7 @@ object SBuiltin {
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val result = pred(svalue.Ordering.compare(args.get(0), args.get(1)))
-      machine.ctrl = CtrlValue.bool(result)
-    }
-  }
-
-  sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val a = args.get(1).asInstanceOf[SNumeric].value
-      val b = args.get(2).asInstanceOf[SNumeric].value
-      machine.ctrl = CtrlValue.bool(pred(Numeric.compareTo(a, b)))
+      machine.ctrl = CtrlValue.bool(pred(svalue.Ordering.compare(args.get(0), args.get(1))))
     }
   }
 
@@ -655,12 +646,6 @@ object SBuiltin {
   final case object SBLessEq extends SBCompare(_ <= 0)
   final case object SBGreater extends SBCompare(_ > 0)
   final case object SBGreaterEq extends SBCompare(_ >= 0)
-
-  final case object SBEqualNumeric extends SBCompareNumeric(_ == 0)
-  final case object SBLessNumeric extends SBCompareNumeric(_ < 0)
-  final case object SBLessEqNumeric extends SBCompareNumeric(_ <= 0)
-  final case object SBGreaterNumeric extends SBCompareNumeric(_ > 0)
-  final case object SBGreaterEqNumeric extends SBCompareNumeric(_ >= 0)
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltin(1 + n) {

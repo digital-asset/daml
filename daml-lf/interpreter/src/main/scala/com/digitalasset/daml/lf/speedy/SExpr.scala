@@ -99,6 +99,8 @@ object SExpr {
     // Helper for constructing abstraction expressions:
     // SEAbs(1) { ... }
     def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
+
+    val identity: SEAbs = SEAbs(1, SEVar(1))
   }
 
   /** Closure creation. Create a new closure object storing the free variables
