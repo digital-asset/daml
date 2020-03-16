@@ -4,11 +4,17 @@
 App Architecture
 ****************
 
-In this section we'll look at the different components of our social network app.
-The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
+In this section we'll look at the different components of our social network app. The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section. There are two main components: 
 
-There are two main components: the DAML model and the React/TypeScript frontend.
-We generate TypeScript code to bridge the two.
+  * the DAML model and 
+  * the React/TypeScript frontend. 
+  
+We generate TypeScript code to bridge the two. 
+
+Overall, the social networking app is following the :ref:`recommended architecture of a fullstack DAML application <recommended-architecture>`. Below you can see a simplified version of the architecture represented in the app.
+
+.. image:: ./images/gsg_architecture.svg
+
 Let's start by looking at the DAML model, which defines the core logic of the application.
 
 The DAML Model
