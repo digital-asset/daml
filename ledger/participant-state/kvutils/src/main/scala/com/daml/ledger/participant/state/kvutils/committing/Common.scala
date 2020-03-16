@@ -8,10 +8,10 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
   DamlLogEntry,
   DamlStateKey,
-  DamlStateValue
+  DamlStateValue,
+  DamlConfigurationEntry
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
@@ -19,7 +19,6 @@ import com.digitalasset.daml.lf.data.InsertOrdMap
 import org.slf4j.Logger
 
 import scala.annotation.tailrec
-import scala.collection.immutable.SortedMap
 
 private[kvutils] object Common {
   type DamlOutputStateMap = Map[DamlStateKey, DamlStateValue]
@@ -172,7 +171,7 @@ private[kvutils] object Common {
       * state built thus far by the computation. */
     def done[A](logEntry: DamlLogEntry): Commit[A] =
       Commit { state =>
-        Left(CommitDone(logEntry, SortedMap(state.resultState.toSeq: _*)))
+        Left(CommitDone(logEntry, state.resultState))
       }
   }
 
@@ -198,7 +197,4 @@ private[kvutils] object Common {
           }, conf => Some(Some(entry) -> conf))
       }
       .getOrElse(None -> defaultConfig)
-
-  private[kvutils] implicit val damlStateKeyOrdering: Ordering[DamlStateKey] =
-    Ordering.by(key => key.hashCode())
 }
