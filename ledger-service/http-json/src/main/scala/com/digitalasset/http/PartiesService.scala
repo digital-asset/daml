@@ -72,14 +72,16 @@ class PartiesService(
       case p if requested(p.party) => domain.PartyDetails.fromLedgerApi(p)
     }(breakOut)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def findUnknownParties(
       found: Set[domain.PartyDetails],
       requested: OneAnd[Set, domain.Party]
   ): Set[domain.Party] = {
-    val requestedIds: Set[domain.Party] = requested.tail + requested.head
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
 
-    if (found.size == requestedIds.size) Set.empty
-    else requestedIds -- found.map(_.identifier)
+    if (found.size == requested.length) Set.empty
+    else requested.toSet -- found.map(_.identifier)
   }
 }
 
