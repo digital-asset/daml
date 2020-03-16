@@ -36,9 +36,6 @@ sealed abstract class WitnessesTable(tableName: String) {
       val ws = flattenedWitnesses.map {
         case (nodeId, party) => parameters(transactionId)(nodeId, party)
       }.toSeq
-      if (ws.isEmpty) {
-        sys.error(witnesses.toString)
-      }
       Some(BatchSql(insert, ws.head, ws.tail: _*))
     } else {
       None
