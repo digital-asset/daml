@@ -40,12 +40,12 @@ class KeyValueParticipantStateReaderSpec
     "stream offsets and heartbeats from the start" in {
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(1, 1), aLogEntryId(1), aWrappedLogEntry),
-        Heartbeat(toOffset(1, 2), start.plusSeconds(1)),
-        LedgerRecord(toOffset(1, 3), aLogEntryId(3), aWrappedLogEntry),
-        Heartbeat(toOffset(1, 4), start.plusSeconds(2)),
-        Heartbeat(toOffset(1, 5), start.plusSeconds(3)),
-        LedgerRecord(toOffset(1, 6), aLogEntryId(6), aWrappedLogEntry),
+        LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
+        Heartbeat(toOffset(2), start.plusSeconds(1)),
+        LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry),
+        Heartbeat(toOffset(4), start.plusSeconds(2)),
+        Heartbeat(toOffset(5), start.plusSeconds(3)),
+        LedgerRecord(toOffset(6), aLogEntryId(6), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
       val stream = instance.stateUpdates(None)
@@ -53,54 +53,54 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(stream).map { actual =>
         actual should have size 6
         actual shouldBe Seq(
-          toOffset(1, 1, 0),
-          toOffset(1, 2, 0),
-          toOffset(1, 3, 0),
-          toOffset(1, 4, 0),
-          toOffset(1, 5, 0),
-          toOffset(1, 6, 0),
+          toOffset(1, 0),
+          toOffset(2, 0),
+          toOffset(3, 0),
+          toOffset(4, 0),
+          toOffset(5, 0),
+          toOffset(6, 0),
         )
       }
     }
 
     "stream offsets and heartbeats from a given offset" in {
       val reader = readerStreamingFrom(
-        offset = Some(toOffset(1, 4)),
-        LedgerRecord(toOffset(1, 5), aLogEntryId(5), aWrappedLogEntry),
-        LedgerRecord(toOffset(1, 6), aLogEntryId(6), aWrappedLogEntry),
-        Heartbeat(toOffset(1, 7), start.plusSeconds(2)),
-        Heartbeat(toOffset(1, 8), start.plusSeconds(3)),
-        LedgerRecord(toOffset(1, 9), aLogEntryId(9), aWrappedLogEntry),
-        Heartbeat(toOffset(1, 10), start.plusSeconds(4)),
-        LedgerRecord(toOffset(1, 11), aLogEntryId(11), aWrappedLogEntry),
+        offset = Some(toOffset(4)),
+        LedgerRecord(toOffset(5), aLogEntryId(5), aWrappedLogEntry),
+        LedgerRecord(toOffset(6), aLogEntryId(6), aWrappedLogEntry),
+        Heartbeat(toOffset(7), start.plusSeconds(2)),
+        Heartbeat(toOffset(8), start.plusSeconds(3)),
+        LedgerRecord(toOffset(9), aLogEntryId(9), aWrappedLogEntry),
+        Heartbeat(toOffset(10), start.plusSeconds(4)),
+        LedgerRecord(toOffset(11), aLogEntryId(11), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(toOffset(1, 4, 0)))
+      val stream = instance.stateUpdates(Some(toOffset(4, 0)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 7
         actual shouldBe Seq(
-          toOffset(1, 5, 0),
-          toOffset(1, 6, 0),
-          toOffset(1, 7, 0),
-          toOffset(1, 8, 0),
-          toOffset(1, 9, 0),
-          toOffset(1, 10, 0),
-          toOffset(1, 11, 0),
+          toOffset(5, 0),
+          toOffset(6, 0),
+          toOffset(7, 0),
+          toOffset(8, 0),
+          toOffset(9, 0),
+          toOffset(10, 0),
+          toOffset(11, 0),
         )
       }
     }
 
     "remove index suffix when streaming from underlying reader" in {
       val reader = readerStreamingFrom(
-        offset = Some(toOffset(1, 1)),
-        LedgerRecord(toOffset(1, 2), aLogEntryId(2), aWrappedLogEntry))
+        offset = Some(toOffset(1)),
+        LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(toOffset(1, 1, 0)))
+      val stream = instance.stateUpdates(Some(toOffset(1, 0)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 1
-        actual shouldBe Seq(toOffset(1, 2, 0))
+        actual shouldBe Seq(toOffset(2, 0))
       }
     }
 
