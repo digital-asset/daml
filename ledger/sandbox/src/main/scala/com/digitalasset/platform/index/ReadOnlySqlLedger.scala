@@ -3,6 +3,9 @@
 
 package com.digitalasset.platform.index
 
+import java.time.Instant
+
+import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
@@ -101,12 +104,31 @@ private class ReadOnlySqlLedger(
       .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
       .run()
 
+  // Periodically remove all expired deduplication cache entries.
+  // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing
+  // the same database (as is the case for a horizontally scaled ledger API server).
+  // In that case, an external process periodically clearing expired entries would be better.
+  //
+  // Deduplication entries are added by the submission service, which might use
+  // a different clock than the current clock (e.g., horizontally scaled ledger API server).
+  // This is not an issue, because applications are not expected to submit towards the end
+  // of the deduplication time window.
+  private val (deduplicationCleanupKillSwitch, deduplicationCleanupDone) =
+    Source
+      .tick[Unit](0.millis, 10.minutes, ())
+      .mapAsync[Unit](1)(_ => ledgerDao.removeExpiredDeduplicationData(Instant.now()))
+      .viaMat(KillSwitches.single)(Keep.right[Cancellable, UniqueKillSwitch])
+      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
+      .run()
+
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
     // Terminate the dispatcher first so that it doesn't trigger new queries.
     super.close()
+    deduplicationCleanupKillSwitch.shutdown()
     ledgerEndUpdateKillSwitch.shutdown()
+    Await.result(deduplicationCleanupDone, 10.seconds)
     Await.result(ledgerEndUpdateDone, 10.seconds)
     ()
   }
