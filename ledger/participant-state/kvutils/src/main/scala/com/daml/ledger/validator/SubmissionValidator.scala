@@ -211,7 +211,6 @@ object SubmissionValidator {
       inputState
     )
 
-  // FIXME(erdemik): More effective sorting for ByteStrings?
   private[validator] def serializeProcessedSubmission(
       logEntryAndState: LogEntryAndState): (Bytes, RawKeyValuePairs) = {
     val (logEntry, damlStateUpdates) = logEntryAndState
