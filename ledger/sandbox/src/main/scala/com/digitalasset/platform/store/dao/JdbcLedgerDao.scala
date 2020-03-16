@@ -1685,6 +1685,19 @@ private class JdbcLedgerDao(
       }
     }
 
+  private val SQL_DELETE_EXPIRED_COMMANDS = SQL("""
+      |delete from participant_command_submissions
+      |where deduplicate_until < {currentTime}
+    """.stripMargin)
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    dbDispatcher.executeSql("remove_expired_deduplication_data") { implicit conn =>
+      SQL_DELETE_EXPIRED_COMMANDS
+        .on("currentTime" -> currentTime)
+        .execute()
+      ()
+    }
+
   private val SQL_TRUNCATE_ALL_TABLES =
     SQL("""
         |truncate ledger_entries cascade;

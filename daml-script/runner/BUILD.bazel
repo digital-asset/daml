@@ -10,7 +10,6 @@ load(
 da_scala_library(
     name = "script-runner-lib",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -43,6 +42,7 @@ da_scala_library(
 da_scala_binary(
     name = "script-runner",
     main_class = "com.digitalasset.daml.lf.engine.script.RunnerMain",
+    resources = glob(["src/main/resources/**/*"]),
     visibility = ["//visibility:public"],
     deps = [":script-runner-lib"],
 )

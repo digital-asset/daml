@@ -473,8 +473,10 @@ object SBuiltin {
   final case object SBGenMapInsert extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(2) match {
-        case SGenMap(value) =>
-          SGenMap(value.updated(args.get(0), args.get(1)))
+        case SGenMap(map) =>
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SGenMap(map.updated(key, args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       })
@@ -485,7 +487,9 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SOptional(value.get(args.get(0)))
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SOptional(value.get(key))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       })
@@ -496,7 +500,9 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SGenMap(value - args.get(0))
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SGenMap(value - key)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       })
@@ -638,16 +644,7 @@ object SBuiltin {
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val result = pred(svalue.Ordering.compare(args.get(0), args.get(1)))
-      machine.ctrl = CtrlValue.bool(result)
-    }
-  }
-
-  sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
-    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val a = args.get(1).asInstanceOf[SNumeric].value
-      val b = args.get(2).asInstanceOf[SNumeric].value
-      machine.ctrl = CtrlValue.bool(pred(Numeric.compareTo(a, b)))
+      machine.ctrl = CtrlValue.bool(pred(svalue.Ordering.compare(args.get(0), args.get(1))))
     }
   }
 
@@ -655,12 +652,6 @@ object SBuiltin {
   final case object SBLessEq extends SBCompare(_ <= 0)
   final case object SBGreater extends SBCompare(_ > 0)
   final case object SBGreaterEq extends SBCompare(_ >= 0)
-
-  final case object SBEqualNumeric extends SBCompareNumeric(_ == 0)
-  final case object SBLessNumeric extends SBCompareNumeric(_ < 0)
-  final case object SBLessEqNumeric extends SBCompareNumeric(_ <= 0)
-  final case object SBGreaterNumeric extends SBCompareNumeric(_ > 0)
-  final case object SBGreaterEqNumeric extends SBCompareNumeric(_ >= 0)
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltin(1 + n) {

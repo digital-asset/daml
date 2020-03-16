@@ -79,5 +79,5 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService 
   private def commit(
       correlationId: String,
       submission: DamlSubmission): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission).toByteArray))
+    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission)))
 }

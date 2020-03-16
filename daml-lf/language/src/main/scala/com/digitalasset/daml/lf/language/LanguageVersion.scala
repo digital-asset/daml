@@ -63,8 +63,8 @@ object LanguageVersion {
     val typeRep = v1_7
     val typeSynonyms = v1_8
     val packageMetadata = v1_8
-    val genMap = v1_dev
     val genComparison = v1_dev
+    val genMap = v1_dev
     val scenarioMustFailAtMsg = v1_dev
 
     /** Unstable, experimental features. This should stay in 1.dev forever.

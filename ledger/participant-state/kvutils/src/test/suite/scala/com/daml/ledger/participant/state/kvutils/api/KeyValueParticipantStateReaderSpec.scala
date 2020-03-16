@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlPartyAllocationEntry,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.{Heartbeat, LedgerRecord}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
@@ -147,7 +147,7 @@ class KeyValueParticipantStateReaderSpec
     }
 
     "throw in case of an invalid log entry received" in {
-      val anInvalidEnvelope = Array[Byte](0, 1, 2)
+      val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelope),
@@ -166,7 +166,7 @@ class KeyValueParticipantStateReaderSpec
             .setParticipantId("aParticipantId")
             .setDisplayName("participant"))
         .build
-      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue).toByteArray
+      val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(Offset(Array(0, 0)), aLogEntryId(0), anInvalidEnvelopeMessage),
@@ -191,12 +191,13 @@ object KeyValueParticipantStateReaderSpec {
       DamlPartyAllocationEntry.newBuilder().setParty("aParty").setParticipantId("aParticipant"))
     .build()
 
-  private val aWrappedLogEntry = Envelope.enclose(aLogEntry).toByteArray
+  private val aWrappedLogEntry = Envelope.enclose(aLogEntry)
 
-  private def aLogEntryId(index: Int): DamlLogEntryId =
+  private def aLogEntryId(index: Int): Bytes =
     DamlLogEntryId.newBuilder
       .setEntryId(ByteString.copyFrom(s"id-$index".getBytes))
       .build
+      .toByteString
 
   private def readerStreamingFrom(offset: Option[Offset], items: LedgerEntry*): LedgerReader = {
     val reader = mock[LedgerReader]
