@@ -162,15 +162,8 @@ class Runner(
         "daml-script library was not found in DAR. Add 'daml-script' to the dependencies in your 'daml.yaml' and define a DAML script'.")
     case Some((pkgId, _)) => pkgId
   }
-  val scriptTyCon = Identifier(
-    scriptPackageId,
-    QualifiedName(scriptModuleName, DottedName.assertFromString("Script")))
-
-  // These two packages are stable packages
-  val daTypesPackageId =
-    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
-  val daInternalAnyPackageId =
-    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
+  val scriptIds = ScriptIds(scriptPackageId)
+  val scriptTyCon = scriptIds.damlScript("Script")
 
   def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
@@ -200,10 +193,7 @@ class Runner(
   // with the result is convert it to ledger values/record so this is safe.
   val definitionMap =
     compiler.compilePackages(darMap.keys) +
-      (LfDefRef(
-        Identifier(
-          scriptPackageId,
-          QualifiedName(scriptModuleName, DottedName.assertFromString("fromLedgerValue")))) ->
+      (LfDefRef(scriptIds.damlScript("fromLedgerValue")) ->
         SEMakeClo(Array(), 1, SEVar(1)))
   val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
   val valueTranslator = new ValueTranslator(compiledPackages)
@@ -363,7 +353,7 @@ class Runner(
                     }
                     case Left(statusEx) => {
                       val res = Converter
-                        .fromStatusException(scriptPackageId, statusEx)
+                        .fromStatusException(scriptIds, statusEx)
                         .fold(s => throw new ConverterException(s), identity)
                       machine.ctrl =
                         Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
@@ -399,8 +389,6 @@ class Runner(
                           Converter
                             .fromCreated(
                               valueTranslator,
-                              daTypesPackageId,
-                              daInternalAnyPackageId,
                               _))
                         .fold(s => throw new ConverterException(s), identity)
                     machine.ctrl =

@@ -41,6 +41,14 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
 }
 import com.digitalasset.daml.lf.speedy.Pretty
 
+// Helper to create identifiers pointing to the DAML.Script module
+case class ScriptIds(val scriptPackageId: PackageId) {
+  def damlScript(s: String) =
+    Identifier(
+      scriptPackageId,
+      QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)))
+}
+
 class ConverterException(message: String) extends RuntimeException(message)
 
 case class AnyTemplate(ty: Identifier, arg: SValue)
@@ -48,6 +56,19 @@ case class AnyChoice(name: String, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
+  private val DA_TYPES_PKGID =
+    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+  private def daTypes(s: String): Identifier =
+    Identifier(
+      DA_TYPES_PKGID,
+      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
+
+  private val DA_INTERNAL_ANY_PKGID =
+    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
+  private def daInternalAny(s: String): Identifier =
+    Identifier(
+      DA_INTERNAL_ANY_PKGID,
+      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     for {
@@ -359,14 +380,9 @@ object Converter {
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
       translator: ValueTranslator,
-      daTypesPackageId: PackageId,
-      daInternalAnyPackageId: PackageId,
       created: CreatedEvent): Either[String, SValue] = {
-    val anyTemplateTyCon =
-      Identifier(
-        daInternalAnyPackageId,
-        QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
-    val pairTyCon = Identifier(daTypesPackageId, QualifiedName.assertFromString("DA.Types:Tuple2"))
+    val anyTemplateTyCon = daInternalAny("AnyTemplate")
+    val pairTyCon = daTypes("Tuple2")
     for {
       templateId <- created.templateId match {
         case None => Left(s"Missing field templateId in $created")
@@ -384,12 +400,12 @@ object Converter {
   }
 
   def fromStatusException(
-      scriptPackageId: PackageId,
+      scriptIds: ScriptIds,
       ex: StatusRuntimeException): Either[String, SValue] = {
     val status = ex.getStatus
     Right(
       record(
-        Identifier(scriptPackageId, QualifiedName.assertFromString("Daml.Script:SubmitFailure")),
+        scriptIds.damlScript("SubmitFailure"),
         ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
         ("description", SText(status.getDescription))
       ))
