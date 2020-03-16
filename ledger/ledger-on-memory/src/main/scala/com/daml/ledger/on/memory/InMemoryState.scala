@@ -6,8 +6,8 @@ package com.daml.ledger.on.memory
 import java.util.concurrent.Semaphore
 
 import com.daml.ledger.on.memory.InMemoryState._
+import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,6 +49,6 @@ object InMemoryState {
   type MutableLog = mutable.Buffer[LedgerEntry] with ImmutableLog
   type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
 
-  type StateKey = ByteString
-  type StateValue = ByteString
+  type StateKey = Bytes
+  type StateValue = Bytes
 }
