@@ -30,13 +30,14 @@ import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
 
 import scala.collection.immutable.HashMap
 import scala.compat.java8.FutureConverters._
-import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 //noinspection DuplicatedCode
-abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
-    extends AsyncWordSpec
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
+    implicit testExecutionContext: ExecutionContext = ExecutionContext.global
+) extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
 
