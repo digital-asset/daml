@@ -28,10 +28,6 @@ load(
     ":conformance.bzl",
     "conformance_test",
 )
-load(
-    "@build_environment//:configuration.bzl",
-    "mvn_version",
-)
 
 daml_compile(
     name = "PackageManagementTest",
