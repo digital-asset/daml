@@ -646,7 +646,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = PackageSdkVersion ""
+                              , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
                               }
                             (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
