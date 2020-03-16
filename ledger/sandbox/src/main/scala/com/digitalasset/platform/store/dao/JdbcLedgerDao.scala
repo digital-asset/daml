@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{
@@ -948,15 +948,14 @@ private class JdbcLedgerDao(
 
     val txBytes = serializeTransaction(ledgerEntry.entry)
 
+    def splitOrThrow(id: EventId): NodeId =
+      split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
         case PersistenceEntry.Transaction(tx, globalDivulgence, divulgedContracts) =>
           Try {
             storeTransaction(offset, tx, txBytes)
-
-            tx.transaction.roots.iterator
-              .map(nid => split(nid).fold(sys.error(s"########## can't split $nid"))(_.nodeId))
-              .toSet
 
             // TODO Run this directly from the indexer once we no longer
             // TODO need to validate transactions on the index
@@ -966,10 +965,10 @@ private class JdbcLedgerDao(
               transactionId = tx.transactionId,
               commandId = tx.commandId,
               submitter = tx.submittingParty,
-              roots = tx.transaction.roots.iterator.map(split(_).map(_.nodeId).get).toSet,
+              roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
               ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
               offset = offset,
-              transaction = tx.transaction.mapNodeId(split(_).map(_.nodeId).get),
+              transaction = tx.transaction.mapNodeId(splitOrThrow),
             )
 
             // Ensure divulged contracts are known about before they are referred to.
