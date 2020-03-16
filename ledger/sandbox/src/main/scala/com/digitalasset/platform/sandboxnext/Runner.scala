@@ -137,7 +137,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
                 heartbeats <- heartbeatMechanism
-                readerWriter <- SqlLedgerReaderWriter.owner(
+                readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
                   jdbcUrl = ledgerJdbcUrl,

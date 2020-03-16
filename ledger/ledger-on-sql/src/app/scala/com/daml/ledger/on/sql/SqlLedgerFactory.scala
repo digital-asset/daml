@@ -43,11 +43,10 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       throw new IllegalStateException("No JDBC URL provided.")
     }
     for {
-      ledgerReadWriter <- SqlLedgerReaderWriter.owner(
+      ledgerReadWriter <- new SqlLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
         jdbcUrl,
-        SqlLedgerReaderWriter.DefaultTimeProvider
       )
     } yield new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter)
   }
