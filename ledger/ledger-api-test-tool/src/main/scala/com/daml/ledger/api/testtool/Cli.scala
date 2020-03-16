@@ -6,6 +6,7 @@ package com.daml.ledger.api.testtool
 import java.io.File
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import scopt.Read
 import scopt.Read.{intRead, stringRead}

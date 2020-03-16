@@ -130,6 +130,7 @@ da_scala_binary(
         ":ledger-api-test-tool-lib",
         ":ledger-api-test-tool-tests",
         "//ledger/ledger-api-common",
+        "//libs-scala/build-info",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_slf4j_slf4j_api",
