@@ -151,10 +151,17 @@ object SValue {
 
   final case class STextMap(textMap: HashMap[String, SValue]) extends SValue
 
-  final case class SGenMap(genMap: TreeMap[SValue, SValue]) extends SValue
+  final case class SGenMap private (genMap: TreeMap[SValue, SValue]) extends SValue
 
   object SGenMap {
     implicit def `SGenMap Ordering`: Ordering[SValue] = svalue.Ordering
+
+    @throws[SErrorCrash]
+    // crashes if `k` contains type abstraction, function, Partially applied built-in or updates
+    def comparable(k: SValue): Unit = {
+      `SGenMap Ordering`.compare(k, k)
+      ()
+    }
 
     val Empty = SGenMap(TreeMap.empty)
 

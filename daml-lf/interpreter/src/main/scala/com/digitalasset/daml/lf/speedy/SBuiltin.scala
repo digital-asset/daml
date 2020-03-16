@@ -473,8 +473,10 @@ object SBuiltin {
   final case object SBGenMapInsert extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(2) match {
-        case SGenMap(value) =>
-          SGenMap(value.updated(args.get(0), args.get(1)))
+        case SGenMap(map) =>
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SGenMap(map.updated(key, args.get(1)))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapInsert, expected GenMap got $x")
       })
@@ -485,7 +487,9 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SOptional(value.get(args.get(0)))
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SOptional(value.get(key))
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapLookup, expected GenMap get $x")
       })
@@ -496,7 +500,9 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(1) match {
         case SGenMap(value) =>
-          SGenMap(value - args.get(0))
+          val key = args.get(0)
+          SGenMap.comparable(key)
+          SGenMap(value - key)
         case x =>
           throw SErrorCrash(s"type mismatch SBGenMapDelete, expected GenMap get $x")
       })
