@@ -638,15 +638,7 @@ object SBuiltin {
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val result = (args.get(0), args.get(1)) match {
-        case (SInt64(a), SInt64(b)) => pred(a compareTo b)
-        case (STimestamp(a), STimestamp(b)) => pred(a compareTo b)
-        case (SText(a), SText(b)) => pred(Utf8.Ordering.compare(a, b))
-        case (SDate(a), SDate(b)) => pred(a compareTo b)
-        case (SParty(a), SParty(b)) => pred(a compareTo b)
-        case _ =>
-          crash(s"type mismatch ${getClass.getSimpleName}: $args")
-      }
+      val result = pred(svalue.Ordering.compare(args.get(0), args.get(1)))
       machine.ctrl = CtrlValue.bool(result)
     }
   }

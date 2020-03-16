@@ -202,6 +202,10 @@ instance Pretty BuiltinExpr where
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
     BEEqualGeneric -> "EQUAL"
+    BELessGeneric -> "LESS"
+    BELessEqGeneric -> "LESS_EQ"
+    BEGreaterGeneric -> "GREATER"
+    BEGreaterEqGeneric -> "GREATER_EQ"
     BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg lvl t)
     BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg lvl t)
     BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg lvl t)

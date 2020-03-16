@@ -34,6 +34,7 @@ data SandboxConfig = SandboxConfig
     , timeMode :: TimeMode
     , mbClientAuth :: Maybe ClientAuth
     , mbSharedSecret :: Maybe String
+    , mbLedgerId :: Maybe String
     }
 
 defaultSandboxConf :: SandboxConfig
@@ -43,6 +44,7 @@ defaultSandboxConf = SandboxConfig
     , timeMode = WallClock
     , mbClientAuth = Nothing
     , mbSharedSecret = Nothing
+    , mbLedgerId = Nothing
     }
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
@@ -63,6 +65,7 @@ getSandboxProc SandboxConfig{..} portFile = do
         , [ timeArg ]
         , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
         , [ "--auth-jwt-hs256-unsafe=" <> secret | Just secret <- [mbSharedSecret] ]
+        , [ "--ledgerid=" <> ledgerId | Just ledgerId <- [mbLedgerId] ]
         , dars
         ]
   where timeArg = case timeMode of

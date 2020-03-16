@@ -260,6 +260,42 @@ cmdRepl numProcessors =
             <*> strArgument (help "DAR to load in the repl" <> metavar "DAR")
             <*> strOption (long "ledger-host" <> help "Host of the ledger API")
             <*> strOption (long "ledger-port" <> help "Port of the ledger API")
+            <*> accessTokenFileFlag
+            <*> sslConfig
+    accessTokenFileFlag = optional . option str $
+        long "access-token-file"
+        <> metavar "TOKEN_PATH"
+        <> help "Path to the token-file for ledger authorization"
+
+    sslConfig :: Parser (Maybe ReplClient.ClientSSLConfig)
+    sslConfig = do
+        tls <- switch $ mconcat
+            [ long "tls"
+            , help "Enable TLS for the connection to the ledger. This is implied if --cacrt, --pem or --crt are passed"
+            ]
+        mbCACert <- optional $ strOption $ mconcat
+            [ long "cacrt"
+            , help "The crt file to be used as the the trusted root CA."
+            ]
+        mbClientKeyCertPair <- optional $ liftA2 ReplClient.ClientSSLKeyCertPair
+            (strOption $ mconcat
+                 [ long "pem"
+                 , help "The pem file to be used as the private key in mutual authentication."
+                 ]
+            )
+            (strOption $ mconcat
+                 [ long "crt"
+                 , help "The crt file to be used as the cert chain in mutual authentication."
+                 ]
+            )
+        return $ case (tls, mbCACert, mbClientKeyCertPair) of
+            (False, Nothing, Nothing) -> Nothing
+            (_, _, _) -> Just ReplClient.ClientSSLConfig
+                { serverRootCert = mbCACert
+                , clientSSLKeyCertPair = mbClientKeyCertPair
+                , clientMetadataPlugin = Nothing
+                }
+
 
 cmdClean :: Mod CommandFields Command
 cmdClean =
@@ -572,8 +608,15 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
             where
                 targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
 
-execRepl :: ProjectOpts -> Options -> FilePath -> FilePath -> String -> String -> Command
-execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl (Just projectOpts) effect
+execRepl
+    :: ProjectOpts
+    -> Options
+    -> FilePath -> FilePath
+    -> String -> String
+    -> Maybe FilePath
+    -> Maybe ReplClient.ClientSSLConfig
+    -> Command
+execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort mbAuthToken mbSslConf = Command Repl (Just projectOpts) effect
   where effect = do
             -- We change directory so make this absolute
             mainDar <- makeAbsolute mainDar
@@ -584,7 +627,7 @@ execRepl projectOpts opts scriptDar mainDar ledgerHost ledgerPort = Command Repl
             logger <- getLogger opts "repl"
             runfilesDir <- locateRunfiles (mainWorkspace </> "compiler/repl-service/server")
             let jar = runfilesDir </> "repl-service.jar"
-            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort) $ \replHandle ->
+            ReplClient.withReplClient (ReplClient.Options jar ledgerHost ledgerPort mbAuthToken mbSslConf) $ \replHandle ->
                 withTempDir $ \dir ->
                 withCurrentDirectory dir $ do
                 sdkVer <- fromMaybe SdkVersion.sdkVersion <$> lookupEnv sdkVersionEnvVar
@@ -646,7 +689,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pVersion = optMbPackageVersion opts
                               , pDependencies = []
                               , pDataDependencies = []
-                              , pSdkVersion = PackageSdkVersion ""
+                              , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
                               }
                             (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
