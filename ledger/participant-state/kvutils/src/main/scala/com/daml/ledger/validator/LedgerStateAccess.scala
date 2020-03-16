@@ -19,6 +19,10 @@ trait LedgerStateAccess[LogResult] {
   def inTransaction[T](body: LedgerStateOperations[LogResult] => Future[T]): Future[T]
 }
 
+/**
+  * Defines how the validator/committer can access the backing store of the ledger.
+  * @tparam LogResult type of the offset used for a log entry
+  */
 trait LedgerStateOperations[LogResult] {
 
   /**
@@ -48,12 +52,15 @@ trait LedgerStateOperations[LogResult] {
   /**
     * Writes a single log entry to the backing store.  The implementation may return Future.failed in case the key
     * (i.e., the log entry ID) already exists.
+    * @return  offset of the latest log entry
     */
   def appendToLog(key: Key, value: Value): Future[LogResult]
 }
 
 /**
-  * Implements non-batching read and write operations on the backing store based on batched implementations.
+  * Provides default implementations for non-batching read and write operations based on batched operations on the
+  * backing store.
+  * You should extend this class in case your backing store supports batched operations.
   */
 abstract class BatchingLedgerStateOperations[LogResult](implicit executionContext: ExecutionContext)
     extends LedgerStateOperations[LogResult] {
@@ -65,7 +72,9 @@ abstract class BatchingLedgerStateOperations[LogResult](implicit executionContex
 }
 
 /**
-  * Implements batching read and write operations on the backing store based on non-batched implementations.
+  * Provides default implementations for batching read and write operations based on non-batched operations on the
+  * backing store.
+  * You should extend this class in case your backing store does not support batched operations.
   */
 abstract class NonBatchingLedgerStateOperations[LogResult](
     implicit executionContext: ExecutionContext

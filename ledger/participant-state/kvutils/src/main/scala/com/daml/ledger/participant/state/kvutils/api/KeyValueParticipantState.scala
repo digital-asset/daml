@@ -16,8 +16,8 @@ import com.digitalasset.ledger.api.health.HealthStatus
 /**
   * Implements read and write operations required for running a participant server.
   *
-  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[ReadService]] and [[WriteService]],
-  * respectively.
+  * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v1.ReadService]] and
+  * [[com.daml.ledger.participant.state.v1.WriteService]], respectively.
   * Will report [[com.digitalasset.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
