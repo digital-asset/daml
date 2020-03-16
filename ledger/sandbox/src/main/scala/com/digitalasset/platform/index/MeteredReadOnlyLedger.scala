@@ -50,6 +50,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
     val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
     val deduplicateCommand: Timer = metrics.timer("daml.index.deduplicate_command")
+    val removeExpiredDeduplicationData: Timer =
+      metrics.timer("daml.index.remove_expired_deduplication_data")
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -126,6 +128,11 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     timedFuture(
       Metrics.deduplicateCommand,
       ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    timedFuture(
+      Metrics.removeExpiredDeduplicationData,
+      ledger.removeExpiredDeduplicationData(currentTime))
 }
 
 object MeteredReadOnlyLedger {

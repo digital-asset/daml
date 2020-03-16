@@ -11,6 +11,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -55,7 +56,6 @@ final class SqlLedgerReaderWriter(
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
   )
 
-  // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
 
   override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
@@ -82,7 +82,7 @@ final class SqlLedgerReaderWriter(
       )
       .map { case (_, entry) => entry }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
+  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope)
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {

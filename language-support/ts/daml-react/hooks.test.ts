@@ -6,7 +6,8 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetchByKey } from './index';
+import DamlLedger, { useParty, useQuery, useFetchByKey, useLedger } from './index';
+import Ledger from '@daml/ledger';
 import { Template } from '@daml/types';
 
 const mockConstructor = jest.fn();
@@ -50,6 +51,11 @@ test('DamlLedger', () => {
 test('useParty', () => {
   const {result} = renderDamlHook(() => useParty());
   expect(result.current).toBe(PARTY);
+});
+
+test('useLedger', () => {
+  const {result} = renderDamlHook(() => useLedger())
+  expect(result.current).toBeInstanceOf(Ledger);
 });
 
 describe('useQuery', () => {

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.validator
 
+import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.LedgerStateOperations._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -81,6 +82,6 @@ abstract class NonBatchingLedgerStateOperations[LogResult](
 }
 
 object LedgerStateOperations {
-  type Key = Array[Byte]
-  type Value = Array[Byte]
+  type Key = Bytes
+  type Value = Bytes
 }

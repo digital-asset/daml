@@ -361,6 +361,11 @@ encodeBuiltinExpr = \case
         True -> P.PrimConCON_TRUE
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
+    BELessGeneric -> builtin P.BuiltinFunctionLESS
+    BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
+    BEGreaterGeneric -> builtin P.BuiltinFunctionGREATER
+    BEGreaterEqGeneric -> builtin P.BuiltinFunctionGREATER_EQ
+
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
       BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL

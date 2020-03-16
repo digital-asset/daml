@@ -3076,7 +3076,7 @@ List functions
 Text map functions
 ~~~~~~~~~~~~~~~~~~
 
-**Entry order**: The operations above return always a map with entries
+**Entry order**: The operations below always return a map with entries
 ordered by keys.
 
 * ``TEXTMAP_EMPTY : ∀ α. 'TextMap' α``
@@ -3123,9 +3123,9 @@ Generic map functions
 ~~~~~~~~~~~~~~~~~~~~~
 
 **Validity of Keys:** A key is valid if and only if it is equivalent
-to itself according to the relation ``~ᵥ`` defined in `value equality`
-section. Attempts to use an invalid key in the operations listed under
-always result in a runtime error.
+to itself according to the builtin function  ``EQUAL``. Attempts to
+use an invalid key in the operations listed under always result
+in a runtime error.
 
 Of particular note, the following values are never valid keys:
 
@@ -3135,12 +3135,8 @@ Of particular note, the following values are never valid keys:
 * Update statement
 * Any value containing an invalid key
 
-**Comparison of Keys:** The `value equality`_ is used for key
- comparison.
-
-**Entries ordering**: The builtins listed below maintain the order
-in which keys were inserted into the map (insertion-order).
-
+**Entry order**: The operations below always return a map with entries
+ordered by keys according to the comparison function ``LESS``.
 
 * ``GENMAP_EMPTY : ∀ α. ∀ β. 'GenMap' α β``
 
@@ -3151,68 +3147,142 @@ in which keys were inserted into the map (insertion-order).
 * ``GENMAP_INSERT : ∀ α. ∀ β.  α → β → 'GenMap' α β → 'GenMap' α β``
 
   Inserts a new key and value in the map. If the key is already
-  present in the map, the associated value is replaced with the
-  supplied value, otherwise the new key/value entry is appended at the
-  ends of the map.
-
-  This raises an error if the key is not a valid map key. Keys are
-  compared according to ``~ᵥ``.
+  present according the builtin function ``EQUAL``, the associated
+  value is replaced with the supplied value, otherwise the key/value
+  is inserted in order according to the builtin function ``LESS`` applied
+  on keys. This raises a runtime error if it tries to compare
+  incomparable values.
 
   [*Available in versions >= 1.dev*]
+
+  Formally the builtin function ``GENMAP_INSERT`` semantics is defined
+  by the following rules. ::
+
+      𝕆('EQUAL' @σ v v) = Err t
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplaceErr
+      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v w) = Err t
+
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertEmpty
+       𝕆('GENMAP_INSERT' @σ @τ 〚〛 v w) = 〚v ↦ w〛
+
+       𝕆('EQUAL' @σ vᵢ v) = Ok 'True'    for some i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplace
+      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) =
+        'Ok' 〚v₁ ↦ w₁; …; vᵢ₋₁ ↦ wᵢ₋₁; vᵢ ↦ w;  vᵢ₊₁ ↦ wᵢ₊₁; …; vₙ ↦ wₙ〛
+
+      𝕆('LESS' @σ v v₁) = Ok 'True'
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertFirst
+      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) =
+        'Ok' 〚v ↦ w; v₁ ↦ w₁; …; vₙ ↦ wₙ〛
+
+      𝕆('LESS' @σ vᵢ₋₁ v) = Ok 'True'
+      𝕆('LESS' @σ v vᵢ) = Ok 'True'
+      for some i ∈ 2, …, n-1
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertMiddle
+      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v w) =
+        'Ok' 〚v₁ ↦ w₁; … ; vᵢ₋₁ ↦ wᵢ₋₁; v ↦ w;  vᵢ ↦ wᵢ; … ; vₙ ↦ wₙ〛
+
+      𝕆('LESS' @σ vₙ v) = Ok 'True'
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertLast
+      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) =
+        'Ok' 〚v₁ ↦ w₁; …; vₙ ↦ wₙ; v ↦ w〛
+
 
 * ``GENMAP_LOOKUP : ∀ α. ∀ β.  α → 'GenMap' α β → 'Optional' α``
 
-  Looks up the value at a key in the map.
-
-  This raises an error if the key is not a valid map key. Keys are
-  compared according to the rules listed below.
+  Looks up the value at a key in the map using the builtin function
+  ``EQUAL`` to test key equality. This raises a runtime error if it
+  try to compare incomparable values.
 
   [*Available in versions >= 1.dev*]
+
+  Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
+  by the following rules. ::
+
+      𝕆('EQUAL' @σ v v) = Err t
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplaceErr
+      𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
+
+    —————————————————————————————————————————————————————————————————————— EvGenMapLookupErr
+      𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
+
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'True'  for some i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapLookupPresent
+      𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
+        'Ok' (Some wᵢ)
+
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for all i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapLookupAbsent
+      𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
+        'Ok' None
 
 * ``GENMAP_DELETE : ∀ α. ∀ β.  α → 'GenMap' α β → 'GenMap' α β``
 
-  Deletes a key and its value from the map. When the key is not a
-  member of the map, the original map is returned.
-
-  This raises an error if the key is not a valid map key. Keys are
-  compared according to ``~ᵥ``.
+  Deletes a key and its value from the map, using the builtin function
+  ``EQUAL`` to test key equality. When the key is not a member of the
+  map, the original map is returned.  This raises a runtime error if it
+  try to compare incomparable values.
 
   [*Available in versions >= 1.dev*]
+
+  Formally the builtin function ``GENMAP_DELETE`` semantics is defined
+  by the following rules. ::
+
+      𝕆('EQUAL' @σ v v) = Err t
+    —————————————————————————————————————————————————————————————————————— EvGenMapDeleteErr
+      𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
+
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'True'  for some i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapDeletePresent
+      𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
+        Ok' 〚v₁ ↦ w₁; … ; vᵢ₋₁ ↦ wᵢ₋₁; vᵢ₊₁ ↦ wᵢ₊₁; … ; vₙ ↦ wₙ〛
+
+      𝕆('EQUAL' @σ vᵢ v) = Ok 'False'  for all i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapDeleteAbsent
+      𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) =
+        'Ok' 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛
 
 * ``GENMAP_KEYS : ∀ α. ∀ β.  'GenMap' α β → 'List' α``
 
-  Get the list of keys in the map. The keys are returned by insertion
-  order, so if you insert key ``x`` before key ``y``, then ``x`` will
-  appear before ``y`` in the list.
+  Get the list of keys in the map. The keys are returned in the order
+  they appear in the map.
 
   [*Available in versions >= 1.dev*]
+
+  Formally the builtin function ``GENMAP_KEYS`` semantics is defined
+  by the following rules. ::
+
+    —————————————————————————————————————————————————————————————————————— EvGenMapKeysEmpty
+      𝕆('GENMAP_KEYS' @σ @τ 〚〛) = 'Ok' (Nil @σ)
+
+      𝕆('GENMAP_KEYS' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) = 'Ok' vₗ
+    —————————————————————————————————————————————————————————————————————— EvGenMapKeysNonEmpty
+      𝕆('GENMAP_KEYS' @σ @τ 〚v₀ ↦ w₀; v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) =
+        'Ok' (Cons @σ v₀ vₗ)
 
 * ``GENMAP_VALUES : ∀ α. ∀ β.  'GenMap' α β → 'List' β``
 
   Get the list of values in the map. The values are returned in the
-  same order as ``GENMAP_KEYS``, so the ith element of ``GENMAP_KEYS``
-  maps to the ith element of ``GENMAP_VALUES``.
+  order they appear in the map (i.e. sorted by key).
 
   [*Available in versions >= 1.dev*]
 
+  Formally the builtin function ``GENMAP_VALUES`` semantics is defined
+  by the following rules. ::
+
+    —————————————————————————————————————————————————————————————————————— EvGenMapValuesEmpty
+      𝕆('GENMAP_VALUES' @σ @τ 〚〛) = 'Ok' (Nil @τ)
+
+      𝕆('GENMAP_VALUES' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) = 'Ok' wₗ
+    —————————————————————————————————————————————————————————————————————— EvGenMapValuesNonEmpty
+      𝕆('GENMAP_KEYS' @σ @τ 〚v₀ ↦ w₀; v₁ ↦ w₁; … ; vₙ ↦ wₙ〛) =
+        'Ok' (Cons @τ w₀ wₗ)
+  
 * ``GENMAP_SIZE : ∀ α. ∀ β.  'GenMap' α β → 'Int64'``
 
   Return the number of elements in the map.
 
   [*Available in versions >= 1.dev*]
-
-
-**Validity of Keys:** A key is valid if and only if it is equivalent
-to itself according to the relation ``~ᵥ`` defined below. Attempts to
-use an invalid key in the operations above always result in a runtime
-error.
-
-Of particular note, the following values are never valid keys:
-
-* Lambda expressions ``λ x : τ . e``
-* Type abstractions ``Λ α : k . e``
-* (Partially applied) built-in functions
-* Any value containing an invalid key
 
 Type Representation function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3745,4 +3815,3 @@ program using the builtin type ``GENMAP`` or the functions
 .. eval: (flyspell-mode 1)
 .. eval: (set-input-method "TeX")
 .. End:
-

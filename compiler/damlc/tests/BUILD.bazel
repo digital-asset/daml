@@ -216,10 +216,8 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
         "@davl//:released/davl-v3.dar",
-        # Note that this will break if we make incompatible changes to 1.dev (which we might).
-        # In that case, feel free to replace it by a newer DAR, ideally built against a stable
-        # LF version.
-        ":dars/old-proj-0.13.51-1.dev.dar",
+        # Feel free to update this to 0.13.55 once that is frozen.
+        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
     ],
     hackage_deps = [
         "base",
@@ -282,17 +280,24 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
+        "containers",
         "extra",
         "filepath",
+        "jwt",
         "process",
         "regex-tdfa",
         "safe",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
+        "text",
+        "unordered-containers",
     ],
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",

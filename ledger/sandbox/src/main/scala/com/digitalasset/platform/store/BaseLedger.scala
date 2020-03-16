@@ -142,6 +142,9 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
 
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    ledgerDao.removeExpiredDeduplicationData(currentTime)
+
   override def close(): Unit = {
     dispatcher.close()
   }

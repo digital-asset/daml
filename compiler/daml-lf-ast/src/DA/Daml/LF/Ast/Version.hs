@@ -85,6 +85,13 @@ featureStringInterning = Feature
     , featureCppFlag = "DAML_STRING_INTERNING"
     }
 
+featureGenericComparison :: Feature
+featureGenericComparison = Feature
+    { featureName = "Generic order relation"
+    , featureMinVersion = versionDev
+    , featureCppFlag = "DAML_GENERIC_COMPARISON"
+    }
+
 featureGenMap :: Feature
 featureGenMap = Feature
     { featureName = "Generic map"
@@ -122,6 +129,7 @@ allFeatures =
     , featureAnyType
     , featureTypeRep
     , featureStringInterning
+    , featureGenericComparison
     , featureGenMap
     , featurePackageMetadata
     , featureUnstable

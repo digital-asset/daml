@@ -3,6 +3,9 @@
 
 package com.daml.ledger.participant.state
 
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+import com.google.protobuf.ByteString
+
 /** The participant-state key-value utilities provide methods to succintly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
   * [[com.daml.ledger.participant.state.v1.WriteService]] on top of ledger's that provide a key-value state storage.
@@ -24,7 +27,7 @@ package com.daml.ledger.participant.state
   * with them separately, even though both log entries and DAML state values may live in the same storage.
   */
 package object kvutils {
-  import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
+  type Bytes = ByteString
 
   type DamlStateMap = Map[DamlStateKey, Option[DamlStateValue]]
 

@@ -22,14 +22,7 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   NotSupported,
   Overloaded
 }
-import com.daml.ledger.participant.state.v1.{
-  SeedService,
-  SubmissionResult,
-  SubmitterInfo,
-  TimeModel,
-  TransactionMeta,
-  WriteService
-}
+import com.daml.ledger.participant.state.v1.{SeedService, SubmissionResult, TimeModel, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -42,8 +35,7 @@ import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.CommandExecutor
-import com.digitalasset.platform.apiserver.services.ApiSubmissionService.TransactionInfo
+import com.digitalasset.platform.apiserver.{CommandExecutionResult, CommandExecutor}
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -60,8 +52,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 object ApiSubmissionService {
-
-  private type TransactionInfo = (SubmitterInfo, TransactionMeta, Transaction.Transaction)
 
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
@@ -231,7 +221,7 @@ final class ApiSubmissionService private (
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(error)))
       }, Future.successful)
-      partyAllocationResults <- allocateMissingInformees(transactionInfo._3)
+      partyAllocationResults <- allocateMissingInformees(transactionInfo.transaction)
       submissionResult <- submitTransaction(transactionInfo, partyAllocationResults)
     } yield submissionResult
 
@@ -263,7 +253,7 @@ final class ApiSubmissionService private (
     }
 
   private def submitTransaction(
-      transactionInfo: TransactionInfo,
+      transactionInfo: CommandExecutionResult,
       partyAllocationResults: Seq[SubmissionResult],
   ): Future[SubmissionResult] =
     partyAllocationResults.find(_ != SubmissionResult.Acknowledged) match {
@@ -271,7 +261,7 @@ final class ApiSubmissionService private (
         Future.successful(result)
       case None =>
         transactionInfo match {
-          case (submitterInfo, transactionMeta, transaction) =>
+          case CommandExecutionResult(submitterInfo, transactionMeta, transaction, _) =>
             timedFuture(
               Metrics.submittedTransactionsTimer,
               FutureConverters.toScala(

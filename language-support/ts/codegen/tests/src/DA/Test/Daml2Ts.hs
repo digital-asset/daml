@@ -167,13 +167,25 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
       withCurrentDirectory here $ do
-        setupWorkspace
         step "daml2ts..."
+        -- Call daml2ts once without a 'package.json'.
         callProcessSilent daml2ts $
           [ davl </> "davl-v4.dar"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
-          ["-o", daml2tsDir, "-p", here </> "package.json"]
+          ["-o", daml2tsDir]
+        assertFileExists (here </> "package.json")
+        -- Overwrite the 'package.json' that daml2ts generated because
+        -- we need to adjust module resolution for @daml/types and
+        -- @daml/ledger.
+        setupWorkspace
+        -- Call daml2ts again which will this time update 'package.json'.
+        callProcessSilent daml2ts $
+          [ davl </> "davl-v4.dar"
+          , davl </> "davl-v5.dar"
+          , davl </> "davl-upgrade-v4-v5.dar" ] ++
+          ["-o", daml2tsDir] -- There's no need to pass '-p
+                             -- here/package.json' but we could and it would mean the same.
         assertFileExists (daml2tsDir </> "davl-0.0.4" </> "src" </> "DAVL.ts")
         assertFileExists (daml2tsDir </> "davl-0.0.5" </> "src" </> "DAVL.ts")
         assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "src" </> "Upgrade.ts")

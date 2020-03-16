@@ -419,4 +419,12 @@ class InMemoryLedger(
         }
       }
     }
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    Future.successful {
+      this.synchronized {
+        commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
+        ()
+      }
+    }
 }

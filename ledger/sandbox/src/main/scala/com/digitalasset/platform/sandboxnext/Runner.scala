@@ -16,6 +16,7 @@ import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -30,7 +31,6 @@ import com.digitalasset.platform.apiserver.{
   TimeServiceBackend
 }
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
   IndexerStartupMode,

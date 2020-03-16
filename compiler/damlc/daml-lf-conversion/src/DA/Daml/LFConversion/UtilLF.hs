@@ -109,3 +109,21 @@ instance Outputable Expr where
 sourceLocToRange :: SourceLoc -> Range
 sourceLocToRange (SourceLoc _ slin scol elin ecol) =
   Range (Position slin scol) (Position elin ecol)
+
+mkBuiltinEqual :: Version -> BuiltinType -> Expr
+mkBuiltinEqual v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BEEqualGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BEEqual ty)
+
+mkBuiltinLess :: Version -> BuiltinType -> Expr
+mkBuiltinLess v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BELessGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BELess ty)
+
+mkBuiltinGreater :: Version -> BuiltinType -> Expr
+mkBuiltinGreater v ty =
+    if v `supports` featureGenericComparison
+        then EBuiltin BEGreaterGeneric `ETyApp` TBuiltin ty
+        else EBuiltin (BEGreater ty)

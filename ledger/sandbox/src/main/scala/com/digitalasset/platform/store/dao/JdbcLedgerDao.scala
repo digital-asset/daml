@@ -1469,13 +1469,16 @@ private class JdbcLedgerDao(
     )
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
-    dbDispatcher
-      .executeSql("load_parties") { implicit conn =>
-        SQL_SELECT_MULTIPLE_PARTIES
-          .on("parties" -> parties)
-          .as(PartyDataParser.*)
-      }
-      .map(_.map(constructPartyDetails))(executionContext)
+    if (parties.isEmpty)
+      Future.successful(List.empty)
+    else
+      dbDispatcher
+        .executeSql("load_parties") { implicit conn =>
+          SQL_SELECT_MULTIPLE_PARTIES
+            .on("parties" -> parties)
+            .as(PartyDataParser.*)
+        }
+        .map(_.map(constructPartyDetails))(executionContext)
 
   override def listKnownParties(): Future[List[PartyDetails]] =
     dbDispatcher
@@ -1683,6 +1686,19 @@ private class JdbcLedgerDao(
 
         CommandDeduplicationDuplicate(result.deduplicateUntil)
       }
+    }
+
+  private val SQL_DELETE_EXPIRED_COMMANDS = SQL("""
+      |delete from participant_command_submissions
+      |where deduplicate_until < {currentTime}
+    """.stripMargin)
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    dbDispatcher.executeSql("remove_expired_deduplication_data") { implicit conn =>
+      SQL_DELETE_EXPIRED_COMMANDS
+        .on("currentTime" -> currentTime)
+        .execute()
+      ()
     }
 
   private val SQL_TRUNCATE_ALL_TABLES =

@@ -14,6 +14,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.dec.DirectExecutionContext
@@ -30,7 +31,6 @@ import com.digitalasset.platform.apiserver.{
   LedgerApiServer,
   TimeServiceBackend
 }
-import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
