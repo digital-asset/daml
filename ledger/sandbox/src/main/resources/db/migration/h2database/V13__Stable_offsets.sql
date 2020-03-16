@@ -4,7 +4,7 @@
 ---------------------------------------------------------------------------------------------------
 -- V13: Stable Offsets
 --
--- Stable offsets are stored as varchar and can be sorted lexicographically.
+-- Stable offsets are stored as binary and can be sorted lexicographically.
 ---------------------------------------------------------------------------------------------------
 ALTER TABLE parameters ALTER COLUMN ledger_end DROP NOT NULL;
 

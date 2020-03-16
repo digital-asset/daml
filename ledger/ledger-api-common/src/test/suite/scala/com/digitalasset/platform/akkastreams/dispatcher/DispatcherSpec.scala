@@ -144,14 +144,15 @@ class DispatcherSpec
           store.get()(i)
       })
 
+  import Index.ordering._
   private val rangeQuerySteppingMode = RangeSource[Index, Value](
     (startExclusive, endInclusive) =>
-      Source(store.get().from(startExclusive).to(endInclusive).filter(_._1 != startExclusive))
+      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
   )
 
   private def slowRangeQuerySteppingMode(delayMs: Int) = RangeSource[Index, Value](
     (startExclusive, endInclusive) =>
-      Source(store.get().from(startExclusive).to(endInclusive).filter(_._1 != startExclusive))
+      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
         .throttle(1, delayMs.milliseconds * 2)
   )
 

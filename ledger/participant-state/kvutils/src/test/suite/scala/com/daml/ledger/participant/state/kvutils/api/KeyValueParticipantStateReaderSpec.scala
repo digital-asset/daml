@@ -53,12 +53,12 @@ class KeyValueParticipantStateReaderSpec
       offsetsFrom(stream).map { actual =>
         actual should have size 6
         actual shouldBe Seq(
-          toOffset(1, 0),
-          toOffset(2, 0),
-          toOffset(3, 0),
-          toOffset(4, 0),
-          toOffset(5, 0),
-          toOffset(6, 0),
+          toOffset(1),
+          toOffset(2),
+          toOffset(3),
+          toOffset(4),
+          toOffset(5),
+          toOffset(6),
         )
       }
     }
@@ -75,18 +75,18 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(toOffset(11), aLogEntryId(11), aWrappedLogEntry),
       )
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(toOffset(4, 0)))
+      val stream = instance.stateUpdates(Some(toOffset(4)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 7
         actual shouldBe Seq(
-          toOffset(5, 0),
-          toOffset(6, 0),
-          toOffset(7, 0),
-          toOffset(8, 0),
-          toOffset(9, 0),
-          toOffset(10, 0),
-          toOffset(11, 0),
+          toOffset(5),
+          toOffset(6),
+          toOffset(7),
+          toOffset(8),
+          toOffset(9),
+          toOffset(10),
+          toOffset(11),
         )
       }
     }
@@ -96,11 +96,11 @@ class KeyValueParticipantStateReaderSpec
         offset = Some(toOffset(1)),
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry))
       val instance = new KeyValueParticipantStateReader(reader)
-      val stream = instance.stateUpdates(Some(toOffset(1, 0)))
+      val stream = instance.stateUpdates(Some(toOffset(1)))
 
       offsetsFrom(stream).map { actual =>
         actual should have size 1
-        actual shouldBe Seq(toOffset(2, 0))
+        actual shouldBe Seq(toOffset(2))
       }
     }
 
@@ -115,7 +115,7 @@ class KeyValueParticipantStateReaderSpec
 
       offsetsFrom(stream).map { actual =>
         actual should have size 2
-        actual shouldBe Seq(toOffset(1, 0), toOffset(2, 0))
+        actual shouldBe Seq(toOffset(1), toOffset(2))
       }
     }
 
@@ -138,7 +138,7 @@ class KeyValueParticipantStateReaderSpec
 
       Future
         .sequence(
-          Seq(None, Some(toOffset(1, 0)), Some(toOffset(3, 0)), Some(toOffset(4, 0)))
+          Seq(None, Some(toOffset(1)), Some(toOffset(3)), Some(toOffset(4)))
             .map(offset => offsetsFrom(instances(offset).stateUpdates(offset)))
         )
         .map {
@@ -154,7 +154,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelope = ByteString.copyFrom(Array[Byte](0, 1, 2))
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0, 0), aLogEntryId(0), anInvalidEnvelope))
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope))
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
@@ -172,7 +172,7 @@ class KeyValueParticipantStateReaderSpec
       val anInvalidEnvelopeMessage = Envelope.enclose(aStateValue)
       val reader = readerStreamingFrom(
         offset = None,
-        LedgerRecord(toOffset(0, 0), aLogEntryId(0), anInvalidEnvelopeMessage))
+        LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage))
       val instance = new KeyValueParticipantStateReader(reader)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>

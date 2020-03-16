@@ -11,7 +11,7 @@ object KVOffset {
   private[kvutils] val lowestStart = 12
   private[kvutils] val end = 16
 
-  private val evil = BigInt(1) << 128
+  private val maxValuePlusOne = BigInt(1) << (end * 8)
 
   def onlyKeepHighestIndex(offset: Offset): Offset = {
     val highest = highestIndex(offset)
@@ -31,10 +31,10 @@ object KVOffset {
   }
 
   def fromLong(first: Long, second: Int = 0, third: Int = 0): Offset = {
-    val highest = BigInt(first) << 64
-    val middle = BigInt(second) << 32
+    val highest = BigInt(first) << ((middleStart - highestStart) * 8)
+    val middle = BigInt(second) << ((lowestStart - middleStart) * 8)
     val lowest = BigInt(third)
-    val bytes = (evil | highest | middle | lowest).toByteArray.drop(1) // this retains leading zeros
+    val bytes = (maxValuePlusOne | highest | middle | lowest).toByteArray.drop(1) // this retains leading zeros
     Offset.fromBytes(bytes)
   }
 

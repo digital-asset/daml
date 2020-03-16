@@ -21,8 +21,6 @@ import com.google.protobuf.ByteString
   */
 final class Offset(val value: ByteString) extends AnyVal with Ordered[Offset] {
 
-  override def toString: String = ???
-
   override def compare(that: Offset): Int =
     ByteString.unsignedLexicographicalComparator().compare(value, that.value)
 
