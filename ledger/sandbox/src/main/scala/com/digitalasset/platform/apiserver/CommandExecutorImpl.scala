@@ -23,7 +23,6 @@ import com.digitalasset.daml.lf.engine.{
 }
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
@@ -49,7 +48,7 @@ class CommandExecutorImpl(
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: Commands,
-  ): Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
 
     consume(engine.submit(commands, participant, submissionSeed))(
       getPackage,
@@ -62,22 +61,23 @@ class CommandExecutorImpl(
           _ <- Blinding
             .checkAuthorizationAndBlind(updateTx, Set(submitter))
         } yield
-          (
-            SubmitterInfo(
+          CommandExecutionResult(
+            submitterInfo = SubmitterInfo(
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
               Time.Timestamp.assertFromInstant(submitted.maximumRecordTime),
               submitted.deduplicateUntil,
             ),
-            TransactionMeta(
+            transactionMeta = TransactionMeta(
               Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap),
               meta.submissionTime,
               submissionSeed,
               Some(meta.usedPackages)
             ),
-            updateTx,
+            transaction = updateTx,
+            dependsOnLedgerTime = meta.dependsOnTime,
           )).left.map(ErrorCause.DamlLf)
       }
   }
