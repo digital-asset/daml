@@ -269,10 +269,10 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
     "EQUAL" -> BEqual,
-    "LESS" -> BELess,
-    "LESS_EQ" -> BELessEq,
-    "GREATER" -> BEGreater,
-    "GREATER_EQ" -> BEGreaterEq,
+    "LESS" -> BLess,
+    "LESS_EQ" -> BLessEq,
+    "GREATER" -> BGreater,
+    "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 

@@ -406,10 +406,10 @@ object Ast {
   final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
   final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
   final case object BEqual extends BuiltinFunction(2) // ∀a. a -> a -> Bool
-  final case object BELess extends BuiltinFunction(2) // ∀a. a -> a -> Bool
-  final case object BELessEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
-  final case object BEGreater extends BuiltinFunction(2) // ∀a. a -> a -> Bool
-  final case object BEGreaterEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BLess extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BLessEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreater extends BuiltinFunction(2) // ∀a. a -> a -> Bool
+  final case object BGreaterEq extends BuiltinFunction(2) // ∀a. a -> a -> Bool
 
   final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
