@@ -62,12 +62,13 @@ trait AbstractSandboxFixture extends BeforeAndAfterAll {
     new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
 
   override protected def afterAll(): Unit = {
+    super.afterAll()
     executionSequencerFactory.close()
     materializer.shutdown()
     Await.result(system.terminate(), 10.seconds)
     sandboxExecutionContext.shutdown()
     sandboxExecutionContext.awaitTermination(10, SECONDS)
-    super.afterAll()
+    ()
   }
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
