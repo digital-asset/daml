@@ -119,6 +119,56 @@ object InMemoryLedgerReaderWriter {
 
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
+  class SingleParticipantOwner(
+      initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[InMemoryLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[InMemoryLedgerReaderWriter] = {
+      val state = new InMemoryState
+      for {
+        dispatcher <- dispatcher.acquire()
+        _ = publishHeartbeats(state, dispatcher, heartbeats)
+        readerWriter <- new Owner(
+          initialLedgerId,
+          participantId,
+          timeProvider,
+          dispatcher,
+          state,
+        ).acquire()
+      } yield readerWriter
+    }
+  }
+
+  // passing the `dispatcher` and `state` from the outside allows us to share
+  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
+  class Owner(
+      initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      dispatcher: Dispatcher[Index],
+      state: InMemoryState,
+  ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[InMemoryLedgerReaderWriter] = {
+      val ledgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      Resource.successful(
+        new InMemoryLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          timeProvider,
+          dispatcher,
+          state,
+        ))
+    }
+  }
+
   def dispatcher: ResourceOwner[Dispatcher[Index]] =
     ResourceOwner.forCloseable(
       () =>
@@ -127,58 +177,6 @@ object InMemoryLedgerReaderWriter {
           zeroIndex = StartIndex,
           headAtInitialization = StartIndex,
       ))
-
-  def singleParticipantOwner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      heartbeats: Source[Instant, NotUsed] = Source.empty,
-  )(implicit materializer: Materializer): ResourceOwner[InMemoryLedgerReaderWriter] =
-    new ResourceOwner[InMemoryLedgerReaderWriter] {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[InMemoryLedgerReaderWriter] = {
-        val state = new InMemoryState
-        for {
-          dispatcher <- dispatcher.acquire()
-          _ = publishHeartbeats(state, dispatcher, heartbeats)
-          readerWriter <- owner(
-            initialLedgerId,
-            participantId,
-            timeProvider,
-            dispatcher,
-            state,
-          ).acquire()
-        } yield readerWriter
-      }
-    }
-
-  // passing the `dispatcher` and `state` from the outside allows us to share
-  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
-  def owner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      dispatcher: Dispatcher[Index],
-      state: InMemoryState,
-  ): ResourceOwner[InMemoryLedgerReaderWriter] =
-    new ResourceOwner[InMemoryLedgerReaderWriter] {
-      override def acquire()(
-          implicit executionContext: ExecutionContext
-      ): Resource[InMemoryLedgerReaderWriter] = {
-        val ledgerId =
-          initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-        Resource.successful(
-          new InMemoryLedgerReaderWriter(
-            ledgerId,
-            participantId,
-            timeProvider,
-            dispatcher,
-            state,
-          ))
-      }
-
-    }
 
   private def publishHeartbeats(
       state: InMemoryState,

@@ -30,7 +30,7 @@ object Main {
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
-      InMemoryLedgerReaderWriter.owner(
+      new InMemoryLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,
