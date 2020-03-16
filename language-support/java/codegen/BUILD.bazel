@@ -32,7 +32,6 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
-    data = ["//:MVN_VERSION"],
     main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
@@ -43,7 +42,6 @@ da_scala_library(
     srcs = glob(["src/main/**/*.scala"]),
     resources = [
         "src/main/resources/logback.xml",
-        "//:MVN_VERSION",
     ],
     tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
     visibility = ["//visibility:public"],
