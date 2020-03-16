@@ -3122,6 +3122,19 @@ ordered by keys.
 Generic map functions
 ~~~~~~~~~~~~~~~~~~~~~
 
+**Validity of Keys:** A key is valid if and only if it is equivalent
+to itself according to the builtin function  ``EQUAL``. Attempts to
+use an invalid key in the operations listed under always result
+in a runtime error.
+
+Of particular note, the following values are never valid keys:
+
+* Lambda expressions ``λ x : τ . e``
+* Type abstractions ``Λ α : k . e``
+* (Partially applied) built-in functions
+* Update statement
+* Any value containing an invalid key
+
 **Entry order**: The operations below always return a map with entries
 ordered by keys according to the comparison function ``LESS``.
 
@@ -3145,25 +3158,17 @@ ordered by keys according to the comparison function ``LESS``.
   Formally the builtin function ``GENMAP_INSERT`` semantics is defined
   by the following rules. ::
 
-   —————————————————————————————————————————————————————————————————————— EvGenMapInsertEmpty
-      𝕆('GENMAP_INSERT' @σ @τ 〚〛 v w) = 〚v ↦ w〛
-
-      𝕆('EQUAL' @σ vᵢ v) = Err t    for some i ∈ 1, …, n
+      𝕆('EQUAL' @σ v v) = Err t
     —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplaceErr
       𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v w) = Err t
 
-      𝕆('EQUAL' @σ vᵢ v) = Ok 'True'    for some i ∈ 1, …, n
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertEmpty
+       𝕆('GENMAP_INSERT' @σ @τ 〚〛 v w) = 〚v ↦ w〛
+
+       𝕆('EQUAL' @σ vᵢ v) = Ok 'True'    for some i ∈ 1, …, n
     —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplace
       𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) =
         'Ok' 〚v₁ ↦ w₁; …; vᵢ₋₁ ↦ wᵢ₋₁; vᵢ ↦ w;  vᵢ₊₁ ↦ wᵢ₊₁; …; vₙ ↦ wₙ〛
-
-      𝕆('LESS' @σ vᵢ₋₁ v) = Err t    for some i ∈ 1, …, n
-    —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertErrLeft
-      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) = Err t
-
-      𝕆('LESS' @σ v vᵢ) = Err t    for some i ∈ 1, …, n
-    —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertErrRight
-      𝕆('GENMAP_INSERT' @σ @τ 〚v₁ ↦ w₁; …; vₙ ↦ wₙ〛 v w) = Err t
 
       𝕆('LESS' @σ v v₁) = Ok 'True'
     —————————————————————————————————————————————————————————————————————— EvGenMapInsertInsertFirst
@@ -3194,7 +3199,10 @@ ordered by keys according to the comparison function ``LESS``.
   Formally the builtin function ``GENMAP_LOOKUP`` semantics is defined
   by the following rules. ::
 
-      𝕆('EQUAL' @σ vᵢ v) = Err t  for some i ∈ 1, …, n
+      𝕆('EQUAL' @σ v v) = Err t
+    —————————————————————————————————————————————————————————————————————— EvGenMapInsertReplaceErr
+      𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
+
     —————————————————————————————————————————————————————————————————————— EvGenMapLookupErr
       𝕆('GENMAP_LOOKUP' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
 
@@ -3220,7 +3228,7 @@ ordered by keys according to the comparison function ``LESS``.
   Formally the builtin function ``GENMAP_DELETE`` semantics is defined
   by the following rules. ::
 
-      𝕆('EQUAL' @σ vᵢ v) = Err t  for some i ∈ 1, …, n
+      𝕆('EQUAL' @σ v v) = Err t
     —————————————————————————————————————————————————————————————————————— EvGenMapDeleteErr
       𝕆('GENMAP_DELETE' @σ @τ 〚v₁ ↦ w₁; … ; vₙ ↦ wₙ〛 v) = Err t
 
