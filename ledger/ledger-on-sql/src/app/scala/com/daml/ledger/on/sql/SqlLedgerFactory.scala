@@ -15,8 +15,6 @@ import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
-import scala.concurrent.ExecutionContext
-
 object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override val defaultExtraConfig: ExtraConfig = ExtraConfig(
     jdbcUrl = None,
@@ -38,8 +36,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig
   )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
+      implicit materializer: Materializer,
       logCtx: LoggingContext,
   ): ResourceOwner[ReadWriteService] = {
     val jdbcUrl = config.extra.jdbcUrl.getOrElse {

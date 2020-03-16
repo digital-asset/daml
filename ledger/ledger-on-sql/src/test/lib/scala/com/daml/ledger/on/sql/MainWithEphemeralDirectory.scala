@@ -17,8 +17,6 @@ import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
-import scala.concurrent.ExecutionContext
-
 object MainWithEphemeralDirectory {
   private val DirectoryPattern = "%DIR"
 
@@ -39,8 +37,7 @@ object MainWithEphemeralDirectory {
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig
     )(
-        implicit executionContext: ExecutionContext,
-        materializer: Materializer,
+        implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[ReadWriteService] = {
       val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
