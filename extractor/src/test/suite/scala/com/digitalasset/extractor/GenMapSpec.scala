@@ -26,7 +26,7 @@ class GenMapSpec
 
   override protected def darFile =
     // FIXME https://github.com/digital-asset/daml/issues/2256
-    // Change to "daml-lf/encoder/test-1.8.dar" one 1.8 is frozen
+    // Change to "daml-lf/encoder/test-1.9.dar" one 1.9 is frozen
     new File(rlocation("daml-lf/encoder/test-1.dev.dar"))
 
   override def scenario: Option[String] = Some("GenMapMod:createContracts")
