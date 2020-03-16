@@ -58,9 +58,7 @@ trait CommonQueries extends Queries {
       val results =
         SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
           .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
-            val key = row("key")
-            val value = row("value")
-            builder += key -> value
+            builder += row("key") -> row("value")
           }
           .fold(exceptions => throw exceptions.head, _.result())
       keys.map(results.get)(breakOut)
