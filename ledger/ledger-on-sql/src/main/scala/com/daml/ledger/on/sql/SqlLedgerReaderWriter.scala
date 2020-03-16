@@ -30,7 +30,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
@@ -111,24 +111,25 @@ object SqlLedgerReaderWriter {
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
-  def owner(
+  class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
       heartbeats: Source[Instant, NotUsed] = Source.empty,
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ): ResourceOwner[SqlLedgerReaderWriter] =
-    for {
-      uninitializedDatabase <- Database.owner(jdbcUrl)
-      database = uninitializedDatabase.migrate()
-      ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
-      dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
-      _ = publishHeartbeats(database, dispatcher, heartbeats)
-    } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
+  )(implicit materializer: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[SqlLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[SqlLedgerReaderWriter] =
+      for {
+        uninitializedDatabase <- Database.owner(jdbcUrl).acquire()
+        database = uninitializedDatabase.migrate()
+        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
+        dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
+        _ = publishHeartbeats(database, dispatcher, heartbeats)
+      } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
+  }
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
       implicit executionContext: ExecutionContext,

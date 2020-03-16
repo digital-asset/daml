@@ -11,8 +11,6 @@ import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 
-import scala.concurrent.ExecutionContext
-
 object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
@@ -29,11 +27,10 @@ object Main {
       extends KeyValueLedgerFactory[InMemoryLedgerReaderWriter] {
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
-        implicit executionContext: ExecutionContext,
-        materializer: Materializer,
+        implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
-      InMemoryLedgerReaderWriter.owner(
+      new InMemoryLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,

@@ -23,11 +23,9 @@ import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{Assertion, WordSpec}
 
 import scala.collection.immutable.HashMap
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 class KeyValueParticipantStateWriterSpec extends WordSpec {
-  implicit val executionContext: ExecutionContext = ExecutionContext.global
-
   "participant state writer" should {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]

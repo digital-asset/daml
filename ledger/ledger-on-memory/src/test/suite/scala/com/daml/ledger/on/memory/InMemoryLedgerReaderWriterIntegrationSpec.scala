@@ -25,7 +25,9 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       testId: String,
       heartbeats: Source[Instant, NotUsed],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    InMemoryLedgerReaderWriter
-      .singleParticipantOwner(ledgerId, participantId, heartbeats = heartbeats)
-      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    new InMemoryLedgerReaderWriter.SingleParticipantOwner(
+      ledgerId,
+      participantId,
+      heartbeats = heartbeats,
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

@@ -17,10 +17,8 @@ class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
     implicit materializer: Materializer)
     extends ReadService
     with WriteService {
-  private val readerAdapter =
-    new KeyValueParticipantStateReader(reader)
-  private val writerAdapter =
-    new KeyValueParticipantStateWriter(writer)(materializer.executionContext)
+  private val readerAdapter = new KeyValueParticipantStateReader(reader)
+  private val writerAdapter = new KeyValueParticipantStateWriter(writer)
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.getLedgerInitialConditions()
