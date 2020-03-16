@@ -28,14 +28,14 @@ import com.digitalasset.auth.TokenHolder
 object RunnerMain {
 
   def listTriggers(darPath: File, dar: Dar[(PackageId, Package)]) = {
-    val triggerIds = TriggerIds.fromDar(dar)
     println(s"Listing triggers in $darPath:")
     for ((modName, mod) <- dar.main._2.modules) {
       for ((defName, defVal) <- mod.definitions) {
         defVal match {
           case DValue(TApp(TTyCon(tcon), _), _, _, _) => {
-            if (tcon == triggerIds.getHighlevelId("Trigger")
-              || tcon == triggerIds.getId("Trigger")) {
+            val triggerIds = TriggerIds(tcon.packageId)
+            if (tcon == triggerIds.damlTrigger("Trigger")
+              || tcon == triggerIds.damlTriggerLowLevel("Trigger")) {
               println(s"  $modName:$defName")
             }
           }

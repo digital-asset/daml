@@ -57,6 +57,9 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
+      converter: Converter,
+      triggerExpr: Expr,
+      triggerTy: TypeConApp,
       filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
@@ -91,10 +94,12 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat(config.triggerId)
+        case QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset) =>
+          val heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
           val (killSwitch, trigger) = runner.runWithACS(
-            config.triggerId,
+            converter,
+            triggerExpr,
+            triggerTy,
             config.ledgerConfig.timeProvider,
             heartbeat,
             acs,
@@ -129,10 +134,15 @@ object TriggerActor {
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
             val runner = new Runner(client, appId, config.party, config.dar)
-            val filter = runner.getTriggerFilter(config.triggerId)
+            val (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(config.triggerId)
+            val converter = Converter(runner.compiledPackages, triggerIds)
+            val filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
             runner
               .queryACS(client, filter)
-              .map({ case (acs, offset) => QueriedACS(runner, filter, acs, offset) })
+              .map({
+                case (acs, offset) =>
+                  QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset)
+              })
           }
       context.pipeToSelf(acsQuery) {
         case Success(msg) => msg
