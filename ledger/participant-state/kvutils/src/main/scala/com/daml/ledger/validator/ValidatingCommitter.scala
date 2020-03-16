@@ -14,6 +14,32 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+  * Orchestrates committing to a ledger after validating the submission.
+  * Example usage, assuming a [[com.daml.ledger.participant.state.kvutils.api.LedgerWriter]] sends the submission over
+  * the wire:
+  * {{{
+  *   ...
+  *   private val ledgerStateAccess = ...
+  *   private val validator = SubmissionValidator.create(ledgerStateAccess)
+  *   private val validatingCommitter = new ValidatingCommitter(
+  *       myParticipantId,
+  *       () => Instant.now(),
+  *       validator,
+  *       signalDispatcher)
+  *   ...
+  *
+  *   def commitRequestHandler(request: CommitRequest): Future[CommitResponse] =
+  *     validatingCommitter.commit(request.correlationId, request.envelope)
+  *       .map(...)
+  * }}}
+  *
+  * @param now function implementing resolution of current time when processing submission
+  * @param validator validator instance to use
+  * @param postCommit  function called after a successful commit, e.g., this can be used to signal readers that a new log
+  *                    entry is available
+  * @tparam LogResult  type of the offset used for a log entry
+  */
 class ValidatingCommitter[LogResult](
     participantId: ParticipantId,
     now: () => Instant,
