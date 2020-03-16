@@ -198,6 +198,10 @@ object domain {
       */
     final case class TimedOut(description: String) extends RejectionReason
 
+    /** The ledger time of the submission violated some constraint on the ledger time.
+      */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
+
     /** The transaction submission was disputed.
       *
       * This means that the underlying ledger and its validation logic
