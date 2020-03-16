@@ -100,9 +100,16 @@ class TypeSpec extends WordSpec with Matchers {
     inst shouldBe Record[Type](ImmArraySeq(n"fld1" -> t"List Int64", n"fld2" -> t"Mod:V Text"))
   }
 
-  "mapTypeVars should replace all type variables in List(List a)" in {
+  "mapTypeVars should replace all type variables in `List (List a)`" in {
     val result: Type = t"List (List a)".mapTypeVars(v => t"Text")
     val expected: Type = t"List (List Text)"
+
+    result shouldBe expected
+  }
+
+  "mapTypeVars should replace all type variables in `GenMap a b`" in {
+    val result: Type = t"GenMap a b".mapTypeVars(a => t"GenMap a b")
+    val expected: Type = t"GenMap (GenMap a b) (GenMap a b)"
 
     result shouldBe expected
   }
@@ -123,4 +130,5 @@ class TypeSpec extends WordSpec with Matchers {
 
     result shouldBe Record(ImmArraySeq(n"f" -> TypeCon(id2, ImmArraySeq(t"Text"))))
   }
+
 }
