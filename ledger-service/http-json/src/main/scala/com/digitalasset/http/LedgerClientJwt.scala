@@ -5,13 +5,14 @@ package com.digitalasset.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
+  SubmitAndWaitRequest
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
@@ -39,6 +40,9 @@ object LedgerClientJwt {
 
   type ListKnownParties =
     Jwt => Future[List[api.domain.PartyDetails]]
+
+  type AllocateParty =
+    (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
   private def bearer(jwt: Jwt): Some[String] = Some(s"Bearer ${jwt.value: String}")
 
@@ -104,4 +108,11 @@ object LedgerClientJwt {
 
   def listKnownParties(client: LedgerClient): ListKnownParties =
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
+
+  def allocateParty(client: LedgerClient): AllocateParty =
+    (jwt, identifierHint, displayName) =>
+      client.partyManagementClient.allocateParty(
+        hint = identifierHint,
+        displayName = displayName,
+        token = bearer(jwt))
 }

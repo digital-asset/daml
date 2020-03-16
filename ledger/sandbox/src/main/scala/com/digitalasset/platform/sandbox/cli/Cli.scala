@@ -9,13 +9,13 @@ import java.time.Duration
 import ch.qos.logback.classic.Level
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
 import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port

@@ -48,7 +48,7 @@ import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
+import com.digitalasset.daml.lf.engine.trigger.{Converter, Runner, TriggerMsg}
 
 case class Config(
     ledgerPort: Int,
@@ -138,13 +138,17 @@ class TestRunner(val config: Config) extends StrictLogging {
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
       runner = new Runner(client, applicationId, party, dar)
-      filter = runner.getTriggerFilter(triggerId)
-      heartbeat = runner.getTriggerHeartbeat(triggerId)
+      (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(triggerId)
+      converter = Converter(runner.compiledPackages, triggerIds)
+      filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
+      heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
       (acs, offset) <- runner.queryACS(client, filter)
       _ = acsPromise.success(())
       finalState <- runner
         .runWithACS(
-          triggerId,
+          converter,
+          triggerExpr,
+          triggerTy,
           config.timeProviderType,
           heartbeat,
           acs,
@@ -324,15 +328,15 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     val archiveVal = Some(
       value
         .Value()
-        .withRecord(
-          value.Record(
-            recordId = Some(
-              value.Identifier(
-                packageId = TestRunner.findStdlibPackageId(dar),
-                moduleName = "DA.Internal.Template",
-                entityName = "Archive")),
-            fields = Seq()
-          )))
+        .withRecord(value.Record(
+          recordId = Some(value.Identifier(
+            packageId = PackageId.assertFromString(
+              "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662"),
+            moduleName = "DA.Internal.Template",
+            entityName = "Archive"
+          )),
+          fields = Seq()
+        )))
     val commands = Seq(
       Command().withExercise(ExerciseCommand(
         templateId = Some(

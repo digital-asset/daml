@@ -6,8 +6,8 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.{Dummy, TextContainer}
-import TransactionScale.numberOfCommandsUnit
+import com.daml.ledger.api.testtool.tests.TransactionScale.numberOfCommandsUnit
+import com.digitalasset.ledger.test_stable.Test.TextContainer
 
 import scala.concurrent.Future
 
@@ -17,23 +17,23 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
     s"The load scale factor must be at least ${1.0 / numberOfCommandsUnit}",
   )
 
-  test(
-    "TXLargeCommand",
-    "Accept huge submissions with a large number of commands",
-    allocate(SingleParty),
-  ) {
-    case Participants(Participant(ledger, party)) =>
-      val targetNumberOfSubCommands = numberOfCommands(units = 3)
-      for {
-        request <- ledger.submitAndWaitRequest(
-          party,
-          List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
-        )
-        result <- ledger.submitAndWaitForTransaction(request)
-      } yield {
-        val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)
-      }
-  }
+//  test(
+//    "TXLargeCommand",
+//    "Accept huge submissions with a large number of commands",
+//    allocate(SingleParty),
+//  ) {
+//    case Participants(Participant(ledger, party)) =>
+//      val targetNumberOfSubCommands = numberOfCommands(units = 3)
+//      for {
+//        request <- ledger.submitAndWaitRequest(
+//          party,
+//          List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
+//        )
+//        result <- ledger.submitAndWaitForTransaction(request)
+//      } yield {
+//        val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)
+//      }
+//  }
 
   test("TXManyCommands", "Accept many, large commands at once", allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>

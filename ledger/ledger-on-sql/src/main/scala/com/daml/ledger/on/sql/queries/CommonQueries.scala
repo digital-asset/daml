@@ -3,7 +3,6 @@
 
 package com.daml.ledger.on.sql.queries
 
-import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
 
@@ -14,7 +13,6 @@ import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.google.protobuf.ByteString
 
 import scala.collection.{breakOut, immutable}
 import scala.util.Try
@@ -35,14 +33,14 @@ trait CommonQueries extends Queries {
     SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end ORDER BY sequence_no"
       .as(
         (long("sequence_no")
-          ~ get[Option[InputStream]]("entry_id")
-          ~ get[Option[InputStream]]("envelope")
+          ~ getBytes("entry_id")
+          ~ getBytes("envelope")
           ~ get[Option[Long]]("heartbeat_timestamp")).map {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
               Offset(Array(index)),
-              ByteString.readFrom(entryId),
-              ByteString.readFrom(envelope),
+              entryId,
+              envelope,
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
             index -> LedgerEntry.Heartbeat(
@@ -60,9 +58,7 @@ trait CommonQueries extends Queries {
       val results =
         SQL"SELECT key, value FROM #$StateTable WHERE key IN ($keys)"
           .fold(Map.newBuilder[Key, Value], ColumnAliaser.empty) { (builder, row) =>
-            val key = ByteString.readFrom(row[InputStream]("key"))
-            val value = ByteString.readFrom(row[InputStream]("value"))
-            builder += key -> value
+            builder += row("key") -> row("value")
           }
           .fold(exceptions => throw exceptions.head, _.result())
       keys.map(results.get)(breakOut)

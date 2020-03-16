@@ -22,7 +22,9 @@ steps:
 
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    # Temporary hack for 0.13.55. Should be removed once published.
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'),
+                   ne(${{parameters.is_release}}, 'true'))
 
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'

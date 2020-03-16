@@ -60,8 +60,7 @@ main = do
           let bazelQueryCommand = shell $
                   "bazel query 'kind(\"(scala|java)_library\", deps(" ++
                   (T.unpack . getBazelTarget . artTarget) a ++
-                  ")) intersect //... " ++
-                  "except (//compiler/scenario-service/protos:scenario_service_java_proto + //compiler/repl-service/protos:repl_service_java_proto + //daml-script/runner:script-runner-lib)'"
+                  ")) intersect //...'"
           internalDeps <- liftIO $ lines <$> readCreateProcess bazelQueryCommand ""
           -- check if a dependency is not already a maven target from artifacts.yaml
           let missingDeps = filter (`Set.notMember` allMavenTargets) internalDeps

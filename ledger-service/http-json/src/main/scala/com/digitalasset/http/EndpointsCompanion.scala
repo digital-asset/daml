@@ -6,7 +6,6 @@ package com.digitalasset.http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
 import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.ResponseFormats
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -43,9 +42,6 @@ object EndpointsCompanion {
     case HttpRequest(method, uri, _, _, _) =>
       Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
   }
-
-  private[http] def httpResponseOk(data: JsValue): HttpResponse =
-    httpResponse(StatusCodes.OK, ResponseFormats.resultJsObject(data))
 
   private[http] def httpResponseError(error: Error): HttpResponse = {
     import com.digitalasset.http.json.JsonProtocol._

@@ -24,6 +24,8 @@ object Envelope {
 
   final case class StateValueMessage(value: Proto.DamlStateValue) extends Message
 
+  val DefaultCompressionEnabled = false
+
   private def enclose(
       kind: Proto.Envelope.MessageKind,
       bytes: ByteString,
@@ -41,15 +43,17 @@ object Envelope {
       .build
       .toByteString
 
-  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, true)
+  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, DefaultCompressionEnabled)
   def enclose(sub: Proto.DamlSubmission, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
-  def enclose(logEntry: Proto.DamlLogEntry): ByteString = enclose(logEntry, true)
+  def enclose(logEntry: Proto.DamlLogEntry): ByteString =
+    enclose(logEntry, DefaultCompressionEnabled)
   def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
-  def enclose(stateValue: Proto.DamlStateValue): ByteString = enclose(stateValue, true)
+  def enclose(stateValue: Proto.DamlStateValue): ByteString =
+    enclose(stateValue, DefaultCompressionEnabled)
   def enclose(stateValue: Proto.DamlStateValue, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 

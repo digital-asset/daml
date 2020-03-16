@@ -3,9 +3,20 @@
 
 package com.daml.ledger.on.sql.queries
 
-import java.sql.{Connection, PreparedStatement}
+import java.io.InputStream
+import java.sql.{Blob, Connection, PreparedStatement}
 
-import anorm.{BatchSql, NamedParameter, ToStatement}
+import anorm.{
+  BatchSql,
+  Column,
+  MetaDataItem,
+  NamedParameter,
+  RowParser,
+  SqlMappingError,
+  SqlParser,
+  SqlRequestError,
+  ToStatement
+}
 import com.google.protobuf.ByteString
 
 trait Queries extends ReadQueries with WriteQueries
@@ -33,4 +44,20 @@ object Queries {
     override def set(s: PreparedStatement, index: Int, v: ByteString): Unit =
       s.setBinaryStream(index, v.newInput(), v.size())
   }
+
+  implicit def columnToByteString: Column[ByteString] =
+    Column.nonNull { (value: Any, meta: MetaDataItem) =>
+      value match {
+        case blob: Blob => Right(ByteString.readFrom(blob.getBinaryStream))
+        case byteArray: Array[Byte] => Right(ByteString.copyFrom(byteArray))
+        case inputStream: InputStream => Right(ByteString.readFrom(inputStream))
+        case _ =>
+          Left[SqlRequestError, ByteString](
+            SqlMappingError(s"Cannot convert value of column ${meta.column} to ByteString"))
+      }
+    }
+
+  def getBytes(columnName: String): RowParser[Option[ByteString]] =
+    SqlParser.get(columnName)(columnToByteString).?
+
 }

@@ -43,6 +43,5 @@ da_scala_binary(
         ":sdk-lib",
         "//navigator/backend:backend-resources",
         "//navigator/backend:frontend-resources",
-        "//navigator/backend:version-resource",
     ],
 )

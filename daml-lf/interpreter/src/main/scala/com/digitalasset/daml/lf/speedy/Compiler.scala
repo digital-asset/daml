@@ -194,6 +194,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private val compileGetTime: SExpr =
     SEAbs(1) { SBGetTime(SEVar(1)) }
 
+  private val SBLessNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBLess), Array(SEVar(2), SEVar(1))))
+  private val SBLessEqNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBLessEq), Array(SEVar(2), SEVar(1))))
+  private val SBGreaterNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBGreater), Array(SEVar(2), SEVar(1))))
+  private val SBGreaterEqNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBGreaterEq), Array(SEVar(2), SEVar(1))))
+  private val SBEqualNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBEqual), Array(SEVar(2), SEVar(1))))
+
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
@@ -203,7 +214,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
-          case BCoerceContractId => SEAbs(1, SEVar(1))
+          case BCoerceContractId => SEAbs.identity
+          // Numeric Comparisons
+          case BLessNumeric => SBLessNumeric
+          case BLessEqNumeric => SBLessEqNumeric
+          case BGreaterNumeric => SBGreaterNumeric
+          case BGreaterEqNumeric => SBGreaterEqNumeric
+          case BEqualNumeric => SBEqualNumeric
+
           case BTextMapEmpty => SEValue.EmptyMap
           case BGenMapEmpty => SEValue.EmptyGenMap
           case _ =>
@@ -258,41 +276,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               // Errors
               case BError => SBError
 
-              // Comparisons
-              case BLessInt64 => SBLess
-              case BLessEqInt64 => SBLessEq
-              case BGreaterInt64 => SBGreater
-              case BGreaterEqInt64 => SBGreaterEq
-
-              case BLessNumeric => SBLessNumeric
-              case BLessEqNumeric => SBLessEqNumeric
-              case BGreaterNumeric => SBGreaterNumeric
-              case BGreaterEqNumeric => SBGreaterEqNumeric
-
-              case BLessText => SBLess
-              case BLessEqText => SBLessEq
-              case BGreaterText => SBGreater
-              case BGreaterEqText => SBGreaterEq
-
-              case BLessTimestamp => SBLess
-              case BLessEqTimestamp => SBLessEq
-              case BGreaterTimestamp => SBGreater
-              case BGreaterEqTimestamp => SBGreaterEq
-
-              case BLessDate => SBLess
-              case BLessEqDate => SBLessEq
-              case BGreaterDate => SBGreater
-              case BGreaterEqDate => SBGreaterEq
-
-              case BLessParty => SBLess
-              case BLessEqParty => SBLessEq
-              case BGreaterParty => SBGreater
-              case BGreaterEqParty => SBGreaterEq
-
-              // Equality
-              case BEqualNumeric => SBEqualNumeric
+              // Comparison
               case BEqualContractId => SBEqual
               case BEqual => SBEqual
+              case BLess => SBLess
+              case BLessEq => SBLessEq
+              case BGreater => SBGreater
+              case BGreaterEq => SBGreaterEq
 
               // TextMap
 
@@ -322,8 +312,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BTextIntercalate => SBTextIntercalate
 
               // Implemented using normal SExpr
-              case BFoldl | BFoldr | BEqualList | BCoerceContractId | BTextMapEmpty |
-                  BGenMapEmpty =>
+              case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
+                  BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+                  BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
                 throw CompileError(s"unexpected $bf")
             })
         }

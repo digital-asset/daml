@@ -16,6 +16,7 @@ import scala.concurrent.Future
   * submission, or in case of an in-memory implementation the validator may be directly called.
   */
 trait LedgerWriter extends ReportsHealth {
+  def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult]
 
   /**
     * Sends a submission to be committed to the ledger.
