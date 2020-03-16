@@ -920,11 +920,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
     val leftV = s"""Mod:Either:Left @($funT) @Int64 ($funV)"""
     val rightV = s"Mod:Either:Right @($funT) @Int64 1"
     val emptyMapV = s"GENMAP_EMPTY @($eitherT) @Int64"
-    val nonEmptyMapV1 = s"GENMAP_INSERT @($eitherT) @Int64 ($rightV) 0 ($emptyMapV)"
-    val nonEmptyMapV2 = s"GENMAP_INSERT @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"
+    val nonEmptyMapV = s"GENMAP_INSERT @($eitherT) @Int64 ($rightV) 0 ($emptyMapV)"
 
-    eval(e"$nonEmptyMapV1") shouldBe 'right
-    eval(e"$nonEmptyMapV2") shouldBe 'right
+    eval(e"$nonEmptyMapV") shouldBe 'right
 
     "GENMAP_EMPTY" - {
       "produces an empty GenMap" in {
@@ -968,9 +966,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
 
       "crash when comparing non comparable keys" in {
-        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) 1 ($nonEmptyMapV1)"""
-        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) 1 ($nonEmptyMapV2)"""
-        eval(expr1) shouldBe 'right
+        val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"""
+        val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) 1 ($nonEmptyMapV)"""
+        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
         eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
@@ -990,9 +988,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
 
       "crash when comparing non comparable keys" in {
-        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV1)"""
-        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV2)"""
-        eval(expr1) shouldBe 'right
+        val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
+        val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
+        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
         eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
@@ -1031,9 +1029,9 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
 
       "crash when comparing non comparable keys" in {
-        val expr1 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV1)"""
-        val expr2 = e"""$builtin @(${eitherT}) @Int64 ($leftV) ($nonEmptyMapV2)"""
-        eval(expr1) shouldBe 'right
+        val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
+        val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
+        eval(expr1) shouldBe Left(SErrorCrash("functions are not comparable"))
         eval(expr2) shouldBe Left(SErrorCrash("functions are not comparable"))
       }
     }
