@@ -31,8 +31,10 @@ object PartyManagementClient {
 
   private val listKnownPartiesRequest = ListKnownPartiesRequest()
 
-  private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) =
-    GetPartiesRequest(parties.head :: parties.tail.toList)
+  private def getPartiesRequest(parties: OneAnd[Set, Ref.Party]) = {
+    import scalaz.std.iterable._ // I was serious when I said *only locally*
+    GetPartiesRequest(parties.toList)
+  }
 }
 
 final class PartyManagementClient(service: PartyManagementServiceStub)(
