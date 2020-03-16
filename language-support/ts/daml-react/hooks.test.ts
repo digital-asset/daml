@@ -6,10 +6,9 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetchByKey } from './index';
+import DamlLedger, { useParty, useQuery, useFetchByKey, useLedger } from './index';
 import Ledger from '@daml/ledger';
 import { Template } from '@daml/types';
-import {useLedger} from './hooks';
 
 const mockConstructor = jest.fn();
 const mockQuery = jest.fn();

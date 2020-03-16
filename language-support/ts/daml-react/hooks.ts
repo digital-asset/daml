@@ -133,9 +133,8 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
 /**
  * React Hook that returns a function to exercise a choice by contract id.
  *
- * DEPRECATED. Use [[useLedger]] instead.
+ * @deprecated Use [[useLedger]] instead.
  *
- * @ignore
  */
 export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (cid: ContractId<T>, argument: C) => Promise<R> => {
   console.log('useExercise is deprecated. Please use "useLedger" instead.');
@@ -150,9 +149,8 @@ export const useExercise = <T extends object, C, R>(choice: Choice<T, C, R>): (c
 /**
  * React Hook that returns a function to exercise a choice by key.
  *
- * DEPRECATED. Use [[useLedger]] instead.
+ * @deprecated Use [[useLedger]] instead.
  *
- * @ignore
  */
 export const useExerciseByKey = <T extends object, C, R, K>(choice: Choice<T, C, R, K>): (key: K, argument: C) => Promise<R> => {
   console.log('useExerciseByKey is deprecated. Please use "useLedger" instead.');
