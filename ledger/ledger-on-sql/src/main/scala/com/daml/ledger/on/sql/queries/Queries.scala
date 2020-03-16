@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.sql.queries
 
-import java.io.{InputStream, Reader}
+import java.io.InputStream
 import java.sql.{Blob, Connection, PreparedStatement}
 
 import anorm.{
