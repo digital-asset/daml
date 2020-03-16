@@ -55,7 +55,7 @@ class PartiesService(
       identifiers: OneAnd[Set, domain.Party]
   ): Future[Error \/ (Set[domain.PartyDetails], Set[domain.Party])] = {
     val et: ET[(Set[domain.PartyDetails], Set[domain.Party])] = for {
-      apiPartyIds <- either(toLedgerApi(identifiers)): ET[OneAnd[Set, Ref.Party]]
+      apiPartyIds <- either(toLedgerApiPartySet(identifiers)): ET[OneAnd[Set, Ref.Party]]
       apiPartyDetails <- rightT(getParties(jwt, apiPartyIds)): ET[List[api.domain.PartyDetails]]
       domainPartyDetails = apiPartyDetails
         .map(domain.PartyDetails.fromLedgerApi)(breakOut): Set[domain.PartyDetails]
@@ -89,10 +89,13 @@ object PartiesService {
   private type ET[A] = EitherT[Future, Error, A]
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def toLedgerApi(ps: OneAnd[Set, domain.Party]): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
+  def toLedgerApiPartySet(
+      ps: OneAnd[Set, domain.Party]
+  ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
     import scalaz.std.list._
-    import scalaz.syntax.apply._
-    ^(toLedgerApi(ps.head), ps.tail.toList.traverse(toLedgerApi))((h, t) => OneAnd(h, t.toSet))
+    val nel: OneAnd[List, domain.Party] = ps.copy(tail = ps.tail.toList)
+    val enel: InvalidUserInput \/ OneAnd[List, Ref.Party] = nel.traverse(toLedgerApi)
+    enel.map(xs => xs.copy(tail = xs.tail.toSet))
   }
 
   def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =
