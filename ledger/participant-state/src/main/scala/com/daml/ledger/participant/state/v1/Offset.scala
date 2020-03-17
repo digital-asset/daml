@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
+import java.io.InputStream
+
 import com.google.protobuf.ByteString
 
 /** Offsets into streams with hierarchical addressing.
@@ -19,12 +21,14 @@ import com.google.protobuf.ByteString
   * less than newer offsets.
   *
   */
-final class Offset(val value: ByteString) extends AnyVal with Ordered[Offset] {
+final class Offset(private val value: ByteString) extends AnyVal with Ordered[Offset] {
 
   override def compare(that: Offset): Int =
     Offset.comparator.compare(value, that.value)
 
   def toByteArray: Array[Byte] = value.toByteArray
+
+  def toInputStream: InputStream = value.newInput()
 }
 
 object Offset {
@@ -33,4 +37,6 @@ object Offset {
   val begin: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
 
   def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
+
+  def fromInputStream(is: InputStream) = new Offset(ByteString.readFrom(is))
 }

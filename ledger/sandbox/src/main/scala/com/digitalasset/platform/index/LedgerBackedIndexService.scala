@@ -37,11 +37,11 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 import scala.concurrent.Future
@@ -205,7 +205,7 @@ abstract class LedgerBackedIndexService(
   }
 
   def toAbsolute(offset: Offset): LedgerOffset.Absolute =
-    LedgerOffset.Absolute(ApiOffset.toApiString(offset))
+    LedgerOffset.Absolute(offset.toApiString)
 
   override def getCompletions(
       startExclusive: LedgerOffset,

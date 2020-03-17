@@ -22,7 +22,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -187,7 +187,7 @@ private final class SqlLedger(
       .recover {
         case t =>
           //recovering from the failure so the persistence stream doesn't die
-          logger.error(s"Failed to persist entry with offset: $offset", t)
+          logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
           ()
       }(DEC)
 
@@ -202,7 +202,7 @@ private final class SqlLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     enqueue { offset =>
-      val transactionId = ApiOffset.toApiString(offset)
+      val transactionId = offset.toApiString
 
       val (transactionForIndex, disclosureForIndex, globalDivulgence) =
         Ledger.convertToCommittedTransaction(transactionId, transaction)
@@ -276,7 +276,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist party $party with offset: $offset", t)
+            logger.error(s"Failed to persist party $party with offset: ${offset.toApiString}", t)
             ()
         }(DEC)
     }
@@ -300,7 +300,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist packages with offset: $offset", t)
+            logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
             ()
         }(DEC)
     }

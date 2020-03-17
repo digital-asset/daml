@@ -1003,9 +1003,6 @@ private class JdbcLedgerDao(
           Ok
       }
 
-    val txId = Some(ledgerEntry.entry) collect {
-      case x: LedgerEntry.Transaction => x.transactionId
-    }
     dbDispatcher
       .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
         CommandCompletionsTable.prepareInsert(offset, ledgerEntry.entry).map(_.execute())

@@ -17,7 +17,7 @@ class KVOffsetSpec extends WordSpec with Matchers {
       (KVOffset.highestIndex(offset), KVOffset.middleIndex(offset), KVOffset.lowestIndex(offset))
 
     "set 0 bytes" in {
-      KVOffset.fromLong(0, 0, 0).value shouldEqual zeroByteString
+      ByteString.copyFrom(KVOffset.fromLong(0).toByteArray) shouldEqual zeroByteString
     }
 
     "extract the correct indexes" in {

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V20: Stable Offsets
+-- V21: Stable Offsets
 --
 -- Stable offsets are stored as bytea and can be sorted lexicographically.
 ---------------------------------------------------------------------------------------------------

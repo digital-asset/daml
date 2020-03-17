@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
--- V13: Stable Offsets
+-- V14: Stable Offsets
 --
 -- Stable offsets are stored as binary and can be sorted lexicographically.
 ---------------------------------------------------------------------------------------------------

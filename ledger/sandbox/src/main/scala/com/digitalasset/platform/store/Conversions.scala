@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.store
 
+import java.io.InputStream
 import java.sql.PreparedStatement
 
 import anorm.{
@@ -110,11 +111,11 @@ object Conversions {
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setBytes(index, v.toByteArray)
+      s.setBinaryStream(index, v.toInputStream)
   }
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[Array[Byte]](name).map(Offset.fromBytes)
+    SqlParser.get[InputStream](name).map(Offset.fromInputStream)
 
-  implicit def columnToOffset(implicit c: Column[Array[Byte]]): Column[Offset] =
-    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromBytes))
+  implicit def columnToOffset(implicit c: Column[InputStream]): Column[Offset] =
+    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromInputStream))
 }

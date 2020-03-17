@@ -19,7 +19,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
@@ -110,10 +110,10 @@ class JdbcIndexer private[indexer] (
     extends Indexer {
 
   @volatile
-  private var lastReceivedRecordTime = Instant.now()
+  private var lastReceivedRecordTime: Long = Instant.now().toEpochMilli
 
   @volatile
-  private var lastReceivedOffset: Offset = _
+  private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
 
@@ -134,14 +134,14 @@ class JdbcIndexer private[indexer] (
         lastReceivedRecordTimeName,
         () =>
           new Gauge[Long] {
-            override def getValue: Long = lastReceivedRecordTime.toEpochMilli
+            override def getValue: Long = lastReceivedRecordTime
         })
 
       metrics.gauge(
         lastReceivedOffsetName,
         () =>
           new Gauge[LedgerString] {
-            override def getValue: LedgerString = ApiOffset.toApiString(lastReceivedOffset)
+            override def getValue: LedgerString = lastReceivedOffset
         })
 
       metrics.gauge(
@@ -149,7 +149,7 @@ class JdbcIndexer private[indexer] (
         () =>
           new Gauge[Long] {
             override def getValue: Long =
-              Instant.now().toEpochMilli - lastReceivedRecordTime.toEpochMilli
+              Instant.now().toEpochMilli - lastReceivedRecordTime
         })
       ()
     }
@@ -159,18 +159,17 @@ class JdbcIndexer private[indexer] (
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedOffset = offset
-    lastReceivedRecordTime = update.recordTime.toInstant
+    lastReceivedOffset = offset.toApiString
+    lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
     val externalOffset = offset
-    update match {
+    val result = update match {
       case Heartbeat(recordTime) =>
         ledgerDao
           .storeLedgerEntry(
             externalOffset,
             PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant))
           )
-          .map(_ => ())(DEC)
 
       case PartyAddedToParticipant(
           party,
@@ -188,7 +187,6 @@ class JdbcIndexer private[indexer] (
               domain
                 .PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
           )
-          .map(_ => ())(DEC)
 
       case PartyAllocationRejected(
           submissionId,
@@ -205,7 +203,6 @@ class JdbcIndexer private[indexer] (
               rejectionReason
             )
           )
-          .map(_ => ())(DEC)
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
@@ -224,7 +221,6 @@ class JdbcIndexer private[indexer] (
             packages,
             optEntry
           )
-          .map(_ => ())(DEC)
 
       case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
         val entry: PackageLedgerEntry =
@@ -239,7 +235,6 @@ class JdbcIndexer private[indexer] (
             List.empty,
             Some(entry)
           )
-          .map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -277,7 +272,6 @@ class JdbcIndexer private[indexer] (
         )
         ledgerDao
           .storeLedgerEntry(externalOffset, pt)
-          .map(_ => ())(DEC)
 
       case config: ConfigurationChanged =>
         ledgerDao
@@ -289,7 +283,6 @@ class JdbcIndexer private[indexer] (
             config.newConfiguration,
             None
           )
-          .map(_ => ())(DEC)
 
       case configRejection: ConfigurationChangeRejected =>
         ledgerDao
@@ -301,7 +294,6 @@ class JdbcIndexer private[indexer] (
             configRejection.proposedConfiguration,
             Some(configRejection.rejectionReason)
           )
-          .map(_ => ())(DEC)
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
@@ -315,8 +307,8 @@ class JdbcIndexer private[indexer] (
         )
         ledgerDao
           .storeLedgerEntry(externalOffset, rejection)
-          .map(_ => ())(DEC)
     }
+    result.map(_ => ())(DEC)
   }
 
   private def toDomainRejection(
