@@ -69,7 +69,7 @@ private[events] object EventsTable {
           |  create_observers,
           |  create_agreement_text,
           |  create_consumed_at,
-          |  key_value
+          |  create_key_value
           |) values (
           |  {event_id},
           |  {event_offset},
@@ -89,7 +89,7 @@ private[events] object EventsTable {
           |  {create_observers},
           |  {create_agreement_text},
           |  null,
-          |  {key_value}
+          |  {create_key_value}
           |)
           |""".stripMargin
 
@@ -123,7 +123,7 @@ private[events] object EventsTable {
       "create_signatories" -> create.signatories.map(_.toString).toArray,
       "create_observers" -> create.stakeholders.diff(create.signatories).map(_.toString).toArray,
       "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
-      "key_value" -> serializeNullableKeyOrThrow(create),
+      "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
 
   private val insertExercise =

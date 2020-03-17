@@ -11,12 +11,12 @@ create table participant_events
     ledger_effective_time timestamp not null,
     template_package_id varchar not null,
     template_name varchar not null,
-    node_index int not null,               -- post-traversal order of an event within a transaction
+    node_index int not null,                 -- post-traversal order of an event within a transaction
     is_root boolean not null,
 
     -- these fields can be null if the transaction originated in another participant
     command_id varchar,
-    workflow_id varchar,                   -- null unless provided by a Ledger API call
+    workflow_id varchar,                     -- null unless provided by a Ledger API call
     application_id varchar,
     submitter varchar,
 
@@ -24,11 +24,9 @@ create table participant_events
     create_argument bytea,
     create_signatories varchar array,
     create_observers varchar array,
-    create_agreement_text varchar,         -- null if agreement text is not provided
-    create_consumed_at varchar,            -- null if the contract created by this event is active
-    key_template_package_id varchar,       -- null if the contract created by this event has no key
-    key_template_name varchar,             -- null if the contract created by this event has no key
-    key_value bytea,                       -- null if the contract created by this event has no key
+    create_agreement_text varchar,           -- null if agreement text is not provided
+    create_consumed_at varchar,              -- null if the contract created by this event is active
+    create_key_value bytea,                  -- null if the contract created by this event has no key
 
     -- non-null iff this event is an exercise
     exercise_consuming boolean,
@@ -36,7 +34,7 @@ create table participant_events
     exercise_argument bytea,
     exercise_result bytea,
     exercise_actors varchar array,
-    exercise_child_event_ids varchar array -- event identifiers of consequences of this exercise
+    exercise_child_event_ids varchar array   -- event identifiers of consequences of this exercise
 );
 
 -- support ordering by offset and transaction, ready for serving via the Ledger API
