@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
 import com.google.protobuf.ByteString
 
-/** The participant-state key-value utilities provide methods to succintly implement
+/** The participant-state key-value utilities provide methods to succinctly implement
   * [[com.daml.ledger.participant.state.v1.ReadService]] and
   * [[com.daml.ledger.participant.state.v1.WriteService]] on top of ledger's that provide a key-value state storage.
   *
@@ -16,8 +16,8 @@ import com.google.protobuf.ByteString
   *
   * `logEntryIds` describes the ordering of log entries. The `logEntryMap` contains the data for the log entries.
   * This map is expected to be append-only and existing entries are never modified or removed.
-  * `kvState` describes auxilliary mutable state which may be created as part of one log entry and mutated by a later one.
-  * (e.g. a log entry might describe a DAML transaction containing contracts and the auxilliary mutable data may
+  * `kvState` describes auxiliary mutable state which may be created as part of one log entry and mutated by a later one.
+  * (e.g. a log entry might describe a DAML transaction containing contracts and the auxiliary mutable data may
   * describe their activeness).
   *
   * While these can be represented in a key-value store directly, some implementations may

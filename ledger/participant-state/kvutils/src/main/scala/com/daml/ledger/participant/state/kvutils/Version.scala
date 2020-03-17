@@ -69,8 +69,8 @@ object Version {
     *        it and to make it possible to remove DamlLogEntryId.
     *
     *   3: * Add an explicit deduplication time window to each submission. Backwards incompatible because
-    *        it is unclear how to set a sensible default value while the submission time us unknown.
-    *      * Add submissionTime in DamlTransactionEntry and used this time instead ledgerTime to derive
+    *        it is unclear how to set a sensible default value when the submission time is unknown.
+    *      * Add submissionTime in DamlTransactionEntry and use this time instead ledgerTime to derive
     *        contract ids.
     */
   val version: Long = 3
