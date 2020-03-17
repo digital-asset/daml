@@ -646,7 +646,7 @@ makeCommands lid party com = do
     let wid = Nothing
     let leTime = Timestamp 0 0
     let mrTime = Timestamp 5 0
-    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,dedupTime=Nothing,coms=[com]}
+    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing}
 
 
 myAid :: ApplicationId
