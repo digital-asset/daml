@@ -50,7 +50,7 @@ import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
+import com.digitalasset.daml.lf.engine.trigger.{Runner, Trigger, TriggerMsg}
 
 case class Config(
     ledgerPort: Int,
@@ -141,20 +141,26 @@ class TestRunner(val config: Config) extends StrictLogging {
     val compiler = Compiler(darMap)
     val compiledPackages =
       PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
+      case Left(err) => throw new RuntimeException(err)
+      case Right(trigger) => trigger
+    }
 
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
-      runner = Runner.fromDar(dar, triggerId, client, config.timeProviderType, applicationId, party)
-      filter = runner.getTriggerFilter()
-      heartbeat = runner.getTriggerHeartbeat()
-      (acs, offset) <- runner.queryACS(filter)
+      runner = new Runner(
+        compiledPackages,
+        trigger,
+        client,
+        config.timeProviderType,
+        applicationId,
+        party)
+      (acs, offset) <- runner.queryACS()
       _ = acsPromise.success(())
       finalState <- runner
         .runWithACS(
-          heartbeat,
           acs,
           offset,
-          filter,
           msgFlow = Flow[TriggerMsg].take(numMessages.num)
         )
         ._2
