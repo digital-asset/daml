@@ -33,15 +33,16 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
   val mockCommandSubmission: SubmissionFlowType[RetryInfo[Status]] =
     Flow[In[RetryInfo[Status]]]
       .map {
-        case Ctx(
-            context @ RetryInfo(_, _, _, status),
-            SubmitRequest(Some(Commands(_, _, _, commandId, _, let, _, _, _)), tc)) =>
-          if (let.get.seconds == 0) {
-            Ctx(context, Completion(commandId, Some(status), traceContext = tc))
+        case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands), tc)) =>
+          if (commands.ledgerEffectiveTime.get.seconds == 0) {
+            Ctx(context, Completion(commands.commandId, Some(status), traceContext = tc))
           } else {
             Ctx(
               context,
-              Completion(commandId, Some(status.copy(code = Code.OK_VALUE)), traceContext = tc))
+              Completion(
+                commands.commandId,
+                Some(status.copy(code = Code.OK_VALUE)),
+                traceContext = tc))
           }
         case x =>
           throw new RuntimeException(s"Unexpected input: '$x'")
