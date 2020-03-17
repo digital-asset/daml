@@ -166,8 +166,8 @@ object Speedy {
               CtrlExpr(body)
             case None =>
               throw SpeedyHungry(
-                SResultMissingDefinition(
-                  ref, { packages =>
+                SResultMissingPackage(
+                  ref.packageId, { packages =>
                     this.compiledPackages = packages
                     compiledPackages.getDefinition(ref) match {
                       case Some(body) =>
