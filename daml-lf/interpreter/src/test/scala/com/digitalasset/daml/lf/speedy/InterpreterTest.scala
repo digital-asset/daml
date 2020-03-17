@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -226,7 +225,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       run()
       result match {
         case SResultNeedPackage(pkgId, cb) =>
-          LfDefRef(ref) shouldBe pkgId
+          ref.packageId shouldBe pkgId
           cb(pkgs2)
           result = SResultContinue
           run()

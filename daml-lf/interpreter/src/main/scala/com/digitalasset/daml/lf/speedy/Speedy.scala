@@ -154,10 +154,10 @@ object Speedy {
 
     def lookupVal(eval: SEVal): Ctrl = {
       eval.cached match {
-        case Some((v, stack_trace)) => {
+        case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
           CtrlValue(v)
-        }
+
         case None =>
           val ref = eval.ref
           kont.add(KCacheVal(eval, Nil))
@@ -165,24 +165,22 @@ object Speedy {
             case Some(body) =>
               CtrlExpr(body)
             case None =>
-              throw SpeedyHungry(
-                SResultNeedPackage(
-                  ref.packageId, { packages =>
-                    this.compiledPackages = packages
-                    compiledPackages.getDefinition(ref) match {
-                      case Some(body) =>
-                        this.ctrl = CtrlExpr(body)
-                      case None =>
-                        crash(
-                          s"definition $ref not found even after caller provided new set of packages",
-                        )
-                    }
-                  },
-                ),
-              )
-          }
+              if (compiledPackages.getPackage(ref.packageId).isDefined)
+                crash(
+                  s"definition $ref not found even after caller provided new set of packages",
+                )
+              else
+            throw SpeedyHungry(
+              SResultNeedPackage(
+                ref.packageId, { packages =>
+                  // Just in case the packages are not updated properly by the caller
+                  assert(compiledPackages.getPackage(ref.packageId).isDefined)
+                  this.compiledPackages = packages
+                  this.ctrl = lookupVal(eval)
+                }
+              ),
+            )
       }
-
     }
 
     /** Returns true when the machine has finished evaluation.
