@@ -201,7 +201,7 @@ the generated TypeScript will consist of a type declaration and the definition o
 .. code-block:: typescript
    :linenos:
 
-   type Color = | 'Red' | 'Blue' | 'Yellow'
+   type Color = 'Red' | 'Blue' | 'Yellow'
 
    const Color = {
      Red: 'Red',
