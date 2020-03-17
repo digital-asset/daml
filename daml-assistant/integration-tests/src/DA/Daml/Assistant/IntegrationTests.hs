@@ -202,6 +202,8 @@ packagingTests = testGroup "packaging"
           , "parties:"
           , "- Alice"
           , "init-script: Main:init"
+          , "sandbox-options:"
+          , "  - --wall-clock-time"
           ]
         writeFileUTF8 (projDir </> "daml/Main.daml") $ unlines
           [ "daml 1.2"
@@ -329,7 +331,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -351,7 +353,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 -> do
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--wall-clock-time", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               navigatorPort :: Int <- fromIntegral <$> getFreePort
@@ -367,7 +369,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 -> do
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--wall-clock-time", "--port", show sandboxPort, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc  $ \_ _ _ sandboxPh -> race_ (waitForProcess' sandboxProc sandboxPh) $ do
               waitForConnectionOnPort (threadDelay 100000) sandboxPort
               jsonApiPort :: Int <- fromIntegral <$> getFreePort
@@ -398,7 +400,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
@@ -492,7 +494,9 @@ deployTest deployDir = testCase "daml deploy" $ do
                 let sharedSecret = "TheSharedSecret"
                 let sandboxProc =
                         (shell $ unwords
-                            ["daml sandbox"
+                            ["daml"
+                            , "sandbox"
+                            , "--wall-clock-time"
                             , "--auth-jwt-hs256-unsafe=" <> sharedSecret
                             , "--port", show port
                             , ".daml/dist/proj1-0.0.1.dar"

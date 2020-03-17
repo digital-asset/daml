@@ -5,3 +5,5 @@ version: 1.0.0
 dependencies:
   - daml-prim
   - daml-stdlib
+sandbox-options:
+  - --wall-clock-time
