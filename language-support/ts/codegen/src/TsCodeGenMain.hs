@@ -351,8 +351,9 @@ genDefDataType curPkgId conName mod tpls def =
               -- The complete definition of the companion object.
               serDesc =
                 ["export const " <> conName <> ": daml.Serializable<" <> conName <> "> " <>
-                 "& { readonly [e in " <> conName <> "]: e } = {"] ++
+                 "& { readonly keys: " <> conName <> "[] } & { readonly [e in " <> conName <> "]: e } = {"] ++
                 ["  " <> cons <> ": '" <> cons <> "'," | cons <- cs] ++
+                ["  keys: [" <> T.concat ["'" <> cons <> "'," | cons <- cs] <> "],"] ++
                 ["  decoder: () => jtv.oneOf<" <> conName <> ">" <> "("] ++
                 ["      jtv.constant(" <> conName <> "." <> cons <> ")," | cons <- cs] ++
                 ["  ),"] ++

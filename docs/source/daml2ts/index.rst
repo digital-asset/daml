@@ -207,6 +207,7 @@ the generated TypeScript will consist of a type declaration and the definition o
      Red: 'Red',
      Blue: 'Blue',
      Yellow: 'Yellow',
+     keys: ['Red','Blue','Yellow'],
    } as const;
 
 Templates and choices
