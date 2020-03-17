@@ -58,7 +58,7 @@ trait ReadService extends ReportsHealth {
     *
     * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
     *   record time `rt_tx`, it holds that `rt_tx >= rt_c` for all `c`, where `c` is a
-    *   contract referenced by the transaction and `rt_c` the record time of the
+    *   contract used by the transaction and `rt_c` the record time of the
     *   [[Update.TransactionAccepted]] that created the contract.
     *   Note that the record time of unrelated updates is not necessarily monotonically
     *   increasing.
