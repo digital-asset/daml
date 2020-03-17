@@ -94,7 +94,7 @@ class InitializedJdbcIndexerFactory private[indexer] (
         Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
       case None =>
         logger.info(s"Initializing ledger with ID: $providedLedgerId")
-        ledgerDao.initializeLedger(providedLedgerId, Offset.empty)
+        ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
     }
 }
 

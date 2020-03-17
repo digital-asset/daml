@@ -133,7 +133,7 @@ abstract class LedgerBackedIndexService(
     lazy val currentEnd: Offset = ledger.ledgerEnd
 
     def toAbsolute(offset: LedgerOffset): Source[Offset, NotUsed] = offset match {
-      case LedgerOffset.LedgerBegin => Source.single(Offset.empty)
+      case LedgerOffset.LedgerBegin => Source.single(Offset.begin)
       case LedgerOffset.LedgerEnd => Source.single(currentEnd)
       case LedgerOffset.Absolute(offset) =>
         ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))

@@ -48,7 +48,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
 
   protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](
     "sql-ledger",
-    Offset.empty,
+    Offset.begin,
     headAtInitialization
   )
 
@@ -61,7 +61,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
       startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] = {
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.empty),
+      startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.getLedgerEntries),
       endInclusive
     )
@@ -75,7 +75,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
       applicationId: ApplicationId,
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.empty),
+      startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
       endInclusive
     )
@@ -136,7 +136,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
   override def configurationEntries(
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     dispatcher.startingAt(
-      startExclusive.getOrElse(Offset.empty),
+      startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(

@@ -88,7 +88,7 @@ class JdbcLedgerDaoSpec
           .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
           .acquire()
         ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, executionContext)
-        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), Offset.empty))
+        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
       } yield ledgerDao
     }
     ledgerDao = Await.result(resource.asFuture, 10.seconds)

@@ -17,7 +17,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[memory] class InMemoryState(
     // the first element will never be read because begin offsets are exclusive
-    log: MutableLog = mutable.ArrayBuffer(Heartbeat(Offset.empty, Instant.EPOCH)),
+    log: MutableLog = mutable.ArrayBuffer(Heartbeat(Offset.begin, Instant.EPOCH)),
     state: MutableState = mutable.Map.empty,
 ) {
   private val lockCurrentState = new Semaphore(1, true)

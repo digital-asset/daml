@@ -22,13 +22,15 @@ import com.google.protobuf.ByteString
 final class Offset(val value: ByteString) extends AnyVal with Ordered[Offset] {
 
   override def compare(that: Offset): Int =
-    ByteString.unsignedLexicographicalComparator().compare(value, that.value)
+    Offset.comparator.compare(value, that.value)
 
   def toByteArray: Array[Byte] = value.toByteArray
 }
 
 object Offset {
-  def empty: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
+  private val comparator = ByteString.unsignedLexicographicalComparator()
+
+  val begin: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
 
   def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
 }
