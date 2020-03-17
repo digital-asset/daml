@@ -69,6 +69,7 @@ jobs:
       - bash: ci/check-changelog.sh
 
   - job: Linux
+    condition: false
     dependsOn:
       - check_for_release
     variables:
@@ -107,7 +108,7 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.14'
+      name: "garys-macos-pool"
     variables:
       bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
       bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
@@ -124,12 +125,12 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
-        displayName: bazel repo cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(bazel-repo-cache-key)
-          path: $(bazel-repo-cache-path)
+        #- bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
+        #  displayName: bazel repo cache key
+        #- task: CacheBeta@0
+        #  inputs:
+        #    key: $(bazel-repo-cache-key)
+        #    path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
           release_tag: $(release_tag)
@@ -141,6 +142,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: Windows
+    condition: false
     dependsOn:
       - check_for_release
     variables:
@@ -283,7 +285,8 @@ jobs:
     dependsOn: [ "check_for_release" ]
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(false,
+                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
