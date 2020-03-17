@@ -56,11 +56,12 @@ trait ReadService extends ReportsHealth {
     *   and [[Update.PublicPackageUpload]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
-    * - *monotonic record time*: for any update `u1` with an associated record
-    *   time `rt1` before an update `u2` with an associated record time `rt2`
-    *   in the stream, it holds that `rt1 <= rt2`. The updates with an
-    *   associated record time are [[Update.Heartbeat]] and [[Update.TransactionAccepted]],
-    *   which both store the record time in the `recordTime` field.
+    * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
+    *   record time `rt_tx`, it holds that `rt_tx >= rt_c` for all `c`, where `c` is a
+    *   contract used by the transaction and `rt_c` the record time of the
+    *   [[Update.TransactionAccepted]] that created the contract.
+    *   Note that the record time of unrelated updates is not necessarily monotonically
+    *   increasing.
     *
     * - *no duplicate transaction acceptance*: there are no two separate
     *   [[Update.TransactionAccepted]] updates with associated [[SubmitterInfo]]
@@ -89,13 +90,6 @@ trait ReadService extends ReportsHealth {
     *   a transaction will be rejected without a corresponding update being issued.
     *   It is done so to avert potential DOS attacks and avoid ambiguity as to the
     *   transaction status in the index database.
-    *
-    * - *maximum record time enforced*: for all [[Update.TransactionAccepted]]
-    *   updates `u` with associated [[SubmitterInfo]] `info`, it holds that
-    *   `u.recordTime <= info.maximumRecordTime`. Together with *monotonic
-    *   record time* this implies that transactions with a maximum record time
-    *   `mrt` will not be accepted after an update with an associated record
-    *   time larger than `mrt` has been observed.
     *
     * The second class of properties relates multiple calls to
     * [[stateUpdates]]s, and thereby provides constraints on which [[Update]]s

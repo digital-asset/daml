@@ -17,7 +17,6 @@ import com.digitalasset.http.domain.JwtPayload
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.Collections.toNonEmptySet
 import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
-import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -49,9 +48,9 @@ class Endpoints(
     extends StrictLogging {
 
   import Endpoints._
+  import encoder.implicits._
   import json.JsonProtocol._
   import util.ErrorOps._
-  import encoder.implicits._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))
@@ -209,7 +208,7 @@ class Endpoints(
       ): ET[NonEmptyList[domain.Party]]
 
       ps <- eitherT(
-        handleFutureFailure(
+        handleFutureEitherFailure(
           partiesService.parties(jwt, toNonEmptySet(cmd))
         )): ET[(Set[domain.PartyDetails], Set[domain.Party])]
 
@@ -367,9 +366,6 @@ object Endpoints {
   private type ApiValue = lav1.value.Value
 
   private type LfValue = lf.value.Value[lf.value.Value.AbsoluteContractId]
-
-  private def apiValueToLfValue(a: ApiValue): Error \/ LfValue =
-    ApiValueToLfValueConverter.apiValueToLfValue(a).liftErr(ServerError)
 
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).liftErr(ServerError)

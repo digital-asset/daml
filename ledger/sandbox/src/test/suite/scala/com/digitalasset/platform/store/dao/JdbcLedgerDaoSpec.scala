@@ -27,6 +27,7 @@ import com.digitalasset.daml.lf.transaction.Node.{
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
+  NodeId,
   ValueRecord,
   ValueText,
   ValueUnit,
@@ -34,7 +35,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.EventId
+import com.digitalasset.ledger.{EventId, TransactionId}
 import com.digitalasset.ledger.api.domain.{
   Filters,
   InclusiveFilters,
@@ -45,6 +46,7 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.store.entries.{ConfigurationEntry, LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.Resource
@@ -133,8 +135,8 @@ class JdbcLedgerDaoSpec
 
   "JDBC Ledger DAO" should {
 
-    val event1: EventId = "event1"
-    val event2: EventId = "event2"
+    def event(txid: TransactionId, idx: Long): EventId =
+      EventIdFormatter.fromTransactionId(txid, NodeId(idx.toInt))
 
     def persistAndLoadContractsTest(externalOffset: Option[LedgerString]) = {
       val offset = nextOffset()
@@ -146,6 +148,8 @@ class JdbcLedgerDaoSpec
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText(s"key-$offset")),
         Set(alice)
       )
+      val event1 = event(txId, 1)
+      val event2 = event(txId, 2)
 
       val transaction = LedgerEntry.Transaction(
         Some("commandId1"),
@@ -618,6 +622,9 @@ class JdbcLedgerDaoSpec
       val offset = nextOffset()
       val absCid = AbsoluteContractId("cId2")
       val let = Instant.now
+      val txid = "trId2"
+      val event1 = event(txid, 1)
+      val event2 = event(txid, 2)
 
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
@@ -626,7 +633,7 @@ class JdbcLedgerDaoSpec
 
       val transaction = LedgerEntry.Transaction(
         Some("commandId2"),
-        "trId2",
+        txid,
         Some("appID2"),
         Some("Alice"),
         Some("workflowId"),
@@ -669,6 +676,8 @@ class JdbcLedgerDaoSpec
       val let = Instant.now
 
       val transactionId = s"trId$offset"
+      val event1 = event(transactionId, 1)
+      val event2 = event(transactionId, 2)
 
       val transaction = LedgerEntry.Transaction(
         Some(s"commandId$offset"),
@@ -735,7 +744,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeCreate(
+              event(txId, id) -> NodeCreate(
                 nodeSeed = None,
                 coid = absCid,
                 coinst = someContractInstance,
@@ -744,9 +753,9 @@ class JdbcLedgerDaoSpec
                 stakeholders = Set(alice, bob),
                 key = None
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(txId, id)),
           ),
-          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
+          Map(event(txId, id) -> Set("Alice", "Bob"))
         )
       }
 
@@ -763,7 +772,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeExercises(
+              event(txId, id) -> NodeExercises(
                 nodeSeed = None,
                 targetCoid = targetCid,
                 templateId = someTemplateId,
@@ -783,9 +792,9 @@ class JdbcLedgerDaoSpec
                     ValueText("some exercise result"))),
                 key = None
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(txId, id)),
           ),
-          Map((s"event$id": EventId) -> Set("Alice", "Bob"))
+          Map(event(txId, id) -> Set("Alice", "Bob"))
         )
       }
 
@@ -940,7 +949,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeCreate(
+              event(s"transactionId$id", id) -> NodeCreate(
                 nodeSeed = None,
                 coid = AbsoluteContractId(s"contractId$id"),
                 coinst = someContractInstance,
@@ -952,9 +961,9 @@ class JdbcLedgerDaoSpec
                     VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                     Set(party)))
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(s"transactionId$id", id)),
           ),
-          Map((s"event$id": EventId) -> Set(party))
+          Map(event(s"transactionId$id", id) -> Set(party))
         ),
         Map.empty,
         List.empty
@@ -973,7 +982,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeExercises(
+              event(s"transactionId$id", id) -> NodeExercises(
                 nodeSeed = None,
                 targetCoid = AbsoluteContractId(s"contractId$cid"),
                 templateId = someTemplateId,
@@ -993,9 +1002,9 @@ class JdbcLedgerDaoSpec
                     VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                     Set(party)))
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(s"transactionId$id", id)),
           ),
-          Map((s"event$id": EventId) -> Set(party))
+          Map(event(s"transactionId$id", id) -> Set(party))
         ),
         Map.empty,
         List.empty
@@ -1014,7 +1023,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeLookupByKey(
+              event(s"transactionId$id", id) -> NodeLookupByKey(
                 someTemplateId,
                 None,
                 KeyWithMaintainers(
@@ -1022,9 +1031,9 @@ class JdbcLedgerDaoSpec
                   Set(party)),
                 result.map(id => AbsoluteContractId(s"contractId$id")),
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(s"transactionId$id", id)),
           ),
-          Map((s"event$id": EventId) -> Set(party))
+          Map(event(s"transactionId$id", id) -> Set(party))
         ),
         Map.empty,
         List.empty
@@ -1043,7 +1052,7 @@ class JdbcLedgerDaoSpec
           let,
           GenTransaction(
             HashMap(
-              (s"event$id": EventId) -> NodeFetch(
+              event(s"transactionId$id", id) -> NodeFetch(
                 coid = AbsoluteContractId(s"contractId$cid"),
                 templateId = someTemplateId,
                 optLocation = None,
@@ -1051,9 +1060,9 @@ class JdbcLedgerDaoSpec
                 signatories = Set(party),
                 stakeholders = Set(party),
               )),
-            ImmArray[EventId](s"event$id"),
+            ImmArray(event(s"transactionId$id", id)),
           ),
-          Map((s"event$id": EventId) -> Set(party))
+          Map(event(s"transactionId$id", id) -> Set(party))
         ),
         Map.empty,
         List.empty

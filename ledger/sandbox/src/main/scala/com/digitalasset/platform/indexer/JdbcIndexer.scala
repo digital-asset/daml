@@ -353,6 +353,8 @@ class JdbcIndexer private[indexer] (
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)
     case RejectionReason.SubmitterCannotActViaParticipant(_) =>
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
+    case RejectionReason.InvalidLedgerTime(_) =>
+      domain.RejectionReason.InvalidLedgerTime(state.description)
   }
 
   private class SubscriptionResourceOwner(readService: ReadService)

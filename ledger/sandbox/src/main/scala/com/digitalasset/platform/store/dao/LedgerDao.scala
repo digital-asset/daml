@@ -18,6 +18,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
+import com.digitalasset.platform.store.dao.events.TransactionWriter
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -255,6 +256,8 @@ trait LedgerWriteDao extends ReportsHealth {
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
+
+  def transactionsWriter: TransactionWriter[LedgerOffset]
 
 }
 
