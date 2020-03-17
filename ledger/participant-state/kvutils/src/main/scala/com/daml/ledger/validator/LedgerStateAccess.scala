@@ -8,6 +8,11 @@ import com.daml.ledger.validator.LedgerStateOperations._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+  * Defines how the validator/committer can access the backing store of the ledger to perform read/write operations in
+  * a transaction.
+  * @tparam LogResult type of the offset used for a log entry
+  */
 trait LedgerStateAccess[LogResult] {
 
   /**
