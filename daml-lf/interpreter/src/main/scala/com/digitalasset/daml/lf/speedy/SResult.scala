@@ -39,7 +39,7 @@ object SResult {
     * initialized. The caller must retrieve the definition and fill it in
     * the packages cache it had provided to initialize the machine.
     */
-  final case class SResultMissingPackage(
+  final case class SResultNeedPackage(
       pkg: PackageId,
       callback: CompiledPackages => Unit,
   ) extends SResult

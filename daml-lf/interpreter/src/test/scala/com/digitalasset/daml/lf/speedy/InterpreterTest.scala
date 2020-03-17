@@ -225,7 +225,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
       run()
       result match {
-        case SResultMissingPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, cb) =>
           LfDefRef(ref) shouldBe pkgId
           cb(pkgs2)
           result = SResultContinue
@@ -250,7 +250,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       }
       run()
       result match {
-        case SResultMissingPackage(pkgId, cb) =>
+        case SResultNeedPackage(pkgId, cb) =>
           ref.packageId shouldBe pkgId
           result = SResultContinue
           try {

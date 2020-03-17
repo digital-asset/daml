@@ -386,7 +386,7 @@ final class Engine(nextRandomInt: () => Int) {
               s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${machine.ptx.nodesToString}"
             ))
 
-        case SResultMissingPackage(pkgId, callback) =>
+        case SResultNeedPackage(pkgId, callback) =>
           return Result.needPackage(
             pkgId,
             pkg => {

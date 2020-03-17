@@ -166,7 +166,7 @@ object Speedy {
               CtrlExpr(body)
             case None =>
               throw SpeedyHungry(
-                SResultMissingPackage(
+                SResultNeedPackage(
                   ref.packageId, { packages =>
                     this.compiledPackages = packages
                     compiledPackages.getDefinition(ref) match {

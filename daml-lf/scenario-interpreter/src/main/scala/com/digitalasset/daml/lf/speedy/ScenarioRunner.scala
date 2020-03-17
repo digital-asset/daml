@@ -54,7 +54,7 @@ final case class ScenarioRunner(
         case SResultError(err) =>
           throw SRunnerException(err)
 
-        case SResultMissingPackage(pkgId, _) =>
+        case SResultNeedPackage(pkgId, _) =>
           crash(s"package $pkgId not found")
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
