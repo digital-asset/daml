@@ -54,8 +54,8 @@ final case class ScenarioRunner(
         case SResultError(err) =>
           throw SRunnerException(err)
 
-        case SResultMissingDefinition(ref, _) =>
-          crash(s"definition $ref not found")
+        case SResultNeedPackage(pkgId, _) =>
+          crash(s"package $pkgId not found")
 
         case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
           lookupContract(coid, committers, cbMissing, cbPresent)
