@@ -1052,10 +1052,10 @@ private class JdbcLedgerDao(
       case _: Inconsistent => "Inconsistent"
       case _: OutOfQuota => "OutOfQuota"
       case _: TimedOut => "TimedOut"
-      case _: InvalidLedgerTime => "InvalidLedgerTime"
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
+      case _: InvalidLedgerTime => "InvalidLedgerTime"
     })
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
@@ -1063,10 +1063,10 @@ private class JdbcLedgerDao(
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
       case "TimedOut" => TimedOut(description)
-      case "InvalidLedgerTime" => InvalidLedgerTime(description)
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
+      case "InvalidLedgerTime" => InvalidLedgerTime(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 

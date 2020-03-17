@@ -196,8 +196,6 @@ object KeyValueConsumption {
         wrap(RejectionReason.ResourcesExhausted)
       case DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
         wrap(RejectionReason.MaximumRecordTimeExceeded)
-      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
-        wrap(RejectionReason.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
         List()
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
@@ -207,6 +205,8 @@ object KeyValueConsumption {
           RejectionReason.SubmitterCannotActViaParticipant(
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           ))
+      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
+        wrap(RejectionReason.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         //TODO: Replace with "Unknown reason" error code or something similar
         throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")

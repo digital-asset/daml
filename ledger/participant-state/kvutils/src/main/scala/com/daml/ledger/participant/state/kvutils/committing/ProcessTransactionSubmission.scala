@@ -426,14 +426,14 @@ private[kvutils] case class ProcessTransactionSubmission(
         builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(""))
       case RejectionReason.MaximumRecordTimeExceeded =>
         builder.setMaximumRecordTimeExceeded(MaximumRecordTimeExceeded.newBuilder.setDetails(""))
-      case RejectionReason.InvalidLedgerTime(reason) =>
-        builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
       case RejectionReason.PartyNotKnownOnLedger =>
         builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(""))
       case RejectionReason.SubmitterCannotActViaParticipant(details) =>
         builder.setSubmitterCannotActViaParticipant(
           SubmitterCannotActViaParticipant.newBuilder
             .setDetails(details))
+      case RejectionReason.InvalidLedgerTime(reason) =>
+        builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
     }
     builder
   }
