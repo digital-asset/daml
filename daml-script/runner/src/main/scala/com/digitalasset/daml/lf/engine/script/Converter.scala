@@ -221,27 +221,27 @@ object Converter {
     @tailrec
     def iter(v: SValue, commands: Seq[Command]): Either[String, Seq[Command]] = {
       v match {
-        case SVariant(_, "PureA", _) => Right(commands)
-        case SVariant(_, "Ap", v) =>
+        case SVariant(_, "PureA", _, _) => Right(commands)
+        case SVariant(_, "Ap", _, v) =>
           toApFields(compiledPackages, v) match {
-            case Right((SVariant(_, "Create", create), v)) =>
+            case Right((SVariant(_, "Create", _, create), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toCreateCommand(create) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
               }
-            case Right((SVariant(_, "Exercise", exercise), v)) =>
+            case Right((SVariant(_, "Exercise", _, exercise), v)) =>
               // This can’t be a for-comprehension since it trips up tailrec optimization.
               toExerciseCommand(exercise) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
               }
-            case Right((SVariant(_, "ExerciseByKey", exerciseByKey), v)) =>
+            case Right((SVariant(_, "ExerciseByKey", _, exerciseByKey), v)) =>
               toExerciseByKeyCommand(exerciseByKey) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
               }
-            case Right((SVariant(_, "CreateAndExercise", createAndExercise), v)) =>
+            case Right((SVariant(_, "CreateAndExercise", _, createAndExercise), v)) =>
               toCreateAndExerciseCommand(createAndExercise) match {
                 case Left(err) => Left(err)
                 case Right(r) => iter(v, commands ++ Seq(r))
@@ -282,14 +282,14 @@ object Converter {
       freeAp: SValue,
       eventResults: Seq[TreeEvent]): Either[String, SExpr] =
     freeAp match {
-      case SVariant(_, "PureA", v) => Right(SEValue(v))
-      case SVariant(_, "Ap", v) => {
+      case SVariant(_, "PureA", _, v) => Right(SEValue(v))
+      case SVariant(_, "Ap", _, v) => {
         for {
           apFields <- toApFields(compiledPackages, v)
           (fb, apfba) = apFields
           r <- fb match {
             // We already validate these records during toCommands so we don’t bother doing proper validation again here.
-            case SVariant(_, "Create", v) => {
+            case SVariant(_, "Create", _, v) => {
               val continue = v.asInstanceOf[SRecord].values.get(1)
               val contractIdString = eventResults.head.getCreated.contractId
               for {
@@ -297,21 +297,21 @@ object Converter {
                 contractId = SContractId(AbsoluteContractId(cid))
               } yield (SEApp(SEValue(continue), Array(SEValue(contractId))), eventResults.tail)
             }
-            case SVariant(_, "Exercise", v) => {
+            case SVariant(_, "Exercise", _, v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
               val exercised = eventResults.head.getExercised
               for {
                 translated <- translateExerciseResult(choiceType, translator, exercised)
               } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
             }
-            case SVariant(_, "ExerciseByKey", v) => {
+            case SVariant(_, "ExerciseByKey", _, v) => {
               val continue = v.asInstanceOf[SRecord].values.get(3)
               val exercised = eventResults.head.getExercised
               for {
                 translated <- translateExerciseResult(choiceType, translator, exercised)
               } yield (SEApp(SEValue(continue), Array(SEValue(translated))), eventResults.tail)
             }
-            case SVariant(_, "CreateAndExercise", v) => {
+            case SVariant(_, "CreateAndExercise", _, v) => {
               val continue = v.asInstanceOf[SRecord].values.get(2)
               // We get a create and an exercise event here. We only care about the exercise event so we skip the create.
               val exercised = eventResults(1).getExercised

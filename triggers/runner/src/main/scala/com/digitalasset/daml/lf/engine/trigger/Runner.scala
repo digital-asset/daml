@@ -164,7 +164,7 @@ object Trigger extends StrictLogging {
       Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
     Machine.stepToValue(machine)
     machine.toSValue match {
-      case SVariant(_, "AllInDar", _) => {
+      case SVariant(_, "AllInDar", _, _) => {
         val packages: Seq[(PackageId, Package)] = compiledPackages.packageIds
           .map(pkgId => (pkgId, compiledPackages.getPackage(pkgId).get))
           .toSeq
@@ -184,7 +184,7 @@ object Trigger extends StrictLogging {
         })
         Right(Filters(Some(InclusiveFilters(templateIds))))
       }
-      case SVariant(_, "RegisteredTemplates", v) =>
+      case SVariant(_, "RegisteredTemplates", _, v) =>
         converter.toRegisteredTemplates(v) match {
           case Right(tpls) => Right(Filters(Some(InclusiveFilters(tpls.map(toApiIdentifier(_))))))
           case Left(err) => Left(err)
