@@ -1738,7 +1738,7 @@ private class JdbcLedgerDao(
       ()
     }
 
-  override val transactionsWriter: TransactionWriter[LedgerOffset] =
+  override val transactionsWriter: TransactionWriter =
     TransactionWriter
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(

@@ -22,6 +22,7 @@ ALTER TABLE packages ALTER COLUMN ledger_offset TYPE bytea using null;
 ALTER TABLE package_entries ALTER COLUMN ledger_offset TYPE bytea using null;
 ALTER TABLE parameters ALTER COLUMN ledger_end TYPE bytea using null;
 ALTER TABLE participant_command_completions ALTER COLUMN completion_offset TYPE bytea using null;
+ALTER TABLE participant_events ALTER COLUMN event_offset TYPE bytea using null;
 ALTER TABLE parties ALTER COLUMN ledger_offset TYPE bytea using null;
 ALTER TABLE party_entries ALTER COLUMN ledger_offset TYPE bytea using null;
 

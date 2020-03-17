@@ -20,7 +20,7 @@ private[dao] object TransactionWriter extends TransactionWriter {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-        offset: Offset,
+      offset: Offset,
       transaction: Transaction,
   )(implicit connection: Connection): Unit = {
 

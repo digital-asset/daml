@@ -19,6 +19,7 @@ ALTER TABLE packages ALTER COLUMN ledger_offset TYPE BINARY;
 ALTER TABLE package_entries ALTER COLUMN ledger_offset TYPE BINARY;
 ALTER TABLE parameters ALTER COLUMN ledger_end TYPE BINARY;
 ALTER TABLE participant_command_completions ALTER COLUMN completion_offset TYPE BINARY;
+ALTER TABLE participant_events ALTER COLUMN event_offset TYPE BINARY;
 ALTER TABLE parties ALTER COLUMN ledger_offset TYPE BINARY;
 ALTER TABLE party_entries ALTER COLUMN ledger_offset TYPE BINARY;
 

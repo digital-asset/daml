@@ -208,5 +208,5 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   ): Future[PersistenceResponse] =
     timedFuture(Metrics.storePackageEntry, ledgerDao.storePackageEntry(offset, packages, entry))
 
-  override def transactionsWriter: TransactionWriter[LedgerOffset] = ledgerDao.transactionsWriter
+  override def transactionsWriter: TransactionWriter = ledgerDao.transactionsWriter
 }

@@ -230,7 +230,7 @@ trait LedgerWriteDao extends ReportsHealth {
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
 
-  def transactionsWriter: TransactionWriter[LedgerOffset]
+  def transactionsWriter: TransactionWriter
 
 }
 
