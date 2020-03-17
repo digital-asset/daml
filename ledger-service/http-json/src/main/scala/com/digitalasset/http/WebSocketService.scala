@@ -207,27 +207,25 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
-    new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+    : StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] =
+    new StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] {
 
       type Positive = Unit
+
+      private type CKR[+V] = domain.ContractKeyStreamRequest[None.type, V]
 
       import JsonProtocol._
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      override def parse(
-          decoder: DomainJsonDecoder,
-          jv: JsValue): Error \/ List[domain.EnrichedContractKey[LfV]] =
+      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ List[CKR[LfV]] =
         for {
           as <- SprayJson
-            .decode[List[domain.EnrichedContractKey[JsValue]]](jv)
+            .decode[List[CKR[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
         } yield bs
 
-      private def decodeWithFallback(
-          decoder: DomainJsonDecoder,
-          a: domain.EnrichedContractKey[JsValue]): domain.EnrichedContractKey[LfV] =
+      private def decodeWithFallback(decoder: DomainJsonDecoder, a: CKR[JsValue]): CKR[LfV] =
         decoder
           .decodeUnderlyingValuesToLf(a)
           .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
@@ -235,15 +233,17 @@ object WebSocketService {
       override def allowPhantonArchives: Boolean = false
 
       override def predicate(
-          request: List[domain.EnrichedContractKey[LfV]],
+          request: List[CKR[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: TypeLookup): StreamPredicate[Positive] = {
 
         import util.Collections._
 
         val (resolvedWithKey, unresolved) =
-          request.toSet.partitionMap { x: domain.EnrichedContractKey[LfV] =>
-            resolveTemplateId(x.templateId).map((_, x.key)).toLeftDisjunction(x.templateId)
+          request.toSet.partitionMap { x: CKR[LfV] =>
+            resolveTemplateId(x.ekey.templateId)
+              .map((_, x.ekey.key))
+              .toLeftDisjunction(x.ekey.templateId)
           }
 
         val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
