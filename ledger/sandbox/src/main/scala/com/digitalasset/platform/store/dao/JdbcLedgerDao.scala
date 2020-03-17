@@ -957,7 +957,7 @@ private class JdbcLedgerDao(
           Try {
             storeTransaction(offset, tx, txBytes)
 
-            transactions.storeTransaction(
+            transactionsWriter(
               applicationId = tx.applicationId,
               workflowId = tx.workflowId,
               transactionId = tx.transactionId,
@@ -1740,8 +1740,8 @@ private class JdbcLedgerDao(
       ()
     }
 
-  override val transactions: TransactionWriter[LedgerOffset] =
-    TransactionWriter(dbDispatcher)
+  override val transactionsWriter: TransactionWriter[LedgerOffset] =
+    TransactionWriter
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
