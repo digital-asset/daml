@@ -36,7 +36,6 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.{LedgerOffset}
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -59,7 +58,6 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
-      filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
   ) extends Message
@@ -93,13 +91,10 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat()
+        case QueriedACS(runner, acs, offset) =>
           val (killSwitch, trigger) = runner.runWithACS(
-            heartbeat,
             acs,
             offset,
-            filter,
             msgFlow = KillSwitches.single[TriggerMsg],
           )
           // TODO If we are stopped we will end up causing the future to complete which will trigger
@@ -133,20 +128,22 @@ object TriggerActor {
         LedgerClient
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
-            val trigger = Runner.getTrigger(compiledPackages, config.triggerId)
+            val trigger = Trigger.fromIdentifier(compiledPackages, config.triggerId) match {
+              case Left(err) => throw new RuntimeException(err)
+              case Right(trigger) => trigger
+            }
             val runner = new Runner(
+              compiledPackages,
+              trigger,
               client,
               config.ledgerConfig.timeProvider,
               appId,
-              compiledPackages,
-              trigger,
               config.party)
-            val filter = runner.getTriggerFilter()
             runner
-              .queryACS(filter)
+              .queryACS()
               .map({
                 case (acs, offset) =>
-                  QueriedACS(runner, filter, acs, offset)
+                  QueriedACS(runner, acs, offset)
               })
           }
       context.pipeToSelf(acsQuery) {
