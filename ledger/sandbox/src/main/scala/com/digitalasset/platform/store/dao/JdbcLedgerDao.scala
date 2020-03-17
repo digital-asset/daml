@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{
@@ -45,9 +45,11 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.digitalasset.platform.store.dao.events.TransactionWriter
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -946,11 +948,26 @@ private class JdbcLedgerDao(
 
     val txBytes = serializeTransaction(ledgerEntry.entry)
 
+    def splitOrThrow(id: EventId): NodeId =
+      split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
         case PersistenceEntry.Transaction(tx, globalDivulgence, divulgedContracts) =>
           Try {
             storeTransaction(offset, tx, txBytes)
+
+            transactions.storeTransaction(
+              applicationId = tx.applicationId,
+              workflowId = tx.workflowId,
+              transactionId = tx.transactionId,
+              commandId = tx.commandId,
+              submitter = tx.submittingParty,
+              roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
+              ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+              offset = offset,
+              transaction = tx.transaction.mapNodeId(splitOrThrow),
+            )
 
             // Ensure divulged contracts are known about before they are referred to.
             storeContractData(divulgedContracts)
@@ -1722,6 +1739,9 @@ private class JdbcLedgerDao(
       val _ = SQL_TRUNCATE_ALL_TABLES.execute()
       ()
     }
+
+  override val transactions: TransactionWriter[LedgerOffset] =
+    TransactionWriter(dbDispatcher)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
