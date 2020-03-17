@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService
 }
 import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
@@ -37,21 +37,24 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ): ResourceOwner[ReadWriteService] = {
-    val jdbcUrl = config.extra.jdbcUrl.getOrElse {
-      throw new IllegalStateException("No JDBC URL provided.")
+  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[ReadWriteService] =
+    new Owner(config, participantConfig)
+
+  class Owner(
+      config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig
+  )(implicit materializer: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[KeyValueParticipantState] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[KeyValueParticipantState] = {
+      val jdbcUrl = config.extra.jdbcUrl.getOrElse {
+        throw new IllegalStateException("No JDBC URL provided.")
+      }
+      new SqlLedgerReaderWriter.Owner(config.ledgerId, participantConfig.participantId, jdbcUrl)
+        .acquire()
+        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
-    for {
-      ledgerReadWriter <- SqlLedgerReaderWriter.owner(
-        config.ledgerId,
-        participantConfig.participantId,
-        jdbcUrl,
-        SqlLedgerReaderWriter.DefaultTimeProvider
-      )
-    } yield new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter)
   }
+
 }

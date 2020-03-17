@@ -35,12 +35,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 //noinspection DuplicatedCode
-abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
-    extends AsyncWordSpec
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
+    implicit testExecutionContext: ExecutionContext = ExecutionContext.global
+) extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
-
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
