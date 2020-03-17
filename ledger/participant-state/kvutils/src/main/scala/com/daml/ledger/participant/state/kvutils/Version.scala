@@ -70,7 +70,7 @@ object Version {
     *
     *   3: * Add an explicit deduplication time window to each submission. Backwards incompatible because
     *        it is unclear how to set a sensible default value when the submission time is unknown.
-    *      * Add submissionTime in DamlTransactionEntry and use this time instead ledgerTime to derive
+    *      * Add submissionTime in DamlTransactionEntry and use it instead of ledgerTime to derive
     *        contract ids.
     */
   val version: Long = 3
