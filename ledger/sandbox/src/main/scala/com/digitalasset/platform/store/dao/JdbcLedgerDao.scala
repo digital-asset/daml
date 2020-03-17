@@ -1072,6 +1072,7 @@ private class JdbcLedgerDao(
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
+      case _: InvalidLedgerTime => "InvalidLedgerTime"
     })
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
@@ -1082,6 +1083,7 @@ private class JdbcLedgerDao(
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
+      case "InvalidLedgerTime" => InvalidLedgerTime(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 
