@@ -957,8 +957,6 @@ private class JdbcLedgerDao(
           Try {
             storeTransaction(offset, tx, txBytes)
 
-            // TODO Run this directly from the indexer once we no longer
-            // TODO need to validate transactions on the index
             transactions.storeTransaction(
               applicationId = tx.applicationId,
               workflowId = tx.workflowId,
@@ -1727,7 +1725,7 @@ private class JdbcLedgerDao(
     }
 
   override val transactions: TransactionWriter[LedgerOffset] =
-    TransactionWriter.apply(dbDispatcher)
+    TransactionWriter(dbDispatcher)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
