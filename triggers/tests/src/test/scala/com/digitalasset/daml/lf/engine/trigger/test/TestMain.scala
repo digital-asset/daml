@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.auth.TokenHolder
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -41,6 +42,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -48,7 +50,7 @@ import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.daml.lf.engine.trigger.{Converter, Runner, TriggerMsg}
+import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
 
 case class Config(
     ledgerPort: Int,
@@ -135,21 +137,20 @@ class TestRunner(val config: Config) extends StrictLogging {
     // This ensures that the commands will only be executed afterwards.
     val acsPromise = Promise[Unit]()
 
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
-      runner = new Runner(client, applicationId, party, dar)
-      (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(triggerId)
-      converter = Converter(runner.compiledPackages, triggerIds)
-      filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
-      heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
-      (acs, offset) <- runner.queryACS(client, filter)
+      runner = Runner.fromDar(dar, triggerId, client, config.timeProviderType, applicationId, party)
+      filter = runner.getTriggerFilter()
+      heartbeat = runner.getTriggerHeartbeat()
+      (acs, offset) <- runner.queryACS(filter)
       _ = acsPromise.success(())
       finalState <- runner
         .runWithACS(
-          converter,
-          triggerExpr,
-          triggerTy,
-          config.timeProviderType,
           heartbeat,
           acs,
           offset,
