@@ -25,9 +25,11 @@ import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -57,9 +59,6 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
-      converter: Converter,
-      triggerExpr: Expr,
-      triggerTy: TypeConApp,
       filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
@@ -94,13 +93,9 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
+        case QueriedACS(runner, filter, acs, offset) =>
+          val heartbeat = runner.getTriggerHeartbeat()
           val (killSwitch, trigger) = runner.runWithACS(
-            converter,
-            triggerExpr,
-            triggerTy,
-            config.ledgerConfig.timeProvider,
             heartbeat,
             acs,
             offset,
@@ -129,19 +124,29 @@ object TriggerActor {
               Behaviors.same
           }
 
+      val darMap = config.dar.all.toMap
+      val compiler = Compiler(darMap)
+      val compiledPackages =
+        PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+
       val acsQuery =
         LedgerClient
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
-            val runner = new Runner(client, appId, config.party, config.dar)
-            val (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(config.triggerId)
-            val converter = Converter(runner.compiledPackages, triggerIds)
-            val filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
+            val trigger = Runner.getTrigger(compiledPackages, config.triggerId)
+            val runner = new Runner(
+              client,
+              config.ledgerConfig.timeProvider,
+              appId,
+              compiledPackages,
+              trigger,
+              config.party)
+            val filter = runner.getTriggerFilter()
             runner
-              .queryACS(client, filter)
+              .queryACS(filter)
               .map({
                 case (acs, offset) =>
-                  QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset)
+                  QueriedACS(runner, filter, acs, offset)
               })
           }
       context.pipeToSelf(acsQuery) {
