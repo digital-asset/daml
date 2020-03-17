@@ -57,17 +57,27 @@ trait ReadService extends ReportsHealth {
     *   the [[Update.TransactionAccepted]].
     *
     * - *causal monotonicity*: given a [[Update.TransactionAccepted]] with an associated
-    *   record time `rt_tx`, it holds that `rt_tx >= rt_c` for all `c`, where `c` is a
-    *   contract used by the transaction and `rt_c` the record time of the
+    *   ledger time `lt_tx`, it holds that `lt_tx >= lt_c` for all `c`, where `c` is a
+    *   contract used by the transaction and `lt_c` the ledger time of the
     *   [[Update.TransactionAccepted]] that created the contract.
-    *   Note that the record time of unrelated updates is not necessarily monotonically
+    *   The ledger time of a transaction is specified in the corresponding [[TransactionMeta]]
+    *   meta-data.
+    *   Note that the ledger time of unrelated updates is not necessarily monotonically
     *   increasing.
     *
-    * - *no duplicate transaction acceptance*: there are no two separate
-    *   [[Update.TransactionAccepted]] updates with associated [[SubmitterInfo]]
-    *   records that agree on the `submitter`, `applicationId` and
-    *   `commandId` fields.  This implies that transaction submissions must be
-    *   deduplicated w.r.t. the `(submitter, applicationId, commandId)` tuples.
+    * - *time skew*: given a [[Update.TransactionAccepted]] with an associated
+    *   ledger time `lt_tx` and a record time `rt_tx`, it holds that
+    *   `rt_TX - minSkew <= lt_TX <= rt_TX + maxSkew`, where `minSkew` and `maxSkew`
+    *   are parameters specified in the ledger [[TimeModel]].
+    *
+    * - *command deduplication*: if there is a [[Update.TransactionAccepted]] with
+    *   an associated [[SubmitterInfo]] `info1`, then for every later
+    *   transaction with [[SubmitterInfo]] `info2` that agrees with
+    *   `info1` on the `submitter` and `commandId` fields and
+    *   was submitted before `info1.deduplicateUntil`,
+    *   a transaction may be rejected without a corresponding update being issued.
+    *   I.e., transactions may be deduplicated on the `(submitter, commandId)` tuple,
+    *   but only until the time specified in [[SubmitterInfo.deduplicateUntil]].
     *
     *   TODO (SM): we would like to weaken this requirement to allow multiple
     *   [[Update.TransactionAccepted]] updates provided
@@ -79,17 +89,9 @@ trait ReadService extends ReportsHealth {
     * - *rejection finality*: if there is a [[Update.CommandRejected]] update
     *   with [[SubmitterInfo]] `info`, then there is no later
     *   [[Update.TransactionAccepted]] with the same associated [[SubmitterInfo]]
-    *   `info`. Note that in contrast to *no duplicate transaction acceptance*
+    *   `info`. Note that in contrast to *command deduplication*
     *   this only holds wrt the full [[SubmitterInfo]], as a resubmission of a
-    *   transaction with a higher `maximumRecordTime` must be allowed.
-    *
-    * - *acceptance finality*: if there is a [[Update.TransactionAccepted]] with
-    *   an associated [[SubmitterInfo]] `info1`, then for every later
-    *   transaction with [[SubmitterInfo]] `info2` that agrees with
-    *   `info1` on the `submitter`, `applicationId`, and `commandId` fields,
-    *   a transaction will be rejected without a corresponding update being issued.
-    *   It is done so to avert potential DOS attacks and avoid ambiguity as to the
-    *   transaction status in the index database.
+    *   transaction with a higher `deduplicateUntil` must be allowed.
     *
     * The second class of properties relates multiple calls to
     * [[stateUpdates]]s, and thereby provides constraints on which [[Update]]s
