@@ -203,7 +203,7 @@ the generated TypeScript will consist of a type declaration and the definition o
 
    type Color = | 'Red' | 'Blue' | 'Yellow'
 
-   const Color : {readonly Red: Color; readonly Blue: Color; readonly Yellow: Color} = {
+   const Color = {
      Red: 'Red',
      Blue: 'Blue',
      Yellow: 'Yellow',
