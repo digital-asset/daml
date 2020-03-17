@@ -63,9 +63,7 @@ trait LedgerStateOperations[LogResult] {
 }
 
 /**
-  * Provides default implementations for non-batching read and write operations based on batched operations on the
-  * backing store.
-  * You should extend this class in case your backing store supports batched operations.
+  * Convenience class for implementing read and write operations on a backing store that supports batched operations.
   */
 abstract class BatchingLedgerStateOperations[LogResult](implicit executionContext: ExecutionContext)
     extends LedgerStateOperations[LogResult] {
@@ -77,9 +75,8 @@ abstract class BatchingLedgerStateOperations[LogResult](implicit executionContex
 }
 
 /**
-  * Provides default implementations for batching read and write operations based on non-batched operations on the
-  * backing store.
-  * You should extend this class in case your backing store does not support batched operations.
+  * Convenience class for implementing read and write operations on a backing store that '''does not''' support batched
+  * operations.
   */
 abstract class NonBatchingLedgerStateOperations[LogResult](
     implicit executionContext: ExecutionContext
