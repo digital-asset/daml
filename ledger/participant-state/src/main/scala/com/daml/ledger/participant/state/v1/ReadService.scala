@@ -42,7 +42,7 @@ trait ReadService extends ReportsHealth {
     *
     * 1. properties about the sequence of [[(Offset, Update)]] tuples
     *    in a stream read from the beginning, and
-    * 2. properties relating the streams obtained from two separate alls
+    * 2. properties relating the streams obtained from two separate calls
     *   to [[ReadService.stateUpdates]].
     *
     * The first class of properties are invariants of a single stream:
