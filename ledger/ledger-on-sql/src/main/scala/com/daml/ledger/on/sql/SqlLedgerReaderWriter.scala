@@ -50,7 +50,6 @@ final class SqlLedgerReaderWriter(
     with LedgerReader {
 
   private val committer = new ValidatingCommitter[Index](
-    participantId,
     () => timeProvider.getCurrentTime,
     SubmissionValidator.create(SqlLedgerStateAccess),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
@@ -83,7 +82,7 @@ final class SqlLedgerReaderWriter(
       .map { case (_, entry) => entry }
 
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+    committer.commit(correlationId, envelope, participantId)
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
