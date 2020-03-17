@@ -170,16 +170,17 @@ object Speedy {
                   s"definition $ref not found even after caller provided new set of packages",
                 )
               else
-            throw SpeedyHungry(
-              SResultNeedPackage(
-                ref.packageId, { packages =>
-                  // Just in case the packages are not updated properly by the caller
-                  assert(compiledPackages.getPackage(ref.packageId).isDefined)
-                  this.compiledPackages = packages
-                  this.ctrl = lookupVal(eval)
-                }
-              ),
-            )
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    ref.packageId, { packages =>
+                      // Just in case the packages are not updated properly by the caller
+                      assert(compiledPackages.getPackage(ref.packageId).isDefined)
+                      this.compiledPackages = packages
+                      this.ctrl = lookupVal(eval)
+                    }
+                  ),
+                )
+          }
       }
     }
 
