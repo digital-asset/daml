@@ -37,7 +37,6 @@ final class InMemoryLedgerReaderWriter(
     with LedgerReader {
 
   private val committer = new ValidatingCommitter(
-    participantId,
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .create(new InMemoryLedgerStateAccess(state), () => sequentialLogEntryId.next()),
@@ -48,7 +47,7 @@ final class InMemoryLedgerReaderWriter(
     Healthy
 
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+    committer.commit(correlationId, envelope, participantId)
 
   override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher

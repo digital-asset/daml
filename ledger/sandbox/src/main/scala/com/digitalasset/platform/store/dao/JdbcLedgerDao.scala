@@ -957,7 +957,7 @@ private class JdbcLedgerDao(
           Try {
             storeTransaction(offset, tx, txBytes)
 
-            transactions.storeTransaction(
+            transactionsWriter(
               applicationId = tx.applicationId,
               workflowId = tx.workflowId,
               transactionId = tx.transactionId,
@@ -1072,6 +1072,7 @@ private class JdbcLedgerDao(
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
+      case _: InvalidLedgerTime => "InvalidLedgerTime"
     })
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
@@ -1082,6 +1083,7 @@ private class JdbcLedgerDao(
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
+      case "InvalidLedgerTime" => InvalidLedgerTime(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 
@@ -1740,8 +1742,8 @@ private class JdbcLedgerDao(
       ()
     }
 
-  override val transactions: TransactionWriter[LedgerOffset] =
-    TransactionWriter(dbDispatcher)
+  override val transactionsWriter: TransactionWriter[LedgerOffset] =
+    TransactionWriter
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

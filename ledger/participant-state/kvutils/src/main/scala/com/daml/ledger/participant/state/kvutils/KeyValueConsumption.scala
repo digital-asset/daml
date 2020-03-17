@@ -205,6 +205,8 @@ object KeyValueConsumption {
           RejectionReason.SubmitterCannotActViaParticipant(
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           ))
+      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
+        wrap(RejectionReason.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         //TODO: Replace with "Unknown reason" error code or something similar
         throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")

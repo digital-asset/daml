@@ -41,7 +41,6 @@ import scala.concurrent.{ExecutionContext, Future}
   * @tparam LogResult  type of the offset used for a log entry
   */
 class ValidatingCommitter[LogResult](
-    participantId: ParticipantId,
     now: () => Instant,
     validator: SubmissionValidator[LogResult],
     postCommit: LogResult => Unit,
@@ -49,6 +48,7 @@ class ValidatingCommitter[LogResult](
   def commit(
       correlationId: String,
       envelope: Bytes,
+      submittingParticipantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[SubmissionResult] =
     newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
       validator
@@ -56,7 +56,7 @@ class ValidatingCommitter[LogResult](
           envelope,
           correlationId,
           Timestamp.assertFromInstant(now()),
-          participantId,
+          submittingParticipantId,
         )
         .map {
           case Right(value) =>

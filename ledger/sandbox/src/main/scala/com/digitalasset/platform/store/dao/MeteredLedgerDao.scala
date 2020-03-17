@@ -225,5 +225,5 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
       Metrics.storePackageEntry,
       ledgerDao.storePackageEntry(offset, newLedgerEnd, externalOffset, packages, entry))
 
-  override def transactions: TransactionWriter[LedgerOffset] = ledgerDao.transactions
+  override def transactionsWriter: TransactionWriter[LedgerOffset] = ledgerDao.transactionsWriter
 }

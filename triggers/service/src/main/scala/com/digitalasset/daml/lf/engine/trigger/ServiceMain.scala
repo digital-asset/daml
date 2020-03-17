@@ -25,16 +25,17 @@ import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.{LedgerOffset}
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -57,10 +58,6 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
-      converter: Converter,
-      triggerExpr: Expr,
-      triggerTy: TypeConApp,
-      filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
   ) extends Message
@@ -94,17 +91,10 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
+        case QueriedACS(runner, acs, offset) =>
           val (killSwitch, trigger) = runner.runWithACS(
-            converter,
-            triggerExpr,
-            triggerTy,
-            config.ledgerConfig.timeProvider,
-            heartbeat,
             acs,
             offset,
-            filter,
             msgFlow = KillSwitches.single[TriggerMsg],
           )
           // TODO If we are stopped we will end up causing the future to complete which will trigger
@@ -129,19 +119,31 @@ object TriggerActor {
               Behaviors.same
           }
 
+      val darMap = config.dar.all.toMap
+      val compiler = Compiler(darMap)
+      val compiledPackages =
+        PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+
       val acsQuery =
         LedgerClient
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
-            val runner = new Runner(client, appId, config.party, config.dar)
-            val (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(config.triggerId)
-            val converter = Converter(runner.compiledPackages, triggerIds)
-            val filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
+            val trigger = Trigger.fromIdentifier(compiledPackages, config.triggerId) match {
+              case Left(err) => throw new RuntimeException(err)
+              case Right(trigger) => trigger
+            }
+            val runner = new Runner(
+              compiledPackages,
+              trigger,
+              client,
+              config.ledgerConfig.timeProvider,
+              appId,
+              config.party)
             runner
-              .queryACS(client, filter)
+              .queryACS()
               .map({
                 case (acs, offset) =>
-                  QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset)
+                  QueriedACS(runner, acs, offset)
               })
           }
       context.pipeToSelf(acsQuery) {
