@@ -160,9 +160,9 @@ object Speedy {
 
         case None =>
           val ref = eval.ref
-          kont.add(KCacheVal(eval, Nil))
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
+              kont.add(KCacheVal(eval, Nil))
               CtrlExpr(body)
             case None =>
               if (compiledPackages.getPackage(ref.packageId).isDefined)
@@ -173,9 +173,9 @@ object Speedy {
                 throw SpeedyHungry(
                   SResultNeedPackage(
                     ref.packageId, { packages =>
-                      // Just in case the packages are not updated properly by the caller
-                      assert(compiledPackages.getPackage(ref.packageId).isDefined)
                       this.compiledPackages = packages
+                      // To avoid infinite loop in case the packages are not updated properly by the caller
+                      assert(compiledPackages.getPackage(ref.packageId).isDefined)
                       this.ctrl = lookupVal(eval)
                     }
                   ),

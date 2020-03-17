@@ -210,6 +210,24 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
             ),
         ),
       ).right.get
+    val pkgs3 = PureCompiledPackages(
+      Map(
+        dummyPkg ->
+          Package(
+            List(
+              Module(
+                modName,
+                Map.empty,
+                LanguageVersion.default,
+                FeatureFlags.default,
+              ),
+            ),
+            Set.empty[PackageId],
+            None,
+          ),
+      ),
+    ).right.get
+
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
@@ -253,7 +271,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
           ref.packageId shouldBe pkgId
           result = SResultContinue
           try {
-            cb(pkgs1)
+            cb(pkgs3)
             sys.error(s"expected crash when definition not provided")
           } catch {
             case _: SErrorCrash => ()
