@@ -157,7 +157,10 @@ dev_env_tool(
     nix_label = "@openssl_nix",
     nix_paths = ["bin/openssl"],
     tools = ["openssl"],
-    win_include = ["usr/bin"],
+    win_include = [
+        "usr/bin",
+        "usr/ssl",
+    ],
     win_paths = ["usr/bin/openssl.exe"],
     win_tool = "msys2",
 )
