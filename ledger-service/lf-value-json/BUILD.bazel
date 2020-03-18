@@ -30,7 +30,7 @@ da_scala_library(
 
 daml_compile(
     name = "JsonEncodingTest",
-    main_src = "src/test/daml/JsonEncodingTest.daml",
+    srcs = ["src/test/daml/JsonEncodingTest.daml"],
 )
 
 da_scala_test(

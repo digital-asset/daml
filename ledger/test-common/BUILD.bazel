@@ -38,7 +38,7 @@ da_scala_library(
 
 daml_compile(
     name = "SemanticTests",
-    main_src = "src/main/daml/SemanticTests.daml",
+    srcs = ["src/main/daml/SemanticTests.daml"],
     target = lf_stable_version,
     visibility = ["//visibility:public"],
 )
@@ -76,8 +76,8 @@ lf_test_versions = [
             srcs = [
                 "src/main/daml/Iou.daml",
                 "src/main/daml/IouTrade.daml",
+                "src/main/daml/Test.daml",
             ],
-            main_src = "src/main/daml/Test.daml",
             target = target,
             visibility = ["//visibility:public"],
         ),

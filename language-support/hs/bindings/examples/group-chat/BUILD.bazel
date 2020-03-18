@@ -8,7 +8,6 @@ load("@os_info//:os_info.bzl", "is_windows")
 daml_compile(
     name = "GroupChat",
     srcs = glob(["daml/GroupChat.daml"]),
-    main_src = "daml/GroupChat.daml",
 )
 
 daml_test(

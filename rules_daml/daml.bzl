@@ -1,93 +1,282 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@build_environment//:configuration.bzl", "ghc_version")
 
-daml_provider = provider(doc = "DAML provider", fields = {
-    "dalf": "The DAML-LF file.",
-    "dar": "The packaged archive.",
-})
+_damlc = attr.label(
+    allow_single_file = True,
+    default = Label("//compiler/damlc"),
+    executable = True,
+    cfg = "host",
+    doc = "The DAML compiler.",
+)
 
-def _daml_impl_compile_dalf(ctx):
-    # Call damlc compile
-    compile_args = ctx.actions.args()
-    compile_args.add("compile")
-    compile_args.add(ctx.file.main_src)
-    compile_args.add("--output", ctx.outputs.dalf.path)
-    if ctx.attr.target:
-        compile_args.add("--target", ctx.attr.target)
-    ctx.actions.run(
-        inputs = depset([ctx.file.main_src] + ctx.files.srcs),
-        outputs = [ctx.outputs.dalf],
-        arguments = [compile_args],
-        progress_message = "Compiling DAML into DAML-LF archive %s" % ctx.outputs.dalf.short_path,
-        executable = ctx.executable.damlc,
+def _daml_configure_impl(ctx):
+    project_name = ctx.attr.project_name
+    project_version = ctx.attr.project_version
+    daml_yaml = ctx.outputs.daml_yaml
+    target = ctx.attr.target
+    ctx.actions.write(
+        output = daml_yaml,
+        content = """
+            sdk-version: 0.0.0
+            name: {name}
+            version: {version}
+            source: .
+            dependencies: []
+            build-options: [{target}]
+        """.format(
+            name = project_name,
+            version = project_version,
+            target = "--target=" + target if (target) else "",
+        ),
     )
 
-def _daml_impl_package_dar(ctx):
-    # Call damlc package
-    package_args = ctx.actions.args()
-    package_args.add("package")
-    package_args.add(ctx.file.main_src)
-    package_args.add(ctx.attr.name)
-    if ctx.attr.target:
-        package_args.add("--target", ctx.attr.target)
-    package_args.add("--output")
-    package_args.add(ctx.outputs.dar.path)
-    ctx.actions.run(
-        inputs = [ctx.file.main_src] + ctx.files.srcs,
-        outputs = [ctx.outputs.dar],
-        arguments = [package_args],
-        progress_message = "Creating DAR package %s" % ctx.outputs.dar.basename,
-        executable = ctx.executable.damlc,
-    )
-
-def _daml_compile_impl(ctx):
-    _daml_impl_compile_dalf(ctx)
-    _daml_impl_package_dar(ctx)
-
-    # DAML provider
-    daml = daml_provider(
-        dalf = ctx.outputs.dalf,
-        dar = ctx.outputs.dar,
-    )
-    return [daml]
-
-def _daml_compile_outputs_impl(name):
-    patterns = {
-        "dalf": "{name}.dalf",
-        "dar": "{name}.dar",
-    }
-    return {
-        k: v.format(name = name)
-        for (k, v) in patterns.items()
-    }
-
-daml_compile = rule(
-    implementation = _daml_compile_impl,
+_daml_configure = rule(
+    implementation = _daml_configure_impl,
     attrs = {
-        "main_src": attr.label(
-            allow_single_file = [".daml"],
+        "project_name": attr.string(
             mandatory = True,
-            doc = "The main DAML file that will be passed to the compiler.",
+            doc = "Name of the DAML project.",
         ),
-        "srcs": attr.label_list(
-            allow_files = [".daml"],
-            default = [],
-            doc = "Other DAML files that compilation depends on.",
+        "project_version": attr.string(
+            mandatory = True,
+            doc = "Version of the DAML project.",
         ),
-        "target": attr.string(doc = "DAML-LF version to output"),
-        "damlc": attr.label(
-            executable = True,
-            cfg = "host",
-            allow_files = True,
-            default = Label("//compiler/damlc"),
+        "daml_yaml": attr.output(
+            mandatory = True,
+            doc = "The generated daml.yaml config file.",
+        ),
+        "target": attr.string(
+            doc = "DAML-LF version to output.",
         ),
     },
-    executable = False,
-    outputs = _daml_compile_outputs_impl,
 )
+
+def file_of_target(k):
+    [file] = k.files.to_list()
+    return file
+
+def make_cp_command(src, dest):
+    return "mkdir -p $(dirname {dest}); cp -f {src} {dest}".format(
+        src = src,
+        dest = dest,
+    )
+
+def _daml_build_impl(ctx):
+    name = ctx.label.name
+    daml_yaml = ctx.file.daml_yaml
+    damls = ctx.files.damls
+    dar_dict = ctx.attr.dar_dict
+    damlc = ctx.file._damlc
+    input_dars = [file_of_target(k) for k in dar_dict.keys()]
+    output_dar = ctx.outputs.dar
+    ctx.actions.run_shell(
+        tools = [damlc],
+        inputs = [daml_yaml] + damls + input_dars,
+        outputs = [output_dar],
+        progress_message = "Building DAML project %s" % name,
+        command = """
+            set -eou pipefail
+            tmpdir=$(mktemp -d)
+            trap "rm -rf $tmpdir" EXIT
+            cp -f {config} $tmpdir/daml.yaml
+            {cp_damls}
+            {cp_dars}
+            {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
+        """.format(
+            config = daml_yaml.path,
+            cp_damls = "\n".join([
+                make_cp_command(
+                    src = daml.path,
+                    dest = "$tmpdir/" + daml.path,
+                )
+                for daml in damls
+            ]),
+            cp_dars = "\n".join([
+                make_cp_command(
+                    src = file_of_target(k).path,
+                    dest = "$tmpdir/" + v,
+                )
+                for k, v in dar_dict.items()
+            ]),
+            damlc = damlc.path,
+            output_dar = output_dar.path,
+        ),
+    )
+
+_daml_build = rule(
+    implementation = _daml_build_impl,
+    attrs = {
+        "daml_yaml": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+            doc = "The daml.yaml config file.",
+        ),
+        "damls": attr.label_list(
+            allow_files = [".daml"],
+            mandatory = True,
+            doc = "DAML files in this DAML project.",
+        ),
+        "dar_dict": attr.label_keyed_string_dict(
+            mandatory = True,
+            doc = "Other DAML projects referenced by this DAML project.",
+        ),
+        "dar": attr.output(
+            mandatory = True,
+            doc = "The generated DAR file.",
+        ),
+        "_damlc": _damlc,
+    },
+)
+
+def _extract_main_dalf_impl(ctx):
+    project_name = ctx.attr.project_name
+    project_version = ctx.attr.project_version
+    input_dar = ctx.file.dar
+    output_dalf = ctx.outputs.dalf
+    ctx.actions.run_shell(
+        inputs = [input_dar],
+        outputs = [output_dalf],
+        progress_message = "Extract DALF from DAR (%s)" % project_name,
+        command = """
+            set -eou pipefail
+            unzip -q {input_dar}
+            main_dalf=$(find . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
+            cp $main_dalf {output_dalf}
+        """.format(
+            project_name = project_name,
+            project_version = project_version,
+            input_dar = input_dar.path,
+            output_dalf = output_dalf.path,
+        ),
+    )
+
+_extract_main_dalf = rule(
+    implementation = _extract_main_dalf_impl,
+    attrs = {
+        "project_name": attr.string(
+            mandatory = True,
+            doc = "Name of the DAML project.",
+        ),
+        "project_version": attr.string(
+            mandatory = True,
+            doc = "Version of the DAML project.",
+        ),
+        "dar": attr.label(
+            allow_single_file = [".dar"],
+            mandatory = True,
+            doc = "The DAR from which the DALF will be extracted.",
+        ),
+        "dalf": attr.output(
+            mandatory = True,
+            doc = "The extracted DALF.",
+        ),
+        "_damlc": _damlc,
+    },
+)
+
+def _daml_validate_test_impl(ctx):
+    name = ctx.label.name
+    dar = ctx.file.dar
+    script = ctx.actions.declare_file(name + ".sh")
+    damlc = ctx.file._damlc
+    script_content = """
+      set -eou pipefail
+      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      DAR=$(rlocation $TEST_WORKSPACE/{dar})
+      $DAMLC validate-dar $DAR
+    """.format(
+        damlc = damlc.short_path,
+        dar = dar.short_path,
+    )
+    ctx.actions.write(
+        output = script,
+        content = script_content,
+    )
+    runfiles = ctx.runfiles(files = [dar, damlc])
+    return [DefaultInfo(executable = script, runfiles = runfiles)]
+
+_daml_validate_test = rule(
+    implementation = _daml_validate_test_impl,
+    attrs = {
+        "dar": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+            doc = "The DAR to validate.",
+        ),
+        "_damlc": _damlc,
+    },
+    test = True,
+)
+
+_default_project_version = "1.0.0"
+
+def daml_compile(
+        name,
+        srcs,
+        version = _default_project_version,
+        target = None,
+        **kwargs):
+    "Build a DAML project, with a generated daml.yaml."
+    daml_yaml = name + ".yaml"
+    _daml_configure(
+        name = name + ".configure",
+        project_name = name,
+        project_version = version,
+        daml_yaml = daml_yaml,
+        target = target,
+        **kwargs
+    )
+    _daml_build(
+        name = name + ".build",
+        daml_yaml = daml_yaml,
+        damls = srcs,
+        dar_dict = {},
+        dar = name + ".dar",
+        **kwargs
+    )
+
+def daml_compile_with_dalf(
+        name,
+        version = _default_project_version,
+        **kwargs):
+    "Build a DAML project, with a generated daml.yaml, and extract the main DALF."
+    daml_compile(
+        name = name,
+        version = version,
+        **kwargs
+    )
+    _extract_main_dalf(
+        name = name + ".extract",
+        project_name = name,
+        project_version = version,
+        dar = name + ".dar",
+        dalf = name + ".dalf",
+    )
+
+def daml_build_test(
+        name,
+        project_dir,
+        daml_config_basename = "daml.yaml",
+        daml_subdir_basename = "daml",
+        dar_dict = {},
+        **kwargs):
+    "Build a DAML project and validate the resulting .dar file."
+    daml_yaml = project_dir + "/" + daml_config_basename
+    damls = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
+    _daml_build(
+        name = name,
+        daml_yaml = daml_yaml,
+        damls = damls,
+        dar_dict = dar_dict,
+        dar = name + ".dar",
+        **kwargs
+    )
+    _daml_validate_test(
+        name = name + ".test",
+        dar = name + ".dar",
+    )
 
 def _daml_test_impl(ctx):
     script = """

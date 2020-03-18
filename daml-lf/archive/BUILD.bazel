@@ -14,6 +14,7 @@ load(
 load(
     "//rules_daml:daml.bzl",
     "daml_compile",
+    "daml_compile_with_dalf",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -201,9 +202,9 @@ da_scala_test_suite(
     ],
 )
 
-daml_compile(
+daml_compile_with_dalf(
     name = "DarReaderTest",
-    main_src = "src/test/daml/DarReaderTest.daml",
+    srcs = ["src/test/daml/DarReaderTest.daml"],
 )
 
 # An ad-hoc tool for testing, benchmarking and profiling package decoding performance in isolation.
