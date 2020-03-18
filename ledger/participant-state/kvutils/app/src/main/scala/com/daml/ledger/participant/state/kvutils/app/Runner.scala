@@ -66,7 +66,7 @@ class Runner[T <: ReadWriteService, Extra](
                 authService = factory.authService(config),
                 factory.apiServerMetricRegistry(participantConfig, config),
                 factory.timeServiceBackend(config),
-                config.seeding,
+                Some(config.seeding),
               ).acquire()
             } yield ()
           })
