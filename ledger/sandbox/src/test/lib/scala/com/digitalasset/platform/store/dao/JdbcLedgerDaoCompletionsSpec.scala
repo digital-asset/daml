@@ -9,12 +9,13 @@ import java.util.UUID
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.ApplicationId
+import com.digitalasset.ledger.{ApplicationId, CommandId}
 import com.digitalasset.ledger.api.domain.RejectionReason
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
+import com.digitalasset.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.digitalasset.platform.store.entries.LedgerEntry
+import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
 import org.scalatest.{AsyncFlatSpec, Matchers, OptionValues}
 
 import scala.concurrent.Future
@@ -43,24 +44,6 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
       completion.status.value.code shouldBe io.grpc.Status.Code.OK.value()
     }
   }
-
-  private val applicationId: ApplicationId = "JdbcLedgerDaoCompletionsSpec"
-  private val party: Party = "JdbcLedgerDaoCompletionsSpec"
-  private val parties: Set[Party] = Set(party)
-
-  private def offsetOf(response: CompletionStreamResponse): Offset =
-    ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
-
-  private def rejectWith(reason: RejectionReason): PersistenceEntry.Rejection =
-    PersistenceEntry.Rejection(
-      LedgerEntry.Rejection(
-        recordTime = Instant.now,
-        commandId = UUID.randomUUID().toString,
-        applicationId = applicationId,
-        submitter = party,
-        rejectionReason = reason,
-      )
-    )
 
   it should "return the expected completion for a rejection" in {
     val offset = nextOffset()
@@ -144,5 +127,28 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
       succeed
     }
   }
+
+}
+
+private[dao] object JdbcLedgerDaoCompletionsSpec {
+
+  private val applicationId: ApplicationId =
+    "JdbcLedgerDaoCompletionsSpec".asInstanceOf[ApplicationId]
+  private val party: Party = "JdbcLedgerDaoCompletionsSpec".asInstanceOf[Party]
+  private val parties: Set[Party] = Set(party)
+
+  private def offsetOf(response: CompletionStreamResponse): Offset =
+    ApiOffset.assertFromString(response.checkpoint.get.offset.get.value.absolute.get)
+
+  private def rejectWith(reason: RejectionReason): PersistenceEntry.Rejection =
+    PersistenceEntry.Rejection(
+      LedgerEntry.Rejection(
+        recordTime = Instant.now,
+        commandId = UUID.randomUUID().toString.asInstanceOf[CommandId],
+        applicationId = applicationId,
+        submitter = party,
+        rejectionReason = reason,
+      )
+    )
 
 }
