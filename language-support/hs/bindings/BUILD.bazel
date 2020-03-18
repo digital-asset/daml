@@ -36,13 +36,11 @@ da_haskell_library(
 daml_compile(
     name = "for-tests",
     srcs = glob(["test/daml/for-tests/*.daml"]),
-    main_src = "test/daml/for-tests/Main.daml",
 )
 
 daml_compile(
     name = "for-upload",
-    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
-    main_src = "test/daml/for-upload/ExtraModule.daml",
+    srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
 da_haskell_test(

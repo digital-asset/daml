@@ -31,7 +31,7 @@ load(
 
 daml_compile(
     name = "PackageManagementTest",
-    main_src = "src/main/daml/PackageManagementTest.daml",
+    srcs = ["src/main/daml/PackageManagementTest.daml"],
     target = lf_stable_version,
 )
 
@@ -106,7 +106,7 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
-        ":PackageManagementTest",
+        ":PackageManagementTest.dar",
         "//ledger/test-common:dar-files",
     ],
     tags = [

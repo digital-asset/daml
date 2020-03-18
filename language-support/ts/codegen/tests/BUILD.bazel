@@ -7,12 +7,12 @@ load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This rule builds a dar from the daml sources under the 'daml'
-# directory. It is referenced from the 'build-and-lint' test target that
+# directory. It is referenced from the 'build-and-lint-test' target that
 # follows.
 daml_compile(
-    name = "build-and-lint-1.0.0",
+    name = "build-and-lint",
     srcs = glob(["daml/**/*.daml"]),
-    main_src = "daml/Main.daml",
+    version = "1.0.0",
 )
 
 # build-and-lint
@@ -70,7 +70,7 @@ daml_compile(
 #  - Gracefully tears down the processes it started when its work is done.
 # All in all, a pretty slick bit of work!
 sh_test(
-    name = "build-and-lint",
+    name = "build-and-lint-test",
     size = "large",
     srcs = ["build-and-lint.sh"],
     args = [
@@ -79,7 +79,7 @@ sh_test(
         "$(location //:daml2ts)",
         "$(location //ledger/sandbox:sandbox-binary_deploy.jar)",
         "$(location //ledger-service/http-json:http-json-binary_deploy.jar)",
-        "$(location :build-and-lint-1.0.0.dar)",
+        "$(location :build-and-lint.dar)",
         "$(location ts/package.json)",
         "$(location //language-support/ts/daml-types:npm_package)",
         "$(location //language-support/ts/daml-ledger:npm_package)",
@@ -91,7 +91,7 @@ sh_test(
         "//:daml2ts",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//ledger-service/http-json:http-json-binary_deploy.jar",
-        ":build-and-lint-1.0.0.dar",
+        ":build-and-lint.dar",
         "//language-support/ts/daml-types:npm_package",
         "//language-support/ts/daml-ledger:npm_package",
     ] + glob(

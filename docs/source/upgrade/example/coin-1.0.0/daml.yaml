@@ -10,5 +10,5 @@ dependencies:
   - daml-stdlib
 # END
 parties: [Alice, Bob]
-source: daml
+source: .
 build-options: [--target=1.8]
