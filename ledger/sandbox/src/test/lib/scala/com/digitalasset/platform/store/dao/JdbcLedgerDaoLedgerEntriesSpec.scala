@@ -177,7 +177,7 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
     val N = 1000
     val M = 10
 
-    def runSequentially(n: Int, f: Int => Future[Unit]) =
+    def runSequentially[U](n: Int, f: Int => Future[U]): Future[akka.Done] =
       Source(1 to n).mapAsync(1)(f).runWith(Sink.ignore)
 
     // Perform the following operations:

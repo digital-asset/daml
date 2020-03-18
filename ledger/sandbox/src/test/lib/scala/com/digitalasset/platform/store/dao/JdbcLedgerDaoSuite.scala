@@ -136,12 +136,13 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
-  protected final def storeCreateTransaction()(implicit ec: ExecutionContext): Future[Unit] = {
+  protected final def storeCreateTransaction()(
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
     val offset = nextOffset()
     val t = genCreateTransaction(offset)
     ledgerDao
       .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
-      .map(_ => ())
+      .map(_ => offset -> t)
   }
 
   private def genExerciseTransaction(

@@ -10,6 +10,7 @@ import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.domain.RejectionReason
+import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers, OptionValues}
@@ -20,6 +21,28 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (completions)"
+
+  it should "return the expected completion for an accepted transaction" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (offset, tx) <- storeCreateTransaction()
+      to <- ledgerDao.lookupLedgerEnd()
+      (_, response) <- ledgerDao.completions
+        .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.submittingParty.get))
+        .runWith(Sink.head)
+    } yield {
+      val receivedOffset =
+        ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
+      receivedOffset shouldBe offset
+
+      response.completions should have length 1
+      val completion = response.completions.head
+
+      completion.transactionId shouldBe tx.transactionId
+      completion.commandId shouldBe tx.commandId.get
+      completion.status.value.code shouldBe io.grpc.Status.Code.OK.value()
+    }
+  }
 
   private val applicationId: ApplicationId = "JdbcLedgerDaoCompletionsSpec"
   private val party: Party = "JdbcLedgerDaoCompletionsSpec"
@@ -39,7 +62,6 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
   it should "return the expected completion for a rejection" in {
     val offset = nextOffset()
     val rejection = rejectWith(RejectionReason.Inconsistent(""))
-
     for {
       from <- ledgerDao.lookupLedgerEnd()
       _ <- ledgerDao.storeLedgerEntry(offset, rejection)
@@ -48,9 +70,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
         .getCommandCompletions(from, to, applicationId, parties)
         .runWith(Sink.head)
     } yield {
-      val offset = response.checkpoint.value.offset.value.value.absolute.value.toLong
-      offset should be > from.toLong
-      offset should be <= to.toLong
+      val receivedOffset =
+        ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
+      receivedOffset shouldBe offset
 
       response.completions should have length 1
       val completion = response.completions.head
@@ -104,7 +126,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
 
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      pr <- Future.sequence(
+      _ <- Future.sequence(
         for (reason <- reasons; offset = nextOffset())
           yield ledgerDao.storeLedgerEntry(offset, rejectWith(reason)))
       to <- ledgerDao.lookupLedgerEnd()
