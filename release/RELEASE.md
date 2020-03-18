@@ -40,7 +40,6 @@ latest commit on master.
        ```
    - For a stable release, run
      - `echo "$SHA $VERSION" > LATEST`.
-     - Edit `LATEST`, to update the release "version"
      - Ideally, for a stable release, the resulting change is only to cut off the prerelease part of the version number (the `-snapshot...`).
 
 1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
