@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
@@ -41,14 +41,14 @@ import scalaz.syntax.tag.ToTagOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: LedgerReadDao)
+class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
-  protected final val dispatcher: Dispatcher[Long] = Dispatcher[Long](
+  protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](
     "sql-ledger",
-    0,
+    Offset.begin,
     headAtInitialization
   )
 
@@ -58,26 +58,26 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
     ledgerDao.lookupKey(key, forParty)
 
   override def ledgerEntries(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] = {
     dispatcher.startingAt(
-      beginInclusive.getOrElse(0),
+      startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.getLedgerEntries),
-      endExclusive
+      endInclusive
     )
   }
 
-  override def ledgerEnd: Long = dispatcher.getHead()
+  override def ledgerEnd: Offset = dispatcher.getHead()
 
   override def completions(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
+      parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     dispatcher.startingAt(
-      beginInclusive.getOrElse(0),
+      startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.completions.getCommandCompletions(_, _, applicationId.unwrap, parties)),
-      endExclusive
+      endInclusive
     )
 
   override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
@@ -101,7 +101,7 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
 
   override def lookupTransaction(
       transactionId: TransactionId
-  ): Future[Option[(Long, LedgerEntry.Transaction)]] =
+  ): Future[Option[(Offset, LedgerEntry.Transaction)]] =
     ledgerDao
       .lookupTransaction(TransactionId.unwrap(transactionId))
 
@@ -111,8 +111,8 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
   override def listKnownParties(): Future[List[domain.PartyDetails]] =
     ledgerDao.listKnownParties()
 
-  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] =
-    dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPartyEntries))
+  override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
+    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPartyEntries))
 
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     ledgerDao.listLfPackages
@@ -126,15 +126,18 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Long, ledgerDao: 
       .flatMap(archiveO =>
         Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
-  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
-    dispatcher.startingAt(beginOffset, RangeSource(ledgerDao.getPackageEntries))
+  override def packageEntries(
+      startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
+    dispatcher.startingAt(startExclusive, RangeSource(ledgerDao.getPackageEntries))
 
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
     ledgerDao.lookupLedgerConfiguration()
 
   override def configurationEntries(
-      offset: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
-    dispatcher.startingAt(offset.getOrElse(0), RangeSource(ledgerDao.getConfigurationEntries))
+      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
+    dispatcher.startingAt(
+      startExclusive.getOrElse(Offset.begin),
+      RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(
       deduplicationKey: String,

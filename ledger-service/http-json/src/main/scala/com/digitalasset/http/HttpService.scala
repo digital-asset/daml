@@ -128,6 +128,7 @@ object HttpService extends StrictLogging {
 
       partiesService = new PartiesService(
         LedgerClientJwt.listKnownParties(client),
+        LedgerClientJwt.getParties(client),
         LedgerClientJwt.allocateParty(client)
       )
 

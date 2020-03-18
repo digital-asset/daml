@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.auth.TokenHolder
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.language.Ast._
@@ -41,6 +42,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -48,7 +50,7 @@ import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.daml.lf.engine.trigger.{Runner, TriggerMsg}
+import com.digitalasset.daml.lf.engine.trigger.{Runner, Trigger, TriggerMsg}
 
 case class Config(
     ledgerPort: Int,
@@ -135,21 +137,30 @@ class TestRunner(val config: Config) extends StrictLogging {
     // This ensures that the commands will only be executed afterwards.
     val acsPromise = Promise[Unit]()
 
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
+      case Left(err) => throw new RuntimeException(err)
+      case Right(trigger) => trigger
+    }
+
     val triggerFlow: Future[SExpr] = for {
       client <- clientF
-      runner = new Runner(client, applicationId, party, dar)
-      filter = runner.getTriggerFilter(triggerId)
-      heartbeat = runner.getTriggerHeartbeat(triggerId)
-      (acs, offset) <- runner.queryACS(client, filter)
+      runner = new Runner(
+        compiledPackages,
+        trigger,
+        client,
+        config.timeProviderType,
+        applicationId,
+        party)
+      (acs, offset) <- runner.queryACS()
       _ = acsPromise.success(())
       finalState <- runner
         .runWithACS(
-          triggerId,
-          config.timeProviderType,
-          heartbeat,
           acs,
           offset,
-          filter,
           msgFlow = Flow[TriggerMsg].take(numMessages.num)
         )
         ._2
@@ -324,15 +335,15 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     val archiveVal = Some(
       value
         .Value()
-        .withRecord(
-          value.Record(
-            recordId = Some(
-              value.Identifier(
-                packageId = TestRunner.findStdlibPackageId(dar),
-                moduleName = "DA.Internal.Template",
-                entityName = "Archive")),
-            fields = Seq()
-          )))
+        .withRecord(value.Record(
+          recordId = Some(value.Identifier(
+            packageId = PackageId.assertFromString(
+              "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662"),
+            moduleName = "DA.Internal.Template",
+            entityName = "Archive"
+          )),
+          fields = Seq()
+        )))
     val commands = Seq(
       Command().withExercise(ExerciseCommand(
         templateId = Some(

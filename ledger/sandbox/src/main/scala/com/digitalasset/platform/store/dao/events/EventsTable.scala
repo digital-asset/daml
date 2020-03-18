@@ -6,9 +6,10 @@ package com.digitalasset.platform.store.dao.events
 import java.util.Date
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.dao.LedgerDao
+import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 /**
@@ -60,8 +61,7 @@ private[events] object EventsTable {
           |  template_package_id,
           |  template_name,
           |  node_index,
-          |  is_root_node,
-          |  is_state_change,
+          |  is_root,
           |  command_id,
           |  application_id,
           |  submitter,
@@ -70,7 +70,7 @@ private[events] object EventsTable {
           |  create_observers,
           |  create_agreement_text,
           |  create_consumed_at,
-          |  key_value
+          |  create_key_value
           |) values (
           |  {event_id},
           |  {event_offset},
@@ -81,8 +81,7 @@ private[events] object EventsTable {
           |  {template_package_id},
           |  {template_name},
           |  {node_index},
-          |  {is_root_node},
-          |  true,
+          |  {is_root},
           |  {command_id},
           |  {application_id},
           |  {submitter},
@@ -91,7 +90,7 @@ private[events] object EventsTable {
           |  {create_observers},
           |  {create_agreement_text},
           |  null,
-          |  {key_value}
+          |  {create_key_value}
           |)
           |""".stripMargin
 
@@ -104,7 +103,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       create: Create,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
@@ -112,18 +111,18 @@ private[events] object EventsTable {
       "event_offset" -> offset,
       "contract_id" -> create.coid.coid.toString,
       "transaction_id" -> transactionId.toString,
-      "workflow_id" -> workflowId.toString,
+      "workflow_id" -> workflowId.map(_.toString),
       "ledger_effective_time" -> ledgerEffectiveTime,
       "template_package_id" -> create.coinst.template.packageId.toString,
       "template_name" -> create.coinst.template.qualifiedName.toString,
       "node_index" -> nodeId.index,
-      "is_root_node" -> roots(nodeId),
+      "is_root" -> roots(nodeId),
       "command_id" -> commandId.map(_.toString),
       "application_id" -> applicationId.map(_.toString),
       "submitter" -> submitter.map(_.toString),
       "create_argument" -> serializeCreateArgOrThrow(create),
-      "create_signatories" -> create.signatories.map(_.toString),
-      "create_observers" -> create.stakeholders.diff(create.signatories).map(_.toString),
+      "create_signatories" -> create.signatories.map(_.toString).toArray,
+      "create_observers" -> create.stakeholders.diff(create.signatories).map(_.toString).toArray,
       "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
       "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
@@ -139,8 +138,7 @@ private[events] object EventsTable {
           |  template_package_id,
           |  template_name,
           |  node_index,
-          |  is_root_node,
-          |  is_state_change,
+          |  is_root,
           |  command_id,
           |  application_id,
           |  submitter,
@@ -160,8 +158,7 @@ private[events] object EventsTable {
           |  {template_package_id},
           |  {template_name},
           |  {node_index},
-          |  {is_root_node},
-          |  {exercise_consuming},
+          |  {is_root},
           |  {command_id},
           |  {application_id},
           |  {submitter},
@@ -183,7 +180,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       exercise: Exercise,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
@@ -196,16 +193,18 @@ private[events] object EventsTable {
       "template_package_id" -> exercise.templateId.packageId.toString,
       "template_name" -> exercise.templateId.qualifiedName.toString,
       "node_index" -> nodeId.index,
-      "is_root_node" -> roots(nodeId),
-      "is_state_change" -> exercise.consuming,
+      "is_root" -> roots(nodeId),
       "command_id" -> commandId.map(_.toString),
       "application_id" -> applicationId.map(_.toString),
       "submitter" -> submitter.map(_.toString),
       "exercise_consuming" -> exercise.consuming,
+      "exercise_choice" -> exercise.choiceId.toString,
       "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
       "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
-      "exercise_actors" -> exercise.actingParties.map(_.toString),
-      "exercise_child_event_ids" -> (exercise.children.toSeq.map(_.index): Seq[Int]),
+      "exercise_actors" -> exercise.actingParties.map(_.toString).toArray,
+      "exercise_child_event_ids" -> exercise.children
+        .map(fromTransactionId(transactionId, _): String)
+        .toArray,
     )
 
   private val updateArchived =
@@ -213,7 +212,7 @@ private[events] object EventsTable {
 
   private def archive(
       contractId: ContractId,
-      consumedAt: LedgerDao#LedgerOffset,
+      consumedAt: Offset,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
       "consumed_at" -> consumedAt,
@@ -283,7 +282,7 @@ private[events] object EventsTable {
       submitter: Option[Party],
       roots: Set[NodeId],
       ledgerEffectiveTime: Date,
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =
     transaction
@@ -329,6 +328,8 @@ private[events] object EventsTable {
           } else {
             batchWithExercises
           }
+        case (batches, _) =>
+          batches // ignore any event which is not a create or an exercise
       }
       .prepare
 

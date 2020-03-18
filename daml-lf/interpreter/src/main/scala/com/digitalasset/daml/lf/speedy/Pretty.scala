@@ -497,7 +497,7 @@ object Pretty {
               text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
                 field,
               ) + char(']')
-            case SBVariantCon(id, v) =>
+            case SBVariantCon(id, v, _) =>
               text("$variant") + char('[') + text(id.qualifiedName.toString) + char(':') + text(v) + char(
                 ']',
               )

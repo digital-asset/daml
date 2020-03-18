@@ -21,7 +21,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model  
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that we need to terminate the previous ``./daml-start.ch`` process and run it again.  
+    3. Running the new feature. In order to do that we need to terminate the previous ``./daml-start.sh`` process and run it again.  
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 

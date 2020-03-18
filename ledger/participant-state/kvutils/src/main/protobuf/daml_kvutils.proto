@@ -171,6 +171,7 @@ message DamlTransactionRejectionEntry {
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
+    InvalidLedgerTime invalid_ledger_time = 9;
   }
 }
 
@@ -470,6 +471,11 @@ message ResourcesExhausted {
 
 // The transaction submission exceeded its maximum record time.
 message MaximumRecordTimeExceeded {
+  string details = 1;
+}
+
+// The ledger time of the transaction submission violates some constraint.
+message InvalidLedgerTime {
   string details = 1;
 }
 

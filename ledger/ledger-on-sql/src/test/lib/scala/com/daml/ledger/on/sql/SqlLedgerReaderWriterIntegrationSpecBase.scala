@@ -14,12 +14,8 @@ import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
-import scala.concurrent.ExecutionContext
-
 abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: String)
     extends ParticipantStateIntegrationSpecBase(implementationName) {
-  protected final implicit val ec: ExecutionContext = ExecutionContext.global
-
   protected def jdbcUrl(id: String): String
 
   override protected final val startIndex: Long = StartIndex
@@ -30,7 +26,10 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       testId: String,
       heartbeats: Source[Instant, NotUsed],
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    SqlLedgerReaderWriter
-      .owner(ledgerId, participantId, jdbcUrl(testId), heartbeats = heartbeats)
-      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    new SqlLedgerReaderWriter.Owner(
+      ledgerId,
+      participantId,
+      jdbcUrl(testId),
+      heartbeats = heartbeats,
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

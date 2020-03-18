@@ -11,16 +11,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
+import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
-import com.daml.ledger.validator.{
-  BatchingLedgerStateOperations,
-  LedgerStateAccess,
-  LedgerStateOperations,
-  SubmissionValidator,
-  ValidatingCommitter
-}
+import com.daml.ledger.validator._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain
@@ -29,9 +25,8 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
-import scala.collection.immutable.TreeSet
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -49,41 +44,31 @@ final class SqlLedgerReaderWriter(
     with LedgerReader {
 
   private val committer = new ValidatingCommitter[Index](
-    participantId,
     () => timeProvider.getCurrentTime,
     SubmissionValidator.create(SqlLedgerStateAccess),
-    latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo + 1),
+    latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
 
-  // TODO: implement
   override def currentHealth(): HealthStatus = Healthy
 
-  override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        offset.getOrElse(StartOffset).components.head,
+        KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
         RangeSource((start, end) => {
           Source
-            .futureSource(database
-              .inReadTransaction(s"Querying events [$start, $end[ from log") { queries =>
+            .future(database
+              .inReadTransaction(s"Querying events ]$start, $end] from log") { queries =>
                 Future.fromTry(queries.selectFromLog(start, end))
-              }
-              .map { result =>
-                if (result.length < end - start) {
-                  val missing = TreeSet(start until end: _*) -- result.map(_._1)
-                  Source.failed(
-                    new IllegalStateException(s"Missing entries: ${missing.mkString(", ")}"))
-                } else {
-                  Source(result)
-                }
               })
+            .mapConcat(identity)
             .mapMaterializedValue(_ => NotUsed)
         }),
       )
       .map { case (_, entry) => entry }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+  override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
+    committer.commit(correlationId, envelope, participantId)
 
   object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
@@ -107,28 +92,29 @@ final class SqlLedgerReaderWriter(
 object SqlLedgerReaderWriter {
   private val logger = ContextualizedLogger.get(classOf[SqlLedgerReaderWriter])
 
-  private val StartOffset: Offset = Offset(Array(StartIndex))
+  private val StartOffset: Offset = KVOffset.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
-  def owner(
+  class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
       heartbeats: Source[Instant, NotUsed] = Source.empty,
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ): ResourceOwner[SqlLedgerReaderWriter] =
-    for {
-      uninitializedDatabase <- Database.owner(jdbcUrl)
-      database = uninitializedDatabase.migrate()
-      ledgerId <- ResourceOwner.forFuture(() => updateOrRetrieveLedgerId(initialLedgerId, database))
-      dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database))
-      _ = publishHeartbeats(database, dispatcher, heartbeats)
-    } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
+  )(implicit materializer: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[SqlLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[SqlLedgerReaderWriter] =
+      for {
+        uninitializedDatabase <- Database.owner(jdbcUrl).acquire()
+        database = uninitializedDatabase.migrate()
+        ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
+        dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
+        _ = publishHeartbeats(database, dispatcher, heartbeats)
+      } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
+  }
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(
       implicit executionContext: ExecutionContext,
@@ -180,7 +166,7 @@ object SqlLedgerReaderWriter {
               Future.fromTry(queries.insertHeartbeatIntoLog(timestamp))
             }
             .onComplete {
-              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo + 1)
+              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo)
               case Failure(exception) => logger.error("Publishing heartbeat failed.", exception)
           }))
       .map(_ => ())

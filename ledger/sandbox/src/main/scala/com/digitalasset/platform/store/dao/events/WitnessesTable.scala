@@ -4,9 +4,9 @@
 package com.digitalasset.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.TransactionId
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.dao.LedgerDao
 
 /**
   * A table storing a flattened representation of a [[DisclosureRelation]],
@@ -27,15 +27,15 @@ sealed abstract class WitnessesTable(tableName: String) {
     s"insert into $tableName(event_id, event_witness) values ({event_id}, {event_witness})"
 
   final def prepareBatchInsert(
-      offset: LedgerDao#LedgerOffset,
+      offset: Offset,
       transactionId: TransactionId,
       witnesses: DisclosureRelation,
   ): Option[BatchSql] = {
-    if (witnesses.nonEmpty) {
-      val ws = DisclosureRelation
-        .flatten(witnesses)
-        .map { case (nodeId, party) => parameters(transactionId)(nodeId, party) }
-        .toSeq
+    val flattenedWitnesses = DisclosureRelation.flatten(witnesses)
+    if (flattenedWitnesses.nonEmpty) {
+      val ws = flattenedWitnesses.map {
+        case (nodeId, party) => parameters(transactionId)(nodeId, party)
+      }.toSeq
       Some(BatchSql(insert, ws.head, ws.tail: _*))
     } else {
       None

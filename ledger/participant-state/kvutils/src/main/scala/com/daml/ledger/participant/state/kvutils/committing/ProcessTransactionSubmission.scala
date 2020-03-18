@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.daml.lf.value.Value
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
@@ -35,8 +35,8 @@ private[kvutils] case class ProcessTransactionSubmission(
   import ProcessTransactionSubmission._
   import Common._
   import Commit._
-  private val commandId = txEntry.getSubmitterInfo.getCommandId
-  private implicit val logger =
+
+  private implicit val logger: Logger =
     LoggerFactory.getLogger(this.getClass)
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
@@ -432,6 +432,8 @@ private[kvutils] case class ProcessTransactionSubmission(
         builder.setSubmitterCannotActViaParticipant(
           SubmitterCannotActViaParticipant.newBuilder
             .setDetails(details))
+      case RejectionReason.InvalidLedgerTime(reason) =>
+        builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
     }
     builder
   }

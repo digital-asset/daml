@@ -209,6 +209,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
@@ -221,6 +222,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
@@ -385,6 +387,9 @@ server_conformance_test(
 
 server_conformance_test(
     name = "conformance-test-config-management",
+    server_args = [
+        "--static-time",
+    ],
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
@@ -395,6 +400,9 @@ server_conformance_test(
 
 server_conformance_test(
     name = "conformance-test-command-deduplication",
+    server_args = [
+        "--static-time",
+    ],
     servers = SERVERS,
     test_tool_args = [
         "--verbose",
@@ -406,6 +414,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
+        "--static-time",
         "--contract-id-seeding=weak",
     ],
     servers = SERVERS,

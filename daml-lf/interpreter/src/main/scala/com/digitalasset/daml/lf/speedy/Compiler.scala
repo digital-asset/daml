@@ -194,6 +194,17 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private val compileGetTime: SExpr =
     SEAbs(1) { SBGetTime(SEVar(1)) }
 
+  private val SBLessNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBLess), Array(SEVar(2), SEVar(1))))
+  private val SBLessEqNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBLessEq), Array(SEVar(2), SEVar(1))))
+  private val SBGreaterNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBGreater), Array(SEVar(2), SEVar(1))))
+  private val SBGreaterEqNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBGreaterEq), Array(SEVar(2), SEVar(1))))
+  private val SBEqualNumeric =
+    SEAbs(3, SEApp(SEBuiltin(SBEqual), Array(SEVar(2), SEVar(1))))
+
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
@@ -203,7 +214,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case BFoldl => SEBuiltinRecursiveDefinition.FoldL
           case BFoldr => SEBuiltinRecursiveDefinition.FoldR
           case BEqualList => SEBuiltinRecursiveDefinition.EqualList
-          case BCoerceContractId => SEAbs(1, SEVar(1))
+          case BCoerceContractId => SEAbs.identity
+          // Numeric Comparisons
+          case BLessNumeric => SBLessNumeric
+          case BLessEqNumeric => SBLessEqNumeric
+          case BGreaterNumeric => SBGreaterNumeric
+          case BGreaterEqNumeric => SBGreaterEqNumeric
+          case BEqualNumeric => SBEqualNumeric
+
           case BTextMapEmpty => SEValue.EmptyMap
           case BGenMapEmpty => SEValue.EmptyGenMap
           case _ =>
@@ -258,45 +276,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               // Errors
               case BError => SBError
 
-              // Comparisons
-              case BLessInt64 => SBLess
-              case BLessEqInt64 => SBLessEq
-              case BGreaterInt64 => SBGreater
-              case BGreaterEqInt64 => SBGreaterEq
-
-              case BLessNumeric => SBLessNumeric
-              case BLessEqNumeric => SBLessEqNumeric
-              case BGreaterNumeric => SBGreaterNumeric
-              case BGreaterEqNumeric => SBGreaterEqNumeric
-
-              case BLessText => SBLess
-              case BLessEqText => SBLessEq
-              case BGreaterText => SBGreater
-              case BGreaterEqText => SBGreaterEq
-
-              case BLessTimestamp => SBLess
-              case BLessEqTimestamp => SBLessEq
-              case BGreaterTimestamp => SBGreater
-              case BGreaterEqTimestamp => SBGreaterEq
-
-              case BLessDate => SBLess
-              case BLessEqDate => SBLessEq
-              case BGreaterDate => SBGreater
-              case BGreaterEqDate => SBGreaterEq
-
-              case BLessParty => SBLess
-              case BLessEqParty => SBLessEq
-              case BGreaterParty => SBGreater
-              case BGreaterEqParty => SBGreaterEq
-
-              // Equality
-              case BEqualNumeric => SBEqualNumeric
+              // Comparison
               case BEqualContractId => SBEqual
               case BEqual => SBEqual
-              case BELess => SBLess
-              case BELessEq => SBLessEq
-              case BEGreater => SBGreater
-              case BEGreaterEq => SBGreaterEq
+              case BLess => SBLess
+              case BLessEq => SBLessEq
+              case BGreater => SBGreater
+              case BGreaterEq => SBGreaterEq
 
               // TextMap
 
@@ -326,8 +312,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BTextIntercalate => SBTextIntercalate
 
               // Implemented using normal SExpr
-              case BFoldl | BFoldr | BEqualList | BCoerceContractId | BTextMapEmpty |
-                  BGenMapEmpty =>
+              case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
+                  BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
+                  BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
                 throw CompileError(s"unexpected $bf")
             })
         }
@@ -445,10 +432,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         )
 
       case EEnumCon(tyCon, constructor) =>
-        SEValue(SEnum(tyCon, constructor))
+        val enumDef =
+          lookupEnumDefinition(tyCon).getOrElse(throw CompileError(s"enum $tyCon not found"))
+        SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
 
       case EVariantCon(tapp, variant, arg) =>
-        SBVariantCon(tapp.tycon, variant)(translate(arg))
+        val variantDef = lookupVariantDefinition(tapp.tycon)
+          .getOrElse(throw CompileError(s"variant ${tapp.tycon} not found"))
+        SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(translate(arg))
 
       case let: ELet =>
         val (bindings, body) = collectLets(let)
@@ -881,6 +872,22 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       }
       .getOrElse(throw CompileError(s"template $tycon not found"))
 
+  private def lookupVariantDefinition(tycon: TypeConName): Option[DataVariant] =
+    lookupDefinition(tycon).flatMap {
+      case DDataType(_, _, data: DataVariant) =>
+        Some(data)
+      case _ =>
+        None
+    }
+
+  private def lookupEnumDefinition(tycon: TypeConName): Option[DataEnum] =
+    lookupDefinition(tycon).flatMap {
+      case DDataType(_, _, data: DataEnum) =>
+        Some(data)
+      case _ =>
+        None
+    }
+
   private def lookupRecordIndex(tapp: TypeConApp, field: FieldName): Int =
     lookupDefinition(tapp.tycon)
       .flatMap {
@@ -1064,8 +1071,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               goV(v)
           }
         case SRecord(_, _, args) => args.forEach(goV)
-        case SVariant(_, _, value) => goV(value)
-        case SEnum(_, _) => ()
+        case SVariant(_, _, _, value) => goV(value)
+        case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case _: SPAP | SToken | SStruct(_, _) =>
           throw CompileError("validate: unexpected SEValue")

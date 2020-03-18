@@ -73,4 +73,16 @@ object RejectionReason {
   final case class SubmitterCannotActViaParticipant(details: String) extends RejectionReason {
     override def description: String = "Submitter cannot act via participant: " + details
   }
+
+  /** The ledger time of the transaction submission violated one of the
+    *  following constraints on ledger time:
+    *  - The difference between the ledger time and the record time
+    *    in the ledger state at which the transaction was sequenced must
+    *    stay within bounds defined by the ledger.
+    *  - The ledger time of the transaction must be greater than or equal
+    *    to the ledger time of any contract used by the transaction.
+    */
+  final case class InvalidLedgerTime(reason: String) extends RejectionReason {
+    override def description: String = "Invalid ledger time: " + reason
+  }
 }

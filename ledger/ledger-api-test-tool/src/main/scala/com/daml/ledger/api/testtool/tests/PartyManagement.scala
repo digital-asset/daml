@@ -130,6 +130,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         partyDetails <- ledger.getParties(
           Seq(party1, party2, binding.Primitive.Party("non-existent")))
         noPartyDetails <- ledger.getParties(Seq(binding.Primitive.Party("non-existent")))
+        zeroPartyDetails <- ledger.getParties(Seq.empty)
       } yield {
         assert(
           partyDetails.sortBy(_.displayName) == Seq(
@@ -149,6 +150,9 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         assert(
           noPartyDetails.isEmpty,
           s"Retrieved some parties when the party specified did not exist: $noPartyDetails")
+        assert(
+          zeroPartyDetails.isEmpty,
+          s"Retrieved some parties when no parties were requested: $zeroPartyDetails")
       }
   }
 

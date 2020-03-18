@@ -6,6 +6,211 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-55:
+
+0.13.55 - 2020-03-18
+--------------------
+
+Summary
+~~~~~~~
+
+- DAML Script is officially supported
+
+  - Action required by April 2020 if you use scenarios for Sandbox initialization
+
+- DAML Repl is available as an experimental feature
+
+- Support for cross-SDK DAR Dependencies and Contract Upgrades
+
+  - Action required to mitigate an upcoming restriction to DAML type naming
+
+- Improved daml.yaml features
+
+- More consistent APIs regarding contract visibility
+
+  - Potentially breaking change that is unlikely to affect any existing DAML applications
+
+- New command deduplication feature
+
+  - Action required by April 2020 if you rely on maximum record time for command deduplication
+
+- Security improvement
+
+  - Immediate action required to make SDK components continue to listen on external network interface
+
+What’s New
+~~~~~~~~~~
+
+DAML Script - A better way to initialize and test your ledger
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+Being able to script the interaction with a DAML ledger is useful for testing, application initialization, and even one-off operations in production use. DAML scenarios cover a subset of those uses: Realtime testing and feedback in the IDE and ledger initialization in the Sandbox in static time mode. The main drawback of scenarios is that outside of the IDE, they only work with the Sandbox in static time mode and only during ledger initialisation. We have, therefore, built DAML Script, which generalizes the concepts behind Scenarios to work for any DAML Ledger, at any time. Going forward, we will deprecate ledger initialization based on Scenarios, and we recommend users to start using DAML Script now.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- :doc:`/daml-script/index` is no longer experimental
+- ``daml.yaml`` now supports the specification of an initialization script via the init-script field, which is analogous to the scenario field.
+- DAML Script now works against ledgers with authentication with tokens passed in via the ``--access-token-file`` flag
+- DAML Sandbox now shows a deprecation warning if a scenario is used for initialization
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+Scenarios for Sandbox initialization will no longer be supported with the next SDK release in April 2020, but will continue to be supported for DAML model testing in the IDE and command line. If you are using a scenario to initialize the Sandbox today, we recommend migrating that to a DAML script. DAML Script has similar syntax to Scenarios. Take a look at the `documentation <https://docs.daml.com/daml-script/index.html#migrating-from-scenarios>`_ for instructions on how to migrate from scenarios to DAML script.
+
+Experimental: DAML Repl - Interactive DAML Script
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+We are introducing an interactive read-eval-print-loop (REPL) for interacting with a DAML ledger. This feature is analogous to using an interactive shell session to examine and change the data in a relational database. It is based on DAML Script and allows accessing all functions from your DAML code. We encourage you to test this feature and provide feedback. It is still marked as experimental, so we can incorporate your feedback effectively and efficiently.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- Introduction of the ``daml repl`` cli command
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+DAML Repl is an entirely new feature, and no changes to existing projects are needed. Please refer to the :doc:`docs </daml-repl/index>` for more information on this new functionality.
+
+DAML-LF 1.8 brings cross-SDK upgrades and data dependencies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+One of DAML’s unique features is that the clear data ownership based on signatories allows for clean contract upgrades directly from within DAML. So far, this required SDK versions of the original and the new DAML contracts to be equal, a limitation that we obviously wanted to lift. This release lifts this restriction and adds support for contract migrations across SDK versions thanks to adding support for ``data-dependencies`` in ``daml.yaml``.
+
+``dependencies`` and ``data-dependencies`` are source and binary dependencies respectively. dependencies should be used to include any libraries (e.g. the DAML Standard Library) that are always deployed together with the project, whereas ``data-dependencies`` should be used for any dependencies that are independently deployable, for example the `DAML Finance Library <https://github.com/digital-asset/lib-finance>`_, or applications already running on the target ledger.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- ``daml.yaml`` now supports a section for ``data-dependencies`` in addition to dependencies
+- The already deprecated ``daml migrate`` command has been removed
+- Data constructors for record types have to be the same as the type name.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+To make use of this feature, DAML projects have to be compiled to DAML-LF 1.8. The current default is still 1.7, and so this has to be done by passing in the flag ``--target=1.8``. Detailed information on the upgrading and dependency functionality can be found in the :doc:`docs </upgrade/index>`.
+Data constructors that don’t match record type names have to be renamed. For example, if you had a record type ``data Foo = Bar with ..``, you need to change it to ``data Foo = Foo with ..``.
+
+More functionality in daml.yaml
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+The project file ``daml.yaml`` should tell the DAML Assistant CLI everything it needs to know to set up a test environment using daml start. However, until this release, there were certain Sandbox, Navigator, and HTTP JSON API settings that needed to be set through additional command line flags. These can now be set using ``sandbox-options``, ``navigator-options`` and ``json-api-options`` sections in ``daml.yaml``.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- Items under the ``sandbox-options``, ``navigator-options`` and ``json-api-options`` sections in ``daml.yaml`` are picked up by daml start and passed to the respective components.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+Command line arguments like  ``daml start --sandbox-option="--wall-clock-time"`` will keep working as before, but you can now simplify your CLI usage moving them into ``daml.yaml``.
+
+Cleanup of some API services and components
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+Privacy is one of DAML’s primary concerns, with visibility of data usually constrained to signatories and observers of contracts. However, there are two well-documented and controlled mechanisms through which non-observers can learn about contracts: :ref:`Divulgence and Witnessing <da-model-divulgence>`.
+
+Whether events or contracts that are known due to those mechanisms are shown in APIs or tools used to be inconsistent and led to oddities such as the Navigator showing assets that had been transferred. This change addresses these inconsistencies and ensures divulged and witnessed contracts are only included in APIs returning `transaction trees <https://docs.daml.com/app-dev/grpc/proto-docs.html#transactiontree>`.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- The Flat Transaction Service and Active Contract Service no longer include divulged and witnessed contracts
+- The JSON API no longer includes divulged and witnessed contracts
+- The Extractor no longer stores divulged and witnessed contracts and the column ``contract.witness_parties`` has been renamed to ``contract.stakeholders``
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+Applications are unlikely to be accidentally relying on the current behaviour so there is probably little to no impact on existing DAML applications. In general, if you want to share data on a DAML ledger, we recommend using the observer mechanism or sharing it in dedicated sharing contracts as highlighted in the `Broadcast Example <https://github.com/digital-asset/ex-models/blob/master/broadcast/daml/Broadcast.daml>`_.
+
+New Command Deduplication Mechanism
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Background
+>>>>>>>>>>
+
+For certain applications, it is crucially important that commands will not be processed twice, even if application or ledger components crash or network links fail. The new command deduplication mechanism gives a way to achieve that.
+
+The previous mechanism based on Maximum Record Time (MRT) and Checkpoints on the CompletionStream was difficult to use in practice and didn’t generalise to ledgers without a linearly ordered record time. The new mechanism is designed to replace the old one over the course of the next DAML SDK releases.
+
+Specific Changes
+>>>>>>>>>>>>>>>>
+
+- The ``Command`` and ``CommandSubmission`` services add a ``deduplication_time`` parameter to commands during which no second command with the ``commandId`` can be submitted.
+
+Impact and Migration
+>>>>>>>>>>>>>>>>>>>>
+
+The maximum record time based mechanism for command deduplication is now deprecated and will be removed with the next SDK release. We recommend switching from the MRT-based mechanism to ``deduplication_time`` based one. Detailed documentation :ref:`here <handling-submission-failures>`.
+
+Minor Improvements
+^^^^^^^^^^^^^^^^^^
+
+- JSON API
+
+  - The JSON API has a new ``/v1/create-and-exercise`` endpoint that allows the submission of commands creating a contract and then immediately exercising a choice on it.
+
+  - The experimental websocket streaming version no longer sends a ``{"live": true}`` marker to indicate live data is starting. Instead, live data is indicated by the presence of an offset.
+
+  - The ``/v1/parties`` endpoint now allows POST requests, which expect a JSON array of party identifiers as input, and returns the corresponding party details.
+
+
+- Language
+
+  - The pragma ``daml 1.2`` is now optional. This is in preparation for DAML SDK 1.0 from which time on the language won’t be versioned independently from the SDK.
+
+- Ledgers
+
+  - Rejected submissions are now logged at a lower "INFO" level to remove a source of warnings/errors without relation to server health.
+
+  - The Sandbox can now produce random ContractIds consistent with other ledger implementations. This can be activated using the flags ``--contract-id-seeding=weak`` or ``--contract-id-seeding=strong``. The weak version uses a less safe, non-blocking random number source.
+
+- Security
+
+  - All services now bind to localhost (127.0.0.1) instead to all interfaces (0.0.0.0). This default can be overridden using command line flags:
+
+    - ``daml sandbox --address 0.0.0.0``
+    - ``daml navigator 0.0.0.0 6865``
+    - ``daml json-api --address 0.0.0.0``
+
+What’s Next
+^^^^^^^^^^^
+
+We are working towards the first stable DAML SDK release in April. The majority of work between now and then amounts to tidying up, cleaning up UX issues, reducing architectural debt, and removing deprecated features.
+
+- The Quickstart / Getting Started documentation will be overhauled
+- The Ledger Time model will be upgraded so  ``ledger_effective_time`` no longer needs to be supplied as part of command submission
+  - Record time will no longer be guaranteed to be linearly ordered
+  - Maximum Record Time will be removed from the API
+  - Checkpoints will be removed from the CompletionStream
+- The DAML Sandbox will have a new architecture much more closely aligned with other DAML Ledgers
+  - Contract Ids will be hashes rather than sequence numbers
+  - The default time mode will switch to wall-clock
+  - Ledger initialization via scenarios will be removed
+  - Ledger Offsets will no longer be sequence numbers, but instead increasing integers
+- Maven artifacts will be versioned in line with the SDK
+- DAML will get a generic Map type to replace the current TextMap
+
 .. _release-0-13-54:
 
 0.13.54 - 2020-02-20

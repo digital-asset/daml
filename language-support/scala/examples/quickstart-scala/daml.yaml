@@ -24,3 +24,5 @@ codegen:
     output-directory: scala-codegen/src/main/scala
     verbosity: 2
 # </doc-ref:codegen-scala>
+sandbox-options:
+  - --wall-clock-time

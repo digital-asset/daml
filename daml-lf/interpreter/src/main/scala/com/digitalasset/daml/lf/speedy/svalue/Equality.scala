@@ -32,12 +32,12 @@ private[lf] object Equality {
         tuple match {
           case (x: SPrimLit, y: SPrimLit) =>
             x == y && equality(stack)
-          case (SEnum(tyCon1, con1), SEnum(tyCon2, con2)) =>
+          case (SEnum(tyCon1, con1, _), SEnum(tyCon2, con2, _)) =>
             tyCon1 == tyCon2 && con1 == con2 && equality(stack)
           case (SRecord(tyCon1, fields1, args1), SRecord(tyCon2, fields2, args2)) =>
             tyCon1 == tyCon2 && (fields1 sameElements fields2) &&
               equality(zipAndPush(args1.iterator().asScala, args2.iterator().asScala, stack))
-          case (SVariant(tyCon1, con1, arg1), SVariant(tyCon2, con2, arg2)) =>
+          case (SVariant(tyCon1, con1, _, arg1), SVariant(tyCon2, con2, _, arg2)) =>
             tyCon1 == tyCon2 && con1 == con2 && equality((arg1, arg2) +: stack)
           case (SList(lst1), SList(lst2)) =>
             lst1.length == lst2.length &&

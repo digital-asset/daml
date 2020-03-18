@@ -125,7 +125,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox .daml/dist/quickstart-0.0.1.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --wall-clock-time .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
@@ -173,6 +173,8 @@ Now everything is running, you can try out the quickstart application:
 
    This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
+   Your contract ID may vary. There's a lot going on in a DAML ledger, so things could have happened in a different order, or other internal ledger events might have occurred. The actual value doesn't matter. We'll refer to this contract as ``#9:1`` in the rest of this document, and you'll need to substitute your own value mentally.
+
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
    - Contracts
@@ -210,7 +212,7 @@ Now everything is running, you can try out the quickstart application:
 
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
-   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#13:1`.
+   Contracts in DAML are immutable, meaning they cannot be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID. In our case, it's `#13:1`.
 #. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
@@ -222,8 +224,8 @@ Now everything is running, you can try out the quickstart application:
 
    It also shows an *Iou* for $110 issued by *USD_Bank*. This matches the trade proposal you made earlier as Alice.
 
-   Note its *Contract Id* ``#10:1``.
-#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#10:1`` as the *quoteIouCid*, then click **Submit**.
+   Note its *Contract Id*.
+#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter the Contract ID you just noted as the *quoteIouCid*, then click **Submit**.
 
    The two legs of the transfer are now settled atomically in a single transaction. The trade either fails or succeeds as a whole.
 #. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.

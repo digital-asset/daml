@@ -35,7 +35,7 @@ With that, let's get started!
 Prerequisites
 *************
 
-If you haven't already, see :doc:`installation` for the DAML SDK and VSCode development environment.
+Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per instructions from our :doc:`installation` page. 
 
 You will also need some common software tools to build and interact with the template project.
 

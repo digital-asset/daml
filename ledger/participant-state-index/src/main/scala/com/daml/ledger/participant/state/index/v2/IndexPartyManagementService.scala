@@ -21,5 +21,5 @@ trait IndexPartyManagementService {
 
   def listKnownParties(): Future[List[PartyDetails]]
 
-  def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed]
+  def partyEntries(startExclusive: LedgerOffset.Absolute): Source[PartyEntry, NotUsed]
 }

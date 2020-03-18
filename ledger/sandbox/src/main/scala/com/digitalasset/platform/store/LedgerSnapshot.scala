@@ -5,6 +5,7 @@ package com.digitalasset.platform.store
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.platform.store.Contract.ActiveContract
 
-case class LedgerSnapshot(offset: Long, acs: Source[ActiveContract, NotUsed])
+case class LedgerSnapshot(offset: Offset, acs: Source[ActiveContract, NotUsed])
