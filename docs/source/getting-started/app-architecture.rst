@@ -34,24 +34,24 @@ Let's look at the data portion first.
 There are two important aspects here:
 
 1. The data definition (a *schema* in database terms), describing the data stored with each user contract.
-In this case it is an identifier for the user and their current list of friends.
+In this case it is an identifier for the user and the list of users they are following.
 Both fields use the built-in ``Party`` type which lets us use them in the following clauses.
 
 2. The signatories and observers of the contract.
 The signatories are the parties whose authorization is required to create or archive instances of the contract template, in this case the user herself.
 The observers are the parties who are able to view the contract on the ledger.
-In this case all friends of a user are able to see the user contract.
+In this case all users that a particular user is following are able to see the user contract.
 
 Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
-A user Alice can see another user Bob in the network only when Alice is a friend in Bob's user contract.
-For this to be true, Bob must have previously added Alice as a friend, as he is the sole signatory on his user contract.
+A user Alice can see another user Bob in the network only when Alice is in the list of users that Bob is following (only if Alice is the ``following`` list in his user contract).
+For this to be true, Bob must have previously strated to follow Alice, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
 Here we see two concepts that are central to DAML: *authorization* and *privacy*.
 Authorization is about who can *do* what, and privacy is about who can *see* what.
 In DAML we must answer these questions upfront, as they fundamentally change the design of an application.
 
-The last part of the DAML model is the operation to add friends, called a *choice* in DAML.
+The last part of the DAML model is the operation to follow users, called a *choice* in DAML.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
@@ -59,15 +59,15 @@ The last part of the DAML model is the operation to add friends, called a *choic
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``AddFriend`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the extra friend added to the list. Here is a quick explanation of the code: 
+That is what the ``Follow`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the new user to follow added to the list. Here is a quick explanation of the code: 
 
-    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``AddFriend``.
+    - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``Follow``.
     - The return type of a choice is defined next. In this case it is ``ContractId User``.
-    - After that we pass arguments for the choice with ``with`` keyword. Here this is the friend we are trying to add.
+    - After that we declare choice paramteres with ``with`` keyword. Here this is the user we want to start following.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
-    - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
+    - The ``do`` keyword marks the start of the choice body where its functionality will be written.
     - After passing some checks current contract is archived with ``archive self`` 
-    - A new ``User`` contract with the added friend is created.
+    - A new ``User`` contract with the new user we have started following is created (the new user is added to the ``following`` list).
 
 This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
 
@@ -113,8 +113,6 @@ Hooks allow you to share and update state across components, avoiding having to 
 We take advantage of hooks in particular to share ledger state across components.
 We use custom `DAML React hooks <daml-react/index.html>`_ to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ . 
 
-.. TODO Link to DAML react hooks API
-
 The ``useState`` hook (not specific to DAML) here keeps track of the user's credentials.
 If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
 If they are set, then we render the ``MainScreen`` of the app.
@@ -133,25 +131,23 @@ The ``useParty`` hook simply returns the current user as stored in the ``DamlLed
 A more interesting example is the ``allUsers`` line.
 This uses the ``useStreamQuery`` hook to get all ``User`` contracts on the ledger.
 (``User`` here is an object generated by ``daml codegen ts`` - it stores metadata of the ``User`` template defined in ``User.daml``.)
-Note however that this query preserves privacy: only users that have added the current user have their contracts revealed.
-This behaviour is due to the observers on the ``User`` contract being exactly the user's friends.
+Note however that this query preserves privacy: only users that follow the current user have their contracts revealed.
+This behaviour is due to the observers on the ``User`` contract being exactly in the list of users that the current user is following.
 
 A final point on this is the *streaming* aspect of the query.
 This means that results are updated as they come in - there is no need for periodic or manual reloading to see updates.
 
-.. TODO Explain why you see friends of friends.
-
-Another example, showing how to *update* ledger state, is how we exercise the ``AddFriend`` choice of the ``User`` template.
+Another example, showing how to *update* ledger state, is how we exercise the ``Follow`` choice of the ``User`` template.
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: tsx
-  :start-after: // ADDFRIEND_BEGIN
-  :end-before: // ADDFRIEND_END
+  :start-after: // STARTFOLLOWING_BEGIN
+  :end-before: // STARTFOLLOWING_END
 
-The ``useExerciseByKey`` hook returns the ``exerciseAddFriend`` function.
+The ``useExerciseByKey`` hook returns the ``exerciseFollow`` function.
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.
-The wrapper function ``addFriend`` is then passed to the subcomponents of ``MainView``.
-For example, ``addFriend`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
+The wrapper function ``follow`` is then passed to the subcomponents of ``MainView``.
+For example, ``follow`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
 This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
 .. literalinclude:: code/ui-before/MainView.tsx

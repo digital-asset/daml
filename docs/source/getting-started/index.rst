@@ -100,32 +100,28 @@ The command should automatically open a window in your default browser at http:/
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 
-You should now see the login page for the social network.
-For simplicity of this app, there is no password or sign-up required.
-To learn how to handle proper authentication, see this blog post about `DAML and Auth0 <https://blog.daml.com/daml-driven/easy-authentication-for-your-distributed-app-with-daml-and-auth0>`_ or the :doc:`full documentation </app-dev/authentication>`.
-
+You should now see the login page for the social network. sFor simplicity of this app, there is no password or sign-up required.   
 First enter your name and click *Log in*.
-You should see the main screen with two panels for your friends and the entire network.
-Initially these are both empty as you don't have friends yet!
-Go ahead and add some using the text box and *Add Friend* button in the top panel.
+You should see the main screen with two panels for the users you are following and the entire network.
+Initially these are both empty as you are not following anyone and you don't have any followers!
+Go ahead and start following users by typing their usernames in the text box and clicking on the *Follow* button in the top panel.
 
-You'll notice that the newly added friends appear in the *Friends* panel.
+You'll notice that the users you just started following appear in the *Following* panel.
 However they do *not* yet appear in the *Network* panel.
-This is because 1. they have not signed up and are not parties on the ledger, and 2. they have not yet added you as a friend.
-In our social network, friendships can go in a single direction.
-By adding a friend, say Alice, you make yourself visible to her but not vice versa.
+This is either because 1. they have not signed up and are not parties on the ledger, and 2. they have not yet started follwiong you.
+This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in DAML in the next section.
 
-To make your friendships reciprocal, open a new browser window at http://localhost:3000.
-(Having separate windows allows you to see both you and your friend's screens at the same time.)
-Once you log in as your friend Alice, you'll notice your name in her network.
-In fact, Alice can see your entire friend list in the *Network* panel.
-This is because your friend list is part of the user data that became visible when you added her as a friend.
+To make this relationship reciprocal, open a new browser window/tab at http://localhost:3000.
+(Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
+Once you log in as the user you are following - Alice, you'll notice your name in her network.
+In fact, Alice can see the entire list of users you are follwing in the *Network* panel.
+This is because this list is part of the user data that became visible when you started follwing her.
 
-When Alice finally adds you back as a friend, you can see her in your network as well.
+When Alice starts follwing you, you can see her in your network as well.
 Just switch to the window where you are logged in as yourself - the network should update automatically.
 
-Play around more with the app at your leisure: create new users and add more friends.
+Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
 When you're ready, let's move on to the :doc:`architecture of our app <app-architecture>`.
 

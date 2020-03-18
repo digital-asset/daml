@@ -25,64 +25,64 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-// ADDFRIEND_BEGIN
-  const [exerciseAddFriend] = useExerciseByKey(User.AddFriend);
+// STARTFOLLOWING_BEGIN
+  const [exerciseFollow] = useExerciseByKey(User.Follow);
 
-  const addFriend = async (friend: Party): Promise<boolean> => {
+  const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
-      await exerciseAddFriend(username, {friend});
+      await exerciseFollow(username, {userToFollow});
       return true;
     } catch (error) {
       alert("Unknown error:\n" + JSON.stringify(error));
       return false;
     }
   }
-// ADDFRIEND_END
+// STARTFOLLOWING_END
 
-  return (
-    <Container>
-      <Grid centered columns={2}>
-        <Grid.Row stretched>
-          <Grid.Column>
-            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-                {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
+return (
+  <Container>
+    <Grid centered columns={2}>
+      <Grid.Row stretched>
+        <Grid.Column>
+          <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
+              {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
+          </Header>
+
+          <Segment>
+            <Header as='h2'>
+              <Icon name='user' />
+              <Header.Content>
+                {myUser?.username ?? 'Loading...'}
+                <Header.Subheader>Users I'm following</Header.Subheader>
+              </Header.Content>
             </Header>
-
-            <Segment>
-              <Header as='h2'>
-                <Icon name='user' />
-                <Header.Content>
-                  {myUser?.username ?? 'Loading...'}
-                  <Header.Subheader>Me and my friends</Header.Subheader>
-                </Header.Content>
-              </Header>
-              <Divider />
-              <PartyListEdit
-                parties={myUser?.friends ?? []}
-                onAddParty={addFriend}
-              />
-            </Segment>
-            <Segment>
-              <Header as='h2'>
-                <Icon name='globe' />
-                <Header.Content>
-                  The Network
-                  <Header.Subheader>Others and their friends</Header.Subheader>
-                </Header.Content>
-              </Header>
-              <Divider />
+            <Divider />
+            <PartyListEdit
+              parties={myUser?.following ?? []}
+              onAddParty={follow}
+            />
+          </Segment>
+          <Segment>
+            <Header as='h2'>
+              <Icon name='globe' />
+              <Header.Content>
+                The Network
+                <Header.Subheader>My followers and users they are following</Header.Subheader>
+              </Header.Content>
+            </Header>
+            <Divider />
 // USERLIST_BEGIN
-              <UserList
-                users={friends}
-                onAddFriend={addFriend}
-              />
+            <UserList
+              users={following}
+              onFollow={follow}
+            />
 // USERLIST_END
-            </Segment>
-          </Grid.Column>
-        </Grid.Row>
-      </Grid>
-    </Container>
-  );
+          </Segment>
+        </Grid.Column>
+      </Grid.Row>
+    </Grid>
+  </Container>
+);
 }
 
 export default MainView;
