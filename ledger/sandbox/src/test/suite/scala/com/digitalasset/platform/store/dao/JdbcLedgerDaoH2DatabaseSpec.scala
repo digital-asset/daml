@@ -6,10 +6,11 @@ package com.digitalasset.platform.store.dao
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 // Aggregate all specs in a single run to not start a new database fixture for each one
-final class JdbcLedgerDaoSpec
+final class JdbcLedgerDaoH2DatabaseSpec
     extends AsyncFlatSpec
     with Matchers
     with JdbcLedgerDaoSuite
+    with JdbcLedgerDaoBackendH2Database
     with JdbcLedgerDaoConfigurationSpec
     with JdbcLedgerDaoContractKeysSpec
     with JdbcLedgerDaoContractsSpec
