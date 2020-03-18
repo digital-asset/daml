@@ -79,7 +79,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
 
       completion.transactionId shouldBe empty
       completion.commandId shouldBe rejection.entry.commandId
-      completion.status.value.code shouldNot be(io.grpc.Status.Code.OK)
+      completion.status.value.code shouldNot be(io.grpc.Status.Code.OK.value())
     }
   }
 
