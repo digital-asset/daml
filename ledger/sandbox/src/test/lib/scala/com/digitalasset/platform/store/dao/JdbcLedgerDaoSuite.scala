@@ -7,7 +7,6 @@ import java.io.File
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicLong
 
-import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
@@ -27,30 +26,20 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.{EventId, TransactionId}
-import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.events.EventIdFormatter
+import com.digitalasset.platform.store.PersistenceEntry
 import com.digitalasset.platform.store.entries.LedgerEntry
-import com.digitalasset.platform.store.{DbType, FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.Resource
-import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest.Suite
 
 import scala.collection.immutable.HashMap
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.util.{Success, Try}
 
-private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with PostgresAroundAll {
+private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLedgerDaoBackend {
   this: Suite =>
-
-  // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
-  private var resource: Resource[LedgerDao] = _
-
-  protected final var ledgerDao: LedgerDao = _
 
   protected final val nextOffset: () => Offset = {
     val base = BigInt(1) << 32
@@ -61,27 +50,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with Postgre
 
   protected final implicit class OffsetToLong(offset: Offset) {
     def toLong: Long = BigInt(offset.toByteArray).toLong
-  }
-
-  override final def beforeAll(): Unit = {
-    super.beforeAll()
-    implicit val executionContext: ExecutionContext = system.dispatcher
-    resource = newLoggingContext { implicit logCtx =>
-      for {
-        _ <- Resource.fromFuture(new FlywayMigrations(postgresFixture.jdbcUrl).migrate())
-        dbDispatcher <- DbDispatcher
-          .owner(postgresFixture.jdbcUrl, 4, new MetricRegistry)
-          .acquire()
-        ledgerDao = JdbcLedgerDao(dbDispatcher, DbType.Postgres, executionContext)
-        _ <- Resource.fromFuture(ledgerDao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
-      } yield ledgerDao
-    }
-    ledgerDao = Await.result(resource.asFuture, 10.seconds)
-  }
-
-  override final def afterAll(): Unit = {
-    Await.result(resource.release(), 10.seconds)
-    super.afterAll()
   }
 
   protected final val alice = Party.assertFromString("Alice")
