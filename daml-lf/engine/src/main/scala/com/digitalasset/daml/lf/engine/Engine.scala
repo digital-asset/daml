@@ -77,8 +77,40 @@ final class Engine(nextRandomInt: () => Int) {
     * </ul>
     *
     *
-    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
+    * [[submissionSeed]] is the master hash used to derive node and contractId discriminator.
     * If let undefined, no discriminator will be generated.
+    * The derivation scheme ensures the following properties:
+    * <ul>
+    * <li> For every subtree of the transaction, there is a seed such that all node and contract Id discriminators
+    *      can be derived from the seed based on the information in the subtree.  This allows to reinterpret
+    *      individual subtrees of a transaction.
+    * </li>
+    * <li> All node and contractId discriminators in the transaction are disjoint unless a hash collision occurs.
+    * </li>
+    * <li> Contracts with different stakeholders have different discriminators unless a hash collision occurs.
+    * </li>
+    * <li> Submissions with different submission time or participant Id lead to different node and contract Id discriminators
+    *      unless a hash collision occurs.
+    * </li>
+    * <li> Assume that the underlying hash function (HMAC SHA-256) is a pseudo-random function indexed by a seed (i.e., a random oracle)
+    *      and that the `submissionSeed` is pseudo-random. Consider an adversary that is given a set of subtrees
+    *      of the transaction, including the seeds used for those subtrees and the positions of the subtree roots in
+    *      the transaction tree (positions are encoded as a list of child indices).
+    *      The node and contract Id discriminators in other parts of the transaction appear as pseudo-random to the adversary,
+    *      even if the adversary learns the contents of the nodes or contract, e.g., through divulgence,
+    *      or the contract Id discriminator, e.g., if it is included in a value in one of the the subtrees.
+    * </li>
+    * </ul>
+    * Contract Id discriminators of created contracts are disjoint from the following:
+    * <ul>
+    * <li> Discriminators of contract Ids that appear in the `commands`
+    * </li>
+    * <li> Discriminators of the input contracts of the transaction
+    * </li>
+    * <li> Discriminators of the contract Ids in the input contract's template arguments
+    *      if the input contract is in the transaction.
+    * </li>
+    * </ul>
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     *
