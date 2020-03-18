@@ -477,10 +477,10 @@ object Speedy {
               case _ => false
             }
           }
-        case SVariant(_, con1, _, arg) =>
+        case SVariant(_, _, rank1, arg) =>
           alts.find { alt =>
             alt.pattern match {
-              case SCPVariant(_, con2) if con1 == con2 =>
+              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
                 machine.kont.add(KPop(1))
                 machine.env.add(arg)
                 true
@@ -488,11 +488,10 @@ object Speedy {
               case _ => false
             }
           }
-        case SEnum(_, con1, _) =>
+        case SEnum(_, _, rank1) =>
           alts.find { alt =>
             alt.pattern match {
-              case SCPEnum(_, con2) =>
-                con1 == con2
+              case SCPEnum(_, _, rank2) => rank1 == rank2
               case SCPDefault => true
               case _ => false
             }
