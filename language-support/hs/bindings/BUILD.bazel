@@ -40,7 +40,7 @@ daml_compile(
 
 daml_compile(
     name = "for-upload",
-    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
+    srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
 da_haskell_test(

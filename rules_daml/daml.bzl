@@ -11,6 +11,13 @@ _damlc = attr.label(
     doc = "The DAML compiler.",
 )
 
+_zipper = attr.label(
+    allow_single_file = True,
+    default = Label("@bazel_tools//tools/zip:zipper"),
+    executable = True,
+    cfg = "host",
+)
+
 def _daml_configure_impl(ctx):
     project_name = ctx.attr.project_name
     project_version = ctx.attr.project_version
@@ -66,14 +73,14 @@ def make_cp_command(src, dest):
 def _daml_build_impl(ctx):
     name = ctx.label.name
     daml_yaml = ctx.file.daml_yaml
-    damls = ctx.files.damls
+    srcs = ctx.files.srcs
     dar_dict = ctx.attr.dar_dict
     damlc = ctx.file._damlc
     input_dars = [file_of_target(k) for k in dar_dict.keys()]
     output_dar = ctx.outputs.dar
     ctx.actions.run_shell(
         tools = [damlc],
-        inputs = [daml_yaml] + damls + input_dars,
+        inputs = [daml_yaml] + srcs + input_dars,
         outputs = [output_dar],
         progress_message = "Building DAML project %s" % name,
         command = """
@@ -81,17 +88,17 @@ def _daml_build_impl(ctx):
             tmpdir=$(mktemp -d)
             trap "rm -rf $tmpdir" EXIT
             cp -f {config} $tmpdir/daml.yaml
-            {cp_damls}
+            {cp_srcs}
             {cp_dars}
             {damlc} build --project-root $tmpdir -o $PWD/{output_dar}
         """.format(
             config = daml_yaml.path,
-            cp_damls = "\n".join([
+            cp_srcs = "\n".join([
                 make_cp_command(
-                    src = daml.path,
-                    dest = "$tmpdir/" + daml.path,
+                    src = src.path,
+                    dest = "$tmpdir/" + src.path,
                 )
-                for daml in damls
+                for src in srcs
             ]),
             cp_dars = "\n".join([
                 make_cp_command(
@@ -113,7 +120,7 @@ _daml_build = rule(
             mandatory = True,
             doc = "The daml.yaml config file.",
         ),
-        "damls": attr.label_list(
+        "srcs": attr.label_list(
             allow_files = [".daml"],
             mandatory = True,
             doc = "DAML files in this DAML project.",
@@ -135,16 +142,19 @@ def _extract_main_dalf_impl(ctx):
     project_version = ctx.attr.project_version
     input_dar = ctx.file.dar
     output_dalf = ctx.outputs.dalf
+    zipper = ctx.file._zipper
     ctx.actions.run_shell(
+        tools = [zipper],
         inputs = [input_dar],
         outputs = [output_dalf],
         progress_message = "Extract DALF from DAR (%s)" % project_name,
         command = """
             set -eou pipefail
-            unzip -q {input_dar}
+            {zipper} x {input_dar}
             main_dalf=$(find . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
             cp $main_dalf {output_dalf}
         """.format(
+            zipper = zipper.path,
             project_name = project_name,
             project_version = project_version,
             input_dar = input_dar.path,
@@ -172,7 +182,7 @@ _extract_main_dalf = rule(
             mandatory = True,
             doc = "The extracted DALF.",
         ),
-        "_damlc": _damlc,
+        "_zipper": _zipper,
     },
 )
 
@@ -219,6 +229,8 @@ def daml_compile(
         target = None,
         **kwargs):
     "Build a DAML project, with a generated daml.yaml."
+    if len(srcs) == 0:
+        fail("daml_compile: Expected `srcs' to be non-empty.")
     daml_yaml = name + ".yaml"
     _daml_configure(
         name = name + ".configure",
@@ -231,7 +243,7 @@ def daml_compile(
     _daml_build(
         name = name + ".build",
         daml_yaml = daml_yaml,
-        damls = srcs,
+        srcs = srcs,
         dar_dict = {},
         dar = name + ".dar",
         **kwargs
@@ -264,11 +276,11 @@ def daml_build_test(
         **kwargs):
     "Build a DAML project and validate the resulting .dar file."
     daml_yaml = project_dir + "/" + daml_config_basename
-    damls = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
+    srcs = native.glob([project_dir + "/" + daml_subdir_basename + "/**/*.daml"])
     _daml_build(
         name = name,
         daml_yaml = daml_yaml,
-        damls = damls,
+        srcs = srcs,
         dar_dict = dar_dict,
         dar = name + ".dar",
         **kwargs
