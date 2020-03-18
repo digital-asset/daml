@@ -327,11 +327,29 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           callCommandQuiet "daml damlc test --files daml/Main.daml"
     , testCase "daml damlc visual-web" $ withCurrentDirectory quickstartDir $
           callCommandQuiet $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
-    , testCase "sandbox startup" $
+    , testCase "Sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
           let sandboxProc = (shell $ unwords ["daml", "sandbox", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
+          withCreateProcess sandboxProc  $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
+              waitForConnectionOnPort (threadDelay 100000) p
+              addr : _ <- getAddrInfo
+                  (Just socketHints)
+                  (Just "127.0.0.1")
+                  (Just $ show p)
+              bracket
+                  (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
+                  close
+                  (\s -> connect s (addrAddress addr))
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
+              terminateProcess ph
+    , testCase "Sandbox Next startup" $
+      withCurrentDirectory quickstartDir $
+      withDevNull $ \devNull -> do
+          p :: Int <- fromIntegral <$> getFreePort
+          let sandboxProc = (shell $ unwords ["daml", "sandbox-next", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
