@@ -30,7 +30,7 @@ latest commit on master.
 
    - For a snapshot run
      - `./release.sh snapshot HEAD`;
-     - Edit `LATEST`, to update the release "version". For example, change
+     - If applicable (e.g. latest release was a stable one), edit `LATEST` to update the release "version". For example, change
        ```
        6ea118d6142d2a937286b0a7bf9846dbcdb1751b 0.13.56-snapshot.20200318.3529.0.6ea118d6
        ```
