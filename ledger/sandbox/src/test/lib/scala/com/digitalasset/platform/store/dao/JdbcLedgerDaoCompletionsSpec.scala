@@ -111,8 +111,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
     for {
       from <- ledgerDao.lookupLedgerEnd()
       _ <- Future.sequence(
-        for (reason <- reasons; offset = nextOffset())
-          yield ledgerDao.storeLedgerEntry(offset, rejectWith(reason)))
+        reasons.map(reason => ledgerDao.storeLedgerEntry(nextOffset(), rejectWith(reason))))
       to <- ledgerDao.lookupLedgerEnd()
       responses <- ledgerDao.completions
         .getCommandCompletions(from, to, applicationId, parties)
