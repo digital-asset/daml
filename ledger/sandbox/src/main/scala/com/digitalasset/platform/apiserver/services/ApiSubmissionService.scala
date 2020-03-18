@@ -276,6 +276,8 @@ final class ApiSubmissionService private (
       case e @ ErrorCause.Sequencer(errors) =>
         val base = if (errors.exists(_.isFinal)) Status.INVALID_ARGUMENT else Status.ABORTED
         base.withDescription(e.explain)
+      case e @ ErrorCause.LedgerTime(_) =>
+        Status.ABORTED.withDescription(e.explain)
     }
 
   override def close(): Unit = ()
