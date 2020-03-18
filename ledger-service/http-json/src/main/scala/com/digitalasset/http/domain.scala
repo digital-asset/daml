@@ -29,6 +29,7 @@ import scalaz.{
   Semigroup,
   Show,
   Tag,
+  Tags,
   Traverse,
   \/,
   \/-
@@ -162,9 +163,7 @@ object domain {
       Ordering.by(LedgerOffsetUtil.parseOffsetString _ compose unwrap)(
         LedgerOffsetUtil.LongEitherLongLongOrdering)
 
-    implicit val semigroup: Semigroup[Offset] = new Semigroup[Offset] {
-      override def append(f1: Offset, f2: => Offset): Offset = ordering.max(f1, f2)
-    }
+    implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
   }
 
   final case class StartingOffset(offset: Offset)
