@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.http.util.ClientUtil.boxedRecord
+import com.digitalasset.http.util.LedgerOffsetUtil
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
@@ -19,7 +20,20 @@ import scalaz.std.vector._
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Applicative, Bitraverse, NonEmptyList, Show, Tag, Traverse, \/, \/-}
+import scalaz.{
+  -\/,
+  @@,
+  Applicative,
+  Bitraverse,
+  NonEmptyList,
+  Semigroup,
+  Show,
+  Tag,
+  Tags,
+  Traverse,
+  \/,
+  \/-
+}
 import spray.json.JsValue
 
 import scala.annotation.tailrec
@@ -144,6 +158,12 @@ object domain {
 
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
+
+    implicit val ordering: Ordering[Offset] =
+      Ordering.by(LedgerOffsetUtil.parseOffsetString _ compose unwrap)(
+        LedgerOffsetUtil.LongEitherLongLongOrdering)
+
+    implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
   }
 
   final case class StartingOffset(offset: Offset)
