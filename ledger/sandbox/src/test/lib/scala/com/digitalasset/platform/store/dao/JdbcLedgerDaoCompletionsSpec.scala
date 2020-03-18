@@ -94,7 +94,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
         .getCommandCompletions(from, to, applicationId = "WRONG", parties)
         .runWith(Sink.seq)
     } yield {
-      response should have length 0
+      response should have size 0 // `shouldBe empty` upsets WartRemover
     }
   }
 
@@ -109,7 +109,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
     } yield {
-      response should have length 0
+      response should have size 0 // `shouldBe empty` upsets WartRemover
     }
   }
 
