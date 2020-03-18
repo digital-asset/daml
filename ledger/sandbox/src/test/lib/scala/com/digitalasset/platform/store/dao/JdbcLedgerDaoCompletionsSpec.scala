@@ -7,9 +7,11 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.ApplicationId
 import com.digitalasset.ledger.api.domain.RejectionReason
+import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
 import com.digitalasset.platform.store.entries.LedgerEntry
@@ -31,9 +33,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
         .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.submittingParty.get))
         .runWith(Sink.head)
     } yield {
-      val receivedOffset =
-        ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
-      receivedOffset shouldBe offset
+      offsetOf(response) shouldBe offset
 
       response.completions should have length 1
       val completion = response.completions.head
@@ -47,6 +47,9 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
   private val applicationId: ApplicationId = "JdbcLedgerDaoCompletionsSpec"
   private val party: Party = "JdbcLedgerDaoCompletionsSpec"
   private val parties: Set[Party] = Set(party)
+
+  private def offsetOf(response: CompletionStreamResponse): Offset =
+    ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
 
   private def rejectWith(reason: RejectionReason): PersistenceEntry.Rejection =
     PersistenceEntry.Rejection(
@@ -70,9 +73,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
         .getCommandCompletions(from, to, applicationId, parties)
         .runWith(Sink.head)
     } yield {
-      val receivedOffset =
-        ApiOffset.assertFromString(response.checkpoint.value.offset.value.value.absolute.value)
-      receivedOffset shouldBe offset
+      offsetOf(response) shouldBe offset
 
       response.completions should have length 1
       val completion = response.completions.head
