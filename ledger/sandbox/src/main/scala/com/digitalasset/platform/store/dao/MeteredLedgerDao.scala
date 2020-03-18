@@ -19,7 +19,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFi
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.TransactionWriter
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionWriter}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -76,6 +76,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def lookupTransaction(
       transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] =
     timedFuture(Metrics.lookupTransaction, ledgerDao.lookupTransaction(transactionId))
+  override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
   override def lookupKey(
       key: Node.GlobalKey,

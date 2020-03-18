@@ -66,7 +66,7 @@ object TransactionConversion {
       )
   }
 
-  private def permanent(events: Vector[Event]): Set[String] = {
+  private[platform] def permanent(events: Vector[Event]): Set[String] = {
     events.foldLeft(Set.empty[String]) { (contractIds, event) =>
       if (event.isCreated || !contractIds.contains(event.contractId)) {
         contractIds + event.contractId
@@ -76,7 +76,7 @@ object TransactionConversion {
     }
   }
 
-  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+  private[platform] def removeTransient(events: Vector[Event]): Vector[Event] = {
     val toKeep = permanent(events)
     events.filter(event => toKeep(event.contractId))
   }

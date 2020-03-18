@@ -50,7 +50,7 @@ import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.store.dao.events.TransactionWriter
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionWriter}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -1737,6 +1737,9 @@ private class JdbcLedgerDao(
 
   override val transactionsWriter: TransactionWriter =
     TransactionWriter
+
+  override val transactionsReader: TransactionsReader =
+    TransactionsReader(dbDispatcher, dbType, executionContext)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
