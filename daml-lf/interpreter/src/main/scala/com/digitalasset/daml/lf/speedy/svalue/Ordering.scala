@@ -199,11 +199,11 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SRecord(_, _, args2) =>
               0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
           }
-          case SVariant(_, con1, _, arg1) => {
-            case SVariant(_, con2, _, arg2) =>
+          case SVariant(_, _, rank1, arg1) => {
+            case SVariant(_, _, rank2, arg2) =>
               // FIXME https://github.com/digital-asset/daml/issues/2256
               // should not compare constructor syntactically
-              (con1 compareTo con2) -> ImmArray((arg1, arg2))
+              (rank1 compareTo rank2) -> ImmArray((arg1, arg2))
           }
           case SList(FrontStack()) => {
             case SList(l2) =>
