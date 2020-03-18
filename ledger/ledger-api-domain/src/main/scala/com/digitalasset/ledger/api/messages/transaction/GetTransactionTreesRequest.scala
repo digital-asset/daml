@@ -11,8 +11,8 @@ import scala.collection.immutable
 
 final case class GetTransactionTreesRequest(
     ledgerId: LedgerId,
-    begin: LedgerOffset,
-    end: Option[LedgerOffset],
+    startExclusive: LedgerOffset,
+    endInclusive: Option[LedgerOffset],
     parties: immutable.Set[Party],
     verbose: Boolean,
     traceContext: Option[TraceContext])

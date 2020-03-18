@@ -15,17 +15,18 @@ import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
+import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.store.dao.{
@@ -45,11 +46,9 @@ import scala.util.{Failure, Success}
 
 object SqlLedger {
 
-  private case class Offsets(offset: Long, nextOffset: Long)
-
   private type Queues = (
-      SourceQueueWithComplete[Offsets => Future[Unit]],
-      SourceQueueWithComplete[Offsets => Future[Unit]],
+      SourceQueueWithComplete[Offset => Future[Unit]],
+      SourceQueueWithComplete[Offset => Future[Unit]],
   )
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
@@ -100,7 +99,7 @@ object SqlLedger {
 private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
-    headAtInitialization: Long,
+    headAtInitialization: Offset,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
@@ -132,14 +131,14 @@ private final class SqlLedger(
   private def createQueues(): Queues = {
     implicit val ec: ExecutionContext = DEC
 
-    val checkpointQueue = Source.queue[Offsets => Future[Unit]](1, OverflowStrategy.dropHead)
+    val checkpointQueue = Source.queue[Offset => Future[Unit]](1, OverflowStrategy.dropHead)
     val persistenceQueue =
-      Source.queue[Offsets => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
+      Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
 
     val mergedSources =
       Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue)(_ -> _) {
         implicit b => (checkpointSource, persistenceSource) =>
-          val merge = b.add(MergePreferred[Offsets => Future[Unit]](1))
+          val merge = b.add(MergePreferred[Offset => Future[Unit]](1))
 
           checkpointSource ~> merge.preferred
           persistenceSource ~> merge.in(0)
@@ -154,18 +153,18 @@ private final class SqlLedger(
     mergedSources
       .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
-        val startOffset = dispatcher.getHead()
+        val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
         // we can only do this because there is no parallelism here!
         //shooting the SQL queries in parallel
         Future
           .sequence(queue.toIterator.zipWithIndex.map {
             case (persist, i) =>
-              val offset = startOffset + i
-              persist(Offsets(offset, offset + 1L))
+              val offset = startOffset + i + 1
+              persist(SandboxOffset.toOffset(offset))
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
-            dispatcher.signalNewHead(startOffset + queue.length) //signalling downstream subscriptions
+            dispatcher.signalNewHead(SandboxOffset.toOffset(startOffset + queue.length)) //signalling downstream subscriptions
           }
       }
       .toMat(Sink.ignore)(Keep.left[Queues, Future[Done]])
@@ -180,14 +179,14 @@ private final class SqlLedger(
     checkpointQueue.complete()
   }
 
-  private def storeLedgerEntry(offsets: Offsets, entry: PersistenceEntry): Future[Unit] =
+  private def storeLedgerEntry(offset: Offset, entry: PersistenceEntry): Future[Unit] =
     ledgerDao
-      .storeLedgerEntry(offsets.offset, offsets.nextOffset, None, entry)
+      .storeLedgerEntry(offset, entry)
       .map(_ => ())(DEC)
       .recover {
         case t =>
           //recovering from the failure so the persistence stream doesn't die
-          logger.error(s"Failed to persist entry with offsets: $offsets", t)
+          logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
           ()
       }(DEC)
 
@@ -201,8 +200,8 @@ private final class SqlLedger(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
-    enqueue { offsets =>
-      val transactionId = Ref.LedgerString.fromLong(offsets.offset)
+    enqueue { offset =>
+      val transactionId = offset.toApiString
 
       val (transactionForIndex, disclosureForIndex, globalDivulgence) =
         Ledger.convertToCommittedTransaction(transactionId, transaction)
@@ -240,11 +239,11 @@ private final class SqlLedger(
         )
       }
 
-      storeLedgerEntry(offsets, entry)
+      storeLedgerEntry(offset, entry)
 
     }
 
-  private def enqueue(persist: Offsets => Future[Unit]): Future[SubmissionResult] =
+  private def enqueue(persist: Offset => Future[Unit]): Future[SubmissionResult] =
     persistenceQueue
       .offer(persist)
       .transform {
@@ -262,12 +261,10 @@ private final class SqlLedger(
       submissionId: SubmissionId,
       party: Party,
       displayName: Option[String]): Future[SubmissionResult] = {
-    enqueue { offsets =>
+    enqueue { offset =>
       ledgerDao
         .storePartyEntry(
-          offsets.offset,
-          offsets.nextOffset,
-          None,
+          offset,
           PartyLedgerEntry.AllocationAccepted(
             Some(submissionId),
             participantId,
@@ -278,7 +275,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist party $party with offsets: $offsets", t)
+            logger.error(s"Failed to persist party $party with offset: ${offset.toApiString}", t)
             ()
         }(DEC)
     }
@@ -291,12 +288,10 @@ private final class SqlLedger(
       payload: List[Archive]): Future[SubmissionResult] = {
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
-    enqueue { offsets =>
+    enqueue { offset =>
       ledgerDao
         .storePackageEntry(
-          offsets.offset,
-          offsets.nextOffset,
-          None,
+          offset,
           packages,
           Some(PackageLedgerEntry.PackageUploadAccepted(submissionId, timeProvider.getCurrentTime)),
         )
@@ -304,7 +299,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist packages with offsets: $offsets", t)
+            logger.error(s"Failed to persist packages with offset: ${offset.toApiString}", t)
             ()
         }(DEC)
     }
@@ -314,7 +309,7 @@ private final class SqlLedger(
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
-    enqueue { offsets =>
+    enqueue { offset =>
       val recordTime = timeProvider.getCurrentTime
       val mrt = maxRecordTime.toInstant
 
@@ -322,9 +317,7 @@ private final class SqlLedger(
         if (recordTime.isAfter(mrt)) {
           ledgerDao
             .storeConfigurationEntry(
-              offsets.offset,
-              offsets.nextOffset,
-              None,
+              offset,
               recordTime,
               submissionId,
               participantId,
@@ -338,9 +331,7 @@ private final class SqlLedger(
           // database transaction.
           ledgerDao
             .storeConfigurationEntry(
-              offsets.offset,
-              offsets.nextOffset,
-              None,
+              offset,
               recordTime,
               submissionId,
               participantId,
@@ -354,7 +345,7 @@ private final class SqlLedger(
         .recover {
           case t =>
             //recovering from the failure so the persistence stream doesn't die
-            logger.error(s"Failed to persist configuration with offsets: $offsets", t)
+            logger.error(s"Failed to persist configuration with offset: $offset", t)
             ()
         }(DEC)
     }
@@ -458,7 +449,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       _ <- if (initializationRequired) {
         logger.info(s"Initializing ledger with ID: $ledgerId")
         for {
-          _ <- ledgerDao.initializeLedger(ledgerId, 0)
+          _ <- ledgerDao.initializeLedger(ledgerId, Offset.begin)
           _ <- initializeLedgerEntries(initialLedgerEntries, timeProvider, packages, acs)
         } yield ()
       } else {
@@ -495,11 +486,11 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     }
 
     val (ledgerEnd, ledgerEntries) =
-      initialLedgerEntries.foldLeft((0L, Vector.empty[(Long, LedgerEntry)])) {
+      initialLedgerEntries.foldLeft((0L, Vector.empty[(Offset, LedgerEntry)])) {
         case ((offset, entries), entryOrBump) =>
           entryOrBump match {
             case LedgerEntryOrBump.Entry(entry) =>
-              (offset + 1, entries :+ offset -> entry)
+              (offset + 1, entries :+ SandboxOffset.toOffset(offset + 1) -> entry)
             case LedgerEntryOrBump.Bump(increment) =>
               (offset + increment, entries)
           }
@@ -507,15 +498,15 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
     val contracts = acs.activeContracts.values.toList
     for {
-      _ <- copyPackages(packages, timeProvider.getCurrentTime, ledgerEnd)
-      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, ledgerEnd)
+      _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
+      _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
     } yield ()
   }
 
   private def copyPackages(
       store: InMemoryPackageStore,
       knownSince: Instant,
-      newLedgerEnd: Long): Future[Unit] = {
+      newLedgerEnd: Offset): Future[Unit] = {
 
     val packageDetails = store.listLfPackagesSync()
     if (packageDetails.nonEmpty) {
@@ -527,12 +518,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       })
 
       ledgerDao
-        .storePackageEntry(
-          newLedgerEnd, // FIXME(JM): Find a more reasonable way to do this.
-          newLedgerEnd,
-          None,
-          packages,
-          None)
+        .storePackageEntry(newLedgerEnd, packages, None)
         .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())
