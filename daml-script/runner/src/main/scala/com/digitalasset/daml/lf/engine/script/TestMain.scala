@@ -124,11 +124,14 @@ object TestMain extends StrictLogging {
             dar.main._2.modules.flatMap {
               case (moduleName, module) => {
                 object ScriptDefinition {
-                  def unapply(nameAndDefn: (DottedName, Ast.Definition)): Option[(Identifier, ScriptIds)] = {
+                  def unapply(nameAndDefn: (DottedName, Ast.Definition))
+                    : Option[(Identifier, ScriptIds)] = {
                     nameAndDefn match {
                       case (name, Ast.DValue(ty, _, _, _)) => {
                         ScriptIds.fromType(ty) match {
-                          case Some(scriptIds) => Some((Identifier(dar.main._1, QualifiedName(moduleName, name)), scriptIds))
+                          case Some(scriptIds) =>
+                            Some(
+                              (Identifier(dar.main._1, QualifiedName(moduleName, name)), scriptIds))
                           case None => None
                         }
                       }
@@ -138,7 +141,8 @@ object TestMain extends StrictLogging {
                 }
                 module.definitions.collect {
                   case ScriptDefinition(scriptId, scriptIds) => {
-                    val runner = new Runner(dar, scriptIds, applicationId, commandUpdater, timeProvider)
+                    val runner =
+                      new Runner(dar, scriptIds, applicationId, commandUpdater, timeProvider)
                     val script = Script.fromDar(dar, scriptId)
                     val testRun: Future[Unit] = for {
                       _ <- runner.run(clients, script, None)

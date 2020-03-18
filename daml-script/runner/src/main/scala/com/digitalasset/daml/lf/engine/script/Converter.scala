@@ -395,9 +395,7 @@ object Converter {
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
-  def fromCreated(
-      translator: ValueTranslator,
-      created: CreatedEvent): Either[String, SValue] = {
+  def fromCreated(translator: ValueTranslator, created: CreatedEvent): Either[String, SValue] = {
     val anyTemplateTyCon = daInternalAny("AnyTemplate")
     val pairTyCon = daTypes("Tuple2")
     for {

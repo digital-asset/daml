@@ -246,10 +246,7 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def run(
-      initialClients: Participants[LedgerClient],
-      script: Script,
-      inputValue: Option[JsValue])(
+  def run(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     val scriptExpr = (script.param, inputValue) match {
@@ -264,11 +261,9 @@ class Runner(
         SEApp(script.expr, Array(SEValue(translateValue(param, inputLfVal))))
       }
       case (None, Some(_)) =>
-        throw new RuntimeException(
-          s"The script ${script.id} does not take arguments.")
+        throw new RuntimeException(s"The script ${script.id} does not take arguments.")
       case (Some(_), None) =>
-        throw new RuntimeException(
-          s"The script ${script.id} requires an argument.")
+        throw new RuntimeException(s"The script ${script.id} requires an argument.")
     }
     runExpr(initialClients, scriptExpr)
   }
@@ -390,11 +385,8 @@ class Runner(
                   acsResponses.flatMap(acsPages => {
                     val res =
                       FrontStack(acsPages.flatMap(page => page.activeContracts))
-                        .traverseU(
-                          Converter
-                            .fromCreated(
-                              valueTranslator,
-                              _))
+                        .traverseU(Converter
+                          .fromCreated(valueTranslator, _))
                         .fold(s => throw new ConverterException(s), identity)
                     machine.ctrl =
                       Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SList(res)))))
