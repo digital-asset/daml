@@ -157,9 +157,9 @@ dev_env_tool(
     nix_label = "@openssl_nix",
     nix_paths = ["bin/openssl"],
     tools = ["openssl"],
-    win_include = ["bin"],
-    win_paths = ["bin/openssl.exe"],
-    win_tool = "openssl",
+    win_include = ["usr/bin"],
+    win_paths = ["usr/bin/openssl.exe"],
+    win_tool = "msys2",
 )
 
 # Tar & gzip dependency
