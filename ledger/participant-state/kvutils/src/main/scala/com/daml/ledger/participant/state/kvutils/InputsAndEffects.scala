@@ -88,9 +88,7 @@ private[kvutils] object InputsAndEffects {
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-            addContractInput(exe.targetCoid)
-
+          case NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
           case lookup @ NodeLookupByKey(_, _, _, _) =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
