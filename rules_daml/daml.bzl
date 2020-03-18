@@ -33,7 +33,7 @@ def _daml_configure_impl(ctx):
             dependencies: []
             build-options: [{target}]
         """.format(
-            sdk = "sdk_version",
+            sdk = sdk_version,
             name = project_name,
             version = project_version,
             target = "--target=" + target if (target) else "",
