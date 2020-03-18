@@ -49,7 +49,7 @@ codegen:
 ## Start Sandbox
 This examples requires a running sandbox. To start it, run the following command:
 ```
-$ daml sandbox ./.daml/dist/quickstart-0.0.1.dar
+$ daml sandbox --wall-clock-time ./.daml/dist/quickstart-0.0.1.dar
 ```
 where `./.daml/dist/quickstart-0.0.1.dar` is the DAR file created in the previous step.
 

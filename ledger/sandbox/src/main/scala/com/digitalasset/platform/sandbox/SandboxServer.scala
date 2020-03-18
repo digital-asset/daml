@@ -23,8 +23,8 @@ import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
@@ -34,7 +34,7 @@ import com.digitalasset.platform.apiserver.{
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
 import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -180,7 +180,10 @@ final class SandboxServer(
   def portF(implicit executionContext: ExecutionContext): Future[Port] =
     apiServer.map(_.port)
 
-  def resetAndRestartServer()(implicit executionContext: ExecutionContext): Future[Unit] = {
+  def resetAndRestartServer()(
+      implicit executionContext: ExecutionContext,
+      logCtx: LoggingContext,
+  ): Future[Unit] = {
     val apiServicesClosed = apiServer.flatMap(_.servicesClosed())
 
     // TODO: eliminate the state mutation somehow
@@ -206,7 +209,7 @@ final class SandboxServer(
       packageStore: InMemoryPackageStore,
       startMode: SqlStartMode,
       currentPort: Option[Port],
-  ): Resource[ApiServer] = {
+  )(implicit logCtx: LoggingContext): Resource[ApiServer] = {
     implicit val _materializer: Materializer = materializer
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
@@ -228,126 +231,134 @@ final class SandboxServer(
           (ts, Some(ts))
       }
 
-    newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
-      val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
-        case Some(jdbcUrl) =>
-          "postgres" -> SandboxIndexAndWriteService.postgres(
-            config.ledgerIdMode,
-            participantId,
-            jdbcUrl,
-            config.timeModel,
-            timeProvider,
-            acs,
-            ledgerEntries,
-            startMode,
-            config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
-            packageStore,
-            metrics,
-          )
-
-        case None =>
-          "in-memory" -> SandboxIndexAndWriteService.inMemory(
-            config.ledgerIdMode,
-            participantId,
-            config.timeModel,
-            timeProvider,
-            acs,
-            ledgerEntries,
-            packageStore,
-            metrics,
-          )
-      }
-
-      for {
-        indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
-        ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
-        authorizer = new Authorizer(
-          () => java.time.Clock.systemUTC.instant(),
-          LedgerId.unwrap(ledgerId),
-          participantId)
-        healthChecks = new HealthChecks(
-          "index" -> indexAndWriteService.indexService,
-          "write" -> indexAndWriteService.writeService,
+    val (ledgerType, indexAndWriteServiceResourceOwner) = config.jdbcUrl match {
+      case Some(jdbcUrl) =>
+        "postgres" -> SandboxIndexAndWriteService.postgres(
+          config.ledgerIdMode,
+          participantId,
+          jdbcUrl,
+          config.timeModel,
+          timeProvider,
+          acs,
+          ledgerEntries,
+          startMode,
+          config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
+          packageStore,
+          metrics,
         )
-        observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
-        _ <- observingTimeServiceBackend
-          .map(_.changes.flatMap(source =>
+
+      case None =>
+        "in-memory" -> SandboxIndexAndWriteService.inMemory(
+          config.ledgerIdMode,
+          participantId,
+          config.timeModel,
+          timeProvider,
+          acs,
+          ledgerEntries,
+          packageStore,
+          metrics,
+        )
+    }
+
+    for {
+      indexAndWriteService <- indexAndWriteServiceResourceOwner.acquire()
+      ledgerId <- Resource.fromFuture(indexAndWriteService.indexService.getLedgerId())
+      authorizer = new Authorizer(
+        () => java.time.Clock.systemUTC.instant(),
+        LedgerId.unwrap(ledgerId),
+        participantId)
+      healthChecks = new HealthChecks(
+        "index" -> indexAndWriteService.indexService,
+        "write" -> indexAndWriteService.writeService,
+      )
+      observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
+      _ <- observingTimeServiceBackend
+        .map(
+          _.changes.flatMap(source =>
             ResourceOwner.forTry(() =>
               Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
                 .map(_ => ()))))
-          .getOrElse(ResourceOwner.unit)
-          .acquire()
-        // the reset service is special, since it triggers a server shutdown
-        resetService = new SandboxResetService(
-          ledgerId,
-          () => resetAndRestartServer(),
-          authorizer,
-        )
-        apiServer <- new LedgerApiServer(
-          (mat: Materializer, esf: ExecutionSequencerFactory) =>
-            ApiServices
-              .create(
-                participantId = participantId,
-                writeService = indexAndWriteService.writeService,
-                indexService = indexAndWriteService.indexService,
-                authorizer = authorizer,
-                engine = SandboxServer.engine,
-                timeProvider = timeProvider,
-                defaultLedgerConfiguration = defaultConfiguration,
-                commandConfig = config.commandConfig,
-                partyConfig = config.partyConfig,
-                submissionConfig = config.submissionConfig,
-                optTimeServiceBackend = observingTimeServiceBackend,
-                metrics = metrics,
-                healthChecks = healthChecks,
-                seedService = config.seeding.map(SeedService(_)),
-              )(mat, esf, logCtx)
-              .map(_.withServices(List(resetService))),
-          // NOTE: Re-use the same port after reset.
-          currentPort.getOrElse(config.port),
-          config.maxInboundMessageSize,
-          config.address,
-          config.tlsConfig.flatMap(_.server),
-          List(
-            AuthorizationInterceptor(authService, executionContext),
-            resetService,
-          ),
-          metrics
-        ).acquire()
-        _ <- Resource.fromFuture(writePortFile(apiServer.port))
-      } yield {
-        Banner.show(Console.out)
-        logger.withoutContext.info(
-          "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
-          BuildInfo.Version,
-          ledgerId,
-          apiServer.port.toString,
-          config.damlPackages,
-          timeProviderType.description,
-          ledgerType,
-          authService.getClass.getSimpleName,
-          config.seeding.fold("no")(_.toString.toLowerCase),
-        )
-        if (config.scenario.nonEmpty) {
-          logger.withoutContext.warn(
-            """Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
-              |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
-        }
-        apiServer
+        .getOrElse(ResourceOwner.unit)
+        .acquire()
+      // the reset service is special, since it triggers a server shutdown
+      resetService = new SandboxResetService(
+        ledgerId,
+        () => resetAndRestartServer(),
+        authorizer,
+      )
+      apiServer <- new LedgerApiServer(
+        (mat: Materializer, esf: ExecutionSequencerFactory) =>
+          ApiServices
+            .create(
+              participantId = participantId,
+              writeService = indexAndWriteService.writeService,
+              indexService = indexAndWriteService.indexService,
+              authorizer = authorizer,
+              engine = SandboxServer.engine,
+              timeProvider = timeProvider,
+              defaultLedgerConfiguration = defaultConfiguration,
+              commandConfig = config.commandConfig,
+              partyConfig = config.partyConfig,
+              submissionConfig = config.submissionConfig,
+              optTimeServiceBackend = observingTimeServiceBackend,
+              metrics = metrics,
+              healthChecks = healthChecks,
+              seedService = config.seeding.map(SeedService(_)),
+            )(mat, esf, logCtx)
+            .map(_.withServices(List(resetService))),
+        // NOTE: Re-use the same port after reset.
+        currentPort.getOrElse(config.port),
+        config.maxInboundMessageSize,
+        config.address,
+        config.tlsConfig.flatMap(_.server),
+        List(
+          AuthorizationInterceptor(authService, executionContext),
+          resetService,
+        ),
+        metrics
+      ).acquire()
+      _ <- Resource.fromFuture(writePortFile(apiServer.port))
+    } yield {
+      Banner.show(Console.out)
+      logger.withoutContext.info(
+        "Initialized sandbox version {} with ledger-id = {}, port = {}, dar file = {}, time mode = {}, ledger = {}, auth-service = {}, contract ids seeding = {}",
+        BuildInfo.Version,
+        ledgerId,
+        apiServer.port.toString,
+        config.damlPackages,
+        timeProviderType.description,
+        ledgerType,
+        authService.getClass.getSimpleName,
+        config.seeding.fold("no")(_.toString.toLowerCase),
+      )
+      if (config.scenario.nonEmpty) {
+        logger.withoutContext.warn(
+          """|Initializing a ledger with scenarios is deprecated and will be removed in the future. You are advised to use DAML Script instead. Using scenarios in DAML Studio will continue to work as expected.
+             |A migration guide for converting your scenarios to DAML Script is available at https://docs.daml.com/daml-script/#using-daml-script-for-ledger-initialization""".stripMargin)
       }
+      apiServer
     }
   }
 
   private def start(): Future[SandboxState] = {
-    val packageStore = loadDamlPackages()
-    val apiServerResource = buildAndStartApiServer(
-      materializer,
-      metrics,
-      packageStore,
-      SqlStartMode.ContinueIfExists,
-      currentPort = None,
-    )
-    Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))
+    newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
+      if (config.timeProviderType.isEmpty) {
+        throw new InvalidConfigException(
+          "Sandbox used to default to Static Time mode. In the next release, Wall Clock Time mode"
+            + " will become the default. In this version, you will need to explicitly specify the"
+            + " `--static-time` flag to maintain the previous behavior, or `--wall-clock-time` if"
+            + " you would like to use the new defaults.")
+      }
+      val packageStore = loadDamlPackages()
+      val apiServerResource = buildAndStartApiServer(
+        materializer,
+        metrics,
+        packageStore,
+        SqlStartMode.ContinueIfExists,
+        currentPort = None,
+      )
+      Future.successful(new SandboxState(materializer, metrics, packageStore, apiServerResource))
+    }
   }
 
   private def loadDamlPackages(): InMemoryPackageStore = {

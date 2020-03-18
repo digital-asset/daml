@@ -10,13 +10,15 @@ The DAML Sandbox, or Sandbox for short, is a simple ledger implementation that e
 
 You can start Sandbox together with :doc:`Navigator </tools/navigator/index>` using the ``daml start`` command in a DAML SDK project. This command will compile the DAML file and its dependencies as specified in the ``daml.yaml``. It will then launch Sandbox passing the just obtained DAR packages. Sandbox will also be given the name of the startup scenario specified in the project's ``daml.yaml``. Finally, it launches the navigator connecting it to the running Sandbox.
 
-It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox``.
+It is possible to execute the Sandbox launching step in isolation by typing ``daml sandbox --wall-clock-time``.
+
+Note: Sandbox is currently in the process of moving from Static Time mode to Wall Clock Time mode as the default. For this version only, you need to specify the time mode explicitly when launching Sandbox outside ``daml start``. (When you use ``daml start``, it provides this flag and any other flags in the ``sandbox-options:`` section of ``daml.yaml``.) From the next release, you can omit this flag.
 
 Sandbox can also be run manually as in this example:
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --scenario Main:example
+  $ daml sandbox Main.dar --static-time --scenario Main:example
 
      ____             ____
     / __/__ ____  ___/ / /  ___ __ __
@@ -27,7 +29,7 @@ Sandbox can also be run manually as in this example:
   Initialized Static time provider, starting from 1970-01-01T00:00:00Z
   listening on localhost:6865
 
-Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``.
+Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the active SDK release and pass it any arguments that follow. The example passes the DAR file to load (``Main.dar``) and the optional ``--scenario`` flag tells Sandbox to run the ``Main:example`` scenario on startup. The scenario must be fully qualified; here ``Main`` is the module and ``example`` is the name of the scenario, separated by a ``:``. We also specify that the Sandbox should run in Static Time mode so that the scenario can control the time.
 
 .. note::
   
@@ -55,7 +57,7 @@ Due to possible conflicts between the ``&`` character and various terminal shell
 
 .. code-block:: none
 
-  $ daml sandbox Main.dar --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
+  $ daml sandbox Main.dar --wall-clock-time --sql-backend-jdbcurl "jdbc:postgresql://localhost/test?user=fred&password=secret"
 
 If you're not familiar with JDBC URLs, see the JDBC docs for more information: https://jdbc.postgresql.org/documentation/head/connect.html
 
