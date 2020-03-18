@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.platform.store.entries.ConfigurationEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (configuration)"

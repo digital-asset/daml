@@ -9,7 +9,6 @@ import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[dao] trait JdbcLedgerDaoDivulgenceSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

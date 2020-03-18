@@ -16,7 +16,6 @@ import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.collection.immutable.HashMap
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[dao] trait JdbcLedgerDaoContractKeysSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

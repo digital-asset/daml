@@ -5,7 +5,6 @@ package com.digitalasset.platform.store.dao
 
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[dao] trait JdbcLedgerDaoPackagesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

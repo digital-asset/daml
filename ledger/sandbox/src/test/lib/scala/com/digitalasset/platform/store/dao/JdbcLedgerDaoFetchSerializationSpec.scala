@@ -8,7 +8,6 @@ import java.time.Instant
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[dao] trait JdbcLedgerDaoFetchSerializationSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 

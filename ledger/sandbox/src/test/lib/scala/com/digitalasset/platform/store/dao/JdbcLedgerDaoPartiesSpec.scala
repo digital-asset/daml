@@ -11,7 +11,6 @@ import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.platform.store.entries.PartyLedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 private[dao] trait JdbcLedgerDaoPartiesSpec {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
