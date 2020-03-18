@@ -144,6 +144,7 @@ def _extract_main_dalf_impl(ctx):
     input_dar = ctx.file.dar
     output_dalf = ctx.outputs.dalf
     zipper = ctx.file._zipper
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
     ctx.actions.run_shell(
         tools = [zipper],
         inputs = [input_dar],
@@ -152,10 +153,11 @@ def _extract_main_dalf_impl(ctx):
         command = """
             set -eou pipefail
             {zipper} x {input_dar}
-            main_dalf=$(find . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
+            main_dalf=$({find} . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
             cp $main_dalf {output_dalf}
         """.format(
             zipper = zipper.path,
+            find = posix.commands["find"],
             project_name = project_name,
             project_version = project_version,
             input_dar = input_dar.path,
@@ -185,6 +187,7 @@ _extract_main_dalf = rule(
         ),
         "_zipper": _zipper,
     },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
 )
 
 def _daml_validate_test_impl(ctx):
