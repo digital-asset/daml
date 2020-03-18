@@ -34,10 +34,11 @@ module DA.Map where
 --   deriving (Eq, Ord)
 -- ```
 --
--- This includes all built-in types that aren't function types: `Int`,
--- `Text`, `Bool`, `(a, b)` assuming `a` and `b` have default `Ord`
--- instances, `TextMap v` assuming `v` has default `Ord` instance,
--- `Map k v` assuming `k` and `v` have default `Ord` instances.
+-- This includes all built-in types that aren't function types, such as
+-- `Int`, `Text`, `Bool`, `(a, b)` assuming `a` and `b` have default
+-- `Ord` instances, `Optional t` and `[t]` assuming `t` has a
+-- default `Ord` instance, and `Map k v` assuming `k` and `v` have
+-- default `Ord` instances.
 module DA.Map
     ( Map
     , empty
