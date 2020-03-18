@@ -106,7 +106,7 @@ latest commit on master.
    1. Run `daml build`.
    1. In 3 separate terminals (since each command except for `daml script` will block), run
       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-      1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --static-time`
+      1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time`
       1. `daml navigator server localhost 6865 --port 7500`
       1. `mvn compile exec:java@run-quickstart`
       > Note: It takes some time for our artifacts to be available on Maven Central. If you try running the last command before the artifacts are available, you will get a "not found" error. Trying to build again _in the next 24h_ will result in:
