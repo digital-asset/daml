@@ -16,11 +16,11 @@ import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
 import com.digitalasset.platform.store.entries.LedgerEntry
 import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
-import org.scalatest.{AsyncFlatSpec, Matchers, OptionValues}
+import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers, OptionValues}
 
 import scala.concurrent.Future
 
-private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
+private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (completions)"
@@ -36,8 +36,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
     } yield {
       offsetOf(response) shouldBe offset
 
-      response.completions should have length 1
-      val completion = response.completions.head
+      val completion = response.completions.loneElement
 
       completion.transactionId shouldBe tx.transactionId
       completion.commandId shouldBe tx.commandId.get
@@ -58,8 +57,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues {
     } yield {
       offsetOf(response) shouldBe offset
 
-      response.completions should have length 1
-      val completion = response.completions.head
+      val completion = response.completions.loneElement
 
       completion.transactionId shouldBe empty
       completion.commandId shouldBe rejection.entry.commandId
