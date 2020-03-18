@@ -49,6 +49,23 @@ case class ScriptIds(val scriptPackageId: PackageId) {
       QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)))
 }
 
+object ScriptIds {
+  // Constructs ScriptIds if the given type has the form Daml.Script.Script a.
+  def fromType(ty: Type): Option[ScriptIds] = {
+    ty match {
+      case TApp(TTyCon(tyCon), _) => {
+        val scriptIds = ScriptIds(tyCon.packageId)
+        if (tyCon == scriptIds.damlScript("Script")) {
+          Some(scriptIds)
+        } else {
+          None
+        }
+      }
+      case _ => None
+    }
+  }
+}
+
 class ConverterException(message: String) extends RuntimeException(message)
 
 case class AnyTemplate(ty: Identifier, arg: SValue)

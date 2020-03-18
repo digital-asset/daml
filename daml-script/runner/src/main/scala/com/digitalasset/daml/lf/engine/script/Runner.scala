@@ -18,7 +18,7 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
@@ -108,6 +108,47 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
+final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds)
+
+object Script {
+  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Script = {
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    fromIdentifier(compiledPackages, scriptId)
+  }
+  def fromIdentifier(compiledPackages: CompiledPackages, scriptId: Identifier): Script = {
+    val scriptExpr = SEVal(LfDefRef(scriptId), None)
+    val scriptTy = compiledPackages
+      .getPackage(scriptId.packageId)
+      .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
+      case Some(DValue(ty, _, _, _)) => ty
+      case Some(d @ DTypeSyn(_, _)) =>
+        throw new RuntimeException(s"Expected DAML script but got synonym $d")
+      case Some(d @ DDataType(_, _, _)) =>
+        throw new RuntimeException(s"Expected DAML script but got datatype $d")
+      case None => throw new RuntimeException(s"Could not find DAML script $scriptId")
+    }
+    def getScriptIds(ty: Type): ScriptIds = {
+      ScriptIds.fromType(ty) match {
+        case Some(scriptIds) => scriptIds
+        case None => throw new RuntimeException(s"Expected type 'Daml.Script.Script a' but got $ty")
+      }
+    }
+    scriptTy match {
+      case TApp(TApp(TBuiltin(BTArrow), param), result) => {
+        val scriptIds = getScriptIds(result)
+        Script(scriptId, scriptExpr, Some(param), scriptIds)
+      }
+      case ty => {
+        val scriptIds = getScriptIds(ty)
+        Script(scriptId, scriptExpr, None, scriptIds)
+      }
+    }
+  }
+}
+
 object Runner {
   private def connectApiParameters(params: ApiParameters, clientConfig: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
@@ -138,6 +179,7 @@ object Runner {
 
 class Runner(
     dar: Dar[(PackageId, Package)],
+    scriptIds: ScriptIds,
     applicationId: ApplicationId,
     commandUpdater: CommandUpdater,
     timeProvider: TimeProvider)
@@ -150,20 +192,6 @@ class Runner(
     envIface.typeDecls.get(id).map(_.`type`)
 
   val darMap: Map[PackageId, Package] = dar.all.toMap
-  val compiler = Compiler(darMap)
-  val scriptModuleName = DottedName.assertFromString("Daml.Script")
-  // TODO (MK) We should infer this package id based on the Script type of the script identifier.
-  val scriptPackageId: PackageId = dar.all
-    .find {
-      case (pkgId, pkg) => pkg.modules.contains(scriptModuleName)
-    } match {
-    case None =>
-      throw new RuntimeException(
-        "daml-script library was not found in DAR. Add 'daml-script' to the dependencies in your 'daml.yaml' and define a DAML script'.")
-    case Some((pkgId, _)) => pkgId
-  }
-  val scriptIds = ScriptIds(scriptPackageId)
-  val scriptTyCon = scriptIds.damlScript("Script")
 
   def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
@@ -191,6 +219,7 @@ class Runner(
   // We overwrite the definition of toLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
+  val compiler = Compiler(darMap)
   val definitionMap =
     compiler.compilePackages(darMap.keys) +
       (LfDefRef(scriptIds.damlScript("fromLedgerValue")) ->
@@ -219,51 +248,27 @@ class Runner(
 
   def run(
       initialClients: Participants[LedgerClient],
-      scriptId: Identifier,
+      script: Script,
       inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
-    var clients = initialClients
-    val scriptTy = darMap
-      .get(scriptId.packageId)
-      .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
-      case Some(DValue(ty, _, _, _)) => ty
-      case Some(d @ DTypeSyn(_, _)) =>
-        throw new RuntimeException(s"Expected DAML script but got synonym $d")
-      case Some(d @ DDataType(_, _, _)) =>
-        throw new RuntimeException(s"Expected DAML script but got datatype $d")
-      case None => throw new RuntimeException(s"Could not find DAML script $scriptId")
-    }
-    def assertScriptTy(ty: Type) = {
-      ty match {
-        case TApp(TTyCon(tyCon), _) if tyCon == scriptTyCon => {}
-        case _ => throw new RuntimeException(s"Expected type 'Script a' but got $ty")
-      }
-    }
-    val scriptExpr = inputValue match {
-      case None => {
-        assertScriptTy(scriptTy)
-        SEVal(LfDefRef(scriptId), None)
-      }
-      case Some(inputJson) =>
-        scriptTy match {
-          case TApp(TApp(TBuiltin(BTArrow), param), result) => {
-            assertScriptTy(result)
-            val paramIface = Converter.toIfaceType(scriptId.qualifiedName, param) match {
-              case Left(s) => throw new ConverterException(s"Failed to convert $result: $s")
-              case Right(ty) => ty
-            }
-            val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
-              LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
-            SEApp(
-              SEVal(LfDefRef(scriptId), None),
-              Array(SEValue(translateValue(param, inputLfVal))))
-          }
-          case _ =>
-            throw new RuntimeException(
-              s"Expected $scriptId to have function type but got $scriptTy")
+    val scriptExpr = (script.param, inputValue) match {
+      case (None, None) => script.expr
+      case (Some(param), Some(inputJson)) => {
+        val paramIface = Converter.toIfaceType(script.id.qualifiedName, param) match {
+          case Left(s) => throw new ConverterException(s"Failed to convert $param: $s")
+          case Right(ty) => ty
         }
-
+        val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
+          LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
+        SEApp(script.expr, Array(SEValue(translateValue(param, inputLfVal))))
+      }
+      case (None, Some(_)) =>
+        throw new RuntimeException(
+          s"The script ${script.id} does not take arguments.")
+      case (Some(_), None) =>
+        throw new RuntimeException(
+          s"The script ${script.id} requires an argument.")
     }
     runExpr(initialClients, scriptExpr)
   }
