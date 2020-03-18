@@ -72,7 +72,7 @@ That is what the ``AddFriend`` choice does: after checking some preconditions, i
     - After that we pass arguments for the choice with ``with`` keyword. Here this is the friend we are trying to add.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
     - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
-    - After passing some checks current contract is archived with ``archive self`` 
+    - After passing some checks current contract is archived with ``archive self``.
     - A new ``User`` contract with the added friend is created.
 
 This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
