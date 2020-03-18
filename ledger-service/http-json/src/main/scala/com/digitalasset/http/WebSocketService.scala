@@ -135,12 +135,15 @@ object WebSocketService {
       )(_ append _)
   }
 
-  trait StreamQuery[A] {
+  sealed trait StreamQueryReader[A] {
+    case class Query(a: A, q: StreamQuery[A])
+    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query
+  }
+
+  sealed trait StreamQuery[A] {
 
     /** Extra data on success of a predicate. */
     type Positive
-
-    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ A
 
     def allowPhantonArchives: Boolean
 
@@ -152,16 +155,19 @@ object WebSocketService {
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
-  implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
-    new StreamQuery[domain.SearchForeverRequest] {
+  implicit val SearchForeverRequestWithStreamQuery
+    : StreamQueryReader[domain.SearchForeverRequest] with StreamQuery[domain.SearchForeverRequest] =
+    new StreamQueryReader[domain.SearchForeverRequest]
+    with StreamQuery[domain.SearchForeverRequest] {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ SearchForeverRequest = {
+      override def parse(decoder: DomainJsonDecoder, jv: JsValue) = {
         import JsonProtocol._
         SprayJson
           .decode[SearchForeverRequest](jv)
           .liftErr(InvalidUserInput)
+          .map(Query(_, this))
       }
 
       override def allowPhantonArchives: Boolean = true
@@ -207,8 +213,10 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] =
-    new StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] {
+    : StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]]
+      with StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] =
+    new StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]]
+    with StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] {
 
       type Positive = Unit
 
@@ -217,13 +225,13 @@ object WebSocketService {
       import JsonProtocol._
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ List[CKR[LfV]] =
+      override def parse(decoder: DomainJsonDecoder, jv: JsValue) =
         for {
           as <- SprayJson
             .decode[List[CKR[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
-        } yield bs
+        } yield Query(bs, this)
 
       private def decodeWithFallback(decoder: DomainJsonDecoder, a: CKR[JsValue]): CKR[LfV] =
         decoder
@@ -276,7 +284,7 @@ class WebSocketService(
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  private[http] def transactionMessageHandler[A: StreamQuery](
+  private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] =
@@ -309,11 +317,11 @@ class WebSocketService(
       }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def wsMessageHandler[A: StreamQuery](
+  private def wsMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
+    val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
@@ -334,7 +342,9 @@ class WebSocketService(
           } yield (offPrefix, a)
       }
       .flatMapConcat {
-        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
+        case \/-((offPrefix, Q.Query(a, sq))) =>
+          implicit val SQ: StreamQuery[A] = sq
+          getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
