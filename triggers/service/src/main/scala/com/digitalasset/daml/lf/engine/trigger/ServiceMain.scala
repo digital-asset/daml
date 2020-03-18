@@ -10,6 +10,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
@@ -25,8 +26,16 @@ import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
+import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
@@ -34,7 +43,6 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
 import com.digitalasset.ledger.api.v1.ledger_offset.{LedgerOffset}
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -57,21 +65,14 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
-      converter: Converter,
-      triggerExpr: Expr,
-      triggerTy: TypeConApp,
-      filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
   ) extends Message
 
   case class Config(
+      compiledPackages: CompiledPackages,
+      trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      // TODO We should really not pass in the DAR for each package.
-      // The right way to approach this is to store the CompiledPackages
-      // deduplicated and shared between all triggers.
-      dar: Dar[(PackageId, Package)],
-      triggerId: Identifier,
       party: String,
   )
 
@@ -94,17 +95,10 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat(converter, triggerExpr, triggerTy)
+        case QueriedACS(runner, acs, offset) =>
           val (killSwitch, trigger) = runner.runWithACS(
-            converter,
-            triggerExpr,
-            triggerTy,
-            config.ledgerConfig.timeProvider,
-            heartbeat,
             acs,
             offset,
-            filter,
             msgFlow = KillSwitches.single[TriggerMsg],
           )
           // TODO If we are stopped we will end up causing the future to complete which will trigger
@@ -133,15 +127,18 @@ object TriggerActor {
         LedgerClient
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
-            val runner = new Runner(client, appId, config.party, config.dar)
-            val (triggerExpr, triggerTy, triggerIds) = runner.getTrigger(config.triggerId)
-            val converter = Converter(runner.compiledPackages, triggerIds)
-            val filter = runner.getTriggerFilter(converter, triggerExpr, triggerTy)
+            val runner = new Runner(
+              config.compiledPackages,
+              config.trigger,
+              client,
+              config.ledgerConfig.timeProvider,
+              appId,
+              config.party)
             runner
-              .queryACS(client, filter)
+              .queryACS()
               .map({
                 case (acs, offset) =>
-                  QueriedACS(runner, converter, triggerExpr, triggerTy, filter, acs, offset)
+                  QueriedACS(runner, acs, offset)
               })
           }
       context.pipeToSelf(acsQuery) {
@@ -198,20 +195,45 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
     var triggers: Map[UUID, ActorRef[TriggerActor.Message]] = Map.empty
+    // Mutable in preparation for dynamic package upload.
+    val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+
+    val darMap = dar.all.toMap
+    darMap.foreach {
+      case (pkgId, pkg) =>
+        // If packages are not in topological order, we will get back ResultNeedPackage.
+        // The way the code is structured here we will still call addPackage even if we
+        // already fed the package via the callback but this is harmless and not expensive.
+        def go(r: Result[Unit]): Unit = r match {
+          case ResultDone(()) => ()
+          case ResultNeedPackage(pkgId, resume) =>
+            go(resume(darMap.get(pkgId)))
+          case _ => throw new RuntimeException(s"Unexpected engine result $r")
+        }
+        go(compiledPackages.addPackage(pkgId, pkg))
+    }
 
     val route = concat(
       post {
         // Start a new trigger given its identifier and the party it should be running as.
         // Returns a UUID for the newly started trigger.
         path("start") {
-          entity(as[TriggerParams]) { params =>
-            val uuid = UUID.randomUUID
-            val ref = ctx.spawn(
-              TriggerActor(TriggerActor.Config(ledgerConfig, dar, params.identifier, params.party)),
-              uuid.toString,
-            )
-            triggers = triggers + (uuid -> ref)
-            complete(uuid.toString)
+          entity(as[TriggerParams]) {
+            params =>
+              Trigger.fromIdentifier(compiledPackages, params.identifier) match {
+                case Left(err) =>
+                  complete((StatusCodes.UnprocessableEntity, err))
+                case Right(trigger) =>
+                  val uuid = UUID.randomUUID
+                  val ref = ctx.spawn(
+                    TriggerActor(
+                      TriggerActor.Config(compiledPackages, trigger, ledgerConfig, params.party)),
+                    uuid.toString,
+                  )
+                  triggers = triggers + (uuid -> ref)
+                  complete(uuid.toString)
+
+              }
           }
         }
       },

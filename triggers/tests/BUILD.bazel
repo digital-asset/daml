@@ -82,7 +82,10 @@ client_server_test(
     client_files = ["$(rootpath :acs.dar)"],
     data = [":acs.dar"],
     server = "//ledger/sandbox:sandbox-binary",
-    server_args = ["--port=0"],
+    server_args = [
+        "--static-time",
+        "--port=0",
+    ],
     server_files = ["$(rootpath :acs.dar)"],
 )
 
@@ -95,7 +98,7 @@ client_server_test(
     data = [":acs.dar"],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-w",
+        "--wall-clock-time",
         "--port=0",
     ],
     server_files = ["$(rootpath :acs.dar)"],
@@ -120,7 +123,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-w",
+        "--wall-clock-time",
         "--port=0",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
@@ -160,6 +163,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
+        "--static-time",
         "--port=0",
         "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
     ],

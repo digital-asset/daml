@@ -210,6 +210,9 @@ object domain {
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
 
+    /** The ledger time of the submission violated some constraint on the ledger time.
+      */
+    final case class InvalidLedgerTime(description: String) extends RejectionReason
   }
 
   type Value = Lf[Lf.AbsoluteContractId]

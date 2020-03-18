@@ -20,28 +20,23 @@ genrule(
     ],
     cmd = """
 set -eou pipefail
-{openssl_conf}
 # Generate CA key and crt
 $(location @openssl_dev_env//:openssl) genrsa -out $(location ca.key) 4096
-$(location @openssl_dev_env//:openssl) req -new -x509 -key $(location ca.key) -out $(location ca.crt) -subj '{cn}=0.0.0.0.ca' -days 3650
+$(location @openssl_dev_env//:openssl) req -new -x509 -key $(location ca.key) -out $(location ca.crt) -subj '/CN=0.0.0.0.ca' -days 3650
 
 # Generate server key, csr and crt
 $(location @openssl_dev_env//:openssl) genrsa -out $(location server.key) 4096
 $(location @openssl_dev_env//:openssl) pkey -in $(location server.key) -out $(location server.pem)
-$(location @openssl_dev_env//:openssl) req -new -key $(location server.key) -out $(location server.csr) -subj '{cn}=0.0.0.0.server'
+$(location @openssl_dev_env//:openssl) req -new -key $(location server.key) -out $(location server.csr) -subj '/CN=0.0.0.0.server'
 $(location @openssl_dev_env//:openssl) x509 -req -in $(location server.csr) -CA $(location ca.crt) -CAkey $(location ca.key) -CAcreateserial -out $(location server.crt) -extfile $(location openssl-extensions.cnf) -extensions req_ext -days 3650
 
 # Generate client key, csr and crt
 $(location @openssl_dev_env//:openssl) genrsa -out $(location client.key) 4096
 $(location @openssl_dev_env//:openssl) pkey -in $(location client.key) -out $(location client.pem)
-$(location @openssl_dev_env//:openssl) req -new -key $(location client.key) -out $(location client.csr) -subj '{cn}=0.0.0.0.client'
+$(location @openssl_dev_env//:openssl) req -new -key $(location client.key) -out $(location client.csr) -subj '/CN=0.0.0.0.client'
 $(location @openssl_dev_env//:openssl) x509 -req -in $(location client.csr) -CA $(location ca.crt) -CAkey $(location ca.key) -CAcreateserial -out $(location client.crt) -extfile $(location openssl-extensions.cnf) -extensions req_ext -days 3650
 
-    """.format(
-        openssl_conf =
-            "export OPENSSL_CONF=$$(dirname $(location @openssl_dev_env//:openssl))/cnf/openssl.cnf" if is_windows else "",
-        cn = "//CN" if is_windows else "/CN",
-    ),
+    """,
     tools = [
         "@openssl_dev_env//:openssl",
     ],

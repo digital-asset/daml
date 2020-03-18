@@ -63,8 +63,8 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     List(
       "1969-07-21T02:56:15.000000Z",
       "1970-01-01T00:00:00.000000Z",
-      "2020-02-02T20:20:02.020000Z")
-      .map(STimestamp compose Time.Timestamp.assertFromString)
+      "2020-02-02T20:20:02.020000Z",
+    ).map(STimestamp compose Time.Timestamp.assertFromString)
   private val parties =
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
@@ -74,7 +74,10 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 //    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
   private val contractIds = absoluteContractId //++ relativeContractId
 
-  private val enums = List(EnumCon1, EnumCon2, EnumCon3).map(SEnum(EnumTypeCon, _))
+  private val enums =
+    List(EnumCon1, EnumCon2, EnumCon3).zipWithIndex.map {
+      case (con, rank) => SEnum(EnumTypeCon, con, rank)
+    }
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
@@ -198,9 +201,9 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     } yield SRecord(Record2TypeCon, record2Fields, ArrayList(x, y))
 
   private def mkVariant(as: List[SValue], bs: List[SValue]) =
-    as.map(SVariant(VariantTypeCon, VariantCon1, _)) ++
-      as.map(SVariant(VariantTypeCon, VariantCon2, _)) ++
-      bs.map(SVariant(VariantTypeCon, VariantCon3, _))
+    as.map(SVariant(VariantTypeCon, VariantCon1, 0, _)) ++
+      as.map(SVariant(VariantTypeCon, VariantCon2, 1, _)) ++
+      bs.map(SVariant(VariantTypeCon, VariantCon3, 2, _))
 
   private def mkStruct2(fst: List[SValue], snd: List[SValue]) =
     for {
@@ -357,8 +360,8 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
       SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
-      SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
-        SVariant(VariantTypeCon, VariantCon2, lfFunction),
+      SVariant(VariantTypeCon, VariantCon1, 0, SInt64(0)) ->
+        SVariant(VariantTypeCon, VariantCon2, 1, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->
         SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
     )

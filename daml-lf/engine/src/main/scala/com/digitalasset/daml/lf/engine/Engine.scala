@@ -386,11 +386,11 @@ final class Engine(nextRandomInt: () => Int) {
               s"Last location: ${Pretty.prettyLoc(machine.lastLocation).render(80)}, partial transaction: ${machine.ptx.nodesToString}"
             ))
 
-        case SResultMissingDefinition(ref, callback) =>
+        case SResultNeedPackage(pkgId, callback) =>
           return Result.needPackage(
-            ref.packageId,
+            pkgId,
             pkg => {
-              _compiledPackages.addPackage(ref.packageId, pkg).flatMap {
+              _compiledPackages.addPackage(pkgId, pkg).flatMap {
                 case _ =>
                   callback(_compiledPackages)
                   interpretLoop(machine, time)

@@ -432,6 +432,8 @@ private[kvutils] case class ProcessTransactionSubmission(
         builder.setSubmitterCannotActViaParticipant(
           SubmitterCannotActViaParticipant.newBuilder
             .setDetails(details))
+      case RejectionReason.InvalidLedgerTime(reason) =>
+        builder.setInvalidLedgerTime(InvalidLedgerTime.newBuilder.setDetails(reason))
     }
     builder
   }

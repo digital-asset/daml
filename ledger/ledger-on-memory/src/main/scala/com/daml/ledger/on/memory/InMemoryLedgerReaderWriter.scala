@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{Bytes, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{KVOffset, Bytes, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
-import com.digitalasset.resources.ResourceOwner
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -37,7 +37,6 @@ final class InMemoryLedgerReaderWriter(
     with LedgerReader {
 
   private val committer = new ValidatingCommitter(
-    participantId,
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .create(new InMemoryLedgerStateAccess(state), () => sequentialLogEntryId.next()),
@@ -48,17 +47,17 @@ final class InMemoryLedgerReaderWriter(
     Healthy
 
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
-    committer.commit(correlationId, envelope)
+    committer.commit(correlationId, envelope, participantId)
 
-  override def events(offset: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
     dispatcher
       .startingAt(
-        offset
-          .map(_.components.head.toInt)
+        startExclusive
+          .map(KVOffset.highestIndex(_).toInt)
           .getOrElse(StartIndex),
-        OneAfterAnother[Int, List[LedgerEntry]](
-          (index: Int, _) => index + 1,
-          (index: Int) => Future.successful(List(retrieveLogEntry(index))),
+        OneAfterAnother[Index, List[LedgerEntry]](
+          (index: Index) => index + 1,
+          (index: Index) => Future.successful(List(retrieveLogEntry(index))),
         ),
       )
       .mapConcat { case (_, updates) => updates }
@@ -111,6 +110,56 @@ object InMemoryLedgerReaderWriter {
 
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
+  class SingleParticipantOwner(
+      initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
+  )(implicit materializer: Materializer)
+      extends ResourceOwner[InMemoryLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[InMemoryLedgerReaderWriter] = {
+      val state = new InMemoryState
+      for {
+        dispatcher <- dispatcher.acquire()
+        _ = publishHeartbeats(state, dispatcher, heartbeats)
+        readerWriter <- new Owner(
+          initialLedgerId,
+          participantId,
+          timeProvider,
+          dispatcher,
+          state,
+        ).acquire()
+      } yield readerWriter
+    }
+  }
+
+  // passing the `dispatcher` and `state` from the outside allows us to share
+  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
+  class Owner(
+      initialLedgerId: Option[LedgerId],
+      participantId: ParticipantId,
+      timeProvider: TimeProvider = DefaultTimeProvider,
+      dispatcher: Dispatcher[Index],
+      state: InMemoryState,
+  ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[InMemoryLedgerReaderWriter] = {
+      val ledgerId =
+        initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
+      Resource.successful(
+        new InMemoryLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          timeProvider,
+          dispatcher,
+          state,
+        ))
+    }
+  }
+
   def dispatcher: ResourceOwner[Dispatcher[Index]] =
     ResourceOwner.forCloseable(
       () =>
@@ -119,50 +168,6 @@ object InMemoryLedgerReaderWriter {
           zeroIndex = StartIndex,
           headAtInitialization = StartIndex,
       ))
-
-  def singleParticipantOwner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      heartbeats: Source[Instant, NotUsed] = Source.empty,
-  )(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
-  ): ResourceOwner[InMemoryLedgerReaderWriter] = {
-    val state = new InMemoryState
-    for {
-      dispatcher <- dispatcher
-      _ = publishHeartbeats(state, dispatcher, heartbeats)
-      readerWriter <- owner(
-        initialLedgerId,
-        participantId,
-        timeProvider,
-        dispatcher,
-        state,
-      )
-    } yield readerWriter
-  }
-
-  // passing the `dispatcher` and `state` from the outside allows us to share
-  // the backing data for the LedgerReaderWriter and therefore setup multiple participants
-  def owner(
-      initialLedgerId: Option[LedgerId],
-      participantId: ParticipantId,
-      timeProvider: TimeProvider = DefaultTimeProvider,
-      dispatcher: Dispatcher[Index],
-      state: InMemoryState,
-  )(implicit executionContext: ExecutionContext): ResourceOwner[InMemoryLedgerReaderWriter] = {
-    val ledgerId =
-      initialLedgerId.getOrElse(Ref.LedgerString.assertFromString(UUID.randomUUID.toString))
-    ResourceOwner.successful(
-      new InMemoryLedgerReaderWriter(
-        ledgerId,
-        participantId,
-        timeProvider,
-        dispatcher,
-        state,
-      ))
-  }
 
   private def publishHeartbeats(
       state: InMemoryState,
@@ -177,9 +182,10 @@ object InMemoryLedgerReaderWriter {
       .map(_ => ())
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
-    val offset = Offset(Array(log.size.toLong))
+    val entryAtIndex = log.size
+    val offset = KVOffset.fromLong(entryAtIndex.toLong)
     val entry = createEntry(offset)
     log += entry
-    log.size
+    entryAtIndex
   }
 }

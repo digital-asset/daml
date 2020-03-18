@@ -8,16 +8,10 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.{
-  AcsUpdateEvent,
-  ActiveContractSetSnapshot,
-  CommandDeduplicationResult,
-  IndexService,
-  PackageDetails
-}
-import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -47,6 +41,8 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 import scala.concurrent.Future
 
@@ -66,7 +62,7 @@ abstract class LedgerBackedIndexService(
       .map {
         case LedgerSnapshot(offset, acsStream) =>
           ActiveContractSetSnapshot(
-            LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+            toAbsolute(offset),
             acsStream
               .mapConcat { ac =>
                 EventFilter(ac)(filter)
@@ -94,19 +90,18 @@ abstract class LedgerBackedIndexService(
     )
 
   private def getTransactionById(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
     ledger
       .lookupTransaction(transactionId)
-      .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
   }
 
   override def transactionTrees(
-      begin: LedgerOffset,
-      endAt: Option[LedgerOffset],
+      startExclusive: LedgerOffset,
+      endInclusive: Option[LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    acceptedTransactions(begin, endAt)
+    acceptedTransactions(startExclusive, endInclusive)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -120,12 +115,12 @@ abstract class LedgerBackedIndexService(
       }
 
   override def transactions(
-      begin: domain.LedgerOffset,
-      endAt: Option[domain.LedgerOffset],
+      startExclusive: domain.LedgerOffset,
+      endInclusive: Option[domain.LedgerOffset],
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionsResponse, NotUsed] =
-    acceptedTransactions(begin, endAt)
+    acceptedTransactions(startExclusive, endInclusive)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -135,70 +130,47 @@ abstract class LedgerBackedIndexService(
       }
 
   private class OffsetConverter {
-    lazy val currentEndF: Future[LedgerOffset.Absolute] = currentLedgerEnd()
+    lazy val currentEnd: Offset = ledger.ledgerEnd
 
-    def toAbsolute(offset: LedgerOffset): Source[LedgerOffset.Absolute, NotUsed] = offset match {
-      case LedgerOffset.LedgerBegin =>
-        Source.single(LedgerOffset.Absolute(Ref.LedgerString.assertFromString("0")))
-      case LedgerOffset.LedgerEnd => Source.future(currentEndF)
-      case off @ LedgerOffset.Absolute(_) => Source.single(off)
+    def toAbsolute(offset: LedgerOffset): Source[Offset, NotUsed] = offset match {
+      case LedgerOffset.LedgerBegin => Source.single(Offset.begin)
+      case LedgerOffset.LedgerEnd => Source.single(currentEnd)
+      case LedgerOffset.Absolute(offset) =>
+        ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
     }
   }
 
-  private def acceptedTransactions(begin: domain.LedgerOffset, endAt: Option[domain.LedgerOffset])
+  private def acceptedTransactions(
+      startExclusive: domain.LedgerOffset,
+      endInclusive: Option[domain.LedgerOffset])
     : Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] = {
     val converter = new OffsetConverter()
 
-    converter.toAbsolute(begin).flatMapConcat {
-      case LedgerOffset.Absolute(absBegin) =>
-        endAt
-          .map(converter.toAbsolute(_).map(Some(_)))
-          .getOrElse(Source.single(None))
-          .flatMapConcat { endOpt =>
-            lazy val stream =
-              ledger.ledgerEntries(Some(absBegin.toLong), endOpt.map(_.value.toLong))
+    converter.toAbsolute(startExclusive).flatMapConcat { begin =>
+      endInclusive
+        .map(converter.toAbsolute(_).map(Some(_)))
+        .getOrElse(Source.single(None))
+        .flatMapConcat {
+          case Some(`begin`) =>
+            Source.empty
 
-            val finalStream = endOpt match {
-              case None => stream
+          case Some(end) if begin > end =>
+            Source.failed(ErrorFactories.invalidArgument(
+              s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
 
-              case Some(LedgerOffset.Absolute(`absBegin`)) =>
-                Source.empty
-
-              case Some(LedgerOffset.Absolute(end)) if absBegin.toLong > end.toLong =>
-                Source.failed(
-                  ErrorFactories.invalidArgument(s"End offset $end is before Begin offset $begin."))
-
-              case Some(LedgerOffset.Absolute(end)) =>
-                val endL = end.toLong
-                stream
-                  .takeWhile(
-                    {
-                      case (offset, _) =>
-                        //note that we can have gaps in the increasing offsets!
-                        (offset + 1) < endL //api offsets are +1 compared to backend offsets
-                    },
-                    inclusive = true // we need this to be inclusive otherwise the stream will be hanging until a new element from upstream arrives
-                  )
-                  // after the following step, we will add +1 to the offset before we expose it on the ledger api.
-                  // when the interval is [5, 7[, then we should only emit ledger entries with _backend_ offsets 5 and 6,
-                  // which then get changed to 6 and 7 respectively. the application can then take the offset of the last received
-                  // transaction and use it as a begin offset for another transaction service request.
-                  .filter(_._1 < endL)
-            }
-            // we MUST do the offset comparison BEFORE collecting only the accepted transactions,
-            // because currentLedgerEnd refers to the offset of the mixed set of LedgerEntries (e.g. completions, transactions, ...).
-            // If we don't do this, the response stream will linger until a transaction is committed AFTER the end offset.
-            // The immediate effect is that integration tests will not complete within the timeout.
-            finalStream.collect {
-              case (offset, t: LedgerEntry.Transaction) =>
-                (LedgerOffset.Absolute(LedgerString.assertFromString((offset + 1).toString)), t)
-            }
-          }
+          case endOpt @ (None | Some(_)) =>
+            ledger
+              .ledgerEntries(Some(begin), endOpt)
+              .collect {
+                case (offset, t: LedgerEntry.Transaction) =>
+                  (toAbsolute(offset), t)
+              }
+        }
     }
   }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    Future.successful(LedgerOffset.Absolute(LedgerString.fromLong(ledger.ledgerEnd)))
+    Future.successful(toAbsolute(ledger.ledgerEnd))
 
   override def getTransactionById(
       transactionId: TransactionId,
@@ -209,11 +181,7 @@ abstract class LedgerBackedIndexService(
       .map(_.flatMap {
         case (offset, transaction) =>
           TransactionConversion
-            .ledgerEntryToFlatTransaction(
-              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
-              transaction,
-              filter,
-              verbose = true)
+            .ledgerEntryToFlatTransaction(toAbsolute(offset), transaction, filter, verbose = true)
             .map(tx => GetFlatTransactionResponse(Option(tx)))
       })(DEC)
   }
@@ -228,7 +196,7 @@ abstract class LedgerBackedIndexService(
         case (offset, transaction) =>
           TransactionConversion
             .ledgerEntryToTransactionTree(
-              LedgerOffset.Absolute(LedgerString.fromLong(offset)),
+              toAbsolute(offset),
               transaction,
               filter.filtersByParty.keySet,
               verbose = true)
@@ -236,14 +204,16 @@ abstract class LedgerBackedIndexService(
       })(DEC)
   }
 
+  def toAbsolute(offset: Offset): LedgerOffset.Absolute =
+    LedgerOffset.Absolute(offset.toApiString)
+
   override def getCompletions(
-      begin: LedgerOffset,
+      startExclusive: LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionStreamResponse, NotUsed] =
-    new OffsetConverter().toAbsolute(begin).flatMapConcat {
-      case LedgerOffset.Absolute(absBegin) =>
-        ledger.completions(Option(absBegin.toLong), None, applicationId, parties).map(_._2)
+    new OffsetConverter().toAbsolute(startExclusive).flatMapConcat { beginOpt =>
+      ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
     }
 
   // IndexPackagesService
@@ -278,31 +248,43 @@ abstract class LedgerBackedIndexService(
   override def listKnownParties(): Future[List[PartyDetails]] =
     ledger.listKnownParties()
 
-  override def partyEntries(beginOffset: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
-    ledger.partyEntries(beginOffset.value.toLong).map {
-      case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
-        PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
-      case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
-        PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
-    }
+  override def partyEntries(startExclusive: LedgerOffset.Absolute): Source[PartyEntry, NotUsed] = {
+    Source
+      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .flatMapConcat(ledger.partyEntries)
+      .map {
+        case (_, PartyLedgerEntry.AllocationRejected(subId, participantId, _, reason)) =>
+          PartyEntry.AllocationRejected(subId, domain.ParticipantId(participantId), reason)
+        case (_, PartyLedgerEntry.AllocationAccepted(subId, participantId, _, details)) =>
+          PartyEntry.AllocationAccepted(subId, domain.ParticipantId(participantId), details)
+      }
   }
 
-  override def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
-    ledger
-      .packageEntries(beginOffset.value.toLong)
+  override def packageEntries(
+      startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed] =
+    Source
+      .future(Future.fromTry(ApiOffset.fromString(startExclusive.value)))
+      .flatMapConcat(ledger.packageEntries)
       .map(_._2.toDomain)
 
   /** Looks up the current configuration, if set, and the offset from which
     * to subscribe to further configuration changes.
     * The offset is internal and not exposed over Ledger API.
     */
-  override def lookupConfiguration(): Future[Option[(Long, Configuration)]] =
-    ledger.lookupLedgerConfiguration()
+  override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
+    ledger
+      .lookupLedgerConfiguration()
+      .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Retrieve configuration entries. */
   override def configurationEntries(
-      startInclusive: Option[Long]): Source[domain.ConfigurationEntry, NotUsed] =
-    ledger.configurationEntries(startInclusive).map(_._2.toDomain)
+      startExclusive: Option[LedgerOffset.Absolute]): Source[domain.ConfigurationEntry, NotUsed] =
+    Source
+      .future(
+        startExclusive
+          .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
+          .getOrElse(Future.successful(None)))
+      .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
 
   /** Deduplicate commands */
   override def deduplicateCommand(

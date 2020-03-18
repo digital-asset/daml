@@ -329,11 +329,9 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
     [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverythingForParty (alice testId)) (Verbosity True)
-    let diffOffset :: AbsOffset -> AbsOffset -> Int
-        (AbsOffset a) `diffOffset` (AbsOffset b) = read (TL.unpack a) - read (TL.unpack b)
     liftIO $ do
-        assertEqual "off2" (AbsOffset "" ) off2 -- strange
-        assertEqual "off3 - off1" 1 (off3 `diffOffset` off1)
+        assertEqual "off2" (AbsOffset "" ) off2 -- offset is only set in the last response message
+        assertBool "off3 > off1" (off3 > off1)
         assertEqual "active" ev active
 
 tGetLedgerConfiguration :: SandboxTest

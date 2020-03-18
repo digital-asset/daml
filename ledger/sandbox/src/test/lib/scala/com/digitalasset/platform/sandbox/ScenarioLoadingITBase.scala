@@ -129,17 +129,20 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyFactory)
           lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("8", "", Seq.empty, None))
+          val GetActiveContractsResponse(offset, workflowId, activeContracts, _) = resp.last
+          offset should not be empty
+          workflowId shouldBe empty
+          activeContracts shouldBe empty
         }
       }
 
       "return them in an transaction service" in {
 
-        val beginOffset =
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val resultsF =
           newTransactionClient(ledgerId())
-            .getTransactions(beginOffset, None, transactionFilter)
+            .getTransactions(startExclusive, None, transactionFilter)
             .take(4)
             .runWith(Sink.seq)
 
@@ -186,11 +189,11 @@ abstract class ScenarioLoadingITBase
       }
 
       "event ids are the same as contract ids (transaction service)" in {
-        val beginOffset =
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val client = newTransactionClient(ledgerId())
         val resultsF = client
-          .getTransactions(beginOffset, None, transactionFilter)
+          .getTransactions(startExclusive, None, transactionFilter)
           .take(4)
           .runWith(Sink.seq)
 

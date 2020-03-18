@@ -69,7 +69,10 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     List(0, 1).map(x => SContractId(RelativeContractId(NodeId(x))))
   private val contractIds = absoluteContractId ++ relativeContractId
 
-  private val enums = List(EnumCon1, EnumCon2).map(SEnum(EnumTypeCon, _))
+  private val enums = List(
+    SEnum(EnumTypeCon, EnumCon1, 0),
+    SEnum(EnumTypeCon, EnumCon2, 1)
+  )
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
@@ -88,8 +91,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     } yield SRecord(Record2TypeCon, record2Fields, ArrayList(x, y))
 
   private def mkVariant(as: List[SValue], bs: List[SValue]) =
-    as.map(SVariant(VariantTypeCon, VariantCon1, _)) ++
-      bs.map(SVariant(VariantTypeCon, VariantCon2, _))
+    as.map(SVariant(VariantTypeCon, VariantCon1, 0, _)) ++
+      bs.map(SVariant(VariantTypeCon, VariantCon2, 1, _))
 
   private def mkStruct2(fst: List[SValue], snd: List[SValue]) =
     for {
@@ -223,8 +226,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
       SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
-      SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
-        SVariant(VariantTypeCon, VariantCon2, lfFunction),
+      SVariant(VariantTypeCon, VariantCon1, 0, SInt64(0)) ->
+        SVariant(VariantTypeCon, VariantCon2, 1, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->
         SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
     )

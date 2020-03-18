@@ -186,12 +186,13 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
                   case Some(pkg) =>
                     PackageLookup.lookupVariant(pkg, variantId.qualifiedName) match {
                       case Left(err) => ResultError(err)
-                      case Right((dataTypParams, DataVariant(variants))) =>
-                        variants.find(_._1 == constructorName) match {
+                      case Right((dataTypParams, variantDef: DataVariant)) =>
+                        variantDef.constructorRank.get(constructorName) match {
                           case None =>
                             fail(
                               s"Couldn't find provided variant constructor $constructorName in variant $variantId")
-                          case Some((_, argTyp)) =>
+                          case Some(rank) =>
+                            val (_, argTyp) = variantDef.variants(rank)
                             if (dataTypParams.length != tyConArgs.length) {
                               sys.error(
                                 "TODO(FM) impossible: type constructor applied to wrong number of parameters, this should never happen on a well-typed package, return better error")
@@ -199,7 +200,7 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
                             val instantiatedArgTyp =
                               replaceParameters(dataTypParams.map(_._1).zip(tyConArgs), argTyp)
                             go(newNesting, instantiatedArgTyp, val0).map(
-                              SVariant(tyCon, constructorName, _))
+                              SVariant(tyCon, constructorName, rank, _))
                         }
                     }
                 }
@@ -285,12 +286,14 @@ private[engine] class ValueTranslator(compiledPackages: CompiledPackages) {
                   case Some(pkg) =>
                     PackageLookup.lookupEnum(pkg, id.qualifiedName) match {
                       case Left(err) => ResultError(err)
-                      case Right(DataEnum(constructors)) =>
-                        if (!constructors.toSeq.contains(constructor))
-                          fail(
-                            s"Couldn't find provided variant constructor $constructor in enum $id")
-                        ResultDone(SEnum(id, constructor))
-
+                      case Right(dataDef: DataEnum) =>
+                        dataDef.constructorRank.get(constructor) match {
+                          case Some(rank) =>
+                            ResultDone(SEnum(id, constructor, rank))
+                          case None =>
+                            fail(
+                              s"Couldn't find provided variant constructor $constructor in enum $id")
+                        }
                     }
                 }
             }

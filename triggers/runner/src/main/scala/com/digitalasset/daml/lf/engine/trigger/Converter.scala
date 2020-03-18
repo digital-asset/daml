@@ -188,6 +188,35 @@ object Converter {
       )
   }
 
+  object EventVariant {
+    // Those values should be kept consistent with type `Event` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val CreatedEventConstructor = Name.assertFromString("CreatedEvent")
+    val CreatedEventConstructorRank = 0
+    val ArchiveEventConstructor = Name.assertFromString("ArchivedEvent")
+    val ArchiveEventConstructorRank = 1
+  }
+
+  object MessageVariant {
+    // Those values should be kept consistent with type `Message` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val MTransactionVariant = Name.assertFromString("MTransaction")
+    val MTransactionVariantRank = 0
+    val MCompletionConstructor = Name.assertFromString("MCompletion")
+    val MCompletionConstructorRank = 1
+    val MHeartbeatConstructor = Name.assertFromString("MHeartbeat")
+    val MHeartbeatConstructorRank = 2
+  }
+
+  object CompletionStatusVariant {
+    // Those values should be kept consistent `CompletionStatus` defined in
+    // triggers/daml/Daml/Trigger/LowLevel.daml
+    val FailVariantConstructor = Name.assertFromString("Failed")
+    val FailVariantConstructorRank = 0
+    val SucceedVariantConstructor = Name.assertFromString("Succeeded")
+    val SucceedVariantConstrcutor = 1
+  }
+
   private def fromEvent(
       valueTranslator: ValueTranslator,
       triggerIds: TriggerIds,
@@ -195,15 +224,23 @@ object Converter {
     val eventTy = triggerIds.damlTriggerLowLevel("Event")
     ev.event match {
       case Event.Event.Archived(archivedEvent) =>
-        for {
-          variant <- Name.fromString("ArchivedEvent")
-          event = fromArchivedEvent(triggerIds, archivedEvent)
-        } yield SVariant(eventTy, variant, event)
+        Right(
+          SVariant(
+            id = eventTy,
+            variant = EventVariant.ArchiveEventConstructor,
+            constructorRank = EventVariant.ArchiveEventConstructorRank,
+            value = fromArchivedEvent(triggerIds, archivedEvent)
+          )
+        )
       case Event.Event.Created(createdEvent) =>
         for {
-          variant <- Name.fromString("CreatedEvent")
           event <- fromCreatedEvent(valueTranslator, triggerIds, createdEvent)
-        } yield SVariant(eventTy, variant, event)
+        } yield
+          SVariant(
+            id = eventTy,
+            variant = EventVariant.CreatedEventConstructor,
+            constructorRank = EventVariant.CreatedEventConstructorRank,
+            value = event)
       case _ => Left(s"Expected Archived or Created but got ${ev.event}")
     }
   }
@@ -215,15 +252,15 @@ object Converter {
     val messageTy = triggerIds.damlTriggerLowLevel("Message")
     val transactionTy = triggerIds.damlTriggerLowLevel("Transaction")
     for {
-      name <- Name.fromString("MTransaction")
+      events <- FrontStack(t.events).traverseU(fromEvent(valueTranslator, triggerIds, _)).map(SList)
       transactionId = fromTransactionId(triggerIds, t.transactionId)
       commandId = fromOptionalCommandId(triggerIds, t.commandId)
-      events <- FrontStack(t.events).traverseU(fromEvent(valueTranslator, triggerIds, _)).map(SList)
     } yield
       SVariant(
-        messageTy,
-        name,
-        record(
+        id = messageTy,
+        variant = MessageVariant.MTransactionVariant,
+        constructorRank = MessageVariant.MTransactionVariantRank,
+        value = record(
           transactionTy,
           ("transactionId", transactionId),
           ("commandId", commandId),
@@ -238,7 +275,8 @@ object Converter {
     val status: SValue = if (c.getStatus.code == 0) {
       SVariant(
         triggerIds.damlTriggerLowLevel("CompletionStatus"),
-        Name.assertFromString("Succeeded"),
+        CompletionStatusVariant.SucceedVariantConstructor,
+        CompletionStatusVariant.SucceedVariantConstrcutor,
         record(
           triggerIds.damlTriggerLowLevel("CompletionStatus.Succeeded"),
           ("transactionId", fromTransactionId(triggerIds, c.transactionId)))
@@ -246,7 +284,8 @@ object Converter {
     } else {
       SVariant(
         triggerIds.damlTriggerLowLevel("CompletionStatus"),
-        Name.assertFromString("Failed"),
+        CompletionStatusVariant.FailVariantConstructor,
+        CompletionStatusVariant.FailVariantConstructorRank,
         record(
           triggerIds.damlTriggerLowLevel("CompletionStatus.Failed"),
           ("status", SInt64(c.getStatus.code.asInstanceOf[Long])),
@@ -257,7 +296,8 @@ object Converter {
     Right(
       SVariant(
         messageTy,
-        Name.assertFromString("MCompletion"),
+        MessageVariant.MCompletionConstructor,
+        MessageVariant.MCompletionConstructorRank,
         record(
           completionTy,
           ("commandId", fromCommandId(triggerIds, c.commandId)),
@@ -270,7 +310,8 @@ object Converter {
     val messageTy = ids.damlTriggerLowLevel("Message")
     SVariant(
       messageTy,
-      Name.assertFromString("MHeartbeat"),
+      MessageVariant.MHeartbeatConstructor,
+      MessageVariant.MHeartbeatConstructorRank,
       SUnit
     )
   }
@@ -463,15 +504,15 @@ object Converter {
 
   private def toCommand(triggerIds: TriggerIds, v: SValue): Either[String, Command] = {
     v match {
-      case SVariant(_, "CreateCommand", createVal) =>
+      case SVariant(_, "CreateCommand", _, createVal) =>
         for {
           create <- toCreate(triggerIds, createVal)
         } yield Command().withCreate(create)
-      case SVariant(_, "ExerciseCommand", exerciseVal) =>
+      case SVariant(_, "ExerciseCommand", _, exerciseVal) =>
         for {
           exercise <- toExercise(triggerIds, exerciseVal)
         } yield Command().withExercise(exercise)
-      case SVariant(_, "ExerciseByKeyCommand", exerciseByKeyVal) =>
+      case SVariant(_, "ExerciseByKeyCommand", _, exerciseByKeyVal) =>
         for {
           exerciseByKey <- toExerciseByKey(triggerIds, exerciseByKeyVal)
         } yield Command().withExerciseByKey(exerciseByKey)

@@ -39,15 +39,16 @@ final class DbDispatcher(
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
-  def executeSql[T](description: String, extraLog: Option[String] = None)(
+  def executeSql[T](description: String, extraLog: => Option[String] = None)(
       sql: Connection => T
   ): Future[T] = {
+    lazy val extraLogMemoized = extraLog
     val waitTimer = metrics.timer(s"daml.index.db.$description.wait")
     val execTimer = metrics.timer(s"daml.index.db.$description.exec")
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait
-      extraLog.foreach(log =>
+      extraLogMemoized.foreach(log =>
         logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
       waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
       Metrics.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
@@ -70,7 +71,7 @@ final class DbDispatcher(
         // decouple metrics updating from sql execution above
         try {
           val execNanos = System.nanoTime() - startExec
-          extraLog.foreach(log =>
+          extraLogMemoized.foreach(log =>
             logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
           execTimer.update(execNanos, TimeUnit.NANOSECONDS)
           Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)

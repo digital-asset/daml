@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 
 /** The result from small-step evaluation.
@@ -40,8 +39,8 @@ object SResult {
     * initialized. The caller must retrieve the definition and fill it in
     * the packages cache it had provided to initialize the machine.
     */
-  final case class SResultMissingDefinition(
-      ref: SDefinitionRef,
+  final case class SResultNeedPackage(
+      pkg: PackageId,
       callback: CompiledPackages => Unit,
   ) extends SResult
 

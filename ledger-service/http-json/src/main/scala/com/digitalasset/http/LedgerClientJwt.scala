@@ -18,6 +18,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
+import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -40,6 +41,9 @@ object LedgerClientJwt {
 
   type ListKnownParties =
     Jwt => Future[List[api.domain.PartyDetails]]
+
+  type GetParties =
+    (Jwt, OneAnd[Set, Ref.Party]) => Future[List[api.domain.PartyDetails]]
 
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
@@ -108,6 +112,9 @@ object LedgerClientJwt {
 
   def listKnownParties(client: LedgerClient): ListKnownParties =
     jwt => client.partyManagementClient.listKnownParties(bearer(jwt))
+
+  def getParties(client: LedgerClient): GetParties =
+    (jwt, partyIds) => client.partyManagementClient.getParties(partyIds, bearer(jwt))
 
   def allocateParty(client: LedgerClient): AllocateParty =
     (jwt, identifierHint, displayName) =>

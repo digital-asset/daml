@@ -4,11 +4,17 @@
 App Architecture
 ****************
 
-In this section we'll look at the different components of our social network app.
-The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section.
+In this section we'll look at the different components of our social network app. The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section. There are two main components: 
 
-There are two main components: the DAML model and the React/TypeScript frontend.
-We generate TypeScript code to bridge the two.
+  * the DAML model and 
+  * the React/TypeScript frontend. 
+  
+We generate TypeScript code to bridge the two. 
+
+Overall, the social networking app is following the :ref:`recommended architecture of a fullstack DAML application <recommended-architecture>`. Below you can see a simplified version of the architecture represented in the app.
+
+.. image:: ./images/gsg_architecture.svg
+
 Let's start by looking at the DAML model, which defines the core logic of the application.
 
 The DAML Model
@@ -66,7 +72,7 @@ That is what the ``AddFriend`` choice does: after checking some preconditions, i
     - After that we pass arguments for the choice with ``with`` keyword. Here this is the friend we are trying to add.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
     - The ``do`` keyword marks the start of the choice's body where its functionality will be written.
-    - After passing some checks current contract is archived with ``archive self`` 
+    - After passing some checks current contract is archived with ``archive self``.
     - A new ``User`` contract with the added friend is created.
 
 This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).

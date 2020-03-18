@@ -10,8 +10,8 @@ import anorm.SqlParser._
 import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
+import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.{breakOut, immutable}
@@ -30,7 +30,7 @@ trait CommonQueries extends Queries {
       start: Index,
       end: Index,
   ): Try[immutable.Seq[(Index, LedgerEntry)]] = Try {
-    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no >= $start AND sequence_no < $end ORDER BY sequence_no"
+    SQL"SELECT sequence_no, entry_id, envelope, heartbeat_timestamp FROM #$LogTable WHERE sequence_no > $start AND sequence_no <= $end ORDER BY sequence_no"
       .as(
         (long("sequence_no")
           ~ getBytes("entry_id")
@@ -38,13 +38,13 @@ trait CommonQueries extends Queries {
           ~ get[Option[Long]]("heartbeat_timestamp")).map {
           case index ~ Some(entryId) ~ Some(envelope) ~ None =>
             index -> LedgerEntry.LedgerRecord(
-              Offset(Array(index)),
+              KVOffset.fromLong(index),
               entryId,
               envelope,
             )
           case index ~ None ~ None ~ Some(heartbeatTimestamp) =>
             index -> LedgerEntry.Heartbeat(
-              Offset(Array(index)),
+              KVOffset.fromLong(index),
               Instant.ofEpochMilli(heartbeatTimestamp),
             )
           case _ =>

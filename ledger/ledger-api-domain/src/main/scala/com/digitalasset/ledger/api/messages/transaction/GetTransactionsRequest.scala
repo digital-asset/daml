@@ -8,8 +8,8 @@ import com.digitalasset.ledger.api.domain.{LedgerId, LedgerOffset, TransactionFi
 
 final case class GetTransactionsRequest(
     ledgerId: LedgerId,
-    begin: LedgerOffset,
-    end: Option[LedgerOffset],
+    startExclusive: LedgerOffset,
+    endInclusive: Option[LedgerOffset],
     filter: TransactionFilter,
     verbose: Boolean,
     traceContext: Option[TraceContext])

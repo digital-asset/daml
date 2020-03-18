@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.index.v2
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.ledger.api.domain.ConfigurationEntry
+import com.digitalasset.ledger.api.domain.{ConfigurationEntry, LedgerOffset}
 
 import scala.concurrent.Future
 
@@ -20,9 +20,10 @@ trait IndexConfigManagementService {
   /** Looks up the current configuration, if set, and the offset from which
     * to subscribe to new configuration entries using [[configurationEntries]].
     */
-  def lookupConfiguration(): Future[Option[(Long, Configuration)]]
+  def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]]
 
   /** Retrieve configuration entries. */
-  def configurationEntries(startInclusive: Option[Long]): Source[ConfigurationEntry, NotUsed]
+  def configurationEntries(
+      startExclusive: Option[LedgerOffset.Absolute]): Source[ConfigurationEntry, NotUsed]
 
 }

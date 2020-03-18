@@ -24,5 +24,5 @@ trait IndexPackagesService {
   /** Like [[getLfArchive]], but already parsed. */
   def getLfPackage(packageId: PackageId): Future[Option[Package]]
 
-  def packageEntries(beginOffset: LedgerOffset.Absolute): Source[PackageEntry, NotUsed]
+  def packageEntries(startExclusive: LedgerOffset.Absolute): Source[PackageEntry, NotUsed]
 }

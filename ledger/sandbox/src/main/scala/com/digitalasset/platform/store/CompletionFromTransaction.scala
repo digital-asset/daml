@@ -5,6 +5,7 @@ package com.digitalasset.platform.store
 
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.ApplicationId
@@ -15,7 +16,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
 }
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.platform.store.dao.LedgerDao
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
@@ -25,11 +26,11 @@ import io.grpc.Status.Code
 // TODO - the in-memory sandbox is gone
 private[platform] object CompletionFromTransaction {
 
-  def toApiCheckpoint(recordTime: Instant, offset: LedgerDao#LedgerOffset): Some[Checkpoint] =
+  def toApiCheckpoint(recordTime: Instant, offset: Offset): Some[Checkpoint] =
     Some(
       Checkpoint(
         recordTime = Some(fromInstant(recordTime)),
-        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toString)))))
+        offset = Some(LedgerOffset(LedgerOffset.Value.Absolute(offset.toApiString)))))
 
   // We _rely_ on the following compiler flags for this to be safe:
   // * -Xno-patmat-analysis _MUST NOT_ be enabled
@@ -37,7 +38,7 @@ private[platform] object CompletionFromTransaction {
   def toErrorCode(rejection: RejectionReason): Code = {
     rejection match {
       case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
-          _: RejectionReason.PartyNotKnownOnLedger =>
+          _: RejectionReason.PartyNotKnownOnLedger | _: RejectionReason.InvalidLedgerTime =>
         Code.INVALID_ARGUMENT
       case _: RejectionReason.OutOfQuota | _: RejectionReason.TimedOut =>
         Code.ABORTED
@@ -51,9 +52,8 @@ private[platform] object CompletionFromTransaction {
   // But for an api server that is part of a distributed ledger network, we might see
   // transactions that originated from some other api server. These transactions don't contain the submitter information,
   // and therefore we don't emit CommandAccepted completions for those
-  def apply(appId: ApplicationId, parties: Set[Ref.Party]): PartialFunction[
-    (LedgerDao#LedgerOffset, LedgerEntry),
-    (LedgerDao#LedgerOffset, CompletionStreamResponse)] = {
+  def apply(appId: ApplicationId, parties: Set[Ref.Party])
+    : PartialFunction[(Offset, LedgerEntry), (Offset, CompletionStreamResponse)] = {
     case (
         offset,
         LedgerEntry.Transaction(

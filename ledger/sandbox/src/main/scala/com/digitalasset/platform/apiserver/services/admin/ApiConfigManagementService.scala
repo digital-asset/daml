@@ -17,6 +17,7 @@ import com.digitalasset.api.util.{DurationConversion, TimeProvider, TimestampCon
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.dec.{DirectExecutionContext => DE}
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.LedgerOffset
 import com.digitalasset.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.digitalasset.ledger.api.v1.admin.config_management_service._
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
@@ -172,7 +173,7 @@ final class ApiConfigManagementService private (
 
   private def pollUntilPersisted(
       submissionId: String,
-      offset: Option[Long],
+      offset: Option[LedgerOffset.Absolute],
       timeToLive: FiniteDuration): Future[domain.ConfigurationEntry] = {
     index
       .configurationEntries(offset)

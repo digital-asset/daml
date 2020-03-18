@@ -484,6 +484,7 @@ runInit targetFolderM = do
             , ("version", Y.String "1.0.0")
             , ("exposed-modules", Y.array [Y.String "Main"])
             , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+            , ("sandbox-options", Y.array [Y.String "--wall-clock-time"])
             ]
 
         putStrLn ("Done! Please verify " <> projectConfigRel)

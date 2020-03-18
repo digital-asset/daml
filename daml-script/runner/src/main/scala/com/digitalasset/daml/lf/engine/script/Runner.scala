@@ -1,20 +1,22 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.digitalasset.daml.lf
+package engine
+package script
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.StatusRuntimeException
 import java.util.UUID
+
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.{\/-}
+import scalaz.\/-
 import scalaz.std.either._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
@@ -26,7 +28,7 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, Speedy, SValue, SExpr}
+import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -40,13 +42,12 @@ import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
-  TransactionFilter,
-  InclusiveFilters
+  InclusiveFilters,
+  TransactionFilter
 }
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
@@ -207,6 +208,12 @@ class Runner(
   val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
   val valueTranslator = new ValueTranslator(compiledPackages)
 
+  def translateValue(typ: Type, value: Value[AbsoluteContractId]) =
+    valueTranslator
+      .translateValue(typ, value)
+      .consume(_ => None, _ => None, _ => None)
+      .fold(e => throw new RuntimeException(e.msg), identity)
+
   def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
       party = party.value,
@@ -258,7 +265,9 @@ class Runner(
             }
             val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
               LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
-            SEApp(SEVal(LfDefRef(scriptId), None), Array(SEValue(SValue.fromValue(inputLfVal))))
+            SEApp(
+              SEVal(LfDefRef(scriptId), None),
+              Array(SEValue(translateValue(param, inputLfVal))))
           }
           case _ =>
             throw new RuntimeException(
@@ -311,9 +320,9 @@ class Runner(
     def go(): Future[SValue] = {
       stepToValue()
       machine.toSValue match {
-        case SVariant(_, "Free", v) => {
+        case SVariant(_, "Free", _, v) => {
           v match {
-            case SVariant(_, "Submit", v) => {
+            case SVariant(_, "Submit", _, v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 3 => {
                   val freeAp = vals.get(1) match {
@@ -365,7 +374,7 @@ class Runner(
                 case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
-            case SVariant(_, "Query", v) => {
+            case SVariant(_, "Query", _, v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 3 => {
                   val continue = vals.get(2)
@@ -402,7 +411,7 @@ class Runner(
                 case _ => throw new RuntimeException(s"Expected record with 3 fields but got $v")
               }
             }
-            case SVariant(_, "AllocParty", v) => {
+            case SVariant(_, "AllocParty", _, v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 4 => {
                   val displayName = vals.get(0) match {
@@ -444,13 +453,13 @@ class Runner(
                 case _ => throw new RuntimeException(s"Expected record with 2 fields but got $v")
               }
             }
-            case SVariant(_, "GetTime", continue) => {
+            case SVariant(_, "GetTime", _, continue) => {
               val t = Timestamp.assertFromInstant(timeProvider.getCurrentTime)
               machine.ctrl =
                 Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(STimestamp(t)))))
               go()
             }
-            case SVariant(_, "Sleep", v) => {
+            case SVariant(_, "Sleep", _, v) => {
               v match {
                 case SRecord(_, _, vals) if vals.size == 2 => {
                   val continue = vals.get(1)
@@ -475,7 +484,7 @@ class Runner(
               throw new RuntimeException(s"Expected Submit, Query or AllocParty but got $v")
           }
         }
-        case SVariant(_, "Pure", v) =>
+        case SVariant(_, "Pure", _, v) =>
           v match {
             case SRecord(_, _, vals) if vals.size == 2 => {
               // Unwrap the Tuple2 we get from the inlined StateT.

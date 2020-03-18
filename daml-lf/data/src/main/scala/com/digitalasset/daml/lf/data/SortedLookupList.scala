@@ -25,6 +25,8 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
 
   def values: ImmArray[X] = entries.map(_._2)
 
+  def iterator: Iterator[(String, X)] = entries.iterator
+
   def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
 
   override def canEqual(that: Any): Boolean = that.isInstanceOf[SortedLookupList[_]]

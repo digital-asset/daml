@@ -325,9 +325,6 @@ genDefDataType curPkgId conName mod tpls def =
                     concatMap (onHead (fromJust . T.stripPrefix (T.pack "export const ")) . onLast (<> ";")) assocSers
                   -- The complete definition of the companion function.
                   in function ++ props
-                     -- To-do: Can we formulate a static implements
-                     -- serializable check that works for companion
-                     -- functions?
               else -- Companion object.
                 let
                   assocNames = map fst assocDefDataTypes
@@ -346,23 +343,21 @@ genDefDataType curPkgId conName mod tpls def =
                     -- associated serializer above? This replaces them.
                     concatMap (\(n, ser) -> n <> ": ({" : onLast (<> ",") ser) assocSers
                   -- The complete definition of the companion object.
-                  in ["export const " <> conName <> ":\n  " <> typ' <> " = ({"] ++ body ++ ["});"] ++
-                     ["daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"]
+                  in ["export const " <> conName <> ":\n  " <> typ' <> " = ({"] ++ body ++ ["});"]
             in ((typeDesc, serDesc), Set.unions $ map (Set.setOf typeModuleRef . snd) bs)
         DataEnum enumCons ->
           let cs = map unVariantConName enumCons
               typeDesc = "" : ["  | '" <> cons <> "'" | cons <- cs]
               -- The complete definition of the companion object.
               serDesc =
-                [ "export const " <> conName <> ": daml.Serializable<" <> conName <> "> & {"] <>
-                [ "  readonly " <> cons <> ": " <> conName <> ";" | cons <- cs ] ++
-                ["} = {"] ++
+                ["export const " <> conName <> ": daml.Serializable<" <> conName <> "> " <>
+                 "& { readonly keys: " <> conName <> "[] } & { readonly [e in " <> conName <> "]: e } = {"] ++
                 ["  " <> cons <> ": '" <> cons <> "'," | cons <- cs] ++
+                ["  keys: [" <> T.concat ["'" <> cons <> "'," | cons <- cs] <> "],"] ++
                 ["  decoder: () => jtv.oneOf<" <> conName <> ">" <> "("] ++
                 ["      jtv.constant(" <> conName <> "." <> cons <> ")," | cons <- cs] ++
                 ["  ),"] ++
-                ["} as const;"] ++
-                ["daml.STATIC_IMPLEMENTS_SERIALIZABLE_CHECK<" <> conName <> ">(" <> conName <> ")"]
+                ["};"]
           in
           ((makeType typeDesc, serDesc), Set.empty)
         DataRecord fields ->

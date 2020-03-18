@@ -95,6 +95,16 @@ class ServiceTest extends AsyncFlatSpec with Eventually {
     Http().singleRequest(req)
   }
 
+  it should "should fail for non-existent trigger" in withHttpService { (uri: Uri, client) =>
+    for {
+      resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:foobar", "Alice")
+      body <- {
+        assert(resp.status == StatusCodes.UnprocessableEntity)
+        resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      }
+    } yield assert(body == "Could not find name foobar in module TestTrigger")
+  }
+
   it should "should enable a trigger on http request" in withHttpService { (uri: Uri, client) =>
     // start the trigger
     for {
