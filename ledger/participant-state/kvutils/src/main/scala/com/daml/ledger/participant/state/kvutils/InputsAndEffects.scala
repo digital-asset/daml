@@ -89,6 +89,8 @@ private[kvutils] object InputsAndEffects {
             }
 
           case NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            ()
+
           case lookup @ NodeLookupByKey(_, _, _, _) =>
             // We need both the contract key state and the contract state. The latter is used to verify
             // that the submitter can access the contract.
