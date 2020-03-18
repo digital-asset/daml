@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.speedy.SError.{DamlEArithmeticError, SError, SEr
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.value.Value.{ValueGenMap, ValueInt64, ValueText}
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
@@ -939,28 +938,20 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       "inserts as expected" in {
         val e = e"$map"
         eval(e) shouldEqual Right(
-          SValue.fromValue(
-            ValueGenMap(
-              ImmArray(
-                ValueText("a") -> ValueInt64(1),
-                ValueText("b") -> ValueInt64(2),
-                ValueText("c") -> ValueInt64(3),
-              ),
-            ),
+          SGenMap(
+            SText("a") -> SInt64(1),
+            SText("b") -> SInt64(2),
+            SText("c") -> SInt64(3),
           ),
         )
       }
 
       "replaces already present key" in {
         eval(e"""$builtin @Text @Int64 "b" 4 $map""") shouldEqual Right(
-          SValue.fromValue(
-            ValueGenMap(
-              ImmArray(
-                ValueText("a") -> ValueInt64(1),
-                ValueText("b") -> ValueInt64(4),
-                ValueText("c") -> ValueInt64(3),
-              ),
-            ),
+          SGenMap(
+            SText("a") -> SInt64(1),
+            SText("b") -> SInt64(4),
+            SText("c") -> SInt64(3),
           ),
         )
       }
@@ -1003,27 +994,19 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
       "deletes existing key" in {
         eval(e"""$builtin @Text @Int64 "a" $map""") shouldEqual Right(
-          SValue.fromValue(
-            ValueGenMap(ImmArray(ValueText("b") -> ValueInt64(2), ValueText("c") -> ValueInt64(3))),
-          ),
+          SGenMap(SText("b") -> SInt64(2), SText("c") -> SInt64(3)),
         )
         eval(e"""$builtin @Text @Int64 "b" $map""") shouldEqual Right(
-          SValue.fromValue(
-            ValueGenMap(ImmArray(ValueText("a") -> ValueInt64(1), ValueText("c") -> ValueInt64(3))),
-          ),
+          SGenMap(SText("a") -> SInt64(1), SText("c") -> SInt64(3)),
         )
       }
 
       "does nothing with non-existing key" in {
         eval(e"""$builtin @Text @Int64 "d" $map""") shouldEqual Right(
-          SValue.fromValue(
-            ValueGenMap(
-              ImmArray(
-                ValueText("a") -> ValueInt64(1),
-                ValueText("b") -> ValueInt64(2),
-                ValueText("c") -> ValueInt64(3),
-              ),
-            ),
+          SGenMap(
+            SText("a") -> SInt64(1),
+            SText("b") -> SInt64(2),
+            SText("c") -> SInt64(3),
           ),
         )
       }

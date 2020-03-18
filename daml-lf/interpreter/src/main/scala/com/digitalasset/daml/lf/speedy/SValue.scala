@@ -56,9 +56,9 @@ sealed trait SValue {
               .map({ case (fld, sv) => (Some(fld), sv.toValue) }),
           ),
         )
-      case SVariant(id, variant, sv) =>
+      case SVariant(id, variant, _, sv) =>
         V.ValueVariant(Some(id), variant, sv.toValue)
-      case SEnum(id, constructor) =>
+      case SEnum(id, constructor, _) =>
         V.ValueEnum(Some(id), constructor)
       case SList(lst) =>
         V.ValueList(lst.map(_.toValue))
@@ -85,7 +85,7 @@ sealed trait SValue {
   def mapContractId(f: V.ContractId => V.ContractId): SValue =
     this match {
       case SContractId(coid) => SContractId(f(coid))
-      case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
+      case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
       case SPAP(prim, args, arity) =>
         val prim2 = prim match {
           case PClosure(expr, vars) =>
@@ -98,8 +98,8 @@ sealed trait SValue {
         SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
       case SStruct(fields, values) =>
         SStruct(fields, mapArrayList(values, v => v.mapContractId(f)))
-      case SVariant(tycon, variant, value) =>
-        SVariant(tycon, variant, value.mapContractId(f))
+      case SVariant(tycon, variant, rank, value) =>
+        SVariant(tycon, variant, rank, value.mapContractId(f))
       case SList(lst) =>
         SList(lst.map(_.mapContractId(f)))
       case SOptional(mbV) =>
@@ -141,9 +141,14 @@ object SValue {
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   final case class SStruct(fields: Array[Name], values: util.ArrayList[SValue]) extends SValue
 
-  final case class SVariant(id: Identifier, variant: VariantConName, value: SValue) extends SValue
+  final case class SVariant(
+      id: Identifier,
+      variant: VariantConName,
+      constructorRank: Int,
+      value: SValue)
+      extends SValue
 
-  final case class SEnum(id: Identifier, constructor: Name) extends SValue
+  final case class SEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SValue
 
   final case class SOptional(value: Option[SValue]) extends SValue
 
@@ -238,74 +243,6 @@ object SValue {
 
   def toList(genMap: SGenMap): SList =
     SList(FrontStack(genMap.genMap.iterator.map { case (k, v) => entry(k, v) }.to[ImmArray]))
-
-  def fromValue(value0: V[V.ContractId]): SValue = {
-    value0 match {
-      case V.ValueList(vs) =>
-        SList(vs.map[SValue](fromValue))
-      case V.ValueContractId(coid) => SContractId(coid)
-      case V.ValueInt64(x) => SInt64(x)
-      case V.ValueNumeric(x) => SNumeric(x)
-      case V.ValueText(t) => SText(t)
-      case V.ValueTimestamp(t) => STimestamp(t)
-      case V.ValueParty(p) => SParty(p)
-      case V.ValueBool(b) => SBool(b)
-      case V.ValueDate(x) => SDate(x)
-      case V.ValueUnit => SUnit
-
-      case V.ValueRecord(Some(id), fs) =>
-        val fields = Name.Array.ofDim(fs.length)
-        val values = new util.ArrayList[SValue](fields.length)
-        fs.foreach {
-          case (optk, v) =>
-            optk match {
-              case None =>
-                // FIXME(JM): Should this be allowed?
-                throw SErrorCrash("SValue.fromValue: record missing field name")
-              case Some(k) =>
-                fields(values.size) = k
-                val _ = values.add(fromValue(v))
-            }
-        }
-        SRecord(id, fields, values)
-
-      case V.ValueRecord(None, _) =>
-        throw SErrorCrash("SValue.fromValue: record missing identifier")
-
-      case V.ValueStruct(fs) =>
-        val fields = Name.Array.ofDim(fs.length)
-        val values = new util.ArrayList[SValue](fields.length)
-        fs.foreach {
-          case (k, v) =>
-            fields(values.size) = k
-            val _ = values.add(fromValue(v))
-        }
-        SStruct(fields, values)
-
-      case V.ValueVariant(None, _variant @ _, _value @ _) =>
-        throw SErrorCrash("SValue.fromValue: variant without identifier")
-
-      case V.ValueEnum(None, constructor @ _) =>
-        throw SErrorCrash("SValue.fromValue: enum without identifier")
-
-      case V.ValueOptional(mbV) =>
-        SOptional(mbV.map(fromValue))
-
-      case V.ValueTextMap(map) =>
-        STextMap(map.mapValue(fromValue).toHashMap)
-
-      case V.ValueGenMap(entries) =>
-        SGenMap(
-          entries.iterator.map { case (k, v) => fromValue(k) -> fromValue(v) }
-        )
-
-      case V.ValueVariant(Some(id), variant, value) =>
-        SVariant(id, variant, fromValue(value))
-
-      case V.ValueEnum(Some(id), constructor) =>
-        SEnum(id, constructor)
-    }
-  }
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

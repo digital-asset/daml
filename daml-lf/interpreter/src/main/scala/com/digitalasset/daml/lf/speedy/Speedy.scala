@@ -477,7 +477,7 @@ object Speedy {
               case _ => false
             }
           }
-        case SVariant(_, con1, arg) =>
+        case SVariant(_, con1, _, arg) =>
           alts.find { alt =>
             alt.pattern match {
               case SCPVariant(_, con2) if con1 == con2 =>
@@ -488,7 +488,7 @@ object Speedy {
               case _ => false
             }
           }
-        case SEnum(_, con1) =>
+        case SEnum(_, con1, _) =>
           alts.find { alt =>
             alt.pattern match {
               case SCPEnum(_, con2) =>

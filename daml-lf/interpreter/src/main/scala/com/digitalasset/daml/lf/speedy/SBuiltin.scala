@@ -9,7 +9,7 @@ import java.util
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Numeric.Scale
-import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.Speedy.{
@@ -719,7 +719,7 @@ object SBuiltin {
   }
 
   /** $tproj[field] :: Struct -> a */
-  final case class SBStructProj(field: FieldName) extends SBuiltin(1) {
+  final case class SBStructProj(field: Ast.FieldName) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SStruct(fields, values) =>
@@ -731,7 +731,7 @@ object SBuiltin {
   }
 
   /** $tupd[field] :: Struct -> a -> Struct */
-  final case class SBStructUpd(field: FieldName) extends SBuiltin(2) {
+  final case class SBStructUpd(field: Ast.FieldName) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SStruct(fields, values) =>
@@ -745,9 +745,10 @@ object SBuiltin {
   }
 
   /** $vcon[V, variant] :: a -> V */
-  final case class SBVariantCon(id: Identifier, variant: VariantConName) extends SBuiltin(1) {
+  final case class SBVariantCon(id: Identifier, variant: Ast.VariantConName, constructorRank: Int)
+      extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(SVariant(id, variant, args.get(0)))
+      machine.ctrl = CtrlValue(SVariant(id, variant, constructorRank, args.get(0)))
     }
   }
 
@@ -902,6 +903,101 @@ object SBuiltin {
     }
   }
 
+  // This function translates well-typed values.
+  // Raises an exception if missing packages.
+  @throws[SpeedyHungry]
+  def translateValue(machine: Machine, value: V[V.ContractId]): CtrlValue = {
+    def go(value0: V[V.ContractId]): SValue =
+      value0 match {
+        case V.ValueList(vs) => SList(vs.map[SValue](go))
+        case V.ValueContractId(coid) => SContractId(coid)
+        case V.ValueInt64(x) => SInt64(x)
+        case V.ValueNumeric(x) => SNumeric(x)
+        case V.ValueText(t) => SText(t)
+        case V.ValueTimestamp(t) => STimestamp(t)
+        case V.ValueParty(p) => SParty(p)
+        case V.ValueBool(b) => SBool(b)
+        case V.ValueDate(x) => SDate(x)
+        case V.ValueUnit => SUnit
+        case V.ValueRecord(Some(id), fs) =>
+          val fields = Name.Array.ofDim(fs.length)
+          val values = new util.ArrayList[SValue](fields.length)
+          fs.foreach {
+            case (optk, v) =>
+              optk match {
+                case None =>
+                  throw crash("SValue.fromValue: record missing field name")
+                case Some(k) =>
+                  fields(values.size) = k
+                  val _ = values.add(go(v))
+              }
+          }
+          SRecord(id, fields, values)
+        case V.ValueRecord(None, _) =>
+          crash("SValue.fromValue: record missing identifier")
+        case V.ValueStruct(fs) =>
+          val fields = Name.Array.ofDim(fs.length)
+          val values = new util.ArrayList[SValue](fields.length)
+          fs.foreach {
+            case (k, v) =>
+              fields(values.size) = k
+              val _ = values.add(go(v))
+          }
+          SStruct(fields, values)
+        case V.ValueVariant(None, _variant @ _, _value @ _) =>
+          crash("SValue.fromValue: variant without identifier")
+        case V.ValueEnum(None, constructor @ _) =>
+          crash("SValue.fromValue: enum without identifier")
+        case V.ValueOptional(mbV) =>
+          SOptional(mbV.map(go))
+        case V.ValueTextMap(map) =>
+          STextMap(map.mapValue(go).toHashMap)
+        case V.ValueGenMap(entries) =>
+          SGenMap(
+            entries.iterator.map { case (k, v) => go(k) -> go(v) }
+          )
+        case V.ValueVariant(Some(id), variant, value) =>
+          machine.compiledPackages.getPackage(id.packageId) match {
+            case Some(pkg) =>
+              pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                case Ast.DDataType(_, _, data: Ast.DataVariant) =>
+                  SVariant(id, variant, data.constructorRank(variant), go(value))
+                case _ =>
+                  crash(s"definition for variant $id not found")
+              }
+            case None =>
+              throw SpeedyHungry(
+                SResultNeedPackage(
+                  id.packageId,
+                  pkg => {
+                    machine.compiledPackages = pkg
+                    machine.ctrl = translateValue(machine, value)
+                  }
+                ))
+          }
+        case V.ValueEnum(Some(id), constructor) =>
+          machine.compiledPackages.getPackage(id.packageId) match {
+            case Some(pkg) =>
+              pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                case Ast.DDataType(_, _, data: Ast.DataEnum) =>
+                  SEnum(id, constructor, data.constructorRank(constructor))
+                case _ =>
+                  crash(s"definition for variant $id not found")
+              }
+            case None =>
+              throw SpeedyHungry(
+                SResultNeedPackage(
+                  id.packageId,
+                  pkg => {
+                    machine.compiledPackages = pkg
+                    machine.ctrl = translateValue(machine, value)
+                  }
+                ))
+          }
+      }
+    CtrlValue(go(value))
+  }
+
   /** $fetch[T]
     *    :: ContractId a
     *    -> Token
@@ -935,7 +1031,7 @@ object SBuiltin {
                           machine.ctrl =
                             CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
                         } else {
-                          machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
+                          machine.ctrl = translateValue(machine, coinst.arg.value)
                         }
                     },
                   ),
@@ -956,7 +1052,7 @@ object SBuiltin {
         // (see below).
         crash(s"Relative contract $coid ($templateId) not found from partial transaction")
       } else {
-        machine.ctrl = CtrlValue(SValue.fromValue(coinst.arg.value))
+        machine.ctrl = translateValue(machine, coinst.arg.value)
       }
     }
   }
@@ -1258,7 +1354,7 @@ object SBuiltin {
     *    :: t
     *    -> Any (where t = ty)
     */
-  final case class SBToAny(ty: Type) extends SBuiltin(1) {
+  final case class SBToAny(ty: Ast.Type) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SAny(ty, args.get(0)))
     }
@@ -1268,7 +1364,7 @@ object SBuiltin {
     *    :: Any
     *    -> Optional t (where t = expectedType)
     */
-  final case class SBFromAny(expectedTy: Type) extends SBuiltin(1) {
+  final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
         case SAny(actualTy, v) =>
@@ -1490,7 +1586,7 @@ object SBuiltin {
   private def extractKeyWithMaintainers(v: SValue): KeyWithMaintainers[Tx.Value[Nothing]] =
     v match {
       case SStruct(flds, vals)
-          if flds.length == 2 && flds(0) == keyFieldName && flds(1) == maintainersFieldName =>
+          if flds.length == 2 && flds(0) == Ast.keyFieldName && flds(1) == Ast.maintainersFieldName =>
         rightOrCrash(
           for {
             keyVal <- vals
