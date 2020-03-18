@@ -26,10 +26,21 @@ latest commit on master.
    ```
 
 1. Pull the latest master branch of the `daml` repository and create a new,
-   clean branch off it. For a snapshot, run `./release.sh snapshot HEAD`; for
-   a stable release, run `echo "$SHA $VERSION" > LATEST`. Ideally, for a stable
-   release, the resulting change is only to cut off the prerelease part of the
-   version number (the `-snapshot...`).
+   clean branch off it.
+
+   - For a snapshot run
+     - `./release.sh snapshot HEAD`;
+     - If applicable (e.g. latest release was a stable one), edit `LATEST` to update the release "version". For example, change
+       ```
+       6ea118d6142d2a937286b0a7bf9846dbcdb1751b 0.13.56-snapshot.20200318.3529.0.6ea118d6
+       ```
+       to
+       ```
+       6ea118d6142d2a937286b0a7bf9846dbcdb1751b 0.13.57-snapshot.20200318.3529.0.6ea118d6
+       ```
+   - For a stable release, run
+     - `echo "$SHA $VERSION" > LATEST`.
+     - Ideally, for a stable release, the resulting change is only to cut off the prerelease part of the version number (the `-snapshot...`).
 
 1. **[STABLE]** In `docs/source/support/release-notes.rst`, add a new header
    and label for the new version. (See previous releases as examples.)
