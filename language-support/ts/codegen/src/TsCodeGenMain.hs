@@ -172,8 +172,10 @@ main = do
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = unPackageId pkgId
                      pkgName = packageNameText pkgId mbPkgName
-                     asName = if pkgName == id then "itself" else pkgName
-                 T.putStrLn $ "Generating " <> id <> " as " <> asName
+                 let pkgDesc = case mbPkgName of
+                       Nothing -> id
+                       Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
+                 T.putStrLn $ "Generating " <> pkgDesc
                  daml2ts Daml2TsParams{..}
         setupWorkspace optInputPackageJson optOutputDir dependencies
 
