@@ -135,9 +135,9 @@ object WebSocketService {
       )(_ append _)
   }
 
-  sealed trait StreamQueryReader[A] {
-    case class Query(a: A, q: StreamQuery[A])
-    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query
+  sealed abstract class StreamQueryReader[A] {
+    case class Query[Q](q: Q, alg: StreamQuery[Q])
+    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
   }
 
   sealed trait StreamQuery[A] {
@@ -342,9 +342,9 @@ class WebSocketService(
           } yield (offPrefix, a)
       }
       .flatMapConcat {
-        case \/-((offPrefix, Q.Query(a, sq))) =>
-          implicit val SQ: StreamQuery[A] = sq
-          getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
+        case \/-((offPrefix, qq: Q.Query[q])) =>
+          implicit val SQ: StreamQuery[q] = qq.alg
+          getTransactionSourceForParty[q](jwt, jwtPayload, offPrefix, qq.q: q)
         case -\/(e) => Source.single(wsErrorMessage(e.shows))
       }
   }
