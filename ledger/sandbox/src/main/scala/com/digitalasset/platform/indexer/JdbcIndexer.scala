@@ -61,13 +61,13 @@ final class JdbcIndexerFactory(
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
       initialLedgerEnd <- ResourceOwner.forFuture(() =>
-        fetchInitialState(ledgerDao)(materializer, executionContext))
+        initializeLedger(ledgerDao)(materializer, executionContext))
     } yield {
       implicit val mat: Materializer = materializer
       new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
     }
 
-  private def fetchInitialState(dao: LedgerDao)(
+  private def initializeLedger(dao: LedgerDao)(
       implicit materializer: Materializer,
       executionContext: ExecutionContext,
   ): Future[Option[Offset]] =
@@ -75,25 +75,29 @@ final class JdbcIndexerFactory(
       initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
       existingLedgerId <- dao.lookupLedgerId()
       providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-      _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
+      _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
+        checkLedgerIds(_, providedLedgerId))
       initialLedgerEnd <- dao.lookupInitialLedgerEnd()
     } yield initialLedgerEnd
 
-  private def initializeLedger(
-      existingLedgerId: Option[domain.LedgerId],
+  private def checkLedgerIds(
+      existingLedgerId: domain.LedgerId,
+      providedLedgerId: domain.LedgerId,
+  ): Future[Unit] =
+    if (existingLedgerId == providedLedgerId) {
+      logger.info(s"Found existing ledger with ID: $existingLedgerId")
+      Future.unit
+    } else {
+      Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+    }
+
+  private def initializeLedgerData(
       providedLedgerId: domain.LedgerId,
       ledgerDao: LedgerDao,
-  ): Future[Unit] =
-    existingLedgerId match {
-      case Some(foundLedgerId) if foundLedgerId == providedLedgerId =>
-        logger.info(s"Found existing ledger with ID: $foundLedgerId")
-        Future.unit
-      case Some(foundLedgerId) =>
-        Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
-      case None =>
-        logger.info(s"Initializing ledger with ID: $providedLedgerId")
-        ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
-    }
+  ): Future[Unit] = {
+    logger.info(s"Initializing ledger with ID: $providedLedgerId")
+    ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
+  }
 }
 
 /**
