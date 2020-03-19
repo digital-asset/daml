@@ -32,7 +32,7 @@ import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
@@ -221,7 +221,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
   private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.writeOwner(jdbcUrl, new MetricRegistry, ExecutionContext.global)
+    JdbcLedgerDao.writeOwner(jdbcUrl, new MetricRegistry)
   }
 }
 

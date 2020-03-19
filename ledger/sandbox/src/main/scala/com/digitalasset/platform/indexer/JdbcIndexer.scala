@@ -61,7 +61,7 @@ final class JdbcIndexerFactory(
   ): ResourceOwner[JdbcIndexer] =
     for {
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics, actorSystem.dispatcher)
+      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
       initialLedgerEnd <- ResourceOwner.forFuture(() =>
         initializeLedger(ledgerDao)(materializer, executionContext))
     } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)

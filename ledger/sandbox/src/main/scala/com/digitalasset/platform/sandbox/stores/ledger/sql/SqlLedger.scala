@@ -66,7 +66,7 @@ object SqlLedger {
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate())
-      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics, mat.executionContext)
+      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(

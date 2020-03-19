@@ -5,6 +5,7 @@ package com.digitalasset.platform.store.dao
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -46,9 +47,11 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
@@ -64,16 +67,14 @@ import com.digitalasset.platform.store.serialization.{
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.store._
 import com.digitalasset.resources.ResourceOwner
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
-
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 private final case class ParsedEntry(
     typ: String,
@@ -1755,25 +1756,25 @@ object JdbcLedgerDao {
 
   val defaultNumberOfShortLivedConnections = 16
 
+  private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
+
   def readOwner(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = defaultNumberOfShortLivedConnections
-    owner(jdbcUrl, maxConnections, metrics, executionContext)
+    owner(jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
 
   def writeOwner(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    owner(jdbcUrl, maxConnections, metrics, executionContext)
+    owner(jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1781,10 +1782,11 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+      executor <- ResourceOwner.forExecutorService(() =>
+        Executors.newCachedThreadPool(ThreadFactory))
     } yield
       new JdbcLedgerDao(
         dbDispatcher,
@@ -1792,7 +1794,7 @@ object JdbcLedgerDao {
         TransactionSerializer,
         KeyHasher,
         DbType.jdbcType(jdbcUrl),
-        executionContext,
+        ExecutionContext.fromExecutor(executor),
       )
 
   private val PARTY_SEPARATOR = '%'
