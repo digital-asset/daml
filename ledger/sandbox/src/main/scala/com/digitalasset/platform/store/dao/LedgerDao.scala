@@ -32,13 +32,15 @@ import scala.concurrent.Future
 
 trait LedgerReadDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[Offset]
 
-  /** Looks up the current external ledger end offset*/
+  /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd(): Future[Option[Offset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
@@ -167,10 +169,12 @@ trait LedgerReadDao extends ReportsHealth {
 
 trait LedgerWriteDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /**
     * Initializes the ledger. Must be called only once.
     *
-    * @param ledgerId  the ledger id to be stored
+    * @param ledgerId the ledger id to be stored
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit]
 

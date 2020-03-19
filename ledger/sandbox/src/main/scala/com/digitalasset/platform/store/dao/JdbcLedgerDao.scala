@@ -106,6 +106,7 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
+    override val maxConcurrentConnections: Int,
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
@@ -1754,7 +1755,7 @@ private class JdbcLedgerDao(
 
 object JdbcLedgerDao {
 
-  val defaultNumberOfShortLivedConnections = 16
+  private val DefaultNumberOfShortLivedConnections = 16
 
   private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
 
@@ -1762,7 +1763,7 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
-    val maxConnections = defaultNumberOfShortLivedConnections
+    val maxConnections = DefaultNumberOfShortLivedConnections
     owner(jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
@@ -1773,7 +1774,7 @@ object JdbcLedgerDao {
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
-      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
+      if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
     owner(jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
@@ -1789,6 +1790,7 @@ object JdbcLedgerDao {
         Executors.newCachedThreadPool(ThreadFactory))
     } yield
       new JdbcLedgerDao(
+        maxConnections,
         dbDispatcher,
         ContractSerializer,
         TransactionSerializer,

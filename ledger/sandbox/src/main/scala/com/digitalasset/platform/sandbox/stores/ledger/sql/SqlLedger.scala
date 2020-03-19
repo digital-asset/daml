@@ -28,10 +28,9 @@ import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
+import com.digitalasset.platform.store.{BaseLedger, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 
@@ -58,14 +57,9 @@ object SqlLedger {
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] = {
-    implicit val ec: ExecutionContext = DEC
-
-    val dbType = DbType.jdbcType(jdbcUrl)
-    val maxConnections =
-      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
-      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate())
+      _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
       ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
@@ -78,13 +72,12 @@ object SqlLedger {
             packages,
             initialLedgerEntries,
             queueDepth,
-            // we use `maxConnections` for the maximum batch size, since it doesn't make sense to
-            // try to persist more ledger entries concurrently than we have SQL executor threads and
-            // SQL connections available.
-            maxConnections,
+            // we use `maxConcurrentConnections` for the maximum batch size, since it doesn't make
+            // sense to try to persist more ledger entries concurrently than we have SQL executor
+            // threads and SQL connections available.
+            ledgerDao.maxConcurrentConnections,
         ))
     } yield ledger
-  }
 }
 
 private final class SqlLedger(

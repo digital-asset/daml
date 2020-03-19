@@ -52,6 +52,8 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       metrics.timer("daml.index.db.remove_expired_deduplication_data")
   }
 
+  override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
+
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def lookupLedgerId(): Future[Option[LedgerId]] =
