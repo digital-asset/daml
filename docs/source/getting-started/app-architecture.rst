@@ -49,7 +49,7 @@ The observers are the parties who are able to view the contract on the ledger.
 In this case all users that a particular user is following are able to see the user contract.
 
 Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
-A user Alice can see another user Bob in the network only when Alice is in the list of users that Bob is following (only if Alice is the ``following`` list in his user contract).
+A user Alice can see another user Bob in the network only when Bob is following Alice (only if Alice is the ``following`` list in his user contract).
 For this to be true, Bob must have previously strated to follow Alice, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
