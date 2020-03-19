@@ -6,7 +6,7 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import React, { ComponentType, useState } from 'react';
 import { renderHook, RenderHookResult, act } from '@testing-library/react-hooks';
-import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey } from './index';
+import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStreamFetchByKey, useReload } from './index';
 import { Template } from '@daml/types';
 import { Stream } from '@daml/ledger';
 import {EventEmitter} from 'events';
@@ -159,6 +159,32 @@ describe('useQuery', () => {
     expect(mockQuery).not.toHaveBeenCalled();
     expect(result.current.queryResult).toEqual({contracts: resolvent, loading: false});
   });
+
+  test('useReload', async () => {
+    const resolvent1 = ['foo'];
+    const resolvent2 = ['bar'];
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent1));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const reload = useReload();
+      const queryResult = useQuery(Foo);
+      return {reload, queryResult};
+    }
+    );
+    // first query
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenLastCalledWith(Foo, undefined);
+    await waitForNextUpdate();
+    expect(result.current.queryResult).toEqual({contracts : resolvent1, loading : false});
+    mockQuery.mockClear();
+    // query result changes
+    mockQuery.mockReturnValueOnce(Promise.resolve(resolvent2));
+    // user reloads
+    act(() => result.current.reload());
+    await waitForNextUpdate();
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenLastCalledWith(Foo, undefined);
+    expect(result.current.queryResult).toEqual({contracts : resolvent2, loading : false});
+  });
 });
 
 describe('useFetchByKey', () => {
@@ -229,6 +255,34 @@ describe('useFetchByKey', () => {
     act(() => result.current.setState('new-state'));
     expect(mockFetchByKey).not.toHaveBeenCalled();
     expect(result.current.queryResult).toEqual({contract, loading: false});
+  });
+
+  test('useReload', async () => {
+    const contract1 = {owner: 'Alice'};
+    const key1 = contract1.owner;
+    const contract2 = {owner: 'Bob'};
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract1));
+    const {result, waitForNextUpdate} = renderDamlHook(() => {
+      const reload = useReload();
+      const fetchResult = useFetchByKey(Foo, () => key1, [key1]);
+      return {reload, fetchResult};
+    }
+    );
+    // first fetchByKey
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    expect(mockFetchByKey).toHaveBeenLastCalledWith(Foo, key1);
+    await waitForNextUpdate();
+    expect(result.current.fetchResult).toEqual({contract: contract1, loading: false});
+    mockFetchByKey.mockClear();
+
+    //  fetchByKey result changes
+    mockFetchByKey.mockReturnValueOnce(Promise.resolve(contract2));
+    // user reloads
+    act(() => result.current.reload());
+    await waitForNextUpdate();
+    expect(mockFetchByKey).toHaveBeenCalledTimes(1);
+    expect(mockFetchByKey).toHaveBeenLastCalledWith(Foo, key1);
+    expect(result.current.fetchResult).toEqual({contract: contract2, loading: false});
   });
 });
 
