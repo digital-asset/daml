@@ -39,48 +39,37 @@ final class JdbcIndexerFactory(
     readService: ReadService,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext) {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def validateSchema()(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
+  ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .validate()
       .map(_ => initialized)
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
+  ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
       .map(_ => initialized)
 
-  private def initialized(implicit executionContext: ExecutionContext) =
-    new InitializedJdbcIndexerFactory(participantId, jdbcUrl, actorSystem, readService, metrics)
-}
-
-class InitializedJdbcIndexerFactory private[indexer] (
-    participantId: ParticipantId,
-    jdbcUrl: String,
-    actorSystem: ActorSystem,
-    readService: ReadService,
-    metrics: MetricRegistry,
-)(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
-    extends ResourceOwner[JdbcIndexer] {
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  override def acquire()(
-      implicit executionContext: ExecutionContext
-  ): Resource[JdbcIndexer] = {
-    implicit val materializer: Materializer = Materializer(actorSystem)
+  private def initialized(implicit executionContext: ExecutionContext): ResourceOwner[JdbcIndexer] =
     for {
-      // Acquire the materializer so it's released properly.
-      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher).acquire()
-      initialLedgerEnd <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao)).acquire()
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
-  }
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
+      initialLedgerEnd <- ResourceOwner.forFuture(() =>
+        fetchInitialState(ledgerDao)(materializer, executionContext))
+    } yield {
+      implicit val mat: Materializer = materializer
+      new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
+    }
 
   private def fetchInitialState(dao: LedgerDao)(
-      implicit materializer: Materializer
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
   ): Future[Option[Offset]] =
     for {
       initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)

@@ -52,7 +52,7 @@ final class StandaloneIndexerServer(
 
   private def startIndexer(
       indexer: RecoveringIndexer,
-      initializedIndexerFactory: InitializedJdbcIndexerFactory,
+      initializedIndexerFactory: ResourceOwner[JdbcIndexer],
       actorSystem: ActorSystem,
   )(implicit executionContext: ExecutionContext): Resource[Unit] =
     indexer
