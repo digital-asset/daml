@@ -12,7 +12,6 @@ import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -113,14 +112,11 @@ object TestMain extends StrictLogging {
 
         val testScripts = dar.main._2.modules.flatMap {
           case (moduleName, module) => {
-            val valueDefinitions = module.definitions.collect {
-              case (name, Ast.DValue(ty, _, _, _)) => {
+            module.definitions.collect(Function.unlift {
+              case (name, defn) => {
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                (id, ty)
+                Script.fromDar(dar, id).toOption.filter(_.param.isEmpty)
               }
-            }
-            valueDefinitions.collect(Function.unlift {
-              case (id, ty) => ScriptIds.fromType(ty).map((id, _))
             })
           }
         }
@@ -136,12 +132,9 @@ object TestMain extends StrictLogging {
           success = new AtomicBoolean(true)
           _ <- Future.sequence {
             testScripts.map {
-              case (scriptId, scriptIds) => {
-                val runner = new Runner(dar, scriptIds, applicationId, commandUpdater, timeProvider)
-                val script = Script.fromDar(dar, scriptId) match {
-                  case Left(err) => throw new RuntimeException(err)
-                  case Right(x) => x
-                }
+              case script => {
+                val runner =
+                  new Runner(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)
                 val testRun: Future[Unit] = for {
                   _ <- runner.run(clients, script, None)
                 } yield ()
@@ -149,9 +142,9 @@ object TestMain extends StrictLogging {
                 testRun.onComplete {
                   case Failure(exception) =>
                     success.set(false)
-                    println(s"${scriptId.qualifiedName} FAILURE ($exception)")
+                    println(s"${script.id.qualifiedName} FAILURE ($exception)")
                   case Success(_) =>
-                    println(s"${scriptId.qualifiedName} SUCCESS")
+                    println(s"${script.id.qualifiedName} SUCCESS")
                 }
                 // Do not abort in case of failure, but complete all test runs.
                 testRun.recover {
