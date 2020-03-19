@@ -188,7 +188,7 @@ We need to terminate the previous ``./daml-start.sh`` process and run it again, 
 
 First, navigate to the terminal window where the ``daml-start.sh`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
 
-As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and list of ``following`` connections between them are lost. 
+As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost. 
 
 If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI. 
 
