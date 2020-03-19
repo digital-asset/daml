@@ -7,24 +7,24 @@ module User where
 -- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
-    friends: [Party]
+    following: [Party]
   where
     signatory username
-    observer friends
+    observer following
 -- MAIN_TEMPLATE_END
 
     key username: Party
     maintainer key
 
 -- ADDFRIEND_BEGIN
-    nonconsuming choice AddFriend: ContractId User with
-        friend: Party
+    nonconsuming choice Follow: ContractId User with
+        userToFollow: Party
       controller username
       do
-        assertMsg "You cannot add yourself as a friend" (friend /= username)
-        assertMsg "You cannot add a friend twice" (friend `notElem` friends)
+        assertMsg "You cannot follow yourself" (userToFollow /= username)
+        assertMsg "You cannot follow the same user twice" (userToFollow `notElem` following)
         archive self
-        create this with friends = friend :: friends
+        create this with following = userToFollow :: following
 -- ADDFRIEND_END
 
 -- SENDMESSAGE_BEGIN
@@ -33,7 +33,7 @@ template User with
         content: Text
       controller sender
       do
-        assertMsg "You must be a friend to send a message" (elem sender friends)
+        assertMsg "Designated user must follow you back to send a message" (elem sender following)
         create Message with sender, receiver = username, content
 -- SENDMESSAGE_END
 
