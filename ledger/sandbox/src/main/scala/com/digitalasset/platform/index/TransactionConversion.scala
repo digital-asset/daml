@@ -76,7 +76,7 @@ object TransactionConversion {
     }
   }
 
-  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+  private[platform] def removeTransient(events: Vector[Event]): Vector[Event] = {
     val toKeep = permanent(events)
     events.filter(event => toKeep(event.contractId))
   }

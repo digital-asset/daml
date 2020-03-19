@@ -3,13 +3,28 @@
 
 package com.digitalasset.platform.store.dao.events
 
+import java.io.InputStream
 import java.util.Date
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.{
+  BatchSql,
+  NamedParameter,
+  Row,
+  RowParser,
+  SimpleSql,
+  SqlParser,
+  SqlStringInterpolation,
+  ~
+}
 import com.daml.ledger.participant.state.v1.Offset
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.serialization.ValueSerializer
 import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 /**
@@ -186,7 +201,7 @@ private[events] object EventsTable {
     Vector[NamedParameter](
       "event_id" -> fromTransactionId(transactionId, nodeId).toString,
       "event_offset" -> offset,
-      "contract_id" -> exercise.targetCoid.toString,
+      "contract_id" -> exercise.targetCoid.coid.toString,
       "transaction_id" -> transactionId.toString,
       "workflow_id" -> workflowId.map(_.toString),
       "ledger_effective_time" -> ledgerEffectiveTime,
@@ -332,5 +347,145 @@ private[events] object EventsTable {
           batches // ignore any event which is not a create or an exercise
       }
       .prepare
+
+  import SqlParser._
+
+  val createdEventParser: RowParser[RawFlatEvent] =
+    offset("event_offset") ~ str("transaction_id") ~ str("event_id") ~ str("contract_id") ~ date(
+      "ledger_effective_time") ~ str("template_package_id") ~ str("template_name") ~ get[Option[
+      String]]("command_id") ~ get[Option[String]]("workflow_id") ~ binaryStream("create_argument") ~ array[
+      String]("create_signatories") ~ array[String]("create_observers") ~ get[Option[String]](
+      "create_agreement_text") ~ get[Option[InputStream]]("create_key_value") ~ array[String](
+      "event_witnesses") map {
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ eventWitnesses =>
+        val QualifiedName(templateModuleName, templateEntityName) =
+          QualifiedName.assertFromString(templateName)
+        RawFlatEvent(
+          eventOffset = eventOffset,
+          transactionId = transactionId,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+          commandId = commandId.getOrElse(""),
+          workflowId = workflowId.getOrElse(""),
+          event = Event(
+            Event.Event.Created(
+              CreatedEvent(
+                eventId = eventId,
+                contractId = contractId,
+                templateId = Some(
+                  Identifier(
+                    packageId = templatePackageId,
+                    moduleName = templateModuleName.dottedName,
+                    entityName = templateEntityName.dottedName,
+                  )),
+                contractKey = createKeyValue.map(
+                  key =>
+                    LfEngineToApi.assertOrRuntimeEx(
+                      failureContext = s"attempting to deserialize persisted key to value",
+                      LfEngineToApi
+                        .lfVersionedValueToApiValue(
+                          verbose = true,
+                          value = ValueSerializer.deserializeValue(key),
+                        ),
+                  )
+                ),
+                createArguments = Some(
+                  LfEngineToApi.assertOrRuntimeEx(
+                    failureContext =
+                      s"attempting to deserialize persisted create argument to record",
+                    LfEngineToApi
+                      .lfVersionedValueToApiRecord(
+                        verbose = true,
+                        recordValue = ValueSerializer.deserializeValue(createArgument),
+                      ),
+                  )
+                ),
+                witnessParties = eventWitnesses,
+                signatories = createSignatories,
+                observers = createObservers,
+                agreementText = createAgreementText,
+              )
+            )
+          )
+        )
+    }
+
+  val archivedEventParser: RowParser[RawFlatEvent] =
+    offset("event_offset") ~ str("transaction_id") ~ str("event_id") ~ str("contract_id") ~ date(
+      "ledger_effective_time") ~ str("template_package_id") ~ str("template_name") ~ get[
+      Option[String]]("command_id") ~ get[Option[String]]("workflow_id") ~ array[String](
+      "event_witnesses") map {
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses =>
+        val QualifiedName(templateModuleName, templateEntityName) =
+          QualifiedName.assertFromString(templateName)
+        RawFlatEvent(
+          eventOffset = eventOffset,
+          transactionId = transactionId,
+          ledgerEffectiveTime = ledgerEffectiveTime,
+          commandId = commandId.getOrElse(""),
+          workflowId = workflowId.getOrElse(""),
+          event = Event(
+            Event.Event.Archived(
+              ArchivedEvent(
+                eventId = eventId,
+                contractId = contractId,
+                templateId = Some(
+                  Identifier(
+                    packageId = templatePackageId,
+                    moduleName = templateModuleName.dottedName,
+                    entityName = templateEntityName.dottedName,
+                  )),
+                witnessParties = eventWitnesses,
+              )
+            )
+          )
+        )
+    }
+
+  val flatEventParser: RowParser[RawFlatEvent] =
+    createdEventParser | archivedEventParser
+
+  def prepareLookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): SimpleSql[Row] = {
+    val tx: String = transactionId
+    val ps: Set[String] = requestingParties.asInstanceOf[Set[String]]
+    SQL"""select
+            event_offset,
+            transaction_id,
+            ledger_effective_time,
+            case when submitter in ($ps) then command_id else '' end as command_id,
+            workflow_id,
+            participant_events.event_id,
+            contract_id,
+            template_package_id,
+            template_name,
+            create_argument,
+            create_signatories,
+            create_observers,
+            create_agreement_text,
+            create_key_value,
+            array_agg(event_witness) as event_witnesses
+          from participant_events
+          natural join participant_event_flat_transaction_witnesses
+          where transaction_id = $tx and event_witness in ($ps)
+          group by (
+            event_offset,
+            transaction_id,
+            ledger_effective_time,
+            command_id,
+            workflow_id,
+            participant_events.event_id,
+            contract_id,
+            template_package_id,
+            template_name,
+            create_argument,
+            create_signatories,
+            create_observers,
+            create_agreement_text,
+            create_key_value
+          )
+       """
+  }
 
 }

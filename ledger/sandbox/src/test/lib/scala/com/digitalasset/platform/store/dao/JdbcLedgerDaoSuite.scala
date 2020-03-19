@@ -5,6 +5,7 @@ package com.digitalasset.platform.store.dao
 
 import java.io.File
 import java.time.{Duration, Instant}
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.participant.state.index.v2
@@ -77,7 +78,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     VersionedValue(ValueVersions.acceptedVersions.head, someValueText)
   protected final val someContractInstance = ContractInst(
     someTemplateId,
-    VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+    VersionedValue(ValueVersions.acceptedVersions.head, someValueRecord),
     someAgreement
   )
 
@@ -105,12 +106,58 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final def event(txid: TransactionId, idx: Long): EventId =
     EventIdFormatter.fromTransactionId(txid, NodeId(idx.toInt))
 
+  private def genCreate(
+      absCid: AbsoluteContractId,
+      txId: String,
+      id: Long,
+  ): (EventId, NodeCreate.WithTxValue[AbsoluteContractId]) =
+    event(txId, id) -> NodeCreate(
+      nodeSeed = None,
+      coid = absCid,
+      coinst = someContractInstance,
+      optLocation = None,
+      signatories = Set(alice, bob),
+      stakeholders = Set(alice, bob),
+      key = None
+    )
+
+  private def genExercise(
+      targetCid: AbsoluteContractId,
+      txId: String,
+      id: Long,
+  ): (EventId, NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =
+    event(txId, id) -> NodeExercises(
+      nodeSeed = None,
+      targetCoid = targetCid,
+      templateId = someTemplateId,
+      choiceId = Ref.Name.assertFromString("choice"),
+      optLocation = None,
+      consuming = true,
+      actingParties = Set(alice),
+      chosenValue =
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
+      stakeholders = Set(alice, bob),
+      signatories = Set(alice, bob),
+      children = ImmArray.empty,
+      exerciseResult = Some(
+        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some exercise result"))),
+      key = None
+    )
+
+  private def genTransaction(
+      head: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId]),
+      tail: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId])*,
+  ): GenTransaction.WithTxValue[EventId, AbsoluteContractId] =
+    GenTransaction(
+      nodes = HashMap(head +: tail: _*),
+      roots = ImmArray(head._1, tail.map(_._1): _*),
+    )
+
   private def genCreateTransaction(offset: Offset): LedgerEntry.Transaction = {
     val id = offset.toLong
     val txId = s"trId$id"
     val absCid = AbsoluteContractId(s"cId$id")
     val let = Instant.now
-
     LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
@@ -119,19 +166,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      GenTransaction(
-        HashMap(
-          event(txId, id) -> NodeCreate(
-            nodeSeed = None,
-            coid = absCid,
-            coinst = someContractInstance,
-            optLocation = None,
-            signatories = Set(alice, bob),
-            stakeholders = Set(alice, bob),
-            key = None
-          )),
-        ImmArray(event(txId, id)),
-      ),
+      genTransaction(genCreate(absCid, txId, id)),
       Map(event(txId, id) -> Set("Alice", "Bob"))
     )
   }
@@ -159,40 +194,50 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      GenTransaction(
-        HashMap(
-          event(txId, id) -> NodeExercises(
-            nodeSeed = None,
-            targetCoid = targetCid,
-            templateId = someTemplateId,
-            choiceId = Ref.Name.assertFromString("choice"),
-            optLocation = None,
-            consuming = true,
-            actingParties = Set(alice),
-            chosenValue =
-              VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
-            stakeholders = Set(alice, bob),
-            signatories = Set(alice, bob),
-            children = ImmArray.empty,
-            exerciseResult = Some(
-              VersionedValue(
-                ValueVersions.acceptedVersions.head,
-                ValueText("some exercise result"))),
-            key = None
-          )),
-        ImmArray(event(txId, id)),
-      ),
+      genTransaction(genExercise(targetCid, txId, id)),
       Map(event(txId, id) -> Set("Alice", "Bob"))
     )
   }
 
   protected final def storeExerciseTransaction(targetCid: AbsoluteContractId)(
-      implicit ec: ExecutionContext): Future[Unit] = {
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
     val offset = nextOffset()
     val t = genExerciseTransaction(offset, targetCid)
     ledgerDao
       .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
-      .map(_ => ())
+      .map(_ => offset -> t)
+  }
+
+  private def genFullyTransientTransaction(): LedgerEntry.Transaction = {
+    val txId = UUID.randomUUID().toString
+    val absCid = AbsoluteContractId(UUID.randomUUID().toString)
+    val let = Instant.now
+    LedgerEntry.Transaction(
+      Some(UUID.randomUUID().toString),
+      txId,
+      Some("appID1"),
+      Some("Alice"),
+      Some("workflowId"),
+      let,
+      let,
+      genTransaction(
+        genCreate(absCid, txId, id = 0),
+        genExercise(absCid, txId, id = 1)
+      ),
+      Map(
+        event(txId, idx = 0) -> Set("Alice", "Bob"),
+        event(txId, idx = 1) -> Set("Alice", "Bob"),
+      )
+    )
+  }
+
+  protected final def storeFullyTransientTransaction()(
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
+    val offset = nextOffset()
+    val t = genFullyTransientTransaction()
+    ledgerDao
+      .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
+      .map(_ => offset -> t)
   }
 
   /** A transaction that creates the given key */

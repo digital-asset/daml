@@ -18,7 +18,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.TransactionWriter
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionWriter}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -71,6 +71,7 @@ trait LedgerReadDao extends ReportsHealth {
   def lookupTransaction(
       transactionId: TransactionId
   ): Future[Option[(Offset, LedgerEntry.Transaction)]]
+  def transactionsReader: TransactionsReader
 
   /**
     * Looks up a LedgerEntry at a given offset
