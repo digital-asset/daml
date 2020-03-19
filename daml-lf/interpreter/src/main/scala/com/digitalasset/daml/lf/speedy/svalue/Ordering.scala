@@ -189,11 +189,9 @@ object Ordering extends scala.math.Ordering[SValue] {
             case STypeRep(t2) =>
               compareType(t1, t2) -> ImmArray.empty
           }
-          case SEnum(_, con1, _) => {
-            case SEnum(_, con2, _) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
-              (con1 compareTo con2) -> ImmArray.empty
+          case SEnum(_, _, rank1) => {
+            case SEnum(_, _, rank2) =>
+              (rank1 compareTo rank2) -> ImmArray.empty
           }
           case SRecord(_, _, args1) => {
             case SRecord(_, _, args2) =>
@@ -201,8 +199,6 @@ object Ordering extends scala.math.Ordering[SValue] {
           }
           case SVariant(_, _, rank1, arg1) => {
             case SVariant(_, _, rank2, arg2) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
               (rank1 compareTo rank2) -> ImmArray((arg1, arg2))
           }
           case SList(FrontStack()) => {
