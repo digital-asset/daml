@@ -124,7 +124,7 @@ This is a major benefit of writing apps on DAML: the burden of ensuring privacy 
 MessageEdit Component
 ---------------------
 
-Next we need the ``MessageEdit`` component to compose and send messages to selected users that we are following (and who are also following us back).
+Next we need the ``MessageEdit`` component to compose and send messages to our followers.
 Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
