@@ -195,7 +195,7 @@ If you have the frontend UI up and running you're all set. In case you don't hav
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
 Go ahead and add follow more users, and log in as some of those users in separate browser windows to follow yourself back.
-Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some users to message!
+Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some followers to message!
 Send some messages between users and make sure you can see each one from the other side.
 You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
 
