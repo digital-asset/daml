@@ -102,7 +102,7 @@ If it doesn't, just open that link in a web browser.
 
 You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.   
 First enter your name and click *Log in*.
-You should see the main screen with two panels for the users you are following and the entire network.
+You should see the main screen with two panels. One for the users you are following and one for your followers.
 Initially these are both empty as you are not following anyone and you don't have any followers!
 Go ahead and start following users by typing their usernames in the text box and clicking on the *Follow* button in the top panel.
 
