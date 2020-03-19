@@ -16,6 +16,7 @@ import com.digitalasset.resources.ResourceOwner
 
 object JdbcIndex {
   def owner(
+      name: String,
       timeModel: TimeModel,
       ledgerId: LedgerId,
       participantId: ParticipantId,
@@ -23,7 +24,7 @@ object JdbcIndex {
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
     ReadOnlySqlLedger
-      .owner(jdbcUrl, ledgerId, metrics)
+      .owner(name, jdbcUrl, ledgerId, metrics)
       .map { ledger =>
         new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
           override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =

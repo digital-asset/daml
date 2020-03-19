@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.indexer.StandaloneIndexerServer._
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.ExecutionContext
@@ -23,6 +24,7 @@ final class StandaloneIndexerServer(
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
     val indexerFactory = new JdbcIndexerFactory(
+      Name,
       config.participantId,
       config.jdbcUrl,
       actorSystem,
@@ -58,4 +60,8 @@ final class StandaloneIndexerServer(
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
       .map(_ => ())
+}
+
+object StandaloneIndexerServer {
+  private val Name: String = "indexer"
 }

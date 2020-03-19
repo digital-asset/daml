@@ -31,7 +31,9 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
     resource = newLoggingContext { implicit logCtx =>
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
-        dao <- JdbcLedgerDao.writeOwner(jdbcUrl, new MetricRegistry).acquire()
+        dao <- JdbcLedgerDao
+          .writeOwner(getClass.getSimpleName, jdbcUrl, new MetricRegistry)
+          .acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
       } yield dao
     }

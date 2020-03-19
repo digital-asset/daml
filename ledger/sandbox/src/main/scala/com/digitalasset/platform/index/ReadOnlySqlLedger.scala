@@ -28,12 +28,13 @@ object ReadOnlySqlLedger {
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def owner(
+      name: String,
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      ledgerReadDao <- JdbcLedgerDao.readOwner(jdbcUrl, metrics)
+      ledgerReadDao <- JdbcLedgerDao.readOwner(name, jdbcUrl, metrics)
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger

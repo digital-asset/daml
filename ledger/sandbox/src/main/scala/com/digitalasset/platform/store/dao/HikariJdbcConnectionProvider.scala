@@ -97,6 +97,7 @@ object HikariJdbcConnectionProvider {
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
   def owner(
+      name: String,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
@@ -105,7 +106,7 @@ object HikariJdbcConnectionProvider {
       // these connections should never time out as we have the same number of threads as connections
       dataSource <- HikariConnection.owner(
         jdbcUrl,
-        "daml.index.db.connection",
+        s"daml.index.db.connection.$name",
         maxConnections,
         maxConnections,
         250.millis,

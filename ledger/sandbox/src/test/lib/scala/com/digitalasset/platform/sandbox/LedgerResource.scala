@@ -37,6 +37,7 @@ object LedgerResource {
         new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, entries)))
 
   def postgres(
+      testClass: Class[_],
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
@@ -51,6 +52,7 @@ object LedgerResource {
       for {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
+          testClass.getSimpleName,
           postgres.jdbcUrl,
           LedgerIdMode.Static(ledgerId),
           participantId,

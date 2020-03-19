@@ -23,7 +23,12 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   override def beforeAll(): Unit = {
     super.beforeAll()
     connectionProviderResource = HikariJdbcConnectionProvider
-      .owner(postgresFixture.jdbcUrl, maxConnections = 4, new MetricRegistry)
+      .owner(
+        getClass.getSimpleName,
+        postgresFixture.jdbcUrl,
+        maxConnections = 4,
+        new MetricRegistry,
+      )
       .acquire()(DirectExecutionContext)
     connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
   }

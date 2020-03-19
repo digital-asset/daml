@@ -1760,32 +1760,35 @@ object JdbcLedgerDao {
   private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
 
   def readOwner(
+      name: String,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
-    owner(jdbcUrl, maxConnections, metrics)
+    owner(name, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
 
   def writeOwner(
+      name: String,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(jdbcUrl, maxConnections, metrics)
+    owner(name, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
   private def owner(
+      name: String,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+      dbDispatcher <- DbDispatcher.owner(name, jdbcUrl, maxConnections, metrics)
       executor <- ResourceOwner.forExecutorService(() =>
         Executors.newCachedThreadPool(ThreadFactory))
     } yield

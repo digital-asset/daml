@@ -33,6 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
+    name: String,
     participantId: ParticipantId,
     jdbcUrl: String,
     actorSystem: ActorSystem,
@@ -61,7 +62,7 @@ final class JdbcIndexerFactory(
   ): ResourceOwner[JdbcIndexer] =
     for {
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
-      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
+      ledgerDao <- JdbcLedgerDao.writeOwner(name, jdbcUrl, metrics)
       initialLedgerEnd <- ResourceOwner.forFuture(() =>
         initializeLedger(ledgerDao)(materializer, executionContext))
     } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)

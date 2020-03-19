@@ -89,18 +89,23 @@ object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
+      name: String,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
+      connectionProvider <- HikariJdbcConnectionProvider.owner(
+        name,
+        jdbcUrl,
+        maxConnections,
+        metrics)
       executor <- ResourceOwner.forExecutorService(
         () =>
           Executors.newFixedThreadPool(
             maxConnections,
             new ThreadFactoryBuilder()
-              .setNameFormat("sql-executor-%d")
+              .setNameFormat(s"daml.index.db.connection.$name-%d")
               .setUncaughtExceptionHandler((_, e) =>
                 logger.error("Uncaught exception in the SQL executor.", e))
               .build()

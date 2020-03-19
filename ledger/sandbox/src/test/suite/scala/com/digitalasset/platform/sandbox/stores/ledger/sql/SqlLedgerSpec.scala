@@ -199,6 +199,7 @@ class SqlLedgerSpec
     val ledger = newLoggingContext { implicit logCtx =>
       SqlLedger
         .owner(
+          name = getClass.getSimpleName,
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,

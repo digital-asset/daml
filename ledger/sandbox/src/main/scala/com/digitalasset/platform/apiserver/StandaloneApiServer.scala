@@ -74,6 +74,7 @@ final class StandaloneApiServer(
         initialConditions.ledgerId,
         participantId)
       indexService <- JdbcIndex.owner(
+        Name,
         initialConditions.config.timeModel,
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
@@ -162,5 +163,7 @@ final class StandaloneApiServer(
 }
 
 object StandaloneApiServer {
-  private val sharedEngine = Engine()
+  private val Name: String = "ledger-api-server"
+
+  private val sharedEngine: Engine = Engine()
 }

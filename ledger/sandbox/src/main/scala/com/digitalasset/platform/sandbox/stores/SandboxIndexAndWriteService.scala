@@ -51,6 +51,8 @@ object SandboxIndexAndWriteService {
   //TODO: internalise the template store as well
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
+  private val Name: String = "sandbox"
+
   def postgres(
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
@@ -66,6 +68,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
+        Name,
         jdbcUrl,
         ledgerId,
         participantId,
