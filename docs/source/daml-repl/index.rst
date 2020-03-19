@@ -61,10 +61,11 @@ two forms:
    will execute the script ignoring the result.
 
 2. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
-   a variable name to bind the result to
+   a variable name ``x`` to bind the result to
    and ``expr`` is an expression of type ``Script a``.
-   This will execute the script and bind the result to the variable ``x``. You
-   can then use ``x`` on subsequent lines.
+   This will execute the script and match the result against
+   the pattern ``pat`` bindings the matches to the variables in the pattern.
+   You can then use those variables on subsequent lines.
 
    *Note:* Partial pattern, e.g., ``Nothing <- pure (Just 1)`` will only
    fail in the next line when the result is used and produce a warning
