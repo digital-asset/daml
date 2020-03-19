@@ -26,13 +26,17 @@ import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
+    participantId: ParticipantId,
     jdbcUrl: String,
+    actorSystem: ActorSystem,
+    readService: ReadService,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext) {
   def validateSchema()(
@@ -40,46 +44,51 @@ final class JdbcIndexerFactory(
   ): Future[InitializedJdbcIndexerFactory] =
     new FlywayMigrations(jdbcUrl)
       .validate()
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+      .map(_ => initialized)
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
   ): Future[InitializedJdbcIndexerFactory] =
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+      .map(_ => initialized)
+
+  private def initialized(implicit executionContext: ExecutionContext) =
+    new InitializedJdbcIndexerFactory(participantId, jdbcUrl, actorSystem, readService, metrics)
 }
 
 class InitializedJdbcIndexerFactory private[indexer] (
+    participantId: ParticipantId,
     jdbcUrl: String,
+    actorSystem: ActorSystem,
+    readService: ReadService,
     metrics: MetricRegistry,
-)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
+)(implicit executionContext: ExecutionContext, logCtx: LoggingContext)
+    extends ResourceOwner[JdbcIndexer] {
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  def owner(
-      participantId: ParticipantId,
-      actorSystem: ActorSystem,
-      readService: ReadService,
-      jdbcUrl: String,
-  ): ResourceOwner[JdbcIndexer] = {
-    val materializer: Materializer = Materializer(actorSystem)
-
-    def fetchInitialState(dao: LedgerDao): Future[Option[Offset]] =
-      for {
-        initialConditions <- readService
-          .getLedgerInitialConditions()
-          .runWith(Sink.head)(materializer)
-        existingLedgerId <- dao.lookupLedgerId()
-        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
-        initialLedgerEnd <- dao.lookupInitialLedgerEnd()
-      } yield initialLedgerEnd
-
+  override def acquire()(
+      implicit executionContext: ExecutionContext
+  ): Resource[JdbcIndexer] = {
+    implicit val materializer: Materializer = Materializer(actorSystem)
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
-      initialLedgerEnd <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)
+      // Acquire the materializer so it's released properly.
+      _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
+      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher).acquire()
+      initialLedgerEnd <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao)).acquire()
+    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
   }
+
+  private def fetchInitialState(dao: LedgerDao)(
+      implicit materializer: Materializer
+  ): Future[Option[Offset]] =
+    for {
+      initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      existingLedgerId <- dao.lookupLedgerId()
+      providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+      _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
+      initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+    } yield initialLedgerEnd
 
   private def initializeLedger(
       existingLedgerId: Option[domain.LedgerId],
