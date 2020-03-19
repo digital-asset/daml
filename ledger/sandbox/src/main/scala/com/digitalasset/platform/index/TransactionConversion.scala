@@ -66,7 +66,7 @@ object TransactionConversion {
       )
   }
 
-  private[platform] def permanent(events: Vector[Event]): Set[String] = {
+  private def permanent(events: Vector[Event]): Set[String] = {
     events.foldLeft(Set.empty[String]) { (contractIds, event) =>
       if (event.isCreated || !contractIds.contains(event.contractId)) {
         contractIds + event.contractId
