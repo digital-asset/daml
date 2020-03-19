@@ -10,7 +10,6 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -38,6 +37,7 @@ import com.digitalasset.platform.indexer.{
 }
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -134,6 +134,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           owner = reset => {
             case (currentPort, startupMode) =>
               for {
+                metrics <- new MetricsReporting(
+                  getClass.getName,
+                  config.metricsReporter,
+                  config.metricsReportingInterval,
+                )
                 _ <- startupMode match {
                   case StartupMode.MigrateAndStart =>
                     ResourceOwner.successful(())
@@ -164,7 +169,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     startupMode = IndexerStartupMode.MigrateAndStart,
                     allowExistingSchema = true,
                   ),
-                  metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+                  metrics = metrics,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -184,7 +189,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   )
                 }
                 apiServer <- new StandaloneApiServer(
-                  ApiServerConfig(
+                  config = ApiServerConfig(
                     participantId = ParticipantId,
                     archiveFiles = config.damlPackages,
                     // Re-use the same port when resetting the server.
@@ -201,7 +206,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = ledger,
                   writeService = ledger,
                   authService = authService,
-                  metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+                  metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   seeding = Some(seeding),
                   otherServices = List(resetService),
