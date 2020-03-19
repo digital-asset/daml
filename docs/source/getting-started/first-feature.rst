@@ -149,7 +149,7 @@ The return value of this component is the React ``Form`` element.
 This contains a dropdown menu to select a receiver from the ``following``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
 There is again an important point here, in this case about how *authorization* is enforced.
-Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who has not followed us back (even if you could somehow access their ``User`` contract).
+Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
 The assertion that ``elem sender following`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
 MainView Component
