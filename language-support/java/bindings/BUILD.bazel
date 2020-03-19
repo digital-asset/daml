@@ -94,10 +94,15 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "bindings-java-tests",
-    srcs = glob([
-        "src/test/**/*Spec.scala",
-        "src/test/**/*Test.scala",
-    ]),
+    srcs = glob(
+        [
+            "src/test/**/*Spec.scala",
+            "src/test/**/*Test.scala",
+        ],
+        exclude = [
+            "src/test/scala/com/daml/ledger/javaapi/data/ValueSpec.scala",
+        ],
+    ),
     deps = [
         ":bindings-java",
         ":bindings-java-tests-lib",
