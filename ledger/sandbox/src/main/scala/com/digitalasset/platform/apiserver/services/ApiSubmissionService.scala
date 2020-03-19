@@ -35,12 +35,15 @@ import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.{CommandExecutionResult, CommandExecutor}
+import com.digitalasset.platform.apiserver.{
+  CommandExecutionResult,
+  CommandExecutor,
+  LedgerTimeHelper
+}
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import com.digitalasset.platform.store.ErrorCause
 import io.grpc.Status
 import scalaz.syntax.tag._
@@ -120,9 +123,7 @@ final class ApiSubmissionService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  // FIXME(JM): We need to query the current configuration every time we want to validate
-  // a command. Will be addressed in follow-up PR.
-  private val validator = TimeModelValidator(timeModel)
+  private[this] val ledgerTimeHelper = LedgerTimeHelper(contractStore, commandExecutor, 3)
 
   private object Metrics {
     val failedInterpretationsMeter: Meter =
@@ -157,27 +158,11 @@ final class ApiSubmissionService private (
     withEnrichedLoggingContext(
       logging.commandId(request.commands.commandId),
       logging.party(request.commands.submitter)) { implicit logCtx =>
-      val commands = request.commands
-      val validation = for {
-        _ <- validator.checkTtl(commands.ledgerEffectiveTime, commands.maximumRecordTime)
-        _ <- validator
-          .checkLet(
-            timeProvider.getCurrentTime,
-            commands.ledgerEffectiveTime,
-            commands.maximumRecordTime,
-            commands.commandId.unwrap,
-            commands.applicationId.unwrap)
-      } yield ()
+      val commands = request.commands.copy(ledgerEffectiveTime = timeProvider.getCurrentTime)
 
-      validation
-        .fold(
-          Future.failed,
-          _ => {
-            logger.trace(s"Received composite commands: $commands")
-            logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-            deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
-          }
-        )
+      logger.trace(s"Received composite commands: $commands")
+      logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
+      deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }
 
@@ -209,14 +194,7 @@ final class ApiSubmissionService private (
       commands: ApiCommands,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
-      res <- commandExecutor.execute(
-        commands.submitter,
-        submissionSeed,
-        commands,
-        contractStore.lookupActiveContract(commands.submitter, _),
-        contractStore.lookupContractKey(commands.submitter, _),
-        commands.commands
-      )
+      res <- ledgerTimeHelper.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(error)))
