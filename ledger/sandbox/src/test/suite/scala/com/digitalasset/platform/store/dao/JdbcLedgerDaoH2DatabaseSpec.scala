@@ -21,3 +21,4 @@ final class JdbcLedgerDaoH2DatabaseSpec
     with JdbcLedgerDaoPackagesSpec
     with JdbcLedgerDaoPartiesSpec
     with JdbcLedgerDaoTransactionsSpec
+    with JdbcLedgerDaoTransactionTreesSpec

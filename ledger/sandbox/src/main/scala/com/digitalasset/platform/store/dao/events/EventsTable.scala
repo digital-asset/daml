@@ -6,15 +6,23 @@ package com.digitalasset.platform.store.dao.events
 import java.io.InputStream
 import java.util.Date
 
-import anorm.SqlParser._
 import anorm.{RowParser, ~}
+import anorm.SqlParser.{array, binaryStream, bool, date, get, str}
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.{Transaction => ApiTransaction}
-import com.digitalasset.ledger.api.v1.transaction_service.GetFlatTransactionResponse
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.transaction.{
+  TreeEvent,
+  Transaction => ApiTransaction,
+  TransactionTree => ApiTransactionTree
+}
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.store.Conversions.offset
@@ -33,6 +41,7 @@ private[events] object EventsTable
     extends EventsTable
     with EventsTableInsert
     with EventsTableFlatEvents
+    with EventsTableTreeEvents
 
 private[events] trait EventsTable {
 
@@ -72,6 +81,46 @@ private[events] trait EventsTable {
       }
     }
 
+    def toTransactionTree(events: List[Entry[TreeEvent]]): Option[GetTransactionResponse] =
+      events.headOption.map(
+        first => {
+          val (eventsById, rootEventIds) = treeOf(events)
+          GetTransactionResponse(
+            transaction = Some(
+              ApiTransactionTree(
+                transactionId = first.transactionId,
+                commandId = first.commandId,
+                workflowId = first.workflowId,
+                effectiveAt =
+                  Some(Timestamp.of(seconds = first.ledgerEffectiveTime.getTime, nanos = 0)),
+                offset = ApiOffset.toApiString(first.eventOffset),
+                eventsById = eventsById,
+                rootEventIds = rootEventIds,
+                traceContext = None,
+              ))
+          )
+        }
+      )
+
+    private def treeOf(events: List[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
+
+      // Get all the visible events in this transactions to filter children in each event
+      val visible = events.iterator.map(_.event.eventId).toSet
+
+      // All events in this transaction by their identifier, with their children
+      // filtered according to those visible for this request
+      val eventsById =
+        events.iterator.map(r => r.event.eventId -> r.event.filterChildEventIds(visible)).toMap
+
+      // Roots are all the visible events in this transaction
+      // that don't appear in any event's children
+      val rootEventIds =
+        visible.diff(eventsById.valuesIterator.flatMap(_.childEventIds).toSet).toSeq
+
+      (eventsById, rootEventIds)
+
+    }
+
   }
 
   private type SharedRow =
@@ -98,6 +147,17 @@ private[events] trait EventsTable {
       array[String]("create_observers") ~
       get[Option[String]]("create_agreement_text") ~
       get[Option[InputStream]]("create_key_value")
+
+  protected type ExercisedEventRow =
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+  protected val exercisedEventRow: RowParser[ExercisedEventRow] =
+    sharedRow ~
+      bool("exercise_consuming") ~
+      str("exercise_choice") ~
+      binaryStream("exercise_argument") ~
+      get[Option[InputStream]]("exercise_result") ~
+      array[String]("exercise_actors") ~
+      array[String]("exercise_child_event_ids")
 
   protected type ArchiveEventRow = SharedRow
   protected val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
@@ -156,6 +216,51 @@ private[events] trait EventsTable {
       signatories = createSignatories,
       observers = createObservers,
       agreementText = createAgreementText,
+    )
+
+  protected def exercisedEvent(
+      eventId: String,
+      contractId: String,
+      templatePackageId: String,
+      templateName: String,
+      exerciseConsuming: Boolean,
+      exerciseChoice: String,
+      exerciseArgument: InputStream,
+      exerciseResult: Option[InputStream],
+      exerciseActors: Array[String],
+      exerciseChildEventIds: Array[String],
+      eventWitnesses: Array[String],
+  ): ExercisedEvent =
+    ExercisedEvent(
+      eventId = eventId,
+      contractId = contractId,
+      templateId = Some(templateId(templatePackageId, templateName)),
+      choice = exerciseChoice,
+      choiceArgument = Some(
+        LfEngineToApi.assertOrRuntimeEx(
+          failureContext = s"attempting to deserialize persisted exercise argument to value",
+          LfEngineToApi
+            .lfVersionedValueToApiValue(
+              verbose = true,
+              value = deserialize(exerciseArgument),
+            ),
+        )
+      ),
+      actingParties = exerciseActors,
+      consuming = exerciseConsuming,
+      witnessParties = eventWitnesses,
+      childEventIds = exerciseChildEventIds,
+      exerciseResult = exerciseResult.map(
+        key =>
+          LfEngineToApi.assertOrRuntimeEx(
+            failureContext = s"attempting to deserialize persisted exercise result to value",
+            LfEngineToApi
+              .lfVersionedValueToApiValue(
+                verbose = true,
+                value = deserialize(key),
+              ),
+        )
+      ),
     )
 
   protected def archivedEvent(
