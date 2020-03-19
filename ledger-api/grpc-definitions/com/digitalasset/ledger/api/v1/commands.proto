@@ -63,6 +63,19 @@ message Commands {
   // Duplicate commands submitted before the end of this window return an ALREADY_EXISTS error.
   // Optional
   google.protobuf.Duration deduplication_time = 9;
+
+  // Lower bound for the ledger time assigned to the resulting transaction.
+  // Note: The ledger time of a transaction is assigned as part of command interpretation.
+  // Use this property if you expect that command interpretation will take a considerate amount of time, such that by
+  // the time the resulting transaction is sequenced, its assigned ledger time is not valid anymore.
+  // Must not be set at the same time as min_ledger_time_rel.
+  // Optional
+  google.protobuf.Timestamp min_ledger_time_abs = 10;
+
+  // Same as min_ledger_time_abs, but specified as a duration, starting from the time the command is received by the server.
+  // Must not be set at the same time as min_ledger_time_abs.
+  // Optional
+  google.protobuf.Duration min_ledger_time_rel = 11;
 }
 
 // A command can either create a new contract or exercise a choice on an existing contract.

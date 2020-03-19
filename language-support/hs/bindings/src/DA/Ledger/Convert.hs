@@ -74,7 +74,9 @@ lowerCommands = \case
         commandsLedgerEffectiveTime = Just (lowerTimestamp leTime),
         commandsMaximumRecordTime = Just (lowerTimestamp mrTime),
         commandsDeduplicationTime = dedupTime,
-        commandsCommands = Vector.fromList $ map lowerCommand coms }
+        commandsCommands = Vector.fromList $ map lowerCommand coms,
+        commandsMinLedgerTimeAbs = fmap lowerTimestamp minLeTimeAbs,
+        commandsMinLedgerTimeRel = minLeTimeRel }
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case
