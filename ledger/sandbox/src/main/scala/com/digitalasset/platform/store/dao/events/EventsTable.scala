@@ -7,7 +7,7 @@ import java.io.InputStream
 import java.util.Date
 
 import anorm.{RowParser, ~}
-import anorm.SqlParser.{array, binaryStream, bool, date, get, str}
+import anorm.SqlParser.{array, binaryStream, bool, date, str}
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
@@ -134,8 +134,8 @@ private[events] trait EventsTable {
       date("ledger_effective_time") ~
       str("template_package_id") ~
       str("template_name") ~
-      get[Option[String]]("command_id") ~
-      get[Option[String]]("workflow_id") ~
+      str("command_id").? ~
+      str("workflow_id").? ~
       array[String]("event_witnesses")
 
   protected type CreatedEventRow =
@@ -145,8 +145,8 @@ private[events] trait EventsTable {
       binaryStream("create_argument") ~
       array[String]("create_signatories") ~
       array[String]("create_observers") ~
-      get[Option[String]]("create_agreement_text") ~
-      get[Option[InputStream]]("create_key_value")
+      str("create_agreement_text").? ~
+      binaryStream("create_key_value").?
 
   protected type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
@@ -155,7 +155,7 @@ private[events] trait EventsTable {
       bool("exercise_consuming") ~
       str("exercise_choice") ~
       binaryStream("exercise_argument") ~
-      get[Option[InputStream]]("exercise_result") ~
+      binaryStream("exercise_result").? ~
       array[String]("exercise_actors") ~
       array[String]("exercise_child_event_ids")
 
