@@ -202,7 +202,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     )
 
   private val updateArchived =
-    """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id}"""
+    """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
 
   private def archive(
       contractId: ContractId,
