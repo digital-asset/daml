@@ -9,8 +9,9 @@ import java.time.Duration
 import com.digitalasset.platform.services.time.TimeProviderType
 
 case class ServiceConfig(
-    // For now, we only support one dar.
-    darPath: Path,
+    // For convenience, we allow passing in a DAR on startup
+    // as opposed to uploading it dynamically.
+    darPath: Option[Path],
     ledgerHost: String,
     ledgerPort: Int,
     timeProviderType: TimeProviderType,
@@ -22,8 +23,8 @@ object ServiceConfig {
     head("trigger-service")
 
     opt[String]("dar")
-      .required()
-      .action((f, c) => c.copy(darPath = Paths.get(f)))
+      .optional()
+      .action((f, c) => c.copy(darPath = Some(Paths.get(f))))
       .text("Path to the dar file containing the trigger")
 
     opt[String]("ledger-host")
