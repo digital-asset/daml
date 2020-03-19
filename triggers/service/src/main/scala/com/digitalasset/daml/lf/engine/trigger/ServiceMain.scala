@@ -12,11 +12,15 @@ import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.util.Timeout
+import akka.stream.scaladsl.{Source}
+import akka.util.{ByteString, Timeout}
+import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
+import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.io.StdIn
@@ -28,6 +32,7 @@ import spray.json.DefaultJsonProtocol._
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
+import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.{
   ConcurrentCompiledPackages,
@@ -182,22 +187,7 @@ object Server {
   }
   implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
 
-  def apply(
-      host: String,
-      port: Int,
-      ledgerConfig: LedgerConfig,
-      dar: Dar[(PackageId, Package)],
-  ): Behavior[Message] = Behaviors.setup { ctx =>
-    // http doesn't know about akka typed so provide untyped system
-    implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
-    implicit val materializer: Materializer = Materializer(untypedSystem)
-    implicit val esf: ExecutionSequencerFactory =
-      new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
-
-    var triggers: Map[UUID, ActorRef[TriggerActor.Message]] = Map.empty
-    // Mutable in preparation for dynamic package upload.
-    val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-
+  private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
     darMap.foreach {
       case (pkgId, pkg) =>
@@ -212,30 +202,79 @@ object Server {
         }
         go(compiledPackages.addPackage(pkgId, pkg))
     }
+  }
 
+  def apply(
+      host: String,
+      port: Int,
+      ledgerConfig: LedgerConfig,
+      dar: Option[Dar[(PackageId, Package)]],
+  ): Behavior[Message] = Behaviors.setup { ctx =>
+    // http doesn't know about akka typed so provide untyped system
+    implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
+    implicit val materializer: Materializer = Materializer(untypedSystem)
+    implicit val esf: ExecutionSequencerFactory =
+      new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
+
+    var triggers: Map[UUID, ActorRef[TriggerActor.Message]] = Map.empty
+    // Mutable in preparation for dynamic package upload.
+    val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+    dar.foreach(addDar(compiledPackages, _))
+
+    // fileUpload seems to trigger that warning and I couldn't find
+    // a way to fix it so we disable the warning.
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val route = concat(
       post {
-        // Start a new trigger given its identifier and the party it should be running as.
-        // Returns a UUID for the newly started trigger.
-        path("start") {
-          entity(as[TriggerParams]) {
-            params =>
-              Trigger.fromIdentifier(compiledPackages, params.identifier) match {
-                case Left(err) =>
-                  complete((StatusCodes.UnprocessableEntity, err))
-                case Right(trigger) =>
-                  val uuid = UUID.randomUUID
-                  val ref = ctx.spawn(
-                    TriggerActor(
-                      TriggerActor.Config(compiledPackages, trigger, ledgerConfig, params.party)),
-                    uuid.toString,
-                  )
-                  triggers = triggers + (uuid -> ref)
-                  complete(uuid.toString)
+        concat(
+          // Start a new trigger given its identifier and the party it should be running as.
+          // Returns a UUID for the newly started trigger.
+          path("start") {
+            entity(as[TriggerParams]) {
+              params =>
+                Trigger.fromIdentifier(compiledPackages, params.identifier) match {
+                  case Left(err) =>
+                    complete((StatusCodes.UnprocessableEntity, err))
+                  case Right(trigger) =>
+                    val uuid = UUID.randomUUID
+                    val ref = ctx.spawn(
+                      TriggerActor(
+                        TriggerActor.Config(compiledPackages, trigger, ledgerConfig, params.party)),
+                      uuid.toString,
+                    )
+                    triggers = triggers + (uuid -> ref)
+                    complete(uuid.toString)
 
-              }
+                }
+            }
+          },
+          // upload a DAR as a multi-part form request with a single field called
+          // "dar".
+          path("upload_dar") {
+            fileUpload("dar") {
+              case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
+                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+                onSuccess(byteStringF) {
+                  byteString =>
+                    val inputStream = new ByteArrayInputStream(byteString.toArray)
+                    DarReader()
+                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                      case Failure(err) => complete((StatusCodes.UnprocessableEntity, err))
+                      case Success(encodedDar) =>
+                        try {
+                          val dar = encodedDar.map {
+                            case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
+                          }
+                          addDar(compiledPackages, dar)
+                          complete(s"DAR uploaded, main package id: ${dar.main._1}")
+                        } catch {
+                          case e: ParseError => complete((StatusCodes.UnprocessableEntity, e))
+                        }
+                    }
+                }
+            }
           }
-        }
+        )
       },
       // Stop a trigger given its UUID
       delete {
@@ -307,7 +346,8 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      dar: Dar[(PackageId, Package)]): Future[(ServerBinding, ActorSystem[Server.Message])] = {
+      dar: Option[Dar[(PackageId, Package)]])
+    : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
       ActorSystem(Server(host, port, ledgerConfig, dar), "TriggerService")
     // timeout chosen at random, change freely if you see issues
@@ -321,10 +361,16 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath.toFile).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
+          case darPath =>
+            val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+              DarReader().readArchiveFromFile(darPath.toFile) match {
+                case Failure(err) => sys.error(s"Failed to read archive: $err")
+                case Success(dar) => dar
+              }
+            encodedDar.map {
+              case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+            }
         }
         val ledgerConfig =
           LedgerConfig(

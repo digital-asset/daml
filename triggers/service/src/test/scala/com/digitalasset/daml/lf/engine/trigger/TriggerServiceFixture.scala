@@ -37,7 +37,7 @@ object TriggerServiceFixture {
   def withTriggerService[A](
       testName: String,
       dars: List[File],
-      dar: Dar[(PackageId, Package)],
+      dar: Option[Dar[(PackageId, Package)]],
   )(testFn: (Uri, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
