@@ -1,7 +1,7 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
+load("@build_environment//:configuration.bzl", "ghc_version")
 
 _damlc = attr.label(
     allow_single_file = True,
@@ -33,7 +33,7 @@ def _daml_configure_impl(ctx):
             dependencies: []
             build-options: [{target}]
         """.format(
-            sdk = sdk_version,
+            sdk = ghc_version,
             name = project_name,
             version = project_version,
             target = "--target=" + target if (target) else "",
