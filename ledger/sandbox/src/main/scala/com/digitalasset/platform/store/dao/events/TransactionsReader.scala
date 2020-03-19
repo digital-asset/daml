@@ -21,8 +21,7 @@ private[dao] object TransactionsReader {
           transactionId: TransactionId,
           requestingParties: Set[Party],
       ): Future[Option[GetFlatTransactionResponse]] = {
-        val query = EventsTable
-          .prepareLookupFlatTransactionById(transactionId, requestingParties)
+        val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
         dispatcher
           .executeSql(
             description = "lookup_flat_transaction_by_id",
@@ -30,7 +29,7 @@ private[dao] object TransactionsReader {
           ) { implicit connection =>
             query.as(EventsTable.flatEventParser.*)
           }
-          .map(RawFlatEvent.aggregate)(executionContext)
+          .map(EventsTable.Entry.toFlatTransaction)(executionContext)
       }
     }
 }

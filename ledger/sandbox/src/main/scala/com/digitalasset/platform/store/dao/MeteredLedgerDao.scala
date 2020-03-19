@@ -19,7 +19,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFi
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionWriter}
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -209,5 +209,5 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   ): Future[PersistenceResponse] =
     timedFuture(Metrics.storePackageEntry, ledgerDao.storePackageEntry(offset, packages, entry))
 
-  override def transactionsWriter: TransactionWriter = ledgerDao.transactionsWriter
+  override def transactionsWriter: TransactionsWriter = ledgerDao.transactionsWriter
 }
