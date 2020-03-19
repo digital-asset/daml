@@ -196,7 +196,16 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       timeProviderO = Some(TimeProvider.UTC),
       ttl = java.time.Duration.ofSeconds(30),
       overrideTtl = true)
-    val runner = new Runner(dar, ApplicationId("daml repl"), commandUpdater, TimeProvider.UTC)
+    // TODO[AH] Provide daml-script package id from REPL client.
+    val (scriptPackageId, _) = packages.find {
+      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+    }.get
+    val runner = new Runner(
+      dar,
+      ScriptIds(scriptPackageId),
+      ApplicationId("daml repl"),
+      commandUpdater,
+      TimeProvider.UTC)
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
         Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
