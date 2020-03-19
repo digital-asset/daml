@@ -87,9 +87,9 @@ shadowPat vars p
     go ConPatOut{} = error "ConPatOut is never produced by the parser"
     go p@LitPat{} = p
     go p@NPat{} = p
-    go NPlusKPat{} = error "N+k patterns are stupid"
+    go NPlusKPat{} = error "N+k patterns are not suppported"
     go (SigPat ext pat sig) = SigPat ext (go pat) sig
-    go SplicePat {} = error "Template haskell is stupid"
+    go SplicePat {} = error "DAML does not support Template Haskell"
     go (CoPat ext wrap pat ty) = CoPat ext wrap (go pat) ty
     go (XPat locP) = XPat (fmap go locP)
 
