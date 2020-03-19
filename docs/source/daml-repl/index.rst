@@ -60,10 +60,15 @@ two forms:
 1. An expression ``expr`` of type ``Script a`` for some type ``a``. This
    will execute the script ignoring the result.
 
-2. A binding of the form ``x <- expr`` where ``x`` is a variable name
-   and ``expr`` is an expression of type ``Script a``. This will
-   execute the script and bind the result to the variable ``x``. You
+2. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
+   a variable name to bind the result to
+   and ``expr`` is an expression of type ``Script a``.
+   This will execute the script and bind the result to the variable ``x``. You
    can then use ``x`` on subsequent lines.
+
+   *Note:* Partial pattern, e.g., ``Nothing <- pure (Just 1)`` will only
+   fail in the next line when the result is used and produce a warning
+   on all following lines. We are actively working on improving this.
 
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name

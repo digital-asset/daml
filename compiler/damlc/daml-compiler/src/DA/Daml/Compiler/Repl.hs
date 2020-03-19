@@ -1,6 +1,7 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE TypeFamilies #-}
 module DA.Daml.Compiler.Repl (runRepl) where
 
 import qualified "zip-archive" Codec.Archive.Zip as Zip
@@ -8,23 +9,22 @@ import Control.Exception hiding (TypeError)
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Trans.Maybe
-import qualified               DA.Daml.LF.Ast as LF
-import qualified               DA.Daml.LF.Proto3.Archive as LFArchive
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
-import qualified               DA.Daml.LF.ReplClient as ReplClient
+import qualified DA.Daml.LF.ReplClient as ReplClient
 import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
 import Data.Bifunctor (first)
-import qualified               Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable
 import Data.Maybe
-import qualified               Data.NameMap as NM
-import Data.Text (Text)
-import qualified               Data.Text as T
+import qualified Data.NameMap as NM
+import qualified Data.Text as T
 import Development.IDE.Core.API
-import Development.IDE.Core.Rules
 import Development.IDE.Core.RuleTypes
 import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
@@ -36,7 +36,7 @@ import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
 import Lexer (ParseResult(..))
-import OccName (occName, occNameFS)
+import OccName (occName, OccSet, elemOccSet, mkOccSet)
 import Outputable (ppr, showSDoc)
 import SrcLoc (unLoc)
 import System.Exit
@@ -63,15 +63,51 @@ renderError dflags err = case err of
         -- ^ The error will be displayed by the script runner.
         pure ()
 
+-- | Take a set of variables and a pattern and shadow all the variables
+-- in the pattern by turning them into wildcard patterns.
+shadowPat :: OccSet -> LPat GhcPs -> LPat GhcPs
+shadowPat vars p
+  = go (unLoc p)
+  where
+    go p@(VarPat _ var)
+      | occName (unLoc var) `elemOccSet` vars = WildPat noExt
+      | otherwise = p
+    go p@(WildPat _) = p
+    go (LazyPat ext pat) = LazyPat ext (go pat)
+    go (BangPat ext pat) = BangPat ext (go pat)
+    go (AsPat ext a pat)
+        | occName (unLoc a) `elemOccSet` vars = pat
+        | otherwise = AsPat ext a (go pat)
+    go (ViewPat ext expr pat) = ViewPat ext expr (go pat)
+    go (ParPat ext pat) = ParPat ext (go pat)
+    go (ListPat ext pats) = ListPat ext (map go pats)
+    go (TuplePat ext pats boxity) = TuplePat ext (map go pats) boxity
+    go (SumPat ext pat tag arity) = SumPat ext (go pat) tag arity
+    go (ConPatIn ext ps) = ConPatIn ext (shadowDetails ps)
+    go ConPatOut{} = error "ConPatOut is never produced by the parser"
+    go p@LitPat{} = p
+    go p@NPat{} = p
+    go NPlusKPat{} = error "N+k patterns are stupid"
+    go (SigPat ext pat sig) = SigPat ext (go pat) sig
+    go SplicePat {} = error "Template haskell is stupid"
+    go (CoPat ext wrap pat ty) = CoPat ext wrap (go pat) ty
+    go (XPat locP) = XPat (fmap go locP)
+
+    shadowDetails :: HsConPatDetails GhcPs -> HsConPatDetails GhcPs
+    shadowDetails (PrefixCon ps) = PrefixCon (map go ps)
+    shadowDetails (RecCon fs) =
+        RecCon fs
+            { rec_flds =
+                  map (fmap (\f -> f { hsRecFieldArg = go (hsRecFieldArg f) }))
+                      (rec_flds fs)
+            }
+    shadowDetails (InfixCon p1 p2) = InfixCon (go p1) (go p2)
+
 -- | Split a statement into the name of the binder (patterns are not supported)
 -- and the body. For unsupported statements we return `Nothing`.
-splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (Maybe Text, LHsExpr GhcPs)
-splitStmt (BodyStmt _ expr _ _) = Just (Nothing, expr)
-splitStmt (BindStmt _ pat expr _ _)
-  -- TODO Support more complex patterns
-  | VarPat _ (unLoc -> id) <- unLoc pat =
-        let bind = (fsToText . occNameFS . occName) id
-        in Just (Just bind, expr)
+splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (LPat GhcPs, LHsExpr GhcPs)
+splitStmt (BodyStmt _ expr _ _) = Just (noLoc $ WildPat noExt, expr)
+splitStmt (BindStmt _ pat expr _ _) = Just (ParPat noExt pat, expr)
 splitStmt _ = Nothing
 
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
@@ -92,11 +128,11 @@ runRepl opts mainDar replClient ideState = do
   where
     handleLine
         :: [LF.ModuleName]
-        -> [(Text, Type)]
+        -> [(LPat GhcPs, Type)]
         -> DynFlags
         -> String
         -> Int
-        -> IO (Either Error (Maybe Text, Type))
+        -> IO (Either Error (LPat GhcPs, Type))
     handleLine moduleNames binds dflags l i = runExceptT $ do
         stmt <- case parseStatement l dflags of
             POk _ lStmt -> pure (unLoc lStmt)
@@ -119,7 +155,7 @@ runRepl opts mainDar replClient ideState = do
         case scriptRes of
             Right _ -> pure (mbBind, stmtTy)
             Left err -> throwError (ScriptError err)
-    go :: [LF.ModuleName] -> Int -> [(T.Text, Type)] -> IO ()
+    go :: [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> IO ()
     go moduleNames !i !binds = do
          putStr "daml> "
          hFlush stdout
@@ -134,11 +170,21 @@ runRepl opts mainDar replClient ideState = do
                  -- If we get an error we don’t increment i and we
                  -- do not get a new binding
                  go moduleNames i binds
-             Right (mbBind, ty) -> do
-                 let shadow bind
-                       | Just newBind  <- mbBind, bind == newBind = "_"
-                       | otherwise = bind
-                 go moduleNames (i + 1 :: Int) (map (first shadow) binds <> [(fromMaybe "_" mbBind, ty)])
+             Right (pat, ty) -> do
+                 let boundVars = mkOccSet (map occName (collectPatBinders pat))
+                 -- TODO Pattern match handling isn’t quite right yet:
+                 -- Currently we will only force the pattern on the
+                 -- following line rather than in the bind itself.
+                 -- This means that `Left x <- pure (Right 1)` is not going
+                 -- to fail on its own. In addition to that we will warn about
+                 -- incomplete pattern matches on following lines.
+                 -- To fix this we can probably transform a statement of the form
+                 -- `Left (x, [y]) <- pure (Right 1)`
+                 -- into
+                 -- `(x, y) <- case pure (Right x) of Left (x, [y]) -> (x,y); _ -> error "foobar"`
+                 go moduleNames
+                    (i + 1 :: Int)
+                    (map (first (shadowPat boundVars)) binds <> [(pat, ty)])
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -158,7 +204,7 @@ lineFilePath i = toNormalizedFilePath $ "Line" <> show i <> ".daml"
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i
 
-renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(Text, Type)] -> LHsExpr GhcPs -> String
+renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> LHsExpr GhcPs -> String
 renderModule dflags imports line binds expr = unlines $
      [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
      , "{-# LANGUAGE PartialTypeSignatures #-}"
@@ -168,8 +214,8 @@ renderModule dflags imports line binds expr = unlines $
      ] <>
      map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>
      [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
-     , "expr " <> unwords (map renderBind binds) <> " = " <> prettyPrint expr
+     , "expr " <> unwords (map (renderPat . fst) binds) <> " = " <> prettyPrint expr
      ]
-  where renderBind (name, ty) = "(" <> T.unpack name <> " : " <> showSDoc dflags (ppr ty) <> ")"
+  where renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = showSDoc dflags (ppr ty) <> " -> "
 
