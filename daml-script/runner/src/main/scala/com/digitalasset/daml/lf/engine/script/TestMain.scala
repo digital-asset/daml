@@ -138,7 +138,10 @@ object TestMain extends StrictLogging {
             testScripts.map {
               case (scriptId, scriptIds) => {
                 val runner = new Runner(dar, scriptIds, applicationId, commandUpdater, timeProvider)
-                val script = Script.fromDar(dar, scriptId)
+                val script = Script.fromDar(dar, scriptId) match {
+                  case Left(err) => throw new RuntimeException(err)
+                  case Right(x) => x
+                }
                 val testRun: Future[Unit] = for {
                   _ <- runner.run(clients, script, None)
                 } yield ()

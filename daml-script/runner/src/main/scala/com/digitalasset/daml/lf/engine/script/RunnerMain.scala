@@ -84,12 +84,11 @@ object RunnerMain {
           fileContent.parseJson
         })
 
-        val script = try {
-          Script.fromDar(dar, scriptId)
-        } catch {
-          case e: Throwable =>
+        val script = Script.fromDar(dar, scriptId) match {
+          case Left(err) =>
             system.terminate
             sys.exit(1)
+          case Right(x) => x
         }
         val runner = try {
           new Runner(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)

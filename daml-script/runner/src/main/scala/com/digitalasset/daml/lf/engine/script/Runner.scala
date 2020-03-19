@@ -111,15 +111,11 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
 final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds)
 
 object Script {
-  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Script = {
+  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
     val darMap = dar.all.toMap
     val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-    fromIdentifier(compiledPackages, scriptId) match {
-      case Right(x) => x
-      case Left(e) => throw new RuntimeException(e)
-    }
+    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
+      .flatMap(fromIdentifier(_, scriptId))
   }
   def fromIdentifier(
       compiledPackages: CompiledPackages,
