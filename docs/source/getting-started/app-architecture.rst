@@ -50,7 +50,7 @@ In this case all users that a particular user is following are able to see the u
 
 Let's say what the ``signatory`` and ``observer`` clauses mean in our app more concretely.
 A user Alice can see another user Bob in the network only when Bob is following Alice (only if Alice is the ``following`` list in his user contract).
-For this to be true, Bob must have previously strated to follow Alice, as he is the sole signatory on his user contract.
+For this to be true, Bob must have previously started to follow Alice, as he is the sole signatory on his user contract.
 If not, Bob will be invisible to Alice.
 
 Here we see two concepts that are central to DAML: *authorization* and *privacy*.
