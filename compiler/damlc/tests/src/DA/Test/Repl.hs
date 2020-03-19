@@ -128,6 +128,15 @@ functionalTests damlc scriptDar testDar getSandboxPort = testGroup "functional"
           , input "debug c"
           , matchOutput "^.*: 4"
           ]
+    , testInteraction' "Partial patterns"
+          -- TODO (MK) We do not test failing patterns yet
+          -- since `error` calls aren’t handled nicely atm.
+          [ input "Some (x, Some y) <- pure (Some (1, Some 2))"
+          , input "debug x"
+          , matchOutput "^.*: 1"
+          , input "debug y"
+          , matchOutput "^.*: 2"
+          ]
     , testInteraction' "type error"
           [ input "1"
           -- TODO Make this less noisy
@@ -138,7 +147,11 @@ functionalTests damlc scriptDar testDar getSandboxPort = testGroup "functional"
           , matchOutput "^Severity:.*$"
           , matchOutput "^Message:.*$"
           , matchOutput "^.*error.*$"
-          , matchOutput "^.*expected type .*Script _.* with actual type .*Int.*$"
+          , matchOutput "^.*expected type .*Script .* with actual type .*Int.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"
           , matchOutput "^.*$"

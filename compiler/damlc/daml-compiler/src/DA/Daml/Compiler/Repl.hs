@@ -4,6 +4,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module DA.Daml.Compiler.Repl (runRepl) where
 
+import BasicTypes (Boxity(..))
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Exception hiding (TypeError)
 import Control.Monad
@@ -36,8 +37,9 @@ import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
 import Lexer (ParseResult(..))
-import OccName (occName, OccSet, elemOccSet, mkOccSet)
+import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
+import RdrName (mkRdrUnqual)
 import SrcLoc (unLoc)
 import System.Exit
 import System.IO.Error
@@ -103,8 +105,33 @@ shadowPat vars p
             }
     shadowDetails (InfixCon p1 p2) = InfixCon (go p1) (go p2)
 
--- | Split a statement into the name of the binder
--- and the body. For unsupported statements we return `Nothing`.
+-- Note [Partial Patterns]
+-- A partial binding of the form
+--
+--     Just (x, y) <- pure (Nothing : Maybe (Int, Int))
+--
+-- should fail on the line itself rather than on a later line.
+-- To accomplish this, we transform the statement into
+--
+-- (x, y) <- do
+--   Just (x, y) <- pure (Nothing : Maybe (Int, Int))
+--   pure (x, y)
+--
+-- That ensures that the line itself fails and it
+-- avoids partial pattern match warnings on subsequent lines.
+
+toTuplePat :: LPat GhcPs -> LPat GhcPs
+toTuplePat pat = noLoc $
+    TuplePat noExt [noLoc (VarPat noExt $ noLoc v) | v <- vars] Boxed
+  where vars = collectPatBinders pat
+
+toTupleExpr :: LPat GhcPs -> LHsExpr GhcPs
+toTupleExpr pat = noLoc $
+    ExplicitTuple noExt [noLoc (Present noExt (noLoc $ HsVar noExt (noLoc v))) | v <- vars] Boxed
+  where vars = collectPatBinders pat
+
+-- | Split a statement into the pattern and the body.
+-- For unsupported statements we return `Nothing`.
 splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (LPat GhcPs, LHsExpr GhcPs)
 splitStmt (BodyStmt _ expr _ _) = Just (noLoc $ WildPat noExt, expr)
 splitStmt (BindStmt _ pat expr _ _) = Just (ParPat noExt pat, expr)
@@ -137,13 +164,13 @@ runRepl opts mainDar replClient ideState = do
         stmt <- case parseStatement l dflags of
             POk _ lStmt -> pure (unLoc lStmt)
             PFailed _ _ errMsg -> throwError (ParseError errMsg)
-        (mbBind, expr) <- maybe (throwError (UnsupportedStatement l)) pure (splitStmt stmt)
+        (bind, expr) <- maybe (throwError (UnsupportedStatement l)) pure (splitStmt stmt)
         liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
-            (renderModule dflags moduleNames i binds expr)
+            (renderModule dflags moduleNames i binds bind expr)
         -- Useful for debugging, probably best to put it behind a --debug flag
         -- rendered <- liftIO  $readFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
         -- liftIO $ for_ (lines rendered) $ \line ->
-        --     hPutStrLn stderr ("> " <> line)
+        --      hPutStrLn stderr ("> " <> line)
         (lfMod, tmrModule -> tcMod) <-
             maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
             (,) <$> useE GenerateDalf (lineFilePath i)
@@ -153,7 +180,7 @@ runRepl opts mainDar replClient ideState = do
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
         scriptRes <- liftIO $ ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
         case scriptRes of
-            Right _ -> pure (mbBind, stmtTy)
+            Right _ -> pure (bind, stmtTy)
             Left err -> throwError (ScriptError err)
     go :: [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> IO ()
     go moduleNames !i !binds = do
@@ -172,19 +199,9 @@ runRepl opts mainDar replClient ideState = do
                  go moduleNames i binds
              Right (pat, ty) -> do
                  let boundVars = mkOccSet (map occName (collectPatBinders pat))
-                 -- TODO Pattern match handling isn’t quite right yet:
-                 -- Currently we will only force the pattern on the
-                 -- following line rather than in the bind itself.
-                 -- This means that `Left x <- pure (Right 1)` is not going
-                 -- to fail on its own. In addition to that we will warn about
-                 -- incomplete pattern matches on following lines.
-                 -- To fix this we can probably transform a statement of the form
-                 -- `Left (x, [y]) <- pure (Right 1)`
-                 -- into
-                 -- `(x, y) <- case pure (Right x) of Left (x, [y]) -> (x,y); _ -> error "foobar"`
                  go moduleNames
                     (i + 1 :: Int)
-                    (map (first (shadowPat boundVars)) binds <> [(pat, ty)])
+                    (map (first (shadowPat boundVars)) binds <> [(toTuplePat pat, ty)])
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -204,8 +221,8 @@ lineFilePath i = toNormalizedFilePath $ "Line" <> show i <> ".daml"
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i
 
-renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> LHsExpr GhcPs -> String
-renderModule dflags imports line binds expr = unlines $
+renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
+renderModule dflags imports line binds pat expr = unlines $
      [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
      , "{-# LANGUAGE PartialTypeSignatures #-}"
      , "daml 1.2"
@@ -214,7 +231,17 @@ renderModule dflags imports line binds expr = unlines $
      ] <>
      map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>
      [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
-     , "expr " <> unwords (map (renderPat . fst) binds) <> " = " <> prettyPrint expr
-     ]
+     , "expr " <> unwords (map (renderPat . fst) binds) <> " = "
+     ] <>
+     let stmt = HsDo noExt DoExpr $ noLoc
+             [ noLoc $ BindStmt noExt pat expr noSyntaxExpr noSyntaxExpr
+             , noLoc $ LastStmt noExt (noLoc $ HsApp noExt returnExpr tupleExpr) False noSyntaxExpr
+             ]
+         returnExpr = noLoc $ HsVar noExt (noLoc $ mkRdrUnqual $ mkVarOcc "return")
+         tupleExpr = toTupleExpr pat
+     in -- indent by two spaces.
+        -- we might just want to construct the whole function using the Haskell AST
+        -- so the Haskell pretty printer takes care of this stuff.
+        map ("  " <> ) $ lines $ prettyPrint stmt
   where renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = showSDoc dflags (ppr ty) <> " -> "
