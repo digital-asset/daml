@@ -1228,6 +1228,18 @@ private class JdbcLedgerDao(
         |  (le.effective_at is null or c.archive_offset is null)
         | """.stripMargin)
 
+  private val ContractMaxLetParser = date("max_ledger_time")
+
+  private val SQL_SELECT_CONTRACT_MAX_LET =
+    SQL("""
+          |select max(le.effective_at) as max_ledger_time
+          |from contract_data cd
+          |inner join contracts c on c.id=cd.id
+          |inner join ledger_entries le on c.transaction_id = le.transaction_id
+          |where
+          |  cd.id in ({contract_ids})
+          | """.stripMargin)
+
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
 
@@ -1250,6 +1262,19 @@ private class JdbcLedgerDao(
       .map {
         case None => LetUnknown
         case Some(let) => Let(let.toInstant)
+      }
+
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Instant] =
+    dbDispatcher
+      .executeSql("lookup_maximum_ledger_time") { implicit conn =>
+        SQL_SELECT_CONTRACT_MAX_LET
+          .on("contract_ids" -> contractIds.map(_.coid))
+          .as(ContractMaxLetParser.singleOpt)
+          .getOrElse(
+            sys.error(s"Failed to load the maximum ledger time for contracts $contractIds"))
+          .toInstant
       }
 
   override def lookupActiveOrDivulgedContract(

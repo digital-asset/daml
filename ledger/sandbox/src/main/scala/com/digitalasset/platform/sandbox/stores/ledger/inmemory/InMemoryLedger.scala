@@ -170,6 +170,16 @@ class InMemoryLedger(
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
+  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
+    Future.successful(this.synchronized {
+      contractIds.foldLeft[Instant](Instant.EPOCH)((acc, id) => {
+        val let = acs.activeContracts
+          .getOrElse(id, sys.error(s"Contract $id not found while looking for maximum ledger time"))
+          .let
+        if (let.isAfter(acc)) let else acc
+      })
+    })
+
   override def publishHeartbeat(time: Instant): Future[Unit] =
     Future.successful(this.synchronized[Unit] {
       entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))

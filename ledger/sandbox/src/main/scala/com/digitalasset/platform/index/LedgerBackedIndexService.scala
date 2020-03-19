@@ -213,6 +213,9 @@ abstract class LedgerBackedIndexService(
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     ledger.lookupContract(contractId, submitter)
 
+  override def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Instant] =
+    ledger.lookupMaximumLedgerTime(ids)
+
   override def lookupContractKey(
       submitter: Party,
       key: GlobalKey,
