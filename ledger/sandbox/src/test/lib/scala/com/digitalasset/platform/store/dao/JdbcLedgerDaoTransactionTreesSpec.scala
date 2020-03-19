@@ -37,7 +37,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "return the expected flat transaction for a correct request (create)" in {
+  it should "return the expected transaction tree for a correct request (create)" in {
     for {
       (offset, tx) <- storeCreateTransaction()
       result <- ledgerDao.transactionsReader
@@ -66,7 +66,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "return the expected flat transaction for a correct request (exercise)" in {
+  it should "return the expected transaction tree for a correct request (exercise)" in {
     for {
       (_, create) <- storeCreateTransaction()
       created <- ledgerDao.transactionsReader
@@ -100,7 +100,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     }
   }
 
-  it should "return the expected flat transaction for a correct request (create, exercise)" in {
+  it should "return the expected transaction tree for a correct request (create, exercise)" in {
     for {
       (offset, tx) <- storeFullyTransientTransaction()
       result <- ledgerDao.transactionsReader
