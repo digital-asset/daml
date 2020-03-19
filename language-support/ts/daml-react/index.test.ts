@@ -10,7 +10,6 @@ import DamlLedger, { useParty, useQuery, useFetchByKey, useStreamQuery, useStrea
 import { Template } from '@daml/types';
 import { Stream } from '@daml/ledger';
 import {EventEmitter} from 'events';
-import {useStreamFetchByKey} from './hooks';
 
 const mockConstructor = jest.fn();
 const mockQuery = jest.fn();
