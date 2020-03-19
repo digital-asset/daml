@@ -144,7 +144,6 @@ object Generators {
               if (maxSize >= 1) Gen.chooseNum(1, maxSize) else Gen.const(1))
             newHeight = height / size
             keys <- Gen.listOfN(size, Arbitrary.arbString.arbitrary)
-            if keys.distinct == keys
             values <- Gen.listOfN(size, Gen.resize(newHeight, valueGen))
           } yield
             (keys zip values).map {
