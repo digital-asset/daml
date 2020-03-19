@@ -76,7 +76,7 @@ shadowPat vars p
     go (LazyPat ext pat) = LazyPat ext (go pat)
     go (BangPat ext pat) = BangPat ext (go pat)
     go (AsPat ext a pat)
-        | occName (unLoc a) `elemOccSet` vars = pat
+        | occName (unLoc a) `elemOccSet` vars = go pat
         | otherwise = AsPat ext a (go pat)
     go (ViewPat ext expr pat) = ViewPat ext expr (go pat)
     go (ParPat ext pat) = ParPat ext (go pat)
