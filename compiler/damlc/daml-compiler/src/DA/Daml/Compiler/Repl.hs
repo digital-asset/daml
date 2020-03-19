@@ -231,7 +231,7 @@ renderModule dflags imports line binds pat expr = unlines $
      ] <>
      map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>
      [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
-     ,  "expr " <> unwords (map (renderPat . fst) binds) <> " = "
+     , "expr " <> unwords (map (renderPat . fst) binds) <> " = "
      ] <>
      let stmt = HsDo noExt DoExpr $ noLoc
              [ noLoc $ BindStmt noExt pat expr noSyntaxExpr noSyntaxExpr
