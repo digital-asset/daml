@@ -1755,7 +1755,17 @@ object JdbcLedgerDao {
 
   val defaultNumberOfShortLivedConnections = 16
 
-  def owner(
+  def readOwner(
+      jdbcUrl: String,
+      metrics: MetricRegistry,
+      executionContext: ExecutionContext,
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
+    val maxConnections = defaultNumberOfShortLivedConnections
+    owner(jdbcUrl, maxConnections, metrics, executionContext)
+      .map(new MeteredLedgerReadDao(_, metrics))
+  }
+
+  def writeOwner(
       jdbcUrl: String,
       metrics: MetricRegistry,
       executionContext: ExecutionContext,
@@ -1763,24 +1773,27 @@ object JdbcLedgerDao {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-    } yield new MeteredLedgerDao(JdbcLedgerDao(dbDispatcher, dbType, executionContext), metrics)
+    owner(jdbcUrl, maxConnections, metrics, executionContext)
+      .map(new MeteredLedgerDao(_, metrics))
   }
 
-  def apply(
-      dbDispatcher: DbDispatcher,
-      dbType: DbType,
+  private def owner(
+      jdbcUrl: String,
+      maxConnections: Int,
+      metrics: MetricRegistry,
       executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): LedgerDao =
-    new JdbcLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      KeyHasher,
-      dbType,
-      executionContext,
-    )
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+    } yield
+      new JdbcLedgerDao(
+        dbDispatcher,
+        ContractSerializer,
+        TransactionSerializer,
+        KeyHasher,
+        DbType.jdbcType(jdbcUrl),
+        executionContext,
+      )
 
   private val PARTY_SEPARATOR = '%'
 
@@ -1788,8 +1801,11 @@ object JdbcLedgerDao {
 
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
+
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
+
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+
     protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String

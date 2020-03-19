@@ -15,7 +15,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class DbDispatcher(
+final class DbDispatcher private (
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
     sqlExecutor: ExecutorService,

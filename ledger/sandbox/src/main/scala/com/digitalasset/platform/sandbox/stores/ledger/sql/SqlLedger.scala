@@ -29,12 +29,7 @@ import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.defaultNumberOfShortLivedConnections
-import com.digitalasset.platform.store.dao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerDao,
-  MeteredLedgerDao
-}
+import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{BaseLedger, DbType, FlywayMigrations, PersistenceEntry}
 import com.digitalasset.resources.ProgramResource.StartupException
@@ -71,11 +66,7 @@ object SqlLedger {
       if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate())
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-      ledgerDao = new MeteredLedgerDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
-        metrics,
-      )
+      ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics, mat.executionContext)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(
