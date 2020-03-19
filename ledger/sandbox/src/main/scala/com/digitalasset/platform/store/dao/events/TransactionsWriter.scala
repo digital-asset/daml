@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
 import com.digitalasset.platform.index.Disclosure
 
-private[dao] object TransactionWriter extends TransactionWriter {
+private[dao] object TransactionsWriter extends TransactionsWriter {
 
   def apply(
       applicationId: Option[ApplicationId],
@@ -79,7 +79,7 @@ private[dao] object TransactionWriter extends TransactionWriter {
 
 }
 
-private[dao] trait TransactionWriter {
+private[dao] trait TransactionsWriter {
 
   def apply(
       applicationId: Option[ApplicationId],
