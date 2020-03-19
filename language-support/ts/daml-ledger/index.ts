@@ -189,6 +189,7 @@ export type StreamCloseEvent = {
  * @typeparam T The contract template type.
  * @typeparam K The contract key type.
  * @typeparam I The contract id type.
+ * @typeparam State The accumulated state.
  */
 export interface Stream<T extends object, K, I extends string, State> {
   on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
