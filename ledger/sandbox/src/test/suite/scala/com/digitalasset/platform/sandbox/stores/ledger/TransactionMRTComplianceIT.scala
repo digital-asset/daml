@@ -13,10 +13,9 @@ import com.daml.ledger.participant.state.v1.{
   TransactionMeta
 }
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -25,6 +24,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.sandbox.stores.ledger.TransactionMRTComplianceIT._
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
@@ -35,16 +35,6 @@ import scala.collection.immutable.HashMap
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.language.implicitConversions
-
-sealed abstract class BackendType
-
-object BackendType {
-
-  case object InMemory extends BackendType
-
-  case object Postgres extends BackendType
-
-}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionMRTComplianceIT
@@ -58,10 +48,6 @@ class TransactionMRTComplianceIT
     with MetricsAround {
 
   override def timeLimit: Span = scaled(60.seconds)
-
-  val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
-  val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
@@ -78,10 +64,6 @@ class TransactionMRTComplianceIT
         }
     }
   }
-
-  val LET = Instant.EPOCH.plusSeconds(2)
-  val ST = LET.plusNanos(3)
-  val MRT = Instant.EPOCH.plusSeconds(5)
 
   "A Ledger" should {
     "reject transactions with a record time after the MRT" in allFixtures { ledger =>
@@ -125,9 +107,31 @@ class TransactionMRTComplianceIT
     }
   }
 
+}
+
+object TransactionMRTComplianceIT {
+
+  private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
+  private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
+
+  private val LET = Instant.EPOCH.plusSeconds(2)
+  private val ST = LET.plusNanos(3)
+  private val MRT = Instant.EPOCH.plusSeconds(5)
+
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 
   private implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
+
+  sealed abstract class BackendType
+
+  object BackendType {
+
+    case object InMemory extends BackendType
+
+    case object Postgres extends BackendType
+
+  }
 
 }

@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.sandbox.stores.ledger.ImplicitPartyAdditionIT._
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
@@ -41,17 +42,6 @@ import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
-sealed abstract class BackendType
-
-object BackendType {
-
-  case object InMemory extends BackendType
-
-  case object Postgres extends BackendType
-
-}
-
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ImplicitPartyAdditionIT
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
@@ -63,21 +53,6 @@ class ImplicitPartyAdditionIT
     with MetricsAround {
 
   override def timeLimit: Span = scaled(60.seconds)
-
-  private val ledgerId: LedgerId = LedgerId("ledgerId")
-  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
-  private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
-
-  private val templateId1: Ref.Identifier = Ref.Identifier(
-    Ref.PackageId.assertFromString("packageId"),
-    Ref.QualifiedName(
-      Ref.ModuleName.assertFromString("moduleName"),
-      Ref.DottedName.assertFromString("name")
-    )
-  )
-
-  private def textValue(t: String) =
-    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(t))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
@@ -94,44 +69,6 @@ class ImplicitPartyAdditionIT
         }
     }
   }
-
-  private def publishSingleNodeTx(
-      ledger: Ledger,
-      submitter: String,
-      commandId: String,
-      node: Transaction.AbsNode,
-  ): Future[SubmissionResult] = {
-    val event1: Transaction.NodeId = Transaction.NodeId(0)
-
-    val let = Time.Timestamp.assertFromInstant(LET)
-
-    val transaction: Transaction.AbsTransaction = GenTransaction(
-      HashMap(event1 -> node),
-      ImmArray(event1),
-    )
-
-    val submitterInfo = SubmitterInfo(
-      Ref.Party.assertFromString(submitter),
-      Ref.LedgerString.assertFromString("appId"),
-      Ref.LedgerString.assertFromString(commandId),
-      Time.Timestamp.assertFromInstant(MRT),
-      DeduplicateUntil,
-    )
-
-    val transactionMeta = TransactionMeta(
-      ledgerEffectiveTime = let,
-      workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
-      submissionTime = let.addMicros(1000),
-      submissionSeed = None,
-      optUsedPackages = None,
-    )
-
-    ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
-  }
-
-  val LET = Instant.EPOCH.plusSeconds(10)
-  val MRT = Instant.EPOCH.plusSeconds(10)
-  val DeduplicateUntil = Instant.now.plusSeconds(3600)
 
   "A Ledger" should {
     "implicitly add parties mentioned in a transaction" in allFixtures { ledger =>
@@ -215,5 +152,72 @@ class ImplicitPartyAdditionIT
 
   private implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
+
+}
+
+object ImplicitPartyAdditionIT {
+
+  private val ledgerId: LedgerId = LedgerId("ledgerId")
+  private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
+  private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
+
+  private val LET = Instant.EPOCH.plusSeconds(10)
+  private val MRT = Instant.EPOCH.plusSeconds(10)
+  private val DeduplicateUntil = Instant.now.plusSeconds(3600)
+
+  private val templateId1: Ref.Identifier = Ref.Identifier(
+    Ref.PackageId.assertFromString("packageId"),
+    Ref.QualifiedName(
+      Ref.ModuleName.assertFromString("moduleName"),
+      Ref.DottedName.assertFromString("name")
+    )
+  )
+
+  private def textValue(t: String) =
+    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(t))
+
+  private def publishSingleNodeTx(
+      ledger: Ledger,
+      submitter: String,
+      commandId: String,
+      node: Transaction.AbsNode,
+  ): Future[SubmissionResult] = {
+    val event1: Transaction.NodeId = Transaction.NodeId(0)
+
+    val let = Time.Timestamp.assertFromInstant(LET)
+
+    val transaction: Transaction.AbsTransaction = GenTransaction(
+      HashMap(event1 -> node),
+      ImmArray(event1),
+    )
+
+    val submitterInfo = SubmitterInfo(
+      Ref.Party.assertFromString(submitter),
+      Ref.LedgerString.assertFromString("appId"),
+      Ref.LedgerString.assertFromString(commandId),
+      Time.Timestamp.assertFromInstant(MRT),
+      DeduplicateUntil,
+    )
+
+    val transactionMeta = TransactionMeta(
+      ledgerEffectiveTime = let,
+      workflowId = Some(Ref.LedgerString.assertFromString("wfid")),
+      submissionTime = let.addMicros(1000),
+      submissionSeed = None,
+      optUsedPackages = None,
+    )
+
+    ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
+  }
+
+  sealed abstract class BackendType
+
+  object BackendType {
+
+    case object InMemory extends BackendType
+
+    case object Postgres extends BackendType
+
+  }
 
 }
