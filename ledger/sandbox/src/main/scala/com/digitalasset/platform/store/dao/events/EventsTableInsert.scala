@@ -44,49 +44,33 @@ private[events] trait EventsTableInsert { this: EventsTable =>
         errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
     ))
 
+  private def insertEvent(columnNameAndValues: (String, String)*): String = {
+    val (columns, values) = columnNameAndValues.unzip
+    s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
+  }
+
   private val insertCreate: String =
-    """insert into participant_events(
-      |  event_id,
-      |  event_offset,
-      |  contract_id,
-      |  transaction_id,
-      |  workflow_id,
-      |  ledger_effective_time,
-      |  template_package_id,
-      |  template_name,
-      |  node_index,
-      |  is_root,
-      |  command_id,
-      |  application_id,
-      |  submitter,
-      |  create_argument,
-      |  create_signatories,
-      |  create_observers,
-      |  create_agreement_text,
-      |  create_consumed_at,
-      |  create_key_value
-      |) values (
-      |  {event_id},
-      |  {event_offset},
-      |  {contract_id},
-      |  {transaction_id},
-      |  {workflow_id},
-      |  {ledger_effective_time},
-      |  {template_package_id},
-      |  {template_name},
-      |  {node_index},
-      |  {is_root},
-      |  {command_id},
-      |  {application_id},
-      |  {submitter},
-      |  {create_argument},
-      |  {create_signatories},
-      |  {create_observers},
-      |  {create_agreement_text},
-      |  null,
-      |  {create_key_value}
-      |)
-      |""".stripMargin
+    insertEvent(
+      "event_id" -> "{event_id}",
+      "event_offset" -> "{event_offset}",
+      "contract_id" -> "{contract_id}",
+      "transaction_id" -> "{transaction_id}",
+      "workflow_id" -> "{workflow_id}",
+      "ledger_effective_time" -> "{ledger_effective_time}",
+      "template_package_id" -> "{template_package_id}",
+      "template_name" -> "{template_name}",
+      "node_index" -> "{node_index}",
+      "is_root" -> "{is_root}",
+      "command_id" -> "{command_id}",
+      "application_id" -> "{application_id}",
+      "submitter" -> "{submitter}",
+      "create_argument" -> "{create_argument}",
+      "create_signatories" -> "{create_signatories}",
+      "create_observers" -> "{create_observers}",
+      "create_agreement_text" -> "{create_agreement_text}",
+      "create_consumed_at" -> "null",
+      "create_key_value" -> "{create_key_value}"
+    )
 
   private def create(
       applicationId: Option[ApplicationId],
@@ -122,48 +106,27 @@ private[events] trait EventsTableInsert { this: EventsTable =>
     )
 
   private val insertExercise =
-    """insert into participant_events(
-      |  event_id,
-      |  event_offset,
-      |  contract_id,
-      |  transaction_id,
-      |  workflow_id,
-      |  ledger_effective_time,
-      |  template_package_id,
-      |  template_name,
-      |  node_index,
-      |  is_root,
-      |  command_id,
-      |  application_id,
-      |  submitter,
-      |  exercise_consuming,
-      |  exercise_choice,
-      |  exercise_argument,
-      |  exercise_result,
-      |  exercise_actors,
-      |  exercise_child_event_ids
-      |) values (
-      |  {event_id},
-      |  {event_offset},
-      |  {contract_id},
-      |  {transaction_id},
-      |  {workflow_id},
-      |  {ledger_effective_time},
-      |  {template_package_id},
-      |  {template_name},
-      |  {node_index},
-      |  {is_root},
-      |  {command_id},
-      |  {application_id},
-      |  {submitter},
-      |  {exercise_consuming},
-      |  {exercise_choice},
-      |  {exercise_argument},
-      |  {exercise_result},
-      |  {exercise_actors},
-      |  {exercise_child_event_ids}
-      |)
-      |""".stripMargin
+    insertEvent(
+      "event_id" -> "{event_id}",
+      "event_offset" -> "{event_offset}",
+      "contract_id" -> "{contract_id}",
+      "transaction_id" -> "{transaction_id}",
+      "workflow_id" -> "{workflow_id}",
+      "ledger_effective_time" -> "{ledger_effective_time}",
+      "template_package_id" -> "{template_package_id}",
+      "template_name" -> "{template_name}",
+      "node_index" -> "{node_index}",
+      "is_root" -> "{is_root}",
+      "command_id" -> "{command_id}",
+      "application_id" -> "{application_id}",
+      "submitter" -> "{submitter}",
+      "exercise_consuming" -> "{exercise_consuming}",
+      "exercise_choice" -> "{exercise_choice}",
+      "exercise_argument" -> "{exercise_argument}",
+      "exercise_result" -> "{exercise_result}",
+      "exercise_actors" -> "{exercise_actors}",
+      "exercise_child_event_ids" -> "{exercise_child_event_ids}"
+    )
 
   private def exercise(
       applicationId: Option[ApplicationId],
