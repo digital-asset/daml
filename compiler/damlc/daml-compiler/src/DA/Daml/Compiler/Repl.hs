@@ -103,7 +103,7 @@ shadowPat vars p
             }
     shadowDetails (InfixCon p1 p2) = InfixCon (go p1) (go p2)
 
--- | Split a statement into the name of the binder (patterns are not supported)
+-- | Split a statement into the name of the binder
 -- and the body. For unsupported statements we return `Nothing`.
 splitStmt :: Stmt GhcPs (LHsExpr GhcPs) -> Maybe (LPat GhcPs, LHsExpr GhcPs)
 splitStmt (BodyStmt _ expr _ _) = Just (noLoc $ WildPat noExt, expr)
@@ -218,4 +218,3 @@ renderModule dflags imports line binds expr = unlines $
      ]
   where renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = showSDoc dflags (ppr ty) <> " -> "
-
