@@ -116,35 +116,34 @@ object Script {
     val compiler = Compiler(darMap)
     val compiledPackages =
       PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-    fromIdentifier(compiledPackages, scriptId)
+    fromIdentifier(compiledPackages, scriptId) match {
+      case Right(x) => x
+      case Left(e) => throw new RuntimeException(e)
+    }
   }
-  def fromIdentifier(compiledPackages: CompiledPackages, scriptId: Identifier): Script = {
+  def fromIdentifier(
+      compiledPackages: CompiledPackages,
+      scriptId: Identifier): Either[String, Script] = {
     val scriptExpr = SEVal(LfDefRef(scriptId), None)
     val scriptTy = compiledPackages
       .getPackage(scriptId.packageId)
       .flatMap(_.lookupIdentifier(scriptId.qualifiedName).toOption) match {
-      case Some(DValue(ty, _, _, _)) => ty
-      case Some(d @ DTypeSyn(_, _)) =>
-        throw new RuntimeException(s"Expected DAML script but got synonym $d")
-      case Some(d @ DDataType(_, _, _)) =>
-        throw new RuntimeException(s"Expected DAML script but got datatype $d")
-      case None => throw new RuntimeException(s"Could not find DAML script $scriptId")
+      case Some(DValue(ty, _, _, _)) => Right(ty)
+      case Some(d @ DTypeSyn(_, _)) => Left(s"Expected DAML script but got synonym $d")
+      case Some(d @ DDataType(_, _, _)) => Left(s"Expected DAML script but got datatype $d")
+      case None => Left(s"Could not find DAML script $scriptId")
     }
-    def getScriptIds(ty: Type): ScriptIds = {
-      ScriptIds.fromType(ty) match {
-        case Some(scriptIds) => scriptIds
-        case None => throw new RuntimeException(s"Expected type 'Daml.Script.Script a' but got $ty")
-      }
-    }
-    scriptTy match {
-      case TApp(TApp(TBuiltin(BTArrow), param), result) => {
-        val scriptIds = getScriptIds(result)
-        Script(scriptId, scriptExpr, Some(param), scriptIds)
-      }
-      case ty => {
-        val scriptIds = getScriptIds(ty)
-        Script(scriptId, scriptExpr, None, scriptIds)
-      }
+    def getScriptIds(ty: Type): Either[String, ScriptIds] =
+      ScriptIds.fromType(ty).toRight(s"Expected type 'Daml.Script.Script a' but got $ty")
+    scriptTy.flatMap {
+      case TApp(TApp(TBuiltin(BTArrow), param), result) =>
+        for {
+          scriptIds <- getScriptIds(result)
+        } yield Script(scriptId, scriptExpr, Some(param), scriptIds)
+      case ty =>
+        for {
+          scriptIds <- getScriptIds(ty)
+        } yield Script(scriptId, scriptExpr, None, scriptIds)
     }
   }
 }
