@@ -50,7 +50,7 @@ final class StandaloneApiServer(
     authService: AuthService,
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
-    seeding: Seeding,
+    seeding: Option[Seeding],
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
@@ -102,7 +102,7 @@ final class StandaloneApiServer(
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
-              seedService = Some(SeedService(seeding)),
+              seedService = seeding.map(SeedService(_)),
             )(mat, esf, logCtx)
             .map(_.withServices(otherServices))
         },

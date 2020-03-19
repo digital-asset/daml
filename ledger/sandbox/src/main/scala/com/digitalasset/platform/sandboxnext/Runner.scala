@@ -203,7 +203,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   authService = authService,
                   metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
                   timeServiceBackend = timeServiceBackend,
-                  seeding = seeding,
+                  seeding = Some(seeding),
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )
