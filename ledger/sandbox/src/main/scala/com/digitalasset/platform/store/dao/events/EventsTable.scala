@@ -104,18 +104,24 @@ private[events] trait EventsTable {
 
     private def treeOf(events: List[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
 
-      // Get all the visible events in this transactions to filter children in each event
-      val visible = events.iterator.map(_.event.eventId).toSet
+      // The identifiers of all visible events in this transactions, preserving
+      // the order in which they are retrieved from the index
+      val visible = events.map(_.event.eventId)
 
       // All events in this transaction by their identifier, with their children
       // filtered according to those visible for this request
       val eventsById =
-        events.iterator.map(r => r.event.eventId -> r.event.filterChildEventIds(visible)).toMap
+        events.iterator
+          .map(_.event)
+          .map(e => e.eventId -> e.filterChildEventIds(visible.toSet))
+          .toMap
 
-      // Roots are all the visible events in this transaction
-      // that don't appear in any event's children
-      val rootEventIds =
-        visible.diff(eventsById.valuesIterator.flatMap(_.childEventIds).toSet).toSeq
+      // All event identifiers that appear as a child of another item in this response
+      val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+      // The roots for this request are all visible items
+      // that are not a child of some other visible item
+      val rootEventIds = visible.filterNot(children)
 
       (eventsById, rootEventIds)
 
