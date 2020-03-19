@@ -138,7 +138,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       triggerId <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
       resp <- stopTrigger(uri, triggerId)
       _ <- assert(resp.status.isSuccess)
-      // upload dar
     } yield succeed
   }
 
@@ -155,7 +154,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         _ <- {
           val cmd = Command().withCreate(
             CreateCommand(
-              templateId = Some(Identifier(dar.main._1, "TestTrigger", "A")), // template id
+              templateId = Some(Identifier(dar.main._1, "TestTrigger", "A")),
               createArguments = Some(
                 Record(
                   None,

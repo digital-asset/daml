@@ -251,7 +251,6 @@ object Server {
           // upload a DAR as a multi-part form request with a single field called
           // "dar".
           path("upload_dar") {
-//            extractExecutionContext { implicit ec =>
             fileUpload("dar") {
               case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
                 val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
@@ -273,11 +272,8 @@ object Server {
                         }
                     }
                 }
-              // foreach { byteString =>
-              //   println("GOT REQUEST")
             }
           }
-          //        }
         )
       },
       // Stop a trigger given its UUID
