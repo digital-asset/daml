@@ -60,7 +60,7 @@ configConsts sdkVersion = ConfigConsts
       , (NpmPackageName "typescript", NpmPackageVersion "~3.7.3")
       ]
   , pkgScripts = HMS.fromList
-      [ (ScriptName "build", Script "tsc --build")
+      [ (ScriptName "build", Script "tsc")
       , (ScriptName "lint", Script "eslint --ext .ts --max-warnings 0 src/")
       ]
   }
@@ -636,6 +636,7 @@ writeTsConfig dir =
       [ "compilerOptions" .= object
         [ "target" .= ("es5" :: T.Text)
         , "lib" .= (["dom", "es2015"] :: [T.Text])
+        , "skipLibCheck" .= True
         , "strict" .= True
         , "noUnusedLocals" .= False
         , "noImplicitReturns" .= True
