@@ -16,7 +16,7 @@ Fallback rule
 
 Unless otherwise required by one of the other rules below or to follow,
 values are interpreted according to :doc:`lf-value-specification`, and
-compared for equality.
+compared for equality, unless they are lists or maps.
 
 Simple equality
 ***************
@@ -32,13 +32,6 @@ Example: ``{ person: { name: "Bob" }, city: "London" }``
 - No match: ``{ person: { name: "Bob" }, city: "Zurich" }``
 - Typecheck failure: ``{ person: { name: ["Bob", "Sue"] }, city:
   "London" }``
-
-Example: ``{ favorites: ["vanilla", "chocolate"] }``
-
-- Match: ``{ favorites: ["vanilla", "chocolate"] }``
-- No match: ``{ favorites: ["chocolate", "vanilla"] }``
-- No match: ``{ favorites: ["vanilla", "strawberry"] }``
-- No match: ``{ favorites: ["vanilla", "chocolate", "strawberry"] }``
 
 A JSON object, when considered with a record type, is always interpreted
 as a field equality query. Its type context is thus mutually exclusive
