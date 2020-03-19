@@ -100,7 +100,7 @@ The command should automatically open a window in your default browser at http:/
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 
-You should now see the login page for the social network. sFor simplicity of this app, there is no password or sign-up required.   
+You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.   
 First enter your name and click *Log in*.
 You should see the main screen with two panels for the users you are following and the entire network.
 Initially these are both empty as you are not following anyone and you don't have any followers!
