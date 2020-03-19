@@ -170,28 +170,40 @@ object Runner {
         .map(_.toMap)
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
+
+  def fromDar(
+      dar: Dar[(PackageId, Package)],
+      scriptIds: ScriptIds,
+      applicationId: ApplicationId,
+      commandUpdater: CommandUpdater,
+      timeProvider: TimeProvider): Either[String, Runner] = {
+    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    for {
+      compiledPackages <- PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
+    } yield
+      new Runner(envIface, compiledPackages, scriptIds, applicationId, commandUpdater, timeProvider)
+  }
 }
 
 class Runner(
-    dar: Dar[(PackageId, Package)],
+    environmentInterface: EnvironmentInterface,
+    compiledPackages: CompiledPackages,
     scriptIds: ScriptIds,
     applicationId: ApplicationId,
     commandUpdater: CommandUpdater,
     timeProvider: TimeProvider)
     extends StrictLogging {
 
-  val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+  private def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
+    environmentInterface.typeDecls.get(id).map(_.`type`)
 
-  val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-  def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-    envIface.typeDecls.get(id).map(_.`type`)
-
-  val darMap: Map[PackageId, Package] = dar.all.toMap
-
-  def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
+  private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
-      pkg <- darMap
-        .get(id.packageId)
+      pkg <- compiledPackages
+        .getPackage(id.packageId)
         .fold[Either[String, Package]](Left(s"Failed to find package ${id.packageId}"))(Right(_))
       module <- pkg.modules
         .get(id.qualifiedName.module)
@@ -211,24 +223,32 @@ class Runner(
           Right(_))
     } yield choice.returnType
 
-  // We overwrite the definition of toLedgerValue with an identity function.
+  // We overwrite the definition of fromLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
-  val compiler = Compiler(darMap)
-  val definitionMap =
-    compiler.compilePackages(darMap.keys) +
-      (LfDefRef(scriptIds.damlScript("fromLedgerValue")) ->
-        SEMakeClo(Array(), 1, SEVar(1)))
-  val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
-  val valueTranslator = new ValueTranslator(compiledPackages)
+  private val extendedCompiledPackages = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+      case LfDefRef(id) if id == scriptIds.damlScript("fromLedgerValue") =>
+        SEMakeClo(Array(), 1, SEVar(1))
+    }
+    new CompiledPackages {
+      def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
+      def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+      override def packages = compiledPackages.packages
+      def packageIds = compiledPackages.packageIds
+      override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+    }
+  }
+  private val valueTranslator = new ValueTranslator(extendedCompiledPackages)
 
-  def translateValue(typ: Type, value: Value[AbsoluteContractId]) =
+  private def translateValue(typ: Type, value: Value[AbsoluteContractId]) =
     valueTranslator
       .translateValue(typ, value)
       .consume(_ => None, _ => None, _ => None)
       .fold(e => throw new RuntimeException(e.msg), identity)
 
-  def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
+  private def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
       party = party.value,
       commands = cmds,
@@ -268,7 +288,7 @@ class Runner(
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
     var machine =
-      Speedy.Machine.fromSExpr(scriptExpr, false, compiledPackages)
+      Speedy.Machine.fromSExpr(scriptExpr, false, extendedCompiledPackages)
 
     def stepToValue() = {
       while (!machine.isFinal) {
@@ -318,7 +338,7 @@ class Runner(
                   }
                   val requestOrErr = for {
                     party <- Converter.toParty(vals.get(0))
-                    commands <- Converter.toCommands(compiledPackages, freeAp)
+                    commands <- Converter.toCommands(extendedCompiledPackages, freeAp)
                     client <- clients.getPartyParticipant(Party(party.value))
                   } yield (client, toSubmitRequest(client.ledgerId, party, commands))
                   val (client, request) =
@@ -335,7 +355,7 @@ class Runner(
                           transactionTree.getTransaction.eventsById(evId))
                       val filled =
                         Converter.fillCommandResults(
-                          compiledPackages,
+                          extendedCompiledPackages,
                           lookupChoiceTy,
                           valueTranslator,
                           freeAp,

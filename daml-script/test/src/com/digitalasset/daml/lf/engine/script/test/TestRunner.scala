@@ -115,7 +115,8 @@ class TestRunner(
       case Left(err) => throw new RuntimeException(err)
       case Right(x) => x
     }
-    val runner = new Runner(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)
+    val runner =
+      Runner.fromDar(dar, script.scriptIds, applicationId, commandUpdater, timeProvider).right.get
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF

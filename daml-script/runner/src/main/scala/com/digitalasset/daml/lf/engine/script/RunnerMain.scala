@@ -91,7 +91,10 @@ object RunnerMain {
           case Right(x) => x
         }
         val runner = try {
-          new Runner(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)
+          Runner
+            .fromDar(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)
+            .right
+            .get
         } catch {
           case e: Throwable =>
             system.terminate

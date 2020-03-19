@@ -200,12 +200,15 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
     val (scriptPackageId, _) = packages.find {
       case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
-    val runner = new Runner(
-      dar,
-      ScriptIds(scriptPackageId),
-      ApplicationId("daml repl"),
-      commandUpdater,
-      TimeProvider.UTC)
+    val runner = Runner
+      .fromDar(
+        dar,
+        ScriptIds(scriptPackageId),
+        ApplicationId("daml repl"),
+        commandUpdater,
+        TimeProvider.UTC)
+      .right
+      .get
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
         Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
