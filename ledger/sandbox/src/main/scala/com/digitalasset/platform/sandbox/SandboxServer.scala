@@ -66,7 +66,11 @@ object SandboxServer {
 
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
-      metrics <- new MetricsReporting(classOf[SandboxServer].getName)
+      metrics <- new MetricsReporting(
+        classOf[SandboxServer].getName,
+        config.metricsReporter,
+        config.metricsReportingInterval,
+      )
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner

@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.cli
 
 import java.io.File
+import java.nio.file.Paths
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
@@ -17,6 +18,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 import io.netty.handler.ssl.ClientAuth
@@ -43,6 +45,13 @@ object Cli {
     case s =>
       throw new IllegalArgumentException(
         s"""$s is not a valid client authentication mode. Must be one of "none", "optional" or "require"""")
+  }
+
+  private implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads { s =>
+    s.split(":", 2).toSeq match {
+      case Seq("console") => MetricsReporter.ConsoleReporter
+      case Seq("csv", directory) => MetricsReporter.CsvReporter(Paths.get(directory))
+    }
   }
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
@@ -247,6 +256,16 @@ object Cli {
               (),
               s"seeding must be ${seedingMap.keys.mkString(",")}"))
         .action((text, config) => config.copy(seeding = seedingMap(text)))
+        .hidden()
+
+      opt[MetricsReporter]("metrics-reporter")
+        .optional()
+        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
+        .hidden()
+
+      opt[Duration]("metrics-reporting-interval")
+        .optional()
+        .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
 
       help("help").text("Print the usage text")
