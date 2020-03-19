@@ -8,29 +8,46 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Slf4jReporter}
+import com.digitalasset.resources.{Resource, ResourceOwner}
 
-/** Manages metrics and reporters. Creates and starts a JmxReporter and creates an Slf4jReporter as well, which dumps
-  * its metrics when this object is closed
-  * <br/><br/>
-  * Note that metrics are in general light-weight and add negligible overhead. They are not visible to everyday
-  * users so they can be safely enabled all the time. */
-final class MetricsReporting(metrics: MetricRegistry, jmxDomain: String) extends AutoCloseable {
+import scala.concurrent.{ExecutionContext, Future}
 
-  private val jmxReporter = JmxReporter
-    .forRegistry(metrics)
-    .inDomain(jmxDomain)
-    .build
-  jmxReporter.start()
-
-  private val slf4jReporter = Slf4jReporter
-    .forRegistry(metrics)
-    .convertRatesTo(TimeUnit.SECONDS)
-    .convertDurationsTo(TimeUnit.MILLISECONDS)
-    .withLoggingLevel(LoggingLevel.DEBUG)
-    .build()
-
-  override def close(): Unit = {
-    slf4jReporter.report()
-    jmxReporter.close()
+/** Manages metrics and reporters.
+  *
+  * Creates two reporters:
+  *
+  *   - A JmxReporter, which exposes metrics over JMX
+  *   - An Slf4jReporter, which logs metrics on shutdown at DEBUG level
+  *
+  * Note that metrics are in general light-weight and add negligible overhead.
+  * They are not visible to everyday users so they can be safely enabled all the time.
+  */
+final class MetricsReporting(jmxDomain: String) extends ResourceOwner[MetricRegistry] {
+  def acquire()(implicit executionContext: ExecutionContext): Resource[MetricRegistry] = {
+    val registry = new MetricRegistry
+    for {
+      jmxReporter <- ResourceOwner.forCloseable(() => newJmxReporter(registry)).acquire()
+      slf4JReporter <- ResourceOwner.forCloseable(() => newSlf4jReporter(registry)).acquire()
+      // Trigger a report to the SLF4J logger on shutdown.
+      _ <- Resource(Future.successful(slf4JReporter))(reporter =>
+        Future.successful(reporter.report()))
+    } yield {
+      jmxReporter.start()
+      registry
+    }
   }
+
+  private def newJmxReporter(registry: MetricRegistry): JmxReporter =
+    JmxReporter
+      .forRegistry(registry)
+      .inDomain(jmxDomain)
+      .build()
+
+  private def newSlf4jReporter(registry: MetricRegistry): Slf4jReporter =
+    Slf4jReporter
+      .forRegistry(registry)
+      .convertRatesTo(TimeUnit.SECONDS)
+      .convertDurationsTo(TimeUnit.MILLISECONDS)
+      .withLoggingLevel(LoggingLevel.DEBUG)
+      .build()
 }
