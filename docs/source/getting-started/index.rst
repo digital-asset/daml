@@ -108,7 +108,7 @@ Go ahead and start following users by typing their usernames in the text box and
 
 You'll notice that the users you just started following appear in the *Following* panel.
 However they do *not* yet appear in the *Network* panel.
-This is either because 1. they have not signed up and are not parties on the ledger, and 2. they have not yet started follwiong you.
+This is either because they have not signed up and are not parties on the ledger or they have not yet started followiong you.
 This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in DAML in the next section.
 
