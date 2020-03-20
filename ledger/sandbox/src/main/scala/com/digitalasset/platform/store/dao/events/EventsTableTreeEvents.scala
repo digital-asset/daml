@@ -84,7 +84,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             ledger_effective_time,
             template_package_id,
             template_name,
-            command_id,
+            case when submitter in ($ps) then command_id else '' end as command_id,
             workflow_id,
             create_argument,
             create_signatories,

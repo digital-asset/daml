@@ -31,6 +31,7 @@ import com.digitalasset.ledger.test_stable.Test.DummyFactory._
 import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
 import com.digitalasset.ledger.test_stable.Test.TriProposal._
 import com.digitalasset.ledger.test_stable.Test._
+import com.digitalasset.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import io.grpc.Status
 import scalaz.Tag
 
@@ -1599,12 +1600,29 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 object TransactionService {
 
   // Strip command id and offset to yield a transaction comparable across participant
+  // Furthermore, makes sure that the order is not relevant for witness parties
   private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] =
-    transactions.map(_.copy(commandId = "commandId", offset = "offset"))
+    transactions.map(
+      t =>
+        t.copy(
+          commandId = "commandId",
+          offset = "offset",
+          events = t.events.map(_.modifyWitnessParties(_.sorted)),
+      )
+    )
 
+  // Strip command id and offset to yield a transaction comparable across participant
+  // Furthermore, makes sure that the order is not relevant for witness parties
   private def comparableTransactionTrees(
       transactionTrees: Vector[TransactionTree],
   ): Vector[TransactionTree] =
-    transactionTrees.map(_.copy(commandId = "commandId", offset = "offset"))
+    transactionTrees.map(
+      t =>
+        t.copy(
+          commandId = "commandId",
+          offset = "offset",
+          eventsById = t.eventsById.mapValues(_.modifyWitnessParties(_.sorted)),
+      )
+    )
 
 }

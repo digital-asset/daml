@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -64,15 +64,6 @@ trait LedgerReadDao extends ReportsHealth {
     */
   def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]]
 
-  /**
-    * Looks up the transaction with the given id
-    *
-    * @param transactionId the id of the transaction to look up
-    * @return the optional Transaction found
-    */
-  def lookupTransaction(
-      transactionId: TransactionId
-  ): Future[Option[(Offset, LedgerEntry.Transaction)]]
   def transactionsReader: TransactionsReader
 
   /**

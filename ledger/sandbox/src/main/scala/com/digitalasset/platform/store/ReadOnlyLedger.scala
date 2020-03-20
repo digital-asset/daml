@@ -16,15 +16,14 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  LedgerId,
-  PartyDetails,
-  TransactionFilter,
-  TransactionId
-}
+import com.digitalasset.ledger.TransactionId
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -60,9 +59,15 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
-  def lookupTransaction(
-      transactionId: TransactionId
-  ): Future[Option[(Offset, LedgerEntry.Transaction)]]
+  def lookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetFlatTransactionResponse]]
+
+  def lookupTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetTransactionResponse]]
 
   // Party management
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]

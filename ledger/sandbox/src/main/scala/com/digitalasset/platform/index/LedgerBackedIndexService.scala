@@ -43,6 +43,7 @@ import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 
@@ -88,12 +89,6 @@ abstract class LedgerBackedIndexService(
       ac.observers,
       ac.agreementText
     )
-
-  private def getTransactionById(
-      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
-    ledger
-      .lookupTransaction(transactionId)
-  }
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
@@ -174,35 +169,15 @@ abstract class LedgerBackedIndexService(
 
   override def getTransactionById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[GetFlatTransactionResponse]] = {
-    val filter =
-      domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
-    getTransactionById(transactionId)
-      .map(_.flatMap {
-        case (offset, transaction) =>
-          TransactionConversion
-            .ledgerEntryToFlatTransaction(toAbsolute(offset), transaction, filter, verbose = true)
-            .map(tx => GetFlatTransactionResponse(Option(tx)))
-      })(DEC)
-  }
+      requestingParties: Set[Ref.Party],
+  ): Future[Option[GetFlatTransactionResponse]] =
+    ledger.lookupFlatTransactionById(transactionId.unwrap, requestingParties)
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
-      requestingParties: Set[Ref.Party]): Future[Option[GetTransactionResponse]] = {
-    val filter =
-      domain.TransactionFilter(requestingParties.map(p => p -> domain.Filters.noFilter).toMap)
-    getTransactionById(transactionId)
-      .map(_.flatMap {
-        case (offset, transaction) =>
-          TransactionConversion
-            .ledgerEntryToTransactionTree(
-              toAbsolute(offset),
-              transaction,
-              filter.filtersByParty.keySet,
-              verbose = true)
-            .map(tx => GetTransactionResponse(Option(tx)))
-      })(DEC)
-  }
+      requestingParties: Set[Ref.Party],
+  ): Future[Option[GetTransactionResponse]] =
+    ledger.lookupTransactionTreeById(transactionId.unwrap, requestingParties)
 
   def toAbsolute(offset: Offset): LedgerOffset.Absolute =
     LedgerOffset.Absolute(offset.toApiString)
