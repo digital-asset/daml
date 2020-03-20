@@ -129,7 +129,7 @@ Background
 
 Privacy is one of DAML’s primary concerns, with visibility of data usually constrained to signatories and observers of contracts. However, there are two well-documented and controlled mechanisms through which non-observers can learn about contracts: :ref:`Divulgence and Witnessing <da-model-divulgence>`.
 
-Whether events or contracts that are known due to those mechanisms are shown in APIs or tools used to be inconsistent and led to oddities such as the Navigator showing assets that had been transferred. This change addresses these inconsistencies and ensures divulged and witnessed contracts are only included in APIs returning `transaction trees <https://docs.daml.com/app-dev/grpc/proto-docs.html#transactiontree>`.
+Whether events or contracts that are known due to those mechanisms are shown in APIs or tools used to be inconsistent and led to oddities such as the Navigator showing assets that had been transferred. This change addresses these inconsistencies and ensures divulged and witnessed contracts are only included in APIs returning `transaction trees <https://docs.daml.com/app-dev/grpc/proto-docs.html#transactiontree>`_.
 
 Specific Changes
 >>>>>>>>>>>>>>>>
