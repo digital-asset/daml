@@ -459,7 +459,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     stack_snapshot(
         name = "stackage",
         extra_deps = {
-            "bzlib-conduit": ["@bzip2//:libbz2"],
             "digest": ["@com_github_madler_zlib//:libz"],
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
@@ -468,6 +467,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghcide": ["ghc-lib"],
                 "hlint": ["ghc-lib"],
                 "ghc-lib-parser-ex": ["ghc-lib"],
+                "zip": ["disable-bzip2"],
             },
             {
                 "blaze-textual": ["integer-simple"],

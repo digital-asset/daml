@@ -91,15 +91,6 @@ def daml_deps():
             sha256 = "6d4d6640ca3121620995ee255945161821218752b551a1a180f4215f7d124d45",
         )
 
-    if "bzip2" not in native.existing_rules():
-        http_archive(
-            name = "bzip2",
-            build_file = "@com_github_digital_asset_daml//3rdparty/c:bzip2.BUILD",
-            strip_prefix = "bzip2-1.0.8",
-            urls = ["https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"],
-            sha256 = "ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269",
-        )
-
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
