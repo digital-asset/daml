@@ -19,7 +19,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return nothing for a mismatching transaction id" in {
     for {
-      (_, tx) <- storeCreateTransaction()
+      (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(transactionId = "WRONG", Set(tx.submittingParty.get))
     } yield {
@@ -29,7 +29,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return nothing for a mismatching party" in {
     for {
-      (_, tx) <- storeCreateTransaction()
+      (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.transactionId, Set("WRONG"))
     } yield {
@@ -39,7 +39,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return the expected transaction tree for a correct request (create)" in {
     for {
-      (offset, tx) <- storeCreateTransaction()
+      (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
     } yield {
@@ -70,11 +70,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return the expected transaction tree for a correct request (exercise)" in {
     for {
-      (_, create) <- storeCreateTransaction()
-      created <- ledgerDao.transactionsReader
-        .lookupTransactionTreeById(create.transactionId, Set(create.submittingParty.get))
-      (offset, exercise) <- storeExerciseTransaction(
-        AbsoluteContractId(created.get.transaction.get.eventsById.head._2.getCreated.contractId))
+      (_, create) <- store(singleCreate)
+      (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(exercise.transactionId, Set(exercise.submittingParty.get))
     } yield {
@@ -106,7 +103,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return the expected transaction tree for a correct request (create, exercise)" in {
     for {
-      (offset, tx) <- storeFullyTransientTransaction()
+      (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.transactionId, Set(tx.submittingParty.get))
     } yield {
