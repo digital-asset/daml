@@ -28,7 +28,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                 createArgument = createArgument,
                 createSignatories = createSignatories,
                 createObservers = createObservers,
-                createAgreementText = createAgreementText.orElse(Some("")),
+                createAgreementText = createAgreementText,
                 createKeyValue = createKeyValue,
                 eventWitnesses = eventWitnesses,
               )
