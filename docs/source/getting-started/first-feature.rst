@@ -21,7 +21,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model  
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that we need to terminate the previous ``./daml-start.sh`` process and run it again.  
+    3. Running the new feature. In order to do that we need to terminate the previous ``daml start --start-navigator=no`` process and run it again.
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
@@ -180,13 +180,13 @@ Let's give the new functionality a spin.
 Running the New Feature
 =======================
 
-We need to terminate the previous ``./daml-start.sh`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``./daml-start.sh`` again we will 
+We need to terminate the previous ``daml start --start-navigator=no`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start --start-navigator=no`` again we will
 
   - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API 
 
-First, navigate to the terminal window where the ``daml-start.sh`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
+First, navigate to the terminal window where the ``daml start --start-navigator=no`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``daml start --start-navigator=no``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost. 
 
