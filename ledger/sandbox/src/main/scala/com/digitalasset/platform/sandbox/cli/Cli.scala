@@ -48,8 +48,8 @@ object Cli {
 
   private implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads {
     _.split(":", 2).toSeq match {
-      case Seq("console") => MetricsReporter.ConsoleReporter
-      case Seq("csv", directory) => MetricsReporter.CsvReporter(Paths.get(directory))
+      case Seq("console") => MetricsReporter.Console
+      case Seq("csv", directory) => MetricsReporter.Csv(Paths.get(directory))
       case _ =>
         throw new InvalidConfigException(s"""Must be one of "console", or "csv:PATH".""")
     }

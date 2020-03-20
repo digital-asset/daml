@@ -9,8 +9,8 @@ sealed trait MetricsReporter
 
 object MetricsReporter {
 
-  case object ConsoleReporter extends MetricsReporter
+  case object Console extends MetricsReporter
 
-  final case class CsvReporter(directory: Path) extends MetricsReporter
+  final case class Csv(directory: Path) extends MetricsReporter
 
 }

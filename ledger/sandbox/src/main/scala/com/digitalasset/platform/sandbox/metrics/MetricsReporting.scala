@@ -58,11 +58,11 @@ final class MetricsReporting(
   private def newReporter(reporter: MetricsReporter, registry: MetricRegistry)(
       implicit executionContext: ExecutionContext
   ): ScheduledReporter = reporter match {
-    case MetricsReporter.ConsoleReporter =>
+    case MetricsReporter.Console =>
       ConsoleReporter
         .forRegistry(registry)
         .build()
-    case MetricsReporter.CsvReporter(directory) =>
+    case MetricsReporter.Csv(directory) =>
       CsvReporter
         .forRegistry(registry)
         .build(directory.toFile)
