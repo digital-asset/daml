@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.configuration.ServerName
 import com.digitalasset.platform.indexer.StandaloneIndexerServer._
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
@@ -63,5 +64,5 @@ final class StandaloneIndexerServer(
 }
 
 object StandaloneIndexerServer {
-  private val Name: String = "indexer"
+  private val Name: ServerName = ServerName("indexer")
 }

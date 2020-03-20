@@ -26,6 +26,7 @@ import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{
   CommandConfiguration,
   PartyConfiguration,
+  ServerName,
   SubmissionConfiguration
 }
 import com.digitalasset.platform.index.JdbcIndex
@@ -163,7 +164,7 @@ final class StandaloneApiServer(
 }
 
 object StandaloneApiServer {
-  private val Name: String = "ledger-api-server"
+  private val Name: ServerName = ServerName("ledger-api-server")
 
   private val sharedEngine: Engine = Engine()
 }

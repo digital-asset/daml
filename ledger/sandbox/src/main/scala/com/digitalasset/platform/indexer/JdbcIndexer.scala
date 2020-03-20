@@ -21,6 +21,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.common.LedgerIdMismatchException
+import com.digitalasset.platform.configuration.ServerName
 import com.digitalasset.platform.events.EventIdFormatter
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
@@ -33,7 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
-    name: String,
+    name: ServerName,
     participantId: ParticipantId,
     jdbcUrl: String,
     actorSystem: ActorSystem,

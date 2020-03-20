@@ -48,6 +48,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+import com.digitalasset.platform.configuration.ServerName
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
@@ -1760,7 +1761,7 @@ object JdbcLedgerDao {
   private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
 
   def readOwner(
-      name: String,
+      name: ServerName,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
@@ -1770,7 +1771,7 @@ object JdbcLedgerDao {
   }
 
   def writeOwner(
-      name: String,
+      name: ServerName,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
@@ -1782,7 +1783,7 @@ object JdbcLedgerDao {
   }
 
   private def owner(
-      name: String,
+      name: ServerName,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,

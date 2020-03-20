@@ -9,6 +9,7 @@ import java.util.concurrent.{Executor, Executors, TimeUnit}
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.configuration.ServerName
 import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -89,7 +90,7 @@ object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
-      name: String,
+      name: ServerName,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,

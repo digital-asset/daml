@@ -9,6 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
+import com.digitalasset.platform.configuration.ServerName
 import com.digitalasset.platform.store.DbType
 import com.digitalasset.platform.store.dao.HikariJdbcConnectionProvider._
 import com.digitalasset.resources.ResourceOwner
@@ -97,7 +98,7 @@ object HikariJdbcConnectionProvider {
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
   def owner(
-      name: String,
+      name: ServerName,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
