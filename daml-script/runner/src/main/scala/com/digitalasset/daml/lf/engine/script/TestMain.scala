@@ -143,13 +143,11 @@ object TestMain extends StrictLogging {
               case (id, script) => {
                 val runner = new Runner(
                   compiledPackages,
-                  script.scriptIds,
+                  script,
                   applicationId,
                   commandUpdater,
                   timeProvider)
-                val testRun: Future[Unit] = for {
-                  _ <- runner.runExpr(clients, script.expr)
-                } yield ()
+                val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
                 // Print test result and remember failure.
                 testRun.onComplete {
                   case Failure(exception) =>

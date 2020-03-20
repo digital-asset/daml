@@ -202,16 +202,6 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
 
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-
-    val runner = new Runner(
-      compiledPackages,
-      ScriptIds(scriptPackageId),
-      ApplicationId("daml repl"),
-      commandUpdater,
-      TimeProvider.UTC)
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
         Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
@@ -219,7 +209,17 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
-    runner.runExpr(clients, scriptExpr).onComplete {
+
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val runner = new Runner(
+      compiledPackages,
+      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
+      ApplicationId("daml repl"),
+      commandUpdater,
+      TimeProvider.UTC)
+    runner.runWithClients(clients).onComplete {
       case Failure(e) => respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)

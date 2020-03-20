@@ -201,14 +201,14 @@ object Runner {
         case (script: Script.Function, None) =>
           throw new RuntimeException(s"The script ${scriptId} requires an argument.")
       }
-      val runner = new Runner(compiledPackages, scriptAction.scriptIds, applicationId, commandUpdater, timeProvider)
-      runner.runExpr(initialClients, scriptAction.expr)
+      val runner = new Runner(compiledPackages, scriptAction, applicationId, commandUpdater, timeProvider)
+      runner.runWithClients(initialClients)
   }
 }
 
 class Runner(
     compiledPackages: CompiledPackages,
-    scriptIds: ScriptIds,
+    script: Script.Action,
     applicationId: ApplicationId,
     commandUpdater: CommandUpdater,
     timeProvider: TimeProvider)
@@ -242,7 +242,7 @@ class Runner(
   // with the result is convert it to ledger values/record so this is safe.
   private val extendedCompiledPackages = {
     val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
-      case LfDefRef(id) if id == scriptIds.damlScript("fromLedgerValue") =>
+      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
         SEMakeClo(Array(), 1, SEVar(1))
     }
     new CompiledPackages {
@@ -269,12 +269,12 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def runExpr(initialClients: Participants[LedgerClient], scriptExpr: SExpr)(
+  def runWithClients(initialClients: Participants[LedgerClient])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
     var machine =
-      Speedy.Machine.fromSExpr(scriptExpr, false, extendedCompiledPackages)
+      Speedy.Machine.fromSExpr(script.expr, false, extendedCompiledPackages)
 
     def stepToValue() = {
       while (!machine.isFinal) {
@@ -354,7 +354,7 @@ class Runner(
                     }
                     case Left(statusEx) => {
                       val res = Converter
-                        .fromStatusException(scriptIds, statusEx)
+                        .fromStatusException(script.scriptIds, statusEx)
                         .fold(s => throw new ConverterException(s), identity)
                       machine.ctrl =
                         Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))
