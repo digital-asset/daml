@@ -108,7 +108,31 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
-final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds)
+final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds) {
+  def paramFromJson(
+      envIface: EnvironmentInterface,
+      compiledPackages: CompiledPackages): Either[String, JsValue => Either[String, SValue]] = {
+    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
+      envIface.typeDecls.get(id).map(_.`type`)
+    def jsValueToLfValue(paramIface: iface.Type, jsValue: JsValue): Value[AbsoluteContractId] =
+      jsValue.convertTo[Value[AbsoluteContractId]](
+        LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
+    val valueTranslator = new ValueTranslator(compiledPackages)
+    def lfValueToSValue(param: Type, lfValue: Value[AbsoluteContractId]): Either[String, SValue] =
+      valueTranslator
+        .translateValue(param, lfValue)
+        .consume(_ => None, _ => None, _ => None)
+        .left
+        .map(_.msg)
+    for {
+      param <- param.toRight(s"The script ${id} does not take arguments.")
+      paramIface <- Converter
+        .toIfaceType(id.qualifiedName, param)
+        .left
+        .map(s => s"Failed to convert $param: $s")
+    } yield (js: JsValue) => lfValueToSValue(param, jsValueToLfValue(paramIface, js))
+  }
+}
 
 object Script {
   def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
@@ -197,9 +221,6 @@ class Runner(
     timeProvider: TimeProvider)
     extends StrictLogging {
 
-  private def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-    environmentInterface.typeDecls.get(id).map(_.`type`)
-
   private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
       pkg <- compiledPackages
@@ -242,12 +263,6 @@ class Runner(
   }
   private val valueTranslator = new ValueTranslator(extendedCompiledPackages)
 
-  private def translateValue(typ: Type, value: Value[AbsoluteContractId]) =
-    valueTranslator
-      .translateValue(typ, value)
-      .consume(_ => None, _ => None, _ => None)
-      .fold(e => throw new RuntimeException(e.msg), identity)
-
   private def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
       party = party.value,
@@ -264,17 +279,14 @@ class Runner(
   def run(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
-    val scriptExpr = (script.param, inputValue) match {
+    val scriptExpr: SExpr = (script.param, inputValue) match {
       case (None, None) => script.expr
       case (Some(param), Some(inputJson)) => {
-        val paramIface = Converter.toIfaceType(script.id.qualifiedName, param) match {
-          case Left(s) => throw new ConverterException(s"Failed to convert $param: $s")
-          case Right(ty) => ty
-        }
-        val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
-          LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
-        SEApp(script.expr, Array(SEValue(translateValue(param, inputLfVal))))
-      }
+        for {
+          converter <- script.paramFromJson(environmentInterface, compiledPackages)
+          arg <- converter(inputJson)
+        } yield SEApp(script.expr, Array(SEValue(arg)))
+      }.fold(s => throw new ConverterException(s), identity)
       case (None, Some(_)) =>
         throw new RuntimeException(s"The script ${script.id} does not take arguments.")
       case (Some(_), None) =>
