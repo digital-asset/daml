@@ -4,7 +4,7 @@
 package com.digitalasset.platform.store.dao
 
 import java.sql.Connection
-import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
@@ -15,17 +15,17 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class DbDispatcher(
+final class DbDispatcher private (
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
-    sqlExecutor: ExecutorService,
+    executor: Executor,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext)
     extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
+  private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
     val waitAllTimer: Timer = metrics.timer("daml.index.db.all.wait")
@@ -81,30 +81,29 @@ final class DbDispatcher(
               .error(s"$description: Got an exception while updating timer metrics. Ignoring.", t)
         }
       }
-    }(sqlExecution)
+    }(executionContext)
   }
 }
 
 object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
+
   def owner(
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-  )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] = {
+  )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
       connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
-      sqlExecutor <- ResourceOwner.forExecutorService(
+      executor <- ResourceOwner.forExecutorService(
         () =>
           Executors.newFixedThreadPool(
             maxConnections,
             new ThreadFactoryBuilder()
-              .setDaemon(true)
               .setNameFormat("sql-executor-%d")
               .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Got an uncaught exception in SQL executor!", e))
+                logger.error("Uncaught exception in the SQL executor.", e))
               .build()
         ))
-    } yield new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, metrics)
-  }
+    } yield new DbDispatcher(maxConnections, connectionProvider, executor, metrics)
 }

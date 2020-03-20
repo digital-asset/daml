@@ -5,6 +5,7 @@ package com.digitalasset.platform.store.dao
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -46,9 +47,11 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
@@ -64,16 +67,14 @@ import com.digitalasset.platform.store.serialization.{
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.store._
 import com.digitalasset.resources.ResourceOwner
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import scala.util.control.NonFatal
-
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 
 private final case class ParsedEntry(
     typ: String,
@@ -105,6 +106,7 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
+    override val maxConcurrentConnections: Int,
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
@@ -1753,34 +1755,49 @@ private class JdbcLedgerDao(
 
 object JdbcLedgerDao {
 
-  val defaultNumberOfShortLivedConnections = 16
+  private val DefaultNumberOfShortLivedConnections = 16
 
-  def owner(
+  private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
+
+  def readOwner(
       jdbcUrl: String,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
+    val maxConnections = DefaultNumberOfShortLivedConnections
+    owner(jdbcUrl, maxConnections, metrics)
+      .map(new MeteredLedgerReadDao(_, metrics))
+  }
+
+  def writeOwner(
+      jdbcUrl: String,
+      metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
-      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-    } yield new MeteredLedgerDao(JdbcLedgerDao(dbDispatcher, dbType, executionContext), metrics)
+      if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
+    owner(jdbcUrl, maxConnections, metrics)
+      .map(new MeteredLedgerDao(_, metrics))
   }
 
-  def apply(
-      dbDispatcher: DbDispatcher,
-      dbType: DbType,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): LedgerDao =
-    new JdbcLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      KeyHasher,
-      dbType,
-      executionContext,
-    )
+  private def owner(
+      jdbcUrl: String,
+      maxConnections: Int,
+      metrics: MetricRegistry,
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+    for {
+      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+      executor <- ResourceOwner.forExecutorService(() =>
+        Executors.newCachedThreadPool(ThreadFactory))
+    } yield
+      new JdbcLedgerDao(
+        maxConnections,
+        dbDispatcher,
+        ContractSerializer,
+        TransactionSerializer,
+        KeyHasher,
+        DbType.jdbcType(jdbcUrl),
+        ExecutionContext.fromExecutor(executor),
+      )
 
   private val PARTY_SEPARATOR = '%'
 
@@ -1788,8 +1805,11 @@ object JdbcLedgerDao {
 
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
+
     protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
+
     protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+
     protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
