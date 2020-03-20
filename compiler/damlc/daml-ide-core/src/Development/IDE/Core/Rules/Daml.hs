@@ -236,7 +236,7 @@ generateRawDalfRule :: Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
-        (coreDiags, mbCore) <- generateCore file
+        (coreDiags, mbCore) <- generateCore (RunSimplifier False) file
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
