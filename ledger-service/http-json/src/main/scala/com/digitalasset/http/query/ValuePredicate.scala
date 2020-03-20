@@ -316,11 +316,8 @@ object ValuePredicate {
             val elemTy = soleTypeArg("Optional")
             fromOptional(q, elemTy)
         }
-        case List | TextMap =>
+        case List | TextMap | GenMap =>
           predicateParseError(s"${typ.typ} not supported")
-        case GenMap =>
-          // FIXME https://github.com/digital-asset/daml/issues/2256
-          predicateParseError("GenMap not supported")
       }(fallback = illTypedQuery(it, typ))
     }
 
