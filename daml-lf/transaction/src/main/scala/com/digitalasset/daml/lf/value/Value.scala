@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package value
 
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, Name}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -349,19 +350,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   sealed trait ContractId
 
-  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId {
-    lazy val discriminator =
-      if (coid.startsWith("00"))
-        crypto.Hash.fromString(coid.slice(2, 66)).toOption
-      else
-        None
-    lazy val suffix: String =
-      if (discriminator.isDefined)
-        Some(coid.drop(66))
-      else
-        None
-  }
-
+  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
   final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {
