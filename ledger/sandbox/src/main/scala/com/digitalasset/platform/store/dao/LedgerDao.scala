@@ -18,7 +18,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionWriter}
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -32,13 +32,15 @@ import scala.concurrent.Future
 
 trait LedgerReadDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[Offset]
 
-  /** Looks up the current external ledger end offset*/
+  /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd(): Future[Option[Offset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
@@ -167,10 +169,12 @@ trait LedgerReadDao extends ReportsHealth {
 
 trait LedgerWriteDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /**
     * Initializes the ledger. Must be called only once.
     *
-    * @param ledgerId  the ledger id to be stored
+    * @param ledgerId the ledger id to be stored
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit]
 
@@ -231,7 +235,7 @@ trait LedgerWriteDao extends ReportsHealth {
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
 
-  def transactionsWriter: TransactionWriter
+  def transactionsWriter: TransactionsWriter
 
 }
 

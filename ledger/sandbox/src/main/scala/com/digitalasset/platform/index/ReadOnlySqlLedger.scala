@@ -16,13 +16,8 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.store.dao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerReadDao,
-  MeteredLedgerReadDao
-}
-import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
+import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.digitalasset.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.digitalasset.resources.ProgramResource.StartupException
 import com.digitalasset.resources.ResourceOwner
 
@@ -31,25 +26,17 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
-  val maxConnections = 16
-
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def owner(
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-      ledgerReadDao = new MeteredLedgerReadDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
-        metrics,
-      )
+      ledgerReadDao <- JdbcLedgerDao.readOwner(jdbcUrl, metrics)
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger
-  }
 
   private class Factory(ledgerDao: LedgerReadDao)(implicit logCtx: LoggingContext) {
 

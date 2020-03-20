@@ -78,11 +78,11 @@ You should see ``Compiled successfully.`` in the output if everything worked as 
 
 We can now run the app in two steps.
 You'll need two terminal windows running for this.
-In one terminal, at the root of the ``create-daml-app`` directory, run the script::
+In one terminal, at the root of the ``create-daml-app`` directory, run the command::
 
-    ./daml-start.sh
+    daml start --start-navigator=no
 
-You will know that script has run successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/0:0:0:0:0:0:0:0:7575)`` message in terminal. The script is just shorthand for ``daml start`` with some arguments, which does a few things:
+You will know that the command has started successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
     1. Compiles the DAML code to a DAR file as in the previous ``daml build`` step.
     2. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.

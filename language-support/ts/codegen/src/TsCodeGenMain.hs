@@ -746,9 +746,10 @@ setupWorkspace optInputPackageJson optOutputDir dependencies = do
     (Just <$> BSL.readFile optInputPackageJson) (const $ pure Nothing)
   packageJson <- case mbBytes of
     Nothing -> pure mempty
-    Just bytes -> case decode @PackageJson bytes of
-      Nothing -> fail $ "Error decoding JSON from '" <> optInputPackageJson <> "'"
-      Just packageJson -> pure packageJson
+    Just bytes ->
+      case eitherDecode @PackageJson bytes of
+        Left msg -> fail $ "Error : '" <> optInputPackageJson <> "' : " <> msg
+        Right packageJson -> pure packageJson
   transformAndWrite ourWorkspaces outBaseDir packageJson
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()

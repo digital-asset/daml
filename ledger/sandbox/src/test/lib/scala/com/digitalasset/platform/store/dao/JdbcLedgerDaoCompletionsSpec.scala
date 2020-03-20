@@ -28,7 +28,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
   it should "return the expected completion for an accepted transaction" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      (offset, tx) <- storeCreateTransaction()
+      (offset, tx) <- store(singleCreate)
       to <- ledgerDao.lookupLedgerEnd()
       (_, response) <- ledgerDao.completions
         .getCommandCompletions(from, to, tx.applicationId.get, Set(tx.submittingParty.get))

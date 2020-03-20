@@ -14,8 +14,8 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node._
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -106,12 +106,10 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final def event(txid: TransactionId, idx: Long): EventId =
     EventIdFormatter.fromTransactionId(txid, NodeId(idx.toInt))
 
-  private def genCreate(
+  private def create(
       absCid: AbsoluteContractId,
-      txId: String,
-      id: Long,
-  ): (EventId, NodeCreate.WithTxValue[AbsoluteContractId]) =
-    event(txId, id) -> NodeCreate(
+  ): NodeCreate.WithTxValue[AbsoluteContractId] =
+    NodeCreate(
       nodeSeed = None,
       coid = absCid,
       coinst = someContractInstance,
@@ -121,12 +119,10 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       key = None
     )
 
-  private def genExercise(
+  private def exercise(
       targetCid: AbsoluteContractId,
-      txId: String,
-      id: Long,
-  ): (EventId, NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =
-    event(txId, id) -> NodeExercises(
+  ): NodeExercises.WithTxValue[EventId, AbsoluteContractId] =
+    NodeExercises(
       nodeSeed = None,
       targetCoid = targetCid,
       templateId = someTemplateId,
@@ -144,7 +140,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       key = None
     )
 
-  private def genTransaction(
+  private def transaction(
       head: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId]),
       tail: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId])*,
   ): GenTransaction.WithTxValue[EventId, AbsoluteContractId] =
@@ -153,12 +149,47 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       roots = ImmArray(head._1, tail.map(_._1): _*),
     )
 
-  private def genCreateTransaction(offset: Offset): LedgerEntry.Transaction = {
+  @throws[RuntimeException] // if parent is not there or is not an exercise
+  private def addChildren(
+      tx: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
+      parent: EventId,
+      head: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId]),
+      tail: (EventId, GenNode.WithTxValue[EventId, AbsoluteContractId])*,
+  ): GenTransaction.WithTxValue[EventId, AbsoluteContractId] =
+    tx.copy(
+      nodes = tx.nodes.updated(
+        key = parent,
+        value = tx.nodes.get(parent) match {
+          case Some(node: NodeExercises.WithTxValue[EventId, AbsoluteContractId]) =>
+            node.copy(
+              children = node.children.slowAppend(ImmArray(head._1, tail.map(_._1): _*))
+            )
+          case Some(node) => sys.error(s"Cannot add children to non-exercise node $node")
+          case None => sys.error(s"Cannot find $parent")
+        }
+      ) + head ++ tail
+    )
+
+  // All non-transient contracts created in a transaction
+  protected def nonTransient(tx: LedgerEntry.Transaction): Set[AbsoluteContractId] =
+    tx.transaction.fold(Set.empty[AbsoluteContractId]) {
+      case (set, (_, create: NodeCreate.WithTxValue[AbsoluteContractId])) =>
+        set + create.coid
+      case (set, (_, exercise: Node.NodeExercises.WithTxValue[EventId, AbsoluteContractId]))
+          if exercise.consuming =>
+        set - exercise.targetCoid
+      case (set, _) =>
+        set
+    }
+
+  protected def singleCreate: (Offset, LedgerEntry.Transaction) = {
+    val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
     val absCid = AbsoluteContractId(s"cId$id")
     val let = Instant.now
-    LedgerEntry.Transaction(
+    val eid = event(txId, id)
+    offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
       Some("appID1"),
@@ -166,27 +197,20 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      genTransaction(genCreate(absCid, txId, id)),
-      Map(event(txId, id) -> Set("Alice", "Bob"))
+      transaction(eid -> create(absCid)),
+      Map(eid -> Set("Alice", "Bob"))
     )
   }
 
-  protected final def storeCreateTransaction()(
-      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
+  protected def singleExercise(
+      targetCid: AbsoluteContractId,
+  ): (Offset, LedgerEntry.Transaction) = {
     val offset = nextOffset()
-    val t = genCreateTransaction(offset)
-    ledgerDao
-      .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
-      .map(_ => offset -> t)
-  }
-
-  private def genExerciseTransaction(
-      offset: Offset,
-      targetCid: AbsoluteContractId): LedgerEntry.Transaction = {
     val id = offset.toLong
     val txId = s"trId$id"
     val let = Instant.now
-    LedgerEntry.Transaction(
+    val eid = event(txId, id)
+    offset -> LedgerEntry.Transaction(
       Some(s"commandId$id"),
       txId,
       Some("appID1"),
@@ -194,25 +218,18 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      genTransaction(genExercise(targetCid, txId, id)),
-      Map(event(txId, id) -> Set("Alice", "Bob"))
+      transaction(eid -> exercise(targetCid)),
+      Map(eid -> Set("Alice", "Bob"))
     )
   }
 
-  protected final def storeExerciseTransaction(targetCid: AbsoluteContractId)(
-      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
-    val offset = nextOffset()
-    val t = genExerciseTransaction(offset, targetCid)
-    ledgerDao
-      .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
-      .map(_ => offset -> t)
-  }
-
-  private def genFullyTransientTransaction(): LedgerEntry.Transaction = {
+  protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
     val absCid = AbsoluteContractId(UUID.randomUUID().toString)
     val let = Instant.now
-    LedgerEntry.Transaction(
+    val createId = event(txId, 0)
+    val exerciseId = event(txId, 1)
+    nextOffset() -> LedgerEntry.Transaction(
       Some(UUID.randomUUID().toString),
       txId,
       Some("appID1"),
@@ -220,24 +237,79 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some("workflowId"),
       let,
       let,
-      genTransaction(
-        genCreate(absCid, txId, id = 0),
-        genExercise(absCid, txId, id = 1)
+      transaction(
+        createId -> create(absCid),
+        exerciseId -> exercise(absCid)
       ),
       Map(
-        event(txId, idx = 0) -> Set("Alice", "Bob"),
-        event(txId, idx = 1) -> Set("Alice", "Bob"),
+        createId -> Set("Alice", "Bob"),
+        exerciseId -> Set("Alice", "Bob"),
       )
     )
   }
 
-  protected final def storeFullyTransientTransaction()(
+  /**
+    * Creates the following transaction
+    *
+    * Create A --> Exercise A
+    *              |        |
+    *              |        |
+    *              v        v
+    *           Create B  Exercise B
+    *
+    * A is visible to Charlie
+    * B is visible to Alice, Bob and Charlie
+    *
+    */
+  protected def withChildren: (Offset, LedgerEntry.Transaction) = {
+    val txId = UUID.randomUUID().toString
+    val absCid1 = AbsoluteContractId(UUID.randomUUID().toString)
+    val absCid2 = AbsoluteContractId(UUID.randomUUID().toString)
+    val let = Instant.now
+    val createId = event(txId, 0)
+    val exerciseId = event(txId, 1)
+    val childCreateId = event(txId, 2)
+    val childExerciseId = event(txId, 3)
+    nextOffset() -> LedgerEntry.Transaction(
+      Some(UUID.randomUUID().toString),
+      txId,
+      Some("appID1"),
+      Some(charlie),
+      Some("workflowId"),
+      let,
+      let,
+      addChildren(
+        tx = transaction(
+          createId -> create(absCid1).copy(
+            signatories = Set(charlie),
+            stakeholders = Set(charlie),
+          ),
+          exerciseId -> exercise(absCid1).copy(
+            actingParties = Set(charlie),
+            signatories = Set(charlie),
+            stakeholders = Set(charlie),
+          ),
+        ),
+        parent = exerciseId,
+        childCreateId -> create(absCid2),
+        childExerciseId -> exercise(absCid2)
+      ),
+      Map(
+        createId -> Set(charlie),
+        exerciseId -> Set(charlie),
+        childCreateId -> Set(alice, bob, charlie),
+        childExerciseId -> Set(alice, bob, charlie),
+      )
+    )
+  }
+
+  protected final def store(offsetAndTx: (Offset, LedgerEntry.Transaction))(
       implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
-    val offset = nextOffset()
-    val t = genFullyTransientTransaction()
     ledgerDao
-      .storeLedgerEntry(offset, PersistenceEntry.Transaction(t, Map.empty, List.empty))
-      .map(_ => offset -> t)
+      .storeLedgerEntry(
+        offsetAndTx._1,
+        PersistenceEntry.Transaction(offsetAndTx._2, Map.empty, List.empty))
+      .map(_ => offsetAndTx)
   }
 
   /** A transaction that creates the given key */
