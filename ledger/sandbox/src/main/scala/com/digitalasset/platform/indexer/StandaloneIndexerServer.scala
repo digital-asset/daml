@@ -22,7 +22,13 @@ final class StandaloneIndexerServer(
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
-    val indexerFactory = new JdbcIndexerFactory(config.jdbcUrl, metrics)
+    val indexerFactory = new JdbcIndexerFactory(
+      config.participantId,
+      config.jdbcUrl,
+      actorSystem,
+      readService,
+      metrics,
+    )
     val indexer = new RecoveringIndexer(actorSystem.scheduler, config.restartDelay)
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
@@ -46,15 +52,10 @@ final class StandaloneIndexerServer(
 
   private def startIndexer(
       indexer: RecoveringIndexer,
-      initializedIndexerFactory: InitializedJdbcIndexerFactory,
+      initializedIndexerFactory: ResourceOwner[JdbcIndexer],
       actorSystem: ActorSystem,
   )(implicit executionContext: ExecutionContext): Resource[Unit] =
     indexer
-      .start(
-        () =>
-          initializedIndexerFactory
-            .owner(config.participantId, actorSystem, readService, config.jdbcUrl)
-            .flatMap(_.subscription(readService))
-            .acquire())
+      .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())
       .map(_ => ())
 }

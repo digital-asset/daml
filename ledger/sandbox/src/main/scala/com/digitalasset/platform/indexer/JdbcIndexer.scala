@@ -26,76 +26,80 @@ import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
+import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
+    participantId: ParticipantId,
     jdbcUrl: String,
+    actorSystem: ActorSystem,
+    readService: ReadService,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext) {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def validateSchema()(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
+  ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .validate()
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+      .map(_ => initialized())
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
+  ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
-}
+      .map(_ => initialized())
 
-class InitializedJdbcIndexerFactory private[indexer] (
-    jdbcUrl: String,
-    metrics: MetricRegistry,
-)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  def owner(
-      participantId: ParticipantId,
-      actorSystem: ActorSystem,
-      readService: ReadService,
-      jdbcUrl: String,
-  ): ResourceOwner[JdbcIndexer] = {
-    val materializer: Materializer = Materializer(actorSystem)
-
-    def fetchInitialState(dao: LedgerDao): Future[Option[Offset]] =
-      for {
-        initialConditions <- readService
-          .getLedgerInitialConditions()
-          .runWith(Sink.head)(materializer)
-        existingLedgerId <- dao.lookupLedgerId()
-        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
-        initialLedgerEnd <- dao.lookupInitialLedgerEnd()
-      } yield initialLedgerEnd
-
+  private def initialized()(
+      implicit executionContext: ExecutionContext
+  ): ResourceOwner[JdbcIndexer] =
     for {
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
-      initialLedgerEnd <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)
-  }
+      initialLedgerEnd <- ResourceOwner.forFuture(() =>
+        initializeLedger(ledgerDao)(materializer, executionContext))
+    } yield {
+      implicit val mat: Materializer = materializer
+      new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
+    }
 
-  private def initializeLedger(
-      existingLedgerId: Option[domain.LedgerId],
+  private def initializeLedger(dao: LedgerDao)(
+      implicit materializer: Materializer,
+      executionContext: ExecutionContext,
+  ): Future[Option[Offset]] =
+    for {
+      initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      existingLedgerId <- dao.lookupLedgerId()
+      providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+      _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
+        checkLedgerIds(_, providedLedgerId))
+      initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+    } yield initialLedgerEnd
+
+  private def checkLedgerIds(
+      existingLedgerId: domain.LedgerId,
+      providedLedgerId: domain.LedgerId,
+  ): Future[Unit] =
+    if (existingLedgerId == providedLedgerId) {
+      logger.info(s"Found existing ledger with ID: $existingLedgerId")
+      Future.unit
+    } else {
+      Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+    }
+
+  private def initializeLedgerData(
       providedLedgerId: domain.LedgerId,
       ledgerDao: LedgerDao,
-  ): Future[Unit] =
-    existingLedgerId match {
-      case Some(foundLedgerId) if foundLedgerId == providedLedgerId =>
-        logger.info(s"Found existing ledger with ID: $foundLedgerId")
-        Future.unit
-      case Some(foundLedgerId) =>
-        Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
-      case None =>
-        logger.info(s"Initializing ledger with ID: $providedLedgerId")
-        ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
-    }
+  ): Future[Unit] = {
+    logger.info(s"Initializing ledger with ID: $providedLedgerId")
+    ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
+  }
 }
 
 /**
