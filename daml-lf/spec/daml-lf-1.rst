@@ -564,7 +564,7 @@ strings as *package identifiers*.  ::
           cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]+           -- V0ContractId
 
   V1 Contract identifiers:
-          cidV1  ∈  00([0-9a-f][0-9a-f]){32,190}    -- V1ContractId
+          cidV1  ∈  00([0-9a-f][0-9a-f]){32,96}    -- V1ContractId
 
   Contract identifiers:
           cid := cidV0 | cidV1                      -- ContractId
