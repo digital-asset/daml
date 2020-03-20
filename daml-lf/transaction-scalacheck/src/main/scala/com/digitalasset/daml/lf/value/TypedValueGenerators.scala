@@ -21,10 +21,12 @@ import iface.{
   Variant,
 }
 
-import scalaz.~>
+import scalaz.{==>>, Order, ~>}
 import scalaz.Id.Id
+import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
 import scalaz.std.option._
+import scalaz.std.tuple._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import Arbitrary.arbitrary
 
@@ -45,6 +47,7 @@ object TypedValueGenerators {
     def t: Type
     def inj[Cid]: Inj[Cid] => Value[Cid]
     def prj[Cid]: Value[Cid] => Option[Inj[Cid]]
+    implicit def injord[Cid: Order]: Order[Inj[Cid]]
     implicit def injarb[Cid: Arbitrary]: Arbitrary[Inj[Cid]]
     implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
@@ -59,18 +62,26 @@ object TypedValueGenerators {
       type Inj[_] = Inj0
     }
 
-    def noCid[Inj0](pt: PT, inj0: Inj0 => Value[Nothing])(prj0: Value[Any] PartialFunction Inj0)(
-        implicit arb: Arbitrary[Inj0],
-        shr: Shrink[Inj0]): NoCid[Inj0] = new ValueAddend {
+    private sealed abstract class NoCid0[Inj0](
+        implicit ord: Order[Inj0],
+        arb: Arbitrary[Inj0],
+        shr: Shrink[Inj0])
+        extends ValueAddend {
       type Inj[Cid] = Inj0
+      override final def injord[Cid: Order] = ord
+      override final def injarb[Cid: Arbitrary] = arb
+      override final def injshrink[Cid: Shrink] = shr
+    }
+
+    def noCid[Inj0: Order: Arbitrary: Shrink](pt: PT, inj0: Inj0 => Value[Nothing])(
+        prj0: Value[Any] PartialFunction Inj0): NoCid[Inj0] = new NoCid0[Inj0] {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj[Cid] = inj0
       override def prj[Cid] = prj0.lift
-      override def injarb[Cid: Arbitrary] = arb
-      override def injshrink[Cid: Shrink] = shr
     }
 
     import Value._, ValueGenerators.Implicits._
+    import scalaz.std.anyVal._, scalaz.std.string._
     val text = noCid(PT.Text, ValueText) { case ValueText(t) => t }
     val int64 = noCid(PT.Int64, ValueInt64) { case ValueInt64(i) => i }
     val unit = noCid(PT.Unit, (_: Unit) => ValueUnit) { case ValueUnit => () }
@@ -79,25 +90,19 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool(_)) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    def numeric(scale: Numeric.Scale): NoCid[Numeric] = new ValueAddend {
-      type Inj[Cid] = Numeric
+    def numeric(scale: Numeric.Scale): NoCid[Numeric] = {
+      implicit val arb: Arbitrary[Numeric] = Arbitrary(ValueGenerators.numGen(scale))
+      new NoCid0[Numeric] {
+        override def t: Type = TypeNumeric(scale)
 
-      override def t: Type = TypeNumeric(scale)
+        override def inj[Cid]: Numeric => Value[Cid] =
+          x => ValueNumeric(Numeric.assertFromBigDecimal(scale, x))
 
-      override def inj[Cid]: Numeric => Value[Cid] =
-        x => ValueNumeric(Numeric.assertFromBigDecimal(scale, x))
-
-      override def prj[Cid]: Value[Cid] => Option[Numeric] = {
-        case ValueNumeric(x) => Numeric.fromBigDecimal(scale, x).toOption
-        case _ => None
+        override def prj[Cid]: Value[Cid] => Option[Numeric] = {
+          case ValueNumeric(x) => Numeric.fromBigDecimal(scale, x).toOption
+          case _ => None
+        }
       }
-
-      override def injarb[Cid: Arbitrary]: Arbitrary[Numeric] =
-        Arbitrary(ValueGenerators.numGen(scale))
-
-      override def injshrink[Cid: Shrink]: Shrink[Numeric] =
-        implicitly
-
     }
 
     val contractId: Aux[Id] = new ValueAddend {
@@ -110,6 +115,7 @@ object TypedValueGenerators {
         case ValueContractId(cid) => Some(cid)
         case _ => None
       }
+      override def injord[Cid](implicit ord: Order[Cid]) = ord
       override def injarb[Cid](implicit cid: Arbitrary[Cid]) = cid
       override def injshrink[Cid](implicit shr: Shrink[Cid]) = shr
     }
@@ -164,6 +170,33 @@ object TypedValueGenerators {
       override def injarb[Cid: Arbitrary] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
+      }
+      override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
+    }
+
+    def genMap(key: ValueAddend, elt: ValueAddend): ValueAddend {
+      type Inj[Cid] = key.Inj[Cid] ==>> elt.Inj[Cid]
+    } = new ValueAddend {
+      type Inj[Cid] = key.Inj[Cid] ==>> elt.Inj[Cid]
+      override val t = TypePrim(PT.GenMap, ImmArraySeq(key.t, elt.t))
+      override def inj[Cid] =
+        (m: key.Inj[Cid] ==>> elt.Inj[Cid]) =>
+          ValueGenMap(
+            m.foldlWithKey(ImmArray.newBuilder[(Value[Cid], Value[Cid])]) { (b, k, v) =>
+                b += ((key.inj(k), elt.inj(v)))
+              }
+              .result)
+      override def prj[Cid] = {
+        case ValueGenMap(kvs) =>
+          kvs traverse (_ bitraverse (key.prj, elt.prj)) map (==>>.fromFoldable(_))
+        case _ => None
+      }
+      override def injarb[Cid: Arbitrary] = {
+        implicit val ok: Order[key.Inj[Cid]] = key.injord[Cid]
+        implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
+        implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
+        import scalaz.scalacheck.ScalazArbitrary._
+        implicitly[Arbitrary[key.Inj[Cid] ==>> elt.Inj[Cid]]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }

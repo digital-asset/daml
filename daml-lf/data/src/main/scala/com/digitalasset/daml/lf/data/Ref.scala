@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package data
 
-import scalaz.Equal
+import scalaz.{Equal, Order}
 
 object Ref {
 
@@ -30,6 +30,7 @@ object Ref {
     */
   type Party = IdString.Party
   val Party: IdString.Party.type = IdString.Party
+  implicit def `Party order instance`: Order[Party] = Order fromScalaOrdering Party.ordering
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
