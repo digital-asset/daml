@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
 import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.events.EventIdFormatter.split
 import org.scalatest._
 
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
@@ -154,6 +155,32 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           exercised.choiceArgument shouldNot be(None)
           exercised.consuming shouldBe true
           exercised.exerciseResult shouldNot be(None)
+      }
+    }
+  }
+
+  it should "return a transaction tree with the expected shape for a partially visible transaction" in {
+    for {
+      (_, tx) <- store(withChildren)
+      result <- ledgerDao.transactionsReader
+        .lookupTransactionTreeById(tx.transactionId, Set("Alice")) // only two children are visible to Alice
+    } yield {
+      inside(result.value.transaction) {
+        case Some(transaction) =>
+          val createEventId =
+            tx.transaction.nodes.collectFirst {
+              case (eventId, _) if split(eventId).exists(_.nodeId.index == 2) => eventId
+            }.get
+          val exerciseEventId =
+            tx.transaction.nodes.collectFirst {
+              case (eventId, _) if split(eventId).exists(_.nodeId.index == 3) => eventId
+            }.get
+
+          transaction.eventsById should have size 2
+
+          transaction.rootEventIds should have size 2
+          transaction.rootEventIds(0) shouldBe createEventId
+          transaction.rootEventIds(1) shouldBe exerciseEventId
       }
     }
   }
