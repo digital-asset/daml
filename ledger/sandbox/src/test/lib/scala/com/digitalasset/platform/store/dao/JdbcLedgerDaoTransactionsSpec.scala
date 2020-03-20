@@ -16,7 +16,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "return nothing for a mismatching transaction id" in {
     for {
-      (_, tx) <- storeCreateTransaction()
+      (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(transactionId = "WRONG", Set(tx.submittingParty.get))
     } yield {
@@ -26,7 +26,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "return nothing for a mismatching party" in {
     for {
-      (_, tx) <- storeCreateTransaction()
+      (_, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set("WRONG"))
     } yield {
@@ -36,7 +36,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "return the expected flat transaction for a correct request (create)" in {
     for {
-      (offset, tx) <- storeCreateTransaction()
+      (offset, tx) <- store(singleCreate)
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
     } yield {
@@ -66,11 +66,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "return the expected flat transaction for a correct request (exercise)" in {
     for {
-      (_, create) <- storeCreateTransaction()
-      created <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(create.transactionId, Set(create.submittingParty.get))
-      (offset, exercise) <- storeExerciseTransaction(
-        AbsoluteContractId(created.get.transaction.get.events.head.event.created.get.contractId))
+      (_, create) <- store(singleCreate)
+      (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(exercise.transactionId, Set(exercise.submittingParty.get))
     } yield {
@@ -95,7 +92,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "hide events on transient contracts to the original submitter" in {
     for {
-      (offset, tx) <- storeFullyTransientTransaction()
+      (offset, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(tx.submittingParty.get))
     } yield {
@@ -112,7 +109,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
 
   it should "hide a full transaction if all contracts are transient and the request does not come from the original submitter" in {
     for {
-      (_, tx) <- storeFullyTransientTransaction()
+      (_, tx) <- store(fullyTransient)
       result <- ledgerDao.transactionsReader
         .lookupFlatTransactionById(tx.transactionId, Set(bob))
     } yield {
