@@ -47,16 +47,18 @@ final class JdbcIndexerFactory(
   ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .validate()
-      .map(_ => initialized)
+      .map(_ => initialized())
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
   ): Future[ResourceOwner[JdbcIndexer]] =
     new FlywayMigrations(jdbcUrl)
       .migrate(allowExistingSchema)
-      .map(_ => initialized)
+      .map(_ => initialized())
 
-  private def initialized(implicit executionContext: ExecutionContext): ResourceOwner[JdbcIndexer] =
+  private def initialized()(
+      implicit executionContext: ExecutionContext
+  ): ResourceOwner[JdbcIndexer] =
     for {
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
