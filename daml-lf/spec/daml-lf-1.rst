@@ -572,12 +572,10 @@ strings as *package identifiers*.  ::
 Contract identifiers can be created dynamically through interactions
 with the underlying ledger. See the `operation semantics of update
 statements <Update Interpretation_>`_ for the formal specification of
-those interactions. Contract identifiers are naturally ordered
-lexicographically. DAML-LF >= 1.dev programs creates only V1 Contract
-identifiers but can handle identifiers for contracts previously
-created with an older version of DAML-LF. Older version of DAML-LF can
-created both kinds of contract identifiers depending on the
-configuration of the ledger.
+those interactions. The version of contract identifiers created by
+DAML-LF engine depends of its configuration. A DAML-LF compliant
+engine should refuse to load DAML-LF >= 1.dev archives when
+configured to produce V0 contract identifier.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
