@@ -7,8 +7,9 @@ import java.util.Date
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
+import com.digitalasset.ledger._
 import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
+import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 private[events] trait EventsTableInsert { this: EventsTable =>
@@ -43,49 +44,33 @@ private[events] trait EventsTableInsert { this: EventsTable =>
         errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
     ))
 
+  private def insertEvent(columnNameAndValues: (String, String)*): String = {
+    val (columns, values) = columnNameAndValues.unzip
+    s"insert into participant_events(${columns.mkString(", ")}) values (${values.mkString(", ")})"
+  }
+
   private val insertCreate: String =
-    """insert into participant_events(
-      |  event_id,
-      |  event_offset,
-      |  contract_id,
-      |  transaction_id,
-      |  workflow_id,
-      |  ledger_effective_time,
-      |  template_package_id,
-      |  template_name,
-      |  node_index,
-      |  is_root,
-      |  command_id,
-      |  application_id,
-      |  submitter,
-      |  create_argument,
-      |  create_signatories,
-      |  create_observers,
-      |  create_agreement_text,
-      |  create_consumed_at,
-      |  create_key_value
-      |) values (
-      |  {event_id},
-      |  {event_offset},
-      |  {contract_id},
-      |  {transaction_id},
-      |  {workflow_id},
-      |  {ledger_effective_time},
-      |  {template_package_id},
-      |  {template_name},
-      |  {node_index},
-      |  {is_root},
-      |  {command_id},
-      |  {application_id},
-      |  {submitter},
-      |  {create_argument},
-      |  {create_signatories},
-      |  {create_observers},
-      |  {create_agreement_text},
-      |  null,
-      |  {create_key_value}
-      |)
-      |""".stripMargin
+    insertEvent(
+      "event_id" -> "{event_id}",
+      "event_offset" -> "{event_offset}",
+      "contract_id" -> "{contract_id}",
+      "transaction_id" -> "{transaction_id}",
+      "workflow_id" -> "{workflow_id}",
+      "ledger_effective_time" -> "{ledger_effective_time}",
+      "template_package_id" -> "{template_package_id}",
+      "template_name" -> "{template_name}",
+      "node_index" -> "{node_index}",
+      "is_root" -> "{is_root}",
+      "command_id" -> "{command_id}",
+      "application_id" -> "{application_id}",
+      "submitter" -> "{submitter}",
+      "create_argument" -> "{create_argument}",
+      "create_signatories" -> "{create_signatories}",
+      "create_observers" -> "{create_observers}",
+      "create_agreement_text" -> "{create_agreement_text}",
+      "create_consumed_at" -> "null",
+      "create_key_value" -> "{create_key_value}"
+    )
 
   private def create(
       applicationId: Option[ApplicationId],
@@ -100,69 +85,48 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       create: Create,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId).toString,
-      "event_offset" -> offset.toInputStream,
-      "contract_id" -> create.coid.coid.toString,
-      "transaction_id" -> transactionId.toString,
-      "workflow_id" -> workflowId.map(_.toString),
+      "event_id" -> fromTransactionId(transactionId, nodeId),
+      "event_offset" -> offset,
+      "contract_id" -> create.coid.coid,
+      "transaction_id" -> transactionId,
+      "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId.toString,
-      "template_name" -> create.coinst.template.qualifiedName.toString,
+      "template_package_id" -> create.coinst.template.packageId,
+      "template_name" -> create.coinst.template.qualifiedName,
       "node_index" -> nodeId.index,
       "is_root" -> roots(nodeId),
-      "command_id" -> commandId.map(_.toString),
-      "application_id" -> applicationId.map(_.toString),
-      "submitter" -> submitter.map(_.toString),
+      "command_id" -> commandId,
+      "application_id" -> applicationId,
+      "submitter" -> submitter,
       "create_argument" -> serializeCreateArgOrThrow(create),
-      "create_signatories" -> create.signatories.map(_.toString).toArray,
-      "create_observers" -> create.stakeholders.diff(create.signatories).map(_.toString).toArray,
+      "create_signatories" -> create.signatories.toArray[String],
+      "create_observers" -> create.stakeholders.diff(create.signatories).toArray[String],
       "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
       "create_key_value" -> serializeNullableKeyOrThrow(create),
     )
 
   private val insertExercise =
-    """insert into participant_events(
-      |  event_id,
-      |  event_offset,
-      |  contract_id,
-      |  transaction_id,
-      |  workflow_id,
-      |  ledger_effective_time,
-      |  template_package_id,
-      |  template_name,
-      |  node_index,
-      |  is_root,
-      |  command_id,
-      |  application_id,
-      |  submitter,
-      |  exercise_consuming,
-      |  exercise_choice,
-      |  exercise_argument,
-      |  exercise_result,
-      |  exercise_actors,
-      |  exercise_child_event_ids
-      |) values (
-      |  {event_id},
-      |  {event_offset},
-      |  {contract_id},
-      |  {transaction_id},
-      |  {workflow_id},
-      |  {ledger_effective_time},
-      |  {template_package_id},
-      |  {template_name},
-      |  {node_index},
-      |  {is_root},
-      |  {command_id},
-      |  {application_id},
-      |  {submitter},
-      |  {exercise_consuming},
-      |  {exercise_choice},
-      |  {exercise_argument},
-      |  {exercise_result},
-      |  {exercise_actors},
-      |  {exercise_child_event_ids}
-      |)
-      |""".stripMargin
+    insertEvent(
+      "event_id" -> "{event_id}",
+      "event_offset" -> "{event_offset}",
+      "contract_id" -> "{contract_id}",
+      "transaction_id" -> "{transaction_id}",
+      "workflow_id" -> "{workflow_id}",
+      "ledger_effective_time" -> "{ledger_effective_time}",
+      "template_package_id" -> "{template_package_id}",
+      "template_name" -> "{template_name}",
+      "node_index" -> "{node_index}",
+      "is_root" -> "{is_root}",
+      "command_id" -> "{command_id}",
+      "application_id" -> "{application_id}",
+      "submitter" -> "{submitter}",
+      "exercise_consuming" -> "{exercise_consuming}",
+      "exercise_choice" -> "{exercise_choice}",
+      "exercise_argument" -> "{exercise_argument}",
+      "exercise_result" -> "{exercise_result}",
+      "exercise_actors" -> "{exercise_actors}",
+      "exercise_child_event_ids" -> "{exercise_child_event_ids}"
+    )
 
   private def exercise(
       applicationId: Option[ApplicationId],
@@ -177,39 +141,39 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       exercise: Exercise,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId).toString,
-      "event_offset" -> offset.toInputStream,
-      "contract_id" -> exercise.targetCoid.coid.toString,
-      "transaction_id" -> transactionId.toString,
-      "workflow_id" -> workflowId.map(_.toString),
+      "event_id" -> fromTransactionId(transactionId, nodeId),
+      "event_offset" -> offset,
+      "contract_id" -> exercise.targetCoid.coid,
+      "transaction_id" -> transactionId,
+      "workflow_id" -> workflowId,
       "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> exercise.templateId.packageId.toString,
-      "template_name" -> exercise.templateId.qualifiedName.toString,
+      "template_package_id" -> exercise.templateId.packageId,
+      "template_name" -> exercise.templateId.qualifiedName,
       "node_index" -> nodeId.index,
       "is_root" -> roots(nodeId),
-      "command_id" -> commandId.map(_.toString),
-      "application_id" -> applicationId.map(_.toString),
-      "submitter" -> submitter.map(_.toString),
+      "command_id" -> commandId,
+      "application_id" -> applicationId,
+      "submitter" -> submitter,
       "exercise_consuming" -> exercise.consuming,
-      "exercise_choice" -> exercise.choiceId.toString,
+      "exercise_choice" -> exercise.choiceId,
       "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
       "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
-      "exercise_actors" -> exercise.actingParties.map(_.toString).toArray,
+      "exercise_actors" -> exercise.actingParties.toArray[String],
       "exercise_child_event_ids" -> exercise.children
-        .map(fromTransactionId(transactionId, _): String)
-        .toArray,
+        .map(fromTransactionId(transactionId, _))
+        .toArray[String],
     )
 
   private val updateArchived =
-    """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id}"""
+    """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id} and create_argument is not null"""
 
   private def archive(
       contractId: ContractId,
       consumedAt: Offset,
   ): Vector[NamedParameter] =
     Vector[NamedParameter](
-      "consumed_at" -> consumedAt.toInputStream,
-      "contract_id" -> contractId.coid.toString,
+      "consumed_at" -> consumedAt,
+      "contract_id" -> contractId.coid,
     )
 
   sealed abstract case class PreparedBatches(
