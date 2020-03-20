@@ -3,13 +3,19 @@
 
 package com.digitalasset.platform.sandbox.metrics
 
-import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.{ConsoleReporter, CsvReporter, MetricRegistry, Slf4jReporter}
+import com.codahale.metrics.{
+  ConsoleReporter,
+  CsvReporter,
+  MetricRegistry,
+  Reporter,
+  ScheduledReporter,
+  Slf4jReporter
+}
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -34,22 +40,12 @@ final class MetricsReporting(
   def acquire()(implicit executionContext: ExecutionContext): Resource[MetricRegistry] = {
     val registry = new MetricRegistry
     for {
-      slf4JReporter <- ResourceOwner.forCloseable(() => newSlf4jReporter(registry)).acquire()
-      _ <- ResourceOwner
-        .forCloseable(() => newJmxReporter(registry))
-        .acquire()
+      slf4JReporter <- acquire(newSlf4jReporter(registry))
+      _ <- acquire(newJmxReporter(registry))
         .map(_.start())
-      _ <- extraMetricsReporter.fold(Resource.unit) {
-        case MetricsReporter.ConsoleReporter =>
-          ResourceOwner
-            .forCloseable(() => newConsoleReporter(registry))
-            .acquire()
-            .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-        case MetricsReporter.CsvReporter(directory) =>
-          ResourceOwner
-            .forCloseable(() => newCsvReporter(registry, directory))
-            .acquire()
-            .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
+      _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
+        acquire(newReporter(reporter, registry))
+          .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
       }
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
@@ -59,15 +55,18 @@ final class MetricsReporting(
     }
   }
 
-  private def newConsoleReporter(registry: MetricRegistry): ConsoleReporter =
-    ConsoleReporter
-      .forRegistry(registry)
-      .build()
-
-  private def newCsvReporter(registry: MetricRegistry, directory: Path): CsvReporter =
-    CsvReporter
-      .forRegistry(registry)
-      .build(directory.toFile)
+  private def newReporter(reporter: MetricsReporter, registry: MetricRegistry)(
+      implicit executionContext: ExecutionContext
+  ): ScheduledReporter = reporter match {
+    case MetricsReporter.ConsoleReporter =>
+      ConsoleReporter
+        .forRegistry(registry)
+        .build()
+    case MetricsReporter.CsvReporter(directory) =>
+      CsvReporter
+        .forRegistry(registry)
+        .build(directory.toFile)
+  }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =
     JmxReporter
@@ -82,4 +81,11 @@ final class MetricsReporting(
       .convertDurationsTo(TimeUnit.MILLISECONDS)
       .withLoggingLevel(LoggingLevel.DEBUG)
       .build()
+
+  private def acquire[T <: Reporter](reporter: => T)(
+      implicit executionContext: ExecutionContext
+  ): Resource[T] =
+    ResourceOwner
+      .forCloseable(() => reporter)
+      .acquire()
 }
