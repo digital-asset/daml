@@ -24,7 +24,6 @@ import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.ValueTranslator
-import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
@@ -32,7 +31,6 @@ import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -108,39 +106,25 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
-final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds) {
-  def paramFromJson(
-      envIface: EnvironmentInterface,
-      compiledPackages: CompiledPackages): Either[String, JsValue => Either[String, SValue]] = {
-    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-      envIface.typeDecls.get(id).map(_.`type`)
-    def jsValueToLfValue(paramIface: iface.Type, jsValue: JsValue): Value[AbsoluteContractId] =
-      jsValue.convertTo[Value[AbsoluteContractId]](
-        LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
-    val valueTranslator = new ValueTranslator(compiledPackages)
-    def lfValueToSValue(param: Type, lfValue: Value[AbsoluteContractId]): Either[String, SValue] =
-      valueTranslator
-        .translateValue(param, lfValue)
-        .consume(_ => None, _ => None, _ => None)
-        .left
-        .map(_.msg)
-    for {
-      param <- param.toRight(s"The script ${id} does not take arguments.")
-      paramIface <- Converter
-        .toIfaceType(id.qualifiedName, param)
-        .left
-        .map(s => s"Failed to convert $param: $s")
-    } yield (js: JsValue) => lfValueToSValue(param, jsValueToLfValue(paramIface, js))
-  }
+sealed abstract class Script extends Product with Serializable {
+  val id: Identifier
+  val scriptIds: ScriptIds
 }
-
 object Script {
-  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
-      .flatMap(fromIdentifier(_, scriptId))
+  final case class Action(id: Identifier, expr: SExpr, scriptIds: ScriptIds) extends Script
+  final case class Function(id: Identifier, expr: SExpr, param: Type, scriptIds: ScriptIds)
+      extends Script {
+    def apply(arg: SExpr): Script.Action = Script.Action(id, SEApp(expr, Array(arg)), scriptIds)
+    def apply(
+        environmentInterface: EnvironmentInterface,
+        compiledPackages: CompiledPackages,
+        jsArg: JsValue): Either[String, Script.Action] = {
+      Converter
+        .fromJsonValue(id.qualifiedName, environmentInterface, compiledPackages, param, jsArg)
+        .map((arg: SValue) => this.apply(SEValue(arg)))
+    }
   }
+
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier): Either[String, Script] = {
@@ -159,12 +143,19 @@ object Script {
       case TApp(TApp(TBuiltin(BTArrow), param), result) =>
         for {
           scriptIds <- getScriptIds(result)
-        } yield Script(scriptId, scriptExpr, Some(param), scriptIds)
+        } yield Script.Function(scriptId, scriptExpr, param, scriptIds)
       case ty =>
         for {
           scriptIds <- getScriptIds(ty)
-        } yield Script(scriptId, scriptExpr, None, scriptIds)
+        } yield Script.Action(scriptId, scriptExpr, scriptIds)
     }
+  }
+
+  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
+      .flatMap(fromIdentifier(_, scriptId))
   }
 }
 
@@ -279,17 +270,16 @@ class Runner(
   def run(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
-    val scriptExpr: SExpr = (script.param, inputValue) match {
-      case (None, None) => script.expr
-      case (Some(param), Some(inputJson)) => {
-        for {
-          converter <- script.paramFromJson(environmentInterface, compiledPackages)
-          arg <- converter(inputJson)
-        } yield SEApp(script.expr, Array(SEValue(arg)))
-      }.fold(s => throw new ConverterException(s), identity)
-      case (None, Some(_)) =>
+    val scriptExpr: SExpr = (script, inputValue) match {
+      case (script: Script.Action, None) => script.expr
+      case (script: Script.Function, Some(inputJson)) =>
+        script.apply(environmentInterface, compiledPackages, inputJson) match {
+          case Right(script) => script.expr
+          case Left(err) => throw new ConverterException(err)
+        }
+      case (script: Script.Action, Some(_)) =>
         throw new RuntimeException(s"The script ${script.id} does not take arguments.")
-      case (Some(_), None) =>
+      case (script: Script.Function, None) =>
         throw new RuntimeException(s"The script ${script.id} requires an argument.")
     }
     runExpr(initialClients, scriptExpr)

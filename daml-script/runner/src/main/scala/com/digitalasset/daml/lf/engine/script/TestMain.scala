@@ -115,7 +115,10 @@ object TestMain extends StrictLogging {
             module.definitions.collect(Function.unlift {
               case (name, defn) => {
                 val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
-                Script.fromDar(dar, id).toOption.filter(_.param.isEmpty)
+                Script.fromDar(dar, id) match {
+                  case Right(script: Script.Action) => Some(script)
+                  case _ => None
+                }
               }
             })
           }
