@@ -1196,28 +1196,26 @@ Some notes on behavior:
 
 2. No ``archived`` ever contains a contract ID occurring within an
    ``created`` in the same array.  So, for example, supposing you are
-   keeping an internal map of active contracts, you can apply the
-   ``created`` first or the ``archived`` first and be guaranteed to get
-   the same results.
+   keeping an internal map of active contracts keyed by contract ID, you
+   can apply the ``created`` first or the ``archived`` first, forwards,
+   backwards, or in random order, and be guaranteed to get the same
+   results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
    contracts with the same template ID and contract key, the
    ``archived`` is guaranteed to occur before the ``created``.
 
-4. You will almost certainly receive contract IDs in ``archived`` that
+4. Except in cases of #3, within a single response array, the order of
+   ``created`` and ``archived`` is undefined and does not imply that any
+   element occurred "before" or "after" any other one.
+
+5. You will almost certainly receive contract IDs in ``archived`` that
    you never received a ``created`` for.  These are contracts that
    query filtered out, but for which the server no longer is aware of
    that.  You can safely ignore these.  However, such "phantom archives"
    *are* guaranteed to represent an actual archival *on the ledger*, so
    if you are keeping a more global dataset outside the context of this
    specific search, you can use that archival information as you wish.
-
-5. Within a single response array, the order of ``created`` and
-   ``archived`` is undefined and does not imply that any element
-   occurred "before" or "after" any other one.  As specified in note #2,
-   order of application of changes doesn't matter; you will get the same
-   results if you walk the array forwards, backwards, or in random
-   order.
 
 Fetch by Key Contracts Stream
 =============================
