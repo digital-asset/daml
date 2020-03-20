@@ -318,7 +318,6 @@ class WebSocketService(
       .mapAsync(1) {
         case msg: TextMessage =>
           msg.toStrict(config.maxDuration).map { m =>
-            logger.info(s"request: ${m.text}")
             SprayJson.parse(m.text).liftErr(InvalidUserInput)
           }
         case _ =>
