@@ -64,7 +64,7 @@ virtualResourceToCodeLens (range, title, vr) =
     , _xdata = Nothing
     }
 
-setHandlersCodeLens :: PartialHandlers
+setHandlersCodeLens :: PartialHandlers a
 setHandlersCodeLens = PartialHandlers $ \WithMessage{..} x -> return x{
     LSP.codeLensHandler = withResponse RspCodeLens $ const handle
     }

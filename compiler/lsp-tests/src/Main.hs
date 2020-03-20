@@ -57,6 +57,7 @@ main = do
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
         , multiPackageTests damlcPath
+        , completionTests run runScenarios
         ]
 
 conf :: SessionConfig
@@ -626,17 +627,59 @@ regressionTests run _runScenarios = testGroup "regression"
         completions <- getCompletions foo (Position 3 1)
         liftIO $
             assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
-            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
-            mkCompletion "DA.List" `elem` completions
+            mkModuleCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkModuleCompletion "DA.List" `elem` completions
         changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
         expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
         completions <- getCompletions foo (Position 3 6)
-        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+        liftIO $ completions @?= [mkModuleCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
   ]
-  where mkCompletion mod = CompletionItem
-          { _label = mod
-          , _kind = Just CiModule
-          , _detail = Just mod
+
+completionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+completionTests run _runScenarios = testGroup "completion"
+    [ testCase "type signature" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f : Part"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 8)
+          liftIO $
+              map (set documentation Nothing) completions @?=
+              [ mkTypeCompletion "Party"
+              , mkTypeCompletion "IsParties"
+              ]
+    , testCase "with keyword" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f = R wit"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 9)
+          liftIO $ assertBool ("`with` should be in " <> show completions) $
+              mkKeywordCompletion "with" `elem` completions
+    ]
+
+defaultCompletion :: T.Text -> CompletionItem
+defaultCompletion label = CompletionItem
+          { _label = label
+          , _kind = Nothing
+          , _detail = Nothing
           , _documentation = Nothing
           , _deprecated = Nothing
           , _preselect = Nothing
@@ -650,6 +693,23 @@ regressionTests run _runScenarios = testGroup "regression"
           , _command = Nothing
           , _xdata = Nothing
           }
+
+mkTypeCompletion :: T.Text -> CompletionItem
+mkTypeCompletion label =
+    defaultCompletion label &
+    insertTextFormat ?~ PlainText &
+    kind ?~ CiStruct
+
+mkModuleCompletion :: T.Text -> CompletionItem
+mkModuleCompletion label =
+    defaultCompletion label &
+    kind ?~ CiModule &
+    detail ?~ label
+
+mkKeywordCompletion :: T.Text -> CompletionItem
+mkKeywordCompletion label =
+    defaultCompletion label &
+    kind ?~ CiKeyword
 
 multiPackageTests :: FilePath -> TestTree
 multiPackageTests damlc = testGroup "multi-package"

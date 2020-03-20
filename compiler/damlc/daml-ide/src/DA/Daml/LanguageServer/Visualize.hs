@@ -50,7 +50,7 @@ onCommand ide execParsms = case execParsms of
         logError (ideLogger ide) err
         return $ Left (ResponseError InvalidParams err Nothing)
 
-setCommandHandler ::PartialHandlers
+setCommandHandler ::PartialHandlers a
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
     LSP.executeCommandHandler = withResponse RspExecuteCommand $ const onCommand
 }
