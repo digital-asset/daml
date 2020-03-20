@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
 import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
@@ -42,15 +42,16 @@ object Cli {
     case "none" => ClientAuth.NONE
     case "optional" => ClientAuth.OPTIONAL
     case "require" => ClientAuth.REQUIRE
-    case s =>
-      throw new IllegalArgumentException(
-        s"""$s is not a valid client authentication mode. Must be one of "none", "optional" or "require"""")
+    case _ =>
+      throw new InvalidConfigException(s"""Must be one of "none", "optional", or "require".""")
   }
 
-  private implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads { s =>
-    s.split(":", 2).toSeq match {
+  private implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads {
+    _.split(":", 2).toSeq match {
       case Seq("console") => MetricsReporter.ConsoleReporter
       case Seq("csv", directory) => MetricsReporter.CsvReporter(Paths.get(directory))
+      case _ =>
+        throw new InvalidConfigException(s"""Must be one of "console", or "csv:PATH".""")
     }
   }
 
