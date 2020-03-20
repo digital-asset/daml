@@ -928,6 +928,9 @@ private class JdbcLedgerDao(
     }
   }
 
+  private def splitOrThrow(id: EventId): NodeId =
+    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
   //TODO: test it for failures..
   override def storeLedgerEntry(
       offset: Offset,
@@ -935,9 +938,6 @@ private class JdbcLedgerDao(
     import PersistenceResponse._
 
     val txBytes = serializeTransaction(ledgerEntry.entry)
-
-    def splitOrThrow(id: EventId): NodeId =
-      split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
@@ -1036,11 +1036,23 @@ private class JdbcLedgerDao(
           // First, store all ledger entries without updating the ACS
           // We can't use the storeLedgerEntry(), as that one does update the ACS
           ledgerEntries.foreach {
-            case (i, le) =>
-              le match {
-                case tx: LedgerEntry.Transaction => storeTransaction(i, tx, transactionBytes(i))
-                case rj: LedgerEntry.Rejection => storeRejection(i, rj)
-                case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
+            case (offset, entry) =>
+              entry match {
+                case tx: LedgerEntry.Transaction =>
+                  storeTransaction(offset, tx, transactionBytes(offset))
+                  transactionsWriter(
+                    applicationId = tx.applicationId,
+                    workflowId = tx.workflowId,
+                    transactionId = tx.transactionId,
+                    commandId = tx.commandId,
+                    submitter = tx.submittingParty,
+                    roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
+                    ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+                    offset = offset,
+                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                  )
+                case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
+                case cp: LedgerEntry.Checkpoint => storeCheckpoint(offset, cp)
               }
           }
 
