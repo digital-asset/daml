@@ -5,6 +5,8 @@ package com.digitalasset.platform.store
 
 import java.io.InputStream
 import java.sql.PreparedStatement
+import java.time.Instant
+import java.util.Date
 
 import anorm.{
   Column,
@@ -147,4 +149,10 @@ object Conversions {
 
   implicit def columnToOffset(implicit c: Column[InputStream]): Column[Offset] =
     Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromInputStream))
+
+  // Instant
+
+  def instant(name: String): RowParser[Instant] =
+    SqlParser.get[Date](name).map(_.toInstant)
+
 }

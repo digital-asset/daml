@@ -49,6 +49,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             tx.transaction.nodes.head
           transaction.commandId shouldBe tx.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
+          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
           transaction.transactionId shouldBe tx.transactionId
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
           val created = transaction.eventsById.values.loneElement.getCreated
@@ -82,6 +84,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             exercise.transaction.nodes.head
           transaction.commandId shouldBe exercise.commandId.get
           transaction.offset shouldBe ApiOffset.toApiString(offset)
+          transaction.effectiveAt.value.seconds shouldBe exercise.ledgerEffectiveTime.getEpochSecond
+          transaction.effectiveAt.value.nanos shouldBe exercise.ledgerEffectiveTime.getNano
           transaction.transactionId shouldBe exercise.transactionId
           transaction.workflowId shouldBe exercise.workflowId.getOrElse("")
           val exercised = transaction.eventsById.values.loneElement.getExercised
@@ -123,6 +127,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           transaction.offset shouldBe ApiOffset.toApiString(offset)
           transaction.transactionId shouldBe tx.transactionId
           transaction.workflowId shouldBe tx.workflowId.getOrElse("")
+          transaction.effectiveAt.value.seconds shouldBe tx.ledgerEffectiveTime.getEpochSecond
+          transaction.effectiveAt.value.nanos shouldBe tx.ledgerEffectiveTime.getNano
 
           transaction.rootEventIds should have size 2
           transaction.rootEventIds(0) shouldBe createEventId

@@ -4,10 +4,10 @@
 package com.digitalasset.platform.store.dao.events
 
 import java.io.InputStream
-import java.util.Date
+import java.time.Instant
 
+import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
-import anorm.SqlParser.{array, binaryStream, bool, date, str}
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
@@ -25,7 +25,7 @@ import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.store.Conversions.offset
+import com.digitalasset.platform.store.Conversions.{instant, offset}
 import com.digitalasset.platform.store.serialization.ValueSerializer.{
   deserializeValue => deserialize
 }
@@ -48,13 +48,16 @@ private[events] trait EventsTable {
   case class Entry[E](
       eventOffset: Offset,
       transactionId: String,
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       commandId: String,
       workflowId: String,
       event: E,
   )
 
   object Entry {
+
+    private def instantToTimestamp(t: Instant): Timestamp =
+      Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
     def toFlatTransaction(events: List[Entry[Event]]): Option[GetFlatTransactionResponse] = {
       events.headOption.flatMap { first =>
@@ -67,8 +70,7 @@ private[events] trait EventsTable {
                 ApiTransaction(
                   transactionId = first.transactionId,
                   commandId = first.commandId,
-                  effectiveAt =
-                    Some(Timestamp.of(seconds = first.ledgerEffectiveTime.getTime, nanos = 0)),
+                  effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
                   workflowId = first.workflowId,
                   offset = ApiOffset.toApiString(first.eventOffset),
                   events = flatEvents,
@@ -91,8 +93,7 @@ private[events] trait EventsTable {
                 transactionId = first.transactionId,
                 commandId = first.commandId,
                 workflowId = first.workflowId,
-                effectiveAt =
-                  Some(Timestamp.of(seconds = first.ledgerEffectiveTime.getTime, nanos = 0)),
+                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
                 offset = ApiOffset.toApiString(first.eventOffset),
                 eventsById = eventsById,
                 rootEventIds = rootEventIds,
@@ -130,14 +131,14 @@ private[events] trait EventsTable {
   }
 
   private type SharedRow =
-    Offset ~ String ~ String ~ String ~ Date ~ String ~ String ~ Option[String] ~ Option[String] ~ Array[
+    Offset ~ String ~ String ~ String ~ Instant ~ String ~ String ~ Option[String] ~ Option[String] ~ Array[
       String]
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
       str("transaction_id") ~
       str("event_id") ~
       str("contract_id") ~
-      date("ledger_effective_time") ~
+      instant("ledger_effective_time") ~
       str("template_package_id") ~
       str("template_name") ~
       str("command_id").? ~
