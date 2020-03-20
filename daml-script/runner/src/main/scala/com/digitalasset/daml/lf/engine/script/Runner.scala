@@ -267,7 +267,7 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def run(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
+  def runWithClients(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     val scriptExpr: SExpr = (script, inputValue) match {

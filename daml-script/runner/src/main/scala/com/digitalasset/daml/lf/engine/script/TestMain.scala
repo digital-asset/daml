@@ -142,7 +142,7 @@ object TestMain extends StrictLogging {
                     .right
                     .get
                 val testRun: Future[Unit] = for {
-                  _ <- runner.run(clients, script, None)
+                  _ <- runner.runWithClients(clients, script, None)
                 } yield ()
                 // Print test result and remember failure.
                 testRun.onComplete {

@@ -121,7 +121,7 @@ object RunnerMain {
         }
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
-          _ <- runner.run(clients, script, inputValue)
+          _ <- runner.runWithClients(clients, script, inputValue)
         } yield ()
 
         flow.onComplete(_ => system.terminate())
