@@ -106,6 +106,7 @@ DAML SDK documentation
    tools/visual
    daml2ts/index
    getting-started/index
+   getting-started/testing
 
 .. toctree::
    :titlesonly:
