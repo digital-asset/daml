@@ -45,7 +45,7 @@ with a JSON API server by running
 
 .. code-block:: bash
 
-  ./daml-start.sh
+  daml start --start-navigator=no
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
