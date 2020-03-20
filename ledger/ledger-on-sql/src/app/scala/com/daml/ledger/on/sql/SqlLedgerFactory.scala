@@ -11,6 +11,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   ReadWriteService
 }
+import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
@@ -51,7 +53,11 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       val jdbcUrl = config.extra.jdbcUrl.getOrElse {
         throw new IllegalStateException("No JDBC URL provided.")
       }
-      new SqlLedgerReaderWriter.Owner(config.ledgerId, participantConfig.participantId, jdbcUrl)
+      new SqlLedgerReaderWriter.Owner(
+        config.ledgerId,
+        participantConfig.participantId,
+        jdbcUrl,
+        seedService = SeedService(Seeding.Strong))
         .acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
