@@ -148,3 +148,28 @@ To use command deduplication, you should:
 
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+
+.. _dealing-with-time:
+
+Dealing with time
+*****************
+
+The DAML language contains a function :ref:`getTime() <daml-ref-gettime>` which returns the “current time”. The notion of time comes with a lot of problems in a distributed setting: different participants might run slightly different clocks, transactions would not be allowed to “overtake” each other during DAML interpretation, i.e., a long-running command could block all other commands, and many more.
+
+To avoid such problems, DAML provides the following concept of *ledger time*:
+
+- As part of command interpretation, each transaction is automatically assigned a *ledger time* by the participant server.
+- All calls to ``getTime()`` within a transaction return the *ledger time* assigned to that transaction.
+- *Ledger time* is reasonably close to real time. To avoid transactions being rejected because the assigned *ledger time* does not match the ledger's system time exactly, DAML Ledgers define a tolerance interval around its system time. Transactions with a *ledger time* outside this tolerance interval will be rejected.
+- *Ledger time* respects causal monotonicity: if a transaction ``x`` uses a contract created in another transaction ``y``, transaction ``x``\ s ledger time will be greater than or equal to the ledger time of the referenced transaction ``y``.
+
+Some commands might take a long time to process, and by the time the resulting transaction is about to be committed to the ledger, it might violate the condition that *ledger time* should  be reasonably close to real time (even when considering the ledger's tolerance interval). To avoid such problems, applications can set the optional parameters :ref:`min_ledger_time_abs <com.digitalasset.ledger.api.v1.Commands.min_ledger_time_abs>` or :ref:`min_ledger_time_rel <com.digitalasset.ledger.api.v1.Commands.min_ledger_time_rel>` command parameters that specify (in absolute or relative terms) the minimal *ledger time* for the transaction. The ledger will then process the command, but wait with committing the resulting transaction until *ledger time* fits within the ledger's tolerance interval.
+
+How is this used in practice?
+
+- Be aware that ``getTime()`` is only reasonably close to real time. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
+- Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time.
+- If you get an error that no ledger time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime()``.
+
+
+
