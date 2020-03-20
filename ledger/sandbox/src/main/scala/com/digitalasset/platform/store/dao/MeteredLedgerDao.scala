@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -73,9 +73,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] =
     timedFuture(Metrics.lookupLedgerEntry, ledgerDao.lookupLedgerEntry(offset))
 
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] =
-    timedFuture(Metrics.lookupTransaction, ledgerDao.lookupTransaction(transactionId))
   override def transactionsReader: TransactionsReader = ledgerDao.transactionsReader
 
   override def lookupKey(

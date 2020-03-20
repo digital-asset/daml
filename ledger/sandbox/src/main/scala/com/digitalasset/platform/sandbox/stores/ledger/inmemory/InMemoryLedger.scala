@@ -28,17 +28,23 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
+  Filters,
   LedgerId,
+  LedgerOffset,
   PartyDetails,
   RejectionReason,
-  TransactionFilter,
-  TransactionId
+  TransactionFilter
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.platform.index
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
+import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -51,12 +57,11 @@ import com.digitalasset.platform.store.entries.{
   PartyLedgerEntry
 }
 import com.digitalasset.platform.store.{CompletionFromTransaction, LedgerSnapshot}
+import com.digitalasset.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
-import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
 
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
@@ -245,22 +250,53 @@ class InMemoryLedger(
 
   override def close(): Unit = ()
 
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
+  private def filterFor(requestingParties: Set[Party]): TransactionFilter =
+    TransactionFilter(requestingParties.map(p => p -> Filters.noFilter).toMap)
 
-    Try(Tag.unwrap(transactionId)) match {
-      case Failure(_) =>
-        Future.successful(None)
-      case Success(n) =>
-        Future.successful(
-          entries.items
-            .collectFirst {
-              case (offset, InMemoryLedgerEntry(t: LedgerEntry.Transaction))
-                  if t.transactionId == n =>
-                (offset, t)
-            })
+  private def lookupTransactionEntry(
+      id: ledger.TransactionId,
+  ): Option[(Offset, LedgerEntry.Transaction)] =
+    entries.items
+      .collectFirst {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) if tx.transactionId == id =>
+          (offset, tx)
+      }
+
+  override def lookupFlatTransactionById(
+      transactionId: ledger.TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetFlatTransactionResponse]] =
+    Future.successful {
+      lookupTransactionEntry(transactionId).flatMap {
+        case (offset, entry) =>
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(
+              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              entry = entry,
+              filter = filterFor(requestingParties),
+              verbose = true,
+            )
+            .map(tx => GetFlatTransactionResponse(Some(tx)))
+      }
     }
-  }
+
+  override def lookupTransactionTreeById(
+      transactionId: ledger.TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetTransactionResponse]] =
+    Future.successful {
+      lookupTransactionEntry(transactionId).flatMap {
+        case (offset, entry) =>
+          TransactionConversion
+            .ledgerEntryToTransactionTree(
+              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              entry = entry,
+              requestingParties = requestingParties,
+              verbose = true,
+            )
+            .map(tx => GetTransactionResponse(Some(tx)))
+      }
+    }
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {

@@ -1078,9 +1078,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_ENTRY =
     SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
 
-  private val SQL_SELECT_TRANSACTION =
-    SQL("select * from ledger_entries where transaction_id={transaction_id}")
-
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
 
@@ -1179,21 +1176,6 @@ private class JdbcLedgerDao(
           entry.map(e => e -> loadDisclosureOptForEntry(e))
       }
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
-  }
-
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
-    dbDispatcher
-      .executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
-        val entry = SQL_SELECT_TRANSACTION
-          .on("transaction_id" -> (transactionId: String))
-          .as(EntryParser.singleOpt)
-        entry.map(e => e -> loadDisclosureOptForEntry(e))
-      }
-      .map(_.map((toLedgerEntry _).tupled)
-        .collect {
-          case (offset, t: LedgerEntry.Transaction) => offset -> t
-        })(executionContext)
   }
 
   private val ContractDataParser = (ledgerString("id")
