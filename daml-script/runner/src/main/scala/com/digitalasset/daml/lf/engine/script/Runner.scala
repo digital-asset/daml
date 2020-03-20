@@ -176,33 +176,41 @@ object Runner {
       initialClients: Participants[LedgerClient],
       applicationId: ApplicationId,
       commandUpdater: CommandUpdater,
-      timeProvider: TimeProvider)(implicit ec: ExecutionContext, mat: Materializer
-    ): Future[SValue] = {
-      val darMap = dar.all.toMap
-      val compiler = Compiler(darMap)
-      val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-      val script = Script.fromIdentifier(compiledPackages, scriptId) match {
-        case Left(msg) => throw new RuntimeException(msg)
-        case Right(x) => x
-      }
-      val scriptAction: Script.Action = (script, inputValue) match {
-        case (script: Script.Action, None) => script
-        case (script: Script.Function, Some(inputJson)) =>
-          val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-          val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-          val arg = Converter
-            .fromJsonValue(scriptId.qualifiedName, envIface, compiledPackages, script.param, inputJson) match {
-              case Left(msg) => throw new ConverterException(msg)
-              case Right(x) => x
-            }
-          script.apply(SEValue(arg))
-        case (script: Script.Action, Some(_)) =>
-          throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
-        case (script: Script.Function, None) =>
-          throw new RuntimeException(s"The script ${scriptId} requires an argument.")
-      }
-      val runner = new Runner(compiledPackages, scriptAction, applicationId, commandUpdater, timeProvider)
-      runner.runWithClients(initialClients)
+      timeProvider: TimeProvider)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[SValue] = {
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val script = Script.fromIdentifier(compiledPackages, scriptId) match {
+      case Left(msg) => throw new RuntimeException(msg)
+      case Right(x) => x
+    }
+    val scriptAction: Script.Action = (script, inputValue) match {
+      case (script: Script.Action, None) => script
+      case (script: Script.Function, Some(inputJson)) =>
+        val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+        val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+        val arg = Converter
+          .fromJsonValue(
+            scriptId.qualifiedName,
+            envIface,
+            compiledPackages,
+            script.param,
+            inputJson) match {
+          case Left(msg) => throw new ConverterException(msg)
+          case Right(x) => x
+        }
+        script.apply(SEValue(arg))
+      case (script: Script.Action, Some(_)) =>
+        throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
+      case (script: Script.Function, None) =>
+        throw new RuntimeException(s"The script ${scriptId} requires an argument.")
+    }
+    val runner =
+      new Runner(compiledPackages, scriptAction, applicationId, commandUpdater, timeProvider)
+    runner.runWithClients(initialClients)
   }
 }
 

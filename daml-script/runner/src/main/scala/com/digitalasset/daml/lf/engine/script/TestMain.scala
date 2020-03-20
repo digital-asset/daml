@@ -114,7 +114,8 @@ object TestMain extends StrictLogging {
 
         val darMap = dar.all.toMap
         val compiler = new Compiler(darMap)
-        val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+        val compiledPackages =
+          PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
         val testScripts = dar.main._2.modules.flatMap {
           case (moduleName, module) => {
             module.definitions.collect(Function.unlift {
@@ -141,12 +142,8 @@ object TestMain extends StrictLogging {
           _ <- Future.sequence {
             testScripts.map {
               case (id, script) => {
-                val runner = new Runner(
-                  compiledPackages,
-                  script,
-                  applicationId,
-                  commandUpdater,
-                  timeProvider)
+                val runner =
+                  new Runner(compiledPackages, script, applicationId, commandUpdater, timeProvider)
                 val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
                 // Print test result and remember failure.
                 testRun.onComplete {

@@ -212,7 +212,8 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
 
     val darMap = dar.all.toMap
     val compiler = Compiler(darMap)
-    val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
