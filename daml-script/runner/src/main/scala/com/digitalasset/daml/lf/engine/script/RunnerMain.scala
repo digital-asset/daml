@@ -84,22 +84,6 @@ object RunnerMain {
           fileContent.parseJson
         })
 
-        val script = Script.fromDar(dar, scriptId) match {
-          case Left(err) =>
-            system.terminate
-            sys.exit(1)
-          case Right(x) => x
-        }
-        val runner = try {
-          Runner
-            .fromDar(dar, script.scriptIds, applicationId, commandUpdater, timeProvider)
-            .right
-            .get
-        } catch {
-          case e: Throwable =>
-            system.terminate
-            sys.exit(1)
-        }
         val participantParams = config.participantConfig match {
           case Some(file) => {
             val source = Source.fromFile(file)
@@ -121,7 +105,7 @@ object RunnerMain {
         }
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
-          _ <- runner.runWithClients(clients, script, inputValue)
+          _ <- Runner.run(dar, scriptId, inputValue, clients, applicationId, commandUpdater, timeProvider)
         } yield ()
 
         flow.onComplete(_ => system.terminate())

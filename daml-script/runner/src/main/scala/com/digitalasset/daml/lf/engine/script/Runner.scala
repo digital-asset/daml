@@ -107,22 +107,12 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
 }
 
 sealed abstract class Script extends Product with Serializable {
-  val id: Identifier
   val scriptIds: ScriptIds
 }
 object Script {
-  final case class Action(id: Identifier, expr: SExpr, scriptIds: ScriptIds) extends Script
-  final case class Function(id: Identifier, expr: SExpr, param: Type, scriptIds: ScriptIds)
-      extends Script {
-    def apply(arg: SExpr): Script.Action = Script.Action(id, SEApp(expr, Array(arg)), scriptIds)
-    def apply(
-        environmentInterface: EnvironmentInterface,
-        compiledPackages: CompiledPackages,
-        jsArg: JsValue): Either[String, Script.Action] = {
-      Converter
-        .fromJsonValue(id.qualifiedName, environmentInterface, compiledPackages, param, jsArg)
-        .map((arg: SValue) => this.apply(SEValue(arg)))
-    }
+  final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
+  final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
+    def apply(arg: SExpr): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
   }
 
   def fromIdentifier(
@@ -143,19 +133,12 @@ object Script {
       case TApp(TApp(TBuiltin(BTArrow), param), result) =>
         for {
           scriptIds <- getScriptIds(result)
-        } yield Script.Function(scriptId, scriptExpr, param, scriptIds)
+        } yield Script.Function(scriptExpr, param, scriptIds)
       case ty =>
         for {
           scriptIds <- getScriptIds(ty)
-        } yield Script.Action(scriptId, scriptExpr, scriptIds)
+        } yield Script.Action(scriptExpr, scriptIds)
     }
-  }
-
-  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
-      .flatMap(fromIdentifier(_, scriptId))
   }
 }
 
@@ -193,18 +176,52 @@ object Runner {
       commandUpdater: CommandUpdater,
       timeProvider: TimeProvider): Either[String, Runner] = {
     val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-    val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
     val darMap = dar.all.toMap
     val compiler = Compiler(darMap)
     for {
       compiledPackages <- PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
     } yield
-      new Runner(envIface, compiledPackages, scriptIds, applicationId, commandUpdater, timeProvider)
+      new Runner(compiledPackages, scriptIds, applicationId, commandUpdater, timeProvider)
+  }
+
+  def run(
+      dar: Dar[(PackageId, Package)],
+      scriptId: Identifier,
+      inputValue: Option[JsValue],
+      initialClients: Participants[LedgerClient],
+      applicationId: ApplicationId,
+      commandUpdater: CommandUpdater,
+      timeProvider: TimeProvider)(implicit ec: ExecutionContext, mat: Materializer
+    ): Future[SValue] = {
+      val darMap = dar.all.toMap
+      val compiler = Compiler(darMap)
+      val compiledPackages = PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+      val script = Script.fromIdentifier(compiledPackages, scriptId) match {
+        case Left(msg) => throw new RuntimeException(msg)
+        case Right(x) => x
+      }
+      val scriptAction: Script.Action = (script, inputValue) match {
+        case (script: Script.Action, None) => script
+        case (script: Script.Function, Some(inputJson)) =>
+          val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+          val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+          val arg = Converter
+            .fromJsonValue(scriptId.qualifiedName, envIface, compiledPackages, script.param, inputJson) match {
+              case Left(msg) => throw new ConverterException(msg)
+              case Right(x) => x
+            }
+          script.apply(SEValue(arg))
+        case (script: Script.Action, Some(_)) =>
+          throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
+        case (script: Script.Function, None) =>
+          throw new RuntimeException(s"The script ${scriptId} requires an argument.")
+      }
+      val runner = new Runner(compiledPackages, scriptAction.scriptIds, applicationId, commandUpdater, timeProvider)
+      runner.runExpr(initialClients, scriptAction.expr)
   }
 }
 
 class Runner(
-    environmentInterface: EnvironmentInterface,
     compiledPackages: CompiledPackages,
     scriptIds: ScriptIds,
     applicationId: ApplicationId,
@@ -265,24 +282,6 @@ class Runner(
       maximumRecordTime = None,
     )
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
-  }
-
-  def runWithClients(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[SValue] = {
-    val scriptExpr: SExpr = (script, inputValue) match {
-      case (script: Script.Action, None) => script.expr
-      case (script: Script.Function, Some(inputJson)) =>
-        script.apply(environmentInterface, compiledPackages, inputJson) match {
-          case Right(script) => script.expr
-          case Left(err) => throw new ConverterException(err)
-        }
-      case (script: Script.Action, Some(_)) =>
-        throw new RuntimeException(s"The script ${script.id} does not take arguments.")
-      case (script: Script.Function, None) =>
-        throw new RuntimeException(s"The script ${script.id} requires an argument.")
-    }
-    runExpr(initialClients, scriptExpr)
   }
 
   def runExpr(initialClients: Participants[LedgerClient], scriptExpr: SExpr)(
