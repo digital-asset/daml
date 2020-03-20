@@ -169,21 +169,6 @@ object Runner {
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
-  def fromDar(
-      dar: Dar[(PackageId, Package)],
-      scriptIds: ScriptIds,
-      applicationId: ApplicationId,
-      commandUpdater: CommandUpdater,
-      timeProvider: TimeProvider): Either[String, Runner] = {
-    val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    for {
-      compiledPackages <- PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
-    } yield
-      new Runner(compiledPackages, scriptIds, applicationId, commandUpdater, timeProvider)
-  }
-
   def run(
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,
