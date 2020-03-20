@@ -106,9 +106,9 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
-sealed abstract class Script extends Product with Serializable {
-  val scriptIds: ScriptIds
-}
+// DAML script, either an Action that can be executed immediately, or a
+// Function that requires an argument.
+sealed abstract class Script extends Product with Serializable
 object Script {
   final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
   final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
@@ -169,6 +169,10 @@ object Runner {
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
 
+  // Executes a DAML script
+  //
+  // Looks for the script in the given DAR, applies the input value as an
+  // argument if provided, and runs the script with the given pariticipants.
   def run(
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,
