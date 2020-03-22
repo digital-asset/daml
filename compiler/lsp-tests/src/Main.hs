@@ -158,12 +158,12 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               , "add : Int -> Int -> Int"
               , "add a b = ab + b"
               , "succ : Int -> Int"
-              , "succ a = abdd 1 a"
+              , "succ = abdd 1"
               ]
           expectDiagnostics
               [ ( "Main.daml"
                 , [ (DsError, (3, 10), "Variable not in scope: ab")
-                  , (DsError, (5, 9), "Variable not in scope: abdd")
+                  , (DsError, (5, 7), "Variable not in scope: abdd")
                   ]
                 )
               ]
