@@ -47,7 +47,7 @@ private[kvutils] class ProcessTransactionSubmission(
       "Check Informee Parties Allocation" ->
         checkInformeePartiesAllocation(recordTime, transactionEntry),
       "Deduplicate" -> deduplicateCommand(recordTime, transactionEntry),
-      "Validate LET/TTL" -> validateLetAndTtl(recordTime, transactionEntry, inputState),
+      "Validate Ledger Time" -> validateLedgerTime(recordTime, transactionEntry, inputState),
       "Validate Contract Key Uniqueness" ->
         validateContractKeyUniqueness(recordTime, transactionEntry),
       "Validate Model Conformance" -> timed(
@@ -138,31 +138,23 @@ private[kvutils] class ProcessTransactionSubmission(
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLetAndTtl(
+  private def validateLedgerTime(
       recordTime: Timestamp,
       transactionEntry: TransactionEntry,
       inputState: DamlStateMap,
   ): Commit[Unit] = delay {
     val (_, config) = Common.getCurrentConfiguration(defaultConfig, inputState, logger)
     val timeModel = config.timeModel
-    val givenLET = transactionEntry.ledgerEffectiveTime.toInstant
-    val givenMRT = parseTimestamp(transactionEntry.submitterInfo.getMaximumRecordTime).toInstant
+    val givenLedgerTime = transactionEntry.ledgerEffectiveTime.toInstant
 
-    if (timeModel.checkLet(
-        currentTime = recordTime.toInstant,
-        givenLedgerEffectiveTime = givenLET,
-        givenMaximumRecordTime = givenMRT)
-      /* NOTE(JM): This check has been disabled to be more lenient while
-       * we're still in beta phase. Time model is being redesigned and
-       * appropriate checks will be put back in place along with the new
-       * implementation.
-       *
-       * && timeModelChecker.checkTtl(givenLET, givenMRT) */ )
-      pass
-    else
-      reject(
-        recordTime,
-        buildRejectionLogEntry(transactionEntry, RejectionReason.MaximumRecordTimeExceeded))
+    timeModel
+      .checkTime(ledgerTime = givenLedgerTime, recordTime = recordTime.toInstant)
+      .fold(
+        reason =>
+          reject(
+            recordTime,
+            buildRejectionLogEntry(transactionEntry, RejectionReason.InvalidLedgerTime(reason))),
+        _ => pass)
   }
 
   /** Validate the submission's conformance to the DAML model */
