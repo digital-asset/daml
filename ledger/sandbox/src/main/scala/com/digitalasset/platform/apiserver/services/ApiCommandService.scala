@@ -58,9 +58,6 @@ final class ApiCommandService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private type CommandId = String
-  private type ApplicationId = String
-
   private val submissionTracker: TrackerMap = TrackerMap(configuration.retentionPeriod)
   private val staleCheckerInterval: FiniteDuration = 30.seconds
 
