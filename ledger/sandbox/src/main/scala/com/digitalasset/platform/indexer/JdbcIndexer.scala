@@ -58,13 +58,11 @@ final class JdbcIndexerFactory(
   ): ResourceOwner[JdbcIndexer] =
     for {
       ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
-      initialLedgerEnd <- ResourceOwner.forFuture(() =>
-        initializeLedger(ledgerDao)(materializer, executionContext))
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)
+      initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
 
   private def initializeLedger(dao: LedgerDao)(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): Future[Option[Offset]] =
     for {
       initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
