@@ -51,9 +51,6 @@ final class CommandClient(
     config: CommandClientConfiguration,
     timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
 
-  private val commandUpdater =
-    new CommandUpdater(timeProviderO, config.ttl, config.overrideTtl)
-
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -65,8 +62,7 @@ final class CommandClient(
       token: Option[String] = None): Future[Empty] =
     LedgerClient
       .stub(commandSubmissionService, token)
-      .submit(
-        submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
+      .submit(submitRequest)
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
@@ -154,7 +150,7 @@ final class CommandClient(
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)")
-        r.copy(commands = r.commands.map(commandUpdater.applyOverrides))
+        r
       })
 
   def submissionFlow[Context](token: Option[String] = None)

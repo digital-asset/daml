@@ -91,10 +91,8 @@ private[commands] class CommandTracker[Context]
             val submitRequest = grab(submitRequestIn)
             registerSubmission(submitRequest)
             logger.trace(
-              "Submitted command {} with LET {}, MRT {}",
+              "Submitted command {}",
               submitRequest.value.getCommands.commandId,
-              submitRequest.value.getCommands.ledgerEffectiveTime,
-              submitRequest.value.getCommands.maximumRecordTime
             )
             push(submitRequestOut, submitRequest.enrich(_ -> _.getCommands.commandId))
           }
