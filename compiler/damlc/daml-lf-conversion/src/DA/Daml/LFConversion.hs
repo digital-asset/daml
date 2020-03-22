@@ -99,7 +99,7 @@ import           Data.Data hiding (TyCon)
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
-import           Data.List.Extra hiding (for)
+import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import qualified Data.Set as S
 import           Data.Maybe
