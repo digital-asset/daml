@@ -3,7 +3,9 @@
 
 package com.digitalasset.platform.apiserver
 
-import com.codahale.metrics.MetricRegistry
+import java.util.concurrent.atomic.AtomicBoolean
+
+import com.codahale.metrics.{MetricRegistry, Timer}
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 import scala.collection.concurrent.TrieMap
@@ -79,12 +81,45 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
       headers: Metadata,
-      next: ServerCallHandler[ReqT, RespT]): ServerCall.Listener[ReqT] = {
+      next: ServerCallHandler[ReqT, RespT],
+  ): ServerCall.Listener[ReqT] = {
     val fullMethodName = call.getMethodDescriptor.getFullMethodName
     val metricName = fullServiceToMetricNameCache.getOrElseUpdate(
       fullMethodName,
       MetricsInterceptor.nameFor(fullMethodName))
-    metrics.meter(metricName).mark()
-    next.startCall(call, headers)
+    val timer = metrics.timer(metricName).time()
+    val listener = next.startCall(call, headers)
+    new TimedListener(listener, timer)
   }
+
+  class TimedListener[ReqT](listener: ServerCall.Listener[ReqT], timer: Timer.Context)
+      extends ServerCall.Listener[ReqT] {
+    private val timerStopped = new AtomicBoolean(false)
+
+    override def onReady(): Unit =
+      listener.onReady()
+
+    override def onMessage(message: ReqT): Unit =
+      listener.onMessage(message)
+
+    override def onHalfClose(): Unit =
+      listener.onHalfClose()
+
+    override def onCancel(): Unit = {
+      listener.onCancel()
+      if (timerStopped.compareAndSet(false, true)) {
+        timer.stop()
+        ()
+      }
+    }
+
+    override def onComplete(): Unit = {
+      listener.onComplete()
+      if (timerStopped.compareAndSet(false, true)) {
+        timer.stop()
+        ()
+      }
+    }
+  }
+
 }
