@@ -45,6 +45,7 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.platform.state.{TimedIndexService, TimedWriteService}
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
@@ -293,8 +294,14 @@ final class SandboxServer(
           ApiServices
             .create(
               participantId = participantId,
-              writeService = indexAndWriteService.writeService,
-              indexService = indexAndWriteService.indexService,
+              writeService = new TimedWriteService(
+                indexAndWriteService.writeService,
+                metrics,
+                "daml.sandbox.writeService"),
+              indexService = new TimedIndexService(
+                indexAndWriteService.indexService,
+                metrics,
+                "daml.sandbox.indexService"),
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,
