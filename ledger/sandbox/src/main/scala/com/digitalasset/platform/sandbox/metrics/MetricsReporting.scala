@@ -7,6 +7,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
+import com.codahale.metrics.graphite.{Graphite, GraphiteReporter}
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{
   ConsoleReporter,
@@ -66,6 +67,10 @@ final class MetricsReporting(
       CsvReporter
         .forRegistry(registry)
         .build(directory.toFile)
+    case MetricsReporter.Graphite(address) =>
+      GraphiteReporter
+        .forRegistry(registry)
+        .build(new Graphite(address))
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =

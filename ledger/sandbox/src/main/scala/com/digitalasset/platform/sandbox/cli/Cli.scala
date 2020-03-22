@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.cli
 
 import java.io.File
+import java.net.InetSocketAddress
 import java.nio.file.Paths
 import java.time.Duration
 
@@ -21,6 +22,7 @@ import com.digitalasset.platform.sandbox.config.{InvalidConfigException, Sandbox
 import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
+import com.google.common.net.HostAndPort
 import io.netty.handler.ssl.ClientAuth
 import scopt.{OptionParser, Read}
 
@@ -50,6 +52,20 @@ object Cli {
     _.split(":", 2).toSeq match {
       case Seq("console") => MetricsReporter.Console
       case Seq("csv", directory) => MetricsReporter.Csv(Paths.get(directory))
+      case Seq("graphite") =>
+        MetricsReporter.Graphite()
+      case Seq("graphite", address) =>
+        Try(address.toInt)
+          .map(port => MetricsReporter.Graphite(port))
+          .recover {
+            case _: NumberFormatException =>
+              val hostAndPort = HostAndPort
+                .fromString(address)
+                .withDefaultPort(MetricsReporter.Graphite.defaultPort)
+              MetricsReporter.Graphite(
+                new InetSocketAddress(hostAndPort.getHost, hostAndPort.getPort))
+          }
+          .get
       case _ =>
         throw new InvalidConfigException(s"""Must be one of "console", or "csv:PATH".""")
     }

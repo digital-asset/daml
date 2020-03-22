@@ -54,6 +54,7 @@ compile_deps = [
     "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_dropwizard_metrics_metrics_jmx",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
