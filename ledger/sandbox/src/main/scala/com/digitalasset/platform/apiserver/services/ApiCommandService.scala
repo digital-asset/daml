@@ -31,8 +31,7 @@ import com.digitalasset.ledger.client.services.commands.{
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess
-import com.digitalasset.platform.apiserver.services.ApiCommandService.LowLevelCommandServiceAccess.LocalServices
+import com.digitalasset.platform.apiserver.services.ApiCommandService._
 import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
@@ -47,14 +46,14 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 final class ApiCommandService private (
-    lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
+    services: LocalServices,
     configuration: ApiCommandService.Configuration,
 )(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: Materializer,
     esf: ExecutionSequencerFactory,
-    logCtx: LoggingContext)
-    extends CommandServiceGrpc.CommandService
+    logCtx: LoggingContext
+) extends CommandServiceGrpc.CommandService
     with AutoCloseable {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -95,33 +94,26 @@ final class ApiCommandService private (
     val submitter = TrackerMap.Key(application = appId, party = request.getCommands.party)
     submissionTracker.track(submitter, request) {
       for {
-        trackingFlow <- {
-          lowLevelCommandServiceAccess match {
-            case LocalServices(submissionFlow, getCompletionSource, getCompletionEnd, _, _) =>
-              for {
-                ledgerEnd <- getCompletionEnd().map(_.getOffset)
-              } yield {
-                val tracker =
-                  CommandTrackerFlow[Promise[Completion], NotUsed](
-                    submissionFlow,
-                    offset =>
-                      getCompletionSource(
-                        CompletionStreamRequest(
-                          configuration.ledgerId.unwrap,
-                          appId,
-                          List(submitter.party),
-                          Some(offset)))
-                        .mapConcat(CommandCompletionSource.toStreamElements),
-                    ledgerEnd
-                  )
-
-                if (configuration.limitMaxCommandsInFlight)
-                  MaxInFlight(configuration.maxCommandsInFlight).joinMat(tracker)(Keep.right)
-                else tracker
-              }
-          }
-        }
+        ledgerEnd <- services.getCompletionEnd().map(_.getOffset)
       } yield {
+        val tracker = CommandTrackerFlow[Promise[Completion], NotUsed](
+          services.submissionFlow,
+          offset =>
+            services
+              .getCompletionSource(
+                CompletionStreamRequest(
+                  configuration.ledgerId.unwrap,
+                  appId,
+                  List(submitter.party),
+                  Some(offset)))
+              .mapConcat(CommandCompletionSource.toStreamElements),
+          ledgerEnd
+        )
+        val trackingFlow =
+          if (configuration.limitMaxCommandsInFlight)
+            MaxInFlight(configuration.maxCommandsInFlight).joinMat(tracker)(Keep.right)
+          else
+            tracker
         TrackerImpl(trackingFlow, configuration.inputBufferSize)
       }
     }
@@ -143,7 +135,9 @@ final class ApiCommandService private (
         request.getCommands.ledgerId,
         resp.transactionId,
         List(request.getCommands.party))
-      flatById(txRequest).map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
+      services
+        .getFlatTransactionById(txRequest)
+        .map(resp => SubmitAndWaitForTransactionResponse(resp.transaction))
     }
 
   override def submitAndWaitForTransactionTree(
@@ -153,24 +147,19 @@ final class ApiCommandService private (
         request.getCommands.ledgerId,
         resp.transactionId,
         List(request.getCommands.party))
-      treeById(txRequest).map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
+      services
+        .getTransactionById(txRequest)
+        .map(resp => SubmitAndWaitForTransactionTreeResponse(resp.transaction))
     }
 
   override def toString: String = ApiCommandService.getClass.getSimpleName
-
-  private val (treeById, flatById) = {
-    lowLevelCommandServiceAccess match {
-      case LocalServices(_, _, _, getTransactionById, getFlatTransactionById) =>
-        (getTransactionById, getFlatTransactionById)
-    }
-  }
 }
 
 object ApiCommandService {
 
   def create(
       configuration: Configuration,
-      svcAccess: LowLevelCommandServiceAccess,
+      services: LocalServices,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
@@ -178,10 +167,10 @@ object ApiCommandService {
       logCtx: LoggingContext
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
-      new ApiCommandService(svcAccess, configuration),
+      new ApiCommandService(services, configuration),
       configuration.ledgerId,
       () => Instant.now(),
-      () => configuration.maxDeduplicationTime
+      () => configuration.maxDeduplicationTime,
     )
 
   final case class Configuration(
@@ -192,23 +181,18 @@ object ApiCommandService {
       limitMaxCommandsInFlight: Boolean,
       retentionPeriod: FiniteDuration,
       // TODO(RA): this should be updated dynamically from the ledger configuration
-      maxDeduplicationTime: java.time.Duration)
+      maxDeduplicationTime: java.time.Duration,
+  )
 
-  sealed abstract class LowLevelCommandServiceAccess extends Product with Serializable
-
-  object LowLevelCommandServiceAccess {
-
-    final case class LocalServices(
-        submissionFlow: Flow[
-          Ctx[(Promise[Completion], String), SubmitRequest],
-          Ctx[(Promise[Completion], String), Try[Empty]],
-          NotUsed],
-        getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
-        getCompletionEnd: () => Future[CompletionEndResponse],
-        getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
-        getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse])
-        extends LowLevelCommandServiceAccess
-
-  }
+  final case class LocalServices(
+      submissionFlow: Flow[
+        Ctx[(Promise[Completion], String), SubmitRequest],
+        Ctx[(Promise[Completion], String), Try[Empty]],
+        NotUsed],
+      getCompletionSource: CompletionStreamRequest => Source[CompletionStreamResponse, NotUsed],
+      getCompletionEnd: () => Future[CompletionEndResponse],
+      getTransactionById: GetTransactionByIdRequest => Future[GetTransactionResponse],
+      getFlatTransactionById: GetTransactionByIdRequest => Future[GetFlatTransactionResponse],
+  )
 
 }
