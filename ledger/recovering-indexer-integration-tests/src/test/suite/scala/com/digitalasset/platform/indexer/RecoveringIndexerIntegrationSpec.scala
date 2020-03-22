@@ -208,8 +208,8 @@ object RecoveringIndexerIntegrationSpec {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private def randomSubmissionId(): LedgerString =
-    LedgerString.assertFromString(UUID.randomUUID().toString)
+  private def randomSubmissionId(): SubmissionId =
+    SubmissionId.assertFromString(UUID.randomUUID().toString)
 
   private trait ParticipantStateFactory {
     def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
