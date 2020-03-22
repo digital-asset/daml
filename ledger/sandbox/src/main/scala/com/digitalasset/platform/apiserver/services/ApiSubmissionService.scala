@@ -158,7 +158,7 @@ final class ApiSubmissionService private (
     withEnrichedLoggingContext(
       logging.commandId(request.commands.commandId),
       logging.party(request.commands.submitter)) { implicit logCtx =>
-      val commands = request.commands.copy(ledgerEffectiveTime = timeProvider.getCurrentTime)
+      val commands = request.commands
 
       logger.trace(s"Received composite commands: $commands")
       logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")

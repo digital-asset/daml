@@ -5,6 +5,7 @@ package com.digitalasset.ledger.api.validation
 
 import java.time.Instant
 
+import com.digitalasset.api.util.DurationConversion
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
 import com.digitalasset.daml.lf.data._
@@ -44,8 +45,6 @@ class SubmitRequestValidatorTest
     val applicationId = "applicationId"
     val commandId = "commandId"
     val submitter = "party"
-    val let = TimestampConversion.fromInstant(Instant.now)
-    val mrt = TimestampConversion.fromInstant(Instant.now)
     val deduplicationTime = new Duration().withSeconds(10)
     val command =
       Command(
@@ -57,37 +56,38 @@ class SubmitRequestValidatorTest
         )))
 
     val commands = Commands(
-      ledgerId.unwrap,
-      workflowId,
-      applicationId,
-      commandId,
-      submitter,
-      Some(let),
-      Some(mrt),
-      Seq(command),
-      Some(deduplicationTime)
+      ledgerId = ledgerId.unwrap,
+      workflowId = workflowId,
+      applicationId = applicationId,
+      commandId = commandId,
+      party = submitter,
+      ledgerEffectiveTime = None,
+      maximumRecordTime = None,
+      commands = Seq(command),
+      deduplicationTime = Some(deduplicationTime),
+      minLedgerTimeAbs = None,
+      minLedgerTimeRel = None,
     )
   }
 
   object internal {
 
-    val let = TimestampConversion.toInstant(api.let)
-    val mrt = TimestampConversion.toInstant(api.mrt)
-    val submittedAt = Instant.EPOCH
+    val submittedAt = Instant.now
+    val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
     val deduplicateUntil = submittedAt.plusSeconds(api.deduplicationTime.seconds)
 
     val emptyCommands = ApiCommands(
-      ledgerId,
-      Some(workflowId),
-      applicationId,
-      commandId,
-      DomainMocks.party,
-      let,
-      mrt,
+      ledgerId = ledgerId,
+      workflowId = Some(workflowId),
+      applicationId = applicationId,
+      commandId = commandId,
+      submitter = DomainMocks.party,
+      ledgerEffectiveTime = submittedAt,
+      maximumRecordTime = Instant.EPOCH,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
-      LfCommands(
+      commands = LfCommands(
         DomainMocks.party,
         ImmArray(
           LfCreateCommand(
@@ -106,16 +106,22 @@ class SubmitRequestValidatorTest
               ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
             )
           )),
-        Time.Timestamp.assertFromInstant(let),
+        Time.Timestamp.assertFromInstant(submittedAt),
         workflowId.unwrap
       )
     )
   }
 
+  private[this] def withLedgerTime(commands: ApiCommands, let: Instant): ApiCommands =
+    commands.copy(
+      ledgerEffectiveTime = let,
+      commands = commands.commands.copy(
+        ledgerEffectiveTime = Time.Timestamp.assertFromInstant(let),
+      ),
+    )
+
   val commandsValidator = new CommandsValidator(ledgerId)
   import ValueValidator.validateValue
-
-  def recordFieldWithValue(value: Value) = RecordField("label", Some(value))
 
   private def unexpectedError = sys.error("unexpected error")
 
@@ -188,27 +194,43 @@ class SubmitRequestValidatorTest
         )
       }
 
-      "not allow missing let" in {
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(ledgerEffectiveTime = None),
-            internal.submittedAt,
-            internal.maxDeduplicationTime),
-          INVALID_ARGUMENT,
-          "Missing field: ledger_effective_time"
-        )
-
+      "advance ledger time if minLedgerTimeAbs is set" in {
+        val minLedgerTimeAbs = internal.submittedAt.plus(internal.timeDelta)
+        commandsValidator.validateCommands(
+          api.commands.copy(
+            minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))),
+          internal.submittedAt,
+          internal.maxDeduplicationTime) shouldEqual Right(
+          withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
-      "not allow missing mrt" in {
-        requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands.copy(maximumRecordTime = None),
+      "advance ledger time if minLedgerTimeRel is set" in {
+        val minLedgerTimeAbs = internal.submittedAt.plus(internal.timeDelta)
+        commandsValidator.validateCommands(
+          api.commands.copy(
+            minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))),
+          internal.submittedAt,
+          internal.maxDeduplicationTime) shouldEqual Right(
+          withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
+      }
+
+      "ignore ledgerEffectiveTime values" in {
+        // Note: until ledgerEffectiveTime is removed, it is simply ignored
+        commandsValidator.validateCommands(
+          api.commands.copy(
+            ledgerEffectiveTime = Some(TimestampConversion.fromInstant(Instant.now))),
+          internal.submittedAt,
+          internal.maxDeduplicationTime) shouldEqual Right(internal.emptyCommands)
+      }
+
+      "ignore mrt values" in {
+        // Note: until MRT is removed, it is simply ignored
+        commandsValidator
+          .validateCommands(
+            api.commands.copy(
+              maximumRecordTime = Some(TimestampConversion.fromInstant(Instant.now))),
             internal.submittedAt,
-            internal.maxDeduplicationTime),
-          INVALID_ARGUMENT,
-          "Missing field: maximum_record_time"
-        )
+            internal.maxDeduplicationTime) shouldEqual Right(internal.emptyCommands)
       }
 
       "not allow negative deduplication time" in {
