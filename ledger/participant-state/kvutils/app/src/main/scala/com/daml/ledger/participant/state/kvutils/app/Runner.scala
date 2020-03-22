@@ -51,7 +51,6 @@ class Runner[T <: ReadWriteService, Extra](
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
               _ <- new StandaloneIndexerServer(
-                actorSystem,
                 readService = ledger,
                 factory.indexerConfig(participantConfig, config),
                 factory.indexerMetricRegistry(participantConfig, config),

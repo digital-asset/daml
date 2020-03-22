@@ -156,7 +156,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
                 _ <- new StandaloneIndexerServer(
-                  actorSystem = actorSystem,
                   readService = ledger,
                   config = IndexerConfig(
                     ParticipantId,

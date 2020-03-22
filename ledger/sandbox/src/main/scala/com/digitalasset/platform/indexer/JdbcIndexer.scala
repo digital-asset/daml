@@ -6,7 +6,6 @@ package com.digitalasset.platform.indexer
 import java.time.Instant
 
 import akka.NotUsed
-import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
@@ -26,7 +25,6 @@ import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,10 +33,9 @@ import scala.util.control.NonFatal
 final class JdbcIndexerFactory(
     participantId: ParticipantId,
     jdbcUrl: String,
-    actorSystem: ActorSystem,
     readService: ReadService,
     metrics: MetricRegistry,
-)(implicit logCtx: LoggingContext) {
+)(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -60,7 +57,6 @@ final class JdbcIndexerFactory(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =
     for {
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       ledgerDao <- JdbcLedgerDao.writeOwner(jdbcUrl, metrics)
       initialLedgerEnd <- ResourceOwner.forFuture(() =>
         initializeLedger(ledgerDao)(materializer, executionContext))
