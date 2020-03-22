@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
@@ -89,6 +90,7 @@ private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
     headAtInitialization: Offset,
+    configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
@@ -168,6 +170,25 @@ private final class SqlLedger(
     checkpointQueue.complete()
   }
 
+  // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
+  // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
+  // time model.
+  private[this] val currentConfiguration =
+    new AtomicReference[Option[Configuration]](configAtInitialization)
+
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant): Either[String, Unit] = {
+    val recordTime = timeProvider.getCurrentTime
+
+    currentConfiguration
+      .get()
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, can not validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def storeLedgerEntry(offset: Offset, entry: PersistenceEntry): Future[Unit] =
     ledgerDao
       .storeLedgerEntry(offset, entry)
@@ -195,38 +216,37 @@ private final class SqlLedger(
       val (transactionForIndex, disclosureForIndex, globalDivulgence) =
         Ledger.convertToCommittedTransaction(transactionId, transaction)
 
+      val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
-      val entry = if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
-        // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
-        // than the time window between LET and MRT allows for.
-        // See https://github.com/digital-asset/daml/issues/987
-        PersistenceEntry.Rejection(
-          LedgerEntry.Rejection(
-            recordTime,
-            submitterInfo.commandId,
-            submitterInfo.applicationId,
-            submitterInfo.submitter,
-            RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime}")
+      val entry = checkTimeModel(ledgerTime)
+        .fold(
+          reason =>
+            PersistenceEntry.Rejection(
+              LedgerEntry.Rejection(
+                recordTime,
+                submitterInfo.commandId,
+                submitterInfo.applicationId,
+                submitterInfo.submitter,
+                RejectionReason.InvalidLedgerTime(reason)
+              )
+          ),
+          _ =>
+            PersistenceEntry.Transaction(
+              LedgerEntry.Transaction(
+                Some(submitterInfo.commandId),
+                transactionId,
+                Some(submitterInfo.applicationId),
+                Some(submitterInfo.submitter),
+                transactionMeta.workflowId,
+                transactionMeta.ledgerEffectiveTime.toInstant,
+                recordTime,
+                transactionForIndex,
+                disclosureForIndex
+              ),
+              globalDivulgence,
+              List.empty
           )
         )
-      } else {
-        PersistenceEntry.Transaction(
-          LedgerEntry.Transaction(
-            Some(submitterInfo.commandId),
-            transactionId,
-            Some(submitterInfo.applicationId),
-            Some(submitterInfo.submitter),
-            transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
-            recordTime,
-            transactionForIndex,
-            disclosureForIndex
-          ),
-          globalDivulgence,
-          List.empty
-        )
-      }
 
       storeLedgerEntry(offset, entry)
 
@@ -318,15 +338,24 @@ private final class SqlLedger(
           // we persist a rejection. This is done inside storeConfigurationEntry
           // as we need to check against the current configuration within the same
           // database transaction.
-          ledgerDao
-            .storeConfigurationEntry(
-              offset,
-              recordTime,
-              submissionId,
-              participantId,
-              config,
-              None
-            )
+          // NOTE(RA): Since the new configuration can be rejected inside storeConfigurationEntry,
+          // we look up the current configuration again to see if it was stored successfully.
+          implicit val ec: ExecutionContext = DEC
+          for {
+            response <- ledgerDao
+              .storeConfigurationEntry(
+                offset,
+                recordTime,
+                submissionId,
+                participantId,
+                config,
+                None
+              )
+            newConfig <- ledgerDao.lookupLedgerConfiguration()
+          } yield {
+            currentConfiguration.set(newConfig.map(_._2))
+            response
+          }
         }
 
       storeF
@@ -401,11 +430,13 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      ledgerConfig <- ledgerDao.lookupLedgerConfiguration()
     } yield
       new SqlLedger(
         ledgerId,
         participantId,
         ledgerEnd,
+        ledgerConfig.map(_._2),
         ledgerDao,
         timeProvider,
         packages,
