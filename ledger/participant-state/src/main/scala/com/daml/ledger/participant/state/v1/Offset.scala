@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.{Bytes, Ref}
   * less than newer offsets.
   *
   */
-case class Offset(bytes: Bytes) extends Ordered[Offset] {
+final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =
     Bytes.`Bytes Ordering`.compare(this.bytes, that.bytes)
 

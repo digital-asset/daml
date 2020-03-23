@@ -17,8 +17,6 @@ import scala.util.control.NoStackTrace
 
 final class Hash private (val bytes: Bytes) {
 
-  override def clone(): AnyRef = this
-
   override def hashCode(): Int = bytes.hashCode()
 
   override def equals(obj: Any): Boolean = obj match {
