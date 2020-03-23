@@ -21,12 +21,14 @@ import iface.{
   Variant,
 }
 
-import scalaz.{==>>, Order, ~>}
+import scalaz.{Order, Ordering, ~>}
 import scalaz.Id.Id
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
+import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
+import scalaz.std.vector._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import Arbitrary.arbitrary
 
@@ -130,6 +132,10 @@ object TypedValueGenerators {
         case ValueList(v) => v.toImmArray.toSeq.to[Vector] traverse elt.prj
         case _ => None
       }
+      override def injord[Cid: Order] = {
+        implicit val e: Order[elt.Inj[Cid]] = elt.injord
+        implicitly[Order[Vector[elt.Inj[Cid]]]]
+      }
       override def injarb[Cid: Arbitrary] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[Vector[elt.Inj[Cid]]]]
@@ -147,6 +153,10 @@ object TypedValueGenerators {
       override def prj[Cid] = {
         case ValueOptional(v) => v traverse elt.prj
         case _ => None
+      }
+      override def injord[Cid: Order] = {
+        implicit val e: Order[elt.Inj[Cid]] = elt.injord
+        implicitly[Order[Option[elt.Inj[Cid]]]]
       }
       override def injarb[Cid: Arbitrary] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
@@ -167,6 +177,10 @@ object TypedValueGenerators {
         case ValueTextMap(sll) => sll traverse elt.prj
         case _ => None
       }
+      override def injord[Cid: Order] = {
+        implicit val e: Order[elt.Inj[Cid]] = elt.injord[Cid]
+        implicitly[Order[SortedLookupList[elt.Inj[Cid]]]]
+      }
       override def injarb[Cid: Arbitrary] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
@@ -175,28 +189,30 @@ object TypedValueGenerators {
     }
 
     def genMap(key: ValueAddend, elt: ValueAddend): ValueAddend {
-      type Inj[Cid] = key.Inj[Cid] ==>> elt.Inj[Cid]
+      type Inj[Cid] = key.Inj[Cid] Map elt.Inj[Cid]
     } = new ValueAddend {
-      type Inj[Cid] = key.Inj[Cid] ==>> elt.Inj[Cid]
+      type Inj[Cid] = key.Inj[Cid] Map elt.Inj[Cid]
       override val t = TypePrim(PT.GenMap, ImmArraySeq(key.t, elt.t))
       override def inj[Cid] =
-        (m: key.Inj[Cid] ==>> elt.Inj[Cid]) =>
+        (m: key.Inj[Cid] Map elt.Inj[Cid]) =>
           ValueGenMap(
-            m.foldlWithKey(ImmArray.newBuilder[(Value[Cid], Value[Cid])]) { (b, k, v) =>
-                b += ((key.inj(k), elt.inj(v)))
-              }
-              .result)
+            m.iterator
+              .map { case (k, v) => (key.inj(k), elt.inj(v)) }
+              .to[ImmArray])
       override def prj[Cid] = {
         case ValueGenMap(kvs) =>
-          kvs traverse (_ bitraverse (key.prj, elt.prj)) map (==>>.fromFoldable(_))
+          kvs traverse (_ bitraverse (key.prj[Cid], elt.prj[Cid])) map (_.toSeq.toMap)
         case _ => None
       }
+      override def injord[Cid: Order] = {
+        implicit val k: Order[key.Inj[Cid]] = key.injord
+        implicit val e: Order[elt.Inj[Cid]] = elt.injord
+        implicitly[Order[key.Inj[Cid] Map elt.Inj[Cid]]]
+      }
       override def injarb[Cid: Arbitrary] = {
-        implicit val ok: Order[key.Inj[Cid]] = key.injord[Cid]
         implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        import scalaz.scalacheck.ScalazArbitrary._
-        implicitly[Arbitrary[key.Inj[Cid] ==>> elt.Inj[Cid]]]
+        implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
