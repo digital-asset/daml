@@ -3,12 +3,16 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
@@ -16,89 +20,123 @@ import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
-class BatchingLedgerWriter(
-    val writer: LedgerWriter,
-    val maxQueueSize: Int,
-    val maxBatchSizeBytes: Long,
-    val maxWaitDuration: FiniteDuration,
-    val maxParallelism: Int)(
+trait BatchingQueue {
+  def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
+      implicit materializer: Materializer): BatchingQueueHandle
+}
+
+trait BatchingQueueHandle {
+  def alive: Boolean
+  def offer(submission: DamlSubmissionBatch.CorrelatedSubmission): Future[SubmissionResult]
+}
+
+/** Default batching queue implementation for the batching ledger writer.
+  *
+  * @param maxQueueSize The maximum number of submissions to queue for batching. On overflow new submissions are dropped.
+  * @param maxBatchSizeBytes Maximum size for the batch. A batch is emitted if adding a submission would exceed this limit.
+  * @param maxWaitDuration The maximum time to wait before a batch is forcefully emitted.
+  * @param maxConcurrentCommits The maximum number of concurrent calls to make to [[LedgerWriter.commit]].
+  */
+case class DefaultBatchingQueue(
+    maxQueueSize: Int,
+    maxBatchSizeBytes: Long,
+    maxWaitDuration: FiniteDuration,
+    maxConcurrentCommits: Int
+) extends BatchingQueue {
+  private val queue: Source[
+    Seq[DamlSubmissionBatch.CorrelatedSubmission],
+    SourceQueueWithComplete[DamlSubmissionBatch.CorrelatedSubmission]] =
+    Source
+      .queue(maxQueueSize, OverflowStrategy.dropNew)
+      .groupedWeightedWithin(maxBatchSizeBytes, maxWaitDuration)(
+        (cs: DamlSubmissionBatch.CorrelatedSubmission) => cs.getSubmission.size.toLong)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any")) /* Keep.left */
+  def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
+      implicit materializer: Materializer): BatchingQueueHandle = {
+    val commitSink: Sink[Seq[DamlSubmissionBatch.CorrelatedSubmission], _] =
+      Sink.foreachAsync(maxConcurrentCommits)(commitBatch)
+
+    val materializedQueue = queue
+      .toMat(commitSink)(Keep.left)
+      .run()
+
+    val queueAlive = new AtomicBoolean(true)
+    materializedQueue.watchCompletion.foreach { _ =>
+      queueAlive.set(false)
+    }(materializer.executionContext)
+
+    new BatchingQueueHandle {
+      override def alive: Boolean = queueAlive.get()
+
+      override def offer(
+          submission: DamlSubmissionBatch.CorrelatedSubmission): Future[SubmissionResult] = {
+        materializedQueue
+          .offer(submission)
+          .map {
+            case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
+            case QueueOfferResult.Dropped => SubmissionResult.Overloaded
+            case f: QueueOfferResult.Failure => SubmissionResult.InternalError(f.toString)
+            case QueueOfferResult.QueueClosed =>
+              SubmissionResult.InternalError("BatchingLedgerWriter.queue is closed")
+          }(materializer.executionContext)
+      }
+    }
+  }
+}
+
+/** A batching ledger writer that collects submissions into a batch and commits
+  * the batch once a set time and byte limit has been reached.
+  *
+  * @param queue The batching queue implementation
+  * @param writer The underlying ledger writer to use to commit the batch
+  */
+class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     implicit val materializer: Materializer,
     implicit val logCtx: LoggingContext)
     extends LedgerWriter {
 
   implicit val executionContext: ExecutionContext = materializer.executionContext
   private val logger = ContextualizedLogger.get(getClass)
-
-  /** Flag to mark whether the submission queue has been completed or not. Used for health status. */
-  private var queueAlive = true
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any")) /* Keep.left */
-  private val queue: SourceQueueWithComplete[DamlSubmissionBatch.CorrelatedSubmission] = {
-    // Sink to commit batches coming from the queue. We use foreachAsync to commit them in parallel.
-    // TODO(JM): Verify that foreachAsync actually works correctly and that we use sensible executionContext!
-    val commitSink: Sink[Seq[DamlSubmissionBatch.CorrelatedSubmission], _] =
-      Sink.foreachAsync(maxParallelism)(commitBatch)
-
-    val queue = Source
-      .queue(maxQueueSize, OverflowStrategy.dropNew)
-      .groupedWeightedWithin(maxBatchSizeBytes, maxWaitDuration)(
-        (cs: DamlSubmissionBatch.CorrelatedSubmission) => cs.getSubmission.size.toLong)
-      .toMat(commitSink)(Keep.left)
-      .run
-
-    // Watch for completion of the queue to mark the writer as unhealthy, so that upper layers can
-    // handle restarting.
-    // TODO(JM): Is there a neater way to accomplish this?
-    queue.watchCompletion.foreach { _ =>
-      queueAlive = false
-    }
-
-    queue
-  }
+  private val queueHandle = queue.run(commitBatch)
 
   private def commitBatch(
       submissions: Seq[DamlSubmissionBatch.CorrelatedSubmission]): Future[Unit] = {
     assert(submissions.nonEmpty) // Empty batches should never happen
 
-    // Use the first submission's correlation id for the batch. This is potentially confusing
-    // so we might want to revisit this.
-    val correlationId = submissions.head.getCorrelationId
+    // Pick a correlation id for the batch.
+    val correlationId = UUID.randomUUID().toString
 
-    val batch = DamlSubmissionBatch.newBuilder
-      .addAllSubmissions(submissions.asJava)
-      .build
-    val envelope = Envelope.enclose(batch)
-    writer
-      .commit(correlationId, envelope.toByteArray)
-      .map {
-        case SubmissionResult.Acknowledged => ()
-        case other =>
-          // TODO(JM): What are our options here? We cannot signal the applications directly about the outcome
-          // as we've already acknowledged towards them. We can do a RestartSink, but it feels like that should
-          // be the underlying LedgerWriter's decision. Dropping seems reasonable.
-          logger.warn(s"commitBatch($correlationId): Batch dropped as commit failed: $other")
-      }
+    newLoggingContext("correlationId" -> correlationId) { implicit logCtx =>
+      // Log the correlation ids of the submissions so we can correlate the batch to the submissions.
+      val childCorrelationIds = submissions.map(_.getCorrelationId).mkString(", ")
+      logger.trace(s"Committing batch $correlationId with submissions: $childCorrelationIds")
+      val batch = DamlSubmissionBatch.newBuilder
+        .addAllSubmissions(submissions.asJava)
+        .build
+      val envelope = Envelope.enclose(batch)
+      writer
+        .commit(correlationId, envelope.toByteArray)
+        .map {
+          case SubmissionResult.Acknowledged => ()
+          case err =>
+            logger.error(s"Batch dropped as commit failed: $err")
+        }
+    }
   }
 
   override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
-    queue
+    queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
           .setCorrelationId(correlationId)
           .setSubmission(ByteString.copyFrom(envelope))
           .build)
-      .map {
-        case QueueOfferResult.Enqueued => SubmissionResult.Acknowledged
-        case QueueOfferResult.Dropped => SubmissionResult.Overloaded
-        case f: QueueOfferResult.Failure => SubmissionResult.InternalError(f.toString)
-        case QueueOfferResult.QueueClosed =>
-          SubmissionResult.InternalError("BatchingLedgerWriter.queue is closed")
-      }
 
   override def participantId: ParticipantId = writer.participantId
 
   override def currentHealth(): HealthStatus =
-    if (queueAlive)
+    if (queueHandle.alive)
       writer.currentHealth()
     else
       HealthStatus.unhealthy
