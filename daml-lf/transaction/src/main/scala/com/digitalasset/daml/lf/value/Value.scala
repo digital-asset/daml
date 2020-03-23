@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package value
 
-import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, Name}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
