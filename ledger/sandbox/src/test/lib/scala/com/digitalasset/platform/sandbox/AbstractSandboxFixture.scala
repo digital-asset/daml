@@ -5,17 +5,16 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.net.InetAddress
-import java.util.concurrent.Executors
 
-import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
@@ -27,49 +26,16 @@ import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 import io.grpc.Channel
-import org.scalatest.{BeforeAndAfterAll, Suite}
-import org.slf4j.LoggerFactory
+import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService}
 import scala.util.Try
 
-trait AbstractSandboxFixture extends BeforeAndAfterAll {
+trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   self: Suite =>
-
-  private[this] val logger = LoggerFactory.getLogger(getClass)
-
-  private[this] val actorSystemName = this.getClass.getSimpleName
-
-  protected lazy val sandboxExecutionContext: ExecutionContextExecutorService =
-    ExecutionContext.fromExecutorService(
-      Executors.newCachedThreadPool(
-        new ThreadFactoryBuilder()
-          .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
-          .setUncaughtExceptionHandler((thread, _) =>
-            logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
-          .build()))
-
-  protected implicit val system: ActorSystem =
-    ActorSystem(actorSystemName, defaultExecutionContext = Some(sandboxExecutionContext))
-
-  protected implicit val materializer: Materializer = Materializer(system)
-
-  protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
-
-  override protected def afterAll(): Unit = {
-    super.afterAll()
-    executionSequencerFactory.close()
-    materializer.shutdown()
-    Await.result(system.terminate(), 10.seconds)
-    sandboxExecutionContext.shutdown()
-    sandboxExecutionContext.awaitTermination(10, SECONDS)
-    ()
-  }
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
