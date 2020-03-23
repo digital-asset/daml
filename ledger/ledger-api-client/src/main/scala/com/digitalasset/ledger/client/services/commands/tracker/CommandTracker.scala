@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.util.Ctx
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._
 import com.google.rpc.status.Status
@@ -180,15 +181,16 @@ private[commands] class CommandTracker[Context]
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique.")
               with NoStackTrace
             }
-            val dedup = {
-              val dedup = commands.getDeduplicationTime
+            val commandTimeout = {
+              // TODO(RA) Read the default deduplication time from [[com.daml.ledger.participant.state.v1.Configuration]]
+              val dedup = commands.deduplicationTime.getOrElse(Duration.of(3600, 0))
               Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
             }
 
             pendingCommands += (commandId ->
               TrackingData(
                 commandId,
-                dedup,
+                commandTimeout,
                 submitRequest.value.traceContext,
                 submitRequest.context))
           }
