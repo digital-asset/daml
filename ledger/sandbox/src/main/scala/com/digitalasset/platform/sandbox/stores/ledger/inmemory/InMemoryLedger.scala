@@ -125,7 +125,7 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = None
+  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
