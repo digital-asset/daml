@@ -349,15 +349,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   sealed trait ContractId
 
-  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId {
-    lazy val descriminator =
-      if (coid(0) == '0')
-        crypto.Hash.fromString(coid.slice(1, 65)).toOption
-      else
-        None
-    lazy val suffix: String = coid.drop(65)
-  }
-
+  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
   final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {
