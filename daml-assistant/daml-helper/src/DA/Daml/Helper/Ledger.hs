@@ -11,20 +11,14 @@ module DA.Daml.Helper.Ledger (
 
 import DA.Ledger(LedgerService,PartyDetails(..),Party(..),Token)
 import Data.List.Extra as List
-import Data.String(fromString)
 import qualified DA.Ledger as L
 import qualified Data.ByteString as BS
 import qualified Data.Text.Lazy as Text(pack)
 
-data LedgerArgs = LedgerArgs
-  { host :: String
-  , port :: Int
-  , tokM :: Maybe Token
-  , sslConfigM :: Maybe L.ClientSSLConfig
-  }
+import DA.Daml.Compiler.Fetch (LedgerArgs(..),runWithLedgerArgs)
 
-instance Show LedgerArgs where
-    show LedgerArgs{host,port} = host <> ":" <> show port
+run :: LedgerArgs -> LedgerService a -> IO a
+run = runWithLedgerArgs
 
 listParties :: LedgerArgs -> IO [PartyDetails]
 listParties hp = run hp L.listKnownParties
@@ -48,15 +42,3 @@ allocateParty hp name = run hp $ do
 uploadDarFile :: LedgerArgs -> BS.ByteString -> IO ()
 uploadDarFile hp bytes = run hp $ do
     L.uploadDarFile bytes >>= either fail return
-
-run :: LedgerArgs -> LedgerService a -> IO a
-run hp ls = do
-    let LedgerArgs{host,port,tokM} = hp
-    let ls' = case tokM of Nothing -> ls; Just tok -> L.setToken tok ls
-    let timeout = 30 :: L.TimeoutSeconds
-    let ledgerClientConfig =
-            L.configOfHostAndPort
-                (L.Host $ fromString host)
-                (L.Port port)
-                (sslConfigM hp)
-    L.runLedgerService ls' timeout ledgerClientConfig

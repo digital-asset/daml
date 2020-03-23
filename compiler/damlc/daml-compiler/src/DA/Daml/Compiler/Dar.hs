@@ -1,7 +1,9 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DA.Daml.Compiler.Dar
-    ( buildDar
+    ( createDarFile
+    , buildDar
+    , createArchive
     , FromDalf(..)
     , breakAt72Bytes
     , PackageSdkVersion(..)
@@ -60,6 +62,13 @@ import qualified Data.Yaml as Y
 import MkIface
 import Module
 import HscTypes
+
+-- | Create a DAR file by running a ZipArchive action.
+createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
+createDarFile fp dar = do
+    createDirectoryIfMissing True $ takeDirectory fp
+    Zip.createArchive fp dar
+    putStrLn $ "Created " <> fp
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -123,7 +132,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
-            pure $ Just $ createArchive pkgConf (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
+            pure $ Just $ createArchive pName pVersion pSdkVersion (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
         -- Otherwise runAction can return before the diagnostics have been printed and we might die
         -- without ever seeing diagnostics.
@@ -147,7 +156,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      error $
                      "The following modules are declared in exposed-modules but are not part of the DALF: " <>
                      show (S.toList missingExposed)
-                 let (dalf, LF.PackageId -> pkgId) = encodeArchiveAndHash pkg
+                 let (dalf,pkgId) = encodeArchiveAndHash pkg
                  -- For now, we don’t include ifaces and hie files in incremental mode.
                  -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
                  -- but it also makes creation of the archive slightly faster and those files are only required
@@ -167,7 +176,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  srcRoot <- getSrcRoot pSrc
                  pure $
                      createArchive
-                         pkgConf
+                         pName pVersion pSdkVersion
                          pkgId
                          dalf
                          dalfDependencies
@@ -318,8 +327,10 @@ sinkEntryDeterministic compression sink sel = do
   where fixedTime = UTCTime (fromGregorian 1980 1 1) 0
 
 -- | Helper to bundle up all files into a DAR.
-createArchive ::
-       PackageConfigFields
+createArchive
+    :: LF.PackageName
+    -> Maybe LF.PackageVersion
+    -> PackageSdkVersion
     -> LF.PackageId
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString, LF.PackageId)] -- ^ DALF dependencies
@@ -328,7 +339,7 @@ createArchive ::
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> Zip.ZipArchive ()
-createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
+createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and

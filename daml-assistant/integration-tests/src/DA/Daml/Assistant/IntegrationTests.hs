@@ -72,6 +72,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , deployTest deployDir
+    , fetchTest tmpDir
     , codegenTests codegenDir damlTypesDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
@@ -502,6 +503,56 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
 
+-- | Start a sandbox on any free port
+withSandboxOnFreePort :: (Int -> IO ()) -> IO ()
+withSandboxOnFreePort f = do
+  port :: Int <- fromIntegral <$> getFreePort
+  withDevNull $ \devNull -> do
+    let sandboxProc =
+          (shell $ unwords
+           ["daml"
+           , "sandbox"
+           , "--wall-clock-time"
+           , "--port", show port
+           ]) { std_out = UseHandle devNull, std_in = CreatePipe }
+    withCreateProcess sandboxProc  $ \_ _ _ ph -> do
+      race_ (waitForProcess' sandboxProc ph) $ do
+        waitForConnectionOnPort (threadDelay 100000) port
+        f port
+
+-- | Using `daml inspect-dar`, discover the main package-identifier of a dar.
+getMainPidByInspecingDar :: FilePath -> String -> IO String
+getMainPidByInspecingDar dar projName = do
+  stdout <- callCommandForStdout $ unwords ["daml damlc inspect-dar", dar ]
+  [grepped] <- pure $
+        [ line
+        | line <- lines stdout
+        -- expect a single line containing double quotes and the projName
+        , "\"" `isInfixOf` line
+        , projName `isInfixOf` line
+        ]
+  -- and the main pid is found between the 1st and 2nd double-quotes
+  [_,pid,_] <- pure $ splitOn "\"" grepped
+  return pid
+
+-- | Tests for the `daml ledger fetch-dar` command
+fetchTest :: FilePath -> TestTree
+fetchTest tmpDir = testCaseSteps "daml ledger fetch-dar" $ \step -> do
+  let fetchDir = tmpDir </> "fetchTest"
+  withSandboxOnFreePort $ \port -> do
+    createDirectoryIfMissing True fetchDir
+    withCurrentDirectory fetchDir $ do
+      callCommandQuiet $ unwords ["daml new", "proj1"]
+      withCurrentDirectory "proj1" $ do
+        let origDar = ".daml/dist/proj1-0.0.1.dar"
+        step "build/upload"
+        callCommandQuiet $ unwords ["daml ledger upload-dar --port", show port]
+        pid <- getMainPidByInspecingDar origDar "proj1"
+        step "fetch/validate"
+        let fetchedDar = "fetched.dar"
+        callCommandQuiet $ unwords ["daml ledger fetch-dar --port", show port, pid, fetchedDar]
+        callCommandQuiet $ unwords ["daml damlc validate-dar", fetchedDar]
+
 deployTest :: FilePath -> TestTree
 deployTest deployDir = testCase "daml deploy" $ do
     createDirectoryIfMissing True deployDir
@@ -552,16 +603,27 @@ damlInstallerName
     | isWindows = "daml.exe"
     | otherwise = "daml"
 
--- | Like call process but hides stdout.
-runCreateProcessQuiet :: CreateProcess -> IO ()
-runCreateProcessQuiet createProcess = do
+-- | Like call process but returning stdout.
+runCreateProcessForStdout :: CreateProcess -> IO String
+runCreateProcessForStdout createProcess = do
     -- We use `repeat ' '` to keep stdin open. Really we would just
     -- like to inherit stdin but readCreateProcessWithExitCode does
     -- not allow us to overwrite just that and I don’t want to
     -- reimplement everything.
-    (exit, _out, err) <- readCreateProcessWithExitCode createProcess (repeat ' ')
+    (exit, out, err) <- readCreateProcessWithExitCode createProcess (repeat ' ')
     hPutStr stderr err
     unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
+    return out
+
+callCommandForStdout :: String -> IO String
+callCommandForStdout cmd =
+    runCreateProcessForStdout (shell cmd)
+
+-- | Like call process but hiding stdout.
+runCreateProcessQuiet :: CreateProcess -> IO ()
+runCreateProcessQuiet createProcess = do
+  _ <- runCreateProcessForStdout createProcess
+  return ()
 
 -- | Like callProcess but hides stdout.
 callProcessQuiet :: FilePath -> [String] -> IO ()
