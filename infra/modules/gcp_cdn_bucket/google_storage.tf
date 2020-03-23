@@ -39,10 +39,6 @@ resource "google_storage_bucket" "default" {
     }
   }
 
-  website {
-    main_page_suffix = "index.html"
-  }
-
   force_destroy = true
 }
 
