@@ -9,7 +9,7 @@ import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.store.DbType
 import com.digitalasset.platform.store.dao.HikariJdbcConnectionProvider._
 import com.digitalasset.resources.ResourceOwner
@@ -19,10 +19,12 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
 object HikariConnection {
+  private val ConnectionPoolPrefix: String = "daml.index.db.connection"
+
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def owner(
+      serverRole: ServerRole,
       jdbcUrl: String,
-      poolName: String,
       minimumIdle: Int,
       maxPoolSize: Int,
       connectionTimeout: FiniteDuration,
@@ -39,7 +41,7 @@ object HikariConnection {
       config.setMaximumPoolSize(maxPoolSize)
       config.setMinimumIdle(minimumIdle)
       config.setConnectionTimeout(connectionTimeout.toMillis)
-      config.setPoolName(poolName)
+      config.setPoolName(s"$ConnectionPoolPrefix.${serverRole.threadPoolSuffix}")
       metrics.foreach(config.setMetricRegistry)
 
       //note that Hikari uses auto-commit by default.
@@ -98,7 +100,7 @@ object HikariJdbcConnectionProvider {
   private val HealthPollingSchedule: FiniteDuration = 1.second
 
   def owner(
-      name: ServerName,
+      serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
@@ -106,8 +108,8 @@ object HikariJdbcConnectionProvider {
     for {
       // these connections should never time out as we have the same number of threads as connections
       dataSource <- HikariConnection.owner(
+        serverRole,
         jdbcUrl,
-        s"daml.index.db.connection.$name",
         maxConnections,
         maxConnections,
         250.millis,

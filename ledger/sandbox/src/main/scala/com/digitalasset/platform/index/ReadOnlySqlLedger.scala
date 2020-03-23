@@ -16,7 +16,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
 import com.digitalasset.platform.store.{BaseLedger, ReadOnlyLedger}
 import com.digitalasset.resources.ProgramResource.StartupException
@@ -29,13 +29,13 @@ object ReadOnlySqlLedger {
 
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def owner(
-      name: ServerName,
+      serverRole: ServerRole,
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      ledgerReadDao <- JdbcLedgerDao.readOwner(name, jdbcUrl, metrics)
+      ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, metrics)
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger

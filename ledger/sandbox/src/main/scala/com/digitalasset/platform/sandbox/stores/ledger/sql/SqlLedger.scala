@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -47,7 +47,7 @@ object SqlLedger {
   )
 
   def owner(
-      name: ServerName,
+      serverRole: ServerRole,
       // jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
       jdbcUrl: String,
       ledgerId: LedgerIdMode,
@@ -62,7 +62,7 @@ object SqlLedger {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
-      ledgerDao <- JdbcLedgerDao.writeOwner(name, jdbcUrl, metrics)
+      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(

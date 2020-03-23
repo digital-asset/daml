@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.indexer.RecoveringIndexerIntegrationSpec._
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.testing.LogCollector
@@ -199,8 +199,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
 
   private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
-      s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.writeOwner(ServerName(getClass.getSimpleName), jdbcUrl, new MetricRegistry)
+      s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
+    JdbcLedgerDao.writeOwner(ServerRole.Testing(getClass), jdbcUrl, new MetricRegistry)
   }
 }
 

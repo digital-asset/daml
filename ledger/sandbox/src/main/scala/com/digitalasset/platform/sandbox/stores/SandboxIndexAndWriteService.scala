@@ -25,7 +25,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.index.LedgerBackedIndexService
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -52,8 +52,6 @@ object SandboxIndexAndWriteService {
   //TODO: internalise the template store as well
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
-  private val Name: ServerName = ServerName("sandbox")
-
   def postgres(
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
@@ -69,7 +67,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
-        Name,
+        ServerRole.Sandbox,
         jdbcUrl,
         ledgerId,
         participantId,

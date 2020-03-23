@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -53,7 +53,7 @@ object LedgerResource {
       for {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
-          ServerName(testClass.getSimpleName),
+          ServerRole.Testing(getClass),
           postgres.jdbcUrl,
           LedgerIdMode.Static(ledgerId),
           participantId,

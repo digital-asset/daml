@@ -8,7 +8,7 @@ import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.configuration.ServerName
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.store.{DbType, FlywayMigrations}
 import com.digitalasset.resources.Resource
 import org.scalatest.Suite
@@ -33,7 +33,7 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
       for {
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- JdbcLedgerDao
-          .writeOwner(ServerName(getClass.getSimpleName), jdbcUrl, new MetricRegistry)
+          .writeOwner(ServerRole.Testing(getClass), jdbcUrl, new MetricRegistry)
           .acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger"), Offset.begin))
       } yield dao
