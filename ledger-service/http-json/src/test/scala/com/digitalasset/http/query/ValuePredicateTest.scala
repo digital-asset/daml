@@ -134,6 +134,7 @@ class ValuePredicateTest
       c("""{}""", VA.map(VA.int64))(
         SortedLookupList(Map("a" -> 1, "b" -> 2)),
         "PrimTypeTextMap not supported"),
+      c("""{}""", VA.genMap(VA.int64, VA.int64))(Map(), "PrimTypeGenMap not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), "PrimTypeList not supported"),
       c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), "PrimTypeList not supported"),
     )
