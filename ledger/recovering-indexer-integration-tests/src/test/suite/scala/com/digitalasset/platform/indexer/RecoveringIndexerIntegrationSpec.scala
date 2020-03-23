@@ -31,35 +31,24 @@ import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 
 import scala.compat.java8.FutureConverters._
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{Await, Future}
 import scala.util.Try
 
 class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with BeforeAndAfterEach {
   private[this] var testId: UUID = _
 
-  private[this] implicit var actorSystem: ActorSystem = _
-  private[this] implicit var materializer: Materializer = _
-
   override def beforeEach(): Unit = {
     super.beforeEach()
     testId = UUID.randomUUID()
-    actorSystem = ActorSystem(getClass.getSimpleName)
-    materializer = Materializer(actorSystem)
     LogCollector.clear[this.type]
-  }
-
-  override def afterEach(): Unit = {
-    materializer.shutdown()
-    Await.result(actorSystem.terminate(), 10.seconds)
-    super.afterEach()
   }
 
   private def readLog(): Seq[(Level, String)] = LogCollector.read[this.type, RecoveringIndexer]
 
   "indexer" should {
     "index the participant state" in newLoggingContext { implicit logCtx =>
-      participantServer(simpleParticipantState)
+      participantServer(SimpleParticipantState)
         .use { participantState =>
           for {
             _ <- participantState
@@ -92,8 +81,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
 
     "index the participant state, even on spurious failures" in newLoggingContext {
       implicit logCtx =>
-        participantServer((ledgerId, participantId) =>
-          simpleParticipantState(ledgerId, participantId).map(failingOften))
+        participantServer(ParticipantStateThatFailsOften)
           .use { participantState =>
             for {
               _ <- participantState
@@ -148,11 +136,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     }
 
     "stop when the kill switch is hit after a failure" in newLoggingContext { implicit logCtx =>
-      participantServer(
-        (ledgerId, participantId) =>
-          simpleParticipantState(ledgerId, participantId).map(failingOften),
-        restartDelay = 10.seconds,
-      ).use { participantState =>
+      participantServer(ParticipantStateThatFailsOften, restartDelay = 10.seconds)
+        .use { participantState =>
           for {
             _ <- participantState
               .allocateParty(
@@ -186,15 +171,8 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     }
   }
 
-  private def simpleParticipantState(
-      ledgerId: Option[LedgerId],
-      participantId: ParticipantId,
-  )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
-    new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId)
-      .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
-
   private def participantServer(
-      newParticipantState: (Option[LedgerId], ParticipantId) => ResourceOwner[ParticipantState],
+      newParticipantState: ParticipantStateFactory,
       restartDelay: FiniteDuration = 100.millis,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] = {
     val ledgerId = LedgerString.assertFromString(s"ledger-$testId")
@@ -202,10 +180,10 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase()}-$testId;db_close_delay=-1;db_close_on_exit=false"
     for {
-      participantState <- newParticipantState(Some(ledgerId), participantId)
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem())
+      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
+      participantState <- newParticipantState(Some(ledgerId), participantId)(materializer, logCtx)
       _ <- new StandaloneIndexerServer(
-        actorSystem,
         participantState,
         IndexerConfig(
           participantId,
@@ -214,7 +192,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           restartDelay = restartDelay,
         ),
         new MetricRegistry,
-      )
+      )(materializer, logCtx)
     } yield participantState
   }
 
@@ -230,29 +208,52 @@ object RecoveringIndexerIntegrationSpec {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
-  private def randomSubmissionId(): LedgerString =
-    LedgerString.assertFromString(UUID.randomUUID().toString)
+  private def randomSubmissionId(): SubmissionId =
+    SubmissionId.assertFromString(UUID.randomUUID().toString)
 
-  // This spy inserts a failure after each state update to force the RecoveringIndexer to restart.
-  private def failingOften(delegate: ParticipantState): ParticipantState = {
-    var lastFailure: Option[Offset] = None
-    val failingParticipantState = spy(delegate)
-    doAnswer(invocation => {
-      val beginAfter = invocation.getArgument[Option[Offset]](0)
-      delegate.stateUpdates(beginAfter).flatMapConcat {
-        case value @ (_, Heartbeat(_)) =>
-          Source.single(value)
-        case value @ (offset, _) =>
-          if (lastFailure.isEmpty || lastFailure.get < offset) {
-            lastFailure = Some(offset)
-            Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
-          } else {
-            Source.single(value)
-          }
-      }
-    }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
-    failingParticipantState
+  private trait ParticipantStateFactory {
+    def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        logCtx: LoggingContext,
+    ): ResourceOwner[ParticipantState]
   }
 
-  private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
+  private object SimpleParticipantState extends ParticipantStateFactory {
+    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        logCtx: LoggingContext
+    ): ResourceOwner[ParticipantState] =
+      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId)
+        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+  }
+
+  private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
+    override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
+        implicit materializer: Materializer,
+        logCtx: LoggingContext
+    ): ResourceOwner[ParticipantState] =
+      SimpleParticipantState(ledgerId, participantId)
+        .map { delegate =>
+          var lastFailure: Option[Offset] = None
+          // This spy inserts a failure after each state update to force the indexer to restart.
+          val failingParticipantState = spy(delegate)
+          doAnswer(invocation => {
+            val beginAfter = invocation.getArgument[Option[Offset]](0)
+            delegate.stateUpdates(beginAfter).flatMapConcat {
+              case value @ (_, Heartbeat(_)) =>
+                Source.single(value)
+              case value @ (offset, _) =>
+                if (lastFailure.isEmpty || lastFailure.get < offset) {
+                  lastFailure = Some(offset)
+                  Source.single(value).concat(Source.failed(new StateUpdatesFailedException))
+                } else {
+                  Source.single(value)
+                }
+            }
+          }).when(failingParticipantState).stateUpdates(ArgumentMatchers.any[Option[Offset]]())
+          failingParticipantState
+        }
+
+    private class StateUpdatesFailedException extends RuntimeException("State updates failed.")
+  }
 }

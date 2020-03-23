@@ -111,8 +111,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
     newLoggingContext { implicit logCtx =>
-      implicit val system: ActorSystem = ActorSystem("sandbox")
-      implicit val materializer: Materializer = Materializer(system)
+      implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
+      implicit val materializer: Materializer = Materializer(actorSystem)
 
       val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
         case TimeProviderType.Static =>
@@ -126,7 +126,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => system)
+        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
         apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
@@ -156,7 +156,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
                 _ <- new StandaloneIndexerServer(
-                  actorSystem = system,
                   readService = ledger,
                   config = IndexerConfig(
                     ParticipantId,
