@@ -37,7 +37,7 @@ version1_8 = V1 $ PointStable 8
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_7
+versionDefault = version1_8
 
 -- | The DAML-LF development version.
 versionDev :: Version
