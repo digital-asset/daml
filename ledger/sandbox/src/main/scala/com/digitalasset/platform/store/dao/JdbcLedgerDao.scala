@@ -1710,29 +1710,9 @@ private class JdbcLedgerDao(
       ()
     }
 
-  private val SQL_TRUNCATE_ALL_TABLES =
-    SQL("""
-        |truncate ledger_entries cascade;
-        |truncate disclosures cascade;
-        |truncate contracts cascade;
-        |truncate contract_data cascade;
-        |truncate contract_witnesses cascade;
-        |truncate contract_key_maintainers cascade;
-        |truncate parameters cascade;
-        |truncate contract_keys cascade;
-        |truncate configuration_entries cascade;
-        |truncate package_entries cascade;
-        |truncate participant_command_completions cascade;
-        |truncate participant_command_submissions cascade;
-        |truncate participant_events cascade;
-        |truncate participant_event_flat_transaction_witnesses cascade;
-        |truncate participant_event_witnesses_complement cascade;
-      """.stripMargin)
-
   override def reset(): Future[Unit] =
     dbDispatcher.executeSql("truncate_all_tables") { implicit conn =>
-      val _ = SQL_TRUNCATE_ALL_TABLES.execute()
-      ()
+      val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
 
   override val transactionsWriter: TransactionsWriter =
@@ -1823,6 +1803,8 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES: String
     protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String
 
+    protected[JdbcLedgerDao] def SQL_TRUNCATE_TABLES: String
+
     protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR
       : String // TODO: Avoid brittleness of error message checks
   }
@@ -1902,6 +1884,31 @@ object JdbcLedgerDao {
          |order by c.create_offset
          |limit {pageSize} offset {queryOffset}
          |""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |truncate table configuration_entries cascade;
+        |truncate table contracts cascade;
+        |truncate table contract_data cascade;
+        |truncate table contract_divulgences cascade;
+        |truncate table contract_keys cascade;
+        |truncate table contract_key_maintainers cascade;
+        |truncate table contract_observers cascade;
+        |truncate table contract_signatories cascade;
+        |truncate table contract_witnesses cascade;
+        |truncate table disclosures cascade;
+        |truncate table ledger_entries cascade;
+        |truncate table package_entries cascade;
+        |truncate table parameters cascade;
+        |truncate table participant_command_completions cascade;
+        |truncate table participant_command_submissions cascade;
+        |truncate table participant_events cascade;
+        |truncate table participant_event_flat_transaction_witnesses cascade;
+        |truncate table participant_event_witnesses_complement cascade;
+        |truncate table parties cascade;
+        |truncate table party_entries cascade;
+      """.stripMargin
+
   }
 
   object H2DatabaseQueries extends Queries {
@@ -1980,6 +1987,32 @@ object JdbcLedgerDao {
          |order by c.create_offset
          |limit {pageSize} offset {queryOffset}
          |""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |set referential_integrity false;
+        |truncate table configuration_entries;
+        |truncate table contracts;
+        |truncate table contract_data;
+        |truncate table contract_divulgences;
+        |truncate table contract_keys;
+        |truncate table contract_key_maintainers;
+        |truncate table contract_observers;
+        |truncate table contract_signatories;
+        |truncate table contract_witnesses;
+        |truncate table disclosures;
+        |truncate table ledger_entries;
+        |truncate table package_entries;
+        |truncate table parameters;
+        |truncate table participant_command_completions;
+        |truncate table participant_command_submissions;
+        |truncate table participant_events;
+        |truncate table participant_event_flat_transaction_witnesses;
+        |truncate table participant_event_witnesses_complement;
+        |truncate table parties;
+        |truncate table party_entries;
+        |set referential_integrity true;
+      """.stripMargin
 
   }
 }

@@ -1,0 +1,109 @@
+// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.platform.sandbox.services.reset
+
+import java.sql.{Connection, DriverManager}
+
+import anorm.SqlParser._
+import anorm.{SQL, SqlStringInterpolation}
+import com.digitalasset.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
+import com.digitalasset.platform.sandbox.services.{DbInfo, SandboxFixture}
+import com.digitalasset.platform.store.DbType
+import com.digitalasset.resources.ResourceOwner
+
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
+
+abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFixture {
+
+  "ResetService" when {
+
+    "run against a database backend" should {
+
+      "leave the tables in the expected state" in {
+
+        val ignored = Set(
+          "flyway_schema_history", // this is not touched by resets, it's used for migrations
+          "packages" // preserved by the reset to match the compiled packages still loaded in the engine
+        )
+
+        for {
+          ledgerId <- fetchLedgerId()
+          _ <- reset(ledgerId)
+          counts <- countRowsOfAllTables(ignored, database.get)
+        } yield {
+
+          val expectedToHaveOneItem = Set(
+            "parameters", // a new set of parameters is stored at startup
+            "participant_command_completions", // using static time, one checkpoint is going to be saved
+            "ledger_entries" // using static time, one checkpoint is going to be saved
+          )
+
+          for ((table, count) <- counts if expectedToHaveOneItem(table)) {
+            withClue(s"$table has $count items: ") {
+              count shouldBe 1
+            }
+          }
+
+          // Everything else should be empty
+          val expectedToBeEmpty = counts.keySet.diff(ignored).diff(expectedToHaveOneItem)
+
+          for ((table, count) <- counts if expectedToBeEmpty(table)) {
+            withClue(s"$table has $count items: ") {
+              count shouldBe 0
+            }
+          }
+
+          succeed // congratulations, reset works, you deserve a break
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+object ResetServiceDatabaseIT {
+
+  // Very naive helper, supposed to be used exclusively for testing
+  private def runQuery[A](dbInfoOwner: ResourceOwner[DbInfo])(sql: DbType => Connection => A)(
+      implicit ec: ExecutionContext): Future[A] = {
+    val dbTypeAndConnection =
+      for {
+        dbInfo <- dbInfoOwner
+        _ <- ResourceOwner.forTry[Class[_]](() => Try(Class.forName(dbInfo.dbType.driver)))
+        connection <- ResourceOwner.forCloseable(() => DriverManager.getConnection(dbInfo.jdbcUrl))
+      } yield (dbInfo.dbType, connection)
+    dbTypeAndConnection.use {
+      case (dbType, connection) => Future.fromTry(Try(sql(dbType)(connection)))
+    }
+  }
+
+  private def listTables(dbType: DbType)(connection: Connection): List[String] =
+    dbType match {
+      case DbType.Postgres =>
+        SQL"select tablename from pg_catalog.pg_tables where schemaname != 'pg_catalog' and schemaname != 'information_schema'"
+          .as(str("tablename").*)(connection)
+      case DbType.H2Database =>
+        SQL"select table_name from information_schema.tables where table_schema <> 'INFORMATION_SCHEMA'"
+          .as(str("table_name").*)(connection)
+    }
+
+  private def countRows(tableName: String)(_noDialectDifference: DbType)(
+      connection: Connection): Int =
+    SQL(s"select count(*) as no_rows from $tableName").as(int("no_rows").single)(connection)
+
+  private def countRowsOfAllTables(ignored: Set[String])(dbType: DbType)(
+      connection: Connection): Map[String, Int] =
+    listTables(dbType)(connection).collect {
+      case table if !ignored(table) => table.toLowerCase -> countRows(table)(dbType)(connection)
+    }.toMap
+
+  def countRowsOfAllTables(ignored: Set[String], dbInfoOwner: ResourceOwner[DbInfo])(
+      implicit ec: ExecutionContext): Future[Map[String, Int]] =
+    runQuery(dbInfoOwner)(countRowsOfAllTables(ignored))
+
+}
