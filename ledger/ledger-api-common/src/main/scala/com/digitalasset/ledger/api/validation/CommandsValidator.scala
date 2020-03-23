@@ -25,6 +25,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
+import scala.Ordering.Implicits._
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
@@ -75,9 +76,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
         ),
       )
 
-  private def maxTime(t1: Instant, t2: Instant): Instant =
-    if (t1.isAfter(t2)) t1 else t2
-
   private def validateLedgerTime(
       currentTime: Instant,
       commands: ProtoCommands,
@@ -88,7 +86,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
     (minLedgerTimeAbs, minLedgerTimeRel) match {
       case (None, None) => Right(currentTime)
       case (Some(minAbs), None) =>
-        Right(maxTime(currentTime, TimestampConversion.toInstant(minAbs)))
+        Right(currentTime.max(TimestampConversion.toInstant(minAbs)))
       case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
       case (Some(_), Some(_)) =>
         Left(
