@@ -1724,6 +1724,8 @@ private class JdbcLedgerDao(
         |truncate participant_command_completions cascade;
         |truncate participant_command_submissions cascade;
         |truncate participant_events cascade;
+        |truncate participant_event_flat_transaction_witnesses cascade;
+        |truncate participant_event_witnesses_complement cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =
