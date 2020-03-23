@@ -222,7 +222,7 @@ private[events] trait EventsTable {
       witnessParties = eventWitnesses,
       signatories = createSignatories,
       observers = createObservers,
-      agreementText = createAgreementText,
+      agreementText = createAgreementText.orElse(Some("")),
     )
 
   protected def exercisedEvent(

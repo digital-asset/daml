@@ -30,6 +30,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
@@ -356,7 +357,7 @@ dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
 ghcCompile log file = timed log "GHC compile" $ do
-    (_, Just (safeMode, guts, details)) <- generateCore file
+    (_, Just (safeMode, guts, details)) <- generateCore (RunSimplifier False) file
     pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package

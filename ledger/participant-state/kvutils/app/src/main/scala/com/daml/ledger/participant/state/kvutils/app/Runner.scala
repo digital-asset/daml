@@ -33,15 +33,15 @@ class Runner[T <: ReadWriteService, Extra](
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
 
-      implicit val system: ActorSystem = ActorSystem(
+      implicit val actorSystem: ActorSystem = ActorSystem(
         "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
-      implicit val materializer: Materializer = Materializer(system)
+      implicit val materializer: Materializer = Materializer(actorSystem)
 
       newLoggingContext { implicit logCtx =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
           // This is necessary because we can't declare them as implicits in a `for` comprehension.
-          _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+          _ <- AkkaResourceOwner.forActorSystem(() => actorSystem).acquire()
           _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
 
           // initialize all configured participants
@@ -51,7 +51,6 @@ class Runner[T <: ReadWriteService, Extra](
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
               _ <- new StandaloneIndexerServer(
-                system,
                 readService = ledger,
                 factory.indexerConfig(participantConfig, config),
                 factory.indexerMetricRegistry(participantConfig, config),

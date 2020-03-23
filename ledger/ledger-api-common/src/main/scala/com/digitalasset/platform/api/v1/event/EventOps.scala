@@ -93,6 +93,12 @@ object EventOps {
           TreeEvent(TreeExercised(exercise.copy(childEventIds = exercise.childEventIds.filter(f)))),
         create => TreeEvent(TreeCreated(create)))
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)
+    def modifyWitnessParties(f: Seq[String] => Seq[String]): TreeEvent =
+      event.kind.fold(
+        exercise =>
+          TreeEvent(TreeExercised(exercise.copy(witnessParties = f(exercise.witnessParties)))),
+        create => TreeEvent(TreeCreated(create.copy(witnessParties = f(create.witnessParties)))),
+      )
     def templateId: Option[Identifier] = event.kind.fold(_.templateId, _.templateId)
   }
 

@@ -10,6 +10,7 @@ import TcIface (typecheckIface)
 import LoadIface (readIface)
 import TidyPgm
 import DynFlags
+import SrcLoc
 import qualified GHC
 import qualified Module as GHC
 import GhcMonad
@@ -95,7 +96,6 @@ import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
 import SdkVersion (damlStdlib)
 
-import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
@@ -236,7 +236,7 @@ generateRawDalfRule :: Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
-        (coreDiags, mbCore) <- generateCore file
+        (coreDiags, mbCore) <- generateCore (RunSimplifier False) file
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
@@ -1005,14 +1005,22 @@ getDlintDiagnosticsRule =
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
-      srcSpanToRange span = Range {
+      srcSpanToRange :: SrcSpan -> LSP.Range
+      srcSpanToRange (RealSrcSpan span) = Range {
           _start = LSP.Position {
-                _line = HSE.srcSpanStartLine span - 1
-              , _character  = HSE.srcSpanStartColumn span - 1}
+                _line = srcSpanStartLine span - 1
+              , _character  = srcSpanStartCol span - 1}
         , _end   = LSP.Position {
-                _line = HSE.srcSpanEndLine span - 1
-             , _character = HSE.srcSpanEndColumn span - 1}
+                _line = srcSpanEndLine span - 1
+             , _character = srcSpanEndCol span - 1}
+        }
+      srcSpanToRange (UnhelpfulSpan _) = Range {
+          _start = LSP.Position {
+                _line = -1
+              , _character  = -1}
+        , _end   = LSP.Position {
+                _line = -1
+             , _character = -1}
         }
       diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
       diagnostic file i =

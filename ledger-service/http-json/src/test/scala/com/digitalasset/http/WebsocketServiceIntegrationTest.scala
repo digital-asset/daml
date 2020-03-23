@@ -99,10 +99,11 @@ class WebsocketServiceIntegrationTest
       query: String,
       offset: Option[domain.Offset] = None): Source[Message, NotUsed] = {
     import spray.json._, json.JsonProtocol._
-    val webSocketFlow = Http().webSocketClientFlow(
-      WebSocketRequest(
-        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query")),
-        subprotocol = validSubprotocol))
+    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query"))
+    logger.info(
+      s"---- singleClientQueryStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
+    val webSocketFlow =
+      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol))
     offset
       .cata(
         off =>
@@ -116,10 +117,10 @@ class WebsocketServiceIntegrationTest
   private def singleClientFetchStream(
       serviceUri: Uri,
       request: String): Source[Message, NotUsed] = {
-    val webSocketFlow = Http().webSocketClientFlow(
-      WebSocketRequest(
-        uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch")),
-        subprotocol = validSubprotocol))
+    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch"))
+    logger.info(s"---- singleClientFetchStream uri: ${uri.toString}, request: $request")
+    val webSocketFlow =
+      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol))
     Source
       .single(TextMessage(request))
       .via(webSocketFlow)

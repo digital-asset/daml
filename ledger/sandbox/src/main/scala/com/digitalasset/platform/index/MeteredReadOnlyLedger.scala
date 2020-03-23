@@ -16,15 +16,14 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  LedgerId,
-  PartyDetails,
-  TransactionFilter,
-  TransactionId
-}
+import com.digitalasset.ledger.TransactionId
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -42,7 +41,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   private object Metrics {
     val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
     val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
-    val lookupTransaction: Timer = metrics.timer("daml.index.lookup_transaction")
+    val lookupFlatTransactionById: Timer = metrics.timer("daml.index.lookup_flat_transaction_by_id")
+    val lookupTransactionTreeById: Timer = metrics.timer("daml.index.lookup_transaction_tree_by_id")
     val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
     val getParties: Timer = metrics.timer("daml.index.get_parties")
     val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
@@ -84,10 +84,23 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
 
-  override def lookupTransaction(
-      transactionId: TransactionId
-  ): Future[Option[(Offset, LedgerEntry.Transaction)]] =
-    timedFuture(Metrics.lookupTransaction, ledger.lookupTransaction(transactionId))
+  override def lookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetFlatTransactionResponse]] =
+    timedFuture(
+      Metrics.lookupFlatTransactionById,
+      ledger.lookupFlatTransactionById(transactionId, requestingParties),
+    )
+
+  override def lookupTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetTransactionResponse]] =
+    timedFuture(
+      Metrics.lookupTransactionTreeById,
+      ledger.lookupTransactionTreeById(transactionId, requestingParties),
+    )
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledger.getParties(parties))

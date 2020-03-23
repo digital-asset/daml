@@ -107,9 +107,10 @@ daml_compile(
     srcs = ["src/test/daml/Account.daml"],
 )
 
+# TODO(Leo): #5108, split tests into two targets: unit and integration
 da_scala_test(
     name = "tests",
-    size = "medium",
+    size = "large",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":Account.dar",

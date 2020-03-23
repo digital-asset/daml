@@ -43,7 +43,7 @@ getDamlIdeState compilerOpts mbScenarioService loggerH debouncer caps getLspId e
     damlEnv <- mkDamlEnv compilerOpts mbScenarioService
     initialise caps rule getLspId eventHandler (toIdeLogger loggerH) debouncer damlEnv (toCompileOpts compilerOpts reportProgress) vfs
 
-enabledPlugins :: Plugin
+enabledPlugins :: Plugin a
 enabledPlugins = Completions.plugin <> CodeAction.plugin
 
 -- Wrapper for the common case where the scenario service

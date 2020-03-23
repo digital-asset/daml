@@ -143,7 +143,7 @@ private class JdbcLedgerDao(
         .as(offset("ledger_end").single)
     }
 
-  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select external_ledger_end from parameters")
+  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupInitialLedgerEnd(): Future[Option[Offset]] =
     dbDispatcher.executeSql("get_initial_ledger_end") { implicit conn =>
@@ -931,6 +931,9 @@ private class JdbcLedgerDao(
     }
   }
 
+  private def splitOrThrow(id: EventId): NodeId =
+    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
   //TODO: test it for failures..
   override def storeLedgerEntry(
       offset: Offset,
@@ -938,9 +941,6 @@ private class JdbcLedgerDao(
     import PersistenceResponse._
 
     val txBytes = serializeTransaction(ledgerEntry.entry)
-
-    def splitOrThrow(id: EventId): NodeId =
-      split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
     def insertEntry(le: PersistenceEntry)(implicit conn: Connection): PersistenceResponse =
       le match {
@@ -1039,11 +1039,23 @@ private class JdbcLedgerDao(
           // First, store all ledger entries without updating the ACS
           // We can't use the storeLedgerEntry(), as that one does update the ACS
           ledgerEntries.foreach {
-            case (i, le) =>
-              le match {
-                case tx: LedgerEntry.Transaction => storeTransaction(i, tx, transactionBytes(i))
-                case rj: LedgerEntry.Rejection => storeRejection(i, rj)
-                case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
+            case (offset, entry) =>
+              entry match {
+                case tx: LedgerEntry.Transaction =>
+                  storeTransaction(offset, tx, transactionBytes(offset))
+                  transactionsWriter(
+                    applicationId = tx.applicationId,
+                    workflowId = tx.workflowId,
+                    transactionId = tx.transactionId,
+                    commandId = tx.commandId,
+                    submitter = tx.submittingParty,
+                    roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
+                    ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+                    offset = offset,
+                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                  )
+                case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
+                case cp: LedgerEntry.Checkpoint => storeCheckpoint(offset, cp)
               }
           }
 
@@ -1080,9 +1092,6 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_ENTRY =
     SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
-
-  private val SQL_SELECT_TRANSACTION =
-    SQL("select * from ledger_entries where transaction_id={transaction_id}")
 
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
@@ -1182,21 +1191,6 @@ private class JdbcLedgerDao(
           entry.map(e => e -> loadDisclosureOptForEntry(e))
       }
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
-  }
-
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Offset, LedgerEntry.Transaction)]] = {
-    dbDispatcher
-      .executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
-        val entry = SQL_SELECT_TRANSACTION
-          .on("transaction_id" -> (transactionId: String))
-          .as(EntryParser.singleOpt)
-        entry.map(e => e -> loadDisclosureOptForEntry(e))
-      }
-      .map(_.map((toLedgerEntry _).tupled)
-        .collect {
-          case (offset, t: LedgerEntry.Transaction) => offset -> t
-        })(executionContext)
   }
 
   private val ContractDataParser = (ledgerString("id")
@@ -1730,6 +1724,7 @@ private class JdbcLedgerDao(
         |truncate package_entries cascade;
         |truncate participant_command_completions cascade;
         |truncate participant_command_submissions cascade;
+        |truncate participant_events cascade;
       """.stripMargin)
 
   override def reset(): Future[Unit] =

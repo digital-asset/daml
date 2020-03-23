@@ -6,7 +6,6 @@ package com.digitalasset.platform.indexer
 import java.time.Instant
 
 import akka.NotUsed
-import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
@@ -27,7 +26,6 @@ import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -37,10 +35,9 @@ final class JdbcIndexerFactory(
     name: ServerName,
     participantId: ParticipantId,
     jdbcUrl: String,
-    actorSystem: ActorSystem,
     readService: ReadService,
     metrics: MetricRegistry,
-)(implicit logCtx: LoggingContext) {
+)(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -62,15 +59,12 @@ final class JdbcIndexerFactory(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =
     for {
-      materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       ledgerDao <- JdbcLedgerDao.writeOwner(name, jdbcUrl, metrics)
-      initialLedgerEnd <- ResourceOwner.forFuture(() =>
-        initializeLedger(ledgerDao)(materializer, executionContext))
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)(materializer)
+      initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
 
   private def initializeLedger(dao: LedgerDao)(
-      implicit materializer: Materializer,
-      executionContext: ExecutionContext,
+      implicit executionContext: ExecutionContext,
   ): Future[Option[Offset]] =
     for {
       initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
