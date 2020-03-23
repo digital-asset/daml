@@ -435,7 +435,9 @@ class CommandTrackerFlowTest
       CommandTrackerFlow[Int, NotUsed](
         submissionFlow,
         completionsMock.createCompletionsSource,
-        LedgerOffset(Boundary(LEDGER_BEGIN)))
+        LedgerOffset(Boundary(LEDGER_BEGIN)),
+        () => JDuration.ofSeconds(10),
+      )
 
     val handle = submissionSource
       .viaMat(trackingFlow)(Keep.both)

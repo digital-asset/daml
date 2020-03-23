@@ -24,6 +24,7 @@ import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
 
@@ -114,7 +115,8 @@ final class CommandClient(
             LedgerClient.stub(commandSubmissionService, token).submit,
             config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
-          ledgerEnd.getOffset
+          ledgerEnd.getOffset,
+          () => config.ttl
         ))(Keep.right)
     }
 
@@ -150,7 +152,9 @@ final class CommandClient(
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)")
-        r
+        val updateDedupTime = commands.deduplicationTime.orElse(
+          Some(Duration.of(config.ttl.getSeconds, config.ttl.getNano)))
+        r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
       })
 
   def submissionFlow[Context](token: Option[String] = None)

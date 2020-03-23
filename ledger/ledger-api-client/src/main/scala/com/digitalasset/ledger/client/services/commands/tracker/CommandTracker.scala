@@ -3,7 +3,7 @@
 
 package com.digitalasset.ledger.client.services.commands.tracker
 
-import java.time.Instant
+import java.time.{Instant, Duration => JDuration}
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.util.Ctx
-import com.google.protobuf.duration.Duration
+import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._
 import com.google.rpc.status.Status
@@ -20,6 +20,7 @@ import io.grpc.{Status => RpcStatus}
 import org.slf4j.LoggerFactory
 
 import scala.collection.{breakOut, immutable, mutable}
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 import scala.util.control.NoStackTrace
 import scala.util.{Failure, Success, Try}
@@ -44,7 +45,7 @@ import scala.util.{Failure, Success, Try}
   *
   */
 // TODO(mthvedt): This should have unit tests.
-private[commands] class CommandTracker[Context]
+private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDuration)
     extends GraphStageWithMaterializedValue[
       CommandTrackerShape[Context],
       Future[immutable.Map[String, Context]]] {
@@ -66,6 +67,21 @@ private[commands] class CommandTracker[Context]
     val promise = Promise[immutable.Map[String, Context]]
 
     val logic: TimerGraphStageLogic = new TimerGraphStageLogic(shape) {
+
+      val timeout_detection = "timeout-detection"
+      override def preStart(): Unit = {
+        scheduleWithFixedDelay(timeout_detection, 1.second, 1.second)
+
+      }
+
+      override protected def onTimer(timerKey: Any): Unit = {
+        timerKey match {
+          case `timeout_detection` =>
+            val timeouts = getOutputForTimeout(Instant.now)
+            if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
+          case _ => // unknown timer, nothing to do
+        }
+      }
 
       private val pendingCommands = new mutable.HashMap[String, TrackingData[Context]]()
 
@@ -128,7 +144,7 @@ private[commands] class CommandTracker[Context]
                 pushResultOrPullCommandResultIn(getOutputForCompletion(completion))
 
               case Right(CompletionStreamElement.CheckpointElement(_)) =>
-                pushResultOrPullCommandResultIn(None)
+                pull(commandResultIn)
             }
 
             completeStageIfTerminal()
@@ -137,9 +153,7 @@ private[commands] class CommandTracker[Context]
       )
 
       private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
-        val outputs = getOutputForTimeout(Instant.now) ++ compl.toList
-        if (outputs.nonEmpty) emitMultiple(resultOut, outputs)
-        else pull(commandResultIn)
+        compl.fold(pull(commandResultIn))(push(resultOut, _))
       }
 
       private def completeStageIfTerminal(): Unit = {
@@ -182,8 +196,9 @@ private[commands] class CommandTracker[Context]
               with NoStackTrace
             }
             val commandTimeout = {
-              // TODO(RA) Read the default deduplication time from [[com.daml.ledger.participant.state.v1.Configuration]]
-              val dedup = commands.deduplicationTime.getOrElse(Duration.of(3600, 0))
+              lazy val maxDedup = maxDeduplicationTime()
+              val dedup = commands.deduplicationTime.getOrElse(
+                ProtoDuration.of(maxDedup.getSeconds, maxDedup.getNano))
               Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
             }
 

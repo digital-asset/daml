@@ -103,7 +103,8 @@ final class ApiCommandService private (
                   List(submitter.party),
                   Some(offset)))
               .mapConcat(CommandCompletionSource.toStreamElements),
-          ledgerEnd
+          ledgerEnd,
+          () => configuration.maxDeduplicationTime
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
