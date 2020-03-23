@@ -108,7 +108,6 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def runValidation[T](
       envelope: Bytes,
       correlationId: String,
