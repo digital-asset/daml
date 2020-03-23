@@ -22,7 +22,7 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
   override protected def channel: Channel = suiteResource.value._2
 
   override protected lazy val suiteResource: Resource[(SandboxServer, Channel)] = {
-    implicit val ec: ExecutionContext = sandboxExecutionContext
+    implicit val ec: ExecutionContext = akkaExecutionContext
     new OwnedResource[(SandboxServer, Channel)](
       for {
         jdbcUrl <- database
