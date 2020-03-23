@@ -46,26 +46,27 @@ class Runner[T <: ReadWriteService, Extra](
 
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
+            val metricRegistry = factory.metricRegistry(participantConfig, config)
             for {
               ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
               _ <- new StandaloneIndexerServer(
                 readService = ledger,
-                factory.indexerConfig(participantConfig, config),
-                factory.indexerMetricRegistry(participantConfig, config),
+                config = factory.indexerConfig(participantConfig, config),
+                metrics = metricRegistry,
               ).acquire()
               _ <- new StandaloneApiServer(
-                factory.apiServerConfig(participantConfig, config),
-                factory.commandConfig(config),
-                factory.partyConfig(config),
-                factory.submissionConfig(config),
+                config = factory.apiServerConfig(participantConfig, config),
+                commandConfig = factory.commandConfig(config),
+                partyConfig = factory.partyConfig(config),
+                submissionConfig = factory.submissionConfig(config),
                 readService = ledger,
                 writeService = ledger,
                 authService = factory.authService(config),
-                factory.apiServerMetricRegistry(participantConfig, config),
-                factory.timeServiceBackend(config),
-                Some(config.seeding),
+                metrics = metricRegistry,
+                timeServiceBackend = factory.timeServiceBackend(config),
+                seeding = Some(config.seeding),
               ).acquire()
             } yield ()
           })
