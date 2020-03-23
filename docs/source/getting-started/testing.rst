@@ -4,32 +4,19 @@
 Testing Your App
 ****************
 
-When developing your application, you will want to test certain workflows through the UI.
-In particular, you'll want to make sure that changes such as new features do not break existing functionality by mistake.
-It may be fine to do this testing manually at first, but it quickly becomes more tiresome and error prone as the app grows.
-
-In this section we will show you one approach to automatically testing workflows in your UI.
-This will allow you to iterate on your app faster and with more confidence that you aren't breaking it!
+When developing your application, you will want to test that user flows work from end to end.
+This means that actions performed in the web UI trigger updates to the ledger and give the desired results on the page.
+In this section we show how you can do such testing automatically in TypeScript (equally JavaScript).
+This will allow you to iterate on your app faster and with confidence that you aren't breaking it!
 
 Testing with Jest and Puppeteer
 ===============================
 
-There are two tools that we choose to write end to end tests for our app.
+There are two tools that we chose to write end to end tests for our app.
 Of course there are more to choose from, but we show you one combination here.
-The first tool is a general JavaScript testing framework called
-`Jest <https://jestjs.io/>`_.
-Jest allows you to write test cases containing expectations about behaviour should occur.
-If the expectations for a test are not met, then you should see helpful messages about what went wrong.
-You can also write setup and cleanup procedures that run before and after each test.
-This will be very useful for us to manage services like the DAML sandbox and JSON API server.
 
-The second tool we use heavily is a library called
-`Puppeteer <https://pptr.dev/>`_.
-Puppeteer allows you to control a Chrome browser from a JavaScript (or TypeScript) program running on `Node.js <https://nodejs.org/en/about/>`_.
-In our case we use it to perform actions like logging in, following friends and sending messages.
-We can also control multiple browser pages at once and test the interactions between different users.
-As a bonus, if something goes wrong you can take a screenshot and see what state your test browser got into!
-To summarize, Jest is the framework encompassing your tests and expectations, and Puppeteer is a library that you use during those tests to perform actions in place of a real user.
+    - `Jest <https://jestjs.io/>`_ is a general-purpose testing framework for JavaScript that's well integrated with both TypeScript and React. Jest helps you structure your tests and express expectations of the app's behaviour.
+    - `Puppeteer <https://pptr.dev/>`_ is a library for controlling a Chrome browser from JavaScript/TypeScript. Puppeteer allows you to simulate interactions with the app in place of a real user.
 
 
 Setting up our tests
