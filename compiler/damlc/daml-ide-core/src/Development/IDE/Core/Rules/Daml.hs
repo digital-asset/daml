@@ -140,7 +140,7 @@ uriToVirtualResource uri = do
             let decoded = queryString uri
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario (toNormalizedFilePath file) (T.pack topLevelDecl)
+            pure $ VRScenario (toNormalizedFilePath' file) (T.pack topLevelDecl)
         _ -> Nothing
 
   where
@@ -162,7 +162,7 @@ sendFileDiagnostics diags =
 -- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
-    let uri = filePathToUri (fromNormalizedFilePath fp)
+    let uri = fromNormalizedUri (filePathToUri' fp)
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
@@ -496,7 +496,7 @@ readDalfPackage dalf = do
     bs <- BS.readFile dalf
     pure $ do
         (pkgId, package) <-
-            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
+            mapLeft (ideErrorPretty $ toNormalizedFilePath' dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
         Right (LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -616,12 +616,12 @@ buildDir = ".daml/build"
 -- | Path to the dalf file used in incremental builds.
 dalfFileName :: NormalizedFilePath -> NormalizedFilePath
 dalfFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
 
 -- | Path to the interface file used in incremental builds.
 hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "hi"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
 readDalfFromFile :: NormalizedFilePath -> Action LF.Module
 readDalfFromFile dalfFile = do
@@ -737,6 +737,7 @@ runScenariosRule =
               , _source = Just "Scenario"
               , _message = Pretty.renderPlain $ formatScenarioError world err
               , _code = Nothing
+              , _tags = Nothing
               , _relatedInformation = Nothing
               }
             where scenarioName = LF.qualObject scenario
@@ -756,7 +757,7 @@ encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
       Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath file
+        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScenarioRootsRule :: Rules ()
@@ -910,7 +911,7 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `HashSet.union`
-                    (HashSet.insert "" $ HashSet.fromList $ concatMap reachableModules depInfos)
+                    (HashSet.insert emptyFilePath $ HashSet.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
@@ -1031,6 +1032,7 @@ getDlintDiagnosticsRule =
             , _source = Just "linter"
             , _message = T.pack $ show i
             , _relatedInformation = Nothing
+            , _tags = Nothing
       })
 
 --

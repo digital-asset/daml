@@ -259,7 +259,7 @@ runDamldoc testfile importPathM = do
           }
 
     let diagLogger = \case
-            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath fp,ShowDiag,) diags
+            EventFileDiagnostics fp diags -> T.hPutStrLn stderr $ showDiagnostics $ map (toNormalizedFilePath' fp,ShowDiag,) diags
             _ -> pure ()
 
     -- run the doc generator on that file
@@ -267,7 +267,7 @@ runDamldoc testfile importPathM = do
         defaultExtractOptions
         diagLogger
         (toCompileOpts opts (IdeReportProgress False))
-        [toNormalizedFilePath testfile]
+        [toNormalizedFilePath' testfile]
 
     case mbResult of
       Nothing ->

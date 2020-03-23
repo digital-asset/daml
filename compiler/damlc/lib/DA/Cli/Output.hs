@@ -60,5 +60,5 @@ diagnosticsLogger = hDiagnosticsLogger stderr
 
 hDiagnosticsLogger :: Handle -> FromServerMessage -> IO ()
 hDiagnosticsLogger handle = \case
-    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath fp,ShowDiag,) diags
+    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()

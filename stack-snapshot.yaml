@@ -16,12 +16,12 @@ packages:
   - grpc-haskell-0.0.1.0
   - grpc-haskell-core-0.0.0.0
   - fuzzy-0.1.0.0
-  - haskell-lsp-0.20.0.0
+  - haskell-lsp-0.21.0.0
   - haddock-library-1.8.0
-  - haskell-lsp-types-0.20.0.0
+  - haskell-lsp-types-0.21.0.0
   - hie-bios-0.4.0
   - hpp-0.6.1
-  - lsp-test-0.10.1.0
+  - lsp-test-0.10.2.0
   - parser-combinators-1.2.1
   - proto3-suite-0.4.0.0
   - proto3-wire-1.1.0

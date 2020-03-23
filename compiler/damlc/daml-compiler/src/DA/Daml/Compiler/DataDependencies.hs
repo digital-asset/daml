@@ -787,7 +787,7 @@ generateSrcPkgFromLf :: Config -> LF.Package -> [(NormalizedFilePath, String)]
 generateSrcPkgFromLf envConfig pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     let fp =
-            toNormalizedFilePath $
+            toNormalizedFilePath' $
             (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
             ".daml"
     pure

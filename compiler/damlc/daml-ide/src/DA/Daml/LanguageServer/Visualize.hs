@@ -23,7 +23,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.Visual as Visual
 
 collectTexts :: List Aeson.Value -> Maybe NormalizedFilePath
-collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath (T.unpack file))
+collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath' (T.unpack file))
 collectTexts _= Nothing
 
 onCommand

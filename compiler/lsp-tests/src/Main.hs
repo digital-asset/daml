@@ -673,6 +673,14 @@ completionTests run _runScenarios = testGroup "completion"
           completions <- getCompletions foo (Position 1 9)
           liftIO $ assertBool ("`with` should be in " <> show completions) $
               mkKeywordCompletion "with" `elem` completions
+    , testCase "no prefix" $ run $ do
+            foo <- openDoc' "Foo.daml" damlId $ T.unlines
+                [ "module Foo where" ]
+            completions <- getCompletions foo (Position 0 0)
+            -- We just want to verify that this no longer results in a
+            -- crash (before haskell-lsp 0.21 it did crash).
+            liftIO $ assertBool "Expected completions to be non-empty"
+                (not $ null completions)
     ]
 
 defaultCompletion :: T.Text -> CompletionItem
@@ -692,6 +700,7 @@ defaultCompletion label = CompletionItem
           , _commitCharacters = Nothing
           , _command = Nothing
           , _xdata = Nothing
+          , _tags = List []
           }
 
 mkTypeCompletion :: T.Text -> CompletionItem
