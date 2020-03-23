@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.services.DbInfo
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
@@ -70,7 +71,7 @@ trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  protected def database: Option[ResourceOwner[String]] = None
+  protected def database: Option[ResourceOwner[DbInfo]] = None
 
   protected def serverHost: String = InetAddress.getLoopbackAddress.getHostName
 

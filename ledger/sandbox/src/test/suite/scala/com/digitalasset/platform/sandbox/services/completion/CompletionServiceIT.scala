@@ -18,17 +18,16 @@ import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
+import com.digitalasset.platform.sandbox.SandboxBackend
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
 import com.digitalasset.platform.testing.StreamConsumer
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
 import com.google.rpc.status.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CompletionServiceIT
@@ -36,6 +35,7 @@ class CompletionServiceIT
     with Matchers
     with Inspectors
     with SandboxFixture
+    with SandboxBackend.Postgresql
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -144,9 +144,6 @@ class CompletionServiceIT
       }
     }
   }
-
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
 
   override protected def config: SandboxConfig =
     super.config.copy(
