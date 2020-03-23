@@ -67,7 +67,7 @@ toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor (optUnitId options)
-      , optGhcSession = getDamlGhcSession options
+      , optGhcSession = liftIO (getDamlGhcSession options)
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -79,6 +79,7 @@ toCompileOpts options@Options{..} reportProgress =
       , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
+      , optKeywords = damlKeywords
       , optDefer = Ghcide.IdeDefer False
       }
   where
@@ -92,6 +93,29 @@ toCompileOpts options@Options{..} reportProgress =
                 then Just path
                 else Nothing
       | otherwise = pure Nothing
+
+damlKeywords :: [T.Text]
+damlKeywords =
+  [ "as"
+  , "case", "of"
+  , "class", "instance", "type"
+  , "data", "family", "newtype"
+  , "default"
+  , "deriving"
+  , "do"
+  , "forall"
+  , "hiding"
+  , "if", "then", "else"
+  , "import", "qualified", "hiding"
+  , "infix", "infixl", "infixr"
+  , "let", "in", "where"
+  , "module"
+
+  -- DAML-specific keywords, sync with daml12.tmLanguage.xml when new
+  -- keywords are added.
+  , "agreement", "controller", "can", "ensure", "signatory", "nonconsuming", "observer"
+  , "preconsuming", "postconsuming", "with", "choice", "template", "key", "maintainer"
+  ]
 
 getDamlGhcSession :: Options -> IO (FilePath -> Action HscEnvEq)
 getDamlGhcSession options@Options{..} = do

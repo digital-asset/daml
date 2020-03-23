@@ -1,12 +1,12 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.utils
+package com.digitalasset.platform.sandbox.perf
 
 import akka.actor.ActorSystem
 
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
 trait InfiniteRetries {

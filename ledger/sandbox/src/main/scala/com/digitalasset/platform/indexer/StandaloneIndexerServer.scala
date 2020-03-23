@@ -3,47 +3,47 @@
 
 package com.digitalasset.platform.indexer
 
-import akka.actor.ActorSystem
+import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.ExecutionContext
 
 final class StandaloneIndexerServer(
-    actorSystem: ActorSystem,
     readService: ReadService,
     config: IndexerConfig,
     metrics: MetricRegistry,
-)(implicit logCtx: LoggingContext)
+)(implicit materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
     val indexerFactory = new JdbcIndexerFactory(
+      ServerRole.Indexer,
       config.participantId,
       config.jdbcUrl,
-      actorSystem,
       readService,
       metrics,
     )
-    val indexer = new RecoveringIndexer(actorSystem.scheduler, config.restartDelay)
+    val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
     config.startupMode match {
       case IndexerStartupMode.MigrateOnly =>
         Resource.successful(())
       case IndexerStartupMode.MigrateAndStart =>
         Resource
           .fromFuture(indexerFactory.migrateSchema(config.allowExistingSchema))
-          .flatMap(startIndexer(indexer, _, actorSystem))
+          .flatMap(startIndexer(indexer, _))
           .map { _ =>
             logger.debug("Waiting for the indexer to initialize the database.")
           }
       case IndexerStartupMode.ValidateAndStart =>
         Resource
           .fromFuture(indexerFactory.validateSchema())
-          .flatMap(startIndexer(indexer, _, actorSystem))
+          .flatMap(startIndexer(indexer, _))
           .map { _ =>
             logger.debug("Waiting for the indexer to initialize the database.")
           }
@@ -53,7 +53,6 @@ final class StandaloneIndexerServer(
   private def startIndexer(
       indexer: RecoveringIndexer,
       initializedIndexerFactory: ResourceOwner[JdbcIndexer],
-      actorSystem: ActorSystem,
   )(implicit executionContext: ExecutionContext): Resource[Unit] =
     indexer
       .start(() => initializedIndexerFactory.flatMap(_.subscription(readService)).acquire())

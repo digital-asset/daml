@@ -149,7 +149,7 @@ object ApiServices {
           submissionConfig.maxDeduplicationTime
         ),
         // Using local services skips the gRPC layer, improving performance.
-        ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
+        ApiCommandService.LocalServices(
           CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxParallelSubmissions),
           r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),

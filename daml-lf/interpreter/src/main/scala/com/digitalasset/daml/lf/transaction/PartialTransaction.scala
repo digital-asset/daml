@@ -240,7 +240,7 @@ case class PartialTransaction(
         Value.RelativeContractId(Value.NodeId(nextNodeIdx))
       )(
         hash =>
-          Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("0" + hash.toHexString))
+          Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("00" + hash.toHexString))
       )
       val createNode = Node.NodeCreate(
         nodeSeed,

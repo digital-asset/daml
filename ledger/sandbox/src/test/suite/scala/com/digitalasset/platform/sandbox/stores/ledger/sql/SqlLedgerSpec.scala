@@ -4,9 +4,9 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.nio.file.Paths
-import java.time.Instant
+import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.archive.DarReader
@@ -17,6 +17,7 @@ import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -199,6 +200,7 @@ class SqlLedgerSpec
     val ledger = newLoggingContext { implicit logCtx =>
       SqlLedger
         .owner(
+          serverRole = ServerRole.Testing(getClass),
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,
@@ -208,6 +210,7 @@ class SqlLedgerSpec
             .withPackages(Instant.EPOCH, None, packages)
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
+          initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           metrics,

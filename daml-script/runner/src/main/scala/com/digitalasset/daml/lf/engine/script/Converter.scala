@@ -8,10 +8,12 @@ import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scalaz.{\/-, -\/}
+import spray.json._
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
@@ -21,6 +23,7 @@ import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.ledger.api.v1.commands.{
@@ -434,4 +437,34 @@ object Converter {
       case -\/(e) => Left(e.toString)
       case \/-(ty) => Right(ty)
     }
+
+  def fromJsonValue(
+      ctx: QualifiedName,
+      environmentInterface: EnvironmentInterface,
+      compiledPackages: CompiledPackages,
+      ty: Type,
+      jsValue: JsValue
+  ): Either[String, SValue] = {
+    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
+      environmentInterface.typeDecls.get(id).map(_.`type`)
+    for {
+      paramIface <- Converter
+        .toIfaceType(ctx, ty)
+        .left
+        .map(s => s"Failed to convert $ty: $s")
+      lfValue <- try {
+        Right(
+          jsValue.convertTo[Value[AbsoluteContractId]](
+            LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))))
+      } catch {
+        case e: Exception => Left(s"LF conversion failed: ${e.toString}")
+      }
+      valueTranslator = new ValueTranslator(compiledPackages)
+      sValue <- valueTranslator
+        .translateValue(ty, lfValue)
+        .consume(_ => None, _ => None, _ => None)
+        .left
+        .map(_.msg)
+    } yield sValue
+  }
 }

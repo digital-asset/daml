@@ -3,13 +3,15 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.{
+  Configuration,
   ParticipantId,
   SubmissionResult,
   SubmitterInfo,
+  TimeModel,
   TransactionMeta
 }
 import com.digitalasset.api.util.TimeProvider
@@ -62,10 +64,16 @@ class ImplicitPartyAdditionIT
     implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider, ledgerConfig)
       case BackendType.Postgres =>
         newLoggingContext { implicit logCtx =>
-          LedgerResource.postgres(ledgerId, participantId, timeProvider, metrics)
+          LedgerResource.postgres(
+            getClass,
+            ledgerId,
+            participantId,
+            timeProvider,
+            ledgerConfig,
+            metrics)
         }
     }
   }
@@ -160,6 +168,7 @@ object ImplicitPartyAdditionIT {
   private val ledgerId: LedgerId = LedgerId("ledgerId")
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
+  private val ledgerConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1))
 
   private val LET = Instant.EPOCH.plusSeconds(10)
   private val MRT = Instant.EPOCH.plusSeconds(10)

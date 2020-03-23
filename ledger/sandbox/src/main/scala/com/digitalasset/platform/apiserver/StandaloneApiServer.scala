@@ -26,6 +26,7 @@ import com.digitalasset.platform.apiserver.StandaloneApiServer._
 import com.digitalasset.platform.configuration.{
   CommandConfiguration,
   PartyConfiguration,
+  ServerRole,
   SubmissionConfiguration
 }
 import com.digitalasset.platform.index.JdbcIndex
@@ -74,6 +75,7 @@ final class StandaloneApiServer(
         initialConditions.ledgerId,
         participantId)
       indexService <- JdbcIndex.owner(
+        ServerRole.ApiServer,
         initialConditions.config.timeModel,
         domain.LedgerId(initialConditions.ledgerId),
         participantId,
@@ -162,5 +164,5 @@ final class StandaloneApiServer(
 }
 
 object StandaloneApiServer {
-  private val sharedEngine = Engine()
+  private val sharedEngine: Engine = Engine()
 }

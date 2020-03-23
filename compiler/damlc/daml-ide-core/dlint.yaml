@@ -117,12 +117,11 @@
     - hint: {lhs: "[] == x", rhs: null x}
     - hint: {lhs: length x /= 0, rhs: not (null x), name: Use null}
     - hint: {lhs: 0 /= length x, rhs: not (null x), name: Use null}
-    - hint: {lhs: "\\x -> [x]", rhs: "(:[])", name: "Use :"}
+    - hint: {lhs: "\\x -> [x]", rhs: "(::[])", name: "Use ::"}
     - warn: {lhs: map (uncurry f) (zip x y), rhs: zipWith f x y}
     - hint: {lhs: map f (zip x y), rhs: zipWith (curry f) x y, side: isVar f}
     - warn: {lhs: not (elem x y), rhs: notElem x y}
     - hint: {lhs: foldr f z (map g x), rhs: foldr (f . g) z x, name: Fuse foldr/map}
-    - warn: {lhs: "x ++ concatMap (' ':) y", rhs: "unwords (x:y)"}
     - warn: {lhs: intercalate " ", rhs: unwords}
     - hint: {lhs: concat (intersperse x y), rhs: intercalate x y, side: notEq x " "}
     - hint: {lhs: concat (intersperse " " x), rhs: unwords x}
@@ -438,7 +437,7 @@
     - warn: {lhs: optional True (/= x), rhs: (/= Some x)}
     - warn: {lhs: not (isNone x), rhs: isSome x}
     - warn: {lhs: not (isSome x), rhs: isNone x}
-    - warn: {lhs: "optional [] (:[])", rhs: optionalToList}
+    - warn: {lhs: "optional [] (::[])", rhs: optionalToList}
     - warn: {lhs: catOptionals (map f x), rhs: mapOptional f x}
     - warn: {lhs: catOptionals (fmap f x), rhs: mapOptional f x}
     - hint: {lhs: case x of None -> y; Some a -> a , rhs: DA.Optional.fromOptional y x, side: isAtom y, name: Replace case with fromOptional}
@@ -671,4 +670,6 @@
 - ignore: {name: Redundant $}
 # Don't warn on redundant do (DAML choice syntax *mandates* 'do'!)
 - ignore: {name: Redundant do}
-
+# Not helpful for beginner DAML programmers
+- ignore: {name: Eta reduce}
+- ignore: {name: Avoid lambda}

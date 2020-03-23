@@ -681,7 +681,9 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     name = packageNameOfPackageDir packageDir
     dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
        | d <- depends
-       , let pkg = scope <> "/" <> unDependency d
+       , let pkgName = unDependency d
+       , let pkg = scope <> "/" <> pkgName
+       , let version = "file:../" <> pkgName
        ]
     packageNameOfPackageDir :: FilePath -> T.Text
     packageNameOfPackageDir packageDir = scope <> "/" <> package

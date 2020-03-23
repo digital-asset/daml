@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.config
 
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
 
 import ch.qos.logback.classic.Level
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
@@ -17,6 +18,7 @@ import com.digitalasset.platform.configuration.{
   PartyConfiguration,
   SubmissionConfiguration
 }
+import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 
@@ -42,6 +44,8 @@ final case class SandboxConfig(
     logLevel: Option[Level],
     authService: Option[AuthService],
     seeding: Option[Seeding],
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
 )
 
 object SandboxConfig {
@@ -71,6 +75,8 @@ object SandboxConfig {
       logLevel = None, // the default is in logback.xml
       authService = None,
       seeding = Some(Seeding.Strong),
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
     )
 
   lazy val default: SandboxConfig =

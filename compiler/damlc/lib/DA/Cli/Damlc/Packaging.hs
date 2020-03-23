@@ -257,7 +257,7 @@ generateAndInstallIfaceFiles ::
     -> IO ()
 generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies = do
     loggerH <- getLogger opts "generate interface files"
-    let src' = [ (toNormalizedFilePath $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
+    let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
     -- while avoiding name collisions in package imports.
@@ -294,7 +294,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
         -- Setting ifDir to . means that the interface files will end up directly next to
         -- the source files which is what we want here.
         writeIfacesAndHie
-            (toNormalizedFilePath ".")
+            (toNormalizedFilePath' ".")
             [fp | (fp, _content) <- src']
     when (isNothing res) $
       errorIO

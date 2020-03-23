@@ -169,7 +169,7 @@ abstract class ScenarioLoadingITBase
         }
       }
 
-      "event ids can be used to load transactions (ACS)" in {
+      "event ids from the active contracts service can be used to load transactions" in {
         val client = newTransactionClient(ledgerId())
         whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
@@ -188,7 +188,7 @@ abstract class ScenarioLoadingITBase
         }
       }
 
-      "event ids are the same as contract ids (transaction service)" in {
+      "event ids from the transaction service can be used to load transactions" in {
         val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val client = newTransactionClient(ledgerId())

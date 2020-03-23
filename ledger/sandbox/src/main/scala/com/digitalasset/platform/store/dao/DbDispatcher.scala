@@ -9,6 +9,7 @@ import java.util.concurrent.{Executor, Executors, TimeUnit}
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
@@ -89,18 +90,23 @@ object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
 
   def owner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
+      connectionProvider <- HikariJdbcConnectionProvider.owner(
+        serverRole,
+        jdbcUrl,
+        maxConnections,
+        metrics)
       executor <- ResourceOwner.forExecutorService(
         () =>
           Executors.newFixedThreadPool(
             maxConnections,
             new ThreadFactoryBuilder()
-              .setNameFormat("sql-executor-%d")
+              .setNameFormat(s"daml.index.db.connection.${serverRole.threadPoolSuffix}-%d")
               .setUncaughtExceptionHandler((_, e) =>
                 logger.error("Uncaught exception in the SQL executor.", e))
               .build()

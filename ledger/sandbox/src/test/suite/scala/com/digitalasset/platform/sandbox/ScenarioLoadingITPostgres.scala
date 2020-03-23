@@ -3,10 +3,4 @@
 
 package com.digitalasset.platform.sandbox
 
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
-
-class ScenarioLoadingITPostgres extends ScenarioLoadingITBase {
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
-}
+final class ScenarioLoadingITPostgres extends ScenarioLoadingITBase with SandboxBackend.Postgresql

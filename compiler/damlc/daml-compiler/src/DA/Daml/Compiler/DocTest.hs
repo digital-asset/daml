@@ -26,7 +26,7 @@ import System.FilePath
 docTest :: IdeState -> [NormalizedFilePath] -> IO ()
 docTest ideState files = do
     ms <- runActionSync ideState (uses_ GenerateDocTestModule files)
-    let docTestFile m = toNormalizedFilePath $
+    let docTestFile m = toNormalizedFilePath' $
             genDir </>
             T.unpack (T.replace "." "/" (docTestModuleName $ genModuleName m)) -<.>
             "daml"

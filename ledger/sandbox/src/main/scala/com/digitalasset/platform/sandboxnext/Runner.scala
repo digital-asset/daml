@@ -10,11 +10,11 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.SharedMetricRegistries
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.v1.SeedService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DarReader
@@ -38,6 +38,7 @@ import com.digitalasset.platform.indexer.{
 }
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -111,8 +112,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
     newLoggingContext { implicit logCtx =>
-      implicit val system: ActorSystem = ActorSystem("sandbox")
-      implicit val materializer: Materializer = Materializer(system)
+      implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
+      implicit val materializer: Materializer = Materializer(actorSystem)
 
       val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
         case TimeProviderType.Static =>
@@ -126,7 +127,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => system)
+        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
         apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
@@ -134,6 +135,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           owner = reset => {
             case (currentPort, startupMode) =>
               for {
+                metrics <- new MetricsReporting(
+                  getClass.getName,
+                  config.metricsReporter,
+                  config.metricsReportingInterval,
+                )
                 _ <- startupMode match {
                   case StartupMode.MigrateAndStart =>
                     ResourceOwner.successful(())
@@ -149,6 +155,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   heartbeats = heartbeats,
+                  seedService = SeedService(seeding)
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter)
                 ledgerId <- ResourceOwner.forFuture(() =>
@@ -156,7 +163,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- ResourceOwner.forFuture(() =>
                   Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
                 _ <- new StandaloneIndexerServer(
-                  actorSystem = system,
                   readService = ledger,
                   config = IndexerConfig(
                     ParticipantId,
@@ -164,7 +170,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     startupMode = IndexerStartupMode.MigrateAndStart,
                     allowExistingSchema = true,
                   ),
-                  metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+                  metrics = metrics,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -184,7 +190,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   )
                 }
                 apiServer <- new StandaloneApiServer(
-                  ApiServerConfig(
+                  config = ApiServerConfig(
                     participantId = ParticipantId,
                     archiveFiles = config.damlPackages,
                     // Re-use the same port when resetting the server.
@@ -201,7 +207,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = ledger,
                   writeService = ledger,
                   authService = authService,
-                  metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+                  metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   seeding = Some(seeding),
                   otherServices = List(resetService),

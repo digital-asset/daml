@@ -454,6 +454,18 @@ object TypedValueGenerators {
     )
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  val genAddendNoListMap: Gen[ValueAddend] = Gen.sized { sz =>
+    val self = Gen.resize(sz / 2, Gen.lzy(genAddendNoListMap))
+    val nestSize = sz / 3
+    Gen.frequency(
+      ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
+      (sz max 1, Gen.const(ValueAddend.contractId)),
+      (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
+      (nestSize, self.map(ValueAddend.optional(_))),
+    )
+  }
+
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue[Cid](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
     for {

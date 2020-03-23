@@ -66,9 +66,11 @@ object SandboxServer {
 
   def owner(config: SandboxConfig): ResourceOwner[SandboxServer] =
     for {
-      metrics <- ResourceOwner.successful(new MetricRegistry)
-      _ <- ResourceOwner
-        .forCloseable(() => new MetricsReporting(metrics, classOf[SandboxServer].getName))
+      metrics <- new MetricsReporting(
+        classOf[SandboxServer].getName,
+        config.metricsReporter,
+        config.metricsReportingInterval,
+      )
       actorSystem <- AkkaResourceOwner.forActorSystem(() => ActorSystem(ActorSystemName))
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       server <- ResourceOwner
@@ -237,7 +239,7 @@ final class SandboxServer(
           config.ledgerIdMode,
           participantId,
           jdbcUrl,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,
@@ -251,7 +253,7 @@ final class SandboxServer(
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
           config.ledgerIdMode,
           participantId,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,

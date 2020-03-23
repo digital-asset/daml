@@ -31,7 +31,7 @@ handle
     -> IO (Either e (List CodeLens))
 handle ide (CodeLensParams (TextDocumentIdentifier uri) _) = Right <$> do
     mbResult <- case uriToFilePath' uri of
-        Just (toNormalizedFilePath -> filePath) -> do
+        Just (toNormalizedFilePath' -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
           mbModMapping <- runAction ide (useWithStale GenerateRawDalf filePath)
           case mbModMapping of
@@ -64,7 +64,7 @@ virtualResourceToCodeLens (range, title, vr) =
     , _xdata = Nothing
     }
 
-setHandlersCodeLens :: PartialHandlers
+setHandlersCodeLens :: PartialHandlers a
 setHandlersCodeLens = PartialHandlers $ \WithMessage{..} x -> return x{
     LSP.codeLensHandler = withResponse RspCodeLens $ const handle
     }

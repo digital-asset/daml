@@ -10,6 +10,7 @@ import TcIface (typecheckIface)
 import LoadIface (readIface)
 import TidyPgm
 import DynFlags
+import SrcLoc
 import qualified GHC
 import qualified Module as GHC
 import GhcMonad
@@ -95,7 +96,6 @@ import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
 import SdkVersion (damlStdlib)
 
-import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
@@ -140,7 +140,7 @@ uriToVirtualResource uri = do
             let decoded = queryString uri
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario (toNormalizedFilePath file) (T.pack topLevelDecl)
+            pure $ VRScenario (toNormalizedFilePath' file) (T.pack topLevelDecl)
         _ -> Nothing
 
   where
@@ -162,7 +162,7 @@ sendFileDiagnostics diags =
 -- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
-    let uri = filePathToUri (fromNormalizedFilePath fp)
+    let uri = fromNormalizedUri (filePathToUri' fp)
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
@@ -236,7 +236,7 @@ generateRawDalfRule :: Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
-        (coreDiags, mbCore) <- generateCore file
+        (coreDiags, mbCore) <- generateCore (RunSimplifier False) file
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
@@ -496,7 +496,7 @@ readDalfPackage dalf = do
     bs <- BS.readFile dalf
     pure $ do
         (pkgId, package) <-
-            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
+            mapLeft (ideErrorPretty $ toNormalizedFilePath' dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
         Right (LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -616,12 +616,12 @@ buildDir = ".daml/build"
 -- | Path to the dalf file used in incremental builds.
 dalfFileName :: NormalizedFilePath -> NormalizedFilePath
 dalfFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
 
 -- | Path to the interface file used in incremental builds.
 hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "hi"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
 readDalfFromFile :: NormalizedFilePath -> Action LF.Module
 readDalfFromFile dalfFile = do
@@ -737,6 +737,7 @@ runScenariosRule =
               , _source = Just "Scenario"
               , _message = Pretty.renderPlain $ formatScenarioError world err
               , _code = Nothing
+              , _tags = Nothing
               , _relatedInformation = Nothing
               }
             where scenarioName = LF.qualObject scenario
@@ -756,7 +757,7 @@ encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
       Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath file
+        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScenarioRootsRule :: Rules ()
@@ -910,7 +911,7 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `HashSet.union`
-                    (HashSet.insert "" $ HashSet.fromList $ concatMap reachableModules depInfos)
+                    (HashSet.insert emptyFilePath $ HashSet.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
@@ -1005,14 +1006,22 @@ getDlintDiagnosticsRule =
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
-      srcSpanToRange span = Range {
+      srcSpanToRange :: SrcSpan -> LSP.Range
+      srcSpanToRange (RealSrcSpan span) = Range {
           _start = LSP.Position {
-                _line = HSE.srcSpanStartLine span - 1
-              , _character  = HSE.srcSpanStartColumn span - 1}
+                _line = srcSpanStartLine span - 1
+              , _character  = srcSpanStartCol span - 1}
         , _end   = LSP.Position {
-                _line = HSE.srcSpanEndLine span - 1
-             , _character = HSE.srcSpanEndColumn span - 1}
+                _line = srcSpanEndLine span - 1
+             , _character = srcSpanEndCol span - 1}
+        }
+      srcSpanToRange (UnhelpfulSpan _) = Range {
+          _start = LSP.Position {
+                _line = -1
+              , _character  = -1}
+        , _end   = LSP.Position {
+                _line = -1
+             , _character = -1}
         }
       diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
       diagnostic file i =
@@ -1023,6 +1032,7 @@ getDlintDiagnosticsRule =
             , _source = Just "linter"
             , _message = T.pack $ show i
             , _relatedInformation = Nothing
+            , _tags = Nothing
       })
 
 --

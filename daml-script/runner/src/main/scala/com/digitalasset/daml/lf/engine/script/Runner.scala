@@ -24,7 +24,6 @@ import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.ValueTranslator
-import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast._
@@ -32,7 +31,6 @@ import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -108,15 +106,15 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])
 }
 
-final case class Script(id: Identifier, expr: SExpr, param: Option[Type], scriptIds: ScriptIds)
-
+// DAML script, either an Action that can be executed immediately, or a
+// Function that requires an argument.
+sealed abstract class Script extends Product with Serializable
 object Script {
-  def fromDar(dar: Dar[(PackageId, Package)], scriptId: Identifier): Either[String, Script] = {
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys))
-      .flatMap(fromIdentifier(_, scriptId))
+  final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
+  final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
+    def apply(arg: SExpr): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
   }
+
   def fromIdentifier(
       compiledPackages: CompiledPackages,
       scriptId: Identifier): Either[String, Script] = {
@@ -135,11 +133,11 @@ object Script {
       case TApp(TApp(TBuiltin(BTArrow), param), result) =>
         for {
           scriptIds <- getScriptIds(result)
-        } yield Script(scriptId, scriptExpr, Some(param), scriptIds)
+        } yield Script.Function(scriptExpr, param, scriptIds)
       case ty =>
         for {
           scriptIds <- getScriptIds(ty)
-        } yield Script(scriptId, scriptExpr, None, scriptIds)
+        } yield Script.Action(scriptExpr, scriptIds)
     }
   }
 }
@@ -170,28 +168,68 @@ object Runner {
         .map(_.toMap)
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
   }
+
+  // Executes a DAML script
+  //
+  // Looks for the script in the given DAR, applies the input value as an
+  // argument if provided, and runs the script with the given pariticipants.
+  def run(
+      dar: Dar[(PackageId, Package)],
+      scriptId: Identifier,
+      inputValue: Option[JsValue],
+      initialClients: Participants[LedgerClient],
+      applicationId: ApplicationId,
+      commandUpdater: CommandUpdater,
+      timeProvider: TimeProvider)(
+      implicit ec: ExecutionContext,
+      mat: Materializer): Future[SValue] = {
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val script = Script.fromIdentifier(compiledPackages, scriptId) match {
+      case Left(msg) => throw new RuntimeException(msg)
+      case Right(x) => x
+    }
+    val scriptAction: Script.Action = (script, inputValue) match {
+      case (script: Script.Action, None) => script
+      case (script: Script.Function, Some(inputJson)) =>
+        val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+        val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+        val arg = Converter
+          .fromJsonValue(
+            scriptId.qualifiedName,
+            envIface,
+            compiledPackages,
+            script.param,
+            inputJson) match {
+          case Left(msg) => throw new ConverterException(msg)
+          case Right(x) => x
+        }
+        script.apply(SEValue(arg))
+      case (script: Script.Action, Some(_)) =>
+        throw new RuntimeException(s"The script ${scriptId} does not take arguments.")
+      case (script: Script.Function, None) =>
+        throw new RuntimeException(s"The script ${scriptId} requires an argument.")
+    }
+    val runner =
+      new Runner(compiledPackages, scriptAction, applicationId, commandUpdater, timeProvider)
+    runner.runWithClients(initialClients)
+  }
 }
 
 class Runner(
-    dar: Dar[(PackageId, Package)],
-    scriptIds: ScriptIds,
+    compiledPackages: CompiledPackages,
+    script: Script.Action,
     applicationId: ApplicationId,
     commandUpdater: CommandUpdater,
     timeProvider: TimeProvider)
     extends StrictLogging {
 
-  val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-
-  val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-  def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
-    envIface.typeDecls.get(id).map(_.`type`)
-
-  val darMap: Map[PackageId, Package] = dar.all.toMap
-
-  def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
+  private def lookupChoiceTy(id: Identifier, choice: Name): Either[String, Type] =
     for {
-      pkg <- darMap
-        .get(id.packageId)
+      pkg <- compiledPackages
+        .getPackage(id.packageId)
         .fold[Either[String, Package]](Left(s"Failed to find package ${id.packageId}"))(Right(_))
       module <- pkg.modules
         .get(id.qualifiedName.module)
@@ -211,24 +249,26 @@ class Runner(
           Right(_))
     } yield choice.returnType
 
-  // We overwrite the definition of toLedgerValue with an identity function.
+  // We overwrite the definition of fromLedgerValue with an identity function.
   // This is a type error but Speedy doesn’t care about the types and the only thing we do
   // with the result is convert it to ledger values/record so this is safe.
-  val compiler = Compiler(darMap)
-  val definitionMap =
-    compiler.compilePackages(darMap.keys) +
-      (LfDefRef(scriptIds.damlScript("fromLedgerValue")) ->
-        SEMakeClo(Array(), 1, SEVar(1)))
-  val compiledPackages = PureCompiledPackages(darMap, definitionMap).right.get
-  val valueTranslator = new ValueTranslator(compiledPackages)
+  private val extendedCompiledPackages = {
+    val fromLedgerValue: PartialFunction[SDefinitionRef, SExpr] = {
+      case LfDefRef(id) if id == script.scriptIds.damlScript("fromLedgerValue") =>
+        SEMakeClo(Array(), 1, SEVar(1))
+    }
+    new CompiledPackages {
+      def getPackage(pkgId: PackageId): Option[Package] = compiledPackages.getPackage(pkgId)
+      def getDefinition(dref: SDefinitionRef): Option[SExpr] =
+        fromLedgerValue.andThen(Some(_)).applyOrElse(dref, compiledPackages.getDefinition)
+      override def packages = compiledPackages.packages
+      def packageIds = compiledPackages.packageIds
+      override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
+    }
+  }
+  private val valueTranslator = new ValueTranslator(extendedCompiledPackages)
 
-  def translateValue(typ: Type, value: Value[AbsoluteContractId]) =
-    valueTranslator
-      .translateValue(typ, value)
-      .consume(_ => None, _ => None, _ => None)
-      .fold(e => throw new RuntimeException(e.msg), identity)
-
-  def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
+  private def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
       party = party.value,
       commands = cmds,
@@ -241,34 +281,12 @@ class Runner(
     SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
   }
 
-  def run(initialClients: Participants[LedgerClient], script: Script, inputValue: Option[JsValue])(
-      implicit ec: ExecutionContext,
-      mat: Materializer): Future[SValue] = {
-    val scriptExpr = (script.param, inputValue) match {
-      case (None, None) => script.expr
-      case (Some(param), Some(inputJson)) => {
-        val paramIface = Converter.toIfaceType(script.id.qualifiedName, param) match {
-          case Left(s) => throw new ConverterException(s"Failed to convert $param: $s")
-          case Right(ty) => ty
-        }
-        val inputLfVal = inputJson.convertTo[Value[AbsoluteContractId]](
-          LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_)))
-        SEApp(script.expr, Array(SEValue(translateValue(param, inputLfVal))))
-      }
-      case (None, Some(_)) =>
-        throw new RuntimeException(s"The script ${script.id} does not take arguments.")
-      case (Some(_), None) =>
-        throw new RuntimeException(s"The script ${script.id} requires an argument.")
-    }
-    runExpr(initialClients, scriptExpr)
-  }
-
-  def runExpr(initialClients: Participants[LedgerClient], scriptExpr: SExpr)(
+  def runWithClients(initialClients: Participants[LedgerClient])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
     var machine =
-      Speedy.Machine.fromSExpr(scriptExpr, false, compiledPackages)
+      Speedy.Machine.fromSExpr(script.expr, false, extendedCompiledPackages)
 
     def stepToValue() = {
       while (!machine.isFinal) {
@@ -318,7 +336,7 @@ class Runner(
                   }
                   val requestOrErr = for {
                     party <- Converter.toParty(vals.get(0))
-                    commands <- Converter.toCommands(compiledPackages, freeAp)
+                    commands <- Converter.toCommands(extendedCompiledPackages, freeAp)
                     client <- clients.getPartyParticipant(Party(party.value))
                   } yield (client, toSubmitRequest(client.ledgerId, party, commands))
                   val (client, request) =
@@ -335,7 +353,7 @@ class Runner(
                           transactionTree.getTransaction.eventsById(evId))
                       val filled =
                         Converter.fillCommandResults(
-                          compiledPackages,
+                          extendedCompiledPackages,
                           lookupChoiceTy,
                           valueTranslator,
                           freeAp,
@@ -348,7 +366,7 @@ class Runner(
                     }
                     case Left(statusEx) => {
                       val res = Converter
-                        .fromStatusException(scriptIds, statusEx)
+                        .fromStatusException(script.scriptIds, statusEx)
                         .fold(s => throw new ConverterException(s), identity)
                       machine.ctrl =
                         Speedy.CtrlExpr(SEApp(SEValue(vals.get(2)), Array(SEValue(res))))

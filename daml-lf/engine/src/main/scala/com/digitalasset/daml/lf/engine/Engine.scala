@@ -47,15 +47,10 @@ import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
   *
   * This class is thread safe as long `nextRandomInt` is.
   */
-final class Engine(nextRandomInt: () => Int) {
+final class Engine {
   private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
   private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
     _compiledPackages)
-
-  // We want that people do not rely on submissionTime=ledgerTime,
-  // then we pick a random time +/- 10 micro seconds around ledger time
-  private def deriveSubmissionTime(ledgerTime: Time.Timestamp) =
-    ledgerTime.addMicros((nextRandomInt() % 11).toLong)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -89,7 +84,7 @@ final class Engine(nextRandomInt: () => Int) {
       participantId: ParticipantId,
       submissionSeed: Option[crypto.Hash],
   ): Result[(Transaction.Transaction, Transaction.Metadata)] = {
-    val submissionTime = deriveSubmissionTime(cmds.ledgerEffectiveTime)
+    val submissionTime = cmds.ledgerEffectiveTime
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
@@ -466,5 +461,5 @@ final class Engine(nextRandomInt: () => Int) {
 }
 
 object Engine {
-  def apply(): Engine = new Engine(() => scala.util.Random.nextInt())
+  def apply(): Engine = new Engine()
 }

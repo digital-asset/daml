@@ -12,12 +12,11 @@ import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
   LedgerConfiguration,
   LedgerConfigurationServiceGrpc
 }
+import com.digitalasset.platform.sandbox.SandboxBackend
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
+import com.google.protobuf.duration.Duration
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
-import com.google.protobuf.duration.Duration
 
 sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
   self: SandboxFixture with SuiteResourceManagement =>
@@ -50,7 +49,5 @@ final class LedgerConfigurationServiceInMemoryIT
 final class LedgerConfigurationServicePostgresIT
     extends LedgerConfigurationServiceITBase
     with SandboxFixture
-    with SuiteResourceManagementAroundAll {
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
-}
+    with SandboxBackend.Postgresql
+    with SuiteResourceManagementAroundAll
