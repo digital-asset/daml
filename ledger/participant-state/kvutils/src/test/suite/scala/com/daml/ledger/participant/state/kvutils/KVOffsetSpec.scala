@@ -38,10 +38,8 @@ class KVOffsetSpec extends WordSpec with Matchers {
 
     "retain leading zeros" in {
       val offset = KVOffset.fromLong(1, 2, 3)
-      val highest =
-        offset.toByteArray.slice(KVOffset.highestStart, KVOffset.middleStart)
-      val middle =
-        offset.toByteArray.slice(KVOffset.middleStart, KVOffset.lowestStart)
+      val highest = offset.toByteArray.slice(KVOffset.highestStart, KVOffset.middleStart)
+      val middle = offset.toByteArray.slice(KVOffset.middleStart, KVOffset.lowestStart)
       val lowest = offset.toByteArray.slice(KVOffset.lowestStart, KVOffset.end)
 
       val highestZeros = highest.dropRight(1)
