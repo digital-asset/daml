@@ -26,7 +26,8 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
     new OwnedResource[(SandboxServer, Channel)](
       for {
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(Some(_)))
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
+            Some(info.jdbcUrl)))
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- SandboxClientResource.owner(server.port)
       } yield (server, channel)

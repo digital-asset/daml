@@ -32,7 +32,8 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
     new OwnedResource[(Port, Channel)](
       for {
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(Some(_)))
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
+            Some(info.jdbcUrl)))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
         channel <- SandboxClientResource.owner(port)
       } yield (port, channel)

@@ -9,10 +9,10 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.sandbox.SandboxBackend
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.{PostgresAroundAll, PostgresResource}
+import com.digitalasset.testing.postgresql.PostgresAroundAll
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 
@@ -45,10 +45,9 @@ sealed trait LedgerIdentityServiceITBaseGiven
 
 final class LedgerIdentityServiceInMemoryGivenIT extends LedgerIdentityServiceITBaseGiven
 
-final class LedgerIdentityServicePostgresGivenIT extends LedgerIdentityServiceITBaseGiven {
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
-}
+final class LedgerIdentityServicePostgresGivenIT
+    extends LedgerIdentityServiceITBaseGiven
+    with SandboxBackend.Postgresql
 
 sealed trait LedgerIdentityServiceITBaseDynamic
     extends WordSpec
@@ -84,10 +83,9 @@ sealed trait LedgerIdentityServiceITBaseDynamic
 
 final class LedgerIdentityServiceInMemoryDynamicIT extends LedgerIdentityServiceITBaseDynamic
 
-final class LedgerIdentityServicePostgresDynamicIT extends LedgerIdentityServiceITBaseDynamic {
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
-}
+final class LedgerIdentityServicePostgresDynamicIT
+    extends LedgerIdentityServiceITBaseDynamic
+    with SandboxBackend.Postgresql
 
 final class LedgerIdentityServicePostgresDynamicSharedPostgresIT
     extends WordSpec

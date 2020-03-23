@@ -16,10 +16,9 @@ import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissi
 import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.participant.util.ValueConversions._
+import com.digitalasset.platform.sandbox.SandboxBackend
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
 import io.grpc.Status
 import org.scalatest.{Assertion, AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
@@ -33,6 +32,7 @@ class CommandServiceBackPressureIT
     with Matchers
     with Inspectors
     with SandboxFixture
+    with SandboxBackend.Postgresql
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -98,9 +98,6 @@ class CommandServiceBackPressureIT
       }
     }
   }
-
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
 
   override protected def config: SandboxConfig =
     super.config.copy(
