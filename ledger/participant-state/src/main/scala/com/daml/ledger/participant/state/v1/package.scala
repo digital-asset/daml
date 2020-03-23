@@ -3,9 +3,11 @@
 
 package com.daml.ledger.participant.state
 
+import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value
+import scalaz.@@
 
 /** Interfaces to read from and write to an (abstract) participant state.
   *
@@ -110,5 +112,7 @@ package object v1 {
   /** A contract instance with absolute contract identifiers only. */
   type AbsoluteContractInst =
     Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]
+
+  type Offset = data.Bytes @@ OffsetTag
 
 }

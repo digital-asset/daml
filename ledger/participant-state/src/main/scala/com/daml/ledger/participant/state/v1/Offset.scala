@@ -3,9 +3,8 @@
 
 package com.daml.ledger.participant.state.v1
 
-import java.io.InputStream
-
-import com.google.protobuf.ByteString
+import com.digitalasset.daml.lf.data.Bytes
+import scalaz.Tag
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -21,22 +20,18 @@ import com.google.protobuf.ByteString
   * less than newer offsets.
   *
   */
-final class Offset(private val value: ByteString) extends AnyVal with Ordered[Offset] {
-
-  override def compare(that: Offset): Int =
-    Offset.comparator.compare(value, that.value)
-
-  def toByteArray: Array[Byte] = value.toByteArray
-
-  def toInputStream: InputStream = value.newInput()
-}
+sealed trait OffsetTag
 
 object Offset {
-  private val comparator = ByteString.unsignedLexicographicalComparator()
 
-  val begin: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
+  val tag = Tag.of[OffsetTag]
 
-  def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
+  def apply(s: Bytes): Offset = tag(s)
 
-  def fromInputStream(is: InputStream) = new Offset(ByteString.readFrom(is))
+  def unwrap(x: Offset): Bytes = tag.unwrap(x)
+
+  val begin: Offset = Offset(Bytes.fromByteArray(Array(0: Byte)))
+
+  implicit val `Offset Ordering`: Ordering[Offset] = Ordering.by(unwrap)
+
 }

@@ -590,6 +590,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
     }
 
     "process commits serially" in participantState.use { ps =>
+      import Offset.`Offset Ordering`
+
       val partyCount = 1000L
       val partyIds = 1L to partyCount
       val partyIdDigits = partyCount.toString.length

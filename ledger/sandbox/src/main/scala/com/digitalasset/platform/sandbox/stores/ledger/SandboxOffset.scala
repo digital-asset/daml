@@ -4,16 +4,17 @@
 package com.digitalasset.platform.sandbox.stores.ledger
 
 import com.daml.ledger.participant.state.v1.Offset
+import com.digitalasset.daml.lf.data.Bytes
 
 object SandboxOffset {
 
   def numBytes = 8
 
   def toOffset(value: BigInt): Offset = {
-    Offset.fromBytes(value.toByteArray.reverse.padTo(numBytes, 0: Byte).reverse)
+    Offset(Bytes.fromByteArray(value.toByteArray.reverse.padTo(numBytes, 0: Byte).reverse))
   }
 
   def fromOffset(offset: Offset): BigInt = {
-    BigInt(offset.toByteArray)
+    BigInt(Offset.unwrap(offset).toByteArray)
   }
 }

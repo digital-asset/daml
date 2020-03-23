@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
 import com.digitalasset.daml.lf.value.Value.{
@@ -46,11 +46,11 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
     () =>
-      Offset.fromBytes((base + counter.getAndIncrement()).toByteArray)
+      Offset(Bytes.fromByteArray((base + counter.getAndIncrement()).toByteArray))
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {
-    def toLong: Long = BigInt(offset.toByteArray).toLong
+    def toLong: Long = BigInt(Offset.unwrap(offset).toByteArray).toLong
   }
 
   protected final val alice = Party.assertFromString("Alice")

@@ -300,7 +300,7 @@ object KeyValueCommitting {
       .setContractKey(
         DamlContractKey.newBuilder
           .setTemplateId(templateId)
-          .setHash(ByteString.copyFrom(contractKey.hash.toByteArray)))
+          .setHash(contractKey.hash.bytes.toByteString))
       .build
   }
 

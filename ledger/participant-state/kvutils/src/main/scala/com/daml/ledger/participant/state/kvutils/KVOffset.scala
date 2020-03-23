@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
+import com.digitalasset.daml.lf.data
 
 object KVOffset {
   private[kvutils] val highestStart = 0
@@ -35,13 +36,14 @@ object KVOffset {
     val middle = BigInt(second) << ((end - lowestStart) * 8)
     val lowest = BigInt(third)
     val bytes = (maxValuePlusOne | highest | middle | lowest).toByteArray.drop(1) // this retains leading zeros
-    Offset.fromBytes(bytes)
+    Offset(data.Bytes.fromByteArray(bytes))
   }
 
   def highestIndex(offset: Offset): Long =
-    BigInt(offset.toByteArray.slice(highestStart, middleStart)).toLong
+    BigInt(Offset.unwrap(offset).toByteArray.slice(highestStart, middleStart)).toLong
   def middleIndex(offset: Offset): Long =
-    BigInt(offset.toByteArray.slice(middleStart, lowestStart)).toLong
-  def lowestIndex(offset: Offset): Long = BigInt(offset.toByteArray.slice(lowestStart, end)).toLong
+    BigInt(Offset.unwrap(offset).toByteArray.slice(middleStart, lowestStart)).toLong
+  def lowestIndex(offset: Offset): Long =
+    BigInt(Offset.unwrap(offset).toByteArray.slice(lowestStart, end)).toLong
 
 }

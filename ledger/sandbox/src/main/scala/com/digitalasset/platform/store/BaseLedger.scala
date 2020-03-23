@@ -44,6 +44,8 @@ import scala.util.Try
 class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
 
+  import Offset.`Offset Ordering`
+
   implicit private val DEC: ExecutionContext = DirectExecutionContext
 
   protected final val dispatcher: Dispatcher[Offset] = Dispatcher[Offset](

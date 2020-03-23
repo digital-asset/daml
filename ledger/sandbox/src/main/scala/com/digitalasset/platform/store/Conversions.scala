@@ -18,7 +18,7 @@ import anorm.{
   ToStatement
 }
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
 object Conversions {
 
@@ -142,13 +142,15 @@ object Conversions {
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setBinaryStream(index, v.toInputStream)
+      s.setBinaryStream(index, Offset.unwrap(v).toInputStream)
   }
+
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[InputStream](name).map(Offset.fromInputStream)
+    SqlParser.get[InputStream](name).map(is => Offset(Bytes.fromInputStream(is)))
 
   implicit def columnToOffset(implicit c: Column[InputStream]): Column[Offset] =
-    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromInputStream))
+    Column.nonNull((value: Any, meta) =>
+      c(value, meta).toEither.map(is => Offset(Bytes.fromInputStream(is))))
 
   // Instant
 

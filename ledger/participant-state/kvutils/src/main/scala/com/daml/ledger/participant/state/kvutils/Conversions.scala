@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
-import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.{crypto, data}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
@@ -22,7 +22,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.io.BaseEncoding
-import com.google.protobuf.{ByteString, Empty}
+import com.google.protobuf.Empty
 
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
@@ -60,7 +60,7 @@ private[state] object Conversions {
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
     DamlContractKey.newBuilder
       .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-      .setHash(ByteString.copyFrom(key.hash.toByteArray))
+      .setHash(key.hash.bytes.toByteString)
       .build
   }
 
@@ -154,13 +154,13 @@ private[state] object Conversions {
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
 
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
-    crypto.Hash.assertFromBytes(bytes.toByteArray)
+    crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
   def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
     if (a.isEmpty)
       None
     else
-      Some(crypto.Hash.assertFromBytes(a.toByteArray))
+      Some(crypto.Hash.assertFromBytes(data.Bytes.fromByteString(a)))
 
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder
