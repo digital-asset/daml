@@ -114,7 +114,7 @@ echo "\
 run dade-copyright-headers "$dade_copyright_arg" .
 
 if [ "$hlint_diff" = "true" ]; then
-    changed_haskell_files="$(git diff --name-only origin/master | grep '.hs$')"
+    changed_haskell_files="$(git diff --name-only origin/master | grep '.hs$' || [[ $? == 1 ]])"
     if [ "" != "$changed_haskell_files" ]; then
         hlint -j4 $changed_haskell_files
     fi
