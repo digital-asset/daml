@@ -233,6 +233,7 @@ object Cli {
 
       private val seedingMap = Map[String, Option[Seeding]](
         "no" -> None,
+        "static" -> Some(Seeding.Static),
         "weak" -> Some(Seeding.Weak),
         "strong" -> Some(Seeding.Strong))
 

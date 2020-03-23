@@ -10,7 +10,8 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.ResourceOwner
 
@@ -31,5 +32,7 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       participantId,
       jdbcUrl(testId),
       heartbeats = heartbeats,
+      // Using a weak random source to avoid slowdown during tests.
+      seedService = SeedService(Seeding.Weak)
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }
