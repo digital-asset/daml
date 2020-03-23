@@ -139,7 +139,6 @@ abstract class LedgerBackedIndexService(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset])
     : Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] = {
-    import Offset.`Offset Ordering`._
 
     val converter = new OffsetConverter()
 

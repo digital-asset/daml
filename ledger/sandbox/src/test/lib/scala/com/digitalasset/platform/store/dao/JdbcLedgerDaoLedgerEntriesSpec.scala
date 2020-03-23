@@ -27,8 +27,6 @@ import scala.concurrent.Future
 private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  import com.daml.ledger.participant.state.v1.Offset.`Offset Ordering`
-
   behavior of "JdbcLedgerDao (ledger entries)"
 
   it should "be able to persist and load a checkpoint" in {

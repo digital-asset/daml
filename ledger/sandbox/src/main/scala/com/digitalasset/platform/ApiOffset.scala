@@ -22,7 +22,7 @@ object ApiOffset {
     Offset(Bytes.assertFromString(s))
 
   def toApiString(offset: Offset): Ref.LedgerString =
-    Offset.unwrap(offset).toHexString
+    offset.bytes.toHexString
 
   implicit class ApiOffsetConverter(val offset: Offset) {
     def toApiString: Ref.LedgerString = ApiOffset.toApiString(offset)

@@ -50,7 +50,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {
-    def toLong: Long = BigInt(Offset.unwrap(offset).toByteArray).toLong
+    def toLong: Long = BigInt(offset.bytes.toByteArray).toLong
   }
 
   protected final val alice = Party.assertFromString("Alice")

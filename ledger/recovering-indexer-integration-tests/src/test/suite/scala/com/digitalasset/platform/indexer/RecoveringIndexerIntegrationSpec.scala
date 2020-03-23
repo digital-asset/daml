@@ -206,8 +206,6 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
 
 object RecoveringIndexerIntegrationSpec {
 
-  import Offset.`Offset Ordering`._
-
   private type ParticipantState = ReadService with WriteService
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)

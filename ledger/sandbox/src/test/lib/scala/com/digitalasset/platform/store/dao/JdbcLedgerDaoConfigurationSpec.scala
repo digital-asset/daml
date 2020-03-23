@@ -12,8 +12,6 @@ import org.scalatest.{AsyncFlatSpec, Matchers}
 
 trait JdbcLedgerDaoConfigurationSpec { this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
-  import com.daml.ledger.participant.state.v1.Offset.`Offset Ordering`
-
   behavior of "JdbcLedgerDao (configuration)"
 
   it should "be able to persist and load configuration" in {

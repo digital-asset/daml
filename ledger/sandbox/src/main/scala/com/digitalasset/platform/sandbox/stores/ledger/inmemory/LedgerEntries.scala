@@ -19,9 +19,6 @@ import scala.collection.immutable.TreeMap
 
 private[ledger] class LedgerEntries[T](identify: T => String) {
 
-  import Offset.`Offset Ordering`
-  import Offset.`Offset Ordering`._
-
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private case class Entries(ledgerEnd: Offset, items: TreeMap[Offset, T])

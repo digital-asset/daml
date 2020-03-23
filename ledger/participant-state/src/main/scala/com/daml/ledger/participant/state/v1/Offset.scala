@@ -4,7 +4,6 @@
 package com.daml.ledger.participant.state.v1
 
 import com.digitalasset.daml.lf.data.Bytes
-import scalaz.Tag
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -20,18 +19,13 @@ import scalaz.Tag
   * less than newer offsets.
   *
   */
-sealed trait OffsetTag
+case class Offset(bytes: Bytes) extends Ordered[Offset] {
+  override def compare(that: Offset): Int =
+    Bytes.`Bytes Ordering`.compare(this.bytes, that.bytes)
+}
 
 object Offset {
 
-  val tag = Tag.of[OffsetTag]
-
-  def apply(s: Bytes): Offset = tag(s)
-
-  def unwrap(x: Offset): Bytes = tag.unwrap(x)
-
   val begin: Offset = Offset(Bytes.fromByteArray(Array(0: Byte)))
-
-  implicit val `Offset Ordering`: Ordering[Offset] = Ordering.by(unwrap)
 
 }
