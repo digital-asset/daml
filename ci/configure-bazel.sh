@@ -46,7 +46,7 @@ if is_windows; then
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
-if false; then
+if [[ "${IS_FORK}" = False ]]; then
   step "configuring write access to the remote cache"
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp .tmp.XXXXXXXXXX)
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
