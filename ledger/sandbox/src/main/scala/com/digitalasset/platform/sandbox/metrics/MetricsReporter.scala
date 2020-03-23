@@ -17,8 +17,8 @@ object MetricsReporter {
   final case class Graphite(address: InetSocketAddress) extends MetricsReporter
 
   object Graphite {
-    lazy val defaultHost: InetAddress = InetAddress.getLoopbackAddress
-    lazy val defaultPort: Int = 2003
+    val defaultHost: InetAddress = InetAddress.getLoopbackAddress
+    val defaultPort: Int = 2003
 
     def apply(): Graphite =
       Graphite(new InetSocketAddress(defaultHost, defaultPort))
