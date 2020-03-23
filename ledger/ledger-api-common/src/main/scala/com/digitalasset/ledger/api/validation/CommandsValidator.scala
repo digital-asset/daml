@@ -82,8 +82,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       currentTime: Instant,
       commands: ProtoCommands,
   ): Either[StatusRuntimeException, Instant] = {
-    // Note: ledgerEffectiveTime is deprecated and replaced by minLedgerTimeAbs
-    val minLedgerTimeAbs = commands.minLedgerTimeAbs.orElse(commands.ledgerEffectiveTime)
+    val minLedgerTimeAbs = commands.minLedgerTimeAbs
     val minLedgerTimeRel = commands.minLedgerTimeRel
 
     (minLedgerTimeAbs, minLedgerTimeRel) match {
