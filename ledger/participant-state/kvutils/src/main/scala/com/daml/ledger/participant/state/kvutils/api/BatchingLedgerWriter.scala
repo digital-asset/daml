@@ -8,13 +8,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
+import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
@@ -116,7 +116,7 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .build
       val envelope = Envelope.enclose(batch)
       writer
-        .commit(correlationId, envelope.toByteArray)
+        .commit(correlationId, envelope)
         .map {
           case SubmissionResult.Acknowledged => ()
           case err =>
@@ -125,12 +125,12 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
     }
   }
 
-  override def commit(correlationId: String, envelope: Array[Byte]): Future[SubmissionResult] =
+  override def commit(correlationId: String, envelope: kvutils.Bytes): Future[SubmissionResult] =
     queueHandle
       .offer(
         DamlSubmissionBatch.CorrelatedSubmission.newBuilder
           .setCorrelationId(correlationId)
-          .setSubmission(ByteString.copyFrom(envelope))
+          .setSubmission(envelope)
           .build)
 
   override def participantId: ParticipantId = writer.participantId

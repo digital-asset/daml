@@ -5,8 +5,8 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
-import com.daml.ledger.participant.state.kvutils.Envelope
-import com.daml.ledger.participant.state.v1
+import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
+import com.daml.ledger.participant.state.{kvutils, v1}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -154,13 +154,13 @@ class BatchingLedgerWriterSpec
   "BatchingLedgerWriter" should {
 
     "construct batch correctly" in {
-      val batchCaptor: ArgumentCaptor[Array[Byte]] = ArgumentCaptor.forClass(classOf[Array[Byte]])
+      val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
       val mockWriter = createWriter(Some(batchCaptor))
       val batchingWriter =
         LoggingContext.newLoggingContext { implicit logCtx =>
           new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
         }
-      val (corId1, subm1) = "test1" -> Array[Byte](1, 2, 3)
+      val (corId1, subm1) = "test1" -> ByteString.copyFrom(Array[Byte](1, 2, 3))
       val expected = createExpectedBatch(corId1, subm1)
       for {
         res1 <- batchingWriter.commit(corId1, subm1)
@@ -173,13 +173,14 @@ class BatchingLedgerWriterSpec
     "drop batch when commit fails" in {
       val mockWriter = createWriter(None, SubmissionResult.Overloaded)
       val batchingWriter = createBatchingWriter(mockWriter, 5, 1.millis)
+      val subm = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
       for {
-        res1 <- batchingWriter.commit("test1", Array[Byte](1, 2, 3, 4, 5))
-        res2 <- batchingWriter.commit("test2", Array[Byte](6, 7, 8, 9, 10))
-        res3 <- batchingWriter.commit("test3", Array[Byte](11, 12, 13, 14, 15))
+        res1 <- batchingWriter.commit("test1", subm)
+        res2 <- batchingWriter.commit("test2", subm)
+        res3 <- batchingWriter.commit("test3", subm)
       } yield {
         verify(mockWriter, times(3))
-          .commit(anyString(), any[Array[Byte]])
+          .commit(anyString(), any[kvutils.Bytes])
         all(Seq(res1, res2, res3)) should be(SubmissionResult.Acknowledged)
         batchingWriter.currentHealth should be(HealthStatus.healthy)
       }
@@ -187,12 +188,13 @@ class BatchingLedgerWriterSpec
   }
 
   private def createWriter(
-      captor: Option[ArgumentCaptor[Array[Byte]]] = None,
+      captor: Option[ArgumentCaptor[kvutils.Bytes]] = None,
       result: SubmissionResult = SubmissionResult.Acknowledged): LedgerWriter = {
     val writer = mock[LedgerWriter]
-    when(writer.commit(anyString(), captor.map(_.capture()).getOrElse(any[Array[Byte]]())))
+    when(writer.commit(anyString(), captor.map(_.capture()).getOrElse(any[kvutils.Bytes]())))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
     when(writer.participantId).thenReturn(v1.ParticipantId.assertFromString("test-participant"))
+    when(writer.currentHealth).thenReturn(HealthStatus.healthy)
     writer
   }
 
@@ -212,14 +214,13 @@ class BatchingLedgerWriterSpec
       )
     }
 
-  private def createExpectedBatch(corId: String, subm: Array[Byte]) =
+  private def createExpectedBatch(corId: String, subm: kvutils.Bytes): kvutils.Bytes =
     Envelope
       .enclose(
         DamlSubmissionBatch.newBuilder
           .addSubmissions(
             DamlSubmissionBatch.CorrelatedSubmission.newBuilder
               .setCorrelationId(corId)
-              .setSubmission(ByteString.copyFrom(subm)))
+              .setSubmission(subm))
           .build)
-      .toByteArray
 }
