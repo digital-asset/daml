@@ -217,7 +217,9 @@ class WebsocketServiceIntegrationTest
       val result = Await.result(clientMsg, 10.seconds)
 
       result should have size 1
-      result.head should include("error")
+      val errorResponse = decodeErrorResponse(result.head)
+      errorResponse.status shouldBe StatusCodes.BadRequest
+      errorResponse.errors should have size 1
   }
 
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
@@ -228,7 +230,9 @@ class WebsocketServiceIntegrationTest
       val result = Await.result(clientMsg, 10.seconds)
 
       result should have size 1
-      result.head should include("""{"error":""")
+      val errorResponse = decodeErrorResponse(result.head)
+      errorResponse.status shouldBe StatusCodes.BadRequest
+      errorResponse.errors should have size 1
   }
 
   // NB SC #3936: the WS connection below terminates at an appropriate time for
@@ -446,8 +450,10 @@ class WebsocketServiceIntegrationTest
             // TODO(Leo) #4417: expected behavior is to return all active contracts (???). Make sure it is consistent with stream/query
             //            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
             //            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
-            errorMsg should include(
-              s""""error":"Cannot resolve any templateId from request: List()""")
+            val errorResponse = decodeErrorResponse(errorMsg)
+            errorResponse.status shouldBe StatusCodes.BadRequest
+            errorResponse.errors shouldBe List(
+              "Cannot resolve any of the requested template IDs: Set()")
         }
       }
   }
@@ -509,6 +515,13 @@ class WebsocketServiceIntegrationTest
         isEmpty && hasOffset
       }
       .valueOr(_ => false)
+
+  private def decodeErrorResponse(str: String): domain.ErrorResponse[List[String]] = {
+    import json.JsonProtocol._
+    inside(SprayJson.decode1[domain.ErrorResponse, List[String]](str)) {
+      case \/-(e) => e
+    }
+  }
 }
 
 object WebsocketServiceIntegrationTest {

@@ -48,6 +48,15 @@ object SprayJson {
   def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
     \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.description))
 
+  def decode1[F[_], A](str: String)(
+      implicit ev1: JsonReader[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: JsonReader[A]): JsonReaderError \/ F[A] =
+    for {
+      jsValue <- parse(str)
+      a <- decode1[F, A](jsValue)
+    } yield a
+
   def decode1[F[_], A](a: JsValue)(
       implicit ev1: JsonReader[F[JsValue]],
       ev2: Traverse[F],
