@@ -57,11 +57,14 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-$DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
-$YARN install --frozen-lockfile
-$YARN workspaces run build
-$YARN workspaces run lint
+# Call daml2ts.
+PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2ts $DAR
 
+# The previous step provides all the daml2ts Javascript needed by the
+# build-and-lint-test workspace.
+$YARN install --pure-lockfile > /dev/null 2>&1
+$YARN workspaces run build  # Build it.
+$YARN workspaces run lint   # No great value in this but nonetheless, lint it.
 # Invoke 'yarn test' in the 'build-and-lint-test' package
 # directory. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
