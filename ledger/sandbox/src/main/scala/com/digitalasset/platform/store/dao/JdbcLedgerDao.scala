@@ -48,6 +48,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
@@ -1757,32 +1758,35 @@ object JdbcLedgerDao {
   private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
 
   def readOwner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
-    owner(jdbcUrl, maxConnections, metrics)
+    owner(serverRole, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
 
   def writeOwner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(jdbcUrl, maxConnections, metrics)
+    owner(serverRole, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
   private def owner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
+      dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
       executor <- ResourceOwner.forExecutorService(() =>
         Executors.newCachedThreadPool(ThreadFactory))
     } yield

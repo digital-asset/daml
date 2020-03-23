@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.persistence
 import com.codahale.metrics.MetricRegistry
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.platform.store.dao.{HikariJdbcConnectionProvider, JdbcConnectionProvider}
 import com.digitalasset.resources.Resource
@@ -23,7 +24,12 @@ class PostgresIT extends AsyncWordSpec with Matchers with PostgresAroundAll with
   override def beforeAll(): Unit = {
     super.beforeAll()
     connectionProviderResource = HikariJdbcConnectionProvider
-      .owner(postgresFixture.jdbcUrl, maxConnections = 4, new MetricRegistry)
+      .owner(
+        ServerRole.Testing(getClass),
+        postgresFixture.jdbcUrl,
+        maxConnections = 4,
+        new MetricRegistry,
+      )
       .acquire()(DirectExecutionContext)
     connectionProvider = Await.result(connectionProviderResource.asFuture, 10.seconds)
   }

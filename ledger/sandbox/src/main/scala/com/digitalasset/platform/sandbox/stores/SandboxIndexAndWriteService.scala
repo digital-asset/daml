@@ -25,6 +25,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.index.LedgerBackedIndexService
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -66,6 +67,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
+        ServerRole.Sandbox,
         jdbcUrl,
         ledgerId,
         participantId,

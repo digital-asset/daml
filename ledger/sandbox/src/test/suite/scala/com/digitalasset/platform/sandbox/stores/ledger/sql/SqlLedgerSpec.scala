@@ -17,6 +17,7 @@ import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
@@ -199,6 +200,7 @@ class SqlLedgerSpec
     val ledger = newLoggingContext { implicit logCtx =>
       SqlLedger
         .owner(
+          serverRole = ServerRole.Testing(getClass),
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = ledgerId.fold[LedgerIdMode](LedgerIdMode.Dynamic)(LedgerIdMode.Static),
           participantId = participantId,

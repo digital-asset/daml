@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
@@ -37,6 +38,7 @@ object LedgerResource {
         new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, entries)))
 
   def postgres(
+      testClass: Class[_],
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
@@ -51,6 +53,7 @@ object LedgerResource {
       for {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
+          ServerRole.Testing(testClass),
           postgres.jdbcUrl,
           LedgerIdMode.Static(ledgerId),
           participantId,
