@@ -53,7 +53,7 @@ object LedgerResource {
       for {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
-          ServerRole.Testing(getClass),
+          ServerRole.Testing(testClass),
           postgres.jdbcUrl,
           LedgerIdMode.Static(ledgerId),
           participantId,
