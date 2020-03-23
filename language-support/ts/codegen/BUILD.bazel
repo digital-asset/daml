@@ -19,6 +19,7 @@ da_haskell_binary(
         "hashable",
         "lens",
         "optparse-applicative",
+        "process",
         "text",
         "unordered-containers",
         "zip-archive",
