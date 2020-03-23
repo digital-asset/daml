@@ -26,6 +26,7 @@ final class Hash private (val bytes: Bytes) {
 
   def toHexString: Ref.HexString = Ref.HexString.encode(bytes)
 
+  override def toString: String = s"Hash($toHexString)"
 }
 
 object Hash {
@@ -138,14 +139,16 @@ object Hash {
 
     final def add(a: Int): this.type = {
       intBuffer.rewind()
-      add(intBuffer.putInt(a))
+      intBuffer.putInt(a).position(0)
+      add(intBuffer)
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def add(a: Long): this.type = {
       longBuffer.rewind()
-      add(longBuffer.putLong(a))
+      longBuffer.putLong(a).position(0)
+      add(longBuffer)
     }
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
