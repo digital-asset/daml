@@ -3,7 +3,9 @@
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.daml.lf.data.Bytes
+import java.io.InputStream
+
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -22,10 +24,21 @@ import com.digitalasset.daml.lf.data.Bytes
 case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =
     Bytes.`Bytes Ordering`.compare(this.bytes, that.bytes)
+
+  def toByteArray: Array[Byte] = bytes.toByteArray
+
+  def toInputStream: InputStream = bytes.toInputStream
+
+  def toHexString: Ref.HexString = bytes.toHexString
 }
 
 object Offset {
 
-  val begin: Offset = Offset(Bytes.fromByteArray(Array(0: Byte)))
+  val begin: Offset = Offset.fromByteArray(Array(0: Byte))
 
+  def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
+
+  def fromInputStream(is: InputStream) = new Offset(Bytes.fromInputStream(is))
+
+  def fromHexString(s: Ref.HexString) = new Offset(Bytes.fromHexString(s))
 }

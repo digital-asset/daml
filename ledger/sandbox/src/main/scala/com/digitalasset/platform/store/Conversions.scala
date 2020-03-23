@@ -18,7 +18,7 @@ import anorm.{
   ToStatement
 }
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.data.Ref
 
 object Conversions {
 
@@ -146,11 +146,10 @@ object Conversions {
   }
 
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[InputStream](name).map(is => Offset(Bytes.fromInputStream(is)))
+    SqlParser.get[InputStream](name).map(Offset.fromInputStream)
 
   implicit def columnToOffset(implicit c: Column[InputStream]): Column[Offset] =
-    Column.nonNull((value: Any, meta) =>
-      c(value, meta).toEither.map(is => Offset(Bytes.fromInputStream(is))))
+    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromInputStream))
 
   // Instant
 
