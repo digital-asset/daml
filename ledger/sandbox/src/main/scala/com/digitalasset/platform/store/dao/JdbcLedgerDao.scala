@@ -142,7 +142,7 @@ private class JdbcLedgerDao(
         .as(offset("ledger_end").single)
     }
 
-  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select external_ledger_end from parameters")
+  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
 
   override def lookupInitialLedgerEnd(): Future[Option[Offset]] =
     dbDispatcher.executeSql("get_initial_ledger_end") { implicit conn =>
