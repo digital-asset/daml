@@ -3,7 +3,7 @@
 package com.digitalasset.daml.lf.data
 
 import com.google.common.io.BaseEncoding
-import scalaz.{Equal, Order}
+import scalaz.Equal
 
 sealed trait StringModule[T] {
 
@@ -109,7 +109,6 @@ object IdString {
   import Ref.{Name, Party}
   @annotation.compileTimeOnly("SC test TODO")
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
-  implicit def `Party order instance`: Order[Party] = Order fromScalaOrdering Party.ordering
 }
 
 private sealed abstract class StringModuleImpl extends StringModule[String] {
