@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.sandbox.utils.InfiniteRetries
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await
