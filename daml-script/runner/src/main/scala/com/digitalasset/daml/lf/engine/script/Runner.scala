@@ -46,6 +46,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
+import com.google.protobuf.duration.Duration
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
   override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
@@ -274,6 +275,7 @@ class Runner(
       commandId = UUID.randomUUID.toString,
       ledgerEffectiveTime = None,
       maximumRecordTime = None,
+      deduplicationTime = Some(Duration(30))
     )
     SubmitAndWaitRequest(Some(commands))
   }

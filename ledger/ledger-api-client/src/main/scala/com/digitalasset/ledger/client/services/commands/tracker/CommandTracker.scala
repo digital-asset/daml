@@ -3,17 +3,15 @@
 
 package com.digitalasset.ledger.client.services.commands.tracker
 
+import java.time.Instant
+
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
-import com.digitalasset.api.util.TimestampConversion.toInstant
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.v1.command_completion_service._
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.util.Ctx
-import com.digitalasset.util.logging.Lazy
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._
 import com.google.rpc.status.Status
@@ -60,8 +58,6 @@ private[commands] class CommandTracker[Context]
     Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
   val resultOut: Outlet[Ctx[Context, Completion]] =
     Outlet[Ctx[Context, Completion]]("resultOut")
-  val offsetOut: Outlet[LedgerOffset] =
-    Outlet[LedgerOffset]("offsetOut")
 
   override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes): (GraphStageLogic, Future[Map[String, Context]]) = {
@@ -125,19 +121,13 @@ private[commands] class CommandTracker[Context]
           override def onPush(): Unit = {
             grab(commandResultIn) match {
               case Left(submitResponse) =>
-                val syncFailure = handleSubmitResponse(submitResponse)
-                syncFailure.fold(pull(commandResultIn))(push(resultOut, _))
+                pushResultOrPullCommandResultIn(handleSubmitResponse(submitResponse))
 
               case Right(CompletionStreamElement.CompletionElement(completion)) =>
-                val result = getOutputForCompletion(completion)
-                result.fold(pull(commandResultIn))(push(resultOut, _))
+                pushResultOrPullCommandResultIn(getOutputForCompletion(completion))
 
-              case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
-                val timeouts = getOutputForTimeout(checkpoint)
-                if (timeouts.nonEmpty) emitMultiple(resultOut, timeouts)
-                else pull(commandResultIn)
-
-                checkpoint.offset.foreach(emit(offsetOut, _))
+              case Right(CompletionStreamElement.CheckpointElement(_)) =>
+                pushResultOrPullCommandResultIn(None)
             }
 
             completeStageIfTerminal()
@@ -145,13 +135,11 @@ private[commands] class CommandTracker[Context]
         }
       )
 
-      setHandler(
-        offsetOut,
-        new OutHandler {
-          override def onPull(): Unit =
-            () //nothing to do here as the offset stream will be read with constant demand, storing the latest element
-        }
-      )
+      private def pushResultOrPullCommandResultIn(compl: Option[Ctx[Context, Completion]]): Unit = {
+        val outputs = getOutputForTimeout(Instant.now) ++ compl.toList
+        if (outputs.nonEmpty) emitMultiple(resultOut, outputs)
+        else pull(commandResultIn)
+      }
 
       private def completeStageIfTerminal(): Unit = {
         if (isClosed(submitRequestIn) && pendingCommands.isEmpty) {
@@ -192,10 +180,15 @@ private[commands] class CommandTracker[Context]
                 s"A command with id $commandId is already being tracked. CommandIds submitted to the CommandTracker must be unique.")
               with NoStackTrace
             }
+            val dedup = {
+              val dedup = commands.getDeduplicationTime
+              Instant.now().plusSeconds(dedup.seconds).plusNanos(dedup.nanos.toLong)
+            }
+
             pendingCommands += (commandId ->
               TrackingData(
                 commandId,
-                toInstant(commands.getMaximumRecordTime),
+                dedup,
                 submitRequest.value.traceContext,
                 submitRequest.context))
           }
@@ -203,20 +196,17 @@ private[commands] class CommandTracker[Context]
       }
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      private def getOutputForTimeout(checkpoint: Checkpoint) = {
-        logger.trace(
-          "Handling checkpoint {}",
-          Lazy(s"${checkpoint.offset} at ${toInstant(checkpoint.getRecordTime)}"))
-        val mrtBoundary = toInstant(checkpoint.getRecordTime)
+      private def getOutputForTimeout(instant: Instant) = {
+        logger.trace("Checking timeouts at {}", instant)
         pendingCommands.flatMap {
           case (commandId, trackingData) =>
-            if (trackingData.maximumRecordTime.isBefore(mrtBoundary)) {
+            if (trackingData.commandTimeout.isBefore(instant)) {
               pendingCommands -= commandId
               logger.info(
-                s"Command {} (mrt {}) timed out at checkpoint {}.",
+                s"Command {} (command timeout {}) timed out at checkpoint {}.",
                 commandId,
-                trackingData.maximumRecordTime,
-                mrtBoundary)
+                trackingData.commandTimeout,
+                instant)
               List(
                 Ctx(
                   trackingData.context,
@@ -275,7 +265,7 @@ private[commands] class CommandTracker[Context]
   }
 
   override def shape: CommandTrackerShape[Context] =
-    CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut, offsetOut)
+    CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut)
 
 }
 

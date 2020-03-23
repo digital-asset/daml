@@ -4,8 +4,8 @@
 package com.digitalasset.ledger.client.services.commands
 
 import akka.NotUsed
-import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
-import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
+import akka.stream.scaladsl.{Flow, GraphDSL, Merge, Source}
+import akka.stream.{DelayOverflowStrategy, FlowShape}
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion._
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
@@ -56,34 +56,23 @@ object CommandTrackerFlow {
         val merge = builder.add(
           Merge[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]](2, false))
 
-        val startAt = builder.add(Source.single(startingOffset))
-        val concat = builder.add(Concat[LedgerOffset](2))
-
-        val completionFlow = builder.add(
-          Flow[LedgerOffset]
-            .buffer(1, OverflowStrategy.dropHead) // storing the last offset
-            .expand(offset => Iterator.iterate(offset)(identity)) // so we always have an element to fetch
-            .flatMapConcat(
-              createCommandCompletionSource(_).recoverWithRetries(
-                1, {
-                  case e =>
-                    logger.warn(
-                      s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
-                      e)
-                    Source.empty
-                    delayedEmptySource(backOffDuration)
-                }
-              )
-            ))
+        val completionSource = builder.add(
+          createCommandCompletionSource(startingOffset).recoverWithRetries(
+            1, {
+              case e =>
+                logger.warn(
+                  s"Completion Stream failed with an error. Trying to recover in ${backOffDuration} ..",
+                  e)
+                Source.empty
+                delayedEmptySource(backOffDuration)
+            }
+          )
+        )
 
         // format: OFF
-        startAt.out       ~> concat
-        tracker.offsetOut ~> concat
-        concat.out        ~> completionFlow.in
-
         tracker.submitRequestOut ~> submissionFlow ~> wrapResult ~> merge.in(0)
         tracker.commandResultIn  <~ merge.out
-        merge.in(1) <~ wrapCompletion <~ completionFlow.out
+        merge.in(1) <~ wrapCompletion <~ completionSource
         // format: ON
 
         FlowShape(tracker.submitRequestIn, tracker.resultOut)
