@@ -21,7 +21,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
 
   protected def actorSystemName: String = this.getClass.getSimpleName
 
-  protected lazy val akkaExecutionContext: ExecutionContext =
+  private implicit lazy val executionContext: ExecutionContext =
     ExecutionContext.fromExecutorService(
       Executors.newSingleThreadExecutor(
         new ThreadFactoryBuilder()
@@ -32,7 +32,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
           .build()))
 
   protected implicit lazy val system: ActorSystem =
-    ActorSystem(actorSystemName, defaultExecutionContext = Some(akkaExecutionContext))
+    ActorSystem(actorSystemName, defaultExecutionContext = Some(executionContext))
 
   protected implicit lazy val materializer: Materializer = Materializer(system)
 
