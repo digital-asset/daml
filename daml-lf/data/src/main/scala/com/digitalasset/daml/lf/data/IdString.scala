@@ -133,14 +133,14 @@ private object HexStringModuleImpl extends StringModuleImpl with HexStringModule
 
   override def fromString(str: String): Either[String, String] =
     Either.cond(
-      HexStringModuleImpl.baseEncode.canDecode(str),
+      baseEncode.canDecode(str),
       str,
       s"cannot parse HexString $str"
     )
 
   override def encode(a: Bytes): T = {
     val writer = new StringWriter()
-    val os = BaseEncoding.base16.encodingStream(writer)
+    val os = baseEncode.encodingStream(writer)
     ByteStreams.copy(a.toInputStream, os)
     writer.toString
   }
