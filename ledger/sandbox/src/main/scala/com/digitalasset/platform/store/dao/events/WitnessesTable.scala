@@ -12,7 +12,7 @@ import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
   * A table storing a flattened representation of a [[DisclosureRelation]],
   * which says which [[NodeId]] is visible to which [[Party]].
   */
-sealed abstract class WitnessesTable(tableName: String) {
+private[events] sealed abstract class WitnessesTable(tableName: String) {
 
   private def parameters(transactionId: TransactionId)(
       nodeId: NodeId,
@@ -44,7 +44,7 @@ sealed abstract class WitnessesTable(tableName: String) {
 
 }
 
-object WitnessesTable {
+private[events] object WitnessesTable {
 
   /**
     * Concrete [[WitnessesTable]] to store which party can see which

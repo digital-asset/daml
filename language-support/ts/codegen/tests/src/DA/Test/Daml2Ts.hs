@@ -134,6 +134,37 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir, "-p", here </> "package.json"]) ""
         assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
 
+  , testCaseSteps "Bad package.json test" $ \step -> withTempDir $ \here -> do
+      let grover = here </> "grover"
+          groverDaml = grover </> "daml"
+          daml2tsDir = here </> "daml2ts"
+          groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
+      createDirectoryIfMissing True groverDaml
+      withCurrentDirectory grover $ do
+        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
+          [ "module Grover where"
+          , "template Grover"
+          , "  with puppeteer : Party"
+          , "  where"
+          , "    signatory puppeteer"
+          , "    choice Grover_GoSuper: ContractId Grover"
+          , "      controller puppeteer"
+          , "      do"
+          , "        return self"
+          ]
+        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        step "daml build..."
+        buildProject []
+      withCurrentDirectory here $ do
+        step "daml2ts..."
+        setupWorkspace
+        writeFileUTF8 (here </> "package.json") .
+          replace "    \"@daml/types\": \"file:daml-types\""
+                  "    \"@daml/types\": \"file:daml-types\","
+                  =<< readFileUTF8' (here </> "package.json")
+        (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar] ++ ["-o", daml2tsDir]) ""
+        assertBool "An error decoding package.json was expected." (exitCode /= ExitSuccess && isJust (stripInfix "'package.json' : Error in $: Failed reading: satisfy. Expecting object value)" err))
+
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
@@ -215,7 +246,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         unless (exitCode == ExitSuccess) $ do
           hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
           hPutStrLn stderr $ unlines ["stdout:", out]
-          hPutStrLn stderr $ unlines ["stderr: ", err]
+          hPutStrLn stderr $ unlines ["stderr:", err]
           exitFailure
 
     setupWorkspace :: IO ()

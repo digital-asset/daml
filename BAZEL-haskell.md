@@ -136,7 +136,6 @@ stack_snapshot(
         ...
     ],
     deps = {
-        "bzlib-conduit": ["@bzip2//:libbz2"],
         "digest": ["@com_github_madler_zlib//:libz"],
         "zlib": ["@com_github_madler_zlib//:libz"],
     },

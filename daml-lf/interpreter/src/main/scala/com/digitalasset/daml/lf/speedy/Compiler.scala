@@ -382,12 +382,22 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             case CaseAlt(pat, expr) =>
               pat match {
                 case CPVariant(tycon, variant, binder) =>
+                  val variantDef = lookupVariantDefinition(tycon).getOrElse(
+                    throw CompileError(s"variant $tycon not found"))
                   withBinders(binder) { _ =>
-                    SCaseAlt(SCPVariant(tycon, variant), translate(expr))
+                    SCaseAlt(
+                      SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
+                      translate(expr),
+                    )
                   }
 
                 case CPEnum(tycon, constructor) =>
-                  SCaseAlt(SCPEnum(tycon, constructor), translate(expr))
+                  val enumDef = lookupEnumDefinition(tycon).getOrElse(
+                    throw CompileError(s"enum $tycon not found"))
+                  SCaseAlt(
+                    SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+                    translate(expr),
+                  )
 
                 case CPNil =>
                   SCaseAlt(SCPNil, translate(expr))

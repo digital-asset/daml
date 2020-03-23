@@ -18,15 +18,15 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
+import com.digitalasset.ledger.TransactionId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  LedgerId,
-  TransactionFilter,
-  TransactionId
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionFilter}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.store.dao.LedgerReadDao
@@ -99,11 +99,17 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
     ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty)
 
-  override def lookupTransaction(
-      transactionId: TransactionId
-  ): Future[Option[(Offset, LedgerEntry.Transaction)]] =
-    ledgerDao
-      .lookupTransaction(TransactionId.unwrap(transactionId))
+  override def lookupFlatTransactionById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetFlatTransactionResponse]] =
+    ledgerDao.transactionsReader.lookupFlatTransactionById(transactionId, requestingParties)
+
+  override def lookupTransactionTreeById(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetTransactionResponse]] =
+    ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
   override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
     ledgerDao.getParties(parties)

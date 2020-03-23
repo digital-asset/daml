@@ -10,10 +10,11 @@ import java.util.concurrent.atomic.AtomicBoolean
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
@@ -75,7 +76,6 @@ object TestMain extends StrictLogging {
         implicit val materializer: Materializer = Materializer(system)
         implicit val ec: ExecutionContext = system.dispatcher
 
-        val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
         val (participantParams, participantCleanup) = config.participantConfig match {
           case Some(file) =>
             val source = Source.fromFile(file)
@@ -112,6 +112,24 @@ object TestMain extends StrictLogging {
             )
         }
 
+        val darMap = dar.all.toMap
+        val compiler = new Compiler(darMap)
+        val compiledPackages =
+          PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+        val testScripts = dar.main._2.modules.flatMap {
+          case (moduleName, module) => {
+            module.definitions.collect(Function.unlift {
+              case (name, defn) => {
+                val id = Identifier(dar.main._1, QualifiedName(moduleName, name))
+                Script.fromIdentifier(compiledPackages, id) match {
+                  case Right(script: Script.Action) => Some((id, script))
+                  case _ => None
+                }
+              }
+            })
+          }
+        }
+
         val flow: Future[Boolean] = for {
           clients <- Runner.connect(participantParams, clientConfig)
           _ <- clients.getParticipant(None) match {
@@ -122,30 +140,24 @@ object TestMain extends StrictLogging {
           }
           success = new AtomicBoolean(true)
           _ <- Future.sequence {
-            dar.main._2.modules.flatMap {
-              case (moduleName, module) =>
-                module.definitions.collect {
-                  case (name, Ast.DValue(Ast.TApp(Ast.TTyCon(tycon), _), _, _, _))
-                      if tycon == runner.scriptTyCon =>
-                    val testRun: Future[Unit] = for {
-                      _ <- runner.run(
-                        clients,
-                        Identifier(dar.main._1, QualifiedName(moduleName, name)),
-                        None)
-                    } yield ()
-                    // Print test result and remember failure.
-                    testRun.onComplete {
-                      case Failure(exception) =>
-                        success.set(false)
-                        println(s"$moduleName:$name FAILURE ($exception)")
-                      case Success(_) =>
-                        println(s"$moduleName:$name SUCCESS")
-                    }
-                    // Do not abort in case of failure, but complete all test runs.
-                    testRun.recover {
-                      case _ => ()
-                    }
+            testScripts.map {
+              case (id, script) => {
+                val runner =
+                  new Runner(compiledPackages, script, applicationId, commandUpdater, timeProvider)
+                val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
+                // Print test result and remember failure.
+                testRun.onComplete {
+                  case Failure(exception) =>
+                    success.set(false)
+                    println(s"${id.qualifiedName} FAILURE ($exception)")
+                  case Success(_) =>
+                    println(s"${id.qualifiedName} SUCCESS")
                 }
+                // Do not abort in case of failure, but complete all test runs.
+                testRun.recover {
+                  case _ => ()
+                }
+              }
             }
           }
         } yield success.get()

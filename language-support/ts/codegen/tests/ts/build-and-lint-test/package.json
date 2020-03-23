@@ -1,12 +1,13 @@
 {
   "private": true,
-  "name": "build-and-lint",
+  "name": "build-and-lint-test",
   "version": "0.0.1",
-  "description": "Tests for the daml2ts generated 'build-and-lint-pkg'",
+  "description": "Tests exercising '@daml.js/build-and-lint-1.0.0",
   "license": "Apache-2.0",
   "dependencies": {
     "@daml/ledger": "0.0.0",
     "@daml/types": "0.0.0",
+    "@daml.js/build-and-lint-1.0.0": "file:../daml2ts/build-and-lint-1.0.0",
     "p-event": "^4.1.0"
   },
   "scripts": {

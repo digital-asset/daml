@@ -16,6 +16,7 @@ object SeedService {
 
   sealed abstract class Seeding
   object Seeding {
+    case object Static extends Seeding
     case object Weak extends Seeding
     case object Strong extends Seeding
   }
@@ -26,8 +27,21 @@ object SeedService {
         new StrongRandomSeedService
       case Seeding.Weak =>
         new WeakRandomSeedService
+      case Seeding.Static =>
+        new StaticRandomSeedService(0L)
     }
 
+}
+
+// This service uses a fixed seed.
+// Do not use in production
+class StaticRandomSeedService(seed: Long) extends SeedService {
+  val rndGen = new scala.util.Random(seed)
+  override val nextSeed: () => Hash = () => {
+    val weakSeed = Array.ofDim[Byte](32)
+    rndGen.nextBytes(weakSeed)
+    crypto.Hash.assertFromBytes(weakSeed)
+  }
 }
 
 // This service uses a very low entropy seed.

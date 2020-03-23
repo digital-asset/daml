@@ -84,13 +84,6 @@ object RunnerMain {
           fileContent.parseJson
         })
 
-        val runner = try {
-          new Runner(dar, applicationId, commandUpdater, timeProvider)
-        } catch {
-          case e: Throwable =>
-            system.terminate
-            sys.exit(1)
-        }
         val participantParams = config.participantConfig match {
           case Some(file) => {
             val source = Source.fromFile(file)
@@ -112,7 +105,14 @@ object RunnerMain {
         }
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
-          _ <- runner.run(clients, scriptId, inputValue)
+          _ <- Runner.run(
+            dar,
+            scriptId,
+            inputValue,
+            clients,
+            applicationId,
+            commandUpdater,
+            timeProvider)
         } yield ()
 
         flow.onComplete(_ => system.terminate())

@@ -64,12 +64,12 @@ private[speedy] object Hasher {
                 loop(cmdsRest, cid.hashCode :: stack)
               case STypeRep(t) =>
                 loop(cmdsRest, t.hashCode() :: stack)
-              case SEnum(_, constructor, _) =>
-                loop(cmdsRest, constructor.hashCode :: stack)
+              case SEnum(_, _, rank) =>
+                loop(cmdsRest, rank :: stack)
               case SRecord(_, _, values) =>
                 loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
-              case SVariant(_, variant, _, value) =>
-                loop(Value(value) :: Mix(variant.hashCode) :: cmdsRest, stack)
+              case SVariant(_, _, rank, value) =>
+                loop(Value(value) :: Mix(rank) :: cmdsRest, stack)
               case SStruct(_, values) =>
                 loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
               case SOptional(opt) =>

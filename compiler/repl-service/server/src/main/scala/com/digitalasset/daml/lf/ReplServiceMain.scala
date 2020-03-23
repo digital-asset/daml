@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
@@ -14,7 +15,7 @@ import com.digitalasset.daml.lf.engine.script._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
+import com.digitalasset.daml.lf.speedy.{Compiler, SValue, SExpr}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -196,7 +197,11 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       timeProviderO = Some(TimeProvider.UTC),
       ttl = java.time.Duration.ofSeconds(30),
       overrideTtl = true)
-    val runner = new Runner(dar, ApplicationId("daml repl"), commandUpdater, TimeProvider.UTC)
+    // TODO[AH] Provide daml-script package id from REPL client.
+    val (scriptPackageId, _) = packages.find {
+      case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
+    }.get
+
     var scriptExpr: SExpr = SEVal(
       LfDefRef(
         Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
@@ -204,7 +209,18 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
-    runner.runExpr(clients, scriptExpr).onComplete {
+
+    val darMap = dar.all.toMap
+    val compiler = Compiler(darMap)
+    val compiledPackages =
+      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val runner = new Runner(
+      compiledPackages,
+      Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
+      ApplicationId("daml repl"),
+      commandUpdater,
+      TimeProvider.UTC)
+    runner.runWithClients(clients).onComplete {
       case Failure(e) => respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)

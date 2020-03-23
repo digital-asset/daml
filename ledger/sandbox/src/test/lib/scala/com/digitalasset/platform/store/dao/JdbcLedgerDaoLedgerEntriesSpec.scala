@@ -19,12 +19,12 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.platform.store.PersistenceEntry
 import com.digitalasset.platform.store.entries.LedgerEntry
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers}
 
 import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
-private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
+private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
 
   behavior of "JdbcLedgerDao (ledger entries)"
@@ -177,8 +177,8 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
     val N = 1000
     val M = 10
 
-    def runSequentially[U](n: Int, f: Int => Future[U]): Future[akka.Done] =
-      Source(1 to n).mapAsync(1)(f).runWith(Sink.ignore)
+    def runSequentially[U](n: Int, f: Int => Future[U]): Future[Seq[U]] =
+      Source(1 to n).mapAsync(1)(f).runWith(Sink.seq)
 
     // Perform the following operations:
     // - Create N contracts
@@ -206,7 +206,6 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
 
     for {
       startingOffset <- ledgerDao.lookupLedgerEnd()
-      startingOffsetString = startingOffset.toLong
       aliceStartingSnapshot <- ledgerDao.getActiveContractSnapshot(
         startingOffset,
         aliceWildcardFilter)
@@ -216,8 +215,8 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
 
       mixedStartingSnapshot <- ledgerDao.getActiveContractSnapshot(startingOffset, mixedFilter)
 
-      _ <- runSequentially(N, _ => storeCreateTransaction())
-      _ <- storeExerciseTransaction(AbsoluteContractId(s"cId$startingOffsetString"))
+      created <- runSequentially(N, _ => store(singleCreate))
+      _ <- store(singleExercise(nonTransient(created.head._2).loneElement))
 
       snapshotOffset <- ledgerDao.lookupLedgerEnd()
 
@@ -237,7 +236,7 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec {
 
       mixedSnapshot <- ledgerDao.getActiveContractSnapshot(snapshotOffset, mixedFilter)
 
-      _ <- runSequentially(M, _ => storeCreateTransaction())
+      _ <- runSequentially(M, _ => store(singleCreate))
 
       endingOffset <- ledgerDao.lookupLedgerEnd()
 

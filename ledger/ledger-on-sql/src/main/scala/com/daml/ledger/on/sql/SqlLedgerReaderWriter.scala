@@ -12,6 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
 import com.daml.ledger.participant.state.v1._
@@ -26,6 +27,7 @@ import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.LedgerIdMismatchException
 import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -36,6 +38,7 @@ final class SqlLedgerReaderWriter(
     timeProvider: TimeProvider,
     database: Database,
     dispatcher: Dispatcher[Index],
+    seedService: SeedService
 )(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,
@@ -43,9 +46,17 @@ final class SqlLedgerReaderWriter(
 ) extends LedgerWriter
     with LedgerReader {
 
+  private def allocateSeededLogEntryId(): DamlLogEntryId =
+    DamlLogEntryId.newBuilder
+      .setEntryId(
+        ByteString.copyFromUtf8(
+          UUID.nameUUIDFromBytes(seedService.nextSeed().toByteArray).toString))
+      .build()
+
   private val committer = new ValidatingCommitter[Index](
     () => timeProvider.getCurrentTime,
-    SubmissionValidator.create(SqlLedgerStateAccess),
+    SubmissionValidator
+      .create(SqlLedgerStateAccess, allocateNextLogEntryId = () => allocateSeededLogEntryId()),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
 
@@ -102,6 +113,7 @@ object SqlLedgerReaderWriter {
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
       heartbeats: Source[Instant, NotUsed] = Source.empty,
+      seedService: SeedService
   )(implicit materializer: Materializer, logCtx: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(
@@ -113,7 +125,14 @@ object SqlLedgerReaderWriter {
         ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
         dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
         _ = publishHeartbeats(database, dispatcher, heartbeats)
-      } yield new SqlLedgerReaderWriter(ledgerId, participantId, timeProvider, database, dispatcher)
+      } yield
+        new SqlLedgerReaderWriter(
+          ledgerId,
+          participantId,
+          timeProvider,
+          database,
+          dispatcher,
+          seedService)
   }
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(

@@ -202,7 +202,7 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions init
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions initPkgDb = Command Test (Just projectOpts) effect
   where effect = withProjectRoot' projectOpts $ \relativize -> do
         initPackageDb cliOptions initPkgDb
-        inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
+        inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
@@ -445,7 +445,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
     projectOpts = ProjectOpts Nothing (ProjectCheck "" False)
     effect = withProjectRoot' projectOpts $ \relativize -> do
       loggerH <- getLogger opts "compile"
-      inputFile <- toNormalizedFilePath <$> relativize inputFile
+      inputFile <- toNormalizedFilePath' <$> relativize inputFile
       opts <- pure opts { optIfaceDir = mbIfaceDir }
       withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
           setFilesOfInterest ide (HashSet.singleton inputFile)
@@ -460,7 +460,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
 
             when writeInterface $ do
                 files <- nubSort . concatMap transitiveModuleDeps <$> use GetDependencies inputFile
-                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts) files
+                mbIfaces <- writeIfacesAndHie (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts) files
                 void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
 
             mbDalf <- getDalf inputFile
@@ -481,7 +481,7 @@ execLint inputFile opts =
        withProjectRoot' projectOpts $ \relativize ->
        do
          loggerH <- getLogger opts "lint"
-         inputFile <- toNormalizedFilePath <$> relativize inputFile
+         inputFile <- toNormalizedFilePath' <$> relativize inputFile
          opts <- setDlintDataDir opts
          withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
              setFilesOfInterest ide (HashSet.singleton inputFile)
@@ -572,7 +572,7 @@ initPackageDb opts (InitPkgDb shouldInit) =
         when isProject $ do
             projRoot <- getCurrentDirectory
             withPackageConfig defaultProjectPath $ \PackageConfigFields {..} ->
-                createProjectPackageDb (toNormalizedFilePath projRoot) opts pSdkVersion pDependencies pDataDependencies
+                createProjectPackageDb (toNormalizedFilePath' projRoot) opts pSdkVersion pDependencies pDataDependencies
 
 createDarFile :: FilePath -> Zip.ZipArchive () -> IO ()
 createDarFile fp dar = do
@@ -600,7 +600,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb =
                         buildDar
                             compilerH
                             pkgConfig
-                            (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
+                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             (FromDalf False)
                     dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
                     let fp = targetFilePath $ unitIdString (pkgNameVersion pName pVersion)
@@ -691,7 +691,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                               , pDataDependencies = []
                               , pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
                               }
-                            (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
+                            (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
           case mbDar of
             Nothing -> do
@@ -820,7 +820,7 @@ execDocTest opts files =
   Command DocTest Nothing effect
   where
     effect = do
-      let files' = map toNormalizedFilePath files
+      let files' = map toNormalizedFilePath' files
       logger <- getLogger opts "doctest"
       -- We don’t add a logger here since we will otherwise emit logging messages twice.
       importPaths <-

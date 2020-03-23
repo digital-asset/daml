@@ -123,7 +123,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
             bytes <- BSL.readFile pSrc
             -- in the dalfInput case we interpret pSrc as the filepath pointing to the dalf.
             -- Note that the package id is obviously wrong but this feature is not something we expose to users.
-            pure $ Just $ createArchive pkgConf (LF.PackageId "") bytes [] (toNormalizedFilePath ".") [] [] []
+            pure $ Just $ createArchive pkgConf (LF.PackageId "") bytes [] (toNormalizedFilePath' ".") [] [] []
         -- We need runActionSync here to ensure that diagnostics are printed to the terminal.
         -- Otherwise runAction can return before the diagnostics have been printed and we might die
         -- without ever seeing diagnostics.
@@ -136,7 +136,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      Nothing -> mergePkgs pName pVersion lfVersion <$> usesE GeneratePackage files
                      Just _ -> generateSerializedPackage pName pVersion files
 
-                 MaybeT $ finalPackageCheck (toNormalizedFilePath pSrc) pkg
+                 MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
@@ -207,20 +207,20 @@ writeIfacesAndHie ifDir files =
                     (fst $ tm_internals_ $ tmrModule tcm)
                     (fromJust $ tm_renamed_source $ tmrModule tcm)
             writeHieFile hieFp hieFile
-            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
+            pure [toNormalizedFilePath' ifaceFp, toNormalizedFilePath' hieFp]
 
 -- For backwards compatibility we allow both a file or a directory in "source".
 -- For a file we use the import path as the src root.
 getSrcRoot :: FilePath -> MaybeT Action NormalizedFilePath
 getSrcRoot fileOrDir = do
-  let fileOrDir' = toNormalizedFilePath fileOrDir
+  let fileOrDir' = toNormalizedFilePath' fileOrDir
   isDir <- liftIO $ doesDirectoryExist fileOrDir
   if isDir
       then pure fileOrDir'
       else do
           pm <- useE GetParsedModule fileOrDir'
           Just root <- pure $ moduleImportPath fileOrDir' pm
-          pure $ toNormalizedFilePath root
+          pure $ toNormalizedFilePath' root
 
 -- | Merge several packages into one.
 mergePkgs :: LF.PackageName -> Maybe LF.PackageVersion -> LF.Version -> [WhnfPackage] -> LF.Package
@@ -243,7 +243,7 @@ getDamlFiles srcRoot = do
     if isDir
         then liftIO $ damlFilesInDir srcRoot
         else do
-            let normalizedSrcRoot = toNormalizedFilePath srcRoot
+            let normalizedSrcRoot = toNormalizedFilePath' srcRoot
             deps <- MaybeT $ getDependencies normalizedSrcRoot
             pure (normalizedSrcRoot : deps)
 
@@ -256,7 +256,7 @@ damlFilesInDir srcRoot = do
             (\fp ->
                  return $ fp == "." || (not $ isPrefixOf "." $ takeFileName fp))
             srcRoot
-    pure $ map toNormalizedFilePath $ filter (".daml" `isExtensionOf`) fs
+    pure $ map toNormalizedFilePath' $ filter (".daml" `isExtensionOf`) fs
 
 -- | Find all DAML files below a given source root. If the source root is a file we interpret it as
 -- main and return only that file. This is different from getDamlFiles which also returns
@@ -266,7 +266,7 @@ getDamlRootFiles srcRoot = do
     isDir <- liftIO $ doesDirectoryExist srcRoot
     if isDir
         then liftIO $ damlFilesInDir srcRoot
-        else pure [toNormalizedFilePath srcRoot]
+        else pure [toNormalizedFilePath' srcRoot]
 
 mkConfFile ::
        PackageConfigFields -> [String] -> LF.PackageId -> IO (String, BS.ByteString)
@@ -338,7 +338,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileD
         sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
     forM_ ifaces $ \mPath -> do
         let ifaceRoot =
-                toNormalizedFilePath
+                toNormalizedFilePath'
                     (ifaceDir </> fromNormalizedFilePath srcRoot)
         entry <- Zip.mkEntrySelector $ pkgName </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
         sinkEntryDeterministic Zip.Deflate (sourceFile $ fromNormalizedFilePath mPath) entry
@@ -399,7 +399,7 @@ breakAt72Bytes s =
 -- > makeRelative "./a" "a/b" == "a/b"
 makeRelative' :: NormalizedFilePath -> NormalizedFilePath -> NormalizedFilePath
 makeRelative' a b =
-    toNormalizedFilePath $
+    toNormalizedFilePath' $
     -- Note that NormalizedFilePath only takes care of normalizing slashes.
     -- Here we also want to normalise things like ./a to a
     makeRelative (normalise $ fromNormalizedFilePath a) (normalise $ fromNormalizedFilePath b)

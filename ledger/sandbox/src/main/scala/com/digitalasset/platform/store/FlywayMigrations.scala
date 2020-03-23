@@ -4,6 +4,7 @@
 package com.digitalasset.platform.store
 
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.store.FlywayMigrations._
 import com.digitalasset.platform.store.dao.HikariConnection
 import com.digitalasset.resources.ResourceOwner
@@ -57,7 +58,14 @@ class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
     }
 
   private def dataSource: ResourceOwner[HikariDataSource] =
-    HikariConnection.owner(jdbcUrl, "daml.index.db.migration", 2, 2, 250.millis, None)
+    HikariConnection.owner(
+      serverRole = ServerRole.IndexMigrations,
+      jdbcUrl = jdbcUrl,
+      minimumIdle = 2,
+      maxPoolSize = 2,
+      connectionTimeout = 250.millis,
+      metrics = None,
+    )
 }
 
 object FlywayMigrations {

@@ -8,7 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId, TransactionId}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -18,7 +18,7 @@ import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.TransactionWriter
+import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
@@ -32,13 +32,15 @@ import scala.concurrent.Future
 
 trait LedgerReadDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[Offset]
 
-  /** Looks up the current external ledger end offset*/
+  /** Looks up the current external ledger end offset */
   def lookupInitialLedgerEnd(): Future[Option[Offset]]
 
   /** Looks up an active or divulged contract if it is visible for the given party. Archived contracts must not be returned by this method */
@@ -62,15 +64,7 @@ trait LedgerReadDao extends ReportsHealth {
     */
   def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]]
 
-  /**
-    * Looks up the transaction with the given id
-    *
-    * @param transactionId the id of the transaction to look up
-    * @return the optional Transaction found
-    */
-  def lookupTransaction(
-      transactionId: TransactionId
-  ): Future[Option[(Offset, LedgerEntry.Transaction)]]
+  def transactionsReader: TransactionsReader
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -166,10 +160,12 @@ trait LedgerReadDao extends ReportsHealth {
 
 trait LedgerWriteDao extends ReportsHealth {
 
+  def maxConcurrentConnections: Int
+
   /**
     * Initializes the ledger. Must be called only once.
     *
-    * @param ledgerId  the ledger id to be stored
+    * @param ledgerId the ledger id to be stored
     */
   def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit]
 
@@ -230,7 +226,7 @@ trait LedgerWriteDao extends ReportsHealth {
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
 
-  def transactionsWriter: TransactionWriter
+  def transactionsWriter: TransactionsWriter
 
 }
 

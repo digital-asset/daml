@@ -111,11 +111,16 @@ class TestRunner(
 
     val clientsF = Runner.connect(participantParams, clientConfig)
 
-    val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
-
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- runner.run(clients, scriptId, inputValue)
+      result <- Runner.run(
+        dar,
+        scriptId,
+        inputValue,
+        clients,
+        applicationId,
+        commandUpdater,
+        timeProvider)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

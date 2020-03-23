@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLoo
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.TypedValueGenerators.{genAddend, ValueAddend => VA}
+import com.digitalasset.daml.lf.value.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
@@ -44,7 +44,7 @@ class ValuePredicateTest
         .DefDataType(ImmArraySeq.empty, iface.Record(ImmArraySeq((dummyFieldName, ty))))).lift
 
   "fromJsObject" should {
-    def c(query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: Boolean)(
+    def c[M](query: String, ty: VA)(expected: ty.Inj[Cid], shouldMatch: M)(
         implicit pos: source.Position) =
       (pos.lineNumber, query.parseJson, ty, ty.inj(expected), shouldMatch)
 
@@ -59,7 +59,6 @@ class ValuePredicateTest
       ("\"foo\"", VA.text),
       ("42", VA.int64),
       ("111.11", VA.numeric(Numeric.Scale assertFromInt 10)),
-      ("[1, 2, 3]", VA.list(VA.int64)),
       ("null", VAs.oi),
       ("42", VAs.oi),
       ("null", VAs.ooi),
@@ -69,6 +68,11 @@ class ValuePredicateTest
       ("[]", VAs.oooi),
       ("[[]]", VAs.oooi),
       ("[[42]]", VAs.oooi),
+    )
+
+    val failLiterals = Table(
+      ("query or json", "type", "message"),
+      ("[1, 2, 3]", VA.list(VA.int64), "PrimTypeList not supported"),
     )
 
     val excl4143 = """{"%gt": 41, "%lt": 43}"""
@@ -108,14 +112,30 @@ class ValuePredicateTest
       c("""{"%gte": "1980-01-01T00:00:00Z", "%lt": "2000-01-01T00:00:00Z"}""", VA.timestamp)(
         Time.Timestamp assertFromString "1986-06-21T00:00:00Z",
         true),
-      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
-      c("""{"b": 2, "a": 1}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), true),
-      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "c" -> 2)), false),
-      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(SortedLookupList(Map()), false),
-      c("""{"a": 1}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), false),
-      c("""{}""", VA.map(VA.int64))(SortedLookupList(Map("a" -> 1, "b" -> 2)), false),
-      c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), true),
-      c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), false),
+    )
+
+    val failures = Table(
+      ("line#", "query", "type", "expected", "error message"),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
+        SortedLookupList(Map("a" -> 1, "b" -> 2)),
+        "PrimTypeTextMap not supported"),
+      c("""{"b": 2, "a": 1}""", VA.map(VA.int64))(
+        SortedLookupList(Map("a" -> 1, "b" -> 2)),
+        "PrimTypeTextMap not supported"),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
+        SortedLookupList(Map("a" -> 1, "c" -> 2)),
+        "PrimTypeTextMap not supported"),
+      c("""{"a": 1, "b": 2}""", VA.map(VA.int64))(
+        SortedLookupList(Map()),
+        "PrimTypeTextMap not supported"),
+      c("""{"a": 1}""", VA.map(VA.int64))(
+        SortedLookupList(Map("a" -> 1, "b" -> 2)),
+        "PrimTypeTextMap not supported"),
+      c("""{}""", VA.map(VA.int64))(
+        SortedLookupList(Map("a" -> 1, "b" -> 2)),
+        "PrimTypeTextMap not supported"),
+      c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3), "PrimTypeList not supported"),
+      c("[1, 2, 3]", VA.list(VA.int64))(Vector(3, 2, 1), "PrimTypeList not supported"),
     )
 
     "treat literals exactly like ApiCodecCompressed" in forAll(literals) { (queryOrJson, va) =>
@@ -124,6 +144,17 @@ class ValuePredicateTest
       val (wrappedExpected, defs) = valueAndTypeInObject(accVal, va.t)
       val vp = ValuePredicate.fromJsObject(Map((dummyFieldName: String) -> qj), dummyTypeCon, defs)
       vp.toFunPredicate(wrappedExpected) shouldBe true
+    }
+
+    "reject literals with disallowed query types" in forAll(failLiterals) {
+      (queryOrJson, va, failMessage) =>
+        val qj = queryOrJson.parseJson
+        val accVal = jsValueToApiValue(qj, va.t, (_: Any) => None)
+        val (_, defs) = valueAndTypeInObject(accVal, va.t)
+        val ex = the[Exception] thrownBy {
+          ValuePredicate.fromJsObject(Map((dummyFieldName: String) -> qj), dummyTypeCon, defs)
+        }
+        ex.getMessage should include(failMessage)
     }
 
     "examine simple fields literally" in forAll(successes) {
@@ -137,7 +168,22 @@ class ValuePredicateTest
         vp.toFunPredicate(wrappedExpected) shouldBe shouldMatch
     }
 
-    "examine all sorts of primitives literally" in forAll(genAddend, minSuccessful(100)) { va =>
+    "reject queries of disallowed type" in forAll(failures) {
+      (_, query, va, expected, shouldMatch) =>
+        val (_, defs) = valueAndTypeInObject(expected, va.t)
+        val ex = the[Exception] thrownBy {
+          ValuePredicate.fromJsObject(
+            Map((dummyFieldName: String) -> query),
+            dummyTypeCon,
+            defs
+          )
+        }
+        ex.getMessage should include(shouldMatch)
+    }
+
+    "examine all sorts of primitives literally, except lists and maps" in forAll(
+      genAddendNoListMap,
+      minSuccessful(100)) { va =>
       import va.injshrink
       implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
       forAll(minSuccessful(20)) { v: va.Inj[Cid] =>

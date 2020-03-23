@@ -30,6 +30,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
@@ -178,7 +179,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
+      ex <- try $ mainProj args service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
       diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
@@ -237,7 +238,7 @@ checkDiagnostics log expected got = do
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
-            DFilePath p -> toNormalizedFilePath p == fp
+            DFilePath p -> toNormalizedFilePath' p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
@@ -356,7 +357,7 @@ dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
 ghcCompile log file = timed log "GHC compile" $ do
-    (_, Just (safeMode, guts, details)) <- generateCore file
+    (_, Just (safeMode, guts, details)) <- generateCore (RunSimplifier False) file
     pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package

@@ -3,14 +3,33 @@
 
 package com.digitalasset.platform.store.dao.events
 
-import java.util.Date
+import java.io.InputStream
+import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.SqlParser.{array, binaryStream, bool, str}
+import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
-import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.digitalasset.ledger.api.v1.transaction.{
+  TreeEvent,
+  Transaction => ApiTransaction,
+  TransactionTree => ApiTransactionTree
+}
+import com.digitalasset.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse
+}
+import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
+import com.digitalasset.platform.index.TransactionConversion
+import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.digitalasset.platform.store.Conversions.{instant, offset}
+import com.digitalasset.platform.store.serialization.ValueSerializer.{
+  deserializeValue => deserialize
+}
+import com.google.protobuf.timestamp.Timestamp
 
 /**
   * Data access object for a table representing raw transactions nodes that
@@ -18,319 +37,251 @@ import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeV
   * with a [[WitnessesTable]] events can be filtered based on their visibility to
   * a party.
   */
-private[events] object EventsTable {
+private[events] object EventsTable
+    extends EventsTable
+    with EventsTableInsert
+    with EventsTableFlatEvents
+    with EventsTableTreeEvents
 
-  private def cantSerialize(attribute: String, forContract: ContractId): String =
-    s"Cannot serialize $attribute for ${forContract.coid}"
+private[events] trait EventsTable {
 
-  private def serializeCreateArgOrThrow(node: Create): Array[Byte] =
-    serialize(
-      value = node.coinst.arg,
-      errorContext = cantSerialize(attribute = "create argument", forContract = node.coid),
-    )
+  case class Entry[E](
+      eventOffset: Offset,
+      transactionId: String,
+      ledgerEffectiveTime: Instant,
+      commandId: String,
+      workflowId: String,
+      event: E,
+  )
 
-  private def serializeNullableKeyOrThrow(node: Create): Option[Array[Byte]] =
-    node.key.map(
-      k =>
-        serialize(
-          value = k.key,
-          errorContext = cantSerialize(attribute = "key", forContract = node.coid),
-      ))
+  object Entry {
 
-  private def serializeExerciseArgOrThrow(node: Exercise): Array[Byte] =
-    serialize(
-      value = node.chosenValue,
-      errorContext = cantSerialize(attribute = "exercise argument", forContract = node.targetCoid),
-    )
+    private def instantToTimestamp(t: Instant): Timestamp =
+      Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
-  private def serializeNullableExerciseResultOrThrow(node: Exercise): Option[Array[Byte]] =
-    node.exerciseResult.map(exerciseResult =>
-      serialize(
-        value = exerciseResult,
-        errorContext = cantSerialize(attribute = "exercise result", forContract = node.targetCoid),
-    ))
-
-  private val insertCreate: String =
-    """insert into participant_events(
-          |  event_id,
-          |  event_offset,
-          |  contract_id,
-          |  transaction_id,
-          |  workflow_id,
-          |  ledger_effective_time,
-          |  template_package_id,
-          |  template_name,
-          |  node_index,
-          |  is_root,
-          |  command_id,
-          |  application_id,
-          |  submitter,
-          |  create_argument,
-          |  create_signatories,
-          |  create_observers,
-          |  create_agreement_text,
-          |  create_consumed_at,
-          |  create_key_value
-          |) values (
-          |  {event_id},
-          |  {event_offset},
-          |  {contract_id},
-          |  {transaction_id},
-          |  {workflow_id},
-          |  {ledger_effective_time},
-          |  {template_package_id},
-          |  {template_name},
-          |  {node_index},
-          |  {is_root},
-          |  {command_id},
-          |  {application_id},
-          |  {submitter},
-          |  {create_argument},
-          |  {create_signatories},
-          |  {create_observers},
-          |  {create_agreement_text},
-          |  null,
-          |  {create_key_value}
-          |)
-          |""".stripMargin
-
-  private def create(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
-      nodeId: NodeId,
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      create: Create,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId).toString,
-      "event_offset" -> offset,
-      "contract_id" -> create.coid.coid.toString,
-      "transaction_id" -> transactionId.toString,
-      "workflow_id" -> workflowId.map(_.toString),
-      "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> create.coinst.template.packageId.toString,
-      "template_name" -> create.coinst.template.qualifiedName.toString,
-      "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
-      "command_id" -> commandId.map(_.toString),
-      "application_id" -> applicationId.map(_.toString),
-      "submitter" -> submitter.map(_.toString),
-      "create_argument" -> serializeCreateArgOrThrow(create),
-      "create_signatories" -> create.signatories.map(_.toString).toArray,
-      "create_observers" -> create.stakeholders.diff(create.signatories).map(_.toString).toArray,
-      "create_agreement_text" -> Some(create.coinst.agreementText).filter(_.nonEmpty),
-      "create_key_value" -> serializeNullableKeyOrThrow(create),
-    )
-
-  private val insertExercise =
-    """insert into participant_events(
-          |  event_id,
-          |  event_offset,
-          |  contract_id,
-          |  transaction_id,
-          |  workflow_id,
-          |  ledger_effective_time,
-          |  template_package_id,
-          |  template_name,
-          |  node_index,
-          |  is_root,
-          |  command_id,
-          |  application_id,
-          |  submitter,
-          |  exercise_consuming,
-          |  exercise_choice,
-          |  exercise_argument,
-          |  exercise_result,
-          |  exercise_actors,
-          |  exercise_child_event_ids
-          |) values (
-          |  {event_id},
-          |  {event_offset},
-          |  {contract_id},
-          |  {transaction_id},
-          |  {workflow_id},
-          |  {ledger_effective_time},
-          |  {template_package_id},
-          |  {template_name},
-          |  {node_index},
-          |  {is_root},
-          |  {command_id},
-          |  {application_id},
-          |  {submitter},
-          |  {exercise_consuming},
-          |  {exercise_choice},
-          |  {exercise_argument},
-          |  {exercise_result},
-          |  {exercise_actors},
-          |  {exercise_child_event_ids}
-          |)
-          |""".stripMargin
-
-  private def exercise(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      commandId: Option[CommandId],
-      transactionId: TransactionId,
-      nodeId: NodeId,
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      exercise: Exercise,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId).toString,
-      "event_offset" -> offset,
-      "contract_id" -> exercise.targetCoid.toString,
-      "transaction_id" -> transactionId.toString,
-      "workflow_id" -> workflowId.map(_.toString),
-      "ledger_effective_time" -> ledgerEffectiveTime,
-      "template_package_id" -> exercise.templateId.packageId.toString,
-      "template_name" -> exercise.templateId.qualifiedName.toString,
-      "node_index" -> nodeId.index,
-      "is_root" -> roots(nodeId),
-      "command_id" -> commandId.map(_.toString),
-      "application_id" -> applicationId.map(_.toString),
-      "submitter" -> submitter.map(_.toString),
-      "exercise_consuming" -> exercise.consuming,
-      "exercise_choice" -> exercise.choiceId.toString,
-      "exercise_argument" -> serializeExerciseArgOrThrow(exercise),
-      "exercise_result" -> serializeNullableExerciseResultOrThrow(exercise),
-      "exercise_actors" -> exercise.actingParties.map(_.toString).toArray,
-      "exercise_child_event_ids" -> exercise.children
-        .map(fromTransactionId(transactionId, _): String)
-        .toArray,
-    )
-
-  private val updateArchived =
-    """update participant_events set create_consumed_at={consumed_at} where contract_id={contract_id}"""
-
-  private def archive(
-      contractId: ContractId,
-      consumedAt: Offset,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "consumed_at" -> consumedAt,
-      "contract_id" -> contractId.coid.toString,
-    )
-
-  sealed abstract case class PreparedBatches(
-      creates: Option[BatchSql],
-      exercises: Option[BatchSql],
-      archives: Option[BatchSql],
-  ) {
-    final def isEmpty: Boolean = creates.isEmpty && exercises.isEmpty && archives.isEmpty
-    final def foreach[U](f: BatchSql => U): Unit = {
-      creates.foreach(f)
-      exercises.foreach(f)
-      archives.foreach(f)
-    }
-  }
-
-  private final case class AccumulatingBatches(
-      creates: Vector[Vector[NamedParameter]],
-      exercises: Vector[Vector[NamedParameter]],
-      archives: Vector[Vector[NamedParameter]],
-  ) {
-
-    def addCreate(create: Vector[NamedParameter]): AccumulatingBatches =
-      copy(creates = creates :+ create)
-
-    def addExercise(exercise: Vector[NamedParameter]): AccumulatingBatches =
-      copy(exercises = exercises :+ exercise)
-
-    def addArchive(archive: Vector[NamedParameter]): AccumulatingBatches =
-      copy(archives = archives :+ archive)
-
-    private def prepareNonEmpty(
-        query: String,
-        params: Vector[Vector[NamedParameter]],
-    ): Option[BatchSql] =
-      if (params.nonEmpty) Some(BatchSql(query, params.head, params.tail: _*)) else None
-
-    def prepare: PreparedBatches =
-      new PreparedBatches(
-        prepareNonEmpty(insertCreate, creates),
-        prepareNonEmpty(insertExercise, exercises),
-        prepareNonEmpty(updateArchived, archives),
-      ) {}
-
-  }
-
-  private object AccumulatingBatches {
-    val empty: AccumulatingBatches = AccumulatingBatches(
-      creates = Vector.empty,
-      exercises = Vector.empty,
-      archives = Vector.empty,
-    )
-  }
-
-  /**
-    * @throws RuntimeException If a value cannot be serialized into an array of bytes
-    */
-  @throws[RuntimeException]
-  def prepareBatchInsert(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      transaction: Transaction,
-  ): PreparedBatches =
-    transaction
-      .fold(AccumulatingBatches.empty) {
-        case (batches, (nodeId, node: Create)) =>
-          batches.addCreate(
-            create(
-              applicationId = applicationId,
-              workflowId = workflowId,
-              commandId = commandId,
-              transactionId = transactionId,
-              nodeId = nodeId,
-              submitter = submitter,
-              roots = roots,
-              ledgerEffectiveTime = ledgerEffectiveTime,
-              offset = offset,
-              create = node,
+    def toFlatTransaction(events: List[Entry[Event]]): Option[GetFlatTransactionResponse] = {
+      events.headOption.flatMap { first =>
+        val flatEvents =
+          TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        if (flatEvents.nonEmpty || first.commandId.nonEmpty)
+          Some(
+            GetFlatTransactionResponse(
+              transaction = Some(
+                ApiTransaction(
+                  transactionId = first.transactionId,
+                  commandId = first.commandId,
+                  effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                  workflowId = first.workflowId,
+                  offset = ApiOffset.toApiString(first.eventOffset),
+                  events = flatEvents,
+                )
+              )
             )
           )
-        case (batches, (nodeId, node: Exercise)) =>
-          val batchWithExercises =
-            batches.addExercise(
-              exercise(
-                applicationId = applicationId,
-                workflowId = workflowId,
-                commandId = commandId,
-                transactionId = transactionId,
-                nodeId = nodeId,
-                submitter = submitter,
-                roots = roots,
-                ledgerEffectiveTime = ledgerEffectiveTime,
-                offset = offset,
-                exercise = node,
-              )
-            )
-          if (node.consuming) {
-            batchWithExercises.addArchive(
-              archive(
-                contractId = node.targetCoid,
-                consumedAt = offset,
-              )
-            )
-          } else {
-            batchWithExercises
-          }
-        case (batches, _) =>
-          batches // ignore any event which is not a create or an exercise
+        else None
+
       }
-      .prepare
+    }
+
+    def toTransactionTree(events: List[Entry[TreeEvent]]): Option[GetTransactionResponse] =
+      events.headOption.map(
+        first => {
+          val (eventsById, rootEventIds) = treeOf(events)
+          GetTransactionResponse(
+            transaction = Some(
+              ApiTransactionTree(
+                transactionId = first.transactionId,
+                commandId = first.commandId,
+                workflowId = first.workflowId,
+                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                offset = ApiOffset.toApiString(first.eventOffset),
+                eventsById = eventsById,
+                rootEventIds = rootEventIds,
+                traceContext = None,
+              ))
+          )
+        }
+      )
+
+    private def treeOf(events: List[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
+
+      // The identifiers of all visible events in this transactions, preserving
+      // the order in which they are retrieved from the index
+      val visible = events.map(_.event.eventId)
+
+      // All events in this transaction by their identifier, with their children
+      // filtered according to those visible for this request
+      val eventsById =
+        events.iterator
+          .map(_.event)
+          .map(e => e.eventId -> e.filterChildEventIds(visible.toSet))
+          .toMap
+
+      // All event identifiers that appear as a child of another item in this response
+      val children = eventsById.valuesIterator.flatMap(_.childEventIds).toSet
+
+      // The roots for this request are all visible items
+      // that are not a child of some other visible item
+      val rootEventIds = visible.filterNot(children)
+
+      (eventsById, rootEventIds)
+
+    }
+
+  }
+
+  private type SharedRow =
+    Offset ~ String ~ String ~ String ~ Instant ~ String ~ String ~ Option[String] ~ Option[String] ~ Array[
+      String]
+  private val sharedRow: RowParser[SharedRow] =
+    offset("event_offset") ~
+      str("transaction_id") ~
+      str("event_id") ~
+      str("contract_id") ~
+      instant("ledger_effective_time") ~
+      str("template_package_id") ~
+      str("template_name") ~
+      str("command_id").? ~
+      str("workflow_id").? ~
+      array[String]("event_witnesses")
+
+  protected type CreatedEventRow =
+    SharedRow ~ InputStream ~ Array[String] ~ Array[String] ~ Option[String] ~ Option[InputStream]
+  protected val createdEventRow: RowParser[CreatedEventRow] =
+    sharedRow ~
+      binaryStream("create_argument") ~
+      array[String]("create_signatories") ~
+      array[String]("create_observers") ~
+      str("create_agreement_text").? ~
+      binaryStream("create_key_value").?
+
+  protected type ExercisedEventRow =
+    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+  protected val exercisedEventRow: RowParser[ExercisedEventRow] =
+    sharedRow ~
+      bool("exercise_consuming") ~
+      str("exercise_choice") ~
+      binaryStream("exercise_argument") ~
+      binaryStream("exercise_result").? ~
+      array[String]("exercise_actors") ~
+      array[String]("exercise_child_event_ids")
+
+  protected type ArchiveEventRow = SharedRow
+  protected val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
+
+  private def templateId(
+      templatePackageId: String,
+      templateName: String,
+  ): Identifier = {
+    val QualifiedName(templateModuleName, templateEntityName) =
+      QualifiedName.assertFromString(templateName)
+    Identifier(
+      packageId = templatePackageId,
+      moduleName = templateModuleName.dottedName,
+      entityName = templateEntityName.dottedName,
+    )
+  }
+
+  protected def createdEvent(
+      eventId: String,
+      contractId: String,
+      templatePackageId: String,
+      templateName: String,
+      createArgument: InputStream,
+      createSignatories: Array[String],
+      createObservers: Array[String],
+      createAgreementText: Option[String],
+      createKeyValue: Option[InputStream],
+      eventWitnesses: Array[String],
+  ): CreatedEvent =
+    CreatedEvent(
+      eventId = eventId,
+      contractId = contractId,
+      templateId = Some(templateId(templatePackageId, templateName)),
+      contractKey = createKeyValue.map(
+        key =>
+          LfEngineToApi.assertOrRuntimeEx(
+            failureContext = s"attempting to deserialize persisted key to value",
+            LfEngineToApi
+              .lfVersionedValueToApiValue(
+                verbose = true,
+                value = deserialize(key),
+              ),
+        )
+      ),
+      createArguments = Some(
+        LfEngineToApi.assertOrRuntimeEx(
+          failureContext = s"attempting to deserialize persisted create argument to record",
+          LfEngineToApi
+            .lfVersionedValueToApiRecord(
+              verbose = true,
+              recordValue = deserialize(createArgument),
+            ),
+        )
+      ),
+      witnessParties = eventWitnesses,
+      signatories = createSignatories,
+      observers = createObservers,
+      agreementText = createAgreementText.orElse(Some("")),
+    )
+
+  protected def exercisedEvent(
+      eventId: String,
+      contractId: String,
+      templatePackageId: String,
+      templateName: String,
+      exerciseConsuming: Boolean,
+      exerciseChoice: String,
+      exerciseArgument: InputStream,
+      exerciseResult: Option[InputStream],
+      exerciseActors: Array[String],
+      exerciseChildEventIds: Array[String],
+      eventWitnesses: Array[String],
+  ): ExercisedEvent =
+    ExercisedEvent(
+      eventId = eventId,
+      contractId = contractId,
+      templateId = Some(templateId(templatePackageId, templateName)),
+      choice = exerciseChoice,
+      choiceArgument = Some(
+        LfEngineToApi.assertOrRuntimeEx(
+          failureContext = s"attempting to deserialize persisted exercise argument to value",
+          LfEngineToApi
+            .lfVersionedValueToApiValue(
+              verbose = true,
+              value = deserialize(exerciseArgument),
+            ),
+        )
+      ),
+      actingParties = exerciseActors,
+      consuming = exerciseConsuming,
+      witnessParties = eventWitnesses,
+      childEventIds = exerciseChildEventIds,
+      exerciseResult = exerciseResult.map(
+        key =>
+          LfEngineToApi.assertOrRuntimeEx(
+            failureContext = s"attempting to deserialize persisted exercise result to value",
+            LfEngineToApi
+              .lfVersionedValueToApiValue(
+                verbose = true,
+                value = deserialize(key),
+              ),
+        )
+      ),
+    )
+
+  protected def archivedEvent(
+      eventId: String,
+      contractId: String,
+      templatePackageId: String,
+      templateName: String,
+      eventWitnesses: Array[String],
+  ): ArchivedEvent =
+    ArchivedEvent(
+      eventId = eventId,
+      contractId = contractId,
+      templateId = Some(templateId(templatePackageId, templateName)),
+      witnessParties = eventWitnesses,
+    )
 
 }

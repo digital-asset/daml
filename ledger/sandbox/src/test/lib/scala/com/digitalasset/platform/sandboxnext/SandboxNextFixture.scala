@@ -28,11 +28,12 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
   override protected def channel: Channel = suiteResource.value._2
 
   override protected lazy val suiteResource: Resource[(Port, Channel)] = {
-    implicit val ec: ExecutionContext = sandboxExecutionContext
+    implicit val ec: ExecutionContext = system.dispatcher
     new OwnedResource[(Port, Channel)](
       for {
         jdbcUrl <- database
-          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(Some(_)))
+          .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
+            Some(info.jdbcUrl)))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
         channel <- SandboxClientResource.owner(port)
       } yield (port, channel)

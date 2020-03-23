@@ -60,10 +60,12 @@ two forms:
 1. An expression ``expr`` of type ``Script a`` for some type ``a``. This
    will execute the script ignoring the result.
 
-2. A binding of the form ``x <- expr`` where ``x`` is a variable name
-   and ``expr`` is an expression of type ``Script a``. This will
-   execute the script and bind the result to the variable ``x``. You
-   can then use ``x`` on subsequent lines.
+2. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
+   a variable name ``x`` to bind the result to
+   and ``expr`` is an expression of type ``Script a``.
+   This will execute the script and match the result against
+   the pattern ``pat`` bindings the matches to the variables in the pattern.
+   You can then use those variables on subsequent lines.
 
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name

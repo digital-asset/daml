@@ -194,6 +194,9 @@ newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
 instance CanAbort Script where
   abort s = Script (\_ -> error s)
 
+instance ActionFail Script where
+  fail = abort
+
 data LedgerValue = LedgerValue {}
 
 fromLedgerValue : LedgerValue -> a

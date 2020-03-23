@@ -8,10 +8,12 @@ import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scalaz.{\/-, -\/}
+import spray.json._
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
@@ -21,6 +23,7 @@ import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue._
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.ledger.api.v1.commands.{
@@ -41,6 +44,31 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
 }
 import com.digitalasset.daml.lf.speedy.Pretty
 
+// Helper to create identifiers pointing to the DAML.Script module
+case class ScriptIds(val scriptPackageId: PackageId) {
+  def damlScript(s: String) =
+    Identifier(
+      scriptPackageId,
+      QualifiedName(ModuleName.assertFromString("Daml.Script"), DottedName.assertFromString(s)))
+}
+
+object ScriptIds {
+  // Constructs ScriptIds if the given type has the form Daml.Script.Script a.
+  def fromType(ty: Type): Option[ScriptIds] = {
+    ty match {
+      case TApp(TTyCon(tyCon), _) => {
+        val scriptIds = ScriptIds(tyCon.packageId)
+        if (tyCon == scriptIds.damlScript("Script")) {
+          Some(scriptIds)
+        } else {
+          None
+        }
+      }
+      case _ => None
+    }
+  }
+}
+
 class ConverterException(message: String) extends RuntimeException(message)
 
 case class AnyTemplate(ty: Identifier, arg: SValue)
@@ -48,6 +76,19 @@ case class AnyChoice(name: String, arg: SValue)
 case class AnyContractKey(key: SValue)
 
 object Converter {
+  private val DA_TYPES_PKGID =
+    PackageId.assertFromString("40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7")
+  private def daTypes(s: String): Identifier =
+    Identifier(
+      DA_TYPES_PKGID,
+      QualifiedName(DottedName.assertFromString("DA.Types"), DottedName.assertFromString(s)))
+
+  private val DA_INTERNAL_ANY_PKGID =
+    PackageId.assertFromString("cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7")
+  private def daInternalAny(s: String): Identifier =
+    Identifier(
+      DA_INTERNAL_ANY_PKGID,
+      QualifiedName(DottedName.assertFromString("DA.Internal.Any"), DottedName.assertFromString(s)))
 
   private def toLedgerRecord(v: SValue): Either[String, value.Record] =
     for {
@@ -357,16 +398,9 @@ object Converter {
     } yield Identifier(packageId, QualifiedName(moduleName, entityName))
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
-  def fromCreated(
-      translator: ValueTranslator,
-      daTypesPackageId: PackageId,
-      daInternalAnyPackageId: PackageId,
-      created: CreatedEvent): Either[String, SValue] = {
-    val anyTemplateTyCon =
-      Identifier(
-        daInternalAnyPackageId,
-        QualifiedName.assertFromString("DA.Internal.LF:AnyTemplate"))
-    val pairTyCon = Identifier(daTypesPackageId, QualifiedName.assertFromString("DA.Types:Tuple2"))
+  def fromCreated(translator: ValueTranslator, created: CreatedEvent): Either[String, SValue] = {
+    val anyTemplateTyCon = daInternalAny("AnyTemplate")
+    val pairTyCon = daTypes("Tuple2")
     for {
       templateId <- created.templateId match {
         case None => Left(s"Missing field templateId in $created")
@@ -384,12 +418,12 @@ object Converter {
   }
 
   def fromStatusException(
-      scriptPackageId: PackageId,
+      scriptIds: ScriptIds,
       ex: StatusRuntimeException): Either[String, SValue] = {
     val status = ex.getStatus
     Right(
       record(
-        Identifier(scriptPackageId, QualifiedName.assertFromString("Daml.Script:SubmitFailure")),
+        scriptIds.damlScript("SubmitFailure"),
         ("status", SInt64(status.getCode.value.asInstanceOf[Long])),
         ("description", SText(status.getDescription))
       ))
@@ -403,4 +437,34 @@ object Converter {
       case -\/(e) => Left(e.toString)
       case \/-(ty) => Right(ty)
     }
+
+  def fromJsonValue(
+      ctx: QualifiedName,
+      environmentInterface: EnvironmentInterface,
+      compiledPackages: CompiledPackages,
+      ty: Type,
+      jsValue: JsValue
+  ): Either[String, SValue] = {
+    def damlLfTypeLookup(id: Identifier): Option[iface.DefDataType.FWT] =
+      environmentInterface.typeDecls.get(id).map(_.`type`)
+    for {
+      paramIface <- Converter
+        .toIfaceType(ctx, ty)
+        .left
+        .map(s => s"Failed to convert $ty: $s")
+      lfValue <- try {
+        Right(
+          jsValue.convertTo[Value[AbsoluteContractId]](
+            LfValueCodec.apiValueJsonReader(paramIface, damlLfTypeLookup(_))))
+      } catch {
+        case e: Exception => Left(s"LF conversion failed: ${e.toString}")
+      }
+      valueTranslator = new ValueTranslator(compiledPackages)
+      sValue <- valueTranslator
+        .translateValue(ty, lfValue)
+        .consume(_ => None, _ => None, _ => None)
+        .left
+        .map(_.msg)
+    } yield sValue
+  }
 }

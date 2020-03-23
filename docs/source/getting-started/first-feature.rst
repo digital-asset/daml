@@ -4,17 +4,15 @@
 Your First Feature
 ******************
 
-Let's dive into implementing a new feature for our social network app.
+Let's dive into implementing a new feature for our social network app. 
 This will give us a better idea how to develop DAML applications using our template.
 
-At the moment, our app lets us add friends to our network, but we have no way to communicate with them!
-Let's fix that by adding a *private messaging* feature.
-This should let a user send messages to any chosen friend, and see all messages that have been sent to them.
-
-This feature should also respect *authorization* and *privacy*.
+At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
+Let's fix that by adding a *direct messaging* feature.
+This should let users that follow each other send messages, repsecting *authorization* and *privacy*.
 This means:
 
-    1. You cannot send a message to someone unless they have given you the authority by adding you as a friend.
+    1. You cannot send a message to someone unless they have given you the authority by following you back.
     2. You cannot see a message unless you sent it or it was sent to you.
 
 We will see that DAML lets us implement these guarantees in a direct and intuitive way.
@@ -23,7 +21,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model  
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that we need to terminate the previous ``./daml-start.sh`` process and run it again.  
+    3. Running the new feature. In order to do that we need to terminate the previous ``daml start --start-navigator=no`` process and run it again.
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
@@ -34,14 +32,12 @@ As mentioned in the :doc:`architecture <app-architecture>` section, the DAML cod
 The workflow aspect refers to the interactions between parties that are permitted by the system.
 In the context of a messaging feature, these are essentially the authorization and privacy concerns listed above.
 
-For the authorization part, we take the following approach: a user Bob can message another user Alice exactly when Alice has added Bob as a friend.
-When Alice adds Bob as a friend, she gives permission or *authority* to Bob to send her a message.
-It is important to remember that friendships can go in a single direction in our app.
-This means its possible for Bob to message Alice without Alice being able to message him back!
+For the authorization part, we take the following approach: a user Bob can message another user Alice when Alice starts following Bob back.
+When Alice starts following Bob back, she gives permission or *authority* to Bob to send her a message.
 
 To implement this workflow, let's start by adding the new *data* for messages.
-Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
-(Indentation is important: it should be at the top level like the original ``User`` template.)
+Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom. 
+Indentation is important: it should be at the top level like the original ``User`` template.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
@@ -53,20 +49,19 @@ The interesting part is the ``signatory`` clause: both the ``sender`` and ``rece
 This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
-Copy the following choice to the ``User`` template after the ``AddFriend`` choice. The indentation for the ``User`` choice must match the one of ``AddFriend`` . *Make sure you save the file after copying the code*.
+Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``User`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
 .. literalinclude:: code/daml/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
 
-As with the ``AddFriend`` choice, there are a few aspects to note here.
+As with the ``Follow`` choice, there are a few aspects to note here.
 
-    - The choice is ``nonconsuming`` because sending a message should not archive the ``User`` contract.
     - By convention, the choice returns the ``ContractId`` of the resulting ``Message`` contract.
     - The parameters to the choice are the ``sender`` and ``content`` of this message; the receiver is the party named on this ``User`` contract.
-    - The ``controller`` clause suggests that it is the ``sender`` who can exercise the choice.
-    - The body of the choice first ensures that the sender is a friend of the user and then creates the ``Message`` contract with the ``receiver`` being the signatory of the ``User`` contract.
+    - The ``controller`` clause states that it is the ``sender`` who can exercise the choice.
+    - The body of the choice first ensures that the sender is a user that the receiver is following and then creates the ``Message`` contract with the ``receiver`` being the signatory of the ``User`` contract.
 
 This completes the workflow for messaging in our app.
 Now let's integrate this functionality into the UI.
@@ -92,11 +87,11 @@ We can now implement our messaging feature in the UI!
 Messaging UI
 ============
 
-The UI for messaging will consist of a new *Messages* panel in addition to the *Friends* and *Network* panel.
+The UI for messaging will consist of a new *Messages* panel in addition to the *Follow* and *Network* panel.
 This panel will have two parts:
 
     1. A list of messages you've received with their senders.
-    2. A form with a dropdown menu for friend selection and a text field for composing the message.
+    2. A form with a dropdown menu for follower selection and a text field for composing the message.
 
 We will implement each part as a React component, which we'll name ``MessageList`` and ``MessageEdit`` respectively.
 Let's start with the simpler ``MessageList``.
@@ -129,7 +124,7 @@ This is a major benefit of writing apps on DAML: the burden of ensuring privacy 
 MessageEdit Component
 ---------------------
 
-Next we need the ``MessageEdit`` component to compose and send messages to selected friends.
+Next we need the ``MessageEdit`` component to compose and send messages to our followers.
 Again we show the entire component here; you should copy this into a new ``MessageEdit.tsx`` file in ``ui/src/components`` and save it.
 
 .. TODO Include file in template with placeholder for component logic.
@@ -139,10 +134,10 @@ Again we show the entire component here; you should copy this into a new ``Messa
   :start-after: // MESSAGEEDIT_BEGIN
   :end-before: // MESSAGEEDIT_END
 
-You will first notice a ``Props`` type near the top of the file with a single ``friends`` field.
+You will first notice a ``Props`` type near the top of the file with a single ``following`` field.
 A *prop* in React is an input to a component; in this case a list of users from which to select the message receiver.
 The prop will be passed down from the ``MainView`` component, reusing the work required to query users from the ledger.
-You can see this ``friends`` field bound at the start of the ``MessageEdit`` component.
+You can see this ``following`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
 The DAML-specific ``useExerciseByKey`` hook gives us a function to both look up a ``User`` contract and exercise the ``SendMessage`` choice on it.
@@ -151,11 +146,11 @@ The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMe
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
 The return value of this component is the React ``Form`` element.
-This contains a dropdown menu to select a receiver from the ``friends``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
+This contains a dropdown menu to select a receiver from the ``following``, a text field for the message content, and a *Send* button which triggers ``submitMessage``.
 
 There is again an important point here, in this case about how *authorization* is enforced.
-Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who has not added you as a friend (even if you could somehow access their ``User`` contract).
-The assertion that ``elem sender friends`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
+Due to the logic of the ``SendMessage`` choice, it is impossible to send a message to a user who is not following us (even if you could somehow access their ``User`` contract).
+The assertion that ``elem sender following`` in ``SendMessage`` ensures this: no mistake or malice by the UI programmer could breach this.
 
 MainView Component
 ------------------
@@ -185,23 +180,23 @@ Let's give the new functionality a spin.
 Running the New Feature
 =======================
 
-We need to terminate the previous ``./daml-start.sh`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``./daml-start.sh`` again we will 
+We need to terminate the previous ``daml start --start-navigator=no`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start --start-navigator=no`` again we will
 
   - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API 
 
-First, navigate to the terminal window where the ``daml-start.sh`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``./daml-start.sh``.
+First, navigate to the terminal window where the ``daml start --start-navigator=no`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``daml start --start-navigator=no``.
 
-As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all the friends and their connections are lost. 
+As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost. 
 
 If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI. 
 
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
-Go ahead and add some friends, and log in as some of those friends in separate browser windows to add yourself back.
-Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some friends to message!
-Send some messages between friends and make sure you can see each one from the other side.
+Go ahead and add follow more users, and log in as some of those users in separate browser windows to follow yourself back.
+Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some followers to message!
+Send some messages between users and make sure you can see each one from the other side.
 You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
 
 Next Steps

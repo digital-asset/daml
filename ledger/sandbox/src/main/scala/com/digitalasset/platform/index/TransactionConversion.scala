@@ -76,7 +76,7 @@ object TransactionConversion {
     }
   }
 
-  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+  private[platform] def removeTransient(events: Vector[Event]): Vector[Event] = {
     val toKeep = permanent(events)
     events.filter(event => toKeep(event.contractId))
   }
@@ -96,7 +96,7 @@ object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = commandId,
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         events = filtered,
         offset = offset.value,
       )).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
@@ -199,7 +199,7 @@ object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         offset = offset.value,
       ))
   }

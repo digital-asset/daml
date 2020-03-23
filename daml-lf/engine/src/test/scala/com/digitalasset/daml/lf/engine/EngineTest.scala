@@ -1000,7 +1000,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       partyEvents.roots.length shouldBe 1
       val bobExercise = partyEvents.events(partyEvents.roots(0))
       val cid =
-        AbsoluteContractId("0b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
+        AbsoluteContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
       bobExercise shouldBe
         ExerciseEvent(
           contractId = AbsoluteContractId(originalCoid),

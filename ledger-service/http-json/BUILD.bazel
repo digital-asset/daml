@@ -104,18 +104,18 @@ da_scala_binary(
 
 daml_compile(
     name = "Account",
-    main_src = "src/test/daml/Account.daml",
+    srcs = ["src/test/daml/Account.daml"],
 )
 
+# TODO(Leo): #5108, split tests into two targets: unit and integration
 da_scala_test(
     name = "tests",
-    size = "medium",
+    size = "large",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":Account.dar",
         "//docs:quickstart-model.dar",
     ],
-    flaky = True,
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],

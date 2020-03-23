@@ -25,6 +25,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.index.LedgerBackedIndexService
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.LedgerIdGenerator
@@ -55,7 +56,7 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
-      timeModel: ParticipantState.TimeModel,
+      initialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -66,6 +67,7 @@ object SandboxIndexAndWriteService {
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
+        ServerRole.Sandbox,
         jdbcUrl,
         ledgerId,
         participantId,
@@ -73,17 +75,18 @@ object SandboxIndexAndWriteService {
         acs,
         templateStore,
         ledgerEntries,
+        initialConfig,
         queueDepth,
         startMode,
         metrics,
       )
       .flatMap(ledger =>
-        owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider))
+        owner(MeteredLedger(ledger, metrics), participantId, initialConfig.timeModel, timeProvider))
 
   def inMemory(
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
-      timeModel: ParticipantState.TimeModel,
+      intialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -97,8 +100,10 @@ object SandboxIndexAndWriteService {
         timeProvider,
         acs,
         templateStore,
-        ledgerEntries)
-    owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider)
+        ledgerEntries,
+        intialConfig,
+      )
+    owner(MeteredLedger(ledger, metrics), participantId, intialConfig.timeModel, timeProvider)
   }
 
   private def owner(

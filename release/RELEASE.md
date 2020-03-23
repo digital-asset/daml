@@ -181,12 +181,12 @@ latest commit on master.
    For a stable release, the message should contain the team-lead-approved
    release notes, and the "prerelease" checkbox should be unticked.
 
-1. Announce the release on the relevant internal Slack channels. Add release
-   notes in a thread under your announcement. For a stable release, these are
-   the notes decided with the product team; for a snapshot release, include
-   both the changes in this release (i.e. since the last snapshot) and the
-   complete list of changes since the last stable release. Use the raw output
-   of `unreleased.sh`.
+1. Announce the release on the relevant internal Slack channels (#product-daml,
+   #team-daml). Add release notes in a thread under your announcement. For a
+   stable release, these are the notes decided with the product team; for a
+   snapshot release, include both the changes in this release (i.e. since the
+   last snapshot) and the complete list of changes since the last stable
+   release. Use the raw output of `unreleased.sh`.
 
    You can produce the changes since the previous (snapshot or stable) release
    by running:

@@ -33,40 +33,40 @@ class Runner[T <: ReadWriteService, Extra](
     override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
       val config = factory.manipulateConfig(originalConfig)
 
-      implicit val system: ActorSystem = ActorSystem(
+      implicit val actorSystem: ActorSystem = ActorSystem(
         "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
-      implicit val materializer: Materializer = Materializer(system)
+      implicit val materializer: Materializer = Materializer(actorSystem)
 
       newLoggingContext { implicit logCtx =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
           // This is necessary because we can't declare them as implicits in a `for` comprehension.
-          _ <- AkkaResourceOwner.forActorSystem(() => system).acquire()
+          _ <- AkkaResourceOwner.forActorSystem(() => actorSystem).acquire()
           _ <- AkkaResourceOwner.forMaterializer(() => materializer).acquire()
 
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
+            val metricRegistry = factory.metricRegistry(participantConfig, config)
             for {
               ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
               _ <- Resource.fromFuture(
                 Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
               _ <- new StandaloneIndexerServer(
-                system,
                 readService = ledger,
-                factory.indexerConfig(participantConfig, config),
-                factory.indexerMetricRegistry(participantConfig, config),
+                config = factory.indexerConfig(participantConfig, config),
+                metrics = metricRegistry,
               ).acquire()
               _ <- new StandaloneApiServer(
-                factory.apiServerConfig(participantConfig, config),
-                factory.commandConfig(config),
-                factory.partyConfig(config),
-                factory.submissionConfig(config),
+                config = factory.apiServerConfig(participantConfig, config),
+                commandConfig = factory.commandConfig(config),
+                partyConfig = factory.partyConfig(config),
+                submissionConfig = factory.submissionConfig(config),
                 readService = ledger,
                 writeService = ledger,
                 authService = factory.authService(config),
-                factory.apiServerMetricRegistry(participantConfig, config),
-                factory.timeServiceBackend(config),
-                config.seeding,
+                metrics = metricRegistry,
+                timeServiceBackend = factory.timeServiceBackend(config),
+                seeding = Some(config.seeding),
               ).acquire()
             } yield ()
           })

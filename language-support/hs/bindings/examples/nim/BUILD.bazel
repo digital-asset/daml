@@ -7,7 +7,6 @@ load("//rules_daml:daml.bzl", "daml_compile")
 daml_compile(
     name = "Nim",
     srcs = glob(["daml/*.daml"]),
-    main_src = "daml/Nim.daml",
 )
 
 da_haskell_binary(

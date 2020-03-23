@@ -117,7 +117,7 @@ da_scala_test_suite(
 
 daml_compile(
     name = "bindings-integration-tests-model-latest",
-    main_src = "src/main/daml/TemplateUtils.daml",
+    srcs = ["src/main/daml/TemplateUtils.daml"],
     target = lf_stable_version,
 )
 

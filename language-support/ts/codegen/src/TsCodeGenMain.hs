@@ -60,7 +60,7 @@ configConsts sdkVersion = ConfigConsts
       , (NpmPackageName "typescript", NpmPackageVersion "~3.7.3")
       ]
   , pkgScripts = HMS.fromList
-      [ (ScriptName "build", Script "tsc --build")
+      [ (ScriptName "build", Script "tsc")
       , (ScriptName "lint", Script "eslint --ext .ts --max-warnings 0 src/")
       ]
   }
@@ -172,8 +172,10 @@ main = do
             \(pkgId, (mbPkgName, pkg)) -> do
                  let id = unPackageId pkgId
                      pkgName = packageNameText pkgId mbPkgName
-                     asName = if pkgName == id then "itself" else pkgName
-                 T.putStrLn $ "Generating " <> id <> " as " <> asName
+                 let pkgDesc = case mbPkgName of
+                       Nothing -> id
+                       Just pkgName -> unPackageName pkgName <> " (hash: " <> id <> ")"
+                 T.putStrLn $ "Generating " <> pkgDesc
                  daml2ts Daml2TsParams{..}
         setupWorkspace optInputPackageJson optOutputDir dependencies
 
@@ -636,6 +638,7 @@ writeTsConfig dir =
       [ "compilerOptions" .= object
         [ "target" .= ("es5" :: T.Text)
         , "lib" .= (["dom", "es2015"] :: [T.Text])
+        , "skipLibCheck" .= True
         , "strict" .= True
         , "noUnusedLocals" .= False
         , "noImplicitReturns" .= True
@@ -678,7 +681,9 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
     name = packageNameOfPackageDir packageDir
     dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
        | d <- depends
-       , let pkg = scope <> "/" <> unDependency d
+       , let pkgName = unDependency d
+       , let pkg = scope <> "/" <> pkgName
+       , let version = "file:../" <> pkgName
        ]
     packageNameOfPackageDir :: FilePath -> T.Text
     packageNameOfPackageDir packageDir = scope <> "/" <> package
@@ -743,9 +748,10 @@ setupWorkspace optInputPackageJson optOutputDir dependencies = do
     (Just <$> BSL.readFile optInputPackageJson) (const $ pure Nothing)
   packageJson <- case mbBytes of
     Nothing -> pure mempty
-    Just bytes -> case decode bytes :: Maybe PackageJson of
-      Nothing -> fail $ "Error decoding JSON from '" <> optInputPackageJson <> "'"
-      Just packageJson -> pure packageJson
+    Just bytes ->
+      case eitherDecode @PackageJson bytes of
+        Left msg -> fail $ "Error : '" <> optInputPackageJson <> "' : " <> msg
+        Right packageJson -> pure packageJson
   transformAndWrite ourWorkspaces outBaseDir packageJson
   where
     transformAndWrite :: [T.Text] -> T.Text -> PackageJson -> IO ()

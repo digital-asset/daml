@@ -8,7 +8,7 @@ import scalaz.{-\/, \/, \/-}
 
 object LedgerOffsetUtil {
 
-  private val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] = {
+  private[http] val LongEitherLongLongOrdering: Ordering[Long \/ (Long, Long)] = {
     import scalaz.std.tuple._
     import scalaz.std.anyVal._
     scalaz.Order[Long \/ (Long, Long)].toScalaOrdering
@@ -17,8 +17,11 @@ object LedgerOffsetUtil {
   implicit val AbsoluteOffsetOrdering: Ordering[LedgerOffset.Value.Absolute] =
     Ordering.by(parseOffset)(LongEitherLongLongOrdering)
 
-  private def parseOffset(a: LedgerOffset.Value.Absolute): Long \/ (Long, Long) = {
-    val offset: String = a.value
+  private def parseOffset(offset: LedgerOffset.Value.Absolute): Long \/ (Long, Long) = {
+    parseOffsetString(offset.value)
+  }
+
+  private[http] def parseOffsetString(offset: String): Long \/ (Long, Long) = {
     offset.split('-') match {
       case Array(_, a2, a3) =>
         \/-((a2.toLong, a3.toLong))
