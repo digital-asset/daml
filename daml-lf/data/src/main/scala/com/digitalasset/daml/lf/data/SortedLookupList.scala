@@ -4,7 +4,8 @@
 package com.digitalasset.daml.lf.data
 
 import scala.language.higherKinds
-import scalaz.{Applicative, Equal, Order, Traverse}
+
+import scalaz.{Applicative, Equal, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
 import scalaz.syntax.equal._
@@ -43,7 +44,7 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
     s"SortedLookupList(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
 }
 
-object SortedLookupList extends SortedLookupListInstances {
+object SortedLookupList {
 
   def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries.toSeq
@@ -70,12 +71,9 @@ object SortedLookupList extends SortedLookupListInstances {
 
   def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
 
-  implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
-    new Order[SortedLookupList[X]] with ` SortedLookupList equal`[X] {
-      import scalaz.syntax.order._, scalaz.std.iterable._
-      override val X = Order[X]
-      override final def order(a: SortedLookupList[X], b: SortedLookupList[X]) =
-        (a.toImmArray.toSeq: Iterable[(String, X)]) ?|? b.toImmArray.toSeq
+  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
+    ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
+      self.toImmArray === other.toImmArray
     }
 
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
@@ -85,18 +83,4 @@ object SortedLookupList extends SortedLookupListInstances {
         fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
-}
-
-sealed abstract class SortedLookupListInstances {
-  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
-    new ` SortedLookupList equal`[X] {
-      override val X = Equal[X]
-    }
-}
-
-private sealed trait ` SortedLookupList equal`[X] extends Equal[SortedLookupList[X]] {
-  implicit val X: Equal[X]
-  override final def equalIsNatural = X.equalIsNatural
-  override final def equal(a: SortedLookupList[X], b: SortedLookupList[X]) =
-    a.toImmArray === b.toImmArray
 }
