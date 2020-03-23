@@ -18,8 +18,10 @@ import scala.collection.JavaConverters._
 
 private[kvutils] case class PackageCommitter(engine: Engine)
     extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
+
+  override protected val committerName = "package_upload"
+
   private object Metrics {
-    // kvutils.PackageCommitter.*
     val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
     val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
     val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
@@ -152,12 +154,13 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     )
   }
 
-  override def init(
+  override protected def init(
       ctx: CommitContext,
-      uploadEntry: DamlPackageUploadEntry): DamlPackageUploadEntry.Builder =
+      uploadEntry: DamlPackageUploadEntry
+  ): DamlPackageUploadEntry.Builder =
     uploadEntry.toBuilder
 
-  override val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submission" -> authorizeSubmission,
     "validate_entry" -> validateEntry,
     "deduplicate_submission" -> deduplicateSubmission,
@@ -165,8 +168,6 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     "enqueue_preload" -> enqueuePreload,
     "build_log_entry" -> buildLogEntry
   )
-
-  override lazy val committerName = "package_upload"
 
   private def buildRejectionLogEntry(
       ctx: CommitContext,
