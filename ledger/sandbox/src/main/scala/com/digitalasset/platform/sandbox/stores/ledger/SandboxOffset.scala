@@ -14,6 +14,6 @@ object SandboxOffset {
   }
 
   def fromOffset(offset: Offset): BigInt = {
-    BigInt(offset.bytes.toByteArray)
+    BigInt(offset.toByteArray)
   }
 }

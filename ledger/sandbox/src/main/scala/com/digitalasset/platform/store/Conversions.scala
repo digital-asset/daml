@@ -142,7 +142,7 @@ object Conversions {
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setBinaryStream(index, v.bytes.toInputStream)
+      s.setBinaryStream(index, v.toInputStream)
   }
 
   def offset(name: String): RowParser[Offset] =

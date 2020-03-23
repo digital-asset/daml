@@ -39,10 +39,10 @@ object KVOffset {
   }
 
   def highestIndex(offset: Offset): Long =
-    BigInt(offset.bytes.toByteArray.slice(highestStart, middleStart)).toLong
+    BigInt(offset.toByteArray.slice(highestStart, middleStart)).toLong
   def middleIndex(offset: Offset): Long =
-    BigInt(offset.bytes.toByteArray.slice(middleStart, lowestStart)).toLong
+    BigInt(offset.toByteArray.slice(middleStart, lowestStart)).toLong
   def lowestIndex(offset: Offset): Long =
-    BigInt(offset.bytes.toByteArray.slice(lowestStart, end)).toLong
+    BigInt(offset.toByteArray.slice(lowestStart, end)).toLong
 
 }

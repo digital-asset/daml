@@ -18,8 +18,7 @@ object ApiOffset {
         b => Success(Offset.fromHexString(b))
       )
 
-  def assertFromString(s: String): Offset =
-    fromString(s).get
+  def assertFromString(s: String): Offset = fromString(s).get
 
   def toApiString(offset: Offset): Ref.LedgerString =
     offset.toHexString
