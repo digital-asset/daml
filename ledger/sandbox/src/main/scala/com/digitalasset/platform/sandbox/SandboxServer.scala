@@ -239,7 +239,7 @@ final class SandboxServer(
           config.ledgerIdMode,
           participantId,
           jdbcUrl,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,
@@ -253,7 +253,7 @@ final class SandboxServer(
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
           config.ledgerIdMode,
           participantId,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,

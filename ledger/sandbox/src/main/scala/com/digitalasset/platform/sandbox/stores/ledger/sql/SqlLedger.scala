@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.UUID
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
@@ -56,6 +57,7 @@ object SqlLedger {
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       metrics: MetricRegistry,
@@ -73,6 +75,7 @@ object SqlLedger {
             acs,
             packages,
             initialLedgerEntries,
+            initialConfig,
             queueDepth,
             // we use `maxConcurrentConnections` for the maximum batch size, since it doesn't make
             // sense to try to persist more ledger entries concurrently than we have SQL executor
@@ -365,6 +368,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       queueDepth: Int,
       maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
@@ -374,10 +378,24 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       case SqlStartMode.AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
+          ledgerId <- initialize(
+            initialLedgerId,
+            participantId,
+            timeProvider,
+            acs,
+            packages,
+            initialLedgerEntries,
+            initialConfig)
         } yield ledgerId
       case SqlStartMode.ContinueIfExists =>
-        initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
+        initialize(
+          initialLedgerId,
+          participantId,
+          timeProvider,
+          acs,
+          packages,
+          initialLedgerEntries,
+          initialConfig)
     }
 
     for {
@@ -401,10 +419,12 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
   private def initialize(
       initialLedgerId: LedgerIdMode,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
   ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
@@ -436,7 +456,13 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         logger.info(s"Initializing ledger with ID: $ledgerId")
         for {
           _ <- ledgerDao.initializeLedger(ledgerId, Offset.begin)
-          _ <- initializeLedgerEntries(initialLedgerEntries, timeProvider, packages, acs)
+          _ <- initializeLedgerEntries(
+            initialLedgerEntries,
+            initialConfig,
+            timeProvider,
+            packages,
+            acs,
+            participantId)
         } yield ()
       } else {
         Future.unit
@@ -463,16 +489,18 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
   private def initializeLedgerEntries(
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       acs: InMemoryActiveLedgerState,
+      participantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     if (initialLedgerEntries.nonEmpty) {
       logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
     }
 
     val (ledgerEnd, ledgerEntries) =
-      initialLedgerEntries.foldLeft((0L, Vector.empty[(Offset, LedgerEntry)])) {
+      initialLedgerEntries.foldLeft((1L, Vector.empty[(Offset, LedgerEntry)])) {
         case ((offset, entries), entryOrBump) =>
           entryOrBump match {
             case LedgerEntryOrBump.Entry(entry) =>
@@ -485,6 +513,14 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     val contracts = acs.activeContracts.values.toList
     for {
       _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
+      _ <- ledgerDao.storeConfigurationEntry(
+        offset = SandboxOffset.toOffset(0),
+        recordedAt = timeProvider.getCurrentTime,
+        submissionId = UUID.randomUUID.toString,
+        participantId = participantId,
+        configuration = initialConfig,
+        rejectionReason = None,
+      )
       _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
     } yield ()
   }

@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -83,13 +84,21 @@ class InMemoryLedger(
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
-    ledgerEntries: ImmArray[LedgerEntryOrBump])
-    extends Ledger {
+    ledgerEntries: ImmArray[LedgerEntryOrBump],
+    initialConfig: Configuration,
+) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
+    l.publish(
+      InMemoryConfigEntry(
+        ConfigurationEntry.Accepted(
+          submissionId = UUID.randomUUID.toString,
+          participantId = participantId,
+          configuration = initialConfig,
+        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
