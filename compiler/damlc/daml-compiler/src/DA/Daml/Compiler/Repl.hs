@@ -216,7 +216,7 @@ expand (unLoc -> AbsBinds{..}) = toList abs_binds
 expand bind = [bind]
 
 lineFilePath :: Int -> NormalizedFilePath
-lineFilePath i = toNormalizedFilePath $ "Line" <> show i <> ".daml"
+lineFilePath i = toNormalizedFilePath' $ "Line" <> show i <> ".daml"
 
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i

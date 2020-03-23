@@ -205,7 +205,7 @@ checkRelativePath (D.fromNormalizedFilePath -> relPath) = do
     unless (FilePath.isRelative relPath) $
         throwError (ExpectedRelativePath relPath)
     testDirPath <- ShakeTest $ Reader.asks steTestDirPath
-    let path = D.toNormalizedFilePath $ testDirPath </> relPath
+    let path = D.toNormalizedFilePath' $ testDirPath </> relPath
     checkPath path
     return path
 
@@ -230,7 +230,7 @@ makeFile relPath contents = do
 
 -- | (internal) Turn a module name into a relative file path.
 moduleNameToFilePath :: String -> D.NormalizedFilePath
-moduleNameToFilePath modName = D.toNormalizedFilePath $ FilePath.addExtension (replace "." [FilePath.pathSeparator] modName) "daml"
+moduleNameToFilePath modName = D.toNormalizedFilePath' $ FilePath.addExtension (replace "." [FilePath.pathSeparator] modName) "daml"
 
 -- | Similar to makeFile but including a header derived from the module name.
 makeModule :: String -> [T.Text] -> ShakeTest D.NormalizedFilePath
@@ -350,7 +350,7 @@ cursorPosition (_absPath,  line,  col) = D.Position line col
 
 locationStartCursor :: D.Location -> Cursor
 locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
-    (D.toNormalizedFilePath $ fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
+    (D.toNormalizedFilePath' $ fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).

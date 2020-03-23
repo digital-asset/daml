@@ -130,6 +130,7 @@ conversionError msg = do
       , _message = T.pack msg
       , _code = Nothing
       , _relatedInformation = Nothing
+      , _tags = Nothing
       }
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
