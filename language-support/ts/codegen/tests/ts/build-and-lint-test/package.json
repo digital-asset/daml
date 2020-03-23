@@ -7,6 +7,7 @@
   "dependencies": {
     "@daml/ledger": "0.0.0",
     "@daml/types": "0.0.0",
+    "@daml.js/build-and-lint-1.0.0": "file:../daml2ts/build-and-lint-1.0.0",
     "p-event": "^4.1.0"
   },
   "scripts": {
