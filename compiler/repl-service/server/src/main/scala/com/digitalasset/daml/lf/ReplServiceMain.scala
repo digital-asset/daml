@@ -7,15 +7,20 @@ import akka.actor.ActorSystem
 import akka.stream._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
 import com.digitalasset.daml.lf.engine.script._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.{Compiler, SValue, SExpr}
+import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -160,19 +165,33 @@ object ReplServiceMain extends App {
 class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext, mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
+  var compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+  var currentLine: Int = 0
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
   implicit val mat_ = mat
 
-  private val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
+  private def homePackageId(line: Int): PackageId =
+    PackageId.assertFromString(s"-homePackageId-$line-")
 
   override def loadPackage(
       req: LoadPackageRequest,
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
-    packages = packages + (pkgId -> pkg)
-    respObs.onNext(LoadPackageResponse.newBuilder.build)
-    respObs.onCompleted()
+    def go: Result[Unit] => Unit = {
+      case ResultDone(()) =>
+        packages = packages + (pkgId -> pkg)
+        respObs.onNext(LoadPackageResponse.newBuilder.build)
+        respObs.onCompleted()
+      case ResultNeedPackage(pkgId, resume) =>
+        // ConcurrentCompiledPackages compiles loaded packages concurrently.
+        // Previously added dependencies might not be compiled, yet, and we may
+        // receive ResultNeedPackage.
+        go(resume(packages.get(pkgId)))
+      case r =>
+        respObs.onError(new RuntimeException(s"Unexpected engine result $r"))
+    }
+    go(compiledPackages.addPackage(pkgId, pkg))
   }
 
   override def runScript(
@@ -187,12 +206,15 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       .decoder
     val lfScenarioModule =
       dop.protoScenarioModule(Decode.damlLfCodedInputStream(req.getDamlLf1.newInput))
-    val mod: Ast.Module = dop.decodeScenarioModule(homePackageId, lfScenarioModule)
+    // ConcurrentCompiledPackages doesn't allow overwriting a previously loaded
+    // package. So we create a new package for every line in the REPL.
+    val linePkgId = homePackageId(currentLine)
+    currentLine += 1
+    val mod: Ast.Module = dop.decodeScenarioModule(linePkgId, lfScenarioModule)
     // For now we only include the module of the current line
     // we probably need to extend this to merge the
     // modules from each line.
     val pkg = Package(Seq(mod), Seq(), None)
-    val dar = Dar((homePackageId, pkg), packages.toList)
     val commandUpdater = new CommandUpdater(
       timeProviderO = Some(TimeProvider.UTC),
       ttl = java.time.Duration.ofSeconds(30),
@@ -202,18 +224,22 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
     }.get
 
+    // Load the new package. All dependencies should already be loaded.
+    compiledPackages.addPackage(linePkgId, pkg) match {
+      case ResultDone(()) => ()
+      case ResultNeedPackage(pkgId, resume) =>
+        throw new RuntimeException(s"Missing package $pkgId")
+      case r =>
+        throw new RuntimeException(s"Unexpected engine result $r")
+    }
+
     var scriptExpr: SExpr = SEVal(
-      LfDefRef(
-        Identifier(homePackageId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
+      LfDefRef(Identifier(linePkgId, QualifiedName(mod.name, DottedName.assertFromString("expr")))),
       None)
     if (!results.isEmpty) {
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
 
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
