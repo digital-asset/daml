@@ -146,7 +146,7 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,
-          submissionConfig.maxDeduplicationTime
+          submissionConfig.maxDeduplicationTime,
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LocalServices(
@@ -155,7 +155,8 @@ object ApiServices {
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
-        )
+        ),
+        timeProvider,
       )
 
       val apiActiveContractsService =

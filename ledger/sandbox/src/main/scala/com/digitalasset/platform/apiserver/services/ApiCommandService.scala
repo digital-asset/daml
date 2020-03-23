@@ -3,12 +3,11 @@
 
 package com.digitalasset.platform.apiserver.services
 
-import java.time.Instant
-
 import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.{
@@ -157,6 +156,7 @@ object ApiCommandService {
   def create(
       configuration: Configuration,
       services: LocalServices,
+      timeProvider: TimeProvider,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
@@ -166,7 +166,7 @@ object ApiCommandService {
     new GrpcCommandService(
       new ApiCommandService(services, configuration),
       configuration.ledgerId,
-      () => Instant.now(),
+      () => timeProvider.getCurrentTime,
       () => configuration.maxDeduplicationTime,
     )
 
