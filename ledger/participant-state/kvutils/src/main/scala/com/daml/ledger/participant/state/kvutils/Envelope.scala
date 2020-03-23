@@ -56,7 +56,7 @@ object Envelope {
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
   def enclose(batch: Proto.DamlSubmissionBatch): ByteString =
-    enclose(Proto.Envelope.MessageKind.BATCH, batch.toByteString, false)
+    enclose(Proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, false)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
     openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
@@ -89,7 +89,7 @@ object Envelope {
         case Proto.Envelope.MessageKind.STATE_VALUE =>
           parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
-        case Proto.Envelope.MessageKind.BATCH =>
+        case Proto.Envelope.MessageKind.SUBMISSION_BATCH =>
           parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage)).right
             .map(BatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>

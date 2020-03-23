@@ -32,7 +32,7 @@ message Envelope {
     SUBMISSION = 0;
     LOG_ENTRY = 1;
     STATE_VALUE = 2;
-    BATCH = 3;
+    SUBMISSION_BATCH = 3;
   }
 
   enum CompressionSchema {
