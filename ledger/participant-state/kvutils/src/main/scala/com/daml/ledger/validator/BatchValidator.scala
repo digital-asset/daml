@@ -3,146 +3,139 @@
 
 package com.daml.ledger.validator
 
-import java.util.concurrent.{ArrayBlockingQueue, ThreadPoolExecutor, TimeUnit}
-
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.Envelope
+import com.daml.ledger.participant.state.kvutils.{ConflictDetection, Envelope}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.logging.ContextualizedLogger
-import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+
+/** Parameters for batch validation.
+  *
+  * @param cpuParallelism Amount of parallelism to use for CPU bound steps.
+  * @param ioParallelism Amount of parallelism to use for ledger state operations.
+  */
+case class BatchValidationParameters(
+    cpuParallelism: Int,
+    ioParallelism: Int
+)
+
+object BatchValidationParameters {
+  // FIXME
+  def default: BatchValidationParameters = BatchValidationParameters(8, 4)
+}
 
 // This is example code for validating a batch of submissions in parallel, including conflict detection.
 class BatchValidator[LogResult](
+    val params: BatchValidationParameters,
     val allocateLogEntryId: () => DamlLogEntryId,
     val ledgerStateAccess: LedgerStateAccess[LogResult]) {
 
-  // Queue for validation work.
-  val validationQueue = new ArrayBlockingQueue[Runnable](1024)
-  val nThreads = 2 * Runtime.getRuntime.availableProcessors()
-
-  // Executor that performs the validations.
-  // TODO(JM): We probably don't need anything this complicated. A fixed thread pool should be fine.
-  // Or if we want to keep things simpler we can just use an existing thread pool / execution context,
-  // though it would be useful for profiling purposes to have a dedicated thread pool.
-  val executor = new ThreadPoolExecutor(
-    nThreads,
-    nThreads, // pool size
-    1, // thread keep-alive time
-    TimeUnit.SECONDS,
-    validationQueue,
-    new ThreadFactoryBuilder()
-      .setDaemon(true)
-      .setNameFormat("batch-validator-%d")
-      .build(),
-    new ThreadPoolExecutor.CallerRunsPolicy
-  )
-
-  // The execution context in which we execute the futures.
-  implicit val batchExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutor(executor, e => throw e)
-
-  private val logger = ContextualizedLogger.get(getClass)
-
-  private val engine = Engine()
-
-  // TODO(JM): This thing is a bit silly. Figure out a cleaner way.
-  case class LogResultsCollector(
-      private val results: List[LogResult],
-      private val modifiedKeys: Set[DamlStateKey]) {
-    def commit(
-        logEntryId: DamlLogEntryId,
-        logEntryAndState: LogEntryAndState,
-        stateOperations: LedgerStateOperations[LogResult]): Future[LogResultsCollector] = {
-      val outputKeys = logEntryAndState._2.keySet
-      if (hasConflict(outputKeys)) {
-        // FIXME(JM): We need a rejection log entry
-        //Future.successful(this)
-        sys.error("CONFLICT IN BATCH!")
-      } else {
-        val (rawLogEntry, rawStateUpdates) =
-          serializeProcessedSubmission(logEntryAndState)
-        for {
-          logResult <- stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
-          _ <- if (rawStateUpdates.nonEmpty)
-            stateOperations.writeState(rawStateUpdates)
-          else Future.unit
-        } yield addResult(logResult)
-      }
-    }
-
-    def getResults: Iterable[LogResult] = results.reverse
-
-    private def addResult(result: LogResult) = this.copy(results = result :: results)
-
-    private def hasConflict(keys: Set[DamlStateKey]) =
-      keys.find(modifiedKeys.contains).isDefined
-  }
-
-  object LogResultsCollector {
-    def empty: LogResultsCollector = LogResultsCollector(List.empty, Set.empty)
-  }
-
-  def validate[T](recordTime: Timestamp, participantId: ParticipantId, envelope: Array[Byte]) =
+  def validate[T](recordTime: Timestamp, participantId: ParticipantId, envelope: Array[Byte])(
+      implicit materializer: Materializer) = {
+    implicit val executionContext: ExecutionContext = materializer.executionContext
     Envelope.open(envelope) match {
       case Right(Envelope.BatchMessage(batch)) =>
-        // TODO(JM): Consider whether akka-streams allows writing this more succintly. I gave it a try and gave up.
-        for {
-          // Unpack the submissions in parallel.
-          correlatedSubmissions <- Future.sequence(
-            batch.getSubmissionsList.asScala.map(cs =>
+        // TODO(JM): Here we're doing everything in one transaction. In principle if the assumption holds
+        // that there's a single validator that sequentially processes the submissions, then we can do the
+        // reads and writes in separate transactions as we can assume there's no other writers. This assumption
+        // would break with DAML-on-SQL with multiple writers.
+        ledgerStateAccess.inTransaction { stateOperations =>
+          Source
+            .fromIterator(() => batch.getSubmissionsList.asScala.toIterator)
+
+            // Uncompress the submissions in parallel.
+            .mapAsyncUnordered(params.cpuParallelism)(cs =>
               Future {
-                cs.getCorrelationId -> Envelope.openSubmission(cs.getSubmission).right.get
+                //println("UNCOMPRESS")
+                cs.getCorrelationId -> Envelope
+                  .openSubmission(cs.getSubmission)
+                  .right
+                  .get /* FIXME what to do? */
             })
-          )
 
-          // Collect all required inputs.
-          allDeclaredInputs = correlatedSubmissions.flatMap(_._2.getInputDamlStateList.asScala)
+            // Fetch the submission inputs in parallel.
+            // NOTE(JM): We assume the underlying ledger state access caches reads within transaction
+            // and hence make no effort here to deduplicate reads.
+            // FIXME(JM): Since we're wrapped within "inTransaction" doing these in parallel may or may not
+            // help. See comment on top about using separate ledger state transactions.
+            .mapAsyncUnordered(params.ioParallelism) {
+              case (corId, subm) =>
+                val inputKeys = subm.getInputDamlStateList.asScala
+                stateOperations
+                  .readState(inputKeys.map(keyToBytes))
+                  .map { values =>
+                    //println("READ STATE")
+                    (
+                      corId,
+                      subm,
+                      values
+                        .zip(inputKeys)
+                        .map {
+                          case (valueBytes, key) => key -> valueBytes.map(bytesToStateValue)
+                        }
+                        .toMap)
+                  }
+            }
 
-          // Process the submissions in a single ledger state transaction and commit.
-          results <- ledgerStateAccess.inTransaction { stateOperations =>
-            for {
-              // Fetch all input state for the batch in one go.
-              readStateValues <- stateOperations.readState(allDeclaredInputs.map(keyToBytes))
-              readStateInputs = readStateValues.zip(allDeclaredInputs).map {
-                case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-              }
-
-              // Validate the submissions in parallel.
-              // TODO(JM): Verify that this actually runs in batchExecutionContext and that these run in parallel.
-              logEntriesAndStates <- Future.sequence(correlatedSubmissions.map {
-                case (correlationId, submission) =>
+            // Validate the submissions in parallel.
+            .mapAsyncUnordered(params.cpuParallelism) {
+              case (corId, subm, inputState) =>
+                Future {
                   val damlLogEntryId = allocateLogEntryId()
-                  val readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-                  Future.fromTry(
-                    Try(
-                      damlLogEntryId ->
-                        processSubmission(
-                          damlLogEntryId,
-                          recordTime,
-                          submission,
-                          participantId,
-                          readInputs)))
-              })
+                  //println("VALIDATE")
+                  (
+                    damlLogEntryId,
+                    processSubmission(damlLogEntryId, recordTime, subm, participantId, inputState),
+                    inputState.keySet)
+                }
+            }
 
-              // Conflict detect and commit in sequence.
-              collector <- logEntriesAndStates.foldLeft(Future(LogResultsCollector.empty)) {
-                case (collectorF, (logEntryId, logEntryAndState)) =>
-                  collectorF.flatMap(_.commit(logEntryId, logEntryAndState, stateOperations))
+            // Detect conflicts and choose the appropriate result.
+            .statefulMapConcat { () =>
+              var modifiedKeys = Set.empty[DamlStateKey]
+
+              {
+                case (logEntryId, logEntryAndState, inputKeys) =>
+                  ConflictDetection.conflictDetectAndRecover(
+                    modifiedKeys,
+                    inputKeys,
+                    logEntryAndState._1,
+                    logEntryAndState._2
+                  ) match {
+                    case Some((newLogEntry, newState)) =>
+                      modifiedKeys ++= newState.keySet
+                      (logEntryId, (newLogEntry, newState)) :: Nil
+
+                    case None =>
+                      Nil
+                  }
               }
-            } yield collector.getResults
-          }
+            }
 
-        } yield results
+            // Serialize and commit in parallel.
+            .mapAsyncUnordered(params.ioParallelism) {
+              case (logEntryId, logEntryAndState) =>
+                //println("SERIALIZE AND WRITE")
+                val (rawLogEntry, rawStateUpdates) =
+                  serializeProcessedSubmission(logEntryAndState)
+                for {
+                  logResult <- stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
+                  _ <- if (rawStateUpdates.nonEmpty)
+                    stateOperations.writeState(rawStateUpdates)
+                  else Future.unit
+                } yield logResult
+            }
+            .runWith(Sink.seq)
+        }
 
       case _ =>
         sys.error("Unsupported message type")
     }
+  }
 
 }
