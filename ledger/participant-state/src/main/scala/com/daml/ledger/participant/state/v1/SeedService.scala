@@ -40,7 +40,7 @@ class StaticRandomSeedService(seed: Long) extends SeedService {
   override val nextSeed: () => Hash = () => {
     val weakSeed = Array.ofDim[Byte](32)
     rndGen.nextBytes(weakSeed)
-    crypto.Hash.assertFromBytes(weakSeed)
+    crypto.Hash.assertFromByteArray(weakSeed)
   }
 }
 

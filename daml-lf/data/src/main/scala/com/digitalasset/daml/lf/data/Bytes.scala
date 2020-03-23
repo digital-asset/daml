@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 
 import com.google.protobuf.ByteString
 
-final class Bytes private (private val value: ByteString) extends AnyVal {
+final class Bytes private (protected val value: ByteString) extends AnyVal {
 
   def toByteArray: Array[Byte] = value.toByteArray
 
@@ -23,6 +23,8 @@ final class Bytes private (private val value: ByteString) extends AnyVal {
   def toHexString: Ref.HexString = Ref.HexString.encode(this)
 
   override def toString: String = s"Bytes($toHexString)"
+
+  def ++(that: Bytes) = new Bytes(this.value.concat(that.value))
 }
 
 object Bytes {
@@ -46,8 +48,7 @@ object Bytes {
     new Bytes(ByteString.readFrom(a))
 
   def fromHexString(s: Ref.HexString): Bytes =
-    Ref.HexString
-      .decode(s)
+    Ref.HexString.decode(s)
 
   def fromString(s: String): Either[String, Bytes] =
     Ref.HexString.fromString(s).map(fromHexString)
