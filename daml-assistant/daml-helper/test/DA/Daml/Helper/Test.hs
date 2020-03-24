@@ -3,12 +3,14 @@
 
 module DA.Daml.Helper.Test (main) where
 
+import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Test.Util
 import System.Directory
 import System.Environment.Blank
 import System.Exit
 import System.FilePath
+import System.Info
 import System.IO.Extra
 import System.Process
 import Test.Tasty
@@ -17,6 +19,11 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
+    when (os == "darwin") $ do
+        -- x509-system insists on trying to locate `security`
+        -- in PATH to find the root certificate store.
+        mbPath <- getEnv "PATH"
+        setEnv "PATH" (maybe "/usr/bin" ("/usr/bin:" <>) mbPath) True
     damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
     defaultMain $
         testGroup "daml-helper"
