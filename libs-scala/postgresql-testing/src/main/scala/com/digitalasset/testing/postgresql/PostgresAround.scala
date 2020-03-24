@@ -163,11 +163,11 @@ trait PostgresAround {
         IOUtils.copy(process.getErrorStream, stderr, StandardCharsets.UTF_8)
         val logs = Files.readAllLines(postgresFixture.logFile).asScala
         throw new ProcessFailedException(
-          description,
-          command,
-          Some(stdout.toString),
-          Some(stderr.toString),
-          logs,
+          description = description,
+          command = command,
+          stdout = stdout.toString,
+          stderr = stderr.toString,
+          logs = logs,
         )
       }
     } catch {
@@ -175,7 +175,12 @@ trait PostgresAround {
         throw e
       case NonFatal(e) =>
         val logs = Files.readAllLines(postgresFixture.logFile).asScala
-        throw new ProcessFailedException(description, command, None, None, logs, e)
+        throw new ProcessFailedException(
+          description = description,
+          command = command,
+          logs = logs,
+          cause = e,
+        )
     }
   }
 
@@ -190,31 +195,22 @@ object PostgresAround {
   private val userName = "test"
   private val databaseName = "test"
 
-  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private class ProcessFailedException(
       description: String,
       command: Seq[String],
-      stdout: Option[String],
-      stderr: Option[String],
-      logs: Seq[String],
-      cause: Throwable,
+      stdout: String = "<none>",
+      stderr: String = "<none>",
+      logs: Seq[String] = Seq.empty,
+      cause: Throwable = null,
   ) extends RuntimeException(
         Seq(
-          Some(s"Failed to $description."),
-          Some(s"Command:"),
-          Some(command.mkString("\n")),
-          stdout.map(output => s"\nSTDOUT:\n$output"),
-          stderr.map(output => s"\nSTDERR:\n$output"),
-          Some(logs).filter(_.nonEmpty).map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
-        ).flatten.mkString("\n"),
+          s"Failed to $description.",
+          s"Command:",
+          command.mkString("\n"),
+          s"\nSTDOUT:\n$stdout",
+          s"\nSTDERR:\n$stderr",
+          logs.map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
+        ).mkString("\n"),
         cause,
-      ) {
-    def this(
-        description: String,
-        command: Seq[String],
-        stdout: Option[String],
-        stderr: Option[String],
-        logs: Seq[String],
-    ) = this(description, command, stdout, stderr, logs, null)
-  }
+      )
 }

@@ -22,12 +22,11 @@ import scalaz.Tag
 final case class UserConfig(password: Option[String], party: PartyState, role: Option[String])
 
 /* The configuration has an empty map as default list of users because you can login as party too */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 final case class Config(users: Map[String, UserConfig] = Map.empty[String, UserConfig]) {
 
   def userIds: Set[String] = users.keySet
 
-  def roles: Set[String] = users.values.flatMap(_.role)(collection.breakOut)
+  def roles: Set[String] = users.values.flatMap(_.role.toList)(collection.breakOut)
   def parties: Set[PartyState] = users.values.map(_.party)(collection.breakOut)
 }
 
@@ -45,7 +44,7 @@ sealed abstract class ConfigOption {
 final case class DefaultConfig(path: Path) extends ConfigOption
 final case class ExplicitConfig(path: Path) extends ConfigOption
 
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object Config {
 
   private[this] val logger = LoggerFactory.getLogger(this.getClass)

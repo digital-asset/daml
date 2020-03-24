@@ -41,11 +41,7 @@ case class UserFacingError(message: String)
 }
 
 /** Schema definition for the UI backend GraphQL API. */
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
-    "org.wartremover.warts.JavaSerializable"))
+@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.JavaSerializable"))
 final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
 
   implicit private val actorTimeout: Timeout = Timeout(60, TimeUnit.SECONDS)
@@ -586,27 +582,27 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
             case ContractType.name =>
               ids
                 .map(id => ApiTypes.ContractId(id.toString))
-                .flatMap(ledger.contract(_, context.ctx.templates))
+                .flatMap(ledger.contract(_, context.ctx.templates).toList)
                 .toSeq
             case TemplateType.name =>
               ids
                 .map(id => TemplateStringId(id.toString))
-                .flatMap(context.ctx.templates.templateByStringId)
+                .flatMap(context.ctx.templates.templateByStringId(_).toList)
                 .toSeq
             case CommandType.name =>
               ids
                 .map(id => ApiTypes.CommandId(id.toString))
-                .flatMap(context.ctx.ledger.command(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.command(_, context.ctx.templates).toList)
                 .toSeq
             case EventType.name =>
               ids
                 .map(id => ApiTypes.EventId(id.toString))
-                .flatMap(context.ctx.ledger.event(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.event(_, context.ctx.templates).toList)
                 .toSeq
             case TransactionType.name =>
               ids
                 .map(id => ApiTypes.TransactionId(id.toString))
-                .flatMap(context.ctx.ledger.transaction(_, context.ctx.templates))
+                .flatMap(context.ctx.ledger.transaction(_, context.ctx.templates).toList)
                 .toSeq
             case _ => Seq.empty[Node[_]]
           }
