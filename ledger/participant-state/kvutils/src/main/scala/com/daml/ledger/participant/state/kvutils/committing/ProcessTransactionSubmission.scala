@@ -14,9 +14,11 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
+import com.digitalasset.daml.lf.transaction.Transaction.AbsTransaction
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
 import com.digitalasset.daml.lf.value.Value
 import org.slf4j.{Logger, LoggerFactory}
@@ -37,40 +39,36 @@ private[kvutils] case class ProcessTransactionSubmission(
   private implicit val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
+    val transactionEntry = TransactionEntry(txEntry)
     runSequence(
       inputState = inputState,
-      "Authorize submitter" -> authorizeSubmitter,
-      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
-      "Deduplicate" -> deduplicateCommand,
-      "Validate LET/TTL" -> validateLetAndTtl(inputState),
-      "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
+      "Authorize submitter" -> authorizeSubmitter(transactionEntry),
+      "Check Informee Parties Allocation" -> checkInformeePartiesAllocation(transactionEntry),
+      "Deduplicate" -> deduplicateCommand(transactionEntry),
+      "Validate LET/TTL" -> validateLetAndTtl(transactionEntry, inputState),
+      "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness(transactionEntry),
       "Validate Model Conformance" -> timed(
         Metrics.interpretTimer,
-        validateModelConformance(inputState),
+        validateModelConformance(transactionEntry, inputState),
       ),
-      "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
+      "Authorize and build result" ->
+        authorizeAndBlind(transactionEntry).flatMap(buildFinalResult(transactionEntry))
     )
   }
 
   // -------------------------------------------------------------------------------
 
-  private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
-  private val submitterInfo = txEntry.getSubmitterInfo
-  private val submitter = Party.assertFromString(submitterInfo.getSubmitter)
-  private lazy val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
-
-  private val submissionSeedAndTime =
-    Conversions
-      .parseOptHash(txEntry.getSubmissionSeed)
-      .map(_ -> Conversions.parseTimestamp(txEntry.getSubmissionTime))
-
-  private def contractIsActiveAndVisibleToSubmitter(contractState: DamlContractState): Boolean = {
+  private def contractIsActiveAndVisibleToSubmitter(
+      transactionEntry: TransactionEntry,
+      contractState: DamlContractState
+  ): Boolean = {
     val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
     val divulgedTo = contractState.getDivulgedToList.asScala
-    val isVisible = locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter)
+    val isVisible = locallyDisclosedTo.contains(transactionEntry.submitter) || divulgedTo.contains(
+      transactionEntry.submitter)
     val isActive = {
       val activeAt = Option(contractState.getActiveAt).map(parseTimestamp)
-      !contractState.hasArchivedAt && activeAt.exists(txLet >= _)
+      !contractState.hasArchivedAt && activeAt.exists(transactionEntry.ledgerEffectiveTime >= _)
     }
     isVisible && isActive
   }
@@ -78,8 +76,8 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Deduplicate the submission. If the check passes we save the command deduplication
     * state.
     */
-  private def deduplicateCommand: Commit[Unit] = {
-    val dedupKey = commandDedupKey(submitterInfo)
+  private def deduplicateCommand(transactionEntry: TransactionEntry): Commit[Unit] = {
+    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
     get(dedupKey).flatMap { dedupEntry =>
       if (dedupEntry.isEmpty) {
         Commit.set(
@@ -107,24 +105,27 @@ private[kvutils] case class ProcessTransactionSubmission(
     * If the "open world" setting is enabled we allow the submission even if the
     * party is unallocated.
     */
-  private def authorizeSubmitter: Commit[Unit] =
-    get(partyStateKey(submitter)).flatMap {
+  private def authorizeSubmitter(transactionEntry: TransactionEntry): Commit[Unit] =
+    get(partyStateKey(transactionEntry.submitter)).flatMap {
       case Some(partyAllocation) =>
         if (partyAllocation.getParty.getParticipantId == participantId)
           pass
         else
           reject(
             buildRejectionLogEntry(RejectionReason.SubmitterCannotActViaParticipant(
-              s"Party '$submitter' not hosted by participant $participantId")))
+              s"Party '${transactionEntry.submitter}' not hosted by participant $participantId")))
       case None =>
         reject(buildRejectionLogEntry(RejectionReason.PartyNotKnownOnLedger))
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLetAndTtl(inputState: DamlStateMap): Commit[Unit] = delay {
+  private def validateLetAndTtl(
+      transactionEntry: TransactionEntry,
+      inputState: DamlStateMap,
+  ): Commit[Unit] = delay {
     val (_, config) = Common.getCurrentConfiguration(defaultConfig, inputState, logger)
     val timeModel = config.timeModel
-    val givenLET = txLet.toInstant
+    val givenLET = transactionEntry.ledgerEffectiveTime.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
 
     if (timeModel.checkLet(
@@ -143,7 +144,10 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private def validateModelConformance(inputState: DamlStateMap): Commit[Unit] = delay {
+  private def validateModelConformance(
+      transactionEntry: TransactionEntry,
+      inputState: DamlStateMap,
+  ): Commit[Unit] = delay {
     // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
     // which are not evidenced in the transaction itself and hence the contract key state is
     // not included in the inputs.
@@ -152,18 +156,23 @@ private[kvutils] case class ProcessTransactionSubmission(
         case (key, Some(value))
             if value.hasContractState
               && value.getContractState.hasContractKey
-              && contractIsActiveAndVisibleToSubmitter(value.getContractState) =>
+              && contractIsActiveAndVisibleToSubmitter(transactionEntry, value.getContractState) =>
           value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
       }
 
     val ctx = Metrics.interpretTimer.time()
     try {
       engine
-        .validate(relTx, txLet, participantId, submissionSeedAndTime)
+        .validate(
+          transactionEntry.abs,
+          transactionEntry.ledgerEffectiveTime,
+          participantId,
+          transactionEntry.submissionSeedAndTime,
+        )
         .consume(
-          lookupContract(inputState),
+          lookupContract(transactionEntry, inputState),
           lookupPackage(inputState),
-          lookupKey(inputState, knownKeys),
+          lookupKey(transactionEntry, inputState, knownKeys),
         )
         .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), _ => pass)
     } finally {
@@ -172,20 +181,23 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private def authorizeAndBlind: Commit[BlindingInfo] = delay {
+  private def authorizeAndBlind(transactionEntry: TransactionEntry): Commit[BlindingInfo] = delay {
     Blinding
-      .checkAuthorizationAndBlind(relTx, initialAuthorizers = Set(submitter))
+      .checkAuthorizationAndBlind(
+        transactionEntry.abs,
+        initialAuthorizers = Set(transactionEntry.submitter),
+      )
       .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), pure)
   }
 
-  private def validateContractKeyUniqueness: Commit[Unit] =
+  private def validateContractKeyUniqueness(transactionEntry: TransactionEntry): Commit[Unit] =
     for {
       damlState <- getDamlState
       startingKeys = damlState.collect {
         case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
       }.toSet
 
-      allUnique = relTx
+      allUnique = transactionEntry.abs
         .fold((true, startingKeys)) {
           case (
               (allUnique, existingKeys),
@@ -216,17 +228,18 @@ private[kvutils] case class ProcessTransactionSubmission(
     } yield r
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
-  private def checkInformeePartiesAllocation: Commit[Unit] = {
+  private def checkInformeePartiesAllocation(transactionEntry: TransactionEntry): Commit[Unit] = {
 
     def foldInformeeParties[T](tx: GenTransaction.WithTxValue[_, _], init: T)(
-        f: (T, String) => T): T =
+        f: (T, String) => T
+    ): T =
       tx.fold(init) {
         case (accum, (_, node)) =>
           node.informeesOfNode.foldLeft(accum)(f)
       }
 
     for {
-      allExist <- foldInformeeParties(relTx, pure(true)) { (accum, party) =>
+      allExist <- foldInformeeParties(transactionEntry.abs, pure(true)) { (accum, party) =>
         get(partyStateKey(party)).flatMap(_.fold(pure(false))(_ => accum))
       }
 
@@ -240,10 +253,12 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult(blindingInfo: BlindingInfo): Commit[Unit] = delay {
-    val effects = InputsAndEffects.computeEffects(relTx)
+  private def buildFinalResult(transactionEntry: TransactionEntry)(
+      blindingInfo: BlindingInfo
+  ): Commit[Unit] = delay {
+    val effects = InputsAndEffects.computeEffects(transactionEntry.abs)
 
-    val cid2nid: Value.AbsoluteContractId => Value.NodeId = relTx.localContracts
+    val cid2nid: Value.AbsoluteContractId => Value.NodeId = transactionEntry.abs.localContracts
 
     // Helper to read the _current_ contract state.
     // NOTE(JM): Important to fetch from the state that is currently being built up since
@@ -259,7 +274,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       set(effects.createdContracts.map {
         case (key, createNode) =>
           val cs = DamlContractState.newBuilder
-          cs.setActiveAt(buildTimestamp(txLet))
+          cs.setActiveAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
           val localDisclosure =
             blindingInfo.localDisclosure(cid2nid(decodeContractId(key.getContractId)))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
@@ -286,7 +301,7 @@ private[kvutils] case class ProcessTransactionSubmission(
         for {
           cs <- getContractState(key).map { cs =>
             cs.toBuilder
-              .setArchivedAt(buildTimestamp(txLet))
+              .setArchivedAt(buildTimestamp(transactionEntry.ledgerEffectiveTime))
               .setArchivedByEntry(entryId)
           }
           r <- set(key -> DamlStateValue.newBuilder.setContractState(cs).build)
@@ -336,7 +351,9 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Helper to lookup contract instances. We verify the activeness of
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(inputState: DamlStateMap)(coid: Value.AbsoluteContractId) = {
+  private def lookupContract(transactionEntry: TransactionEntry, inputState: DamlStateMap)(
+      coid: Value.AbsoluteContractId,
+  ): Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]] = {
     val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
@@ -345,7 +362,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           s"Lookup contract failed, contractId=$coid correlationId=${txEntry.getSubmitterInfo.getCommandId}")
         throw Err.MissingInputState(stateKey)
       }
-      if contractIsActiveAndVisibleToSubmitter(contractState)
+      if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
   }
@@ -388,6 +405,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   private def lookupKey(
+      transactionEntry: TransactionEntry,
       inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.AbsoluteContractId],
   )(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
@@ -402,7 +420,7 @@ private[kvutils] case class ProcessTransactionSubmission(
               .map(decodeContractId)
             contractStateKey = contractIdToStateKey(contractId)
             contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
-            if contractIsActiveAndVisibleToSubmitter(contractState)
+            if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
           } yield contractId
         }
       }
@@ -457,6 +475,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 }
 
 object ProcessTransactionSubmission {
+
   private[committing] object Metrics {
     //TODO: Replace with metrics registry object passed in constructor
     private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
@@ -469,4 +488,16 @@ object ProcessTransactionSubmission {
         .map(v => v.getNumber -> registry.counter(s"$prefix.rejections_${v.name}"))
         .toMap
   }
+
+  private case class TransactionEntry(txEntry: DamlTransactionEntry) {
+    val ledgerEffectiveTime: Timestamp = parseTimestamp(txEntry.getLedgerEffectiveTime)
+    val submitterInfo: DamlSubmitterInfo = txEntry.getSubmitterInfo
+    val submitter: IdString.Party = Party.assertFromString(submitterInfo.getSubmitter)
+    lazy val abs: AbsTransaction = Conversions.decodeTransaction(txEntry.getTransaction)
+    val submissionSeedAndTime: Option[(Hash, Timestamp)] =
+      Conversions
+        .parseOptHash(txEntry.getSubmissionSeed)
+        .map(_ -> Conversions.parseTimestamp(txEntry.getSubmissionTime))
+  }
+
 }
