@@ -15,6 +15,7 @@ da_haskell_library(
         "filepath",
         "process",
         "tasty",
+        "tasty-hunit",
         "text",
     ],
     visibility = ["//visibility:public"],

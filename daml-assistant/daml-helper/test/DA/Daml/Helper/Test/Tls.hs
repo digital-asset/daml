@@ -5,7 +5,7 @@ module DA.Daml.Helper.Test.Tls (main) where
 
 import DA.Bazel.Runfiles
 import DA.Test.Sandbox
-import Data.List.Extra (isInfixOf)
+import DA.Test.Util
 import System.Environment.Blank
 import System.Exit
 import System.FilePath
@@ -75,7 +75,3 @@ main = do
                            assertInfixOf "no parties are known" out
                      ]
            ]
-
-assertInfixOf :: String -> String -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)
-
