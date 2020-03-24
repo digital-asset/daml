@@ -107,14 +107,15 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
 
     override def onCancel(): Unit = {
       listener.onCancel()
-      if (timerStopped.compareAndSet(false, true)) {
-        timer.stop()
-        ()
-      }
+      stopTimer()
     }
 
     override def onComplete(): Unit = {
       listener.onComplete()
+      stopTimer()
+    }
+
+    private def stopTimer(): Unit = {
       if (timerStopped.compareAndSet(false, true)) {
         timer.stop()
         ()
