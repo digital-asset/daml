@@ -165,8 +165,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        ProcessTransactionSubmission(defaultConfig).run(
-          engine,
+        ProcessTransactionSubmission(defaultConfig, engine).run(
           entryId,
           recordTime,
           participantId,

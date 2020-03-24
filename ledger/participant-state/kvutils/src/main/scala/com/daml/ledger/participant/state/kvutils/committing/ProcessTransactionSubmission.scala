@@ -26,12 +26,14 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
-private[kvutils] case class ProcessTransactionSubmission(defaultConfig: Configuration) {
+private[kvutils] case class ProcessTransactionSubmission(
+    defaultConfig: Configuration,
+    engine: Engine,
+) {
 
   private implicit val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def run(
-      engine: Engine,
       entryId: DamlLogEntryId,
       recordTime: Timestamp,
       participantId: ParticipantId,
