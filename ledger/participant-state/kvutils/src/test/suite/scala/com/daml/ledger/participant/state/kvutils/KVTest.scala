@@ -5,18 +5,19 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.command.{Command, Commands}
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml_lf_dev.DamlLf
 import scalaz.State
-import scalaz.syntax.traverse._
 import scalaz.std.list._
+import scalaz.syntax.traverse._
 
 import scala.collection.JavaConverters._
 
@@ -29,12 +30,17 @@ final case class KVTestState(
     damlState: Map[DamlStateKey, DamlStateValue]) {}
 
 object KVTest {
-  import scalaz.State._
+
   import TestHelpers._
+  import scalaz.State._
 
   type KVTest[A] = State[KVTestState, A]
 
   private[this] val defaultAdditionalContractDataTy = "Party"
+
+  private[kvutils] val metricRegistry = new MetricRegistry
+
+  private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
 
   def initialTestState: KVTestState =
     KVTestState(
@@ -112,11 +118,11 @@ object KVTest {
   def getDamlState(key: DamlStateKey): KVTest[Option[DamlStateValue]] =
     gets(s => s.damlState.get(key))
 
-  def submit(submission: DamlSubmission): KVTest[(DamlLogEntryId, DamlLogEntry)] =
+  private def submit(submission: DamlSubmission): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     for {
       testState <- get[KVTestState]
       entryId <- freshEntryId
-      (logEntry, newState) = KeyValueCommitting.processSubmission(
+      (logEntry, newState) = keyValueCommitting.processSubmission(
         engine = testState.engine,
         entryId = entryId,
         recordTime = testState.recordTime,
@@ -131,8 +137,7 @@ object KVTest {
     } yield {
       // Verify that all state touched matches with "submissionOutputs".
       assert(
-        newState.keySet subsetOf
-          KeyValueCommitting.submissionOutputs(entryId, submission)
+        newState.keySet subsetOf keyValueCommitting.submissionOutputs(entryId, submission)
       )
 
       // Verify that we can always process the log entry

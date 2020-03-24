@@ -3,25 +3,35 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.daml.ledger.participant.state.kvutils.Conversions._
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlConfigurationEntry, _}
+import com.codahale.metrics.{Counter, MetricRegistry}
+import com.daml.ledger.participant.state.kvutils.Conversions.{
+  buildTimestamp,
+  configDedupKey,
+  configurationStateKey
+}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
 import com.daml.ledger.participant.state.v1.Configuration
 
 private[kvutils] object ConfigCommitter {
+
   case class Result(
       submission: DamlConfigurationSubmission,
-      currentConfig: (Option[DamlConfigurationEntry], Configuration))
+      currentConfig: (Option[DamlConfigurationEntry], Configuration),
+  )
+
 }
 
-private[kvutils] case class ConfigCommitter(
-    defaultConfig: Configuration
+private[kvutils] class ConfigCommitter(
+    defaultConfig: Configuration,
+    override protected val metricRegistry: MetricRegistry,
 ) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
 
+  override protected val committerName = "config"
+
   private object Metrics {
-    // kvutils.ConfigCommitter.*
-    val accepts = metricsRegistry.counter(metricsName("accepts"))
-    val rejections = metricsRegistry.counter(metricsName("rejections"))
+    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
+    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
   }
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
@@ -172,8 +182,8 @@ private[kvutils] case class ConfigCommitter(
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       submission: DamlConfigurationSubmission,
-      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-    : DamlLogEntry = {
+      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
+  ): DamlLogEntry = {
     Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
@@ -188,22 +198,21 @@ private[kvutils] case class ConfigCommitter(
       .build
   }
 
-  override def init(
+  override protected def init(
       ctx: CommitContext,
-      configurationSubmission: DamlConfigurationSubmission): ConfigCommitter.Result =
+      configurationSubmission: DamlConfigurationSubmission,
+  ): ConfigCommitter.Result =
     ConfigCommitter.Result(
       configurationSubmission,
       getCurrentConfiguration(defaultConfig, ctx.inputs, logger)
     )
 
-  override val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "check_ttl" -> checkTtl,
     "authorize_submission" -> authorizeSubmission,
     "validate_submission" -> validateSubmission,
     "deduplicate_submission" -> deduplicateSubmission,
     "build_log_entry" -> buildLogEntry
   )
-
-  override lazy val committerName = "config"
 
 }

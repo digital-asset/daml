@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.codahale.metrics
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.{
@@ -25,16 +26,19 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-object KeyValueCommitting {
+class KeyValueCommitting(metricRegistry: MetricRegistry) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
+
   def unpackDamlStateKey(bytes: ByteString): DamlStateKey =
     DamlStateKey.parseFrom(bytes)
 
   def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
+
   def unpackDamlStateValue(bytes: Array[Byte]): DamlStateValue =
     DamlStateValue.parseFrom(bytes)
+
   def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
     DamlStateValue.parseFrom(bytes)
 
@@ -133,7 +137,7 @@ object KeyValueCommitting {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        PackageCommitter(engine).run(
+        new PackageCommitter(engine, metricRegistry).run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -144,7 +148,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        PartyAllocationCommitter.run(
+        new PartyAllocationCommitter(metricRegistry).run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -155,7 +159,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        ConfigCommitter(defaultConfig).run(
+        new ConfigCommitter(defaultConfig, metricRegistry).run(
           entryId,
           parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
           recordTime,
@@ -165,7 +169,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        ProcessTransactionSubmission(defaultConfig, engine).run(
+        new ProcessTransactionSubmission(defaultConfig, engine, metricRegistry).run(
           entryId,
           recordTime,
           participantId,
@@ -317,30 +321,28 @@ object KeyValueCommitting {
   }
 
   private object Metrics {
-    //TODO: Replace with metrics registry object passed in constructor
-    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
     private val prefix = "kvutils.committer"
 
     // Timer (and count) of how fast submissions have been processed.
-    val runTimer: metrics.Timer = registry.timer(s"$prefix.run_timer")
+    val runTimer: metrics.Timer = metricRegistry.timer(s"$prefix.run_timer")
 
     // Number of exceptions seen.
-    val exceptions: metrics.Counter = registry.counter(s"$prefix.exceptions")
+    val exceptions: metrics.Counter = metricRegistry.counter(s"$prefix.exceptions")
 
     // Counter to monitor how many at a time and when kvutils is processing a submission.
-    val processing: metrics.Counter = registry.counter(s"$prefix.processing")
+    val processing: metrics.Counter = metricRegistry.counter(s"$prefix.processing")
 
     val lastRecordTimeGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.record_time", lastRecordTimeGauge)
+    metricRegistry.register(s"$prefix.last.record_time", lastRecordTimeGauge)
 
     val lastEntryIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.entry_id", lastEntryIdGauge)
+    metricRegistry.register(s"$prefix.last.entry_id", lastEntryIdGauge)
 
     val lastParticipantIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.participant_id", lastParticipantIdGauge)
+    metricRegistry.register(s"$prefix.last.participant_id", lastParticipantIdGauge)
 
     val lastExceptionGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.exception", lastExceptionGauge)
+    metricRegistry.register(s"$prefix.last.exception", lastExceptionGauge)
   }
 
 }

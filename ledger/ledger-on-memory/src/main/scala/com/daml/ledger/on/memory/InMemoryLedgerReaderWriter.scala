@@ -9,10 +9,11 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
-import com.daml.ledger.participant.state.kvutils.{KVOffset, Bytes, SequentialLogEntryId}
+import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -29,6 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class InMemoryLedgerReaderWriter(
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
+    metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
@@ -39,7 +41,11 @@ final class InMemoryLedgerReaderWriter(
   private val committer = new ValidatingCommitter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(new InMemoryLedgerStateAccess(state), () => sequentialLogEntryId.next()),
+      .create(
+        new InMemoryLedgerStateAccess(state),
+        allocateNextLogEntryId = () => sequentialLogEntryId.next(),
+        metricRegistry = metricRegistry,
+      ),
     dispatcher.signalNewHead,
   )
 
@@ -113,6 +119,7 @@ object InMemoryLedgerReaderWriter {
   class SingleParticipantOwner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
+      metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
       heartbeats: Source[Instant, NotUsed] = Source.empty,
   )(implicit materializer: Materializer)
@@ -127,6 +134,7 @@ object InMemoryLedgerReaderWriter {
         readerWriter <- new Owner(
           initialLedgerId,
           participantId,
+          metricRegistry,
           timeProvider,
           dispatcher,
           state,
@@ -140,6 +148,7 @@ object InMemoryLedgerReaderWriter {
   class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
+      metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
@@ -153,6 +162,7 @@ object InMemoryLedgerReaderWriter {
         new InMemoryLedgerReaderWriter(
           ledgerId,
           participantId,
+          metricRegistry,
           timeProvider,
           dispatcher,
           state,

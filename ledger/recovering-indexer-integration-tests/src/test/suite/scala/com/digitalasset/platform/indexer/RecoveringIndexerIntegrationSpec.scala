@@ -225,8 +225,11 @@ object RecoveringIndexerIntegrationSpec {
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] =
-      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId)
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+      new InMemoryLedgerReaderWriter.SingleParticipantOwner(
+        ledgerId,
+        participantId,
+        new MetricRegistry,
+      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {

@@ -153,10 +153,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
+                  metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   heartbeats = heartbeats,
-                  seedService = SeedService(seeding)
+                  seedService = SeedService(seeding),
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter)
                 readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
