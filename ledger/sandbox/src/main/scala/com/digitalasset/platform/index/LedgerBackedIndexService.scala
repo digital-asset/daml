@@ -96,7 +96,7 @@ abstract class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    acceptedTransactions(startExclusive, endInclusive)
+    between(startExclusive, endInclusive)(acceptedTransactions)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -115,7 +115,7 @@ abstract class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionsResponse, NotUsed] =
-    acceptedTransactions(startExclusive, endInclusive)
+    between(startExclusive, endInclusive)(acceptedTransactions)
       .mapConcat {
         case (offset, transaction) =>
           TransactionConversion
@@ -124,46 +124,51 @@ abstract class LedgerBackedIndexService(
             .toList
       }
 
-  private class OffsetConverter {
+  // Returns a function that memoizes the current end
+  // Can be used directly or shared throughout a request processing
+  private def convertOffset: LedgerOffset => Source[Offset, NotUsed] = {
     lazy val currentEnd: Offset = ledger.ledgerEnd
-
-    def toAbsolute(offset: LedgerOffset): Source[Offset, NotUsed] = offset match {
-      case LedgerOffset.LedgerBegin => Source.single(Offset.begin)
-      case LedgerOffset.LedgerEnd => Source.single(currentEnd)
-      case LedgerOffset.Absolute(offset) =>
-        ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
-    }
+    domainOffset: LedgerOffset =>
+      domainOffset match {
+        case LedgerOffset.LedgerBegin => Source.single(Offset.begin)
+        case LedgerOffset.LedgerEnd => Source.single(currentEnd)
+        case LedgerOffset.Absolute(offset) =>
+          ApiOffset.fromString(offset).fold(Source.failed, off => Source.single(off))
+      }
   }
 
-  private def acceptedTransactions(
+  private def between[A](
       startExclusive: domain.LedgerOffset,
-      endInclusive: Option[domain.LedgerOffset])
-    : Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] = {
-
-    val converter = new OffsetConverter()
-
-    converter.toAbsolute(startExclusive).flatMapConcat { begin =>
+      endInclusive: Option[domain.LedgerOffset],
+  )(f: (Offset, Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] = {
+    val convert = convertOffset
+    convert(startExclusive).flatMapConcat { begin =>
       endInclusive
-        .map(converter.toAbsolute(_).map(Some(_)))
+        .map(convert(_).map(Some(_)))
         .getOrElse(Source.single(None))
         .flatMapConcat {
           case Some(`begin`) =>
             Source.empty
-
           case Some(end) if begin > end =>
-            Source.failed(ErrorFactories.invalidArgument(
-              s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
-
-          case endOpt @ (None | Some(_)) =>
-            ledger
-              .ledgerEntries(Some(begin), endOpt)
-              .collect {
-                case (offset, t: LedgerEntry.Transaction) =>
-                  (toAbsolute(offset), t)
-              }
+            Source.failed(
+              ErrorFactories.invalidArgument(
+                s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
+          case endOpt: Option[Offset] =>
+            f(begin, endOpt)
         }
     }
   }
+
+  private def acceptedTransactions(
+      begin: Offset,
+      endOpt: Option[Offset],
+  ): Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] =
+    ledger
+      .ledgerEntries(Some(begin), endOpt)
+      .collect {
+        case (offset, t: LedgerEntry.Transaction) =>
+          (toAbsolute(offset), t)
+      }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
     Future.successful(toAbsolute(ledger.ledgerEnd))
@@ -188,7 +193,7 @@ abstract class LedgerBackedIndexService(
       applicationId: ApplicationId,
       parties: Set[Ref.Party]
   ): Source[CompletionStreamResponse, NotUsed] =
-    new OffsetConverter().toAbsolute(startExclusive).flatMapConcat { beginOpt =>
+    convertOffset(startExclusive).flatMapConcat { beginOpt =>
       ledger.completions(Some(beginOpt), None, applicationId, parties).map(_._2)
     }
 
