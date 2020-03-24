@@ -65,7 +65,7 @@ Once the DAR file is created you will see this message in terminal ``Created .da
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
 
 Now, use Yarn to install the project dependencies and build the app::
 
