@@ -300,12 +300,14 @@
     - warn: {lhs: second g1 (bimap f g2 x), rhs: bimap f (g1 . g2) x}
     - warn: {lhs: bimap f1 g (first f2 x), rhs: bimap (f1 . f2) g x}
     - warn: {lhs: bimap f g1 (second g2 x), rhs: bimap f (g1 . g2) x}
-    - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
-    - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
-    - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
-    - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
-    - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
-    - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
+    # We disable those rules since nobody should have to understand bifunctors
+    # to use DAML.
+    # - hint: {lhs: "\\(x,y) -> (f x, g y)", rhs: DA.Bifunctor.bimap f g}
+    # - hint: {lhs: "\\(x,y) -> (f x,y)", rhs: DA.Bifunctor.first f}
+    # - hint: {lhs: "\\(x,y) -> (x,f y)", rhs: DA.Bifunctor.second f}
+    # - hint: {lhs: "(f (fst x), g (snd x))", rhs: DA.Bifunctor.bimap f g x}
+    # - hint: {lhs: "(f (fst x), snd x)", rhs: DA.Bifunctor.first f x}
+    # - hint: {lhs: "(fst x, g (snd x))", rhs: DA.Bifunctor.second g x}
 
     # FUNCTOR
 
