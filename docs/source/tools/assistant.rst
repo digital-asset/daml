@@ -140,7 +140,7 @@ Here is what each field means:
   runner when running the ``init-script`` as part of ``daml start``.
 - ``start-navigator``: Controls whether navigator is started as part
   of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
-  say ``daml start --start-navigator=yes``, the CLI argument takes precedence over
+  say ``daml start --start-navigator=true``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
 
 ..  TODO (@robin-da) document the dependency syntax
