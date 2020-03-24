@@ -1063,16 +1063,16 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
 
     console.log("Starting")
 
-    const tokenPrefix = "jwt.token."
     const wsProtocol = "daml.ws.auth"
+    const tokenPrefix = "jwt.token."
     const jwt =
       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
-    const subprotocol = `${tokenPrefix}${jwt},${wsProtocol}`
+    const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol]
 
-    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", [subprotocol])
+    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols)
 
     ws.on("open", function open() {
-      ws.send(`{"templateIds": ["Iou:Iou"]}`)
+      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}))
     })
 
     ws.on("message", function incoming(data) {
