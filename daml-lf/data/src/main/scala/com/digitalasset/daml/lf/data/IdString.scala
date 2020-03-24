@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.daml.lf.data
 
-import com.google.common.io.BaseEncoding
+import java.io.{StringReader, StringWriter}
+
+import com.google.common.io.{BaseEncoding, ByteStreams}
 import scalaz.Equal
 
 sealed trait StringModule[T] {
@@ -28,9 +30,9 @@ sealed trait StringModule[T] {
 
 sealed trait HexStringModule[T <: String] extends StringModule[T] {
 
-  def encode(a: Array[Byte]): T
+  def encode(a: Bytes): T
 
-  def decode(a: T): Array[Byte]
+  def decode(a: T): Bytes
 
 }
 
@@ -66,7 +68,7 @@ sealed abstract class IdString {
   // In a language like C# you'll need to use some other unicode char for `$`.
   type Name <: String
 
-  type HexString <: String
+  type HexString <: LedgerString
 
   // Human-readable package names and versions.
   type PackageName <: String
@@ -125,22 +127,26 @@ private sealed abstract class StringModuleImpl extends StringModule[String] {
     map
 }
 
-private object HexStringModuleImpl$ extends StringModuleImpl with HexStringModule[String] {
+private object HexStringModuleImpl extends StringModuleImpl with HexStringModule[String] {
 
   private val baseEncode = BaseEncoding.base16().lowerCase()
 
   override def fromString(str: String): Either[String, String] =
     Either.cond(
-      HexStringModuleImpl$.baseEncode.canDecode(str),
+      baseEncode.canDecode(str),
       str,
       s"cannot parse HexString $str"
     )
 
-  override def encode(a: Array[Byte]): T =
-    HexStringModuleImpl$.baseEncode.encode(a)
+  override def encode(a: Bytes): T = {
+    val writer = new StringWriter()
+    val os = baseEncode.encodingStream(writer)
+    ByteStreams.copy(a.toInputStream, os)
+    writer.toString
+  }
 
-  override def decode(a: T): Array[Byte] =
-    HexStringModuleImpl$.baseEncode.decode(a)
+  override def decode(a: T): Bytes =
+    Bytes.fromInputStream(baseEncode.decodingStream(new StringReader(a)))
 }
 
 private final class MatchingStringModule(string_regex: String) extends StringModuleImpl {
@@ -199,7 +205,7 @@ private final class ConcatenableMatchingStringModule(
 private[data] final class IdStringImpl extends IdString {
 
   override type HexString = String
-  override val HexString: HexStringModule[HexString] = HexStringModuleImpl$
+  override val HexString: HexStringModule[HexString] = HexStringModuleImpl
 
   // We are very restrictive with regards to identifiers, taking inspiration
   // from the lexical structure of Java:

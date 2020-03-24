@@ -35,7 +35,7 @@ object KVOffset {
     val middle = BigInt(second) << ((end - lowestStart) * 8)
     val lowest = BigInt(third)
     val bytes = (maxValuePlusOne | highest | middle | lowest).toByteArray.drop(1) // this retains leading zeros
-    Offset.fromBytes(bytes)
+    Offset.fromByteArray(bytes)
   }
 
   def highestIndex(offset: Offset): Long =

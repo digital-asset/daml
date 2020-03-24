@@ -139,6 +139,7 @@ abstract class LedgerBackedIndexService(
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset])
     : Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] = {
+
     val converter = new OffsetConverter()
 
     converter.toAbsolute(startExclusive).flatMapConcat { begin =>

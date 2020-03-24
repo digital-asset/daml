@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.io.InputStream
 
-import com.google.protobuf.ByteString
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
 /** Offsets into streams with hierarchical addressing.
   *
@@ -21,22 +21,24 @@ import com.google.protobuf.ByteString
   * less than newer offsets.
   *
   */
-final class Offset(private val value: ByteString) extends AnyVal with Ordered[Offset] {
-
+final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =
-    Offset.comparator.compare(value, that.value)
+    Bytes.`Bytes Ordering`.compare(this.bytes, that.bytes)
 
-  def toByteArray: Array[Byte] = value.toByteArray
+  def toByteArray: Array[Byte] = bytes.toByteArray
 
-  def toInputStream: InputStream = value.newInput()
+  def toInputStream: InputStream = bytes.toInputStream
+
+  def toHexString: Ref.HexString = bytes.toHexString
 }
 
 object Offset {
-  private val comparator = ByteString.unsignedLexicographicalComparator()
 
-  val begin: Offset = new Offset(ByteString.copyFrom(Array(0: Byte)))
+  val begin: Offset = Offset.fromByteArray(Array(0: Byte))
 
-  def fromBytes(bytes: Array[Byte]) = new Offset(ByteString.copyFrom(bytes))
+  def fromByteArray(bytes: Array[Byte]) = new Offset(Bytes.fromByteArray(bytes))
 
-  def fromInputStream(is: InputStream) = new Offset(ByteString.readFrom(is))
+  def fromInputStream(is: InputStream) = new Offset(Bytes.fromInputStream(is))
+
+  def fromHexString(s: Ref.HexString) = new Offset(Bytes.fromHexString(s))
 }

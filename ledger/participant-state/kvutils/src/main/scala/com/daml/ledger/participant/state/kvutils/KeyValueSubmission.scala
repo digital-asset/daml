@@ -63,8 +63,7 @@ object KeyValueSubmission {
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId.getOrElse(""))
-          .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(x =>
-            ByteString.copyFrom(x.toByteArray)))
+          .setSubmissionSeed(meta.submissionSeed.fold(ByteString.EMPTY)(_.bytes.toByteString))
           .setSubmissionTime(buildTimestamp(meta.submissionTime))
       )
       .build
