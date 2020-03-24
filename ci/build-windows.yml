@@ -16,6 +16,10 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
+  - bash: |
+      bazel clean --expunge
+    displayName: clean
+
   - powershell: '.\build.ps1'
     displayName: 'Build'
     env:

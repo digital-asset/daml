@@ -33,6 +33,10 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - bash: |
+      bazel clean --expunge
+    displayName: clean
+
   - bash: ./build.sh "_$(uname)"
     displayName: 'Build'
     env:
