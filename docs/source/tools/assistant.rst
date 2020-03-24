@@ -139,8 +139,8 @@ Here is what each field means:
 - ``script-options``: a list of options that will be passed to the DAML script
   runner when running the ``init-script`` as part of ``daml start``.
 - ``start-navigator``: Controls whether navigator is started as part
-  of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument
-  to ``daml start --start-navigator=yes``, the CLI argument takes precedence over
+  of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
+  say ``daml start --start-navigator=yes``, the CLI argument takes precedence over
   the value in ``daml.yaml``.
 
 ..  TODO (@robin-da) document the dependency syntax
