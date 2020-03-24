@@ -66,7 +66,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
         maximumRecordTime = Instant.EPOCH,
-        submittedAt = currentTime,
+        submittedAt = Instant.now,
         deduplicateUntil = Instant.now.plus(deduplicationTime),
         commands = Commands(
           submitter = submitter,
