@@ -102,7 +102,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
     "ignores location" in forAll(genEmptyNode) { n =>
       val withoutLocation = n match {
         case nc: CidVal[Node.NodeCreate] => nc copy (optLocation = None)
-        case nf: Node.NodeFetch[V.ContractId] => nf copy (optLocation = None)
+        case nf: Node.NodeFetch.WithTxValue[V.ContractId] => nf copy (optLocation = None)
         case ne: Node.NodeExercises.WithTxValue[Nothing, V.ContractId] =>
           ne copy (optLocation = None)
         case nl: CidVal[Node.NodeLookupByKey] => nl copy (optLocation = None)

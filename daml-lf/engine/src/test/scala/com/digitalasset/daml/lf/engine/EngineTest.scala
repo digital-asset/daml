@@ -91,28 +91,29 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       ))
   }
 
+  val withKeyTemplate = "BasicTests:WithKey"
+  val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
+  val withKeyContractInst: ContractInst[Tx.Value[AbsoluteContractId]] =
+    ContractInst(
+      TypeConName(basicTestsPkgId, withKeyTemplate),
+      assertAsVersionedValue(
+        ValueRecord(
+          Some(BasicTests_WithKey),
+          ImmArray(
+            (Some("p"), ValueParty(alice)),
+            (Some("k"), ValueInt64(42))
+          ))),
+      ""
+    )
   def lookupContractWithKey(
       @deprecated("shut up unused arguments warning", "blah") id: AbsoluteContractId)
     : Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
-    Some(
-      ContractInst(
-        TypeConName(basicTestsPkgId, "BasicTests:WithKey"),
-        assertAsVersionedValue(
-          ValueRecord(
-            Some(BasicTests_WithKey),
-            ImmArray(
-              (Some("p"), ValueParty(alice)),
-              (Some("k"), ValueInt64(42))
-            ))),
-        ""
-      ))
+    Some(withKeyContractInst)
   }
 
   def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
   }
-
-  val BasicTests_WithKey = Identifier(basicTestsPkgId, "BasicTests:WithKey")
 
   def lookupKey(key: GlobalKey): Option[AbsoluteContractId] =
     (key.templateId, key.key) match {
@@ -1097,7 +1098,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     def actFetchActors[Nid, Cid, Val](n: GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case NodeFetch(_, _, _, actingParties, _, _) => actingParties.getOrElse(Set.empty)
+        case NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
         case _ => Set()
       }
     }
@@ -1151,7 +1152,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Right(tx) = runExample(fetcher1StrCid, clara)
       val fetchNodes =
         tx.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
-          case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _))) => ns :+ ((nid, n))
+          case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
       fetchNodes.foreach {
@@ -1198,13 +1199,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine()
 
-      val fetchNode = NodeFetch[AbsoluteContractId](
+      val fetchNode = NodeFetch(
         coid = fetchedCid,
         templateId = fetchedTid,
         optLocation = None,
         actingParties = None,
         signatories = Set.empty,
         stakeholders = Set.empty,
+        key = None,
       )
 
       val let = Time.Timestamp.now()
@@ -1241,6 +1243,87 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     run("GetTime").map(_._2.dependsOnTime) shouldBe Right(true)
     run("FactorialOfThree").map(_._2.dependsOnTime) shouldBe Right(false)
 
+  }
+
+  "fetching contracts that have keys correctly fills in the transaction structure" when {
+    val fetchedCid = AbsoluteContractId("1")
+    val now = Time.Timestamp.now()
+
+    "fetched via a fetch" in {
+
+      val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
+
+      val Right(cmds) = commandTranslator
+        .preprocessFetch(BasicTests_WithKey, fetchedCid)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Right((tx, dependsOnTime @ _)) = engine
+        .interpretCommands(false, false, Set(alice), ImmArray(cmds), now, None)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      tx.nodes.values.headOption match {
+        case Some(NodeFetch(_, _, _, _, _, _, key)) =>
+          key match {
+            // just test that the maintainers match here, getting the key out is a bit hairier
+            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              assert(maintainers == Set(alice))
+            case None => fail("the recomputed fetch didn't have a key")
+          }
+        case _ => fail("Recomputed a non-fetch or no nodes at all")
+      }
+    }
+
+    "fetched via a fetchByKey" in {
+      val fetcherTemplate = "BasicTests:FetcherByKey"
+      val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
+      val fetcherCid = AbsoluteContractId("2")
+      val fetcherInst = ContractInst(
+        TypeConName(basicTestsPkgId, fetcherTemplate),
+        assertAsVersionedValue(
+          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))),
+        ""
+      )
+
+      def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+        (key.templateId, key.key) match {
+          case (
+              BasicTests_WithKey,
+              ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+              ) =>
+            Some(fetchedCid)
+          case _ =>
+            None
+        }
+      }
+
+      val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
+      val now = Time.Timestamp.now()
+
+      val Right(cmds) = commandTranslator
+        .preprocessExercise(
+          fetcherTemplateId,
+          fetcherCid,
+          "Fetch",
+          ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Right((tx, dependsOnTime @ _)) = engine
+        .interpretCommands(false, false, Set(alice), ImmArray(cmds), now, None)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      tx.nodes.values.collectFirst {
+        case nf: NodeFetch[_, _] => nf
+      } match {
+        case Some(nf) =>
+          nf.key match {
+            // just test that the maintainers match here, getting the key out is a bit hairier
+            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              assert(maintainers == Set(alice))
+            case None => fail("the recomputed fetch didn't have a key")
+          }
+        case None => fail("didn't find the fetch node resulting from fetchByKey")
+      }
+    }
   }
 
 }

@@ -255,14 +255,15 @@ object ValueGenerators {
     } yield NodeCreate(None, coid, coinst, None, signatories, stakeholders, key)
   }
 
-  val fetchNodeGen: Gen[NodeFetch[ContractId]] = {
+  val fetchNodeGen: Gen[NodeFetch.WithTxValue[ContractId]] = {
     for {
       coid <- coidGen
       templateId <- idGen
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-    } yield NodeFetch(coid, templateId, None, Some(actingParties), signatories, stakeholders)
+      key <- Gen.option(keyWithMaintainersGen)
+    } yield NodeFetch(coid, templateId, None, Some(actingParties), signatories, stakeholders, key)
   }
 
   /** Makes exercise nodes with some random child IDs. */

@@ -459,6 +459,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
               actingParties = Some(Set(party)),
               signatories = Set(party),
               stakeholders = Set(party),
+              None,
             )),
           ImmArray(event(s"transactionId$id", id)),
         ),

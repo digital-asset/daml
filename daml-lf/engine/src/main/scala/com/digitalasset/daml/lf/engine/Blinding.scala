@@ -128,7 +128,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeFetch[Cid] | _: NodeCreate[Cid, Val] | _: NodeLookupByKey[Cid, Val] =>
+              case _: NodeFetch[Cid, Val] | _: NodeCreate[Cid, Val] |
+                  _: NodeLookupByKey[Cid, Val] =>
                 go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid, Val] =>
                 go(filteredRoots, ne.children ++: remainingRoots)
