@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.codahale.metrics.SharedMetricRegistries
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.command.{Command, Commands}
@@ -38,7 +38,7 @@ object KVTest {
 
   private[this] val defaultAdditionalContractDataTy = "Party"
 
-  private[kvutils] val metricRegistry = SharedMetricRegistries.getOrCreate("kvutils")
+  private[kvutils] val metricRegistry = new MetricRegistry
 
   private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
 
