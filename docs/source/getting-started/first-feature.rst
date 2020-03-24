@@ -4,7 +4,7 @@
 Your First Feature
 ******************
 
-Let's dive into implementing a new feature for our social network app. 
+Let's dive into implementing a new feature for our social network app.
 This will give us a better idea how to develop DAML applications using our template.
 
 At the moment, our app lets us follow users in the network, but we have no way to communicate with them!
@@ -17,9 +17,9 @@ This means:
 
 We will see that DAML lets us implement these guarantees in a direct and intuitive way.
 
-There are three parts to building and running the messaging feature: 
+There are three parts to building and running the messaging feature:
 
-    1. Adding the necessary changes to the DAML model  
+    1. Adding the necessary changes to the DAML model
     2. Making the corresponding changes in the UI
     3. Running the new feature. In order to do that we need to terminate the previous ``daml start --start-navigator=no`` process and run it again.
 
@@ -36,7 +36,7 @@ For the authorization part, we take the following approach: a user Bob can messa
 When Alice starts following Bob back, she gives permission or *authority* to Bob to send her a message.
 
 To implement this workflow, let's start by adding the new *data* for messages.
-Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom. 
+Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
 Indentation is important: it should be at the top level like the original ``User`` template.
 
 .. literalinclude:: code/daml/User.daml
@@ -74,9 +74,10 @@ Since we have changed our DAML code, we also need to rerun the TypeScript code g
 Open a new terminal and run the following commands::
 
   daml build
-  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
 
-As the TypeScript code is generated into the separate ``daml-ts`` workspace which the UI depends on, we need to rebuild the workspaces from the root ``create-daml-app`` folder using::
+Since we've generated new TypeScript packages in the ``daml-ts`` folder, we need to rebuild our project using these dependencies.
+From the root ``create-daml-app`` folder, run::
 
   yarn workspaces run build
 
@@ -184,13 +185,13 @@ We need to terminate the previous ``daml start --start-navigator=no`` process an
 
   - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
-  - Start the HTTP JSON API 
+  - Start the HTTP JSON API
 
 First, navigate to the terminal window where the ``daml start --start-navigator=no`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``daml start --start-navigator=no``.
 
-As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost. 
+As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 
-If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI. 
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI.
 
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
