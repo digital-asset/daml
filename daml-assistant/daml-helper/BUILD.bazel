@@ -17,10 +17,12 @@ da_haskell_library(
         "base",
         "bytestring",
         "containers",
+        "conduit",
+        "conduit-extra",
         "directory",
         "extra",
         "filepath",
-        "http-client",
+        "http-conduit",
         "http-types",
         "jwt",
         "monad-loops",
@@ -66,7 +68,7 @@ package_app(
 
 da_haskell_test(
     name = "ledger-tls",
-    srcs = glob(["test/**/*.hs"]),
+    srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
     data = [
         "daml-helper",
         "//ledger/sandbox:sandbox-binary",
@@ -81,6 +83,31 @@ da_haskell_test(
         "tasty-hunit",
     ],
     main_function = "DA.Daml.Helper.Test.Tls.main",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+# Misc tests for daml-helper that do not deserve their own test suite.
+da_haskell_test(
+    name = "tests",
+    srcs = ["test/DA/Daml/Helper/Test.hs"],
+    data = [
+        "daml-helper",
+    ],
+    hackage_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Daml.Helper.Test.main",
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
