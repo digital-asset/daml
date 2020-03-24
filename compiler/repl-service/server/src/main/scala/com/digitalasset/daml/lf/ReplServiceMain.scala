@@ -8,7 +8,6 @@ import akka.stream._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.auth.TokenHolder
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script._
@@ -160,6 +159,7 @@ object ReplServiceMain extends App {
 class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext, mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
+  var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty
   var results: Seq[SValue] = Seq()
   implicit val ec_ = ec
   implicit val mat_ = mat
@@ -171,6 +171,7 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       respObs: StreamObserver[LoadPackageResponse]): Unit = {
     val (pkgId, pkg) = Decode.decodeArchiveFromInputStream(req.getPackage.newInput)
     packages = packages + (pkgId -> pkg)
+    compiledDefinitions = compiledDefinitions ++ Compiler(packages).compilePackage(pkgId)
     respObs.onNext(LoadPackageResponse.newBuilder.build)
     respObs.onCompleted()
   }
@@ -192,7 +193,6 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
     // we probably need to extend this to merge the
     // modules from each line.
     val pkg = Package(Seq(mod), Seq(), None)
-    val dar = Dar((homePackageId, pkg), packages.toList)
     val commandUpdater = new CommandUpdater(
       timeProviderO = Some(TimeProvider.UTC),
       ttl = java.time.Duration.ofSeconds(30),
@@ -210,10 +210,9 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       scriptExpr = SEApp(scriptExpr, results.map(SEValue(_)).toArray)
     }
 
-    val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val allPkgs = packages + (homePackageId -> pkg)
+    val defs = Compiler(allPkgs).compilePackage(homePackageId)
+    val compiledPackages = PureCompiledPackages(allPkgs, compiledDefinitions ++ defs).right.get
     val runner = new Runner(
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
