@@ -210,6 +210,8 @@ object RecoveringIndexerIntegrationSpec {
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)
 
+  private val metricRegistry = new MetricRegistry
+
   private def randomSubmissionId(): SubmissionId =
     SubmissionId.assertFromString(UUID.randomUUID().toString)
 
@@ -225,7 +227,7 @@ object RecoveringIndexerIntegrationSpec {
         implicit materializer: Materializer,
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] =
-      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId)
+      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId, metricRegistry)
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
   }
 

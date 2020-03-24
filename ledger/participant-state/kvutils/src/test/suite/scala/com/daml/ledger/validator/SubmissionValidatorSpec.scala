@@ -5,9 +5,10 @@ package com.daml.ledger.validator
 
 import java.time.Clock
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
@@ -28,10 +29,14 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
-      val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
+      val instance = SubmissionValidator.create(
+        new FakeStateAccess(mockStateOperations),
+        metricRegistry = new MetricRegistry,
+      )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Right(_) => succeed
+          case Left(error: ValidationError) => fail(s"ValidationError: $error")
         }
       }
     }
@@ -42,7 +47,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         .thenReturn(Future.successful(Seq(None)))
       val instance = SubmissionValidator.create(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
-        checkForMissingInputs = true)
+        checkForMissingInputs = true,
+        metricRegistry = new MetricRegistry,
+      )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Left(MissingInputState(keys)) => keys should have size 1
@@ -52,7 +59,10 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
 
     "return invalid submission for invalid envelope" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
-      val instance = SubmissionValidator.create(new FakeStateAccess(mockStateOperations))
+      val instance = SubmissionValidator.create(
+        new FakeStateAccess(mockStateOperations),
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validate(
           ByteString.copyFrom(Array[Byte](1, 2, 3)),
@@ -108,7 +118,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val mockLogEntryIdGenerator = mockFunctionReturning(expectedLogEntryId)
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
-        SubmissionValidator.processSubmission,
+        SubmissionValidator.processSubmission(new KeyValueCommitting(new MetricRegistry)),
         mockLogEntryIdGenerator)
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())

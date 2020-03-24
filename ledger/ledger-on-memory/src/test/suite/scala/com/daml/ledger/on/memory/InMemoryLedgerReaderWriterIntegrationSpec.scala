@@ -28,6 +28,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
     new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       participantId,
+      metricRegistry,
       heartbeats = heartbeats,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }

@@ -9,6 +9,7 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
@@ -56,6 +57,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   // This can be overriden by tests for those that don't support heartbeats.
   protected val supportsHeartbeats: Boolean = true
+
+  // A metric registry, in case the ledger access layer needs it.
+  protected val metricRegistry: MetricRegistry = new MetricRegistry
 
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
