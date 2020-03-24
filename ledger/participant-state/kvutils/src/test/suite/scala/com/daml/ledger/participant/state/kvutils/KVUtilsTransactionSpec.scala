@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
@@ -17,18 +16,18 @@ import com.digitalasset.daml.lf.command.{
   ExerciseCommand
 }
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{Ref, FrontStack, SortedLookupList}
+import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ValueUnit,
-  ValueParty,
-  ValueOptional,
   ValueList,
-  ValueVariant,
+  ValueOptional,
+  ValueParty,
   ValueRecord,
-  ValueTextMap
+  ValueTextMap,
+  ValueUnit,
+  ValueVariant
 }
 import org.scalatest.{Matchers, WordSpec}
 
@@ -284,12 +283,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
-        reg
+        metricRegistry.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
+        metricRegistry
           .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
           .getCount should be >= 1L
-        reg.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
+        metricRegistry.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
       }
     }
 

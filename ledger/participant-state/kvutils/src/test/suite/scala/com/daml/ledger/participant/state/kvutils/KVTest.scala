@@ -38,7 +38,7 @@ object KVTest {
 
   private[this] val defaultAdditionalContractDataTy = "Party"
 
-  private[this] val metricRegistry = SharedMetricRegistries.getOrCreate("kvutils")
+  private[kvutils] val metricRegistry = SharedMetricRegistries.getOrCreate("kvutils")
 
   private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
 

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.concurrent.Executors
 
-import com.codahale.metrics.{Counter, Gauge, Timer}
+import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.digitalasset.daml.lf.archive.Decode
@@ -16,17 +16,19 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 
 import scala.collection.JavaConverters._
 
-private[kvutils] case class PackageCommitter(engine: Engine)
-    extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
+private[kvutils] class PackageCommitter(
+    engine: Engine,
+    override protected val metricRegistry: MetricRegistry,
+) extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
 
   override protected val committerName = "package_upload"
 
   private object Metrics {
-    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
-    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
-    val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
-    metricsRegistry.gauge(
+    val preloadTimer: Timer = metricRegistry.timer(metricsName("preload_timer"))
+    val decodeTimer: Timer = metricRegistry.timer(metricsName("decode_timer"))
+    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
+    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
+    metricRegistry.gauge(
       metricsName("loaded_packages"),
       () =>
         new Gauge[Int] {

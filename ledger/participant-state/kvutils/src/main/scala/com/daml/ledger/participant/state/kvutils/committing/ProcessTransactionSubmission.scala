@@ -26,7 +26,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
-private[kvutils] case class ProcessTransactionSubmission(
+private[kvutils] class ProcessTransactionSubmission(
     defaultConfig: Configuration,
     engine: Engine,
 ) {

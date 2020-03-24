@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committer
 
-import com.codahale.metrics.Counter
+import com.codahale.metrics.{Counter, MetricRegistry}
 import com.daml.ledger.participant.state.kvutils.Conversions.{
   buildTimestamp,
   configDedupKey,
@@ -22,15 +22,16 @@ private[kvutils] object ConfigCommitter {
 
 }
 
-private[kvutils] case class ConfigCommitter(
-    defaultConfig: Configuration
+private[kvutils] class ConfigCommitter(
+    defaultConfig: Configuration,
+    override protected val metricRegistry: MetricRegistry,
 ) extends Committer[DamlConfigurationSubmission, ConfigCommitter.Result] {
 
   override protected val committerName = "config"
 
   private object Metrics {
-    val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
+    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
+    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
   }
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
