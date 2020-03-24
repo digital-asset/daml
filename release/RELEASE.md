@@ -25,6 +25,12 @@ latest commit on master.
    ./release.sh changes stable latest
    ```
 
+1. **[STABLE]** Check that the [Getting Started
+   Guide](https://github.com/digital-asset/daml/tree/master/docs/source/getting-started)
+   in the snapshot you have chosen to promote to a stable release is supported
+   by the latest
+   [create-daml-app](https://github.com/digital-asset/create-daml-app).
+
 1. Pull the latest master branch of the `daml` repository and create a new,
    clean branch off it.
 
@@ -197,6 +203,10 @@ latest commit on master.
    ```
    ./release.sh changes stable previous
    ```
+
+1. **[STABLE]** Update the
+   [create-daml-app](https://github.com/digital-asset/create-daml-app) template
+   to use the new version, and add a tag for it.
 
 1. **[STABLE]** Coordinate with product (& marketing) for the relevant public
    announcements (public Slack, Twitter, etc.).
