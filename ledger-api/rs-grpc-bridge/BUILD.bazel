@@ -1,7 +1,7 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:scala.bzl", "da_scala_library")
+load("//bazel_tools:scala.bzl", "da_scala_library", "da_scala_test")
 load("//bazel_tools:java.bzl", "da_java_library")
 
 da_java_library(
@@ -46,7 +46,7 @@ da_scala_library(
     ],
 )
 
-da_scala_library(
+da_scala_test(
     name = "rs-grpc-bridge-test",
     srcs = glob([
         "src/test/suite/scala/**/*.scala",
