@@ -9,17 +9,17 @@ locals {
 
 resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-windows" {
   provider = "google-beta"
-  name     = "temp_garys-agent-windows"
+  name     = "temp-garys-agent-windows"
 
   # keep the name short. windows hostnames are limited to 12(?) chars.
   # -5 for the random postfix:
-  base_instance_name = "temp_garys-win"
+  base_instance_name = "temp-garys-win"
 
   region      = "${local.region}"
   target_size = 1
 
   version {
-    name              = "temp_garys-agent-windows"
+    name              = "temp-garys-agent-windows"
     instance_template = "${google_compute_instance_template.TEMP_garys-agent-windows.self_link}"
   }
 
@@ -37,7 +37,7 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-window
 }
 
 resource "google_compute_instance_template" "TEMP_garys-agent-windows" {
-  name_prefix  = "temp_garys-agent-windows-"
+  name_prefix  = "temp-garys-agent-windows-"
   machine_type = "n1-standard-8"
   labels       = "${local.labels}"
 
