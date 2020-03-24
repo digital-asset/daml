@@ -415,7 +415,7 @@ server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
         "--static-time",
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -432,7 +432,7 @@ NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -440,7 +440,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],

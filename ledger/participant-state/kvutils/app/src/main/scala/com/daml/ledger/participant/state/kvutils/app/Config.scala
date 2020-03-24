@@ -127,7 +127,7 @@ object Config {
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
       private val seedingMap =
-        Map[String, Seeding]("weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
+        Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
 
       opt[String]("contract-id-seeding")
         .optional()
