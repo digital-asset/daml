@@ -256,6 +256,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     modHeader =
       [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
+      , "/* eslint-disable @typescript-eslint/no-namespace */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
       , "import * as daml from '@daml/types';"
@@ -304,8 +305,7 @@ genDataDef curPkgId mod tpls def = case unTypeConName (dataTypeCon def) of
       where
         ((typs, _), refs) = genDefDataType curPkgId c2 mod tpls def
         makeNamespace stuff =
-          [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-          , "export namespace " <> c1 <> " {"] ++ stuff ++ ["} //namespace " <> c1]
+          ["export namespace " <> c1 <> " {"] ++ stuff ++ ["} //namespace " <> c1]
 
 genDefDataType :: PackageId -> T.Text -> Module -> NM.NameMap Template -> DefDataType -> (([T.Text], [T.Text]), Set.Set ModuleRef)
 genDefDataType curPkgId conName mod tpls def =
@@ -426,10 +426,10 @@ genDefDataType curPkgId conName mod tpls def =
                             ["};"]
                         associatedTypes =
                           maybe [] (\key ->
-                              [ "// eslint-disable-next-line @typescript-eslint/no-namespace"
-                              , "export namespace " <> conName <> " {"] ++
-                              ["  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""] ++
-                              ["}"]) (tplKey tpl)
+                              [ "export namespace " <> conName <> " {"
+                              , "  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""
+                              , "}"
+                              ]) (tplKey tpl)
                         registrations =
                             ["daml.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
@@ -582,8 +582,12 @@ writeIndexTs packageSrcDir modules =
 
     header :: [T.Text]
     header =
-      [ "import __packageId from \"./packageId\""
+      [ "/* eslint-disable @typescript-eslint/camelcase */"
       , "/* eslint-disable @typescript-eslint/no-namespace */"
+        -- NOTE(MH): We produce a lot of _seemingly_ unused variables because
+        -- ESLint unfortunately regards `A` in `export import A = B` as unused.
+      , "/* eslint-disable @typescript-eslint/no-unused-vars */"
+      , "import __packageId from \"./packageId\""
       , "namespace __All {"
       , "  export const packageId = __packageId;"
       , "}"
@@ -603,14 +607,12 @@ writeIndexTs packageSrcDir modules =
 
     importDecl :: T.Text -> T.Text -> [T.Text]
     importDecl var path =
-      [ "/* eslint-disable @typescript-eslint/camelcase */"
-      , "import * as " <> var <> " from "  <> path <> ";"
+      [ "import * as " <> var <> " from "  <> path <> ";"
       ]
 
     exportDecl :: T.Text -> [T.Text] -> [T.Text]
     exportDecl var name =
-      [ "/* eslint-disable @typescript-eslint/no-namespace */"
-      , "namespace __All {"
+      [ "namespace __All {"
       ] <>  go 2 var name <>
       ["}"]
       where
@@ -618,12 +620,10 @@ writeIndexTs packageSrcDir modules =
 
         go :: Int -> T.Text -> [T.Text] -> [T.Text]
         go indent var [m] = let ws = spaces indent in
-          [ ws <> "/* eslint-disable @typescript-eslint/no-unused-vars */"
-          , ws <> "export import " <> m <> " = " <> var <> ";"
+          [ ws <> "export import " <> m <> " = " <> var <> ";"
           ]
         go indent var (m : parts) = let ws = spaces indent in
-          [ ws <> "/* eslint-disable @typescript-eslint/no-namespace */"
-          , ws <> "export namespace " <> m <> " {"
+          [ ws <> "export namespace " <> m <> " {"
           ] <>
           go (indent + 2) var parts <>
           [ ws <> "}" ]
