@@ -4,12 +4,12 @@
 App Architecture
 ****************
 
-In this section we'll look at the different components of our social network app. The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section. There are two main components: 
+In this section we'll look at the different components of our social network app. The goal is to familiarise you enough to feel comfortable extending the code with a new feature in the next section. There are two main components:
 
-  * the DAML model and 
-  * the React/TypeScript frontend. 
-  
-We generate TypeScript code to bridge the two. 
+  * the DAML model and
+  * the React/TypeScript frontend.
+
+We generate TypeScript code to bridge the two.
 
 Overall, the social networking app is following the :ref:`recommended architecture of a fullstack DAML application <recommended-architecture>`. Below you can see a simplified version of the architecture represented in the app.
 
@@ -65,14 +65,14 @@ The last part of the DAML model is the operation to follow users, called a *choi
   :end-before: -- ADDFRIEND_END
 
 DAML contracts are *immutable* (can not be changed in place), so the only way to "update" one is to archive it and create a new instance.
-That is what the ``Follow`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the new user to follow added to the list. Here is a quick explanation of the code: 
+That is what the ``Follow`` choice does: after checking some preconditions, it archives the current user contract and creates a new one with the new user to follow added to the list. Here is a quick explanation of the code:
 
     - The choice starts with the ``nonconsuming choice`` keyword followed by the choice name ``Follow``.
     - The return type of a choice is defined next. In this case it is ``ContractId User``.
     - After that we declare choice paramteres with ``with`` keyword. Here this is the user we want to start following.
     - The keyword ``controller`` defines the ``Party`` that is allowed to execute the choice. In this case, it is the ``username`` party associated with the ``User`` contract.
     - The ``do`` keyword marks the start of the choice body where its functionality will be written.
-    - After passing some checks current contract is archived with ``archive self`` 
+    - After passing some checks, the current contract is archived with ``archive self``.
     - A new ``User`` contract with the new user we have started following is created (the new user is added to the ``following`` list).
 
 This information should be enough for understanding how choices work in this guide. More detailed information on choices can be found in :doc:`our docs </daml/reference/choices>`).
@@ -88,15 +88,15 @@ TypeScript is a variant of Javascript that provides more support during developm
 In order to build an application on top of DAML, we need a way to refer to our DAML templates and choices in TypeScript.
 We do this using a DAML to TypeScript code generation tool in the DAML SDK.
 
-To run code generation, we first need to compile the DAML model to an archive format (with a ``.dar`` extension).
-Then the command ``daml codegen ts`` takes this file as argument to produce a number of TypeScript files in the specified location.
+To run code generation, we first need to compile the DAML model to an archive format (a ``.dar`` file).
+The ``daml codegen ts`` command then takes this file as argument to produce a number of TypeScript packages in the output folder.
+It also updates our ``package.json`` file with the newly generated dependencies.
 ::
 
     daml build
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
 
-We now have TypeScript types and companion objects in the ``daml-ts`` workspace which we can use from our UI code.
-We'll see that next.
+Now we have a TypeScript interface (types and companion objects) to our DAML model, which we'll use in our UI code next.
 
 The UI
 ======
@@ -117,7 +117,7 @@ We'll first look at ``App.tsx``, which is the entry point to our application.
 An important tool in the design of our components is a React feature called `Hooks <https://reactjs.org/docs/hooks-intro.html>`_.
 Hooks allow you to share and update state across components, avoiding having to thread it through manually.
 We take advantage of hooks in particular to share ledger state across components.
-We use custom `DAML React hooks <daml-react/index.html>`_ to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ . 
+We use custom `DAML React hooks <daml-react/index.html>`_ to query the ledger for contracts, create new contracts, and exercise choices. This is the library you will be using the most when interacting with the ledger [#f1]_ .
 
 The ``useState`` hook (not specific to DAML) here keeps track of the user's credentials.
 If they are not set, we render the ``LoginScreen`` with a callback to ``setCredentials``.
@@ -166,4 +166,4 @@ You'll see this more as you develop :doc:`your first feature <first-feature>` fo
 
 .. rubric:: Footnotes
 
-.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <daml-ledger/index.html>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`. 
+.. [#f1] FYI Behind the scenes the DAML React hooks library uses the `DAML Ledger React library <daml-ledger/index.html>`_ to communicate with a ledger implementation via :doc:`HTTP JSON API </json-api/index>`.
