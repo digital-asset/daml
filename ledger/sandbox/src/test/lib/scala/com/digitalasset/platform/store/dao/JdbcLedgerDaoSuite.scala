@@ -46,7 +46,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val base = BigInt(1) << 32
     val counter = new AtomicLong(0)
     () =>
-      Offset.fromBytes((base + counter.getAndIncrement()).toByteArray)
+      Offset.fromByteArray((base + counter.getAndIncrement()).toByteArray)
   }
 
   protected final implicit class OffsetToLong(offset: Offset) {

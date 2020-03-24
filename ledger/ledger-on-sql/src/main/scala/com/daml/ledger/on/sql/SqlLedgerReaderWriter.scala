@@ -50,7 +50,7 @@ final class SqlLedgerReaderWriter(
     DamlLogEntryId.newBuilder
       .setEntryId(
         ByteString.copyFromUtf8(
-          UUID.nameUUIDFromBytes(seedService.nextSeed().toByteArray).toString))
+          UUID.nameUUIDFromBytes(seedService.nextSeed().bytes.toByteArray).toString))
       .build()
 
   private val committer = new ValidatingCommitter[Index](

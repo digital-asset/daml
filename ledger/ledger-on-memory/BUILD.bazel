@@ -103,7 +103,7 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [
@@ -122,7 +122,7 @@ conformance_test(
     ],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example1,port=6865",
         "--participant participant-id=example2,port=6866",
     ],
@@ -139,7 +139,7 @@ conformance_test(
     ports = [6865],
     server = ":app",
     server_args = [
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=example,port=6865",
     ],
     test_tool_args = [

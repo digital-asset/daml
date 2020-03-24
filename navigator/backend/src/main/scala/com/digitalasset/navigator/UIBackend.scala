@@ -44,7 +44,7 @@ import scala.util.{Failure, Success, Try}
   * A new UI backend can be implemented by extending [[UIBackend]] and by providing
   * the [[customEndpoints]], [[customRoutes]], [[applicationInfo]] definitions.
   */
-@SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Option2Iterable"))
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
 
   def customEndpoints: Set[CustomEndpoint[_]]
@@ -78,7 +78,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
       case Cookie(cookies) =>
         cookies
           .filter(_.name == "session-id")
-          .flatMap(cookiePair => Session.current(cookiePair.value).map(cookiePair.value -> _))
+          .flatMap(cookiePair =>
+            Session.current(cookiePair.value).map(cookiePair.value -> _).toList)
           .headOption
       case _ =>
         None

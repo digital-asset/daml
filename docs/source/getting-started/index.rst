@@ -35,7 +35,7 @@ With that, let's get started!
 Prerequisites
 *************
 
-Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per instructions from our :doc:`installation` page. 
+Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio Code (the only supported IDE) installed as per instructions from our :doc:`installation` page.
 
 You will also need some common software tools to build and interact with the template project.
 
@@ -65,13 +65,14 @@ Once the DAR file is created you will see this message in terminal ``Created .da
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
 
 Now, use Yarn to install the project dependencies and build the app::
 
     yarn install
     yarn workspaces run build
 
+These steps may take a couple of minutes each (it's worth it!).
 You should see ``Compiled successfully.`` in the output if everything worked as expected.
 
 .. TODO: Give instructions for possible failures.
@@ -100,7 +101,7 @@ The command should automatically open a window in your default browser at http:/
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 
-You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.   
+You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.
 First enter your name and click *Log in*.
 You should see the main screen with two panels. One for the users you are following and one for your followers.
 Initially these are both empty as you are not following anyone and you don't have any followers!
