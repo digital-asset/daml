@@ -42,17 +42,17 @@ private[kvutils] case class ProcessTransactionSubmission(
       "Authorize submitter" -> authorizeSubmitter,
       "Check Informee Parties Allocation" -> checkInformeePartiesAllocation,
       "Deduplicate" -> deduplicateCommand,
-      "Validate LET/TTL" -> validateLetAndTtl,
+      "Validate LET/TTL" -> validateLetAndTtl(inputState),
       "Validate Contract Key Uniqueness" -> validateContractKeyUniqueness,
-      "Validate Model Conformance" -> timed(Metrics.interpretTimer, validateModelConformance),
+      "Validate Model Conformance" -> timed(
+        Metrics.interpretTimer,
+        validateModelConformance(inputState),
+      ),
       "Authorize and build result" -> authorizeAndBlind.flatMap(buildFinalResult)
     )
   }
 
   // -------------------------------------------------------------------------------
-
-  private val (_, config) =
-    Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
   private val submitterInfo = txEntry.getSubmitterInfo
@@ -74,18 +74,6 @@ private[kvutils] case class ProcessTransactionSubmission(
     }
     isVisible && isActive
   }
-
-  // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
-  // which are not evidenced in the transaction itself and hence the contract key state is
-  // not included in the inputs.
-  private lazy val knownKeys: Map[DamlContractKey, Value.AbsoluteContractId] =
-    inputState.collect {
-      case (key, Some(value))
-          if value.hasContractState
-            && value.getContractState.hasContractKey
-            && contractIsActiveAndVisibleToSubmitter(value.getContractState) =>
-        value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
-    }
 
   /** Deduplicate the submission. If the check passes we save the command deduplication
     * state.
@@ -133,7 +121,8 @@ private[kvutils] case class ProcessTransactionSubmission(
     }
 
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLetAndTtl: Commit[Unit] = delay {
+  private def validateLetAndTtl(inputState: DamlStateMap): Commit[Unit] = delay {
+    val (_, config) = Common.getCurrentConfiguration(defaultConfig, inputState, logger)
     val timeModel = config.timeModel
     val givenLET = txLet.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
@@ -154,12 +143,28 @@ private[kvutils] case class ProcessTransactionSubmission(
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private def validateModelConformance: Commit[Unit] = delay {
+  private def validateModelConformance(inputState: DamlStateMap): Commit[Unit] = delay {
+    // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
+    // which are not evidenced in the transaction itself and hence the contract key state is
+    // not included in the inputs.
+    lazy val knownKeys: Map[DamlContractKey, Value.AbsoluteContractId] =
+      inputState.collect {
+        case (key, Some(value))
+            if value.hasContractState
+              && value.getContractState.hasContractKey
+              && contractIsActiveAndVisibleToSubmitter(value.getContractState) =>
+          value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
+      }
+
     val ctx = Metrics.interpretTimer.time()
     try {
       engine
         .validate(relTx, txLet, participantId, submissionSeedAndTime)
-        .consume(lookupContract, lookupPackage, lookupKey)
+        .consume(
+          lookupContract(inputState),
+          lookupPackage(inputState),
+          lookupKey(inputState, knownKeys),
+        )
         .fold(err => reject(buildRejectionLogEntry(RejectionReason.Disputed(err.msg))), _ => pass)
     } finally {
       val _ = ctx.stop()
@@ -331,7 +336,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Helper to lookup contract instances. We verify the activeness of
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
-  private def lookupContract(coid: Value.AbsoluteContractId) = {
+  private def lookupContract(inputState: DamlStateMap)(coid: Value.AbsoluteContractId) = {
     val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
@@ -348,7 +353,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   // Helper to lookup package from the state. The package contents
   // are stored in the [[DamlLogEntry]], which we find by looking up
   // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
-  private def lookupPackage(pkgId: PackageId) = {
+  private def lookupPackage(inputState: DamlStateMap)(pkgId: PackageId) = {
     val stateKey = packageStateKey(pkgId)
     for {
       value <- inputState
@@ -382,7 +387,10 @@ private[kvutils] case class ProcessTransactionSubmission(
     } yield pkg
   }
 
-  private def lookupKey(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
+  private def lookupKey(
+      inputState: DamlStateMap,
+      knownKeys: Map[DamlContractKey, Value.AbsoluteContractId],
+  )(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
     val stateKey = Conversions.globalKeyToStateKey(key)
     inputState
       .get(stateKey)
@@ -398,9 +406,9 @@ private[kvutils] case class ProcessTransactionSubmission(
           } yield contractId
         }
       }
-      // If the key was not in state inputs, then we look whether any of the accessed contracts
-      // has the key we're looking for. This happens with "fetchByKey" where the key lookup
-      // is not evidenced in the transaction. The activeness of the contract is checked when it is fetched.
+      // If the key was not in state inputs, then we look whether any of the accessed contracts has
+      // the key we're looking for. This happens with "fetchByKey" where the key lookup is not
+      // evidenced in the transaction. The activeness of the contract is checked when it is fetched.
       .orElse {
         knownKeys.get(stateKey.getContractKey)
       }
