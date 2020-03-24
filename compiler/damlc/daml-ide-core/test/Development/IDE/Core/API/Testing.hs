@@ -88,7 +88,6 @@ import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           System.IO.Temp         (withSystemTempDirectory)
 import           System.IO.Extra
 import           Control.Monad
-import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
 import           Text.Regex.TDFA

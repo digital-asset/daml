@@ -328,8 +328,7 @@ nixpkgs_package(
 
 nix_ghc_deps = common_nix_file_deps + [
     "//nix:ghc.nix",
-    "//nix:overrides/ghc-8.6.5.nix",
-    "//nix:overrides/ghc-8.6.3-binary.nix",
+    "//nix:overrides/ghc-8.10.2.nix",
 ]
 
 nixpkgs_package(
@@ -453,13 +452,13 @@ haskell_register_ghc_nixpkgs(
     ],
     repositories = dev_env_nix_repos,
     static_runtime = True,
-    version = "8.6.5",
+    version = "8.10.2",
 )
 
 # Used by Windows
 haskell_register_ghc_bindists(
     compiler_flags = common_ghc_flags,
-    version = "8.6.5",
+    version = "8.10.2",
 ) if is_windows else None
 
 nixpkgs_package(

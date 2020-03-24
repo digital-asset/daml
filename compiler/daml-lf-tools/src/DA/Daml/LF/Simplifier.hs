@@ -181,7 +181,7 @@ safetyStep = \case
   ETmLamF _ s -> incrSafety s
   ETyLamF _ s -> s
   ECaseF s1 as
-    | Safe _ <- s1 -> Safe.minimumDef Unsafe (map snd as)
+    | Safe _ <- s1 -> Safe.minimumBound Unsafe (map snd as)
     | otherwise    -> Unsafe
   ELetF (BindingF _ s1) s2
     | Safe _ <- s1 -> s2

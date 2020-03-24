@@ -35,7 +35,7 @@ import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (alwaysQualify, ppr, showSDocForUser)
+import "ghc-lib-parser" Outputable (ppr, showSDocForUser)
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" TcEvidence (HsWrapper (WpHole))
 import "ghc-lib-parser" TysPrim

@@ -61,10 +61,8 @@ import qualified Data.Text.Extended as T
 import Development.IDE.Core.API
 import Development.IDE.Core.Debouncer
 import Development.IDE.Core.IdeState.Daml
-import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
-import Development.IDE.Core.Service (runActionSync)
+import Development.IDE.Core.Rules.Daml (getDlintIdeas)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
 import Development.IDE.Types.Location
@@ -293,7 +291,7 @@ cmdRepl numProcessors =
             let pkg@(name, _) = splitUnitId (stringToUnitId s)
                 strName = T.unpack . LF.unPackageName $ name
             unless (looksLikePackageName strName) $
-                fail $ "Illegal package name: " ++ strName
+                Left $ "Illegal package name: " ++ strName
             pure pkg
     accessTokenFileFlag = optional . option str $
         long "access-token-file"

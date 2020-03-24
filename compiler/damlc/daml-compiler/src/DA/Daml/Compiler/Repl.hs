@@ -52,9 +52,6 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import ErrUtils
 import GHC
-import HsExpr (Stmt, StmtLR(..), LHsExpr)
-import HsExtension (GhcPs, GhcTc)
-import HsPat (Pat(..))
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
 import Language.Haskell.LSP.Messages
@@ -64,7 +61,6 @@ import OccName (OccSet, occName, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import qualified Outputable
 import RdrName (mkRdrUnqual)
-import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra

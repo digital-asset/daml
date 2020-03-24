@@ -59,7 +59,6 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import qualified System.IO
-import System.Process (proc, CreateProcess, readCreateProcessWithExitCode)
 
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF

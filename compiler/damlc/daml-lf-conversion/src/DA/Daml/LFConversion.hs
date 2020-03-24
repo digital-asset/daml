@@ -89,7 +89,6 @@ import           Development.IDE.GHC.Util
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Extra
-import Control.Monad.Fail
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
