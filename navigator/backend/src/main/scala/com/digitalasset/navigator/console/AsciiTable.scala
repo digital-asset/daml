@@ -71,8 +71,7 @@ object Maths {
   *    &lt;- 7 ->
   * </pre>
   */
-@SuppressWarnings(
-  Array("org.wartremover.warts.Option2Iterable", "org.wartremover.warts.StringPlusAny"))
+@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 final class AsciiTable {
   private var header: Option[Seq[String]] = None
   private val streamBuilder = new StreamBuilder[Seq[String]]

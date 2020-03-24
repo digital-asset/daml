@@ -26,7 +26,6 @@ import scala.collection.JavaConverters._
   * method it's overloading, meaning that the return type will be
   * boxed even if it's a DAML-LF primitive
   */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 object ToValueGenerator {
 
   import Types._

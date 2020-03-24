@@ -31,8 +31,9 @@ object Main {
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
       new InMemoryLedgerReaderWriter.Owner(
-        config.ledgerId,
-        participantConfig.participantId,
+        initialLedgerId = config.ledgerId,
+        participantId = participantConfig.participantId,
+        metricRegistry = metricRegistry(participantConfig, config),
         dispatcher = dispatcher,
         state = state,
       )

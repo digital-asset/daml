@@ -259,8 +259,8 @@ object Cli {
 
       private val seedingMap = Map[String, Option[Seeding]](
         "no" -> None,
-        "static" -> Some(Seeding.Static),
-        "weak" -> Some(Seeding.Weak),
+        "testing-static" -> Some(Seeding.Static),
+        "testing-weak" -> Some(Seeding.Weak),
         "strong" -> Some(Seeding.Strong))
 
       opt[String]("contract-id-seeding")
@@ -274,7 +274,6 @@ object Cli {
               (),
               s"seeding must be ${seedingMap.keys.mkString(",")}"))
         .action((text, config) => config.copy(seeding = seedingMap(text)))
-        .hidden()
 
       opt[MetricsReporter]("metrics-reporter")
         .optional()

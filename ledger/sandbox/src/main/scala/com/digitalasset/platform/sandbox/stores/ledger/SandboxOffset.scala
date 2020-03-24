@@ -10,7 +10,7 @@ object SandboxOffset {
   def numBytes = 8
 
   def toOffset(value: BigInt): Offset = {
-    Offset.fromBytes(value.toByteArray.reverse.padTo(numBytes, 0: Byte).reverse)
+    Offset.fromByteArray(value.toByteArray.reverse.padTo(numBytes, 0: Byte).reverse)
   }
 
   def fromOffset(offset: Offset): BigInt = {

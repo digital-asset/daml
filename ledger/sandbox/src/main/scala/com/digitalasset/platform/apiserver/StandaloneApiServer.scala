@@ -11,6 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
@@ -49,6 +50,7 @@ final class StandaloneApiServer(
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
+    transformIndexService: IndexService => IndexService = identity,
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
     seeding: Option[Seeding],
@@ -74,14 +76,16 @@ final class StandaloneApiServer(
         () => java.time.Clock.systemUTC.instant(),
         initialConditions.ledgerId,
         participantId)
-      indexService <- JdbcIndex.owner(
-        ServerRole.ApiServer,
-        initialConditions.config.timeModel,
-        domain.LedgerId(initialConditions.ledgerId),
-        participantId,
-        config.jdbcUrl,
-        metrics,
-      )
+      indexService <- JdbcIndex
+        .owner(
+          ServerRole.ApiServer,
+          initialConditions.config.timeModel,
+          domain.LedgerId(initialConditions.ledgerId),
+          participantId,
+          config.jdbcUrl,
+          metrics,
+        )
+        .map(transformIndexService)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,

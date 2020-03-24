@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
@@ -162,10 +161,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         }, submissionId = Ref.LedgerString.assertFromString("submission-id-1"))
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.config.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.config.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
+        metricRegistry.counter("kvutils.committer.config.accepts").getCount should be >= 1L
+        metricRegistry.counter("kvutils.committer.config.rejections").getCount should be >= 1L
+        metricRegistry.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
       }
     }
   }

@@ -7,6 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -26,13 +27,15 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       participantId: ParticipantId,
       testId: String,
       heartbeats: Source[Instant, NotUsed],
+      metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     new SqlLedgerReaderWriter.Owner(
       ledgerId,
       participantId,
+      metricRegistry,
       jdbcUrl(testId),
       heartbeats = heartbeats,
       // Using a weak random source to avoid slowdown during tests.
-      seedService = SeedService(Seeding.Weak)
+      seedService = SeedService(Seeding.Weak),
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
 }
