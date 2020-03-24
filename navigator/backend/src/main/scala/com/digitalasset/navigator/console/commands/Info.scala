@@ -6,7 +6,6 @@ package com.digitalasset.navigator.console.commands
 import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.navigator.console._
 import com.digitalasset.navigator.store.Store._
 import com.digitalasset.navigator.time.TimeProviderType
@@ -17,7 +16,6 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
 
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case object Info extends SimpleCommand {
   def name: String = "info"
 
@@ -112,19 +110,6 @@ case object Info extends SimpleCommand {
       future <- Try((state.store ? GetApplicationStateInfo).mapTo[ApplicationStateInfo]) ~> "Failed to get info"
       info <- Try(Await.result(future, 10.seconds)) ~> "Failed to get info"
     } yield (state, getBanner(state) + "\n" + Pretty.yaml(prettyInfo(info, state)))
-  }
-
-  private def tlsInfo(info: Option[TlsConfiguration]): String = {
-    info
-      .map(c =>
-        if (c.enabled) {
-          val crt = c.keyCertChainFile.map(_ => "CRT")
-          val pem = c.keyFile.map(_ => "PEM")
-          val cacrt = c.trustCertCollectionFile.map(_ => "CACRT")
-          val options = List(crt, pem, cacrt).flatten
-          s"Enabled, using ${options.mkString(", ")}."
-        } else "Disabled.")
-      .getOrElse("Not set.")
   }
 
   def getBanner(state: State): String = {

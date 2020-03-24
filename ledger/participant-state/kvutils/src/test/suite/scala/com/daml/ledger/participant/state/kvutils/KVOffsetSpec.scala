@@ -4,20 +4,19 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.google.protobuf.ByteString
+import com.digitalasset.daml.lf.data
 import org.scalatest.{Matchers, WordSpec}
 
 class KVOffsetSpec extends WordSpec with Matchers {
 
   "KVOffset" should {
-    val zeroBytes = Array.fill(16)(0: Byte)
-    val zeroByteString = ByteString.copyFrom(zeroBytes)
+    val zeroBytes = data.Bytes.fromByteArray(Array.fill(16)(0: Byte))
 
     def triple(offset: Offset) =
       (KVOffset.highestIndex(offset), KVOffset.middleIndex(offset), KVOffset.lowestIndex(offset))
 
     "set 0 bytes" in {
-      ByteString.copyFrom(KVOffset.fromLong(0).toByteArray) shouldEqual zeroByteString
+      KVOffset.fromLong(0).bytes shouldEqual zeroBytes
     }
 
     "extract the correct indexes" in {

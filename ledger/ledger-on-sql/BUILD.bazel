@@ -224,7 +224,7 @@ da_scala_test_suite(
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
-                "--contract-id-seeding=weak",
+                "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),
@@ -240,7 +240,7 @@ da_scala_test_suite(
             ports = [6865],
             server = ":conformance-test-{}-bin".format(db["name"]),
             server_args = [
-                "--contract-id-seeding=weak",
+                "--contract-id-seeding=testing-weak",
                 "--participant participant-id=conformance-test,port=6865",
             ] + db.get("conformance_test_server_args", []),
             tags = db.get("conformance_test_tags", []),

@@ -205,6 +205,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
 }
 
 object RecoveringIndexerIntegrationSpec {
+
   private type ParticipantState = ReadService with WriteService
 
   private val eventually = RetryStrategy.exponentialBackoff(10, 10.millis)

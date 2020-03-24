@@ -147,6 +147,7 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

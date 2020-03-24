@@ -6,40 +6,27 @@ package crypto
 
 import java.nio.ByteBuffer
 import java.security.{MessageDigest, SecureRandom}
-import java.util
 import java.util.concurrent.atomic.AtomicLong
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time, Utf8}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
 import com.digitalasset.daml.lf.value.Value
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
 import scala.util.control.NoStackTrace
 
-final class Hash private (private val bytes: Array[Byte]) {
+final class Hash private (val bytes: Bytes) {
 
-  def toByteArray: Array[Byte] = bytes.clone()
+  override def hashCode(): Int = bytes.hashCode()
+
+  override def equals(obj: Any): Boolean = obj match {
+    case that: Hash => this.bytes equals that.bytes
+    case _ => false
+  }
 
   def toHexString: Ref.HexString = Ref.HexString.encode(bytes)
 
   override def toString: String = s"Hash($toHexString)"
-
-  override def equals(other: Any): Boolean =
-    other match {
-      case otherHash: Hash => util.Arrays.equals(bytes, otherHash.bytes)
-      case _ => false
-    }
-
-  private var _hashCode: Int = 0
-
-  override def hashCode(): Int = {
-    if (_hashCode == 0) {
-      val code = util.Arrays.hashCode(bytes)
-      _hashCode = if (code == 0) 1 else code
-    }
-    _hashCode
-  }
-
 }
 
 object Hash {
@@ -59,37 +46,38 @@ object Hash {
       case HashingError(msg) => Left(msg)
     }
 
-  def fromBytes(a: Array[Byte]): Either[String, Hash] =
+  def fromBytes(bs: Bytes): Either[String, Hash] =
     Either.cond(
-      a.length == underlyingHashLength,
-      new Hash(a.clone()),
-      s"hash should have ${underlyingHashLength} bytes, found ${a.length}",
+      bs.length == underlyingHashLength,
+      new Hash(bs),
+      s"hash should have ${underlyingHashLength} bytes, got ${bs.length}",
     )
 
-  def assertFromBytes(a: Array[Byte]): Hash =
-    data.assertRight(fromBytes(a))
+  def assertFromBytes(bs: Bytes): Hash =
+    data.assertRight(fromBytes(bs))
+
+  def fromByteArray(a: Array[Byte]): Either[String, Hash] =
+    fromBytes(Bytes.fromByteArray(a))
+
+  def assertFromByteArray(a: Array[Byte]): Hash =
+    data.assertRight(fromByteArray(a))
 
   // A pseudo random generator for Hash based on hmac
   // We mix the given seed with time to mitigate very bad seed.
-  def random(seed: Array[Byte]): () => Hash = {
-    if (seed.length != underlyingHashLength)
-      throw new IllegalArgumentException(
-        s"Expected a $underlyingHashLength bytes seed, get ${seed.length} bytes.")
+  def random(seed: Hash): () => Hash = {
     val counter = new AtomicLong
     val seedWithTime =
-      hMacBuilder(new Hash(seed)).add(Time.Timestamp.now().micros).build
+      hMacBuilder(seed).add(Time.Timestamp.now().micros).build
     () =>
       hMacBuilder(seedWithTime).add(counter.getAndIncrement()).build
   }
 
-  def random(seed: Hash): () => Hash = random(seed.bytes)
-
   // A pseudo random generator for Hash using the best available source of entropy to generate the seed.
   def secureRandom: () => Hash =
-    random(SecureRandom.getInstanceStrong.generateSeed(underlyingHashLength))
+    random(assertFromByteArray(SecureRandom.getInstanceStrong.generateSeed(underlyingHashLength)))
 
-  implicit val HashOrdering: Ordering[Hash] =
-    ((hash1, hash2) => implicitly[Ordering[Iterable[Byte]]].compare(hash1.bytes, hash2.bytes))
+  implicit val `Hash Ordering`: Ordering[Hash] =
+    Ordering.by(_.bytes)
 
   @throws[HashingError]
   private[lf] val aCid2String: Value.ContractId => String = {
@@ -105,20 +93,30 @@ object Hash {
 
   private[crypto] sealed abstract class Builder(cid2String: Value.ContractId => String) {
 
+    protected def update(a: ByteBuffer): Unit
+
     protected def update(a: Array[Byte]): Unit
 
-    protected def doFinal(buf: Array[Byte], offset: Int): Unit
+    protected def doFinal(buf: Array[Byte]): Unit
 
     final def build: Hash = {
       val a = Array.ofDim[Byte](underlyingHashLength)
-      doFinal(a, 0)
-      new Hash(a)
+      doFinal(a)
+      new Hash(Bytes.fromByteArray(a))
     }
 
-    final def add(a: Array[Byte]): this.type = {
-      update(a)
+    final def add(buffer: Array[Byte]): this.type = {
+      update(buffer)
       this
     }
+
+    final def add(buffer: ByteBuffer): this.type = {
+      update(buffer)
+      this
+    }
+
+    final def add(a: Bytes): this.type =
+      add(a.toByteBuffer)
 
     private val byteBuff = Array.ofDim[Byte](1)
 
@@ -141,14 +139,16 @@ object Hash {
 
     final def add(a: Int): this.type = {
       intBuffer.rewind()
-      add(intBuffer.putInt(a).array())
+      intBuffer.putInt(a).position(0)
+      add(intBuffer)
     }
 
     private val longBuffer = ByteBuffer.allocate(java.lang.Long.BYTES)
 
     final def add(a: Long): this.type = {
       longBuffer.rewind()
-      add(longBuffer.putLong(a).array())
+      longBuffer.putLong(a).position(0)
+      add(longBuffer)
     }
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
@@ -244,11 +244,14 @@ object Hash {
 
     private val md = MessageDigest.getInstance("SHA-256")
 
+    override protected def update(a: ByteBuffer): Unit =
+      md.update(a)
+
     override protected def update(a: Array[Byte]): Unit =
       md.update(a)
 
-    override protected def doFinal(buf: Array[Byte], offset: Int): Unit =
-      assert(md.digest(buf, offset, underlyingHashLength) == underlyingHashLength)
+    override protected def doFinal(buf: Array[Byte]): Unit =
+      assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
     md.update(version)
     md.update(purpose.id)
@@ -261,13 +264,16 @@ object Hash {
 
     private val mac: Mac = Mac.getInstance(hMacAlgorithm)
 
-    mac.init(new SecretKeySpec(key.bytes, hMacAlgorithm))
+    mac.init(new SecretKeySpec(key.bytes.toByteArray, hMacAlgorithm))
+
+    override protected def update(a: ByteBuffer): Unit =
+      mac.update(a)
 
     override protected def update(a: Array[Byte]): Unit =
       mac.update(a)
 
-    override protected def doFinal(buf: Array[Byte], offset: Int): Unit =
-      mac.doFinal(buf, offset)
+    override protected def doFinal(buf: Array[Byte]): Unit =
+      mac.doFinal(buf, 0)
 
   }
 

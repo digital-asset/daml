@@ -11,6 +11,7 @@ import System.Directory.Extra
 import System.Process
 import System.Exit
 import DA.Bazel.Runfiles
+import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
 import Data.Maybe
 import Data.List.Extra
@@ -65,7 +66,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "      do"
           , "        return self"
           ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
       let elmo = here </> "elmo"
@@ -80,7 +81,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "  where"
           , "    signatory puppeteer"
           ]
-        writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
         step "daml2ts..."
@@ -94,6 +95,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDaml = grover </> "daml"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
+      -- Locked to DAML-LF 1.7 since we get different package ids due to
+      -- package metadata in DAML-LF 1.8.
       withCurrentDirectory grover $ do
         writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
           [ "module Grover where"
@@ -106,7 +109,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "      do"
           , "        return self"
           ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
       let superGrover = here </> "super-grover"
@@ -125,7 +128,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "      do"
           , "        return self"
           ]
-        writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
@@ -152,7 +155,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "      do"
           , "        return self"
           ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
@@ -185,7 +188,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "      do"
           , "        return self"
           ]
-        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"]
+        writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
@@ -262,16 +265,18 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
          , "}"
          ]
 
-    writeDamlYaml :: String -> [String] -> [String] -> IO ()
-    writeDamlYaml mainPackageName exposedModules dependencies =
-      writeFileUTF8 "daml.yaml" $ unlines (
+    writeDamlYaml :: String -> [String] -> [String] -> Maybe LF.Version -> IO ()
+    writeDamlYaml mainPackageName exposedModules dependencies mbLfVersion =
+      writeFileUTF8 "daml.yaml" $ unlines $
         [ "sdk-version: 0.0.0"
         , "name: " <> mainPackageName
         , "version: \"1.0\""
         , "source: daml"
         , "exposed-modules: [" <> intercalate "," exposedModules <> "]"
-        , "dependencies:"] ++ ["  - " ++ dependency | dependency <- dependencies]
-      )
+        , "dependencies:"
+        ] ++
+        ["  - " ++ dependency | dependency <- dependencies] ++
+        ["build-options: [--target=" <> LF.renderVersion ver <> "]" | Just ver <- [mbLfVersion]]
 
     assertFileExists :: FilePath -> IO ()
     assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")

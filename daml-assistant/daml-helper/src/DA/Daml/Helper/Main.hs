@@ -37,12 +37,15 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
+    | CreateDamlApp { targetFolder :: FilePath }
+    -- ^ CreateDamlApp is sufficiently special that in addition to
+    -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
       { sandboxPortM :: Maybe SandboxPort
       , openBrowser :: OpenBrowser
-      , startNavigator :: StartNavigator
+      , startNavigator :: Maybe StartNavigator
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -65,6 +68,7 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
+    , command "create-daml-app" (info (createDamlAppCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -106,13 +110,17 @@ commandParser = subparser $ fold
             <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
         ]
 
+    createDamlAppCmd =
+        CreateDamlApp <$>
+        argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
+
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = Start
         <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-        <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> optional navigatorFlag
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -122,6 +130,22 @@ commandParser = subparser $ fold
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
 
+    navigatorFlag =
+        -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
+        -- if the flag was passed explicitly or not.
+        StartNavigator <$>
+        option reader (long "start-navigator" <> help helpText <> completeWith ["true", "false"] <> idm)
+        where
+            reader = eitherReader $ \case
+                -- We allow for both yes and true since we want a boolean in daml.yaml
+                "true" -> Right True
+                "yes" -> Right True
+                "false" -> Right False
+                "no" -> Right False
+                "auto" -> Right True
+                s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
+            -- To make things less confusing, we do not mention yes, no and auto here.
+            helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
     deployCmdInfo = mconcat
         [ progDesc $ concat
               [ "Deploy the current DAML project to a remote DAML ledger. "
@@ -284,7 +308,10 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    New {..} -> runNew targetFolder templateNameM [] []
+    New {..}
+        | templateNameM == Just "create-daml-app" -> runCreateDamlApp targetFolder
+        | otherwise -> runNew targetFolder templateNameM [] []
+    CreateDamlApp{..} -> runCreateDamlApp targetFolder
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
