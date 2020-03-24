@@ -13,7 +13,8 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-import scalaz.\/
+import scalaz.{NonEmptyList, \/}
+
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
 
@@ -80,11 +81,10 @@ class WebsocketEndpoints(
           upgradeReq <- req.header[UpgradeToWebSocket] \/> InvalidUserInput(
             s"Cannot upgrade client's connection to websocket",
           )
-          _ = logger.info(s"GOT $wsProtocol")
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[List[domain.EnrichedContractKey[domain.LfValue]]](
+          handleWebsocketRequest[NonEmptyList[domain.EnrichedContractKey[domain.LfValue]]](
             jwt,
             jwtPayload,
             upgradeReq,

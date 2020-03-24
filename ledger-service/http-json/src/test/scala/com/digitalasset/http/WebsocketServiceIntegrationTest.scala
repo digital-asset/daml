@@ -258,6 +258,7 @@ class WebsocketServiceIntegrationTest
       import spray.json._
 
       val initialCreate = initialIouCreate(uri)
+
       def exercisePayload(cid: String) =
         baseExercisePayload.copy(
           fields = baseExercisePayload.fields updated ("contractId", JsString(cid)))
@@ -426,36 +427,21 @@ class WebsocketServiceIntegrationTest
         }
   }
 
-  "fetch should receive all contracts when empty request specified" in withHttpService {
-    (uri, encoder, _) =>
-      val f1 =
-        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
-      val f2 =
-        postCreateCommand(accountCreateCommand(domain.Party("Alice"), "def456"), encoder, uri)
-
-      for {
-        r1 <- f1
-        _ = r1._1 shouldBe 'success
-        cid1 = getContractId(getResult(r1._2))
-
-        r2 <- f2
-        _ = r2._1 shouldBe 'success
-        cid2 = getContractId(getResult(r2._2))
-
-        clientMsgs <- singleClientFetchStream(uri, "[]").runWith(
-          collectResultsAsTextMessageSkipHeartbeats)
-      } yield {
-        inside(clientMsgs) {
-          case Seq(errorMsg) =>
-            // TODO(Leo) #4417: expected behavior is to return all active contracts (???). Make sure it is consistent with stream/query
-            //            c1 should include(s""""contractId":"${cid1.unwrap: String}"""")
-            //            c2 should include(s""""contractId":"${cid2.unwrap: String}"""")
-            val errorResponse = decodeErrorResponse(errorMsg)
-            errorResponse.status shouldBe StatusCodes.BadRequest
-            errorResponse.errors shouldBe List(
-              "Cannot resolve any of the requested template IDs: Set()")
-        }
-      }
+  "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
+    (uri, _, _) =>
+      singleClientFetchStream(uri, "[]")
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
+        .map { clientMsgs =>
+          inside(clientMsgs) {
+            case Seq(errorMsg) =>
+              val errorResponse = decodeErrorResponse(errorMsg)
+              errorResponse.status shouldBe StatusCodes.BadRequest
+              inside(errorResponse.errors) {
+                case List(error) =>
+                  error should include("must be a list with at least 1 element")
+              }
+          }
+        }: Future[Assertion]
   }
 
   private def wsConnectRequest[M](

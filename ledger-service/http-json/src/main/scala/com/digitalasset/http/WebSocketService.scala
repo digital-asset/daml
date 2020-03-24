@@ -206,8 +206,8 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
-    new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+    : StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] =
+    new StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] {
 
       type Positive = Unit
 
@@ -216,10 +216,10 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          jv: JsValue): Error \/ List[domain.EnrichedContractKey[LfV]] =
+          jv: JsValue): Error \/ NonEmptyList[domain.EnrichedContractKey[LfV]] =
         for {
           as <- SprayJson
-            .decode[List[domain.EnrichedContractKey[JsValue]]](jv)
+            .decode[NonEmptyList[domain.EnrichedContractKey[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
         } yield bs
@@ -234,7 +234,7 @@ object WebSocketService {
       override def allowPhantonArchives: Boolean = false
 
       override def predicate(
-          request: List[domain.EnrichedContractKey[LfV]],
+          request: NonEmptyList[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: TypeLookup): StreamPredicate[Positive] = {
 
