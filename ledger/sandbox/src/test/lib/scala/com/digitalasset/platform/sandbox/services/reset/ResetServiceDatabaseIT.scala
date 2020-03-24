@@ -7,6 +7,7 @@ import java.sql.{Connection, DriverManager}
 
 import anorm.SqlParser._
 import anorm.{SQL, SqlStringInterpolation}
+import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.platform.sandbox.services.reset.ResetServiceDatabaseIT.countRowsOfAllTables
 import com.digitalasset.platform.sandbox.services.{DbInfo, SandboxFixture}
 import com.digitalasset.platform.store.DbType
@@ -30,6 +31,8 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
 
         for {
           ledgerId <- fetchLedgerId()
+          party <- allocateParty(MockMessages.party)
+          _ <- submitAndExpectCompletions(ledgerId, 10, party)
           _ <- reset(ledgerId)
           counts <- countRowsOfAllTables(ignored, database.get)
         } yield {
@@ -41,21 +44,33 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
           )
 
           for ((table, count) <- counts if expectedToHaveOneItem(table)) {
-            withClue(s"$table has $count items: ") {
+            withClue(s"$table has $count item(s): ") {
               count shouldBe 1
             }
           }
 
+          // FIXME this appears to be racy, forcing us to make a loose check
+          val expectedToHaveOneItemOrLess = Set(
+            "configuration_entries"
+          )
+
+          for ((table, count) <- counts if expectedToHaveOneItemOrLess(table)) {
+            withClue(s"$table has $count item(s): ") {
+              count should be <= 1
+            }
+          }
+
           // Everything else should be empty
-          val expectedToBeEmpty = counts.keySet.diff(ignored).diff(expectedToHaveOneItem)
+          val exceptions = ignored union expectedToHaveOneItem union expectedToHaveOneItemOrLess
+          val expectedToBeEmpty = counts.keySet.diff(exceptions)
 
           for ((table, count) <- counts if expectedToBeEmpty(table)) {
-            withClue(s"$table has $count items: ") {
+            withClue(s"$table has $count item(s): ") {
               count shouldBe 0
             }
           }
 
-          succeed // congratulations, reset works, you deserve a break
+          succeed
         }
 
       }
