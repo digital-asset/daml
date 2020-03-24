@@ -1079,10 +1079,29 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
       console.log(data)
     })
 
-Error Reporting
-===============
+Error and Warning Reporting
+===========================
 
-Errors reported as part of the standard ``on-message`` flow and formatted the same way as :ref:`synchronous API errors <error-format>`.
+Errors and warnings reported as part of the regular ``on-message`` flow.
+
+Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
+
+Streaming API reports only one type of warnings -- unknown template IDs, which is formatted as:
+
+.. code-block:: none
+
+    {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
+
+Examples:
+
+.. code-block:: none
+
+    {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+
+    {
+      "errors":["JsonReaderError. Cannot read JSON: <{\"templateIds\":[]}>. Cause: spray.json.DeserializationException: search requires at least one item in 'templateIds'"],
+      "status":400
+    }
 
 Contracts Query Stream
 ======================
