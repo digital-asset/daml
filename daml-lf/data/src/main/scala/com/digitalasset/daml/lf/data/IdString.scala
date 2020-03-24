@@ -109,7 +109,6 @@ sealed abstract class IdString {
 
 object IdString {
   import Ref.Name
-  @annotation.compileTimeOnly("SC test TODO")
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 }
 
