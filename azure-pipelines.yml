@@ -172,7 +172,6 @@ jobs:
   - job: check_for_release
     dependsOn:
       - git_sha
-    condition: false
     variables:
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
