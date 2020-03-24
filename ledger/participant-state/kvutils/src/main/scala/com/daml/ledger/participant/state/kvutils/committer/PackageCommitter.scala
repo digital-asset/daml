@@ -39,7 +39,8 @@ private[kvutils] class PackageCommitter(
 
   private def rejectionTraceLog(
       msg: String,
-      packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
+      packageUploadEntry: DamlPackageUploadEntry.Builder,
+  ): Unit =
     logger.trace(
       s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
 
@@ -158,7 +159,7 @@ private[kvutils] class PackageCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      uploadEntry: DamlPackageUploadEntry
+      uploadEntry: DamlPackageUploadEntry,
   ): DamlPackageUploadEntry.Builder =
     uploadEntry.toBuilder
 
@@ -174,8 +175,8 @@ private[kvutils] class PackageCommitter(
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       packageUploadEntry: DamlPackageUploadEntry.Builder,
-      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder)
-    : DamlLogEntry = {
+      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
+  ): DamlLogEntry = {
     Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))

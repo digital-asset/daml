@@ -17,7 +17,7 @@ private[kvutils] object ConfigCommitter {
 
   case class Result(
       submission: DamlConfigurationSubmission,
-      currentConfig: (Option[DamlConfigurationEntry], Configuration)
+      currentConfig: (Option[DamlConfigurationEntry], Configuration),
   )
 
 }
@@ -182,8 +182,8 @@ private[kvutils] class ConfigCommitter(
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       submission: DamlConfigurationSubmission,
-      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder)
-    : DamlLogEntry = {
+      addErrorDetails: DamlConfigurationRejectionEntry.Builder => DamlConfigurationRejectionEntry.Builder,
+  ): DamlLogEntry = {
     Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
@@ -200,7 +200,7 @@ private[kvutils] class ConfigCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      configurationSubmission: DamlConfigurationSubmission
+      configurationSubmission: DamlConfigurationSubmission,
   ): ConfigCommitter.Result =
     ConfigCommitter.Result(
       configurationSubmission,

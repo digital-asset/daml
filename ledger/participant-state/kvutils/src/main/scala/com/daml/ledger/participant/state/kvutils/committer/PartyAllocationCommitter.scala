@@ -24,7 +24,7 @@ private[kvutils] class PartyAllocationCommitter(
 
   private def rejectionTraceLog(
       msg: String,
-      partyAllocationEntry: DamlPartyAllocationEntry.Builder
+      partyAllocationEntry: DamlPartyAllocationEntry.Builder,
   ): Unit =
     logger.trace(
       s"Party allocation rejected, $msg, correlationId=${partyAllocationEntry.getSubmissionId}")
@@ -136,8 +136,8 @@ private[kvutils] class PartyAllocationCommitter(
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       partyAllocationEntry: DamlPartyAllocationEntry.Builder,
-      addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder)
-    : DamlLogEntry = {
+      addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder,
+  ): DamlLogEntry = {
     Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))
@@ -153,7 +153,7 @@ private[kvutils] class PartyAllocationCommitter(
 
   override protected def init(
       ctx: CommitContext,
-      partyAllocationEntry: DamlPartyAllocationEntry
+      partyAllocationEntry: DamlPartyAllocationEntry,
   ): DamlPartyAllocationEntry.Builder =
     partyAllocationEntry.toBuilder
 
