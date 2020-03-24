@@ -38,6 +38,9 @@ azure-cron.yml      @garyverhaegen-da
 /ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
 /ledger-api/  @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
 
+# DAML-on-X
+/ledger/participant-state   @dajmaki @fabiotudone-da @miklos-da @mziolekda
+
 # Ecosystems
 /language-support/hs/       @nickchapman-da
 /language-support/java/     @gerolf-da @stefanobaghino-da
