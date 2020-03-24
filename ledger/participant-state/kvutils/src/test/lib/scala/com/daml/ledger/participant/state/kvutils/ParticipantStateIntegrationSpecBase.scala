@@ -58,14 +58,12 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   // This can be overriden by tests for those that don't support heartbeats.
   protected val supportsHeartbeats: Boolean = true
 
-  // A metric registry, in case the ledger access layer needs it.
-  protected val metricRegistry: MetricRegistry = new MetricRegistry
-
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
       heartbeats: Source[Instant, NotUsed],
+      metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -76,7 +74,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeats)
+      participantStateFactory(ledgerId, participantId, testId, heartbeats, new MetricRegistry)
     }
 
   override protected def beforeEach(): Unit = {

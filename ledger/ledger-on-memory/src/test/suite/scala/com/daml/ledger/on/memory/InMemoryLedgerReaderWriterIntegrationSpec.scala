@@ -7,8 +7,9 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
-import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
+import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
 import com.digitalasset.logging.LoggingContext
@@ -24,6 +25,7 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       participantId: ParticipantId,
       testId: String,
       heartbeats: Source[Instant, NotUsed],
+      metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
