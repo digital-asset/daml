@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.apiserver.services
 
+import java.time.Instant
+
 import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
@@ -166,9 +168,10 @@ object ApiCommandService {
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration),
-      configuration.ledgerId,
-      () => timeProvider.getCurrentTime,
-      () => configuration.maxDeduplicationTime,
+      ledgerId = configuration.ledgerId,
+      currentLedgerTime = () => timeProvider.getCurrentTime,
+      currentUTCTime = () => Instant.now,
+      maxDeduplicationTime = () => configuration.maxDeduplicationTime,
     )
 
   final case class Configuration(

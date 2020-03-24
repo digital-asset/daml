@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.apiserver.services
 
-import java.time.Duration
+import java.time.{Duration, Instant}
 import java.util.UUID
 
 import akka.stream.Materializer
@@ -88,9 +88,10 @@ object ApiSubmissionService {
         configuration,
         metrics,
       ),
-      ledgerId,
-      () => timeProvider.getCurrentTime,
-      () => configuration.maxDeduplicationTime,
+      ledgerId = ledgerId,
+      currentLedgerTime = () => timeProvider.getCurrentTime,
+      currentUTCTime = () => Instant.now,
+      maxDeduplicationTime = () => configuration.maxDeduplicationTime,
     )
 
   object RecordUpdate {

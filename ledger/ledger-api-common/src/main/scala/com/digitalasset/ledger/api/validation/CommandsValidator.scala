@@ -33,7 +33,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   def validateCommands(
       commands: ProtoCommands,
-      currentTime: Instant,
+      currentLedgerTime: Instant,
+      currentUTCTime: Instant,
       maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -46,7 +47,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       submitter <- requireParty(commands.party, "party")
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz, submitter)
-      ledgerEffectiveTime <- validateLedgerTime(currentTime, commands)
+      ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
         .left
@@ -66,8 +67,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
         maximumRecordTime = Instant.EPOCH,
-        submittedAt = Instant.now,
-        deduplicateUntil = Instant.now.plus(deduplicationTime),
+        submittedAt = currentUTCTime,
+        deduplicateUntil = currentUTCTime.plus(deduplicationTime),
         commands = Commands(
           submitter = submitter,
           commands = ImmArray(validatedCommands),

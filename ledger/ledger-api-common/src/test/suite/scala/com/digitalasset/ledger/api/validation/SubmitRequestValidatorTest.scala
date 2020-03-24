@@ -72,6 +72,7 @@ class SubmitRequestValidatorTest
 
   object internal {
 
+    val ledgerTime = Instant.EPOCH.plusSeconds(10)
     val submittedAt = Instant.now
     val timeDelta = java.time.Duration.ofSeconds(1)
     val maxDeduplicationTime = java.time.Duration.ofDays(1)
@@ -83,7 +84,7 @@ class SubmitRequestValidatorTest
       applicationId = applicationId,
       commandId = commandId,
       submitter = DomainMocks.party,
-      ledgerEffectiveTime = submittedAt,
+      ledgerEffectiveTime = ledgerTime,
       maximumRecordTime = Instant.EPOCH,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
@@ -106,7 +107,7 @@ class SubmitRequestValidatorTest
               ImmArray((Option(Ref.Name.assertFromString("something")), Lf.ValueTrue))
             )
           )),
-        Time.Timestamp.assertFromInstant(submittedAt),
+        Time.Timestamp.assertFromInstant(ledgerTime),
         workflowId.unwrap
       )
     )
@@ -131,6 +132,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommands(Seq.empty),
+            internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -143,6 +145,7 @@ class SubmitRequestValidatorTest
           commandsValidator
             .validateCommands(
               api.commands.withLedgerId(""),
+              internal.ledgerTime,
               internal.submittedAt,
               internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -153,6 +156,7 @@ class SubmitRequestValidatorTest
       "tolerate a missing workflowId" in {
         commandsValidator.validateCommands(
           api.commands.withWorkflowId(""),
+          internal.ledgerTime,
           internal.submittedAt,
           internal.maxDeduplicationTime) shouldEqual Right(
           internal.emptyCommands.copy(
@@ -164,6 +168,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withApplicationId(""),
+            internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -175,6 +180,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.withCommandId(""),
+            internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -187,6 +193,7 @@ class SubmitRequestValidatorTest
           commandsValidator
             .validateCommands(
               api.commands.withParty(""),
+              internal.ledgerTime,
               internal.submittedAt,
               internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -195,23 +202,25 @@ class SubmitRequestValidatorTest
       }
 
       "advance ledger time if minLedgerTimeAbs is set" in {
-        val minLedgerTimeAbs = internal.submittedAt.plus(internal.timeDelta)
+        val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
         commandsValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))),
+          internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
-          withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
+          internal.maxDeduplicationTime
+        ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
       "advance ledger time if minLedgerTimeRel is set" in {
-        val minLedgerTimeAbs = internal.submittedAt.plus(internal.timeDelta)
+        val minLedgerTimeAbs = internal.ledgerTime.plus(internal.timeDelta)
         commandsValidator.validateCommands(
           api.commands.copy(
             minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))),
+          internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
-          withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
+          internal.maxDeduplicationTime
+        ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
       "ignore ledgerEffectiveTime values" in {
@@ -219,8 +228,10 @@ class SubmitRequestValidatorTest
         commandsValidator.validateCommands(
           api.commands.copy(
             ledgerEffectiveTime = Some(TimestampConversion.fromInstant(Instant.now))),
+          internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(internal.emptyCommands)
+          internal.maxDeduplicationTime
+        ) shouldEqual Right(internal.emptyCommands)
       }
 
       "ignore mrt values" in {
@@ -229,14 +240,17 @@ class SubmitRequestValidatorTest
           .validateCommands(
             api.commands.copy(
               maximumRecordTime = Some(TimestampConversion.fromInstant(Instant.now))),
+            internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime) shouldEqual Right(internal.emptyCommands)
+            internal.maxDeduplicationTime
+          ) shouldEqual Right(internal.emptyCommands)
       }
 
       "not allow negative deduplication time" in {
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
+            internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -249,6 +263,7 @@ class SubmitRequestValidatorTest
         requestMustFailWith(
           commandsValidator.validateCommands(
             api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
+            internal.ledgerTime,
             internal.submittedAt,
             internal.maxDeduplicationTime),
           INVALID_ARGUMENT,
@@ -260,6 +275,7 @@ class SubmitRequestValidatorTest
       "default to maximum deduplication time if deduplication time is missing" in {
         commandsValidator.validateCommands(
           api.commands.copy(deduplicationTime = None),
+          internal.ledgerTime,
           internal.submittedAt,
           internal.maxDeduplicationTime) shouldEqual Right(
           internal.emptyCommands.copy(
