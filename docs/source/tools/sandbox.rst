@@ -40,7 +40,7 @@ Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the activ
 Contract Identifier Generation
 ******************************
 
-Sandbox supports two contract identifiers generator schemes.
+Sandbox supports two contract identifier generator schemes:
 
 * The so-called *deterministic* scheme that deterministically produces
   contract identifiers from the state of the underlying ledger.  Those
@@ -55,22 +55,22 @@ Sandbox supports two contract identifiers generator schemes.
 The sandbox can be configured to use one or the other scheme with one
 of the following command line options:
 
-- ``--contract-id-seeding=<seeding-mode>``.  The sandbox will use the
+- ``--contract-id-seeding=<seeding-mode>``. The Sandbox will use the
   sending mode `<sending-mode>` to seed the generation of random
-  contract id.  Possible seeding mode are :
+  contract IDs. Possible seeding modes are:
   * ``no``. The sandbox uses ``deterministic`` scheme
-  * ``strong``. The sandbox uses the ``random`` scheme initialized
-    with a high entropy seed. Depending on the underlying operating
-    system, the startup of the sandbox may block as entropy is being
+  * ``strong``: The Sandbox uses the ``random`` scheme initialized
+    with a high-entropy seed. Depending on the underlying operating
+    system, the startup of the Sandbox may block as entropy is being
     gathered to generate the seed.
-  * ``weak``. (**For testing purpose only**) The sandbox uses the
+  * ``weak``: (**For testing purposes only**) The Sandbox uses the
     ``random`` scheme initialized with a low entropy seed. This may be
-    used in testing environment to avoid exhausting the system entropy
-    pool when a large number of sandboxed are started in a short time
-    interval.
-  * ``static``. (**For testing purpose only**) The sandbox uses the
-    ``random`` scheme with a fixed seed. This may be used in a testing
-    to have reproducible run.
+    used in a testing environment to avoid exhausting the system
+    entropy pool when a large number of Sandboxes are started in a
+    short time interval.
+  * ``static``: (**For testing purposes only**) The sandbox uses the
+    ``random`` scheme with a fixed seed. This may be used in testing
+    for reproducible runs.
 
 
 Running with persistence
