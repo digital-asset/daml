@@ -58,6 +58,7 @@ case class DefaultBatchingQueue(
       Sink.foreachAsync(maxConcurrentCommits)(commitBatch)
 
     val materializedQueue = queue
+      .log("DefaultBatchingQueue")
       .toMat(commitSink)(Keep.left)
       .run()
 
@@ -115,13 +116,20 @@ class BatchingLedgerWriter(val queue: BatchingQueue, val writer: LedgerWriter)(
         .addAllSubmissions(submissions.asJava)
         .build
       val envelope = Envelope.enclose(batch)
-      writer
-        .commit(correlationId, envelope)
-        .map {
-          case SubmissionResult.Acknowledged => ()
-          case err =>
-            logger.error(s"Batch dropped as commit failed: $err")
-        }
+
+      try {
+        writer
+          .commit(correlationId, envelope)
+          .map {
+            case SubmissionResult.Acknowledged => ()
+            case err =>
+              logger.error(s"Batch dropped as commit failed: $err")
+          }
+      } catch {
+        case e: Throwable =>
+          logger.error(s"writer.commit threw an exception: $e!")
+          throw e
+      }
     }
   }
 

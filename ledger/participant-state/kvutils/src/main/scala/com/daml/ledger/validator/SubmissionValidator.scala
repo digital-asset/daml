@@ -5,7 +5,6 @@ package com.daml.ledger.validator
 
 import java.util.UUID
 
-import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
@@ -19,7 +18,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -30,7 +29,7 @@ import scala.util.{Failure, Success, Try}
   * @param allocateLogEntryId  defines how new log entry IDs are being generated
   * @param checkForMissingInputs  whether all inputs declared as the required inputs in the submission must be available
   *                               in order to pass validation
-  * @param materializer Akka materializer to use when performing computation and ledger state reads/writes
+  * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
   */
 class SubmissionValidator[LogResult](
     ledgerStateAccess: LedgerStateAccess[LogResult],
@@ -43,10 +42,9 @@ class SubmissionValidator[LogResult](
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean = false,
-)(implicit materializer: Materializer) {
+)(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
-  private implicit val executionContext = materializer.executionContext
 
   def validate(
       envelope: Bytes,
@@ -75,23 +73,6 @@ class SubmissionValidator[LogResult](
       participantId: ParticipantId,
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
     runValidation(envelope, correlationId, recordTime, participantId, commit)
-
-  private val batchValidator = new BatchValidator[LogResult](
-    BatchValidationParameters.default,
-    allocateLogEntryId,
-    ledgerStateAccess)
-  private[validator] def validateAndCommitWithBatchValidator(
-      envelope: RawBytes,
-      correlationId: String,
-      recordTime: Timestamp,
-      participantId: ParticipantId,
-  )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
-    batchValidator.validate(recordTime, participantId, envelope).map { results =>
-      // FIXME(JM): HACK
-      Right(results.last)
-    }
-
-  //runValidation(envelope, correlationId, recordTime, participantId, commit)
 
   def validateAndTransform[U](
       envelope: Bytes,
@@ -141,10 +122,6 @@ class SubmissionValidator[LogResult](
       ) => Future[T],
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
-      case Right(_: Envelope.BatchMessage) =>
-        Future.successful(
-          Left(ValidationFailed.ValidationError("Validation of batches is not supported.")))
-
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)
@@ -204,7 +181,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-  )(implicit materializer: Materializer): SubmissionValidator[LogResult] = {
+  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission,

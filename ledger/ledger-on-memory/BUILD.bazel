@@ -25,6 +25,8 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//libs-scala/resources",
+                "//libs-scala/contextualized-logging",
+
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

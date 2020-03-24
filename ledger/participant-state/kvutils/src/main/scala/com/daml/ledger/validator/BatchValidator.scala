@@ -3,13 +3,19 @@
 
 package com.daml.ledger.validator
 
+import java.time.Instant
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.{ConflictDetection, Envelope}
+import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.kvutils.{ConflictDetection, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.SubmissionValidator._
+import com.daml.ledger.validator.SubmissionValidator.LogEntryAndState
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.engine.Engine
+import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -30,13 +36,22 @@ object BatchValidationParameters {
 }
 
 // This is example code for validating a batch of submissions in parallel, including conflict detection.
-class BatchValidator[LogResult](
+class BatchValidator(
     val params: BatchValidationParameters,
     val allocateLogEntryId: () => DamlLogEntryId,
-    val ledgerStateAccess: LedgerStateAccess[LogResult]) {
+    val ledgerState: LedgerState) {
 
-  def validate[T](recordTime: Timestamp, participantId: ParticipantId, envelope: Array[Byte])(
-      implicit materializer: Materializer) = {
+  private val engine: Engine = Engine()
+
+  // TODO(JM): How to report errors? Future[Unit] that fails or Future[Either[ValidationError, Unit]] that never
+  // fails? We're expecting this to fail only when a batch is corrupted or malicious (and out of memory etc.).
+  def validateAndCommit(
+      recordTimeInstant: Instant,
+      participantId: ParticipantId,
+      envelope: ByteString)(implicit materializer: Materializer) = {
+
+    val recordTime = Time.Timestamp.assertFromInstant(recordTimeInstant)
+
     implicit val executionContext: ExecutionContext = materializer.executionContext
     Envelope.open(envelope) match {
       case Right(Envelope.BatchMessage(batch)) =>
@@ -44,18 +59,17 @@ class BatchValidator[LogResult](
         // that there's a single validator that sequentially processes the submissions, then we can do the
         // reads and writes in separate transactions as we can assume there's no other writers. This assumption
         // would break with DAML-on-SQL with multiple writers.
-        ledgerStateAccess.inTransaction { stateOperations =>
+        ledgerState.inTransaction { stateOps =>
           Source
             .fromIterator(() => batch.getSubmissionsList.asScala.toIterator)
 
             // Uncompress the submissions in parallel.
             .mapAsyncUnordered(params.cpuParallelism)(cs =>
               Future {
-                //println("UNCOMPRESS")
+                println("UNCOMPRESS")
                 cs.getCorrelationId -> Envelope
                   .openSubmission(cs.getSubmission)
-                  .right
-                  .get /* FIXME what to do? */
+                  .fold(err => throw ValidationFailed.ValidationError(err), identity)
             })
 
             // Fetch the submission inputs in parallel.
@@ -66,19 +80,15 @@ class BatchValidator[LogResult](
             .mapAsyncUnordered(params.ioParallelism) {
               case (corId, subm) =>
                 val inputKeys = subm.getInputDamlStateList.asScala
-                stateOperations
-                  .readState(inputKeys.map(keyToBytes))
+                stateOps
+                  .readState(inputKeys)
                   .map { values =>
-                    //println("READ STATE")
+                    println("READ STATE")
                     (
                       corId,
                       subm,
-                      values
-                        .zip(inputKeys)
-                        .map {
-                          case (valueBytes, key) => key -> valueBytes.map(bytesToStateValue)
-                        }
-                        .toMap)
+                      inputKeys.zip(values).toMap
+                    )
                   }
             }
 
@@ -87,7 +97,7 @@ class BatchValidator[LogResult](
               case (corId, subm, inputState) =>
                 Future {
                   val damlLogEntryId = allocateLogEntryId()
-                  //println("VALIDATE")
+                  println("VALIDATE")
                   (
                     damlLogEntryId,
                     processSubmission(damlLogEntryId, recordTime, subm, participantId, inputState),
@@ -119,23 +129,35 @@ class BatchValidator[LogResult](
 
             // Serialize and commit in parallel.
             .mapAsyncUnordered(params.ioParallelism) {
-              case (logEntryId, logEntryAndState) =>
-                //println("SERIALIZE AND WRITE")
-                val (rawLogEntry, rawStateUpdates) =
-                  serializeProcessedSubmission(logEntryAndState)
-                for {
-                  logResult <- stateOperations.appendToLog(logEntryId.toByteArray, rawLogEntry)
-                  _ <- if (rawStateUpdates.nonEmpty)
-                    stateOperations.writeState(rawStateUpdates)
-                  else Future.unit
-                } yield logResult
+              case (logEntryId, (logEntry, outputState)) =>
+                println("SERIALIZE AND WRITE")
+                stateOps
+                  .appendToLog(logEntryId, logEntry)
+                  .flatMap(_ => stateOps.writeState(outputState.toSeq))
             }
-            .runWith(Sink.seq)
+            .runWith(Sink.ignore)
+            .map(_ => ())
         }
 
       case _ =>
         sys.error("Unsupported message type")
     }
   }
+
+  private[validator] def processSubmission(
+      damlLogEntryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      damlSubmission: DamlSubmission,
+      participantId: ParticipantId,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]): LogEntryAndState =
+    KeyValueCommitting.processSubmission(
+      engine,
+      damlLogEntryId,
+      recordTime,
+      LedgerReader.DefaultConfiguration,
+      damlSubmission,
+      participantId,
+      inputState
+    )
 
 }

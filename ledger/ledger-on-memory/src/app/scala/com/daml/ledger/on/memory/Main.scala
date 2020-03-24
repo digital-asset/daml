@@ -14,7 +14,7 @@ import com.digitalasset.resources.{ProgramResource, ResourceOwner}
 object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
-      dispatcher <- InMemoryLedgerReaderWriter.dispatcher
+      dispatcher <- InMemoryLedgerBatchingReaderWriter.dispatcher
       sharedState = new InMemoryState()
       factory = new InMemoryLedgerFactory(dispatcher, sharedState)
       runner <- new Runner("In-Memory Ledger", factory).owner(args)
@@ -24,17 +24,18 @@ object Main {
   }
 
   class InMemoryLedgerFactory(dispatcher: Dispatcher[Index], state: InMemoryState)
-      extends KeyValueLedgerFactory[InMemoryLedgerReaderWriter] {
+      extends KeyValueLedgerFactory[InMemoryLedgerBatchingReaderWriter] {
 
     override def owner(config: Config[Unit], participantConfig: ParticipantConfig)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
-    ): ResourceOwner[InMemoryLedgerReaderWriter] =
-      new InMemoryLedgerReaderWriter.Owner(
+    ): ResourceOwner[InMemoryLedgerBatchingReaderWriter] =
+      new InMemoryLedgerBatchingReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
         dispatcher = dispatcher,
         state = state,
+        materializer = materializer
       )
   }
 }
