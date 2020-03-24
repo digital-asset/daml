@@ -18,6 +18,9 @@ import scala.util.Try
 
 abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFixture {
 
+  // Database-backed reset service is allowed a bit more slack
+  override def spanScaleFactor: Double = 2.0
+
   "ResetService" when {
 
     "run against a database backend" should {
