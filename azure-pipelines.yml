@@ -21,7 +21,6 @@ pr:
 
 jobs:
   - job: git_sha
-    condition: false
     pool:
       name: 'linux-pool'
     steps:
