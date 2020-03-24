@@ -118,22 +118,6 @@ NIX_CONF
 
 systemctl restart nix-daemon
 
-# Warm up local caches by building dev-env and current daml master
-# This is allowed to fail, as we still want to have CI machines
-# around, even when their caches are only warmed up halfway
-su --login vsts <<'CACHE_WARMUP'
-# user-wide bazel disk cache override
-
-# clone and build
-(
-  git clone https://github.com/digital-asset/daml
-  cd daml
-  git checkout ci-perf-test-playground
-  ./ci/dev-env-install.sh
-  ./build.sh "_$(uname)"
-) || true
-CACHE_WARMUP
-
 # Purge old agents
 su --login vsts <<'PURGE_OLD_AGENTS'
 cd daml && \
