@@ -59,8 +59,7 @@ final class CommandStaticTimeIT
           CommandClientConfiguration(
             maxCommandsInFlight = 1,
             maxParallelSubmissions = 1,
-            overrideTtl = true,
-            ttl = java.time.Duration.ofSeconds(30)),
+            defaultDeduplicationTime = java.time.Duration.ofSeconds(30)),
           None
         ).withTimeProvider(Some(tp)))(DirectExecutionContext)
 

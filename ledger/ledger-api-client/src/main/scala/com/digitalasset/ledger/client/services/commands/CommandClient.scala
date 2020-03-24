@@ -116,7 +116,7 @@ final class CommandClient(
             config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
           ledgerEnd.getOffset,
-          () => config.ttl
+          () => config.defaultDeduplicationTime,
         ))(Keep.right)
     }
 
@@ -152,8 +152,8 @@ final class CommandClient(
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)")
-        val updateDedupTime = commands.deduplicationTime.orElse(
-          Some(Duration.of(config.ttl.getSeconds, config.ttl.getNano)))
+        val updateDedupTime = commands.deduplicationTime.orElse(Some(Duration
+          .of(config.defaultDeduplicationTime.getSeconds, config.defaultDeduplicationTime.getNano)))
         r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
       })
 

@@ -26,8 +26,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
       config.ledgerId shouldEqual None
       config.commandClient.maxCommandsInFlight shouldEqual 256
       config.commandClient.maxParallelSubmissions shouldEqual 32
-      config.commandClient.overrideTtl shouldEqual false
-      config.commandClient.ttl.getSeconds shouldEqual 30
+      config.commandClient.defaultDeduplicationTime.getSeconds shouldEqual 30
       config.maxRetryTime.getSeconds shouldEqual 60
       config.ssl shouldBe None
     }
@@ -55,8 +54,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
       clientConfig.ledgerId shouldEqual Some("ledgerId_mock")
       clientConfig.commandClient.maxCommandsInFlight shouldEqual 260
       clientConfig.commandClient.maxParallelSubmissions shouldEqual 40
-      clientConfig.commandClient.overrideTtl shouldEqual false
-      clientConfig.commandClient.ttl.getSeconds shouldEqual 40
+      clientConfig.commandClient.defaultDeduplicationTime.getSeconds shouldEqual 40
       clientConfig.maxRetryTime.getSeconds shouldEqual 45
       clientConfig.ssl.get.clientKeyCertChainFile shouldBe new File("file1")
       clientConfig.ssl.get.clientKeyFile shouldBe new File("file2")

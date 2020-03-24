@@ -84,7 +84,7 @@ class LedgerClientBinding(
   private val compositeCommandAdapter = new CompositeCommandAdapter(
     LedgerId(ledgerClient.ledgerId.unwrap),
     ApplicationId(ledgerClientConfig.applicationId),
-    ledgerClientConfig.commandClient.ttl,
+    ledgerClientConfig.commandClient.defaultDeduplicationTime,
     timeProvider
   )
 
@@ -96,7 +96,7 @@ class LedgerClientBinding(
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
-        createRetry(ledgerClientConfig.commandClient.ttl))
+        createRetry(ledgerClientConfig.commandClient.defaultDeduplicationTime))
     } yield
       Flow[Ctx[C, CompositeCommand]]
         .map(_.map(compositeCommandAdapter.transform))

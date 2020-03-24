@@ -61,8 +61,7 @@ final class CommandClientIT
     CommandClientConfiguration(
       maxCommandsInFlight = 1,
       maxParallelSubmissions = 1,
-      overrideTtl = true,
-      ttl = Duration.ofSeconds(30))
+      defaultDeduplicationTime = Duration.ofSeconds(30))
 
   private val testLedgerId = domain.LedgerId("ledgerId")
   private val testNotLedgerId = domain.LedgerId("hotdog")

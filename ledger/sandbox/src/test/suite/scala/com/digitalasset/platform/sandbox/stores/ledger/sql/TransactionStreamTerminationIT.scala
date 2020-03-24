@@ -49,10 +49,9 @@ class TransactionStreamTerminationIT
   )
   def commandClientConfig =
     CommandClientConfiguration(
-      config.commandConfig.maxCommandsInFlight,
-      config.commandConfig.maxParallelSubmissions,
-      overrideTtl = true,
-      ttl = JDuration.ofMillis(2000),
+      maxCommandsInFlight = config.commandConfig.maxCommandsInFlight,
+      maxParallelSubmissions = config.commandConfig.maxParallelSubmissions,
+      defaultDeduplicationTime = JDuration.ofSeconds(30),
     )
   private val applicationId = "transaction-stream-termination-test"
 
