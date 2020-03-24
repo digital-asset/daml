@@ -84,7 +84,8 @@ class WebsocketEndpoints(
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[NonEmptyList[domain.ContractKeyStreamRequest[None.type, domain.LfValue]]](
+          handleWebsocketRequest[
+            NonEmptyList[domain.ContractKeyStreamRequest[None.type, domain.LfValue]]](
             jwt,
             jwtPayload,
             upgradeReq,
