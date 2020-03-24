@@ -26,7 +26,6 @@ da_scala_binary(
         "//compiler/repl-service/protos:repl_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
-        "//daml-lf/engine",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-script/runner:script-runner-lib",
