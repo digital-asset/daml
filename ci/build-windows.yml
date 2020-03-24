@@ -16,35 +16,6 @@ steps:
   - powershell: '.\ci\windows-diagnostics.ps1'
     displayName: 'Agent diagnostics'
 
-  - powershell: |
-      Set-StrictMode -Version latest
-      $ErrorActionPreference = 'Stop'
-      .\dev-env\windows\bin\dadew.ps1 install
-      .\dev-env\windows\bin\dadew.ps1 sync
-      .\dev-env\windows\bin\dadew.ps1 enable
-      if (!(Test-Path .\.bazelrc.local)) {
-         Set-Content -Path .\.bazelrc.local -Value 'build --config windows'
-      }
-      if (Test-Path -Path $env:appdata\stack\pantry\hackage\hackage-security-lock) {
-          Write-Output ">> Nuking stack directory"
-          Remove-Item -ErrorAction Continue -Force -Recurse -Path $env:appdata\stack
-      }
-      function bazel() {
-          Write-Output ">> bazel $args"
-          $global:lastexitcode = 0
-          $backupErrorActionPreference = $script:ErrorActionPreference
-          $script:ErrorActionPreference = "Continue"
-          & bazel.exe @args 2>&1 | %{ "$_" }
-          $script:ErrorActionPreference = $backupErrorActionPreference
-          if ($global:lastexitcode -ne 0 -And $args[0] -ne "shutdown") {
-              Write-Output "<< bazel $args (failed, exit code: $global:lastexitcode)"
-              throw ("Bazel returned non-zero exit code: $global:lastexitcode")
-          }
-          Write-Output "<< bazel $args (ok)"
-      }
-      bazel clean --expunge
-    displayName: clean
-
   - powershell: '.\build.ps1'
     displayName: 'Build'
     env:
