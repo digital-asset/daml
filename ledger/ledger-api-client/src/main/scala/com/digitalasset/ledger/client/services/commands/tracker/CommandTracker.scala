@@ -10,6 +10,7 @@ import akka.stream.{Attributes, Inlet, Outlet}
 import com.digitalasset.grpc.{GrpcException, GrpcStatus}
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.completion.Completion
+import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
 import com.digitalasset.util.Ctx
 import com.google.protobuf.duration.{Duration => ProtoDuration}
@@ -60,6 +61,8 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
     Inlet[Either[Ctx[(Context, String), Try[Empty]], CompletionStreamElement]]("commandResultIn")
   val resultOut: Outlet[Ctx[Context, Completion]] =
     Outlet[Ctx[Context, Completion]]("resultOut")
+  val offsetOut: Outlet[LedgerOffset] =
+    Outlet[LedgerOffset]("offsetOut")
 
   override def createLogicAndMaterializedValue(
       inheritedAttributes: Attributes): (GraphStageLogic, Future[Map[String, Context]]) = {
@@ -143,12 +146,21 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
               case Right(CompletionStreamElement.CompletionElement(completion)) =>
                 pushResultOrPullCommandResultIn(getOutputForCompletion(completion))
 
-              case Right(CompletionStreamElement.CheckpointElement(_)) =>
+              case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
                 pull(commandResultIn)
+                checkpoint.offset.foreach(emit(offsetOut, _))
             }
 
             completeStageIfTerminal()
           }
+        }
+      )
+
+      setHandler(
+        offsetOut,
+        new OutHandler {
+          override def onPull(): Unit =
+            () //nothing to do here as the offset stream will be read with constant demand, storing the latest element
         }
       )
 
@@ -282,7 +294,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
   }
 
   override def shape: CommandTrackerShape[Context] =
-    CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut)
+    CommandTrackerShape(submitRequestIn, submitRequestOut, commandResultIn, resultOut, offsetOut)
 
 }
 
