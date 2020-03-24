@@ -235,7 +235,7 @@ object WebSocketService {
     }
 
   private[this] final class EnrichedContractKeyWithStreamQuery[Off]
-      extends StreamQuery[List[domain.ContractKeyStreamRequest[Off, LfV]]] {
+      extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Off, LfV]]] {
     type Positive = Unit
 
     private type CKR[+V] = domain.ContractKeyStreamRequest[Off, V]
