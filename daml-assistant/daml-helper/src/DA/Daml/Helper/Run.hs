@@ -766,7 +766,7 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 
 runStart
     :: Maybe SandboxPort
-    -> StartNavigator
+    -> Maybe StartNavigator
     -> JsonApiConfig
     -> OpenBrowser
     -> Maybe String
@@ -778,7 +778,7 @@ runStart
     -> IO ()
 runStart
   sandboxPortM
-  (StartNavigator shouldStartNavigator)
+  mbStartNavigator
   (JsonApiConfig mbJsonApiPort)
   (OpenBrowser shouldOpenBrowser)
   onStartM
@@ -797,6 +797,13 @@ runStart
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
+    shouldStartNavigator :: Bool <- case mbStartNavigator of
+        -- If an option is passed explicitly, we use it, otherwise we read daml.yaml.
+        Nothing ->
+            fmap (fromMaybe True) $
+            requiredE "Failed to parse start-navigator" $
+            queryProjectConfig ["start-navigator"] projectConfig
+        Just (StartNavigator explicit) -> pure explicit
     sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOpts projectConfig
     navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOpts projectConfig
     jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
@@ -804,7 +811,7 @@ runStart
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
-        withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
+        withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust mbInitScript $ \initScript -> do
                 procScript <- toAssistantCommand $
                     [ "script"
@@ -831,7 +838,7 @@ runStart
     where
         navigatorPort = NavigatorPort 7500
         defaultSandboxPort = SandboxPort 6865
-        withNavigator' sandboxPh =
+        withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
