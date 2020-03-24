@@ -81,7 +81,8 @@ From the root ``create-daml-app`` folder, run::
 
   yarn workspaces run build
 
-We should now have an up-to-date TypeScript interface to our DAML model, in particular to the ``Message`` template and ``SendMessage`` choice.
+This may take a couple of minutes.
+The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 
 We can now implement our messaging feature in the UI!
 

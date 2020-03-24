@@ -72,6 +72,7 @@ Now, use Yarn to install the project dependencies and build the app::
     yarn install
     yarn workspaces run build
 
+These steps may take a couple of minutes each (it's worth it!).
 You should see ``Compiled successfully.`` in the output if everything worked as expected.
 
 .. TODO: Give instructions for possible failures.
