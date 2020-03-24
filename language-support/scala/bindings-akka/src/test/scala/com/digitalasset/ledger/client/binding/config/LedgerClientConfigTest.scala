@@ -38,8 +38,7 @@ class LedgerClientConfigTest extends WordSpec with Matchers {
                         |  command-client {
                         |    max-commands-in-flight = 260
                         |    max-parallel-submissions = 40
-                        |    override-ttl = false
-                        |    ttl = PT40S
+                        |    default-deduplication-time = PT40S
                         |  }
                         |  max-retry-time = PT45S
                         |  ssl {
