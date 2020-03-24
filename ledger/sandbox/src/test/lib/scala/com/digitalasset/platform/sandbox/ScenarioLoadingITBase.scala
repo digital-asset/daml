@@ -38,7 +38,6 @@ import scala.concurrent.Future
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
     "org.wartremover.warts.StringPlusAny"
   ))
 abstract class ScenarioLoadingITBase

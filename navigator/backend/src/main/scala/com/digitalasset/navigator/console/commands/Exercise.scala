@@ -19,11 +19,7 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.util.Try
 
-@SuppressWarnings(
-  Array(
-    "org.wartremover.warts.Product",
-    "org.wartremover.warts.Option2Iterable",
-    "org.wartremover.warts.Serializable"))
+@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
 case object Exercise extends SimpleCommand {
   def name: String = "exercise"
 
