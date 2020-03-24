@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.apiserver
 
+import com.codahale.metrics.MetricRegistry
+
 object MetricsNaming {
 
   private[this] val capitalization = "[A-Z]+".r
@@ -43,7 +45,7 @@ object MetricsNaming {
       s"Expected service and method names separated by '/', got '$fullMethodName'")
     val serviceName = camelCaseToSnakeCase(serviceAndMethodName(0).split('.').last)
     val methodName = camelCaseToSnakeCase(serviceAndMethodName(1))
-    s"daml.lapi.$serviceName.$methodName"
+    MetricRegistry.name("daml", "lapi", serviceName, methodName)
   }
 
 }
