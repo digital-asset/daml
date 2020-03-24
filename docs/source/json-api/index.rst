@@ -265,6 +265,8 @@ Successful response with a warning, HTTP status: 200 OK
         "warnings": <JSON object>
     }
 
+.. _error-format:
+
 Failure, HTTP status: 400 | 401 | 404 | 500
 ===========================================
 
@@ -1052,6 +1054,35 @@ Streaming API
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
+
+JavaScript/Node.js example demonstrating how to establish Streaming API connection.
+
+.. code-block:: javascript
+
+    const WebSocket = require("ws")
+
+    console.log("Starting")
+
+    const tokenPrefix = "jwt.token."
+    const wsProtocol = "daml.ws.auth"
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
+    const subprotocol = `${tokenPrefix}${jwt},${wsProtocol}`
+
+    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", [subprotocol])
+
+    ws.on("open", function open() {
+      ws.send(`{"templateIds": ["Iou:Iou"]}`)
+    })
+
+    ws.on("message", function incoming(data) {
+      console.log(data)
+    })
+
+Error Reporting
+===============
+
+Errors reported as part of the standard ``on-message`` flow and formatted the same way as :ref:`synchronous API errors <error-format>`.
 
 Contracts Query Stream
 ======================
