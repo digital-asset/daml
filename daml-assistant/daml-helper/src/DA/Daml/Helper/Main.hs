@@ -42,7 +42,7 @@ data Command
     | Start
       { sandboxPortM :: Maybe SandboxPort
       , openBrowser :: OpenBrowser
-      , startNavigator :: StartNavigator
+      , startNavigator :: Maybe StartNavigator
       , jsonApiCfg :: JsonApiConfig
       , onStartM :: Maybe String
       , waitForSignal :: WaitForSignal
@@ -112,7 +112,7 @@ commandParser = subparser $ fold
     startCmd = Start
         <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-        <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> optional navigatorFlag
         <*> jsonApiCfg
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
@@ -122,6 +122,22 @@ commandParser = subparser $ fold
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
 
+    navigatorFlag =
+        -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
+        -- if the flag was passed explicitly or not.
+        StartNavigator <$>
+        option reader (long "start-navigator" <> help helpText <> completeWith ["true", "false"] <> idm)
+        where
+            reader = eitherReader $ \case
+                -- We allow for both yes and true since we want a boolean in daml.yaml
+                "true" -> Right True
+                "yes" -> Right True
+                "false" -> Right False
+                "no" -> Right False
+                "auto" -> Right True
+                s -> Left ("Expected \"yes\", \"true\", \"no\", \"false\" or \"auto\" but got " <> show s)
+            -- To make things less confusing, we do not mention yes, no and auto here.
+            helpText = "Start navigator as part of daml start. Can be set to true or false. Defaults to true."
     deployCmdInfo = mconcat
         [ progDesc $ concat
               [ "Deploy the current DAML project to a remote DAML ledger. "
