@@ -155,8 +155,7 @@ object WebSocketService {
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
-  implicit val SearchForeverRequestWithStreamQuery
-    : StreamQueryReader[domain.SearchForeverRequest] with StreamQuery[domain.SearchForeverRequest] =
+  implicit val SearchForeverRequestWithStreamQuery: StreamQueryReader[domain.SearchForeverRequest] =
     new StreamQueryReader[domain.SearchForeverRequest]
     with StreamQuery[domain.SearchForeverRequest] {
 
@@ -213,12 +212,8 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]]
-      with StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] =
-    new StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]]
-    with StreamQuery[List[domain.ContractKeyStreamRequest[None.type, LfV]]] {
-
-      type Positive = Unit
+    : StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]] =
+    new StreamQueryReader[List[domain.ContractKeyStreamRequest[None.type, LfV]]] {
 
       private type CKR[+V] = domain.ContractKeyStreamRequest[None.type, V]
 
@@ -231,40 +226,48 @@ object WebSocketService {
             .decode[List[CKR[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
-        } yield Query(bs, this)
+        } yield Query(bs, new EnrichedContractKeyWithStreamQuery[None.type])
 
       private def decodeWithFallback(decoder: DomainJsonDecoder, a: CKR[JsValue]): CKR[LfV] =
         decoder
           .decodeUnderlyingValuesToLf(a)
           .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
 
-      override def allowPhantonArchives: Boolean = false
-
-      override def predicate(
-          request: List[CKR[LfV]],
-          resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): StreamPredicate[Positive] = {
-
-        import util.Collections._
-
-        val (resolvedWithKey, unresolved) =
-          request.toSet.partitionMap { x: CKR[LfV] =>
-            resolveTemplateId(x.ekey.templateId)
-              .map((_, x.ekey.key))
-              .toLeftDisjunction(x.ekey.templateId)
-          }
-
-        val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
-          if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
-            Some(())
-          else None
-        }
-        (q.keySet, unresolved, fn)
-      }
-
-      override def renderCreatedMetadata(p: Unit) = Map.empty
     }
+
+  private[this] final class EnrichedContractKeyWithStreamQuery[Off]
+      extends StreamQuery[List[domain.ContractKeyStreamRequest[Off, LfV]]] {
+    type Positive = Unit
+
+    private type CKR[+V] = domain.ContractKeyStreamRequest[Off, V]
+
+    override def allowPhantonArchives: Boolean = false
+
+    override def predicate(
+        request: List[CKR[LfV]],
+        resolveTemplateId: PackageService.ResolveTemplateId,
+        lookupType: TypeLookup): StreamPredicate[Positive] = {
+
+      import util.Collections._
+
+      val (resolvedWithKey, unresolved) =
+        request.toSet.partitionMap { x: CKR[LfV] =>
+          resolveTemplateId(x.ekey.templateId)
+            .map((_, x.ekey.key))
+            .toLeftDisjunction(x.ekey.templateId)
+        }
+
+      val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
+      val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
+          Some(())
+        else None
+      }
+      (q.keySet, unresolved, fn)
+    }
+
+    override def renderCreatedMetadata(p: Unit) = Map.empty
+  }
 }
 
 class WebSocketService(
