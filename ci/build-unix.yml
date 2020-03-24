@@ -34,6 +34,7 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - bash: |
+      eval "$(dev-env/bin/dade-assist)"
       bazel clean --expunge
     displayName: clean
 
