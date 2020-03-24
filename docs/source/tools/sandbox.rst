@@ -56,7 +56,7 @@ The sandbox can be configured to use one or the other scheme with one
 of the following command line options:
 
 - ``--contract-id-seeding=<seeding-mode>``. The Sandbox will use the
-  sending mode `<sending-mode>` to seed the generation of random
+  seeding mode `<seeding-mode>` to seed the generation of random
   contract IDs. Possible seeding modes are:
   * ``no``: The Sandbox uses the ``deterministic`` scheme.
   * ``strong``: The Sandbox uses the ``random`` scheme initialized
