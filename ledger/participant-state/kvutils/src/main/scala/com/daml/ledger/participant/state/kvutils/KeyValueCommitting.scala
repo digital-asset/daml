@@ -15,8 +15,8 @@ import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.platform.common.metrics.VarGauge
@@ -165,15 +165,14 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        ProcessTransactionSubmission(
+        ProcessTransactionSubmission(defaultConfig).run(
           engine,
           entryId,
           recordTime,
-          defaultConfig,
           participantId,
           submission.getTransactionEntry,
           inputState,
-        ).run
+        )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
