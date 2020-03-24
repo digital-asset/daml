@@ -169,7 +169,7 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new ProcessTransactionSubmission(defaultConfig, engine).run(
+        new ProcessTransactionSubmission(defaultConfig, engine, metricRegistry).run(
           entryId,
           recordTime,
           participantId,

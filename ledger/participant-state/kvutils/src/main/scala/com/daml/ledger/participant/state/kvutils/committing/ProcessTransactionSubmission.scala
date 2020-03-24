@@ -3,8 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
-import com.codahale.metrics
-import com.codahale.metrics.{Counter, Timer}
+import com.codahale.metrics.{Counter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
@@ -29,6 +28,7 @@ import scala.collection.JavaConverters._
 private[kvutils] class ProcessTransactionSubmission(
     defaultConfig: Configuration,
     engine: Engine,
+    metricRegistry: MetricRegistry,
 ) {
 
   private implicit val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -526,22 +526,20 @@ private[kvutils] class ProcessTransactionSubmission(
         .build,
     )
   }
+
+  private object Metrics {
+    private val prefix = "kvutils.committer.transaction"
+    val runTimer: Timer = metricRegistry.timer(s"$prefix.run_timer")
+    val interpretTimer: Timer = metricRegistry.timer(s"$prefix.interpret_timer")
+    val accepts: Counter = metricRegistry.counter(s"$prefix.accepts")
+    val rejections: Map[Int, Counter] =
+      DamlTransactionRejectionEntry.ReasonCase.values
+        .map(v => v.getNumber -> metricRegistry.counter(s"$prefix.rejections_${v.name}"))
+        .toMap
+  }
 }
 
 object ProcessTransactionSubmission {
-
-  private[committing] object Metrics {
-    //TODO: Replace with metrics registry object passed in constructor
-    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-    private val prefix = "kvutils.committer.transaction"
-    val runTimer: Timer = registry.timer(s"$prefix.run_timer")
-    val interpretTimer: Timer = registry.timer(s"$prefix.interpret_timer")
-    val accepts: Counter = registry.counter(s"$prefix.accepts")
-    val rejections: Map[Int, Counter] =
-      DamlTransactionRejectionEntry.ReasonCase.values
-        .map(v => v.getNumber -> registry.counter(s"$prefix.rejections_${v.name}"))
-        .toMap
-  }
 
   private case class TransactionEntry(txEntry: DamlTransactionEntry) {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(txEntry.getLedgerEffectiveTime)
