@@ -1,9 +1,11 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.Helper.Run
     ( runDamlStudio
     , runInit
     , runNew
+    , runCreateDamlApp
     , runJar
     , runDaml2ts
     , runListTemplates
@@ -47,14 +49,20 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception.Safe
 import Control.Monad
+import Control.Monad.IO.Class
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
+import Data.Conduit (runConduitRes, (.|))
+import Data.Conduit.Combinators (sinkHandle)
+import qualified Data.Conduit.Tar.Extra as Tar
+import qualified Data.Conduit.Zlib as Zlib
 import Data.Foldable
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
 import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSChar8
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import DA.PortFile
 import qualified Data.Text as T
@@ -63,7 +71,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
-import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
@@ -645,6 +653,49 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
 
+runCreateDamlApp :: FilePath -> IO ()
+runCreateDamlApp targetFolder = do
+    whenM (doesDirectoryExist targetFolder) $ do
+        hPutStr stderr $ unlines
+            [ "Directory " <> show targetFolder <> " already exists."
+            , "Please specify a new directory or delete the directory."
+            ]
+        exitFailure
+
+    sdkVersion <- getSdkVersion
+    request <- HTTP.parseRequest ("GET " <> url sdkVersion)
+    HTTP.withResponse request $ \response -> do
+        if | HTTP.getResponseStatus response == HTTP.notFound404 -> do
+                 -- We treat 404s specially to provide a better error message.
+                 hPutStrLn stderr $ unlines
+                     [ "create-daml-app is not available for SDK version " <> sdkVersion <> "."
+                     , "You need to use at least SDK version 1.0. If this is a new release,"
+                     , "try again in a few hours."
+                     ]
+                 exitFailure
+           | not (HTTP.statusIsSuccessful $ HTTP.getResponseStatus response) -> do
+                 hPutStrLn stderr $ unlines
+                     [ "Failed to download create-daml-app from " <> show (url sdkVersion) <> "."
+                     , "Verify that your network is working and that you can"
+                     , "access https://github.com/digital-asset/create-daml-app"
+                     ]
+                 hPrint stderr (HTTP.getResponseStatus response)
+                 runConduitRes (HTTP.getResponseBody response .| sinkHandle stderr )
+                 -- trailing newline
+                 BSChar8.hPutStrLn stderr ""
+                 exitFailure
+           | otherwise -> do
+                 -- Successful request so now extract it to the target folder.
+                 let extractError msg e = liftIO $ fail $
+                         "Failed to extract tarball: " <> T.unpack msg <> ": " <> T.unpack e
+                 runConduitRes $
+                     HTTP.getResponseBody response
+                     .| Zlib.ungzip
+                     .| Tar.untar (Tar.restoreFile extractError targetFolder)
+                 putStrLn $ "Created a new DAML app in " <> show targetFolder <> "."
+    where
+        url version = "https://github.com/digital-asset/create-daml-app/archive/v" <> version <> ".tar.gz"
+
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
 
@@ -1051,14 +1102,13 @@ waitForConnectionOnPort sleep port = do
 -- Between each connection request it calls `sleep`.
 waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
 waitForHttpServer sleep url headers = do
-    manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest $ "HEAD " <> url
-    request <- pure request { HTTP.requestHeaders = headers }
+    request <- pure (HTTP.setRequestHeaders headers request)
     untilJust $ do
-        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request manager
+        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
         case r of
             Right resp
-                | HTTP.statusCode (HTTP.responseStatus resp) == 200 -> pure $ Just ()
+                | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure $ Just ()
             _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)

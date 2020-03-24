@@ -37,6 +37,9 @@ data Command
         , shutdownStdinClose :: Bool
         }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
+    | CreateDamlApp { targetFolder :: FilePath }
+    -- ^ CreateDamlApp is sufficiently special that in addition to
+    -- `daml new foobar create-daml-app` we also make `daml create-daml-app foobar` work.
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
@@ -65,6 +68,7 @@ commandParser :: Parser Command
 commandParser = subparser $ fold
     [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
     , command "new" (info (newCmd <**> helper) idm)
+    , command "create-daml-app" (info (createDamlAppCmd <**> helper) idm)
     , command "init" (info (initCmd <**> helper) idm)
     , command "start" (info (startCmd <**> helper) idm)
     , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
@@ -105,6 +109,10 @@ commandParser = subparser $ fold
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
             <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
         ]
+
+    createDamlAppCmd =
+        CreateDamlApp <$>
+        argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
 
     initCmd = Init
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
@@ -300,7 +308,10 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    New {..} -> runNew targetFolder templateNameM [] []
+    New {..}
+        | templateNameM == Just "create-daml-app" -> runCreateDamlApp targetFolder
+        | otherwise -> runNew targetFolder templateNameM [] []
+    CreateDamlApp{..} -> runCreateDamlApp targetFolder
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
     Start {..} ->
