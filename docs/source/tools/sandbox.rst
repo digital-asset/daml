@@ -37,6 +37,42 @@ Here, ``daml sandbox`` tells the SDK Assistant to run ``sandbox`` from the activ
 
   ``submitMustFail`` is only supported by the test-ledger used by ``daml test`` and the IDE, not by the Sandbox.
 
+Contract Identifier Generation
+******************************
+
+Sandbox supports two contract identifiers generator schemes.
+
+* The so-called *deterministic* scheme that deterministically produces
+  contract identifiers from the state of the underlying ledger.  Those
+  identifiers are strings starting with ``#``. 
+
+* The so-called *random* scheme that produces contract identifiers
+  indistinguishable from random. In practice, the schemes use a
+  cryptographically secure pseudorandom number generator initialized
+  with a truly random seed. Those identifiers are hexadecimal strings
+  prefixed by ``00``.
+
+The sandbox can be configured to use one or the other scheme with one
+of the following command line options:
+
+- ``--contract-id-seeding=<seeding-mode>``.  The sandbox will use the
+  sending mode `<sending-mode>` to seed the generation of random
+  contract id.  Possible seeding mode are :
+  * ``no``. The sandbox uses ``deterministic`` scheme
+  * ``strong``. The sandbox uses the ``random`` scheme initialized
+    with a high entropy seed. Depending on the underlying operating
+    system, the startup of the sandbox may block as entropy is being
+    gathered to generate the seed.
+  * ``weak``. (**For testing purpose only**) The sandbox uses the
+    ``random`` scheme initialized with a low entropy seed. This may be
+    used in testing environment to avoid exhausting the system entropy
+    pool when a large number of sandboxed are started in a short time
+    interval.
+  * ``static``. (**For testing purpose only**) The sandbox uses the
+    ``random`` scheme with a fixed seed. This may be used in a testing
+    to have reproducible run.
+
+
 Running with persistence
 ************************
 

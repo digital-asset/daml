@@ -274,7 +274,6 @@ object Cli {
               (),
               s"seeding must be ${seedingMap.keys.mkString(",")}"))
         .action((text, config) => config.copy(seeding = seedingMap(text)))
-        .hidden()
 
       opt[MetricsReporter]("metrics-reporter")
         .optional()
