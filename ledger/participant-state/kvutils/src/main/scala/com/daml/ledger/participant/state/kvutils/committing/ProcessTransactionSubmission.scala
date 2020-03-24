@@ -5,8 +5,11 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics
 import com.codahale.metrics.{Counter, Timer}
-import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, commandDedupKey, _}
+import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
+import com.daml.ledger.participant.state.kvutils.committing.Common._
+import com.daml.ledger.participant.state.kvutils.committing.ProcessTransactionSubmission._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
@@ -14,8 +17,7 @@ import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
 import com.digitalasset.daml.lf.value.Value
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -32,12 +34,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     // state should be used.
     inputState: DamlStateMap) {
 
-  import ProcessTransactionSubmission._
-  import Common._
-  import Commit._
-
-  private implicit val logger: Logger =
-    LoggerFactory.getLogger(this.getClass)
+  private implicit val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = Metrics.runTimer.time { () =>
     runSequence(
@@ -187,13 +184,13 @@ private[kvutils] case class ProcessTransactionSubmission(
         .fold((true, startingKeys)) {
           case (
               (allUnique, existingKeys),
-              (_nodeId, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _)))
+              (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _)))
               if exe.key.isDefined && exe.consuming =>
             val stateKey = Conversions.globalKeyToStateKey(
               Node.GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
             (allUnique, existingKeys - stateKey)
 
-          case ((allUnique, existingKeys), (_nodeId, create @ Node.NodeCreate(_, _, _, _, _, _, _)))
+          case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _, _)))
               if create.key.isDefined =>
             val stateKey = Conversions.globalKeyToStateKey(
               Node.GlobalKey(
