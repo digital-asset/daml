@@ -146,9 +146,10 @@ final class ApiSubmissionService private (
       case CommandDeduplicationNew =>
         recordOnLedger(seed, commands)
           .transform(mapSubmissionResult)
-      case CommandDeduplicationDuplicate(_) =>
+      case CommandDeduplicationDuplicate(until) =>
         Metrics.deduplicatedCommandsMeter.mark()
-        val reason = s"A command with the same command ID and submitter was submitted before."
+        val reason =
+          s"A command with the same command ID ${commands.commandId} and submitter ${commands.submitter} was submitted before. Deduplication window until $until"
         logger.debug(reason)
         Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
     }
