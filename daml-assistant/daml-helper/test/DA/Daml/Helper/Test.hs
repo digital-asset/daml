@@ -26,9 +26,10 @@ main = do
 createDamlAppTests :: FilePath -> TestTree
 createDamlAppTests damlHelper = testGroup "create-daml-app"
     [ testCase "Succeeds with SDK 0.13.55" $ withTempDir $ \dir -> do
+          env <- getEnvironment
           (exit, out, err) <- readCreateProcessWithExitCode
               (proc damlHelper ["create-daml-app", dir </> "foobar"])
-                   { env = Just [("DAML_SDK_VERSION", "0.13.55")] }
+                   { env = Just (("DAML_SDK_VERSION", "0.13.55") : env) }
               ""
           err @?= ""
           assertInfixOf "Created" out
@@ -39,9 +40,10 @@ createDamlAppTests damlHelper = testGroup "create-daml-app"
           -- Note that we do not test 0.0.0 since people
           -- might be tempted to create that tag temporarily for
           -- testing purposes.
+          env <- getEnvironment
           (exit, out, err) <- readCreateProcessWithExitCode
               (proc damlHelper ["create-daml-app", dir </> "foobar"])
-                   { env = Just [("DAML_SDK_VERSION", "0.0.1")] }
+                   { env = Just (("DAML_SDK_VERSION", "0.0.1") : env) }
               ""
           assertInfixOf "not available for SDK version 0.0.1" err
           out @?= ""
