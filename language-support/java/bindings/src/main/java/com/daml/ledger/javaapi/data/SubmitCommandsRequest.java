@@ -115,6 +115,11 @@ public class SubmitCommandsRequest {
     }
 
     @NonNull
+    public Optional<Duration> getDeduplicationTime() {
+        return deduplicationTime;
+    }
+
+    @NonNull
     public List<@NonNull Command> getCommands() {
         return commands;
     }
