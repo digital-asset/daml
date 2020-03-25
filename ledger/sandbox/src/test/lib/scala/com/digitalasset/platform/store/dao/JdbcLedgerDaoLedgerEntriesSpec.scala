@@ -66,7 +66,7 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
 
   it should "be able to persist and load a transaction" in {
     val offset = nextOffset()
-    val absCid = AbsoluteContractId("cId2")
+    val absCid = AbsoluteContractId.assertFromString("#cId2")
     val let = Instant.now
     val txid = "trId2"
     val event1 = event(txid, 1)
@@ -117,7 +117,7 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
   it should "be able to load contracts within a transaction" in {
     val offset = nextOffset()
     val offsetString = offset.toLong
-    val absCid = AbsoluteContractId(s"cId$offsetString")
+    val absCid = AbsoluteContractId.assertFromString(s"#cId$offsetString")
     val let = Instant.now
 
     val transactionId = s"trId$offsetString"

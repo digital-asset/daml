@@ -304,10 +304,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): ContractRef =
     coid match {
-      case V.AbsoluteContractId(coid) =>
+      case acoid: V.AbsoluteContractId =>
         ContractRef.newBuilder
           .setRelative(false)
-          .setContractId(coid)
+          .setContractId(acoid.coid)
           .setTemplateId(convertIdentifier(templateId))
           .build
       case V.RelativeContractId(txnid) =>
@@ -320,7 +320,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
   def convertContractId(coid: V.ContractId): String =
     coid match {
-      case V.AbsoluteContractId(coid) => coid
+      case acoid: V.AbsoluteContractId => acoid.coid
       case V.RelativeContractId(txnid) => txnid.index.toString
     }
 
@@ -651,8 +651,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setEnum(eBuilder.build)
       case V.ValueContractId(coid) =>
         coid match {
-          case V.AbsoluteContractId(acoid) =>
-            builder.setContractId(acoid)
+          case acoid: V.AbsoluteContractId =>
+            builder.setContractId(acoid.coid)
           case V.RelativeContractId(txnid) =>
             builder.setContractId(txnid.index.toString)
         }

@@ -22,7 +22,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
@@ -527,8 +527,7 @@ private class JdbcLedgerDao(
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
-      .as(ledgerString("contract_id").singleOpt)
-      .map(AbsoluteContractId)
+      .as(contractId("contract_id").singleOpt)
 
   private[this] def lookupKeySync(key: Node.GlobalKey, forParty: Party)(
       implicit connection: Connection): Option[AbsoluteContractId] =
@@ -539,8 +538,7 @@ private class JdbcLedgerDao(
         "value_hash" -> keyHasher.hashKeyString(key),
         "party" -> forParty
       )
-      .as(ledgerString("contract_id").singleOpt)
-      .map(AbsoluteContractId)
+      .as(contractId("contract_id").singleOpt)
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
     dbDispatcher.executeSql("lookup_contract_by_key")(implicit conn => lookupKeySync(key, forParty))
@@ -1186,7 +1184,7 @@ private class JdbcLedgerDao(
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
   }
 
-  private val ContractDataParser = (ledgerString("id")
+  private val ContractDataParser = (contractId("id")
     ~ ledgerString("transaction_id").?
     ~ ledgerString("create_event_id").?
     ~ ledgerString("workflow_id").?
@@ -1290,7 +1288,7 @@ private class JdbcLedgerDao(
 
   private def mapContractDetails(
       contractResult: (
-          ContractIdString,
+          Value.AbsoluteContractId,
           Option[LedgerString],
           Option[EventId],
           Option[WorkflowId],
@@ -1301,11 +1299,10 @@ private class JdbcLedgerDao(
           Option[String]))(implicit conn: Connection): Contract =
     contractResult match {
       case (coid, None, None, None, None, contractStream, None, None, None) =>
-        val divulgences = lookupDivulgences(coid)
-        val absoluteCoid = AbsoluteContractId(coid)
+        val divulgences = lookupDivulgences(coid.coid)
 
         DivulgedContract(
-          absoluteCoid,
+          coid,
           contractSerializer
             .deserializeContractInstance(contractStream)
             .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
@@ -1322,12 +1319,11 @@ private class JdbcLedgerDao(
           keyStreamO,
           Some(signatoriesRaw),
           observersRaw) =>
-        val witnesses = lookupWitnesses(coid)
-        val divulgences = lookupDivulgences(coid)
-        val absoluteCoid = AbsoluteContractId(coid)
+        val witnesses = lookupWitnesses(coid.coid)
+        val divulgences = lookupDivulgences(coid.coid)
         val contractInstance = contractSerializer
           .deserializeContractInstance(contractStream)
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
+          .getOrElse(sys.error(s"failed to deserialize contract! cid:${coid.coid}"))
 
         val signatories =
           signatoriesRaw.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString)
@@ -1336,7 +1332,7 @@ private class JdbcLedgerDao(
           .getOrElse(Set.empty)
 
         ActiveContract(
-          absoluteCoid,
+          coid,
           ledgerEffectiveTime.toInstant,
           transactionId,
           eventId,
@@ -1345,7 +1341,7 @@ private class JdbcLedgerDao(
           witnesses,
           divulgences,
           keyStreamO.map(keyStream => {
-            val keyMaintainers = lookupKeyMaintainers(coid)
+            val keyMaintainers = lookupKeyMaintainers(coid.coid)
             val keyValue = ValueSerializer
               .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
               .ensureNoCid

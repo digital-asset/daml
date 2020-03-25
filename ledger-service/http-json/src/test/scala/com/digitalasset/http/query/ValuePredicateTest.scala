@@ -25,9 +25,8 @@ class ValuePredicateTest
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
   type Cid = V.AbsoluteContractId
-  private[this] val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
-    case (h, t) => V.AbsoluteContractId(Ref.ContractIdString assertFromString (h +: t))
-  }
+  private[this] val genCid = Gen.alphaStr map (t =>
+    V.AbsoluteContractId.V0 assertFromString ('#' +: t))
 
   private[this] val dummyId = Ref.Identifier(
     Ref.PackageId assertFromString "dummy-package-id",

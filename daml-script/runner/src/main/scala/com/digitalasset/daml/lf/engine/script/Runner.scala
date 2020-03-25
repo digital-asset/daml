@@ -47,7 +47,7 @@ object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
     JsString(obj.coid)
   override final def jsValueToApiContractId(json: JsValue) = json match {
     case JsString(s) =>
-      ContractIdString.fromString(s).fold(deserializationError(_), AbsoluteContractId)
+      AbsoluteContractId.fromString(s).fold(deserializationError(_), identity)
     case _ => deserializationError("ContractId must be a string")
   }
 }

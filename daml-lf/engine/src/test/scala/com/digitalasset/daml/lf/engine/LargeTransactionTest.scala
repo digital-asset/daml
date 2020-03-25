@@ -93,7 +93,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
-        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+        AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
       case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
@@ -122,7 +122,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
-        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+        AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
       case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
@@ -151,7 +151,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         seed = hash("testLargeChoiceArgument:create", size))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
       case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
-        AbsoluteContractId(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
+        AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
       case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }

@@ -59,7 +59,7 @@ object CidMapper {
           f: Value.RelativeContractId => Ref.ContractIdString,
       ): Value.ContractId => Value.AbsoluteContractId = {
         case acoid: Value.AbsoluteContractId => acoid
-        case rcoid: Value.RelativeContractId => Value.AbsoluteContractId(f(rcoid))
+        case rcoid: Value.RelativeContractId => Value.AbsoluteContractId.V0(f(rcoid))
       }
     }
 }

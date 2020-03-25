@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 package svalue
 
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
@@ -111,35 +111,23 @@ object Ordering extends scala.math.Ordering[SValue] {
   private def compareText(text1: String, text2: String): Int =
     Utf8.Ordering.compare(text1, text2)
 
-  private def isHexa(s: String): Boolean =
-    s.forall(x => '0' < x && x < '9' || 'a' < x && x < 'f')
-
-  @inline
-  private val underlyingCidDiscriminatorLength = 66
-
-  private def compareCid(cid1: Ref.ContractIdString, cid2: Ref.ContractIdString): Int = {
-    // FIXME https://github.com/digital-asset/daml/issues/2256
-    // cleanup this function
-
-    val lim = cid1.length min cid2.length
-
-    @tailrec
-    def lp(i: Int): Int =
-      if (i < lim) {
-        val x = cid1(i)
-        val y = cid2(i)
-        if (x != y) x compareTo y else lp(i + 1)
-      } else {
-        if (lim == underlyingCidDiscriminatorLength && (//
-          cid1.length != underlyingCidDiscriminatorLength && isHexa(cid2) || //
-          cid2.length != underlyingCidDiscriminatorLength && isHexa(cid1)))
-          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
+  private def compareAbsCid(cid1: AbsoluteContractId, cid2: AbsoluteContractId): Int =
+    (cid1, cid2) match {
+      case (AbsoluteContractId.V0(s1), AbsoluteContractId.V0(s2)) =>
+        s1 compareTo s2
+      case (AbsoluteContractId.V0(_), AbsoluteContractId.V1(_, _)) =>
+        -1
+      case (AbsoluteContractId.V1(_, _), AbsoluteContractId.V0(_)) =>
+        +1
+      case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+        val c1 = crypto.Hash.ordering.compare(hash1, hash2)
+        if (c1 != 0)
+          c1
+        else if (suffix1.isEmpty != suffix2.isEmpty)
+          Bytes.ordering.compare(suffix1, suffix2)
         else
-          cid1.length compareTo cid2.length
-      }
-
-    lp(0)
-  }
+          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
+    }
 
   @tailrec
   // Only value of the same type can be compared.
@@ -181,9 +169,9 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SParty(p2) =>
               (compareText(p1, p2)) -> ImmArray.empty
           }
-          case SContractId(AbsoluteContractId(coid1)) => {
-            case SContractId(AbsoluteContractId(coid2)) =>
-              compareCid(coid1, coid2) -> ImmArray.empty
+          case SContractId(coid1: AbsoluteContractId) => {
+            case SContractId(coid2: AbsoluteContractId) =>
+              compareAbsCid(coid1, coid2) -> ImmArray.empty
           }
           case STypeRep(t1) => {
             case STypeRep(t2) =>

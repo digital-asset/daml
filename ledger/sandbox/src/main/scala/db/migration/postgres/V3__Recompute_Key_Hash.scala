@@ -49,8 +49,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
       var hasNext: Boolean = rows.next()
 
       def next(): (AbsoluteContractId, GlobalKey) = {
-        val contractId = AbsoluteContractId(
-          Ref.ContractIdString.assertFromString(rows.getString("contract_id")))
+        val contractId = AbsoluteContractId.assertFromString(rows.getString("contract_id"))
         val templateId = Ref.Identifier(
           packageId = Ref.PackageId.assertFromString(rows.getString("package_id")),
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))

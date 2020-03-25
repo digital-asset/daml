@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.{Bytes, Ref}
   */
 final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   override def compare(that: Offset): Int =
-    Bytes.`Bytes Ordering`.compare(this.bytes, that.bytes)
+    Bytes.ordering.compare(this.bytes, that.bytes)
 
   def toByteArray: Array[Byte] = bytes.toByteArray
 

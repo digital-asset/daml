@@ -25,8 +25,6 @@ import scalaz.scalacheck.ScalaCheckBinding._
 
 object ValueGenerators {
 
-  import Ref.LedgerString.{assertFromString => toContractId}
-
   //generate decimal values
   def numGen(scale: Numeric.Scale): Gen[Numeric] = {
     val num = for {
@@ -154,13 +152,11 @@ object ValueGenerators {
 
   private val genRel: Gen[ContractId] =
     Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Tx.NodeId(i)))
-  private val genAbsV0: Gen[ContractId] =
-    Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
-      case (h, t) => AbsoluteContractId(toContractId(h +: t))
-    }
+  private val genAbsCidV0: Gen[AbsoluteContractId.V0] =
+    Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
 
   def coidGen: Gen[ContractId] =
-    Gen.frequency((1, genRel), (3, genAbsV0))
+    Gen.frequency((1, genRel), (3, genAbsCidV0))
 
   def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
@@ -413,10 +409,7 @@ object ValueGenerators {
       disclosed1 <- nodePartiesGen
       disclosed2 <- nodePartiesGen
       divulged <- Gen.mapOf(
-        Gen
-          .nonEmptyListOf(Gen.alphaChar)
-          .map(s => AbsoluteContractId(toContractId(s.mkString)))
-          .flatMap(c => genMaybeEmptyParties.map(ps => (c, ps))))
+        genAbsCidV0.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
     } yield BlindingInfo(disclosed1, disclosed2, divulged)
   }
 

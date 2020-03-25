@@ -76,7 +76,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     def exerciseCmd(coid: String, templateId: Ref.Identifier): Command =
       ExerciseCommand(
         templateId,
-        Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(coid)),
+        Value.AbsoluteContractId.assertFromString(coid),
         simpleConsumeChoiceid,
         ValueUnit)
 

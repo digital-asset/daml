@@ -63,8 +63,7 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
   private val parties =
     List("alice", "bob").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
-    List("a", "b")
-      .map(x => SContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
+    List("a", "b").map(x => SContractId(AbsoluteContractId.assertFromString("#" + x)))
   private val relativeContractId =
     List(0, 1).map(x => SContractId(RelativeContractId(NodeId(x))))
   private val contractIds = absoluteContractId ++ relativeContractId

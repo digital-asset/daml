@@ -91,7 +91,7 @@ sealed abstract class IdString {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  type LedgerString <: ContractIdString
+  type LedgerString <: String
 
   /** Identifiers for contracts */
   type ContractIdString <: String
@@ -104,7 +104,7 @@ sealed abstract class IdString {
   val PackageId: ConcatenableStringModule[PackageId, HexString]
   val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString, HexString]
-  val ContractIdString: ConcatenableStringModule[ContractIdString, HexString]
+  val ContractIdString: StringModule[ContractIdString]
 }
 
 object IdString {
@@ -264,7 +264,8 @@ private[data] final class IdStringImpl extends IdString {
   /**
     * Legacy contractIds.
     */
-  override type ContractIdString = LedgerString
-  override val ContractIdString: ConcatenableStringModule[LedgerString, HexString] = LedgerString
+  override type ContractIdString = String
+  override val ContractIdString: StringModule[ContractIdString] =
+    new MatchingStringModule("""#[\w._:\-#/ ]{0,254}""")
 
 }

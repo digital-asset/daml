@@ -63,7 +63,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       "ensureNoRelCid is used " in {
         val value = VersionedValue(
           ValueVersions.minVersion,
-          ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("#0:0"))),
+          ValueContractId(AbsoluteContractId.assertFromString("#0:0")),
         )
         val contract = ContractInst(tmplId, value, "agreed")
         value.ensureNoRelCid.map(_.version) shouldBe Right(ValueVersions.minVersion)

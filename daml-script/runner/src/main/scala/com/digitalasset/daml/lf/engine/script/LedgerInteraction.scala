@@ -118,10 +118,13 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
             case Left(err) => throw new ConverterException(err.toString)
             case Right(argument) => argument
           }
-          val cid = ContractIdString.fromString(createdEvent.contractId) match {
-            case Left(err) => throw new ConverterException(err)
-            case Right(cid) => AbsoluteContractId(cid)
-          }
+          val cid =
+            AbsoluteContractId
+              .fromString(createdEvent.contractId)
+              .fold(
+                err => throw new ConverterException(err),
+                identity
+              )
           ScriptLedgerClient.ActiveContract(templateId, cid, argument)
         })))
   }
@@ -208,8 +211,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
     ev match {
       case TreeEvent(TreeEvent.Kind.Created(created)) =>
         for {
-          cid <- ContractIdString.fromString(created.contractId)
-        } yield ScriptLedgerClient.CreateResult(AbsoluteContractId(cid))
+          cid <- AbsoluteContractId.fromString(created.contractId)
+        } yield ScriptLedgerClient.CreateResult(cid)
       case TreeEvent(TreeEvent.Kind.Exercised(exercised)) =>
         for {
           result <- ValueValidator.validateValue(exercised.getExerciseResult).left.map(_.toString)
@@ -279,8 +282,8 @@ class JsonLedgerClient(
           val parsedResults = results.map(r => {
             val payload = r.payload.convertTo[Value[AbsoluteContractId]](
               LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
-            val cid = ContractIdString.assertFromString(r.contractId)
-            ScriptLedgerClient.ActiveContract(templateId, AbsoluteContractId(cid), payload)
+            val cid = AbsoluteContractId.assertFromString(r.contractId)
+            ScriptLedgerClient.ActiveContract(templateId, cid, payload)
           })
           parsedResults
       }
@@ -338,8 +341,7 @@ class JsonLedgerClient(
       }
       .map {
         case JsonLedgerClient.CreateResponse(cid) =>
-          ScriptLedgerClient.CreateResult(
-            AbsoluteContractId(ContractIdString.assertFromString(cid)))
+          ScriptLedgerClient.CreateResult(AbsoluteContractId.assertFromString(cid))
       }
   }
 
@@ -451,8 +453,8 @@ class JsonLedgerClient(
         case JsonLedgerClient.CreateAndExerciseResponse(cid, result) =>
           Right(
             List(
-              ScriptLedgerClient.CreateResult(AbsoluteContractId(
-                ContractIdString.assertFromString(cid))): ScriptLedgerClient.CommandResult,
+              ScriptLedgerClient
+                .CreateResult(AbsoluteContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
               ScriptLedgerClient.ExerciseResult(
                 tplId,
                 choice,

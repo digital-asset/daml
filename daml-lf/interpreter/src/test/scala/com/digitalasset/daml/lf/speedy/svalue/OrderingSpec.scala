@@ -69,7 +69,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
     List("a", "b", "c")
-      .map(x => SContractId(Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
+      .map(x => SContractId(Value.AbsoluteContractId.assertFromString("#" + x)))
 //  private val relativeContractId =
 //    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
   private val contractIds = absoluteContractId //++ relativeContractId

@@ -13,6 +13,9 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 
+import scalaz.syntax.bifunctor._
+import scalaz.std.either._
+
 object ValueValidator {
 
   private[validation] def validateRecordFields(recordFields: Seq[api.RecordField])
@@ -41,11 +44,9 @@ object ValueValidator {
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, domain.Value] = v0.sum match {
     case Sum.ContractId(cId) =>
-      Ref.ContractIdString
+      AbsoluteContractId
         .fromString(cId)
-        .left
-        .map(invalidArgument)
-        .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
+        .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
       def err = invalidArgument(s"""Could not read Numeric string "$value"""")
       if (validNumericString.matcher(value).matches())
