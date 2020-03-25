@@ -60,7 +60,7 @@ class CommandTrackerFlowTest
   private val context = 1
   private val submitRequest = Ctx(
     context,
-    SubmitRequest(Some(Commands(commandId = commandId, maximumRecordTime = Some(fromInstant(mrt)))))
+    SubmitRequest(Some(Commands(commandId = commandId)))
   )
 
   private case class Handle(

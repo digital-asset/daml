@@ -54,8 +54,6 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
           applicationId = testId,
           ledgerId = client.ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          ledgerEffectiveTime = None,
-          maximumRecordTime = None,
           commands = Seq(cmd)
         )))
     client.commandServiceClient.submitAndWait(req)

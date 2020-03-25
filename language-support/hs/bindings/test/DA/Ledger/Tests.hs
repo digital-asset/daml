@@ -642,9 +642,7 @@ makeCommands :: LedgerId -> Party -> Command -> IO (CommandId,Commands)
 makeCommands lid party com = do
     cid <- liftIO randomCid
     let wid = Nothing
-    let leTime = Timestamp 0 0
-    let mrTime = Timestamp 5 0
-    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing}
+    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing}
 
 
 myAid :: ApplicationId

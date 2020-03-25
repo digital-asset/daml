@@ -209,7 +209,6 @@ object KVTest {
       submitter: Party,
       transaction: (Transaction.AbsTransaction, Transaction.Metadata),
       submissionSeed: Option[crypto.Hash],
-      mrtDelta: Duration = minMRTDelta,
       letDelta: Duration = Duration.ZERO,
       commandId: CommandId = randomLedgerString,
       deduplicationTime: Duration = Duration.ofDays(1)): KVTest[(DamlLogEntryId, DamlLogEntry)] =
@@ -219,7 +218,6 @@ object KVTest {
         submitter = submitter,
         applicationId = Ref.LedgerString.assertFromString("test"),
         commandId = commandId,
-        maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
         deduplicateUntil =
           testState.recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
       )

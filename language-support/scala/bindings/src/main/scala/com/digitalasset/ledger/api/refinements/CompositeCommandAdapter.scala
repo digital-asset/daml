@@ -3,10 +3,6 @@
 
 package com.digitalasset.ledger.api.refinements
 
-import java.time.Duration
-
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
@@ -15,10 +11,8 @@ import scalaz.syntax.tag._
 class CompositeCommandAdapter(
     ledgerId: LedgerId,
     applicationId: ApplicationId,
-    ttl: Duration,
-    timeProvider: TimeProvider) {
+) {
   def transform(c: CompositeCommand): SubmitRequest = {
-    val now = timeProvider.getCurrentTime
 
     val commands = Commands(
       ledgerId.unwrap,
@@ -26,8 +20,6 @@ class CompositeCommandAdapter(
       applicationId.unwrap,
       c.commandId.unwrap,
       c.party.unwrap,
-      Some(fromInstant(now)),
-      Some(fromInstant(now plus ttl)),
       c.commands
     )
 
@@ -40,7 +32,5 @@ object CompositeCommandAdapter {
   def apply(
       ledgerId: LedgerId,
       applicationId: ApplicationId,
-      ttl: Duration,
-      timeProvider: TimeProvider) =
-    new CompositeCommandAdapter(ledgerId, applicationId, ttl, timeProvider)
+  ) = new CompositeCommandAdapter(ledgerId, applicationId)
 }

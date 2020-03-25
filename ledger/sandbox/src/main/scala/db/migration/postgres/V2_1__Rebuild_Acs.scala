@@ -473,7 +473,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
-      case "TimedOut" => TimedOut(description)
+      case "TimedOut" => InvalidLedgerTime(description)
       case "Disputed" => Disputed(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }

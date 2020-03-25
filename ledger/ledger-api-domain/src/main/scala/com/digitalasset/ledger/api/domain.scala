@@ -191,13 +191,6 @@ object domain {
       */
     final case class OutOfQuota(description: String) extends RejectionReason
 
-    /** The transaction submission timed out.
-      *
-      * This means the 'maximumRecordTime' was smaller than the recordTime seen
-      * in an event in the Participant node.
-      */
-    final case class TimedOut(description: String) extends RejectionReason
-
     /** The transaction submission was disputed.
       *
       * This means that the underlying ledger and its validation logic
@@ -279,7 +272,6 @@ object domain {
       commandId: CommandId,
       submitter: Ref.Party,
       ledgerEffectiveTime: Instant,
-      maximumRecordTime: Instant,
       submittedAt: Instant,
       deduplicateUntil: Instant,
       commands: LfCommands)

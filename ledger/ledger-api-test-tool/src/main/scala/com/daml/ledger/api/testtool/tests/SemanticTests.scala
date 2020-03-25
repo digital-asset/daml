@@ -67,7 +67,7 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
     case Participants(Participant(alpha, payer, owner), Participant(_, newOwner1, newOwner2)) =>
       for {
         iou <- alpha.create(payer, Iou(payer, owner, onePound))
-        doubleSpend <- alpha.submitAndWaitRequest(
+        doubleSpend = alpha.submitAndWaitRequest(
           owner,
           iou.exerciseTransfer(owner, newOwner1).command,
           iou.exerciseTransfer(owner, newOwner2).command,

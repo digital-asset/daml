@@ -34,7 +34,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
   def validateCommands(
       commands: ProtoCommands,
       currentLedgerTime: Instant,
-      currentUTCTime: Instant,
+      currentUtcTime: Instant,
       maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -66,9 +66,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commandId = commandId,
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
-        maximumRecordTime = Instant.EPOCH,
-        submittedAt = currentUTCTime,
-        deduplicateUntil = currentUTCTime.plus(deduplicationTime),
+        submittedAt = currentUtcTime,
+        deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(
           submitter = submitter,
           commands = ImmArray(validatedCommands),
@@ -92,7 +91,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       case (Some(_), Some(_)) =>
         Left(
           invalidArgument(
-            "min_ledger_time_abs can not be specified at the same time as min_ledger_time_rel"))
+            "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"))
     }
   }
 

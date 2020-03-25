@@ -5,8 +5,6 @@ package com.daml.ledger.participant.state.v1
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
-
 /** Information provided by the submitter of changes submitted to the ledger.
   *
   * Note that this is used for party-originating changes only. They are
@@ -22,11 +20,6 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
   *   correlate the stream of changes to the participant state with the
   *   changes he submitted.
   *
-  * @param maxRecordTime: the maximum record time (inclusive) until which
-  *   the submitted change can be validly added to the ledger. This is used
-  *   by DAML applications to deduce from the record time reported by the
-  *   ledger whether a change that they submitted has been lost in transit.
-  *
   * @param deduplicateUntil: the time until which the command should be deduplicated.
   *   Command deduplication is already performed by the participant.
   *   The ledger may choose to perform additional (cross-participant)
@@ -40,6 +33,5 @@ final case class SubmitterInfo(
     submitter: Party,
     applicationId: ApplicationId,
     commandId: CommandId,
-    maxRecordTime: Timestamp, //TODO: this should be a regular Instant
     deduplicateUntil: Instant,
 )

@@ -28,7 +28,7 @@ class GrpcCommandSubmissionService(
     protected val service: CommandSubmissionService with AutoCloseable,
     val ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
-    currentUTCTime: () => Instant,
+    currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Duration
 ) extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -41,7 +41,7 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator
-      .validate(request, currentLedgerTime(), currentUTCTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(
         Future.failed,
         service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))

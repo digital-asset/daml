@@ -24,11 +24,11 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
   ) {
     case Participants(Participant(ledger, party)) =>
       val targetNumberOfSubCommands = numberOfCommands(units = 3)
+      val request = ledger.submitAndWaitRequest(
+        party,
+        List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
+      )
       for {
-        request <- ledger.submitAndWaitRequest(
-          party,
-          List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
-        )
         result <- ledger.submitAndWaitForTransaction(request)
       } yield {
         val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)

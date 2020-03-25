@@ -492,8 +492,6 @@ private[kvutils] class ProcessTransactionSubmission(
         builder.setDisputed(Disputed.newBuilder.setDetails(disputeReason))
       case RejectionReason.ResourcesExhausted =>
         builder.setResourcesExhausted(ResourcesExhausted.newBuilder.setDetails(""))
-      case RejectionReason.MaximumRecordTimeExceeded =>
-        builder.setMaximumRecordTimeExceeded(MaximumRecordTimeExceeded.newBuilder.setDetails(""))
       case RejectionReason.PartyNotKnownOnLedger =>
         builder.setPartyNotKnownOnLedger(PartyNotKnownOnLedger.newBuilder.setDetails(""))
       case RejectionReason.SubmitterCannotActViaParticipant(details) =>

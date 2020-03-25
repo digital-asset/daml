@@ -82,16 +82,6 @@ object Cli {
       .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
 
-    opt[Double](name = "command-submission-ttl-scale-factor")
-      .optional()
-      .action((v, c) => c.copy(commandSubmissionTtlScaleFactor = v))
-      .text("""Scale factor for time-to-live of commands sent for ledger processing
-              |(captured as Maximum Record Time in submitted transactions) for
-              |all test suites. Regardless the output of multiplying by this factor
-              |the TTL will always be clipped by the minimum and maximum value as defined
-              |by the LedgerConfigurationService, with the maximum being the default
-              |(which means that any value above 1.0 won't have any effect.""".stripMargin)
-
     opt[Double](name = "timeout-scale-factor")
       .optional()
       .action((v, c) => c.copy(timeoutScaleFactor = v))

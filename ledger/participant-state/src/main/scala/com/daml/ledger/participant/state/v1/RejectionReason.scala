@@ -40,16 +40,6 @@ object RejectionReason {
     override def description: String = "Resources exhausted"
   }
 
-  /** The transaction submission exceeded its maximum record time.
-    *
-    * This means the 'maximumRecordTime' was smaller than the record time
-    * in the ledger state at which the transaction was sequenced.
-    */
-  final case object MaximumRecordTimeExceeded extends RejectionReason {
-    override def description: String =
-      "The maximum record time of the command exceeded"
-  }
-
   /** A party mentioned as a stakeholder or actor has not been on-boarded on
     * the ledger.
     *

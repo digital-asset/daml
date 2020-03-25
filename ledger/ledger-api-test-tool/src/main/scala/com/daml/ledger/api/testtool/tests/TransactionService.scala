@@ -393,12 +393,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(ledger, party)) =>
       val filterBy = Dummy.id
+      val create = ledger.submitAndWaitRequest(
+        party,
+        Dummy(party).create.command,
+        DummyFactory(party).create.command,
+      )
       for {
-        create <- ledger.submitAndWaitRequest(
-          party,
-          Dummy(party).create.command,
-          DummyFactory(party).create.command,
-        )
         _ <- ledger.submitAndWait(create)
         transactions <- ledger.flatTransactionsByTemplateId(filterBy, party)
       } yield {
@@ -497,8 +497,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         Primitive.List(0L, 1L, 2L, 3L),
         Primitive.Optional("some optional text"),
       )
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("CreateWithAnyType", createdEvents(transaction))
@@ -564,8 +564,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         veryLongList,
         Primitive.Optional("some optional text"),
       )
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("VeryLongList", createdEvents(transaction))
@@ -614,8 +614,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       val template = BranchingSignatories(false, alice, bob)
+      val create = beta.submitAndWaitRequest(bob, template.create.command)
       for {
-        create <- beta.submitAndWaitRequest(bob, template.create.command)
         transaction <- beta.submitAndWaitForTransaction(create)
         _ <- synchronize(alpha, beta)
         transactions <- alpha.flatTransactions(alice)
@@ -671,8 +671,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
       val template = BranchingControllers(alice, false, bob, eve)
+      val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transaction <- alpha.submitAndWaitForTransaction(create)
         _ <- synchronize(alpha, beta)
         transactions <- beta.flatTransactions(bob)
@@ -691,8 +691,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
       val template = WithObservers(alice, Primitive.List(observers: _*))
+      val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transactionId <- alpha.submitAndWaitForTransactionId(create)
         _ <- eventually {
           for {
@@ -713,8 +713,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(ledger, party)) =>
       val template = NothingArgument(party, Primitive.Optional.empty)
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("UnitAsArgumentToNothing", createdEvents(transaction))

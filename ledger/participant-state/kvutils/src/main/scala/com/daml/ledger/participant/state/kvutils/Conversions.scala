@@ -131,7 +131,6 @@ private[state] object Conversions {
       .setSubmitter(subInfo.submitter)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
-      .setMaximumRecordTime(buildTimestamp(subInfo.maxRecordTime))
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
@@ -139,7 +138,6 @@ private[state] object Conversions {
       submitter = Party.assertFromString(subInfo.getSubmitter),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
-      maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime),
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
     )
 
