@@ -107,6 +107,11 @@ sealed abstract class IdString {
   val ContractIdString: ConcatenableStringModule[ContractIdString, HexString]
 }
 
+object IdString {
+  import Ref.Name
+  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
+}
+
 private sealed abstract class StringModuleImpl extends StringModule[String] {
 
   type T = String

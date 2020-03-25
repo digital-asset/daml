@@ -4,15 +4,12 @@
 package com.digitalasset.daml.lf
 package data
 
-import scalaz.Equal
-
 object Ref {
 
   val IdString: IdString = new IdStringImpl
 
   type Name = IdString.Name
   val Name: IdString.Name.type = IdString.Name
-  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
   /* Encoding of byte array */
   type HexString = IdString.HexString
