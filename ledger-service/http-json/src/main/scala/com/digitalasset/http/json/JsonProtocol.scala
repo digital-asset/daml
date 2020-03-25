@@ -184,16 +184,15 @@ object JsonProtocol extends DefaultJsonProtocol {
     domain.ContractKeyStreamRequest(None, ekey)
   }
 
-  implicit val ResumingContractKeyStreamRequest
-    : RootJsonReader[domain.ContractKeyStreamRequest[Option[Option[domain.Offset]], JsValue]] = {
-    jsv =>
-      val off = jsv match {
-        case JsObject(fields) => fields get offsetHintKey map (_.convertTo[Option[String]])
-        case _ => None
-      }
-      val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
-      type OO[+A] = Option[Option[A]]
-      domain.ContractKeyStreamRequest(domain.Offset.tag.subst[OO, String](off), ekey)
+  implicit val ResumingContractKeyStreamRequest: RootJsonReader[
+    domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]] = { jsv =>
+    val off = jsv match {
+      case JsObject(fields) => fields get offsetHintKey map (_.convertTo[Option[String]])
+      case _ => None
+    }
+    val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
+    type OO[+A] = Option[Option[A]]
+    domain.ContractKeyStreamRequest(domain.Offset.tag.subst[OO, String](off), ekey)
   }
 
   implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =

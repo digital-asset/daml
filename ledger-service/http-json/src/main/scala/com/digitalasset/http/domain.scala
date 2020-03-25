@@ -88,8 +88,8 @@ object domain {
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
 
-  final case class ContractKeyStreamRequest[+Off, +LfV](
-      offsetHint: Off,
+  final case class ContractKeyStreamRequest[+Hint, +LfV](
+      offsetHint: Hint,
       ekey: EnrichedContractKey[LfV],
   )
 

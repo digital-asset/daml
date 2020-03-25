@@ -17,8 +17,6 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.{Liskov, NonEmptyList}
-import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -28,8 +26,9 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, \/, \/-}
-import spray.json.{JsArray, JsObject, JsValue}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
+import Liskov.<~<
+import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -136,7 +135,7 @@ object WebSocketService {
 
   sealed abstract class StreamQueryReader[A] {
     case class Query[Q](q: Q, alg: StreamQuery[Q])
-    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
+    def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
   }
 
   sealed trait StreamQuery[A] {
@@ -144,7 +143,7 @@ object WebSocketService {
     /** Extra data on success of a predicate. */
     type Positive
 
-    def allowPhantonArchives: Boolean
+    def removePhantomArchives(request: A): Option[Set[String]]
 
     def predicate(
         request: A,
@@ -160,7 +159,7 @@ object WebSocketService {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(decoder: DomainJsonDecoder, jv: JsValue) = {
+      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
         import JsonProtocol._
         SprayJson
           .decode[SearchForeverRequest](jv)
@@ -168,7 +167,7 @@ object WebSocketService {
           .map(Query(_, this))
       }
 
-      override def allowPhantonArchives: Boolean = true
+      override def removePhantomArchives(request: SearchForeverRequest) = None
 
       override def predicate(
           request: SearchForeverRequest,
@@ -219,28 +218,34 @@ object WebSocketService {
       import JsonProtocol._
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      override def parse(decoder: DomainJsonDecoder, jv: JsValue) =
-        for {
-          as <- SprayJson
-            .decode[NonEmptyList[CKR[JsValue]]](jv)
-            .liftErr(InvalidUserInput)
-          bs = as.map(a => decodeWithFallback(decoder, a))
-        } yield Query(bs, new EnrichedContractKeyWithStreamQuery[None.type])
+      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
+        type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
+        def go[Hint](alg: StreamQuery[NelCKRH[Hint, LfV]])(
+            implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
+          for {
+            as <- SprayJson
+              .decode[NelCKRH[Hint, JsValue]](jv)
+              .liftErr(InvalidUserInput)
+            bs = as.map(a => decodeWithFallback(decoder, a))
+          } yield Query(bs, alg)
+        if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery)
+        else go(InitialEnrichedContractKeyWithStreamQuery)
+      }
 
-      private def decodeWithFallback(decoder: DomainJsonDecoder, a: CKR[JsValue]): CKR[LfV] =
+      private def decodeWithFallback[Hint](
+          decoder: DomainJsonDecoder,
+          a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
         decoder
           .decodeUnderlyingValuesToLf(a)
           .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
 
     }
 
-  private[this] final class EnrichedContractKeyWithStreamQuery[Off]
-      extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Off, LfV]]] {
+  private[this] abstract class EnrichedContractKeyWithStreamQuery[Cid]
+      extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
     type Positive = Unit
 
-    private type CKR[+V] = domain.ContractKeyStreamRequest[Off, V]
-
-    override def allowPhantonArchives: Boolean = false
+    protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
 
     override def predicate(
         request: NonEmptyList[CKR[LfV]],
@@ -266,6 +271,19 @@ object WebSocketService {
     }
 
     override def renderCreatedMetadata(p: Unit) = Map.empty
+  }
+
+  private[this] object InitialEnrichedContractKeyWithStreamQuery
+      extends EnrichedContractKeyWithStreamQuery[None.type] {
+    override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = Some(Set.empty)
+  }
+
+  private[this] object ResumingEnrichedContractKeyWithStreamQuery
+      extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
+    override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
+      val NelO = Foldable[NonEmptyList].compose[Option]
+      request traverse (_.offsetHint) map (neloCid => Tag unsubst NelO.toSet(neloCid))
+    }
   }
 }
 
