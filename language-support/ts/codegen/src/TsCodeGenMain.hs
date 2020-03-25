@@ -213,8 +213,7 @@ daml2ts Daml2TsParams {..} = do
     -- foreign packages as we do.
     dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     -- Now write package metadata.
-    writePackageIdTs packageSrcDir pkgId
-    writeIndexTs packageSrcDir modules
+    writeIndexTs packageSrcDir pkgId modules
     writeTsConfig packageDir
     writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
@@ -567,13 +566,8 @@ onLast f = \case
     [l] -> [f l]
     x : xs -> x : onLast f xs
 
-writePackageIdTs :: FilePath -> PackageId -> IO ()
-writePackageIdTs dir pkgId =
-    T.writeFileUtf8 (dir </> "packageId.ts") $ T.unlines
-      ["export default '" <> unPackageId pkgId <> "';"]
-
-writeIndexTs :: FilePath -> [Module] -> IO ()
-writeIndexTs packageSrcDir modules =
+writeIndexTs :: FilePath -> PackageId -> [Module] -> IO ()
+writeIndexTs packageSrcDir pkgId modules =
   T.writeFileUtf8 (packageSrcDir </> "index.ts") (T.unlines lines)
   where
     lines :: [T.Text]
@@ -586,9 +580,8 @@ writeIndexTs packageSrcDir modules =
         -- NOTE(MH): We produce a lot of _seemingly_ unused variables because
         -- ESLint unfortunately regards `A` in `export import A = B` as unused.
       , "/* eslint-disable @typescript-eslint/no-unused-vars */"
-      , "import __packageId from \"./packageId\""
       , "namespace __All {"
-      , "  export const packageId = __packageId;"
+      , "  export const packageId = '" <> unPackageId pkgId <> "';"
       , "}"
       ]
 
