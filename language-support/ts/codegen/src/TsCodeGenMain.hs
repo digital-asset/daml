@@ -239,7 +239,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
     let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
-        imports = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
+        imports = (PRSelf, modName) `Set.delete` Set.unions refs
         (internalImports, externalImports) = splitImports imports
         rootPath =
           let lenModName = length (unModuleName modName)
@@ -247,10 +247,10 @@ genModule pkgMap (Scope scope) curPkgId mod
         defs = map biconcat defSers
         modText = T.unlines $ intercalate [""] $ filter (not . null) $
           modHeader
-          : map (externalImportDecl pkgMap) externalImports
+          : map (externalImportDecl pkgMap) (Set.toList externalImports)
           : map (internalImportDecl rootPath) internalImports
           : defs
-        depends = Set.fromList $ map (Dependency . pkgRefStr pkgMap . fst) externalImports
+        depends = Set.map (Dependency . pkgRefStr pkgMap) externalImports
    in Just (modText, depends)
   where
     modName = moduleName mod
@@ -266,13 +266,13 @@ genModule pkgMap (Scope scope) curPkgId mod
       ]
 
     -- Split the imports into the from the same package and those from another package.
-    splitImports :: [ModuleRef] -> ([ModuleName], [(PackageId, ModuleName)])
-    splitImports refs =
+    splitImports :: Set.Set ModuleRef -> ([ModuleName], Set.Set PackageId)
+    splitImports imports =
       let classifyImport (pkgRef, modName) = case pkgRef of
             PRSelf -> Left modName
-            PRImport pkgId -> Right (pkgId, modName)
+            PRImport pkgId -> Right pkgId
       in
-      partitionEithers (map classifyImport refs)
+      second Set.fromList (partitionEithers (map classifyImport (Set.toList imports)))
 
     -- Calculate an import declaration for a module from the same package.
     internalImportDecl :: [T.Text] -> ModuleName -> T.Text
@@ -282,10 +282,10 @@ genModule pkgMap (Scope scope) curPkgId mod
 
     -- Calculate an import declaration for a module from another package.
     externalImportDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
-                      (PackageId, ModuleName) -> T.Text
-    externalImportDecl pkgMap (pkgId, modName) =
-      "import * as " <> genModuleRef (PRImport pkgId, modName) <> " from '" <>
-        modPath (scope : pkgRefStr pkgMap pkgId : "lib" : unModuleName modName) <> "';"
+                      PackageId -> T.Text
+    externalImportDecl pkgMap pkgId =
+      "import pkg" <> unPackageId pkgId <> " from '" <>
+        scope <> "/" <> pkgRefStr pkgMap pkgId <> "';"
 
     -- Produce a package name for a package ref.
     pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageId -> T.Text
@@ -544,8 +544,8 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
 
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of
-    PRSelf -> modVar "" name
-    PRImport pkgId -> modVar ("pkg" <> unPackageId pkgId <> "_") name
+    PRSelf -> T.intercalate "_" name
+    PRImport pkgId -> T.intercalate "." (("pkg" <> unPackageId pkgId) : name)
   where
     name = unModuleName modName
 
