@@ -19,7 +19,7 @@ import com.daml.ledger.participant.state.v1.{
   SeedService,
   TimedReadService,
   TimedWriteService,
-  WriteService
+  WritePackagesService
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
@@ -248,7 +248,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       owner.acquire()
     }
 
-  private def uploadDar(from: File, to: WriteService)(
+  private def uploadDar(from: File, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -272,8 +272,8 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val ReadServicePrefix = "daml.services.read"
   private val IndexServicePrefix = "daml.services.index"
+  private val ReadServicePrefix = "daml.services.read"
   private val WriteServicePrefix = "daml.services.write"
 
   private val HeartbeatInterval: FiniteDuration = 1.second

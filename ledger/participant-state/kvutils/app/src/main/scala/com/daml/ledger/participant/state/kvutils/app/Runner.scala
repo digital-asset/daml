@@ -8,7 +8,14 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.SubmissionId
+import com.daml.ledger.participant.state.index.v2.TimedIndexService
+import com.daml.ledger.participant.state.kvutils.app.Metrics._
+import com.daml.ledger.participant.state.v1.{
+  SubmissionId,
+  TimedReadService,
+  TimedWriteService,
+  WritePackagesService
+}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.logging.LoggingContext.newLoggingContext
@@ -49,10 +56,12 @@ class Runner[T <: ReadWriteService, Extra](
             val metricRegistry = factory.metricRegistry(participantConfig, config)
             for {
               ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
+              readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
+              writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
               _ <- Resource.fromFuture(
-                Future.sequence(config.archiveFiles.map(uploadDar(_, ledger))))
+                Future.sequence(config.archiveFiles.map(uploadDar(_, writeService))))
               _ <- new StandaloneIndexerServer(
-                readService = ledger,
+                readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
                 metrics = metricRegistry,
               ).acquire()
@@ -61,8 +70,10 @@ class Runner[T <: ReadWriteService, Extra](
                 commandConfig = factory.commandConfig(config),
                 partyConfig = factory.partyConfig(config),
                 submissionConfig = factory.submissionConfig(config),
-                readService = ledger,
-                writeService = ledger,
+                readService = readService,
+                writeService = writeService,
+                transformIndexService =
+                  service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
                 authService = factory.authService(config),
                 metrics = metricRegistry,
                 timeServiceBackend = factory.timeServiceBackend(config),
@@ -75,7 +86,7 @@ class Runner[T <: ReadWriteService, Extra](
     }
   }
 
-  private def uploadDar(from: Path, to: ReadWriteService)(
+  private def uploadDar(from: Path, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = SubmissionId.assertFromString(UUID.randomUUID().toString)
