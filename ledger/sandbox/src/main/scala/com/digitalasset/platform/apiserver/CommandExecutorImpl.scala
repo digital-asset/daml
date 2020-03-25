@@ -66,7 +66,6 @@ class CommandExecutorImpl(
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
-              Time.Timestamp.assertFromInstant(submitted.maximumRecordTime),
               submitted.deduplicateUntil,
             ),
             transactionMeta = TransactionMeta(

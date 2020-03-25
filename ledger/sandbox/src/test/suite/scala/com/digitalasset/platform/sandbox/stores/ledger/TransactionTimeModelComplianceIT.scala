@@ -83,7 +83,6 @@ class TransactionTimeModelComplianceIT
       submitter = Ref.Party.assertFromString("submitter"),
       applicationId = Ref.LedgerString.assertFromString("appId"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = Time.Timestamp.assertFromInstant(Instant.EPOCH),
       deduplicateUntil = Instant.EPOCH
     )
     val transactionMeta = TransactionMeta(

@@ -1071,7 +1071,6 @@ private class JdbcLedgerDao(
     (rejectionReason.description, rejectionReason match {
       case _: Inconsistent => "Inconsistent"
       case _: OutOfQuota => "OutOfQuota"
-      case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
@@ -1082,7 +1081,6 @@ private class JdbcLedgerDao(
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
-      case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
