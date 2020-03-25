@@ -4,11 +4,15 @@
 package com.digitalasset.daml.lf.engine.script
 
 import akka.actor.ActorSystem
+import akka.http.scaladsl.Http
 import akka.stream._
+import java.nio.file.Files
 import java.time.Instant
+import java.util.stream.Collectors
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.io.Source
+import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 
@@ -16,6 +20,8 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.iface.EnvironmentInterface
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -44,17 +50,6 @@ object RunnerMain {
           Identifier(dar.main._1, QualifiedName.assertFromString(config.scriptIdentifier))
 
         val applicationId = ApplicationId("Script Runner")
-        // Note (MK): For now, we only support using a single-token for everything.
-        // We might want to extend this to allow for multiple tokens, e.g., one token per party +
-        // one admin token for allocating parties.
-        val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
-        val clientConfig = LedgerClientConfiguration(
-          applicationId = ApplicationId.unwrap(applicationId),
-          ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-          commandClient = CommandClientConfiguration.default,
-          sslContext = config.tlsConfig.flatMap(_.client),
-          token = tokenHolder.flatMap(_.token),
-        )
         val timeProvider: TimeProvider =
           config.timeProviderType match {
             case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
@@ -63,7 +58,7 @@ object RunnerMain {
               throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
           }
 
-        val system: ActorSystem = ActorSystem("ScriptRunner")
+        implicit val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
           new AkkaExecutionSequencerPool("ScriptRunnerPool")(system)
         implicit val ec: ExecutionContext = system.dispatcher
@@ -99,11 +94,39 @@ object RunnerMain {
               party_participants = Map.empty)
         }
         val flow: Future[Unit] = for {
-          clients <- Runner.connect(participantParams, clientConfig)
+
+          clients <- if (config.jsonApi) {
+            config.accessTokenFile match {
+              case None => throw new RuntimeException("json-api requires a token")
+              case Some(tokenFile) =>
+                val token = Files.readAllLines(tokenFile).stream.collect(Collectors.joining("\n"))
+                val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+                val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+                Runner.jsonClients(participantParams, token, envIface)
+            }
+          } else {
+            // Note (MK): For now, we only support using a single-token for everything.
+            // We might want to extend this to allow for multiple tokens, e.g., one token per party +
+            // one admin token for allocating parties.
+            val tokenHolder = config.accessTokenFile.map(new TokenHolder(_))
+            val clientConfig = LedgerClientConfiguration(
+              applicationId = ApplicationId.unwrap(applicationId),
+              ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+              commandClient = CommandClientConfiguration.default,
+              sslContext = config.tlsConfig.flatMap(_.client),
+              token = tokenHolder.flatMap(_.token),
+            )
+            Runner.connect(participantParams, clientConfig)
+          }
           _ <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
         } yield ()
 
-        flow.onComplete(_ => system.terminate())
+        flow.onComplete(_ =>
+          if (config.jsonApi) {
+            Http().shutdownAllConnectionPools().flatMap { case () => system.terminate() }
+          } else {
+            system.terminate()
+        })
         Await.result(flow, Duration.Inf)
       }
     }

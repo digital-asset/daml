@@ -22,6 +22,7 @@ case class RunnerConfig(
     inputFile: Option[File],
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
+    jsonApi: Boolean,
 )
 
 object RunnerConfig {
@@ -122,6 +123,12 @@ object RunnerConfig {
         arguments.copy(tlsConfig =
           arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
 
+    opt[Unit]("json-api")
+      .action { (t, c) =>
+        c.copy(jsonApi = true)
+      }
+      .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -152,6 +159,7 @@ object RunnerConfig {
         inputFile = None,
         accessTokenFile = None,
         tlsConfig = None,
+        jsonApi = false,
       )
     )
 }
