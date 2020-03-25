@@ -180,9 +180,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         assertFileExists (groverTsSrc </> "Grover.ts")
         assertFileExists (groverTsLib </> "Grover.js")
         assertFileExists (groverTsLib </> "Grover.d.ts")
-        assertFileExists (groverTsSrc </> "packageId.ts")
-        assertFileExists (groverTsLib </> "packageId.js")
-        assertFileExists (groverTsLib </> "packageId.d.ts")
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
