@@ -11,5 +11,7 @@ Guides
 ******
 
 .. toctree::
+   :titlesonly:
+
    sawtooth-deployment
    fabric-deployment
