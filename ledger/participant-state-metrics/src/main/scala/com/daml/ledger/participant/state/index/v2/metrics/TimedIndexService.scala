@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.index.v2
+package com.daml.ledger.participant.state.index.v2.metrics
 
 import java.time.Instant
 
@@ -9,13 +9,9 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{
-  Configuration,
-  Metrics,
-  PackageId,
-  ParticipantId,
-  Party
-}
+import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.metrics.Metrics
+import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value

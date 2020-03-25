@@ -7,10 +7,10 @@ load(
 )
 
 da_scala_library(
-    name = "participant-state-index",
-    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
+    name = "participant-state-metrics",
+    srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-metrics:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -24,9 +24,12 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//libs-scala/direct-execution-context",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

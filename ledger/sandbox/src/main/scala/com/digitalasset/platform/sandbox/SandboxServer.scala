@@ -11,8 +11,9 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.TimedIndexService
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService, TimedWriteService}
+import com.daml.ledger.participant.state.index.v2.metrics.TimedIndexService
+import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo

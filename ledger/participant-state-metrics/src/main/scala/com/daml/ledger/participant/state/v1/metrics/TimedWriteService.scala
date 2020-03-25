@@ -1,11 +1,22 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.v1
+package com.daml.ledger.participant.state.v1.metrics
 
 import java.util.concurrent.CompletionStage
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.metrics.Metrics
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  Party,
+  SubmissionId,
+  SubmissionResult,
+  SubmittedTransaction,
+  SubmitterInfo,
+  TransactionMeta,
+  WriteService
+}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.health.HealthStatus

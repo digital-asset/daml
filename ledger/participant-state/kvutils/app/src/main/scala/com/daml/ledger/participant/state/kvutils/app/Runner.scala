@@ -8,14 +8,10 @@ import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.index.v2.TimedIndexService
+import com.daml.ledger.participant.state.index.v2.metrics.TimedIndexService
 import com.daml.ledger.participant.state.kvutils.app.Metrics._
-import com.daml.ledger.participant.state.v1.{
-  SubmissionId,
-  TimedReadService,
-  TimedWriteService,
-  WritePackagesService
-}
+import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.logging.LoggingContext.newLoggingContext
