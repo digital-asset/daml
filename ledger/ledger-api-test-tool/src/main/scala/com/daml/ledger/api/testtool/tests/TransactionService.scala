@@ -180,10 +180,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
         tree <- eventually { beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou)) }
 
-        aliceTree <- alpha.transactionTreeById(tree.transactionId, alice)
+        aliceTree <- eventually { alpha.transactionTreeById(tree.transactionId, alice) }
         bobTree <- beta.transactionTreeById(tree.transactionId, bob)
-        gbpTree <- alpha.transactionTreeById(tree.transactionId, gbp_bank)
-        dkkTree <- delta.transactionTreeById(tree.transactionId, dkk_bank)
+        gbpTree <- eventually { alpha.transactionTreeById(tree.transactionId, gbp_bank) }
+        dkkTree <- eventually { delta.transactionTreeById(tree.transactionId, dkk_bank) }
 
       } yield {
         def treeIsWellformed(tree: TransactionTree): Unit = {
