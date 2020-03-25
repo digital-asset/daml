@@ -130,8 +130,8 @@ object TestMain extends StrictLogging {
           _ <- clients.getParticipant(None) match {
             case Left(err) => throw new RuntimeException(err)
             case Right(client) =>
-              client.packageManagementClient.uploadDarFile(
-                ByteString.readFrom(new FileInputStream(config.darPath)))
+              client.grpcClient.packageManagementClient
+                .uploadDarFile(ByteString.readFrom(new FileInputStream(config.darPath)))
           }
           success = new AtomicBoolean(true)
           _ <- Future.sequence {

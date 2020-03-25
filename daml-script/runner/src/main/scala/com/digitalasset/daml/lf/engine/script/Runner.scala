@@ -6,9 +6,7 @@ package engine
 package script
 
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.StatusRuntimeException
 import java.util.UUID
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,12 +36,6 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
@@ -61,7 +53,7 @@ object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
 case class Participant(participant: String)
 case class Party(party: String)
 case class ApiParameters(host: String, port: Int)
-case class Participants[T](
+case class Participants[+T](
     default_participant: Option[T],
     participants: Map[Participant, T],
     party_participants: Map[Party, Participant],
@@ -145,15 +137,15 @@ object Script {
 object Runner {
   private def connectApiParameters(params: ApiParameters, clientConfig: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
-      seq: ExecutionSequencerFactory): Future[LedgerClient] = {
-    LedgerClient.singleHost(params.host, params.port, clientConfig)
+      seq: ExecutionSequencerFactory): Future[GrpcLedgerClient] = {
+    LedgerClient.singleHost(params.host, params.port, clientConfig).map(new GrpcLedgerClient(_))
   }
   // We might want to have one config per participant at some point but for now this should be sufficient.
   def connect(
       participantParams: Participants[ApiParameters],
       clientConfig: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
-      seq: ExecutionSequencerFactory): Future[Participants[LedgerClient]] = {
+      seq: ExecutionSequencerFactory): Future[Participants[GrpcLedgerClient]] = {
     for {
       // The standard library is incredibly weird. Option is not Traversable so we have to convert to a list and back.
       // Map is but it doesn’t return a Map so we have to call toMap afterwards.
@@ -177,7 +169,7 @@ object Runner {
       dar: Dar[(PackageId, Package)],
       scriptId: Identifier,
       inputValue: Option[JsValue],
-      initialClients: Participants[LedgerClient],
+      initialClients: Participants[ScriptLedgerClient],
       applicationId: ApplicationId,
       timeProvider: TimeProvider)(
       implicit ec: ExecutionContext,
@@ -280,7 +272,7 @@ class Runner(
     SubmitAndWaitRequest(Some(commands))
   }
 
-  def runWithClients(initialClients: Participants[LedgerClient])(
+  def runWithClients(initialClients: Participants[ScriptLedgerClient])(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
@@ -337,26 +329,19 @@ class Runner(
                     party <- Converter.toParty(vals.get(0))
                     commands <- Converter.toCommands(extendedCompiledPackages, freeAp)
                     client <- clients.getPartyParticipant(Party(party.value))
-                  } yield (client, toSubmitRequest(client.ledgerId, party, commands))
-                  val (client, request) =
+                  } yield (client, party, commands)
+                  val (client, party, commands) =
                     requestOrErr.fold(s => throw new ConverterException(s), identity)
-                  val f =
-                    client.commandServiceClient
-                      .submitAndWaitForTransactionTree(request)
-                      .map(Right(_))
-                      .recover({ case s: StatusRuntimeException => Left(s) })
+                  val f = client.submit(applicationId, party, commands)
                   f.flatMap({
-                    case Right(transactionTree) => {
-                      val events =
-                        transactionTree.getTransaction.rootEventIds.map(evId =>
-                          transactionTree.getTransaction.eventsById(evId))
+                    case Right(results) => {
                       val filled =
                         Converter.fillCommandResults(
                           extendedCompiledPackages,
                           lookupChoiceTy,
                           valueTranslator,
                           freeAp,
-                          events) match {
+                          results) match {
                           case Left(s) => throw new ConverterException(s)
                           case Right(r) => r
                         }
@@ -384,19 +369,13 @@ class Runner(
                     party <- Converter.toParty(vals.get(0))
                     tplId <- Converter.typeRepToIdentifier(vals.get(1))
                     client <- clients.getPartyParticipant(Party(party.value))
-                  } yield
-                    (
-                      client,
-                      TransactionFilter(
-                        List((party.value, Filters(Some(InclusiveFilters(Seq(tplId)))))).toMap))
-                  val (client, filter) =
+                  } yield (client, party, tplId)
+                  val (client, party, tplId) =
                     filterOrErr.fold(s => throw new ConverterException(s), identity)
-                  val acsResponses = client.activeContractSetClient
-                    .getActiveContracts(filter, verbose = true)
-                    .runWith(Sink.seq)
-                  acsResponses.flatMap(acsPages => {
+                  val acsF = client.query(party, tplId)
+                  acsF.flatMap(acs => {
                     val res =
-                      FrontStack(acsPages.flatMap(page => page.activeContracts))
+                      FrontStack(acs)
                         .traverseU(Converter
                           .fromCreated(valueTranslator, _))
                         .fold(s => throw new ConverterException(s), identity)
@@ -430,9 +409,8 @@ class Runner(
                   }
                   val continue = vals.get(3)
                   val f =
-                    client.partyManagementClient.allocateParty(Some(partyIdHint), Some(displayName))
-                  f.flatMap(allocRes => {
-                    val party = allocRes.party
+                    client.allocateParty(partyIdHint, displayName)
+                  f.flatMap(party => {
                     participantName match {
                       case None => {
                         // If no participant is specified, we use default_participant so we don’t need to change anything.
@@ -440,10 +418,9 @@ class Runner(
                       case Some(participant) =>
                         clients =
                           clients.copy(party_participants = clients.party_participants + (Party(
-                            party) -> participant))
+                            party.value) -> participant))
                     }
-                    machine.ctrl =
-                      Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(SParty(party)))))
+                    machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(continue), Array(SEValue(party))))
                     go()
                   })
                 }
