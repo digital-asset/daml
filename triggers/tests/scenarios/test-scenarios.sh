@@ -28,7 +28,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-trigger.dar
+  - daml-trigger-1.8.dar
 EOF
 cp -L $DAML_TRIGGERS_DAR $TMP_DIR/
 cp -L $DAML_SOURCE $TMP_DIR/daml/
