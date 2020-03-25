@@ -4,6 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS  @hurryabit @gerolf-da
+LATEST      @hurryabit @gerolf-da @bame-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
