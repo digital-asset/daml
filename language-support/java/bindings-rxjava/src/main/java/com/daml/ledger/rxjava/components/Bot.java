@@ -204,7 +204,7 @@ public class Bot {
         return cs -> {
             logger.debug("Submitting: {}", cs);
             return FlowableLogger.log(commandSubmissionClient.submit(cs.getWorkflowId(), cs.getApplicationId(),
-                    cs.getCommandId(), cs.getParty(), cs.getLedgerEffectiveTime(), cs.getMaximumRecordTime(),
+                    cs.getCommandId(), cs.getParty(), cs.getMinLedgerTimeAbsolute(), cs.getMinLedgerTimeRelative(),
                     cs.getCommands())
                     .flatMapMaybe(s -> Maybe.<LedgerViewFlowable.SubmissionFailure> empty())
                     .doOnError(t -> logger.error("Error submitting commands {} for party {}: {}", cs.getCommandId(), cs.getParty(), t.getMessage()))

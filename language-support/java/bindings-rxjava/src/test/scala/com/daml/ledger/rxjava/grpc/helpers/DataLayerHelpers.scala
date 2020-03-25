@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import java.time.Instant
+import java.util.Optional
 
 import com.daml.ledger.javaapi.data._
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -39,8 +39,8 @@ trait DataLayerHelpers {
       "applicationId",
       "commandId",
       party.getOrElse("party"),
-      Instant.EPOCH,
-      Instant.EPOCH,
+      Optional.empty(),
+      Optional.empty(),
       commands.asJava)
   }
   def genLedgerOffset(absVal: String): LedgerOffset =

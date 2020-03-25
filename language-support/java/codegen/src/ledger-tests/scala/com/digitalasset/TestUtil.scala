@@ -4,8 +4,8 @@
 package com.digitalasset
 
 import java.io.File
-import java.time.Instant
-import java.util.UUID
+import java.time.{Duration, Instant}
+import java.util.{Optional, UUID}
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 
@@ -82,8 +82,8 @@ object TestUtil {
               randomId,
               randomId,
               Alice,
-              Instant.now,
-              Instant.now.plusSeconds(10),
+              Optional.empty[Instant],
+              Optional.empty[Duration],
               cmds.asJava))
           .build)
   }
