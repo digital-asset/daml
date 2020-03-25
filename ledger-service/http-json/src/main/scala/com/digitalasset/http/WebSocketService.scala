@@ -213,8 +213,6 @@ object WebSocketService {
     : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
     new StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] {
 
-      private type CKR[+V] = domain.ContractKeyStreamRequest[None.type, V]
-
       import JsonProtocol._
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
