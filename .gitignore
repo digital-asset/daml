@@ -95,3 +95,4 @@ language-support/hs/bindings/gen
 language-support/hs/bindings/*.cabal
 language-support/hs/bindings/examples/nim/*.cabal
 .daml/
+.python-version

@@ -99,6 +99,7 @@ Early Access Features
    triggers/index
    daml-repl/index
    tools/visual
+   deploying-daml/index
 
 Support and updates
 -------------------

@@ -101,6 +101,7 @@ DAML SDK documentation
    triggers/index
    daml-repl/index
    tools/visual
+   deploying-daml/index
 
 .. toctree::
    :titlesonly:
