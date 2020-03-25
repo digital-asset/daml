@@ -232,7 +232,7 @@ object JsonProtocol extends DefaultJsonProtocol {
       domain.SearchForeverRequest(NonEmptyList(single.convertTo[domain.GetActiveContractsRequest]))
   }
 
-  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat3(
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat1(
     domain.CommandMeta)
 
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(

@@ -3,8 +3,6 @@
 
 package com.digitalasset.http.util
 
-import java.time.Instant
-
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.tag._
@@ -67,8 +65,6 @@ object Commands {
       ledgerId: lar.LedgerId,
       applicationId: lar.ApplicationId,
       commandId: lar.CommandId,
-      ledgerEffectiveTime: Instant,
-      maximumRecordTime: Instant,
       party: lar.Party,
       command: lav1.commands.Command.Command
   ): lav1.command_service.SubmitAndWaitRequest = {

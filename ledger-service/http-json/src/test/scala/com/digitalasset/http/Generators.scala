@@ -3,7 +3,6 @@
 
 package com.digitalasset.http
 
-import com.daml.ledger.javaapi.data.Generators.instantGen
 import com.digitalasset.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
@@ -128,9 +127,7 @@ object Generators {
   def metaGen: Gen[domain.CommandMeta] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
-      let <- Gen.option(instantGen)
-      mrt <- Gen.option(instantGen)
-    } yield domain.CommandMeta(commandId, let, mrt)
+    } yield domain.CommandMeta(commandId)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))

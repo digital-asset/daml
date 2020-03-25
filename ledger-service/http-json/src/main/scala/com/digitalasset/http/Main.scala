@@ -50,7 +50,6 @@ object Main extends StrictLogging {
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
-        s", defaultTtl=${config.defaultTtl.toString}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -92,7 +91,6 @@ object Main extends StrictLogging {
         staticContentConfig = config.staticContentConfig,
         packageReloadInterval = config.packageReloadInterval,
         maxInboundMessageSize = config.maxInboundMessageSize,
-        defaultTtl = config.defaultTtl,
       )
 
     discard {
@@ -171,13 +169,6 @@ object Main extends StrictLogging {
         .text(
           s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
             s"Defaults to ${Config.Empty.packageReloadInterval.toString}")
-
-      opt[Duration]("default-ttl")
-        .action((x, c) => c.copy(defaultTtl = FiniteDuration(x.length, x.unit)))
-        .optional()
-        .text(
-          s"Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. " +
-            s"Defaults to ${Config.Empty.defaultTtl.toString}")
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))
