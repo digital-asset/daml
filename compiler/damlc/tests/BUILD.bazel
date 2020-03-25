@@ -280,7 +280,7 @@ da_haskell_test(
     data = [
         ":repl-test.dar",
         "//compiler/damlc",
-        "//daml-script/daml:daml-script.dar",
+        "//daml-script/daml:daml-script",
         "//ledger/sandbox:sandbox-binary",
         "//ledger/test-common/test-certificates",
     ],

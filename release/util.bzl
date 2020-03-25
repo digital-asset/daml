@@ -23,7 +23,7 @@ def sdk_tarball(name, version):
             "//language-support/ts/codegen:daml2ts-dist",
             "//templates:templates-tarball.tar.gz",
             "//triggers/daml:daml-trigger.dar",
-            "//daml-script/daml:daml-script.dar",
+            "//daml-script/daml:daml-script",
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
         tools = ["@zip_dev_env//:zip"],
@@ -51,7 +51,7 @@ def sdk_tarball(name, version):
 
           mkdir -p $$OUT/daml-libs
           cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
-          cp -t $$OUT/daml-libs $(location //daml-script/daml:daml-script.dar)
+          cp -t $$OUT/daml-libs $(locations //daml-script/daml:daml-script)
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper

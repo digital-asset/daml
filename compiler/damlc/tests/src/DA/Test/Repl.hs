@@ -36,7 +36,8 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
+    -- TODO[AH] Don't hard-code daml-script LF version.
+    scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script-1.8.dar")
     testDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "repl-test.dar")
     certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
     defaultMain $
