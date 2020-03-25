@@ -3,8 +3,6 @@
 
 package com.digitalasset.http
 
-import java.time.Instant
-
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
@@ -31,7 +29,6 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -40,7 +37,7 @@ class CommandService(
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
     timeProvider: TimeProvider,
-    defaultTimeToLive: FiniteDuration)(implicit ec: ExecutionContext)
+)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import CommandService._
@@ -143,19 +140,12 @@ class CommandService(
       meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
-    val ledgerEffectiveTime: Instant =
-      meta.flatMap(_.ledgerEffectiveTime).getOrElse(timeProvider.getCurrentTime)
-    val maximumRecordTime: Instant = meta
-      .flatMap(_.maximumRecordTime)
-      .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
     val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
       commandId,
-      ledgerEffectiveTime,
-      maximumRecordTime,
       jwtPayload.party,
       command
     )
