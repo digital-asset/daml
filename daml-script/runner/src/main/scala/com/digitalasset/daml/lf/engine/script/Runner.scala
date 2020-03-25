@@ -46,7 +46,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
+import com.google.protobuf.duration.Duration
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
   override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
@@ -179,7 +179,6 @@ object Runner {
       inputValue: Option[JsValue],
       initialClients: Participants[LedgerClient],
       applicationId: ApplicationId,
-      commandUpdater: CommandUpdater,
       timeProvider: TimeProvider)(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
@@ -213,7 +212,7 @@ object Runner {
         throw new RuntimeException(s"The script ${scriptId} requires an argument.")
     }
     val runner =
-      new Runner(compiledPackages, scriptAction, applicationId, commandUpdater, timeProvider)
+      new Runner(compiledPackages, scriptAction, applicationId, timeProvider)
     runner.runWithClients(initialClients)
   }
 }
@@ -222,7 +221,6 @@ class Runner(
     compiledPackages: CompiledPackages,
     script: Script.Action,
     applicationId: ApplicationId,
-    commandUpdater: CommandUpdater,
     timeProvider: TimeProvider)
     extends StrictLogging {
 
@@ -277,8 +275,9 @@ class Runner(
       commandId = UUID.randomUUID.toString,
       ledgerEffectiveTime = None,
       maximumRecordTime = None,
+      deduplicationTime = Some(Duration(30))
     )
-    SubmitAndWaitRequest(Some(commandUpdater.applyOverrides(commands)))
+    SubmitAndWaitRequest(Some(commands))
   }
 
   def runWithClients(initialClients: Participants[LedgerClient])(

@@ -213,6 +213,20 @@ final case class GenTransaction[Nid, +Cid, +Val](
     }
 
   /**
+    * Returns the IDs of all input contracts that are used by this transaction.
+    */
+  def inputContracts[Cid2 >: Cid]: Set[Cid2] =
+    fold(Set.empty[Cid2]) {
+      case (acc, (_, Node.NodeExercises(_, coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
+        acc + coid
+      case (acc, _) => acc
+    } -- localContracts.keySet
+
+  /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
     * Nid is irrelevant to the content of the transaction.
     */

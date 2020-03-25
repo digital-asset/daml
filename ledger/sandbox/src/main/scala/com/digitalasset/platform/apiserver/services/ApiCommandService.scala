@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.{
@@ -104,7 +105,8 @@ final class ApiCommandService private (
                   List(submitter.party),
                   Some(offset)))
               .mapConcat(CommandCompletionSource.toStreamElements),
-          ledgerEnd
+          ledgerEnd,
+          () => configuration.maxDeduplicationTime
         )
         val trackingFlow =
           if (configuration.limitMaxCommandsInFlight)
@@ -157,6 +159,7 @@ object ApiCommandService {
   def create(
       configuration: Configuration,
       services: LocalServices,
+      timeProvider: TimeProvider,
   )(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: Materializer,
@@ -165,9 +168,10 @@ object ApiCommandService {
   ): CommandServiceGrpc.CommandService with GrpcApiService =
     new GrpcCommandService(
       new ApiCommandService(services, configuration),
-      configuration.ledgerId,
-      () => Instant.now(),
-      () => configuration.maxDeduplicationTime,
+      ledgerId = configuration.ledgerId,
+      currentLedgerTime = () => timeProvider.getCurrentTime,
+      currentUTCTime = () => Instant.now,
+      maxDeduplicationTime = () => configuration.maxDeduplicationTime,
     )
 
   final case class Configuration(

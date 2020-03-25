@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.index.v2
 
+import java.time.Instant
+
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -22,4 +24,5 @@ trait ContractStore {
 
   def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
 
+  def lookupMaximumLedgerTime(ids: Set[AbsoluteContractId]): Future[Instant]
 }

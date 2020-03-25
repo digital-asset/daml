@@ -12,7 +12,6 @@ import akka.http.scaladsl.model._
 import akka.util.ByteString
 import akka.stream.scaladsl.{FileIO, Sink, Source}
 import java.io.File
-import java.time.Instant
 import java.util.UUID
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
@@ -23,7 +22,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.v1.commands._
@@ -35,7 +33,6 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
   InclusiveFilters
 }
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
@@ -49,15 +46,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
   }
 
-  val updater = new CommandUpdater(
-    timeProviderO = Some(TimeProvider.Constant(Instant.EPOCH)),
-    ttl = java.time.Duration.ofSeconds(30),
-    overrideTtl = true)
-
   def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
       Some(
-        updater.applyOverrides(Commands(
+        Commands(
           party = party,
           applicationId = testId,
           ledgerId = client.ledgerId.unwrap,
@@ -65,7 +57,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
           ledgerEffectiveTime = None,
           maximumRecordTime = None,
           commands = Seq(cmd)
-        ))))
+        )))
     client.commandServiceClient.submitAndWait(req)
   }
 

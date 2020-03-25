@@ -79,7 +79,8 @@ object RunnerMain {
         val clientConfig = LedgerClientConfiguration(
           applicationId = ApplicationId.unwrap(applicationId),
           ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-          commandClient = CommandClientConfiguration.default.copy(ttl = config.commandTtl),
+          commandClient =
+            CommandClientConfiguration.default.copy(defaultDeduplicationTime = config.commandTtl),
           sslContext = config.tlsConfig.flatMap(_.client),
           token = tokenHolder.flatMap(_.token)
         )

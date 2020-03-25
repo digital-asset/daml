@@ -24,7 +24,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
@@ -193,10 +192,6 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
     // we probably need to extend this to merge the
     // modules from each line.
     val pkg = Package(Seq(mod), Seq(), None)
-    val commandUpdater = new CommandUpdater(
-      timeProviderO = Some(TimeProvider.UTC),
-      ttl = java.time.Duration.ofSeconds(30),
-      overrideTtl = true)
     // TODO[AH] Provide daml-script package id from REPL client.
     val (scriptPackageId, _) = packages.find {
       case (pkgId, pkg) => pkg.modules.contains(DottedName.assertFromString("Daml.Script"))
@@ -217,7 +212,6 @@ class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext,
       compiledPackages,
       Script.Action(scriptExpr, ScriptIds(scriptPackageId)),
       ApplicationId("daml repl"),
-      commandUpdater,
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
       case Failure(e) => respObs.onError(e)

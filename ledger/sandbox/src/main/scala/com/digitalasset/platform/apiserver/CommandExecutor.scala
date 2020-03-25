@@ -45,5 +45,5 @@ trait CommandExecutor {
         Option[Value.ContractInst[Transaction.Value[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: Commands
-  ): Future[Either[ErrorCause, CommandExecutionResult]]
+  ): Future[Either[ErrorCause.DamlLf, CommandExecutionResult]]
 }

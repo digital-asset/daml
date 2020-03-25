@@ -5,7 +5,7 @@ package com.digitalasset.ledger.api.validation
 
 import java.time.{Duration, Instant}
 
-import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.ledger.api.domain
@@ -25,6 +25,7 @@ import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
+import scala.Ordering.Implicits._
 
 final class CommandsValidator(ledgerId: LedgerId) {
 
@@ -32,7 +33,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
 
   def validateCommands(
       commands: ProtoCommands,
-      currentTime: Instant,
+      currentLedgerTime: Instant,
+      currentUTCTime: Instant,
       maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -43,15 +45,15 @@ final class CommandsValidator(ledgerId: LedgerId) {
         .map(domain.ApplicationId(_))
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submitter <- requireParty(commands.party, "party")
-      let <- requirePresence(commands.ledgerEffectiveTime, "ledger_effective_time")
-      ledgerEffectiveTime = TimestampConversion.toInstant(let)
-      mrt <- requirePresence(commands.maximumRecordTime, "maximum_record_time")
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz, submitter)
+      ledgerEffectiveTime <- validateLedgerTime(currentLedgerTime, commands)
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
         .left
-        .map(invalidField(_, "ledger_effective_time"))
+        .map(_ =>
+          invalidArgument(
+            s"Can not represent command ledger time $ledgerEffectiveTime as a DAML timestamp"))
       deduplicationTime <- validateDeduplicationTime(
         commands.deduplicationTime,
         maxDeduplicationTime,
@@ -64,9 +66,9 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commandId = commandId,
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
-        maximumRecordTime = TimestampConversion.toInstant(mrt),
-        submittedAt = currentTime,
-        deduplicateUntil = currentTime.plus(deduplicationTime),
+        maximumRecordTime = Instant.EPOCH,
+        submittedAt = currentUTCTime,
+        deduplicateUntil = currentUTCTime.plus(deduplicationTime),
         commands = Commands(
           submitter = submitter,
           commands = ImmArray(validatedCommands),
@@ -74,6 +76,25 @@ final class CommandsValidator(ledgerId: LedgerId) {
           commandsReference = workflowId.fold("")(_.unwrap)
         ),
       )
+
+  private def validateLedgerTime(
+      currentTime: Instant,
+      commands: ProtoCommands,
+  ): Either[StatusRuntimeException, Instant] = {
+    val minLedgerTimeAbs = commands.minLedgerTimeAbs
+    val minLedgerTimeRel = commands.minLedgerTimeRel
+
+    (minLedgerTimeAbs, minLedgerTimeRel) match {
+      case (None, None) => Right(currentTime)
+      case (Some(minAbs), None) =>
+        Right(currentTime.max(TimestampConversion.toInstant(minAbs)))
+      case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
+      case (Some(_), Some(_)) =>
+        Left(
+          invalidArgument(
+            "min_ledger_time_abs can not be specified at the same time as min_ledger_time_rel"))
+    }
+  }
 
   private def validateInnerCommands(
       commands: Seq[ProtoCommand],

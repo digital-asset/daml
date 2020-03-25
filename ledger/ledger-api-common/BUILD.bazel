@@ -30,7 +30,6 @@ da_scala_library(
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
-        "//ledger/participant-state",
         "//libs-scala/direct-execution-context",
         "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
