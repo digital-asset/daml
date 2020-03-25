@@ -12,7 +12,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
-import com.daml.ledger.participant.state.index.v2.metrics.TimedIndexService
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
@@ -30,7 +29,8 @@ import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServerConfig,
   StandaloneApiServer,
-  TimeServiceBackend
+  TimeServiceBackend,
+  TimedIndexService
 }
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.indexer.{

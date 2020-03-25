@@ -18,18 +18,13 @@ da_scala_library(
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
-        "//daml-lf/language",
         "//daml-lf/transaction",
-        "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
-        "//ledger/participant-state-index",
         "//libs-scala/direct-execution-context",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

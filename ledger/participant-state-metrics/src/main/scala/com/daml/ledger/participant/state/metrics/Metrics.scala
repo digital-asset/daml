@@ -12,7 +12,7 @@ import com.digitalasset.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 
-private[state] object Metrics {
+object Metrics {
 
   def timedCompletionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
     val ctx = timer.time()
