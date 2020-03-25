@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.time.{Clock, Duration, Instant}
+import java.time.{Clock, Instant}
 
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
@@ -101,7 +101,6 @@ private[testtool] final class ParticipantTestContext private[participant] (
     val identifierSuffix: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
-    ttl: Duration,
     partyAllocation: PartyAllocationConfiguration,
 )(implicit ec: ExecutionContext) {
 
@@ -438,8 +437,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitRequest(party, template.create.command)
-      .flatMap(submitAndWaitForTransaction)
+    submitAndWaitForTransaction(submitAndWaitRequest(party, template.create.command))
       .map(extractContracts)
       .map(_.head)
 
@@ -447,8 +445,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       template: Template[T],
   ): Future[(String, Primitive.ContractId[T])] =
-    submitAndWaitRequest(party, template.create.command)
-      .flatMap(submitAndWaitForTransaction)
+    submitAndWaitForTransaction(submitAndWaitRequest(party, template.create.command))
       .map(tx =>
         tx.transactionId -> tx.events.collect {
           case Event(Created(e)) => Primitive.ContractId(e.contractId)
@@ -458,20 +455,19 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[TransactionTree] =
-    submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransactionTree)
+    submitAndWaitForTransactionTree(submitAndWaitRequest(party, exercise(party).command))
 
   def exerciseForFlatTransaction[T](
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[Transaction] =
-    submitAndWaitRequest(party, exercise(party).command).flatMap(submitAndWaitForTransaction)
+    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
 
   def exerciseAndGetContract[T](
       party: Party,
       exercise: Party => Primitive.Update[_],
   ): Future[Primitive.ContractId[T]] =
-    submitAndWaitRequest(party, exercise(party).command)
-      .flatMap(submitAndWaitForTransaction)
+    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
       .map(extractContracts)
       .map(_.head.asInstanceOf[Primitive.ContractId[T]])
 
@@ -479,8 +475,7 @@ private[testtool] final class ParticipantTestContext private[participant] (
       party: Party,
       exercise: Party => Primitive.Update[T],
   ): Future[Seq[Primitive.ContractId[_]]] =
-    submitAndWaitRequest(party, exercise(party).command)
-      .flatMap(submitAndWaitForTransaction)
+    submitAndWaitForTransaction(submitAndWaitRequest(party, exercise(party).command))
       .map(extractContracts)
 
   def exerciseByKey[T](
@@ -490,53 +485,47 @@ private[testtool] final class ParticipantTestContext private[participant] (
       choice: String,
       argument: Value,
   ): Future[TransactionTree] =
-    submitAndWaitRequest(
-      party,
-      Command(
-        Command.Command.ExerciseByKey(
-          ExerciseByKeyCommand(
-            Some(template.unwrap),
-            Option(key),
-            choice,
-            Option(argument),
+    submitAndWaitForTransactionTree(
+      submitAndWaitRequest(
+        party,
+        Command(
+          Command.Command.ExerciseByKey(
+            ExerciseByKeyCommand(
+              Some(template.unwrap),
+              Option(key),
+              choice,
+              Option(argument),
+            ),
           ),
         ),
       ),
-    ).flatMap(submitAndWaitForTransactionTree)
+    )
 
-  def submitRequest(party: Party, commands: Command*): Future[SubmitRequest] =
-    time().map(
-      let =>
-        new SubmitRequest(
-          Some(
-            new Commands(
-              ledgerId = ledgerId,
-              applicationId = applicationId,
-              commandId = nextCommandId(),
-              party = party.unwrap,
-              ledgerEffectiveTime = Some(let.asProtobuf),
-              maximumRecordTime = Some(let.plus(ttl).asProtobuf),
-              commands = commands,
-            ),
-          ),
-      ))
+  def submitRequest(party: Party, commands: Command*): SubmitRequest =
+    new SubmitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          party = party.unwrap,
+          commands = commands,
+        ),
+      ),
+    )
 
-  def submitAndWaitRequest(party: Party, commands: Command*): Future[SubmitAndWaitRequest] =
-    time().map(
-      let =>
-        new SubmitAndWaitRequest(
-          Some(
-            new Commands(
-              ledgerId = ledgerId,
-              applicationId = applicationId,
-              commandId = nextCommandId(),
-              party = party.unwrap,
-              ledgerEffectiveTime = Some(let.asProtobuf),
-              maximumRecordTime = Some(let.plus(ttl).asProtobuf),
-              commands = commands,
-            ),
-          ),
-      ))
+  def submitAndWaitRequest(party: Party, commands: Command*): SubmitAndWaitRequest =
+    new SubmitAndWaitRequest(
+      Some(
+        new Commands(
+          ledgerId = ledgerId,
+          applicationId = applicationId,
+          commandId = nextCommandId(),
+          party = party.unwrap,
+          commands = commands,
+        ),
+      ),
+    )
 
   def submit(request: SubmitRequest): Future[Unit] =
     services.commandSubmission.submit(request).map(_ => ())

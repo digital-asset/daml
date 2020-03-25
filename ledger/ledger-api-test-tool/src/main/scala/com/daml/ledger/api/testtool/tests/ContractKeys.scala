@@ -193,8 +193,9 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         delegated1TxTree <- ledger
-          .submitAndWaitRequest(owner, Delegated(owner, key).create.command)
-          .flatMap(ledger.submitAndWaitForTransactionTree)
+          .submitAndWaitForTransactionTree(
+            ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
+          )
         delegated1Id = com.digitalasset.ledger.client.binding.Primitive
           .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
 
