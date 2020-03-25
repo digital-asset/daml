@@ -34,6 +34,7 @@ compile_deps = [
     "//ledger/ledger-on-sql",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
     "//ledger/participant-state/kvutils",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
