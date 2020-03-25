@@ -16,8 +16,7 @@ genrule(
     name = "script-test",
     srcs =
         glob(["**/*.daml"]) + [
-            # TODO[AH] Don't hard-code LF version
-            "//daml-script/daml:daml-script-1.8.dar",
+            "//daml-script/daml:daml-script.dar",
             "//docs:source/daml-script/template-root/src/ScriptExample.daml",
         ],
     outs = ["script-test.dar"],
@@ -28,7 +27,7 @@ genrule(
       cp -L $(location :daml/ScriptTest.daml) $$TMP_DIR/daml
       cp -L $(location :daml/MultiTest.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
-      cp -L $(location //daml-script/daml:daml-script-1.8.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: script-test
@@ -37,7 +36,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-1.8.dar
+  - daml-script.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location script-test.dar)
       rm -rf $$TMP_DIR

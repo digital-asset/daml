@@ -501,8 +501,7 @@ genrule(
         "//docs:source/getting-started/quickstart/template-root/daml/Iou.daml",
         "//docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml",
         "//docs:source/getting-started/quickstart/template-root/daml/Setup.daml",
-        # TODO[AH] Don't hard-code LF version.
-        "//daml-script/daml:daml-script-1.8.dar",
+        "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
     cmd = """
@@ -513,7 +512,7 @@ genrule(
       cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
       cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
-      cp -L $(location //daml-script/daml:daml-script-1.8.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: quickstart-model
@@ -522,7 +521,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-script-1.8.dar
+  - daml-script.dar
 build-options: ["--ghc-option", "-Werror"]
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location quickstart-model.dar)
