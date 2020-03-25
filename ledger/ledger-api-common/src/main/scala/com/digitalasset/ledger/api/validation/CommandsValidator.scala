@@ -91,7 +91,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       case (Some(_), Some(_)) =>
         Left(
           invalidArgument(
-            "min_ledger_time_abs can not be specified at the same time as min_ledger_time_rel"))
+            "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"))
     }
   }
 

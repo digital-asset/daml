@@ -183,7 +183,7 @@ private final class SqlLedger(
     currentConfiguration
       .get()
       .fold[Either[String, Unit]](
-        Left("No ledger configuration available, can not validate ledger time")
+        Left("No ledger configuration available, cannot validate ledger time")
       )(
         config => config.timeModel.checkTime(ledgerTime, recordTime)
       )

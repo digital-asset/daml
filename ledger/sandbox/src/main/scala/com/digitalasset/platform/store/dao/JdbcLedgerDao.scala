@@ -1367,7 +1367,7 @@ private class JdbcLedgerDao(
 
       case (_, _, _, _, _, _, _, _, _) =>
         sys.error(
-          "mapContractDetails called with partial data, can not map to either active or divulged contract")
+          "mapContractDetails called with partial data, cannot map to either active or divulged contract")
     }
 
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
