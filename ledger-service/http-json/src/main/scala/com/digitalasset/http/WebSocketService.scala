@@ -210,8 +210,8 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQueryReader[NonEmptyList[domain.ContractKeyStreamRequest[None.type, LfV]]] =
-    new StreamQueryReader[NonEmptyList[domain.ContractKeyStreamRequest[None.type, LfV]]] {
+    : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
+    new StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] {
 
       private type CKR[+V] = domain.ContractKeyStreamRequest[None.type, V]
 

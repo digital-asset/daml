@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
-import scalaz.{NonEmptyList, \/}
+import scalaz.\/
 
 import scala.concurrent.{ExecutionContext, Future}
 import EndpointsCompanion._
@@ -84,8 +84,7 @@ class WebsocketEndpoints(
           payload <- preconnect(decodeJwt, upgradeReq, wsProtocol)
           (jwt, jwtPayload) = payload
         } yield
-          handleWebsocketRequest[
-            NonEmptyList[domain.ContractKeyStreamRequest[None.type, domain.LfValue]]](
+          handleWebsocketRequest[domain.ContractKeyStreamRequest[_, _]](
             jwt,
             jwtPayload,
             upgradeReq,
