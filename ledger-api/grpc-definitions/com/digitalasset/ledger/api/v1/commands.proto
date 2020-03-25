@@ -47,12 +47,10 @@ message Commands {
   // Required
   string party = 5;
 
-  // MUST be an approximation of the wall clock time on the ledger server.
-  // Required
+  // Deprecated. This field currently has the same function as min_ledger_time_abs, and will be removed in the future.
   google.protobuf.Timestamp ledger_effective_time = 6;
 
-  // The deadline for observing this command in the completion stream before it can be considered to have timed out.
-  // Required
+  // Deprecated. This field is ignored, and will be removed in the future.
   google.protobuf.Timestamp maximum_record_time = 7;
 
   // Individual elements of this atomic command. Must be non-empty.

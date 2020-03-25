@@ -9,6 +9,6 @@ import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 
 private[tracker] final case class TrackingData[Context](
     commandId: String,
-    maximumRecordTime: Instant,
+    commandTimeout: Instant,
     traceContext: Option[TraceContext],
     context: Context)

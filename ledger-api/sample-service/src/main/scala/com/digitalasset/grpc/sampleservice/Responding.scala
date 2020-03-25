@@ -13,9 +13,10 @@ trait Responding extends HelloService {
   override def single(request: HelloRequest): Future[HelloResponse] =
     Future.successful(response(request))
 
-  protected def response(request: HelloRequest) = HelloResponse(request.reqInt * 2, request.payload)
+  protected def response(request: HelloRequest): HelloResponse =
+    HelloResponse(request.reqInt * 2, request.payload)
 
-  protected def responses(request: HelloRequest) =
+  protected def responses(request: HelloRequest): List[HelloResponse] =
     (1 to request.reqInt).map(i => HelloResponse(i, request.payload)).toList
 
 }

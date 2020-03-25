@@ -57,6 +57,10 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       forParty: Party
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
+  def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Instant]
+
   def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]]
 
   def lookupFlatTransactionById(

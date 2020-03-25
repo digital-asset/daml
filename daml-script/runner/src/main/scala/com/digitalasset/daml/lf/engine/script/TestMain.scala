@@ -23,7 +23,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -65,10 +64,6 @@ object TestMain extends StrictLogging {
             case _ =>
               throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
           }
-        val commandUpdater = new CommandUpdater(
-          timeProviderO = Some(timeProvider),
-          ttl = config.commandTtl,
-          overrideTtl = true)
 
         val system: ActorSystem = ActorSystem("ScriptTest")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -143,7 +138,7 @@ object TestMain extends StrictLogging {
             testScripts.map {
               case (id, script) => {
                 val runner =
-                  new Runner(compiledPackages, script, applicationId, commandUpdater, timeProvider)
+                  new Runner(compiledPackages, script, applicationId, timeProvider)
                 val testRun: Future[Unit] = runner.runWithClients(clients).map(_ => ())
                 // Print test result and remember failure.
                 testRun.onComplete {
