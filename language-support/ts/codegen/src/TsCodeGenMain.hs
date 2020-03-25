@@ -24,6 +24,7 @@ import Data.Hashable
 import Control.Monad.Extra
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
+import Data.Either
 import Data.Tuple.Extra
 import Data.List.Extra
 import Data.Graph
@@ -211,7 +212,7 @@ daml2ts Daml2TsParams {..} = do
     let modules = NM.toList (packageModules pkg)
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    dependencies <- nubOrd . concat <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    dependencies <- Set.toList . Set.unions <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
     -- Now write package metadata.
     writeIndexTs packageSrcDir pkgId modules
     writeTsConfig packageDir
@@ -220,10 +221,10 @@ daml2ts Daml2TsParams {..} = do
     pure (pkgName, dependencies)
     where
       -- Write the .ts file for a single DAML-LF module.
-      writeModuleTs :: FilePath -> Scope -> Module -> IO [Dependency]
+      writeModuleTs :: FilePath -> Scope -> Module -> IO (Set.Set Dependency)
       writeModuleTs packageSrcDir scope mod = do
         case genModule pkgMap scope pkgId mod of
-          Nothing -> pure []
+          Nothing -> pure Set.empty
           Just (modTxt, ds) -> do
             let outputFile = packageSrcDir </> T.unpack (modPath (unModuleName (moduleName mod))) FP.<.> "ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
@@ -232,25 +233,29 @@ daml2ts Daml2TsParams {..} = do
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
-     Scope -> PackageId -> Module -> Maybe (T.Text, [Dependency])
+     Scope -> PackageId -> Module -> Maybe (T.Text, Set.Set Dependency)
 genModule pkgMap (Scope scope) curPkgId mod
   | null serDefs =
     Nothing -- If no serializable types, nothing to do.
   | otherwise =
     let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
-        imports = [ importDecl pkgMap modRef rootPath
-                  | modRef@(pkgRef, _) <- modRefs refs
-                  , let rootPath = pkgRootPath modName pkgRef ]
+        imports = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
+        (internalImports, externalImports) = splitImports imports
+        rootPath =
+          let lenModName = length (unModuleName modName)
+          in if lenModName == 1 then ["."] else replicate (lenModName - 1) ".."
         defs = map biconcat defSers
-        modText = T.unlines $ intercalate [""] $ filter (not . null) $ modHeader : imports : defs
-        depends = [ Dependency $ pkgRefStr pkgMap pkgRef
-                  | (pkgRef, _) <- modRefs refs, pkgRef /= PRSelf ]
+        modText = T.unlines $ intercalate [""] $ filter (not . null) $
+          modHeader
+          : map (externalImportDecl pkgMap) externalImports
+          : map (internalImportDecl rootPath) internalImports
+          : defs
+        depends = Set.fromList $ map (Dependency . pkgRefStr pkgMap . fst) externalImports
    in Just (modText, depends)
   where
     modName = moduleName mod
     tpls = moduleTemplates mod
     serDefs = defDataTypes mod
-    modRefs refs = Set.toList ((PRSelf, modName) `Set.delete` Set.unions refs)
     modHeader =
       [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
       , "/* eslint-disable @typescript-eslint/camelcase */"
@@ -260,35 +265,34 @@ genModule pkgMap (Scope scope) curPkgId mod
       , "import * as daml from '@daml/types';"
       ]
 
-    -- Calculate an import declaration.
-    importDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
-                      (PackageRef, ModuleName) -> T.Text -> T.Text
-    importDecl pkgMap modRef@(pkgRef, modName) rootPath =
-      "import * as " <>  genModuleRef modRef <> " from '" <>
-      modPath ((rootPath : pkgRefStr pkgMap pkgRef : ["lib" | pkgRef /= PRSelf]) ++ unModuleName modName) <>
-      "';"
+    -- Split the imports into the from the same package and those from another package.
+    splitImports :: [ModuleRef] -> ([ModuleName], [(PackageId, ModuleName)])
+    splitImports refs =
+      let classifyImport (pkgRef, modName) = case pkgRef of
+            PRSelf -> Left modName
+            PRImport pkgId -> Right (pkgId, modName)
+      in
+      partitionEithers (map classifyImport refs)
+
+    -- Calculate an import declaration for a module from the same package.
+    internalImportDecl :: [T.Text] -> ModuleName -> T.Text
+    internalImportDecl rootPath modName =
+      "import * as " <> genModuleRef (PRSelf, modName) <> " from '" <>
+        modPath (rootPath ++ unModuleName modName) <> "';"
+
+    -- Calculate an import declaration for a module from another package.
+    externalImportDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
+                      (PackageId, ModuleName) -> T.Text
+    externalImportDecl pkgMap (pkgId, modName) =
+      "import * as " <> genModuleRef (PRImport pkgId, modName) <> " from '" <>
+        modPath (scope : pkgRefStr pkgMap pkgId : "lib" : unModuleName modName) <> "';"
 
     -- Produce a package name for a package ref.
-    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageRef -> T.Text
-    pkgRefStr pkgMap = \case
-      PRSelf -> ""
-      PRImport pkgId ->
+    pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageId -> T.Text
+    pkgRefStr pkgMap pkgId =
         case Map.lookup pkgId pkgMap of
           Nothing -> error "IMPOSSIBLE : package map malformed"
           Just (mbPkgName, _) -> packageNameText pkgId mbPkgName
-
-    -- Calculate the root part of a package ref string. For foreign
-    -- imports that's something like '@daml2ts'. For self refences
-    -- something like '../../'.
-    pkgRootPath :: ModuleName -> PackageRef -> T.Text
-    pkgRootPath modName pkgRef =
-      case pkgRef of
-        PRSelf ->
-          if lenModName == 1
-            then "."
-            else modPath $ replicate (lenModName - 1) (T.pack "..")
-        PRImport _ -> scope
-      where lenModName = length (unModuleName modName)
 
 defDataTypes :: Module -> [DefDataType]
 defDataTypes mod = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
