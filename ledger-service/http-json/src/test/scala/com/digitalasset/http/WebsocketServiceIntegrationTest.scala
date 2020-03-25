@@ -94,14 +94,15 @@ class WebsocketServiceIntegrationTest
       .collect { case m: TextMessage => m.getStrictText }
       .toMat(Sink.seq)(Keep.right)
 
-  private def singleClientQueryStream(
+  private def singleClientWSStream(
+      path: String,
       serviceUri: Uri,
       query: String,
-      offset: Option[domain.Offset] = None): Source[Message, NotUsed] = {
+      offset: Option[domain.Offset]): Source[Message, NotUsed] = {
     import spray.json._, json.JsonProtocol._
-    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/query"))
+    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path(s"/v1/stream/$path"))
     logger.info(
-      s"---- singleClientQueryStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
+      s"---- singleClientWSStream uri: ${uri.toString}, query: $query, offset: ${offset.toString}")
     val webSocketFlow =
       Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol))
     offset
@@ -114,17 +115,17 @@ class WebsocketServiceIntegrationTest
       .via(webSocketFlow)
   }
 
+  private def singleClientQueryStream(
+      serviceUri: Uri,
+      query: String,
+      offset: Option[domain.Offset] = None): Source[Message, NotUsed] =
+    singleClientWSStream("query", serviceUri, query, offset)
+
   private def singleClientFetchStream(
       serviceUri: Uri,
-      request: String): Source[Message, NotUsed] = {
-    val uri = serviceUri.copy(scheme = "ws").withPath(Uri.Path("/v1/stream/fetch"))
-    logger.info(s"---- singleClientFetchStream uri: ${uri.toString}, request: $request")
-    val webSocketFlow =
-      Http().webSocketClientFlow(WebSocketRequest(uri = uri, subprotocol = validSubprotocol))
-    Source
-      .single(TextMessage(request))
-      .via(webSocketFlow)
-  }
+      request: String,
+      offset: Option[domain.Offset] = None): Source[Message, NotUsed] =
+    singleClientWSStream("fetch", serviceUri, request, offset)
 
   private def initialIouCreate(serviceUri: Uri) = {
     val payload = TestUtil.readFile("it/iouCreateCommand.json")
@@ -353,7 +354,12 @@ class WebsocketServiceIntegrationTest
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _) =>
       val templateId = domain.TemplateId(None, "Account", "Account")
-      val fetchRequest = """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
+      def fetchRequest(offsetHint: Option[Option[domain.ContractId]] = None) = {
+        import spray.json._, json.JsonProtocol._
+        List(
+          Map("templateId" -> "Account:Account".toJson, "key" -> List("Alice", "abc123").toJson)
+            ++ offsetHint.map(ocid => "offsetHint" -> ocid.toJson).toList).toJson.compactPrint
+      }
       val f1 =
         postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
       val f2 =
@@ -415,16 +421,29 @@ class WebsocketServiceIntegrationTest
         _ = r2._1 shouldBe 'success
         cid2 = getContractId(getResult(r2._2))
 
-        lastState <- singleClientFetchStream(uri, fetchRequest).via(parseResp) runWith resp(
-          cid1,
-          cid2)
+        lastState <- singleClientFetchStream(uri, fetchRequest())
+          .via(parseResp) runWith resp(cid1, cid2)
 
-      } yield
-        inside(lastState) {
+        liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 0, lastSeen) =>
             import domain.Offset.ordering
             lastSeen should be > liveStart
+            liveStart
         }
+
+        // check offsetHints' effects on phantom filtering
+        resumes <- Future.traverse(Seq((None, 2L), (Some(None), 0L), (Some(Some(cid1)), 1L))) {
+          case (abcHint, expectArchives) =>
+            (singleClientFetchStream(uri, fetchRequest(abcHint), Some(liveOffset))
+              via parseResp runWith remainingDeltas)
+              .map {
+                case (creates, archives, _) =>
+                  creates shouldBe empty
+                  archives should have size expectArchives
+              }
+        }
+
+      } yield resumes.foldLeft(1 shouldBe 1)((_, a) => a)
   }
 
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
