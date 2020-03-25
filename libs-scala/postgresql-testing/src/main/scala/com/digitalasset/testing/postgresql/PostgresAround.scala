@@ -209,7 +209,7 @@ object PostgresAround {
           command.mkString("\n"),
           s"\nSTDOUT:\n$stdout",
           s"\nSTDERR:\n$stderr",
-          logs.map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
+          if (logs.isEmpty) "\nLogs: <none>" else s"\nLogs:\n${logs.mkString("\n")}",
         ).mkString("\n"),
         cause,
       )
