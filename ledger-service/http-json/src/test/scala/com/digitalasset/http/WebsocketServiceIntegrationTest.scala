@@ -471,7 +471,7 @@ class WebsocketServiceIntegrationTest
     }
 
     "resuming JSON reader" - {
-      type T = domain.ContractKeyStreamRequest[Option[Option[domain.Offset]], JsValue]
+      type T = domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]
 
       "shares EnrichedContractKey format" in {
         JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest(None, baseVal))

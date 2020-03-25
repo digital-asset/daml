@@ -192,7 +192,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
     val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
     type OO[+A] = Option[Option[A]]
-    domain.ContractKeyStreamRequest(domain.Offset.tag.subst[OO, String](off), ekey)
+    domain.ContractKeyStreamRequest(domain.ContractId.subst[OO, String](off), ekey)
   }
 
   implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =

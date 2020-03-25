@@ -232,6 +232,7 @@ object WebSocketService {
         else go(InitialEnrichedContractKeyWithStreamQuery)
       }
 
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
           a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
@@ -241,7 +242,7 @@ object WebSocketService {
 
     }
 
-  private[this] abstract class EnrichedContractKeyWithStreamQuery[Cid]
+  private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid]
       extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
     type Positive = Unit
 
@@ -281,6 +282,7 @@ object WebSocketService {
   private[this] object ResumingEnrichedContractKeyWithStreamQuery
       extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       val NelO = Foldable[NonEmptyList].compose[Option]
       request traverse (_.offsetHint) map (neloCid => Tag unsubst NelO.toSet(neloCid))
     }
@@ -361,7 +363,7 @@ class WebSocketService(
           for {
             offPrefix <- oeso.sequence
             jv <- ejv
-            a <- Q.parse(decoder, jv)
+            a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
           } yield (offPrefix, a)
       }
       .map {
@@ -392,7 +394,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
-        .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
+        .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -421,15 +423,14 @@ class WebSocketService(
         case Some((_, a)) => renderEvents(a._1, a._2)
       }
 
-  private def removePhantomArchives[A, B](remove: Boolean) =
-    if (remove) removePhantomArchives_[A, B]
-    else Flow[StepAndErrors[A, B]]
+  private def removePhantomArchives[A, B](remove: Option[Set[String]]) =
+    remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
-  private def removePhantomArchives_[A, B]
-    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
+  private def removePhantomArchives_[A, B](
+      initialState: Set[String]): Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
     import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
-      .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
+      .scan((initialState, Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
           val newInserts: Vector[String] =
             domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
