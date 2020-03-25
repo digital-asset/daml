@@ -12,9 +12,6 @@ import scala.util.{Failure, Success, Try}
 
 object SimpleSqlAsVectorOf {
 
-  private def throwNonFatal(throwable: Throwable): Nothing =
-    throwable match { case NonFatal(exception) => throw exception }
-
   implicit final class SimpleSqlAsVectorOf(val sql: SimpleSql[Row]) extends AnyVal {
 
     /**
@@ -46,7 +43,7 @@ object SimpleSqlAsVectorOf {
 
       sql
         .withResult(go(Vector.empty))
-        .fold(es => throwNonFatal(es.head), _.fold(throwNonFatal, identity))
+        .fold(es => throw es.head, _.fold(throw _, identity))
     }
 
   }
