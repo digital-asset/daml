@@ -1,0 +1,3 @@
+		11:48:47.710 INFO  c.d.p.a.ApiServices$:participant/fabric-standalone-participant - DAML LF Engine supports LF versions: 0, 0.dev, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.dev; Transaction versions: 1, 2, 3, 4, 5, 6, 7, 8; Value versions: 1, 2, 3, 4, 5, 6, 7
+		11:48:47.897 INFO  c.d.p.a.LedgerApiServer$:participant/fabric-standalone-participant - Listening on localhost:6865 over plain text.
+		11:48:47.900 INFO  c.d.p.a.StandaloneApiServer:participant/fabric-standalone-participant - Initialized index server version 100.13.41 with ledger-id = fabric-ledger, port = 6865, dar file = List()

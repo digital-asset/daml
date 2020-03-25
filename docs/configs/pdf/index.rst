@@ -104,6 +104,7 @@ Experimental features
    daml2ts/index
    getting-started/index
    getting-started/testing
+   deploying-daml/index
 
 Support and updates
 -------------------

@@ -107,6 +107,7 @@ DAML SDK documentation
    daml2ts/index
    getting-started/index
    getting-started/testing
+   deploying-daml/index
 
 .. toctree::
    :titlesonly:
