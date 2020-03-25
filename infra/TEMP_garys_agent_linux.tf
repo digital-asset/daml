@@ -16,7 +16,7 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-linux"
   name                      = "temp-garys-agent-linux"
   base_instance_name        = "temp-garys-agent-linux"
   region                    = "us-east1"
-  distribution_policy_zones = "us-east1-c"
+  distribution_policy_zones = ["us-east1-c"]
   target_size               = 1
 
   version {
@@ -35,7 +35,7 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-linux"
 resource "google_compute_instance_template" "TEMP_garys-agent-linux" {
   name_prefix  = "temp-garys-agent-linux-"
   region       = "us-east1"
-  machine_type = "n2-standard-8"
+  machine_type = "c2-standard-8"
   labels       = "${local.labels}"
 
   disk {
