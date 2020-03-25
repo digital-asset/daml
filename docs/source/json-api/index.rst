@@ -1244,7 +1244,7 @@ Some notes on behavior:
    paired between polls), such contracts may or may not appear in any
    result object.
 
-2. No ``archived`` ever contains a contract ID occurring within an
+2. No ``archived`` ever contains a contract ID occurring within a
    ``created`` in the same array.  So, for example, supposing you are
    keeping an internal map of active contracts keyed by contract ID, you
    can apply the ``created`` first or the ``archived`` first, forwards,
