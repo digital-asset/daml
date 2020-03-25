@@ -2273,6 +2273,11 @@ jest-message-util@^24.9.0:
     slash "^2.0.0"
     stack-utils "^1.0.1"
 
+jest-mock-console@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/jest-mock-console/-/jest-mock-console-1.0.0.tgz#0ca2cbea3aa0af4893c8c5f3c2de45c3d4d15629"
+  integrity sha512-bN9UjH+Jd/5Gs+p9Xt9Mai4SoUQRFd3f+ZOSCjlcbuVRUhNvl1y9jvys6L7BUx+1Uz+3jOoaq1O+C6j3sSu7SQ==
+
 jest-mock@^24.9.0:
   version "24.9.0"
   resolved "https://registry.yarnpkg.com/jest-mock/-/jest-mock-24.9.0.tgz#c22835541ee379b908673ad51087a2185c13f1c6"
@@ -2430,6 +2435,11 @@ jest-watcher@^24.9.0:
     chalk "^2.0.1"
     jest-util "^24.9.0"
     string-length "^2.0.0"
+
+jest-websocket-mock@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/jest-websocket-mock/-/jest-websocket-mock-2.0.2.tgz#8dfa268fd56bba6e0b759756cd1d3bafd40cdb42"
+  integrity sha512-SFTUI8O/LDGqROOMnfAzbrrX5gQ8GDhRqkzVrt8Y67evnFKccRPFI3ymS05tKcMONvVfxumat4pX/LRjM/CjVg==
 
 jest-worker@^24.6.0, jest-worker@^24.9.0:
   version "24.9.0"
@@ -2777,6 +2787,13 @@ mkdirp@0.x, mkdirp@^0.5.1:
   integrity sha1-MAV0OOrGz3+MR2fzhkjWaX11yQM=
   dependencies:
     minimist "0.0.8"
+
+mock-socket@^9.0.3:
+  version "9.0.3"
+  resolved "https://registry.yarnpkg.com/mock-socket/-/mock-socket-9.0.3.tgz#4bc6d2aea33191e4fed5ec71f039e2bbeb95e414"
+  integrity sha512-SxIiD2yE/By79p3cNAAXyLQWTvEFNEzcAO7PH+DzRqKSFaplAPFjiQLmw8ofmpCsZf+Rhfn2/xCJagpdGmYdTw==
+  dependencies:
+    url-parse "^1.4.4"
 
 ms@2.0.0:
   version "2.0.0"
@@ -3196,6 +3213,11 @@ qs@~6.5.2:
   resolved "https://registry.yarnpkg.com/qs/-/qs-6.5.2.tgz#cb3ae806e8740444584ef154ce8ee98d403f3e36"
   integrity sha512-N5ZAX4/LxJmF+7wN74pUD6qAh9/wnvdQcjq9TZjevvXzSUo7bfmw91saqMjzGS2xq91/odN2dW/WOl7qQHNDGA==
 
+querystringify@^2.1.1:
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/querystringify/-/querystringify-2.1.1.tgz#60e5a5fd64a7f8bfa4d2ab2ed6fdf4c85bad154e"
+  integrity sha512-w7fLxIRCRT7U8Qu53jQnJyPkYZIaR4n5151KMfcJlO/A9397Wxb1amJvROTK6TOnp7PfoAmg/qXiNHI+08jRfA==
+
 react-is@^16.8.1, react-is@^16.8.4, react-is@^16.8.6:
   version "16.12.0"
   resolved "https://registry.yarnpkg.com/react-is/-/react-is-16.12.0.tgz#2cc0fe0fba742d97fd527c42a13bec4eeb06241c"
@@ -3340,6 +3362,11 @@ require-main-filename@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/require-main-filename/-/require-main-filename-2.0.0.tgz#d0b329ecc7cc0f61649f62215be69af54aa8989b"
   integrity sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==
+
+requires-port@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/requires-port/-/requires-port-1.0.0.tgz#925d2601d39ac485e091cf0da5c6e694dc3dcaff"
+  integrity sha1-kl0mAdOaxIXgkc8NpcbmlNw9yv8=
 
 resolve-cwd@^2.0.0:
   version "2.0.0"
@@ -4048,6 +4075,14 @@ urix@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/urix/-/urix-0.1.0.tgz#da937f7a62e21fec1fd18d49b35c2935067a6c72"
   integrity sha1-2pN/emLiH+wf0Y1Js1wpNQZ6bHI=
+
+url-parse@^1.4.4:
+  version "1.4.7"
+  resolved "https://registry.yarnpkg.com/url-parse/-/url-parse-1.4.7.tgz#a8a83535e8c00a316e403a5db4ac1b9b853ae278"
+  integrity sha512-d3uaVyzDB9tQoSXFvuSUNFibTd9zxd2bkVrDRvF5TmvWWQwqE4lgYJ5m+x1DbecWkw+LK4RNl2CU1hHuOKPVlg==
+  dependencies:
+    querystringify "^2.1.1"
+    requires-port "^1.0.0"
 
 use@^3.1.0:
   version "3.1.1"
