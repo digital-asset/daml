@@ -12,11 +12,13 @@ DAML_LF_VERSIONS = [
     "1.dev",
 ]
 
+# Build one DAR per LF version to bundle with the SDK.
+# Also build one DAR with the default LF version for test-cases.
 [
     genrule(
-        name = "daml-trigger-{}".format(lf_version),
+        name = "daml-trigger{}".format(suffix),
         srcs = glob(["**/*.daml"]),
-        outs = ["daml-trigger-{}.dar".format(lf_version)],
+        outs = ["daml-trigger{}.dar".format(suffix)],
         cmd = """
           set -eou pipefail
           TMP_DIR=$$(mktemp -d)
@@ -37,22 +39,29 @@ exposed-modules:
 dependencies:
   - daml-stdlib
   - daml-prim
-build-options: ["--ghc-option", "-Werror", "--target", "{lf_version}"]
+build-options: {build_options}
 EOF
-          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location daml-trigger-{lf_version}.dar)
+          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
           rm -rf $$TMP_DIR
         """.format(
-            lf_version = lf_version,
+            build_options = str([
+                "--ghc-option",
+                "-Werror",
+            ] + [
+                "--target",
+                lf_version,
+            ] if lf_version else []),
             sdk = sdk_version,
         ),
         tools = ["//compiler/damlc"],
         visibility = ["//visibility:public"],
     )
-    for lf_version in DAML_LF_VERSIONS
+    for lf_version in DAML_LF_VERSIONS + [""]
+    for suffix in [("-" + lf_version) if lf_version else ""]
 ]
 
 filegroup(
-    name = "daml-trigger",
+    name = "daml-trigger-dars",
     srcs = [
         "daml-trigger-{}.dar".format(lf_version)
         for lf_version in DAML_LF_VERSIONS

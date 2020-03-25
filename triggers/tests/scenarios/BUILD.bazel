@@ -8,14 +8,13 @@ sh_test(
     args = [
         sdk_version,
         "$(rootpath //compiler/damlc)",
-        # TODO[AH] Don't hard-code LF version
-        "$(rootpath //triggers/daml:daml-trigger-1.8.dar)",
+        "$(rootpath //triggers/daml:daml-trigger.dar)",
         "$(rootpath Rule.daml)",
     ],
     data = [
         "Rule.daml",
         "//compiler/damlc",
-        "//triggers/daml:daml-trigger-1.8.dar",
+        "//triggers/daml:daml-trigger.dar",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

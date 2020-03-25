@@ -86,8 +86,7 @@ genrule(
     name = "test-model",
     srcs =
         glob(["test-model/*.daml"]) + [
-            # TODO[AH] Don't hard-code LF version
-            "//triggers/daml:daml-trigger-1.8.dar",
+            "//triggers/daml:daml-trigger.dar",
         ],
     outs = ["test-model.dar"],
     cmd = """
@@ -95,7 +94,7 @@ genrule(
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
       cp -L $(location :test-model/TestTrigger.daml) $$TMP_DIR/daml
-      cp -L $(location //triggers/daml:daml-trigger-1.8.dar) $$TMP_DIR/
+      cp -L $(location //triggers/daml:daml-trigger.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: test-model
@@ -104,7 +103,7 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-  - daml-trigger-1.8.dar
+  - daml-trigger.dar
 EOF
       $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location test-model.dar)
       rm -rf $$TMP_DIR
