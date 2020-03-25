@@ -203,10 +203,6 @@ Time service
 
 Use the **time service** to obtain the time as known by the ledger server.
 
-This is important because you have to include two timestamps when you submit a command - the :ref:`Ledger Effective Time (LET) <com.digitalasset.ledger.api.v1.Commands.ledger_effective_time>`, and the :ref:`Maximum Record Time (MRT) <com.digitalasset.ledger.api.v1.Commands.maximum_record_time>`. For the command to be accepted, LET must be greater than the current ledger time.
-
-MRT is used in the detection of lost commands.
-
 For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.testing.TimeService>`.
 
 .. _reset-service:
