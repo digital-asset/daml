@@ -101,19 +101,6 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    /* Disabled while we rework the time model.
-    "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
-      for {
-        tx <- runSimpleCommand(alice, simpleCreateCmd)
-        logEntry <- submitTransaction(submitter = alice, tx = tx, mrtDelta = Duration.ZERO)
-          .map(_._2)
-      } yield {
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
-      }
-    )
-     */
-
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {

@@ -107,7 +107,6 @@ object KeyValueParticipantStateWriterSpec {
     submitter = party,
     applicationId = Ref.LedgerString.assertFromString("tests"),
     commandId = Ref.LedgerString.assertFromString("X"),
-    maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000),
     deduplicateUntil = rt.addMicros(Duration.ofDays(1).toNanos / 1000).toInstant,
   )
 
