@@ -19,15 +19,20 @@ object GrpcClientResource {
   def owner(port: Port): ResourceOwner[Channel] =
     for {
       eventLoopGroup <- new EventLoopGroupOwner("api-client", sys.runtime.availableProcessors())
-      channel <- channelOwner(port, eventLoopGroup)
+      channel <- channelOwner(port, EventLoopGroupOwner.clientChannelType, eventLoopGroup)
     } yield channel
 
-  def channelOwner(port: Port, eventLoopGroup: EventLoopGroup): ResourceOwner[Channel] =
+  private def channelOwner(
+      port: Port,
+      channelType: Class[_ <: io.netty.channel.Channel],
+      eventLoopGroup: EventLoopGroup,
+  ): ResourceOwner[Channel] =
     new ResourceOwner[Channel] {
       override def acquire()(implicit executionContext: ExecutionContext): Resource[Channel] = {
         Resource(Future {
           NettyChannelBuilder
             .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, port.value))
+            .channelType(channelType)
             .eventLoopGroup(eventLoopGroup)
             .usePlaintext()
             .directExecutor()
