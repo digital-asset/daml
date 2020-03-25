@@ -21,7 +21,7 @@ Usage
 
 ``daml2ts`` is invoked via the DAML SDK assistant.
 
-In outline, the command to generate TypeScript from DAML is ``daml codegen ts DAR -o OUTDIR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``), ``OUTDIR`` is a directory where you want the TypeScript to be written and ``PACKAGE`` is a desired TypeScript package name.
+In outline, the command to generate JavaScript and TypeScript typings from DAML is ``daml codegen ts DAR -o OUTDIR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the JavaScript to be written.
 
 Here's a complete example that generates TypeScript from a project produced from the standard "skeleton" template.
 
@@ -37,8 +37,8 @@ Here's a complete example that generates TypeScript from a project produced from
 
   - The directory ``my-proj/daml2ts`` contains generated TypeScript and Javascript artifacts;
   - The files are arranged into directories;
-  - One of those directories will be named as per the ``PACKAGE`` argument and will contain the definitions corresponding to the DAML files in the project;
-  - For example, ``generated/ts/my-proj/Main.ts`` contains the definitions for ``daml/Main.daml``;
+  - One of those directories will be named as my-proj-0.0.1 and will contain the definitions corresponding to the DAML files in the project;
+  - For example, ``generated/ts/my-proj/src/Main.ts`` contains the definitions for ``daml/Main.daml``;
   - The remaining directories correspond to modules of the DAML standard library;
   - Those directories have numeric names (the names are hashes of the DAML-LF package they are derived from).
 

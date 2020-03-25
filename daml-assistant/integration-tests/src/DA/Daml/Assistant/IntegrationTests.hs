@@ -42,9 +42,9 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" True
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
+    setEnv "TASTY_NUM_THREADS" "1" True
     yarn : damlTypesPath : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
@@ -506,19 +506,18 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "ts") $ do
+                          -- This section makes
+                          -- 'daml-types@0.0.0-SDKVERSION' available
+                          -- to yarn.
                           createDirectoryIfMissing True "generated"
                           withCurrentDirectory "generated" $ do
-                            -- SDK version is 0.0.0; daml2ts needs
-                            -- 'daml-types' to be here in the filesystem...
                             copyDirectory damlTypes "daml-types"
-                            BSL.writeFile "package.json" $ encode (
-                            -- ... and this package.json so it can find it.
+                            BSL.writeFile "package.json" $ encode $
                               object
                                 [ "private" .= True
                                 , "workspaces" .= [T.pack lang]
                                 , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
                                 ]
-                              )
                         callCommandQuiet $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
