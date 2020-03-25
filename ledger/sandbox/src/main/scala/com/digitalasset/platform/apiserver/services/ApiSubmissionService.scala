@@ -90,7 +90,7 @@ object ApiSubmissionService {
       ),
       ledgerId = ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
-      currentUTCTime = () => Instant.now,
+      currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () => configuration.maxDeduplicationTime,
     )
 

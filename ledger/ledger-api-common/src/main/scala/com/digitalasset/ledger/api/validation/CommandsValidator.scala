@@ -34,7 +34,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
   def validateCommands(
       commands: ProtoCommands,
       currentLedgerTime: Instant,
-      currentUTCTime: Instant,
+      currentUtcTime: Instant,
       maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
@@ -66,8 +66,8 @@ final class CommandsValidator(ledgerId: LedgerId) {
         commandId = commandId,
         submitter = submitter,
         ledgerEffectiveTime = ledgerEffectiveTime,
-        submittedAt = currentUTCTime,
-        deduplicateUntil = currentUTCTime.plus(deduplicationTime),
+        submittedAt = currentUtcTime,
+        deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(
           submitter = submitter,
           commands = ImmArray(validatedCommands),
