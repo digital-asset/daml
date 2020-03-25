@@ -273,8 +273,6 @@ class Runner(
       ledgerId = ledgerId.unwrap,
       applicationId = applicationId.unwrap,
       commandId = UUID.randomUUID.toString,
-      ledgerEffectiveTime = None,
-      maximumRecordTime = None,
       deduplicationTime = Some(Duration(30))
     )
     SubmitAndWaitRequest(Some(commands))
