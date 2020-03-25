@@ -142,6 +142,12 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+     , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "copy-trigger"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
+        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
      , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
         let myDepDir = tmpDir </> "mydep"
         createDirectoryIfMissing True (myDepDir </> "daml")
@@ -181,10 +187,16 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory myTriggerDir $ callCommandQuiet "daml build -o mytrigger.dar"
         let dar = myTriggerDir </> "mytrigger.dar"
         assertBool "mytrigger.dar was not created." =<< doesFileExist dar
-     , testCase "Build DAML script example"  $ withTempDir $ \tmpDir -> do
+     , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
         callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
+        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+     , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "script-example"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
