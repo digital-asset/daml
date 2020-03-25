@@ -60,6 +60,7 @@ class CommandClientImplTest
           commands.getParty,
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -84,6 +85,7 @@ class CommandClientImplTest
           commands.getParty,
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -130,6 +132,7 @@ class CommandClientImplTest
         String,
         Optional[Instant],
         Optional[Duration],
+        Optional[Duration],
         java.util.List[Command]) => Single[A]
   private type SubmitAndWaitWithToken[A] =
     (
@@ -138,6 +141,7 @@ class CommandClientImplTest
         String,
         String,
         Optional[Instant],
+        Optional[Duration],
         Optional[Duration],
         java.util.List[Command],
         String) => Single[A]
@@ -155,12 +159,14 @@ class CommandClientImplTest
           party,
           Optional.empty(),
           Optional.empty(),
+          Optional.empty(),
           dummyCommands))(
         withToken(
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           UUID.randomUUID.toString,
           party,
+          Optional.empty(),
           Optional.empty(),
           Optional.empty(),
           commands,

@@ -143,6 +143,7 @@ class DamlLedgerClientTest
           commands.getParty,
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(1l, TimeUnit.SECONDS)
@@ -185,6 +186,7 @@ class DamlLedgerClientTest
           commands.getParty,
           commands.getMinLedgerTimeAbsolute,
           commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(1l, TimeUnit.SECONDS)

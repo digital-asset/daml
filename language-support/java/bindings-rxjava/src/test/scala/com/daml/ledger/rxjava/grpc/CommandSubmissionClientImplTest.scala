@@ -42,6 +42,7 @@ class CommandSubmissionClientImplTest
             commands.getParty,
             commands.getMinLedgerTimeAbsolute,
             commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands
           )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -86,6 +87,7 @@ class CommandSubmissionClientImplTest
             commands.getParty,
             commands.getMinLedgerTimeAbsolute,
             commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands
           ))(
         client
@@ -96,6 +98,7 @@ class CommandSubmissionClientImplTest
             commands.getParty,
             commands.getMinLedgerTimeAbsolute,
             commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands,
             _
           ))

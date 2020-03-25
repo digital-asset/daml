@@ -41,6 +41,7 @@ trait DataLayerHelpers {
       party.getOrElse("party"),
       Optional.empty(),
       Optional.empty(),
+      Optional.empty(),
       commands.asJava)
   }
   def genLedgerOffset(absVal: String): LedgerOffset =
