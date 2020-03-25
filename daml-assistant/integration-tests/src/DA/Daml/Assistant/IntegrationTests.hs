@@ -31,33 +31,43 @@ import Test.Main
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HMS
+import Data.Aeson
 
+import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
 import SdkVersion
 
 main :: IO ()
-main =
-    withTempDir $ \tmpDir -> do
+main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
-    setEnv "TASTY_NUM_THREADS" "1" True
+    yarn : damlTypesPath : args <- getArgs
+    withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
+    yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
+    damlTypesDir <-
+      if isWindows
+        then pure damlTypesPath -- Not available.
+        else locateRunfiles (mainWorkspace </> damlTypesPath)
     -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
     -- on the PATH as mvn.cmd executes cmd.exe
     mbComSpec <- getEnv "COMSPEC"
     let mbCmdDir = takeDirectory <$> mbComSpec
     let damlDir = tmpDir </> "daml"
-    withEnv
+    withArgs args (withEnv
         [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath) ++ maybeToList mbCmdDir)
-        ] $ defaultMain (tests damlDir tmpDir)
+        , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
+        ] $ defaultMain (tests damlDir tmpDir damlTypesDir))
 
-tests :: FilePath -> FilePath -> TestTree
-tests damlDir tmpDir = testGroup "Integration tests"
+tests :: FilePath -> FilePath -> FilePath -> TestTree
+tests damlDir tmpDir damlTypesDir = testGroup "Integration tests"
     [ testCase "install" $ do
         releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
         createDirectory tarballDir
@@ -78,7 +88,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , deployTest deployDir
-    , codegenTests codegenDir
+    , codegenTests codegenDir damlTypesDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
@@ -474,12 +484,15 @@ cleanTests baseDir = testGroup "daml clean"
                                 ]
 
 -- | Check we can generate language bindings.
-codegenTests :: FilePath -> TestTree
-codegenTests codegenDir = testGroup "daml codegen"
-    [ codegenTestFor "ts" Nothing
-    , codegenTestFor "java" Nothing
+codegenTests :: FilePath -> FilePath -> TestTree
+codegenTests codegenDir damlTypes = testGroup "daml codegen" (
+    [ codegenTestFor "java" Nothing
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
-    ]
+    ] ++
+    -- The 'daml-types' NPM package is not available on Windows which
+    -- is required by 'daml2ts'.
+    [ codegenTestFor "ts" Nothing | not isWindows ]
+    )
     where
         codegenTestFor :: String -> Maybe String -> TestTree
         codegenTestFor lang namespace =
@@ -490,8 +503,22 @@ codegenTests codegenDir = testGroup "daml codegen"
                     callCommandQuiet $ unwords ["daml new", projectDir, "skeleton"]
                     withCurrentDirectory projectDir $ do
                         callCommandQuiet "daml build"
-                        let darFile = projectDir</> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
-                            outDir  = projectDir</> "generated" </> lang
+                        let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
+                            outDir  = projectDir </> "generated" </> lang
+                        when (lang == "ts") $ do
+                          createDirectoryIfMissing True "generated"
+                          withCurrentDirectory "generated" $ do
+                            -- SDK version is 0.0.0; daml2ts needs
+                            -- 'daml-types' to be here in the filesystem...
+                            copyDirectory damlTypes "daml-types"
+                            BSL.writeFile "package.json" $ encode (
+                            -- ... and this package.json so it can find it.
+                              object
+                                [ "private" .= True
+                                , "workspaces" .= [T.pack lang]
+                                , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
+                                ]
+                              )
                         callCommandQuiet $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
