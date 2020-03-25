@@ -7,7 +7,6 @@ import java.sql.Connection
 
 import anorm.{Cursor, Row, RowParser, SimpleSql}
 
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 object SimpleSqlAsVectorOf {
