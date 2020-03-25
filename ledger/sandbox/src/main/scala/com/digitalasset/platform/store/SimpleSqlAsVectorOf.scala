@@ -38,7 +38,7 @@ object SimpleSqlAsVectorOf {
         cursor match {
           case Some(cursor) =>
             cursor.row.as(parser) match {
-              case Success(book) => go(results :+ book)(cursor.next)
+              case Success(value) => go(results :+ value)(cursor.next)
               case Failure(f) => Failure(f)
             }
           case _ => Try(results)
