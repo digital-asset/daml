@@ -12,9 +12,15 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
+import com.daml.ledger.participant.state.index.v2.TimedIndexService
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
+import com.daml.ledger.participant.state.v1.{
+  SeedService,
+  TimedReadService,
+  TimedWriteService,
+  WriteService
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DarReader
@@ -42,7 +48,6 @@ import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.state.{TimedIndexService, TimedReadService, TimedWriteService}
 import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.state
+package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
@@ -9,8 +9,13 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
+import com.daml.ledger.participant.state.v1.{
+  Configuration,
+  Metrics,
+  PackageId,
+  ParticipantId,
+  Party
+}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -25,7 +30,6 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.metrics.{timedFuture, timedSource}
 
 import scala.concurrent.Future
 
@@ -146,8 +150,8 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
     delegate.currentHealth()
 
   private def time[T](name: String, future: => Future[T]): Future[T] =
-    timedFuture(metrics.timer(s"$prefix.$name"), future)
+    Metrics.timedFuture(metrics.timer(s"$prefix.$name"), future)
 
   private def time[Out, Mat](name: String, source: => Source[Out, Mat]): Source[Out, Mat] =
-    timedSource(metrics.timer(s"$prefix.$name"), source)
+    Metrics.timedSource(metrics.timer(s"$prefix.$name"), source)
 }

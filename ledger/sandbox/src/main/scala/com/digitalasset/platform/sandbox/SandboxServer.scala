@@ -11,7 +11,8 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
+import com.daml.ledger.participant.state.index.v2.TimedIndexService
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService, TimedWriteService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
@@ -45,7 +46,6 @@ import com.digitalasset.platform.sandbox.stores.{
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.state.{TimedIndexService, TimedWriteService}
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
 import com.digitalasset.resources.{Resource, ResourceOwner}
