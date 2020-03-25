@@ -1465,7 +1465,7 @@ private class JdbcLedgerDao(
                 "template_parties" -> byPartyAndTemplate(filter),
                 "wildcard_parties" -> justByParty(filter),
               )
-              .asVectorOf(ContractDataParser)(conn)
+              .asVectorOf(ContractDataParser)
         }
       }.mapAsync(1) { contractResult =>
         dbDispatcher
