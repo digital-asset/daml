@@ -143,7 +143,7 @@ object WebSocketService {
     /** Extra data on success of a predicate. */
     type Positive
 
-    def removePhantomArchives(request: A): Option[Set[String]]
+    def removePhantomArchives(request: A): Option[Set[domain.ContractId]]
 
     def predicate(
         request: A,
@@ -284,7 +284,7 @@ object WebSocketService {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       val NelO = Foldable[NonEmptyList].compose[Option]
-      request traverse (_.offsetHint) map (neloCid => Tag unsubst NelO.toSet(neloCid))
+      request traverse (_.offsetHint) map NelO.toSet
     }
   }
 }
@@ -423,14 +423,14 @@ class WebSocketService(
         case Some((_, a)) => renderEvents(a._1, a._2)
       }
 
-  private def removePhantomArchives[A, B](remove: Option[Set[String]]) =
+  private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
     remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
-  private def removePhantomArchives_[A, B](
-      initialState: Set[String]): Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
+  private def removePhantomArchives_[A, B](initialState: Set[domain.ContractId])
+    : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
     import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
-      .scan((initialState, Option.empty[StepAndErrors[A, B]])) {
+      .scan((Tag unsubst initialState, Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
           val newInserts: Vector[String] =
             domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))
