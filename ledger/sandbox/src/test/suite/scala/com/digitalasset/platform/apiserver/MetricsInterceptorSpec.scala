@@ -24,12 +24,21 @@ import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Server, ServerInterceptor, ServerServiceDefinition}
+import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Second, Span}
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 
-final class MetricsInterceptorSpec extends AsyncFlatSpec with AkkaBeforeAndAfterAll with Matchers {
+final class MetricsInterceptorSpec
+    extends AsyncFlatSpec
+    with AkkaBeforeAndAfterAll
+    with Matchers
+    with Eventually {
+
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(1, Second)))
 
   behavior of "MetricsInterceptor"
 
@@ -45,7 +54,9 @@ final class MetricsInterceptorSpec extends AsyncFlatSpec with AkkaBeforeAndAfter
         _ <- Future.sequence(
           (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt))))
       } yield {
-        metrics.timer("daml.lapi.hello_service.single").getCount shouldBe 3
+        eventually {
+          metrics.timer("daml.lapi.hello_service.single").getCount shouldBe 3
+        }
       }
     }
   }
@@ -62,8 +73,11 @@ final class MetricsInterceptorSpec extends AsyncFlatSpec with AkkaBeforeAndAfter
         _ <- new StreamConsumer[HelloResponse](observer =>
           HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)).all()
       } yield {
-        val snapshot = metrics.timer("daml.lapi.hello_service.server_streaming").getSnapshot
-        all(Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)) should (be >= 3.seconds.toNanos and be <= 6.seconds.toNanos)
+        eventually {
+          val snapshot = metrics.timer("daml.lapi.hello_service.server_streaming").getSnapshot
+          val values = Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)
+          all(values) should (be >= 3.seconds.toNanos and be <= 6.seconds.toNanos)
+        }
       }
     }
   }
