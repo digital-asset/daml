@@ -5,7 +5,6 @@ package com.digitalasset.http.util
 
 import java.time.Instant
 
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.tag._
@@ -78,8 +77,6 @@ object Commands {
       applicationId = applicationId.unwrap,
       commandId = commandId.unwrap,
       party = party.unwrap,
-      ledgerEffectiveTime = Some(fromInstant(ledgerEffectiveTime)),
-      maximumRecordTime = Some(fromInstant(maximumRecordTime)),
       commands = Seq(lav1.commands.Command(command))
     )
     lav1.command_service.SubmitAndWaitRequest(Some(commands))
