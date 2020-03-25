@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.v1.SeedService
 import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
 import com.digitalasset.platform.sandbox.AbstractSandboxFixture
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.platform.sandbox.services.GrpcClientResource
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
 import io.grpc.Channel
@@ -35,7 +35,7 @@ trait SandboxNextFixture extends AbstractSandboxFixture with SuiteResource[(Port
           .fold[ResourceOwner[Option[String]]](ResourceOwner.successful(None))(_.map(info =>
             Some(info.jdbcUrl)))
         port <- new Runner(config.copy(jdbcUrl = jdbcUrl))
-        channel <- SandboxClientResource.owner(port)
+        channel <- GrpcClientResource.owner(port)
       } yield (port, channel)
     )
   }

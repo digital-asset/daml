@@ -23,7 +23,7 @@ import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrp
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.platform.sandbox.services.GrpcClientResource
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 import com.google.protobuf.Empty
@@ -54,7 +54,7 @@ object TestUtil {
 
     val channelOwner = for {
       server <- SandboxServer.owner(config)
-      channel <- SandboxClientResource.owner(server.port)
+      channel <- GrpcClientResource.owner(server.port)
     } yield channel
     channelOwner.use(channel => Future(testCode(channel)))
   }

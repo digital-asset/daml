@@ -15,7 +15,7 @@ import io.netty.channel.EventLoopGroup
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object SandboxClientResource {
+object GrpcClientResource {
   def owner(port: Port): ResourceOwner[Channel] =
     for {
       eventLoopGroup <- new EventLoopGroupOwner("api-client", sys.runtime.availableProcessors())

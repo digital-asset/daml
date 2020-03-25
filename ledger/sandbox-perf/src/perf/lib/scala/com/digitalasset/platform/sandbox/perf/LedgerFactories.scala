@@ -12,7 +12,7 @@ import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxClientResource
+import com.digitalasset.platform.sandbox.services.GrpcClientResource
 import com.digitalasset.platform.services.time.TimeProviderType.Static
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ResourceOwner
@@ -50,7 +50,7 @@ object LedgerFactories {
             PostgresResource.owner().map(fixture => Some(fixture.jdbcUrl))
         }
         server <- SandboxServer.owner(sandboxConfig(jdbcUrl, darFiles))
-        channel <- SandboxClientResource.owner(server.port)
+        channel <- GrpcClientResource.owner(server.port)
       } yield new LedgerContext(channel, darFiles.map(getPackageIdOrThrow))
     )
 }
