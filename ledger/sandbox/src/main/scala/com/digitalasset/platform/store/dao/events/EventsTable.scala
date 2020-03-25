@@ -64,24 +64,22 @@ private[events] trait EventsTable {
         events: Seq[Entry[Event]],
     ): Option[R] =
       events.headOption.flatMap { first =>
-        {
-          val flatEvents =
-            TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
-          if (flatEvents.nonEmpty || first.commandId.nonEmpty)
-            Some(
-              makeResponse(
-                ApiTransaction(
-                  transactionId = first.transactionId,
-                  commandId = first.commandId,
-                  effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-                  workflowId = first.workflowId,
-                  offset = ApiOffset.toApiString(first.eventOffset),
-                  events = flatEvents,
-                )
+        val flatEvents =
+          TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
+        if (flatEvents.nonEmpty || first.commandId.nonEmpty)
+          Some(
+            makeResponse(
+              ApiTransaction(
+                transactionId = first.transactionId,
+                commandId = first.commandId,
+                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                workflowId = first.workflowId,
+                offset = ApiOffset.toApiString(first.eventOffset),
+                events = flatEvents,
               )
             )
-          else None
-        }
+          )
+        else None
       }
 
     def toGetTransactionsResponse(events: Vector[Entry[Event]]): Seq[GetTransactionsResponse] =
