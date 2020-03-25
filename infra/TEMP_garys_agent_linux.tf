@@ -12,11 +12,12 @@ data "template_file" "TEMP_garys-agent-linux-startup" {
 }
 
 resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-linux" {
-  provider           = "google-beta"
-  name               = "temp-garys-agent-linux"
-  base_instance_name = "temp-garys-agent-linux"
-  region             = "${local.region}"
-  target_size        = 1
+  provider                  = "google-beta"
+  name                      = "temp-garys-agent-linux"
+  base_instance_name        = "temp-garys-agent-linux"
+  region                    = "us-east1"
+  distribution_policy_zones = "us-east1-c"
+  target_size               = 1
 
   version {
     name              = "temp-garys-agent-linux"
@@ -26,14 +27,15 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-linux"
   update_policy {
     type            = "PROACTIVE"
     minimal_action  = "REPLACE"
-    max_surge_fixed = 3
+    max_surge_fixed = 1
     min_ready_sec   = 60
   }
 }
 
 resource "google_compute_instance_template" "TEMP_garys-agent-linux" {
   name_prefix  = "temp-garys-agent-linux-"
-  machine_type = "n1-standard-16"
+  region       = "us-east1"
+  machine_type = "n2-standard-8"
   labels       = "${local.labels}"
 
   disk {

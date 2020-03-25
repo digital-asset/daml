@@ -15,7 +15,8 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-window
   # -5 for the random postfix:
   base_instance_name = "temp-garys-win"
 
-  region      = "${local.region}"
+  region = "us-east1"
+  distribution_policy_zones = ["us-east1-c"]
   target_size = 1
 
   version {
@@ -28,7 +29,7 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-window
     minimal_action = "REPLACE"
 
     # minimum is the number of availability zones (3)
-    max_surge_fixed = 3
+    max_surge_fixed = 1
 
     # calculated with: serial console last timestamp after boot - VM start
     # 09:54:28 - 09:45:55 = 513 seconds
@@ -38,7 +39,8 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-window
 
 resource "google_compute_instance_template" "TEMP_garys-agent-windows" {
   name_prefix  = "temp-garys-agent-windows-"
-  machine_type = "n1-standard-16"
+  region = "us-east1"
+  machine_type = "n2-standard-8"
   labels       = "${local.labels}"
 
   disk {
