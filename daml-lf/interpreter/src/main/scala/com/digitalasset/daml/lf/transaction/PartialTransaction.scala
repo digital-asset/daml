@@ -207,7 +207,7 @@ case class PartialTransaction(
       coinst <- node match {
         case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
           Some(create.coinst)
-        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_] |
+        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_, _] |
             _: Node.NodeLookupByKey[_, _] =>
           None
       }
@@ -279,13 +279,21 @@ case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
+      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]]
   ): PartialTransaction =
     mustBeActive(
       coid,
       templateId,
       insertLeafNode(
         Node
-          .NodeFetch(coid, templateId, optLocation, Some(actingParties), signatories, stakeholders),
+          .NodeFetch(
+            coid,
+            templateId,
+            optLocation,
+            Some(actingParties),
+            signatories,
+            stakeholders,
+            key),
       ),
     )
 

@@ -141,6 +141,7 @@ da_haskell_test(
         "bytestring",
         "extra",
         "filepath",
+        "hashable",
         "process",
         "tasty",
         "tasty-hunit",

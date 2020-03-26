@@ -144,6 +144,7 @@ object TransactionCoder {
       minExerciseResult,
       minContractKeyInExercise,
       minMaintainersInExercise,
+      minContractKeyInFetch,
     }
     node match {
       case nc @ NodeCreate(_, _, _, _, _, _, _) =>
@@ -174,7 +175,7 @@ object TransactionCoder {
           nodeBuilder.setCreate(createBuilder).build()
         }
 
-      case nf @ NodeFetch(_, _, _, _, _, _) =>
+      case nf @ NodeFetch(_, _, _, _, _, _, _) =>
         val (vversion, etid) = ValueCoder.encodeIdentifier(
           nf.templateId,
           valueVersion1Only(transactionVersion) option ValueVersion("1"),
@@ -193,9 +194,20 @@ object TransactionCoder {
             nf.actingParties.getOrElse(Set.empty),
             EncodeError(transactionVersion, isTooOldFor = "NodeFetch actors")
           )
+          optKey <- nf.key match {
+            case None => Right(None)
+            case Some(key) =>
+              if (transactionVersion precedes minContractKeyInFetch)
+                Left(EncodeError(transactionVersion, isTooOldFor = "NodeFetch's `key` field"))
+              else
+                encodeKeyWithMaintainers(encodeCid, key).map(Some(_))
+          }
         } yield {
           encodedCid.fold(fetchBuilder.setContractId, fetchBuilder.setContractIdStruct)
           actors.foreach(fetchBuilder.addActors)
+          optKey.foreach {
+            case (_, encodedKey) => fetchBuilder.setKeyWithMaintainers(encodedKey)
+          }
           nodeBuilder.setFetch(fetchBuilder).build()
         }
 
@@ -312,6 +324,7 @@ object TransactionCoder {
       minExerciseResult,
       minContractKeyInExercise,
       minMaintainersInExercise,
+      minContractKeyInFetch,
     }
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
@@ -346,7 +359,12 @@ object TransactionCoder {
           else Right(Some(actingPartiesSet))
           stakeholders <- toPartySet(protoFetch.getStakeholdersList)
           signatories <- toPartySet(protoFetch.getSignatoriesList)
-        } yield (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders))
+          key <- if (protoFetch.getKeyWithMaintainers == TransactionOuterClass.KeyWithMaintainers.getDefaultInstance)
+            Right(None)
+          else if (txVersion precedes minContractKeyInFetch)
+            Left(DecodeError(s"$txVersion is too old to support NodeFetch's `key` field"))
+          else decodeKeyWithMaintainers(decodeCid, protoFetch.getKeyWithMaintainers).map(Some(_))
+        } yield (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key))
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise

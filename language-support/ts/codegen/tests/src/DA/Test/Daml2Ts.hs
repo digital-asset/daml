@@ -1,6 +1,6 @@
 -- Copyright (c) 2020 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE DerivingStrategies #-}
 module DA.Test.Daml2Ts (main) where
 
 import Control.Monad.Extra
@@ -19,8 +19,28 @@ import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
+import Data.Hashable
 import Test.Tasty
 import Test.Tasty.HUnit
+
+-- Referenced from the DAVL test. Lifted here for easy
+-- maintenance.
+data ConfigConsts = ConfigConsts
+  { pkgDevDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion }
+configConsts :: ConfigConsts
+configConsts = ConfigConsts
+  { pkgDevDependencies = HMS.fromList
+      [ (NpmPackageName "eslint", NpmPackageVersion "^6.7.2")
+      , (NpmPackageName "@typescript-eslint/eslint-plugin", NpmPackageVersion "2.11.0")
+      , (NpmPackageName "@typescript-eslint/parser", NpmPackageVersion "2.11.0")
+      ]
+  }
+newtype NpmPackageName = NpmPackageName {unNpmPackageName :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
+newtype NpmPackageVersion = NpmPackageVersion {unNpmPackageVersion :: T.Text}
+  deriving stock (Eq, Show)
+  deriving newtype (Hashable, FromJSON, ToJSON)
 
 main :: IO ()
 main = do
@@ -95,7 +115,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
         step "daml2ts..."
-        copyDirectory damlTypes "daml-types"
+        setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir]) ""
         assertBool "A duplicate name for different packages error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
 
@@ -143,8 +163,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         buildProject []
       withCurrentDirectory here $ do
         step "daml2ts..."
-        copyDirectory damlTypes "daml-types"
-        writePackageJson
+        setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir]) ""
         assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
 
@@ -153,8 +172,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDaml = grover </> "daml"
           daml2tsDir = here </> "daml2ts"
           groverTs =  daml2tsDir </> "grover-1.0"
-          groverTsSrc = groverTs </> "src"
-          groverTsLib = groverTs </> "lib"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
@@ -174,57 +191,43 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         buildProject []
       withCurrentDirectory here $ do
         step "daml2ts..."
-        writePackageJson
-        copyDirectory damlTypes "daml-types"
+        setupYarnEnvironment
         daml2tsProject [groverDar, groverDar] daml2tsDir
-        assertFileExists (groverTsSrc </> "Grover.ts")
-        assertFileExists (groverTsLib </> "Grover.js")
-        assertFileExists (groverTsLib </> "Grover.d.ts")
+        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" ]
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
       withCurrentDirectory here $ do
-        copyDirectory damlTypes "daml-types"
         step "daml2ts..."
-        writePackageJson
+        setupYarnEnvironment
         callProcessSilent daml2ts $
           [ davl </> "davl-v4.dar"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
           ["-o", daml2tsDir]
-        assertFileExists (daml2tsDir </> "davl-0.0.4" </> "src" </> "DAVL.ts")
-        assertFileExists (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.js")
-        assertFileExists (daml2tsDir </> "davl-0.0.4" </> "lib" </> "DAVL.d.ts")
-        assertFileExists (daml2tsDir </> "davl-0.0.5" </> "src" </> "DAVL.ts")
-        assertFileExists (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.js")
-        assertFileExists (daml2tsDir </> "davl-0.0.5" </> "lib" </> "DAVL.d.ts")
-        assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "src" </> "Upgrade.ts")
-        assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.js")
-        assertFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5" </> "lib" </> "Upgrade.d.ts")
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4")) [ "index", "DAVL" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5")) [ "index", "DAVL" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5")) [ "index", "Upgrade" ]
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
         BSL.writeFile "package.json" $ encode (
           object
             [ "private" .= True
-            , "devDependencies" .= HMS.fromList
-              ([ ("eslint", "^6.7.2")
-               , ("@typescript-eslint/eslint-plugin", "2.11.0")
-               , ("@typescript-eslint/parser", "2.11.0")
-               ] :: [(T.Text, T.Text)]
-              )
-            , "dependencies" .= HMS.fromList
-              ([ ("@daml/types", "file:../daml-types")
-               , ("@mojotech/json-type-validation", "^3.1.0")
-               ] :: [(T.Text, T.Text)])
+            , "devDependencies" .= pkgDevDependencies configConsts
             , "workspaces" .= pkgs
             , "name" .= ("daml2ts" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)
             ])
         callProcessSilent yarn ["install", "--pure-lockfile"]
-        callProcessSilent yarn ["workspaces", "run", "lint"]
+        callProcessSilent yarn ["workspaces", "run", "eslint", "--ext", ".ts", "--max-warnings", "0", "src/"]
   ]
   where
+    setupYarnEnvironment :: IO ()
+    setupYarnEnvironment = do
+      copyDirectory damlTypes "daml-types"
+      writePackageJson
+
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
 
@@ -262,5 +265,11 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
           ]
 
-    assertFileExists :: FilePath -> IO ()
-    assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
+    assertTsFileExists :: FilePath -> String -> IO ()
+    assertTsFileExists proj file = do
+      assertFileExists (proj </> "src" </> file <.> "ts")
+      assertFileExists (proj </> "lib" </> file <.> "js")
+      assertFileExists (proj </> "lib" </> file <.> ".d.ts")
+        where
+          assertFileExists :: FilePath -> IO ()
+          assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")

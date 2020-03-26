@@ -84,6 +84,7 @@ object Node {
           actingParties,
           signatories,
           stakeholders,
+          key,
           ) =>
         NodeFetch(
           coid = f2(coid),
@@ -92,6 +93,7 @@ object Node {
           actingParties = actingParties,
           signatories = signatories,
           stakeholders = stakeholders,
+          key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case NodeExercises(
           nodeSeed,
@@ -160,15 +162,18 @@ object Node {
   object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
-  final case class NodeFetch[+Cid](
+  final case class NodeFetch[+Cid, +Val](
       coid: Cid,
       templateId: Identifier,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
       stakeholders: Set[Party],
-  ) extends LeafOnlyNode[Cid, Nothing]
+      key: Option[KeyWithMaintainers[Val]],
+  ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.Fetch {}
+
+  object NodeFetch extends WithTxValue2[NodeFetch]
 
   /** Denotes a transaction node for an exercise.
     * We remember the `children` of this `NodeExercises`
@@ -290,7 +295,7 @@ object Node {
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
         case _ => false
       }
-      case nf: NodeFetch[Cid] => {
+      case nf: NodeFetch[Cid, Val] => {
         case NodeFetch(
             coid2,
             templateId2,
@@ -298,11 +303,13 @@ object Node {
             actingParties2,
             signatories2,
             stakeholders2,
+            key2,
             ) =>
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
           signatories == signatories2 && stakeholders == stakeholders2
+          key.forall(_ => key == key2)
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(

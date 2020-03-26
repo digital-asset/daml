@@ -48,7 +48,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
               go(nodeIds)
             case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
               go(ne.children ++: nodeIds)
-            case _: NodeLookupByKey[_, _] | _: NodeFetch[_] =>
+            case _: NodeLookupByKey[_, _] | _: NodeFetch[_, _] =>
               go(nodeIds)
           }
       }

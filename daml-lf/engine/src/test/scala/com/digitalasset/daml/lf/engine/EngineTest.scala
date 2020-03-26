@@ -91,28 +91,30 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       ))
   }
 
+  val withKeyTemplate = "BasicTests:WithKey"
+  val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
+  val withKeyContractInst: ContractInst[Tx.Value[AbsoluteContractId]] =
+    ContractInst(
+      TypeConName(basicTestsPkgId, withKeyTemplate),
+      assertAsVersionedValue(
+        ValueRecord(
+          Some(BasicTests_WithKey),
+          ImmArray(
+            (Some("p"), ValueParty(alice)),
+            (Some("k"), ValueInt64(42))
+          ))),
+      ""
+    )
+
   def lookupContractWithKey(
       @deprecated("shut up unused arguments warning", "blah") id: AbsoluteContractId)
     : Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
-    Some(
-      ContractInst(
-        TypeConName(basicTestsPkgId, "BasicTests:WithKey"),
-        assertAsVersionedValue(
-          ValueRecord(
-            Some(BasicTests_WithKey),
-            ImmArray(
-              (Some("p"), ValueParty(alice)),
-              (Some("k"), ValueInt64(42))
-            ))),
-        ""
-      ))
+    Some(withKeyContractInst)
   }
 
   def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
   }
-
-  val BasicTests_WithKey = Identifier(basicTestsPkgId, "BasicTests:WithKey")
 
   def lookupKey(key: GlobalKey): Option[AbsoluteContractId] =
     (key.templateId, key.key) match {
@@ -120,7 +122,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           BasicTests_WithKey,
           ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ) =>
-        Some(AbsoluteContractId("1"))
+        Some(toContractId("1"))
       case _ =>
         None
     }
@@ -948,7 +950,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             children,
             _,
             _) =>
-          coid shouldBe AbsoluteContractId(originalCoid)
+          coid shouldBe toContractId(originalCoid)
           consuming shouldBe true
           actingParties shouldBe Set(bob)
           children.map(_.index) shouldBe ImmArray(1)
@@ -1000,10 +1002,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       partyEvents.roots.length shouldBe 1
       val bobExercise = partyEvents.events(partyEvents.roots(0))
       val cid =
-        AbsoluteContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
+        toContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
       bobExercise shouldBe
         ExerciseEvent(
-          contractId = AbsoluteContractId(originalCoid),
+          contractId = toContractId(originalCoid),
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
           choiceArgument = assertAsVersionedValue(
@@ -1046,7 +1048,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val submissionSeed = hash("dynamic fetch actors")
     val fetchedStrCid = "1"
-    val fetchedCid = AbsoluteContractId(fetchedStrCid)
+    val fetchedCid = toContractId(fetchedStrCid)
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
       (Some[Name]("sig1"), ValueParty(alice)),
@@ -1058,7 +1060,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
 
     val fetcher1StrCid = "2"
-    val fetcher1Cid = AbsoluteContractId(fetcher1StrCid)
+    val fetcher1Cid = toContractId(fetcher1StrCid)
     val fetcher1TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(alice)),
       (Some[Name]("obs"), ValueParty(bob)),
@@ -1066,7 +1068,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     )
 
     val fetcher2StrCid = "3"
-    val fetcher2Cid = AbsoluteContractId(fetcher2StrCid)
+    val fetcher2Cid = toContractId(fetcher2StrCid)
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
@@ -1097,7 +1099,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     def actFetchActors[Nid, Cid, Val](n: GenNode[Nid, Cid, Val]): Set[Party] = {
       n match {
-        case NodeFetch(_, _, _, actingParties, _, _) => actingParties.getOrElse(Set.empty)
+        case NodeFetch(_, _, _, actingParties, _, _, _) => actingParties.getOrElse(Set.empty)
         case _ => Set()
       }
     }
@@ -1151,7 +1153,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Right(tx) = runExample(fetcher1StrCid, clara)
       val fetchNodes =
         tx.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
-          case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _))) => ns :+ ((nid, n))
+          case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
           case (ns, _) => ns
         }
       fetchNodes.foreach {
@@ -1169,7 +1171,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val submissionSeed = hash("reinterpreting fetch nodes")
 
-    val fetchedCid = AbsoluteContractId("1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
@@ -1198,13 +1200,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = Engine()
 
-      val fetchNode = NodeFetch[AbsoluteContractId](
+      val fetchNode = NodeFetch(
         coid = fetchedCid,
         templateId = fetchedTid,
         optLocation = None,
         actingParties = None,
         signatories = Set.empty,
         stakeholders = Set.empty,
+        key = None,
       )
 
       val let = Time.Timestamp.now()
@@ -1243,6 +1246,87 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   }
 
+  "fetching contracts that have keys correctly fills in the transaction structure" when {
+    val fetchedCid = AbsoluteContractId(ContractIdString.assertFromString("1"))
+    val now = Time.Timestamp.now()
+
+    "fetched via a fetch" in {
+
+      val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
+
+      val Right(cmds) = commandTranslator
+        .preprocessFetch(BasicTests_WithKey, fetchedCid)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Right((tx, dependsOnTime @ _)) = engine
+        .interpretCommands(false, false, Set(alice), ImmArray(cmds), now, None)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      tx.nodes.values.headOption match {
+        case Some(NodeFetch(_, _, _, _, _, _, key)) =>
+          key match {
+            // just test that the maintainers match here, getting the key out is a bit hairier
+            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              assert(maintainers == Set(alice))
+            case None => fail("the recomputed fetch didn't have a key")
+          }
+        case _ => fail("Recomputed a non-fetch or no nodes at all")
+      }
+    }
+
+    "fetched via a fetchByKey" in {
+      val fetcherTemplate = "BasicTests:FetcherByKey"
+      val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
+      val fetcherCid = AbsoluteContractId(ContractIdString.assertFromString("2"))
+      val fetcherInst = ContractInst(
+        TypeConName(basicTestsPkgId, fetcherTemplate),
+        assertAsVersionedValue(
+          ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))),
+        ""
+      )
+
+      def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+        (key.templateId, key.key) match {
+          case (
+              BasicTests_WithKey,
+              ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+              ) =>
+            Some(fetchedCid)
+          case _ =>
+            None
+        }
+      }
+
+      val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
+      val now = Time.Timestamp.now()
+
+      val Right(cmds) = commandTranslator
+        .preprocessExercise(
+          fetcherTemplateId,
+          fetcherCid,
+          "Fetch",
+          ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Right((tx, dependsOnTime @ _)) = engine
+        .interpretCommands(false, false, Set(alice), ImmArray(cmds), now, None)
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      tx.nodes.values.collectFirst {
+        case nf: NodeFetch[_, _] => nf
+      } match {
+        case Some(nf) =>
+          nf.key match {
+            // just test that the maintainers match here, getting the key out is a bit hairier
+            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+              assert(maintainers == Set(alice))
+            case None => fail("the recomputed fetch didn't have a key")
+          }
+        case None => fail("didn't find the fetch node resulting from fetchByKey")
+      }
+    }
+  }
+
 }
 
 object EngineTest {
@@ -1253,8 +1337,8 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
-  private implicit def toContractId(s: String): ContractIdString =
-    ContractIdString.assertFromString(s)
+  private implicit def toContractId(s: String): AbsoluteContractId =
+    AbsoluteContractId(ContractIdString.assertFromString(s))
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

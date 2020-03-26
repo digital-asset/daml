@@ -41,6 +41,7 @@ object KVTest {
   private[kvutils] val metricRegistry = new MetricRegistry
 
   private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
+  private[this] val keyValueSubmission = new KeyValueSubmission(metricRegistry)
 
   def initialTestState: KVTestState =
     KVTestState(
@@ -152,7 +153,7 @@ object KVTest {
   ): KVTest[(DamlLogEntryId, DamlLogEntry)] =
     get.flatMap { testState =>
       submit(
-        KeyValueSubmission.archivesToSubmission(
+        keyValueSubmission.archivesToSubmission(
           submissionId = submissionId,
           archives = archives.toList,
           sourceDescription = "description",
@@ -222,7 +223,7 @@ object KVTest {
           testState.recordTime.addMicros(deduplicationTime.toNanos / 1000).toInstant,
       )
       (tx, txMetaData) = transaction
-      subm = KeyValueSubmission.transactionToSubmission(
+      subm = keyValueSubmission.transactionToSubmission(
         submitterInfo = submInfo,
         meta = TransactionMeta(
           ledgerEffectiveTime = testState.recordTime.addMicros(letDelta.toNanos / 1000),
@@ -245,7 +246,7 @@ object KVTest {
       testState <- get[KVTestState]
       oldConf <- getConfiguration
       result <- submit(
-        KeyValueSubmission.configurationToSubmission(
+        keyValueSubmission.configurationToSubmission(
           maxRecordTime = testState.recordTime.addMicros(mrtDelta.toNanos / 1000),
           submissionId = submissionId,
           participantId = testState.participantId,
@@ -259,7 +260,7 @@ object KVTest {
       hint: String,
       participantId: ParticipantId): KVTest[DamlLogEntry] =
     submit(
-      KeyValueSubmission.partyToSubmission(
+      keyValueSubmission.partyToSubmission(
         Ref.LedgerString.assertFromString(subId),
         Some(hint),
         None,

@@ -83,7 +83,7 @@ object Pretty {
     node match {
       case create: NodeCreate.WithTxValue[ContractId] =>
         "create" &: prettyContractInst(create.coinst)
-      case fetch: NodeFetch[ContractId] =>
+      case fetch: NodeFetch.WithTxValue[ContractId] =>
         "fetch" &: prettyContractId(fetch.coid)
       case ex: NodeExercises.WithTxValue[Transaction.NodeId, ContractId] =>
         intercalate(text(", "), ex.actingParties.map(p => text(p))) &
@@ -261,7 +261,7 @@ object Pretty {
           case None => d
           case Some(key) => d / text("key") & prettyKeyWithMaintainers(key)
         }
-      case ea: NodeFetch[AbsoluteContractId] =>
+      case ea: NodeFetch[AbsoluteContractId, Transaction.Value[AbsoluteContractId]] =>
         "ensure active" &: prettyContractId(ea.coid)
       case ex: NodeExercises[
             L.ScenarioNodeId,

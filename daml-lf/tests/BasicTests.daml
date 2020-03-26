@@ -326,6 +326,20 @@ template WithKey
           n : Int
         do pure (n + k)
 
+template FetcherByKey
+  with p: Party
+
+  where
+    signatory p
+
+    controller p can
+      nonconsuming Fetch : WithKey
+        with
+          n : Int
+        do
+          (_, c) <- fetchByKey @WithKey (p, n)
+          pure c
+
 test_failedAuths = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"

@@ -42,9 +42,9 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" True
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
+    setEnv "TASTY_NUM_THREADS" "1" True
     yarn : damlTypesPath : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
@@ -152,6 +152,12 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+     , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "copy-trigger"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
+        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
      , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
         let myDepDir = tmpDir </> "mydep"
         createDirectoryIfMissing True (myDepDir </> "daml")
@@ -191,10 +197,16 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory myTriggerDir $ callCommandQuiet "daml build -o mytrigger.dar"
         let dar = myTriggerDir </> "mytrigger.dar"
         assertBool "mytrigger.dar was not created." =<< doesFileExist dar
-     , testCase "Build DAML script example"  $ withTempDir $ \tmpDir -> do
+     , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
         callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
+        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+     , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
+        let projDir = tmpDir </> "script-example"
+        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
@@ -506,19 +518,18 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "ts") $ do
+                          -- This section makes
+                          -- 'daml-types@0.0.0-SDKVERSION' available
+                          -- to yarn.
                           createDirectoryIfMissing True "generated"
                           withCurrentDirectory "generated" $ do
-                            -- SDK version is 0.0.0; daml2ts needs
-                            -- 'daml-types' to be here in the filesystem...
                             copyDirectory damlTypes "daml-types"
-                            BSL.writeFile "package.json" $ encode (
-                            -- ... and this package.json so it can find it.
+                            BSL.writeFile "package.json" $ encode $
                               object
                                 [ "private" .= True
                                 , "workspaces" .= [T.pack lang]
                                 , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
                                 ]
-                              )
                         callCommandQuiet $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace

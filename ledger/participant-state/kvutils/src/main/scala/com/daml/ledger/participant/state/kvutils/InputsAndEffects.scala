@@ -79,8 +79,12 @@ private[kvutils] object InputsAndEffects {
     tx.foreach {
       case (_, node) =>
         node match {
-          case fetch @ NodeFetch(_, _, _, _, _, _) =>
+          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
             addContractInput(fetch.coid)
+            fetch.key.foreach { keyWithMaintainers =>
+              inputs += globalKeyToStateKey(
+                GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
+            }
 
           case create @ NodeCreate(_, _, _, _, _, _, _) =>
             create.key.foreach { keyWithMaintainers =>
@@ -112,7 +116,7 @@ private[kvutils] object InputsAndEffects {
     tx.fold(Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
-          case fetch @ NodeFetch(_, _, _, _, _, _) =>
+          case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
             effects
           case create @ NodeCreate(_, _, _, _, _, _, _) =>
             effects.copy(

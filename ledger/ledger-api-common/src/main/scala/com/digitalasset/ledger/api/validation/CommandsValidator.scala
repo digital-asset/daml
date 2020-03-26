@@ -133,7 +133,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
         } yield
           ExerciseCommand(
             templateId = validatedTemplateId,
-            contractId = contractId,
+            contractId = Lf.AbsoluteContractId(contractId),
             choiceId = choice,
             argument = validatedValue)
 

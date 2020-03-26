@@ -143,14 +143,6 @@ def daml_deps():
             patch_args = ["-p1"],
         )
 
-    if "io_bazel_skydoc" not in native.existing_rules():
-        http_archive(
-            name = "io_bazel_skydoc",
-            sha256 = "c2d66a0cc7e25d857e480409a8004fdf09072a1bd564d6824441ab2f96448eea",
-            strip_prefix = "skydoc-0.3.0",
-            urls = ["https://github.com/bazelbuild/skydoc/archive/0.3.0.tar.gz"],
-        )
-
     if "bazel_gazelle" not in native.existing_rules():
         http_archive(
             name = "bazel_gazelle",

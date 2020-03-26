@@ -73,6 +73,11 @@ da_haskell_test(
     srcs = glob(["src/**/*.hs"]),
     args = [
         "$(location //:yarn)",
+        # The TS codegen test which needs this next arg is not
+        # run on Windows but we need to pass something on Windows
+        # to make the test harness happy. If it should be misued,
+        # hopefully "daml-types-not-available" will end up in the
+        # error message.
         "daml-types-not-available" if is_windows else "$(location //language-support/ts/daml-types:npm_package)",
     ],
     data = [

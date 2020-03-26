@@ -5,10 +5,11 @@ package com.daml.ledger.validator
 
 import java.util.UUID
 
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -43,6 +44,7 @@ class SubmissionValidator[LogResult](
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean = false,
+    metricRegistry: MetricRegistry,
 )(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
@@ -54,7 +56,14 @@ class SubmissionValidator[LogResult](
       participantId: ParticipantId,
   ): Future[Either[ValidationFailed, Unit]] =
     newLoggingContext { implicit logCtx =>
-      runValidation(envelope, correlationId, recordTime, participantId, (_, _, _, _) => Future.unit)
+      runValidation(
+        envelope,
+        correlationId,
+        recordTime,
+        participantId,
+        postProcessResult = (_, _, _, _) => Future.unit,
+        postProcessResultTimer = None,
+      )
     }
 
   def validateAndCommit(
@@ -73,7 +82,14 @@ class SubmissionValidator[LogResult](
       recordTime: Timestamp,
       participantId: ParticipantId,
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, LogResult]] =
-    runValidation(envelope, correlationId, recordTime, participantId, commit)
+    runValidation(
+      envelope,
+      correlationId,
+      recordTime,
+      participantId,
+      commit,
+      Some(Metrics.commitSubmission),
+    )
 
   def validateAndTransform[U](
       envelope: Bytes,
@@ -87,7 +103,14 @@ class SubmissionValidator[LogResult](
           LedgerStateOperations[LogResult]) => Future[U]
   ): Future[Either[ValidationFailed, U]] =
     newLoggingContext { implicit logCtx =>
-      runValidation(envelope, correlationId, recordTime, participantId, transform)
+      runValidation(
+        envelope,
+        correlationId,
+        recordTime,
+        participantId,
+        transform,
+        Some(Metrics.transformSubmission),
+      )
     }
 
   private def commit(
@@ -120,8 +143,9 @@ class SubmissionValidator[LogResult](
           LogEntryAndState,
           LedgerStateOperations[LogResult],
       ) => Future[T],
+      postProcessResultTimer: Option[Timer],
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
-    Envelope.open(envelope) match {
+    Metrics.openEnvelope.time(() => Envelope.open(envelope)) match {
       case Right(Envelope.SubmissionBatchMessage(batch)) =>
         // NOTE(JM)): We support validation of batches of size 1, but not more as batch validation
         // does not currently fit these interfaces (e.g. multiple "LogResult"s).
@@ -134,7 +158,8 @@ class SubmissionValidator[LogResult](
               correlatedSubmission.getCorrelationId,
               recordTime,
               participantId,
-              postProcessResult)
+              postProcessResult,
+              postProcessResultTimer)
           case submissions =>
             logger.error(s"Unsupported batch size of ${submissions.length}, rejecting submission.")
             Future.successful(Left(
@@ -142,29 +167,44 @@ class SubmissionValidator[LogResult](
         }
 
       case Right(Envelope.SubmissionMessage(submission)) =>
+        val damlLogEntryId = allocateLogEntryId()
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)
         ledgerStateAccess.inTransaction { stateOperations =>
           val result = for {
-            readStateValues <- stateOperations.readState(inputKeysAsBytes)
-            readStateInputs = readStateValues.zip(declaredInputs).map {
-              case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-            }
-            damlLogEntryId = allocateLogEntryId()
-            readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-            missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-            _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
-              Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
-            else
-              Future.unit
-            logEntryAndState <- Future.fromTry(Try(
-              processSubmission(damlLogEntryId, recordTime, submission, participantId, readInputs)))
-            result <- postProcessResult(
-              damlLogEntryId,
-              flattenInputStates(readInputs),
-              logEntryAndState,
-              stateOperations,
+            readInputs <- timedFuture(
+              Metrics.validateSubmission,
+              for {
+                readStateValues <- stateOperations.readState(inputKeysAsBytes)
+                readStateInputs = readStateValues.zip(declaredInputs).map {
+                  case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
+                }
+                readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
+                missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
+                _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
+                  Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+                else
+                  Future.unit
+              } yield readInputs
             )
+            logEntryAndState <- timedFuture(
+              Metrics.processSubmission,
+              Future.fromTry(
+                Try(
+                  processSubmission(
+                    damlLogEntryId,
+                    recordTime,
+                    submission,
+                    participantId,
+                    readInputs))))
+            processResult = () =>
+              postProcessResult(
+                damlLogEntryId,
+                flattenInputStates(readInputs),
+                logEntryAndState,
+                stateOperations,
+            )
+            result <- postProcessResultTimer.fold(processResult())(timedFuture(_, processResult()))
           } yield result
           result.transform {
             case Success(result) =>
@@ -186,6 +226,19 @@ class SubmissionValidator[LogResult](
     inputs.collect {
       case (key, Some(value)) => key -> value
     }
+
+  object Metrics {
+    private val prefix = MetricRegistry.name("kvutils", "submission", "validator")
+    val openEnvelope: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
+    val validateSubmission: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
+    val processSubmission: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "process_submission"))
+    val commitSubmission: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "commit_submission"))
+    val transformSubmission: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "transform_submission"))
+  }
 }
 
 object SubmissionValidator {
@@ -207,6 +260,7 @@ object SubmissionValidator {
       processSubmission(new KeyValueCommitting(metricRegistry)),
       allocateNextLogEntryId,
       checkForMissingInputs,
+      metricRegistry,
     )
   }
 

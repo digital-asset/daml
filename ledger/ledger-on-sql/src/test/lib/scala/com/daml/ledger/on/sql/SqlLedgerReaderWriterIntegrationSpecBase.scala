@@ -37,5 +37,5 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       heartbeats = heartbeats,
       // Using a weak random source to avoid slowdown during tests.
       seedService = SeedService(Seeding.Weak),
-    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
 }

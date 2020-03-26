@@ -14,6 +14,7 @@
 // * 7: new field return_value in NodeExercise
 // * 8: new field contract_key in NodeExercise
 // * 9: new field key_maintainers in NodeExercise
+// * 10: new field key_with_maintainers in NodeFetch
 syntax = "proto3";
 
 package com.digitalasset.daml.lf.transaction;
@@ -75,6 +76,7 @@ message NodeFetch {
     repeated string signatories = 4;
     string value_version = 5;
     com.digitalasset.daml.lf.value.ContractId contract_id_struct = 6;
+    KeyWithMaintainers key_with_maintainers = 8;
 }
 
 message NodeExercise {

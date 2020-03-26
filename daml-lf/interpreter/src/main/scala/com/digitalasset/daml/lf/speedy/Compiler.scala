@@ -547,7 +547,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             // in \token ->
             //    let coid = $fetchKey keyWithMaintainers token
             //        contract = $fetch coid token
-            //        _ = $insertFetch coid <signatories> <observers>
+            //        _ = $insertFetch coid <signatories> <observers> Some(keyWithMaintainers)
             //    in { contractId: ContractId Foo, contract: Foo }
             val template = lookupTemplate(retrieveByKey.templateId)
             withEnv { _ =>
@@ -579,6 +579,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       SEVar(2), // coid
                       signatories,
                       observers,
+                      SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
                       SEVar(3) // token
                     ),
                   ) in SBStructCon(Name.Array(contractIdFieldName, contractFieldName))(
@@ -1146,6 +1147,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       env = env.addExprVar(tmpl.param) // argument
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
+      val key = tmpl.key match {
+        case None => SEValue.None
+        case Some(k) => SEApp(SEBuiltin(SBSome), Array(translateKeyWithMaintainers(k)))
+      }
       SELet(coid) in
         SEAbs(1) {
           SELet(
@@ -1157,6 +1162,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               SEVar(3), /* coid */
               signatories,
               observers,
+              key,
               SEVar(2) /* token */
             ),
           ) in SEVar(2) /* fetch result */

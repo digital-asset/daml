@@ -383,7 +383,7 @@ object Ledger {
               else
                 LookupOk(coid, create.coinst)
 
-            case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
+            case _: NodeExercises[_, _, _] | _: NodeFetch[_, _] | _: NodeLookupByKey[_, _] =>
               LookupContractNotFound(coid)
           }
       }
@@ -680,7 +680,7 @@ object Ledger {
 
     def authorizeFetch(
         nodeId: Transaction.NodeId,
-        fetch: NodeFetch[ContractId],
+        fetch: NodeFetch.WithTxValue[ContractId],
         stakeholders: Set[Party],
         authorization: Authorization,
     ): EnrichState = {
@@ -862,7 +862,7 @@ object Ledger {
             .discloseNode(parentExerciseWitnesses, nodeId, create)
             ._2
 
-        case fetch: NodeFetch[ContractId] =>
+        case fetch: NodeFetch.WithTxValue[ContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : parent exercise witnesses
           // divulge              : referenced contract to witnesses of parent exercise node
@@ -1164,7 +1164,7 @@ object Ledger {
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _) =>
+                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + nodeId))

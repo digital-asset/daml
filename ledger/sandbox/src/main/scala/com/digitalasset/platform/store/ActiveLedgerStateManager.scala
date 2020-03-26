@@ -116,7 +116,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
               }
 
             node match {
-              case nf: N.NodeFetch[AbsoluteContractId] =>
+              case nf: N.NodeFetch.WithTxValue[AbsoluteContractId] =>
                 val nodeParties = nf.signatories
                   .union(nf.stakeholders)
                   .union(nf.actingParties.getOrElse(Set.empty))
