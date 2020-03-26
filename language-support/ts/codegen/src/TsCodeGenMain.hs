@@ -21,7 +21,6 @@ import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
 
 import Control.Monad.Extra
-import DA.Daml.Daml2TsUtils
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
 import Data.Either
@@ -43,17 +42,17 @@ import qualified DA.Daml.Project.Types as DATypes
 -- Referenced from 'writePackageJson'. Lifted here for easy
 -- maintenance.
 data ConfigConsts = ConfigConsts
-  { pkgDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion
-  , pkgDevDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion
+  { pkgDependencies :: HMS.HashMap T.Text T.Text
+  , pkgDevDependencies :: HMS.HashMap T.Text T.Text
   }
 configConsts :: T.Text -> ConfigConsts
 configConsts sdkVersion = ConfigConsts
   { pkgDependencies = HMS.fromList
-      [ (NpmPackageName "@mojotech/json-type-validation", NpmPackageVersion "^3.1.0")
-      , (NpmPackageName "@daml/types", NpmPackageVersion sdkVersion)
+      [ ("@mojotech/json-type-validation", "^3.1.0")
+      , ("@daml/types", sdkVersion)
       ]
   , pkgDevDependencies = HMS.fromList
-      [ (NpmPackageName "typescript", NpmPackageVersion "~3.7.3")
+      [ ("typescript", "~3.7.3")
       ]
   }
 
@@ -197,7 +196,6 @@ daml2ts Daml2TsParams {..} = do
     -- Now write package metadata.
     writeIndexTs packageSrcDir pkgId modules
     writeTsConfig packageDir
-    writeEsLintConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
     pure (pkgName, dependencies)
     where
@@ -626,35 +624,14 @@ writeTsConfig dir =
       , "include" .= (["src/**/*.ts"] :: [T.Text])
       ]
 
-writeEsLintConfig :: FilePath -> IO ()
-writeEsLintConfig dir =
-  BSL.writeFile (dir </> ".eslintrc.json") $ encodePretty esLintConfig
-  where
-    esLintConfig :: Value
-    esLintConfig = object
-      [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
-      , "parserOptions" .= object [("project", "./tsconfig.json")]
-      , "plugins" .= (["@typescript-eslint"] :: [T.Text])
-      , "extends" .= (
-          [ "eslint:recommended"
-          , "plugin:@typescript-eslint/eslint-recommended"
-          , "plugin:@typescript-eslint/recommended"
-          , "plugin:@typescript-eslint/recommended-requiring-type-checking"
-          ] :: [T.Text])
-      , "rules" .= object
-          [ ("@typescript-eslint/explicit-function-return-type", "off")
-          , ("@typescript-eslint/no-inferrable-types", "off")
-          ]
-      ]
-
 writePackageJson :: FilePath -> SdkVersion -> Scope -> [Dependency] -> IO ()
 writePackageJson packageDir sdkVersion (Scope scope) depends =
   BSL.writeFile (packageDir </> "package.json") $
-    encodePretty (packageJson (NpmPackageName name) (NpmPackageVersion version) dependencies)
+    encodePretty (packageJson name version dependencies)
   where
     version = versionToText sdkVersion
     name = packageNameOfPackageDir packageDir
-    dependencies = HMS.fromList [ (NpmPackageName pkg, NpmPackageVersion version)
+    dependencies = HMS.fromList [ (pkg, version)
        | d <- depends
        , let pkgName = unDependency d
        , let pkg = scope <> "/" <> pkgName
@@ -665,7 +642,7 @@ writePackageJson packageDir sdkVersion (Scope scope) depends =
       where
         package = T.pack $ takeFileName packageDir
 
-    packageJson :: NpmPackageName -> NpmPackageVersion -> HMS.HashMap NpmPackageName NpmPackageVersion -> Value
+    packageJson :: T.Text -> T.Text -> HMS.HashMap T.Text T.Text -> Value
     packageJson name version dependencies = object
       [ "private" .= True
       , "name" .= name

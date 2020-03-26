@@ -35,7 +35,7 @@ import qualified Web.JWT as JWT
 import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
-import DA.Daml.Daml2TsUtils
+import DA.Test.Daml2TsUtils
 import SdkVersion
 
 main :: IO ()

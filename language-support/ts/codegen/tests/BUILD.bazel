@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
-load("//bazel_tools:haskell.bzl", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -109,6 +109,25 @@ sh_test(
     ],
 ) if not is_windows else None
 
+da_haskell_library(
+    name = "daml2ts-test-helpers",
+    srcs = ["src/DA/Test/Daml2TsUtils.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "filepath",
+        "hashable",
+        "text",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 # daml2ts
 # =======
 #
@@ -152,8 +171,8 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        ":daml2ts-test-helpers",
         "//compiler/daml-lf-ast",
-        "//language-support/ts/codegen:daml2ts-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

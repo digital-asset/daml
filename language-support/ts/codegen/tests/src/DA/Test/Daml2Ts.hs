@@ -13,7 +13,7 @@ import System.Exit
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
-import DA.Daml.Daml2TsUtils
+import DA.Test.Daml2TsUtils
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.Text.Extended as T
@@ -26,13 +26,13 @@ import Test.Tasty.HUnit
 -- Referenced from the DAVL test. Lifted here for easy
 -- maintenance.
 data ConfigConsts = ConfigConsts
-  { pkgDevDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion }
+  { pkgDevDependencies :: HMS.HashMap T.Text T.Text }
 configConsts :: ConfigConsts
 configConsts = ConfigConsts
   { pkgDevDependencies = HMS.fromList
-      [ (NpmPackageName "eslint", NpmPackageVersion "^6.7.2")
-      , (NpmPackageName "@typescript-eslint/eslint-plugin", NpmPackageVersion "2.11.0")
-      , (NpmPackageName "@typescript-eslint/parser", NpmPackageVersion "2.11.0")
+      [ ("eslint", "^6.7.2")
+      , ("@typescript-eslint/eslint-plugin", "2.11.0")
+      , ("@typescript-eslint/parser", "2.11.0")
       ]
   }
 
@@ -212,16 +212,32 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
-        BSL.writeFile "package.json" $ encode (
+        BSL.writeFile "package.json" $ encode $
           object
             [ "private" .= True
             , "devDependencies" .= pkgDevDependencies configConsts
             , "workspaces" .= pkgs
             , "name" .= ("daml2ts" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)
-            ])
+            ]
+        BSL.writeFile ".eslintrc.json" $ encode $
+          object
+            [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
+            , "parserOptions" .= object [("project", "./tsconfig.json")]
+            , "plugins" .= (["@typescript-eslint"] :: [T.Text])
+            , "extends" .= (
+                [ "eslint:recommended"
+                , "plugin:@typescript-eslint/eslint-recommended"
+                , "plugin:@typescript-eslint/recommended"
+                , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+                ] :: [T.Text])
+            , "rules" .= object
+              [ ("@typescript-eslint/explicit-function-return-type", "off")
+              , ("@typescript-eslint/no-inferrable-types", "off")
+              ]
+          ]
         callProcessSilent yarn ["install", "--pure-lockfile"]
-        callProcessSilent yarn ["workspaces", "run", "eslint", "--ext", ".ts", "--max-warnings", "0", "src/"]
+        callProcessSilent yarn ["workspaces", "run", "eslint", "-c", ".." </> ".eslintrc.json", "--ext", ".ts", "--max-warnings", "0", "src/"]
   ]
   where
     setupYarnEnvironment :: IO ()

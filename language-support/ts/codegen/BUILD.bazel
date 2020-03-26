@@ -1,36 +1,12 @@
 # Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
-
-da_haskell_library(
-    name = "daml2ts-helpers",
-    srcs = glob(["src/DA/Daml/*.hs"]),
-    hackage_deps = [
-        "aeson",
-        "base",
-        "bytestring",
-        "filepath",
-        "hashable",
-        "text",
-        "unordered-containers",
-    ],
-    src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//libs-haskell/da-hs-base",
-    ],
-)
 
 da_haskell_binary(
     name = "daml2ts",
-    srcs = glob(
-        ["src/**/*.hs"],
-        exclude = [
-            "src/DA/**/*.hs",
-        ],
-    ),
+    srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "aeson",
         "aeson-pretty",
@@ -52,7 +28,6 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        ":daml2ts-helpers",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
