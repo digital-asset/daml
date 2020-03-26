@@ -1309,7 +1309,7 @@ key}`` pair an ``offsetHint``, which is the contract ID currently
 associated with that pair at the point of the given offset, or
 ``null`` if no contract ID was associated with the pair at that
 offset.  For example, with the above keys, if you had one ``"abc123"``
-contract but no `"def345"` contract, you might specify:
+contract but no ``"def345"`` contract, you might specify:
 
 .. code-block:: json
 
