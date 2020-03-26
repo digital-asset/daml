@@ -62,9 +62,9 @@ final class ApiConfigManagementService private (
       configurationGeneration = config.generation,
       timeModel = Some(
         TimeModel(
-          minTransactionLatency = Some(DurationConversion.toProto(tm.minTransactionLatency)),
-          maxClockSkew = Some(DurationConversion.toProto(tm.maxClockSkew)),
-          maxTtl = Some(DurationConversion.toProto(tm.maxTtl))
+          avgTransactionLatency = Some(DurationConversion.toProto(tm.avgTransactionLatency)),
+          minSkew = Some(DurationConversion.toProto(tm.minSkew)),
+          maxSkew = Some(DurationConversion.toProto(tm.maxSkew))
         ))
     )
   }
@@ -109,9 +109,7 @@ final class ApiConfigManagementService private (
       result <- submissionResult match {
         case SubmissionResult.Acknowledged =>
           // Ledger acknowledged. Start polling to wait for the result to land in the index.
-          val maxTtl = Duration.fromNanos(currentConfig.timeModel.maxTtl.toNanos)
-          val timeToLive = if (params.timeToLive < maxTtl) params.timeToLive else maxTtl
-          pollUntilPersisted(request.submissionId, pollOffset, timeToLive).flatMap {
+          pollUntilPersisted(request.submissionId, pollOffset, params.timeToLive).flatMap {
             case accept: domain.ConfigurationEntry.Accepted =>
               Future.successful(SetTimeModelResponse(accept.configuration.generation))
             case rejected: domain.ConfigurationEntry.Rejected =>
@@ -141,18 +139,15 @@ final class ApiConfigManagementService private (
     import validation.FieldValidations._
     for {
       pTimeModel <- requirePresence(request.newTimeModel, "new_time_model")
-      pMinTransactionLatency <- requirePresence(
-        pTimeModel.minTransactionLatency,
-        "min_transaction_latency")
-      pMaxClockSkew <- requirePresence(pTimeModel.maxClockSkew, "max_clock_skew")
-      pMaxTtl <- requirePresence(pTimeModel.maxTtl, "max_ttl")
+      pAvgTransactionLatency <- requirePresence(
+        pTimeModel.avgTransactionLatency,
+        "avg_transaction_latency")
+      pMinSkew <- requirePresence(pTimeModel.minSkew, "min_skew")
+      pMaxSkew <- requirePresence(pTimeModel.maxSkew, "max_skew")
       newTimeModel <- v1.TimeModel(
-        minTransactionLatency = DurationConversion.fromProto(pMinTransactionLatency),
-        maxClockSkew = DurationConversion.fromProto(pMaxClockSkew),
-        maxTtl = DurationConversion.fromProto(pMaxTtl),
-        avgTransactionLatency = java.time.Duration.ZERO,
-        minSkew = java.time.Duration.ZERO,
-        maxSkew = java.time.Duration.ZERO,
+        avgTransactionLatency = DurationConversion.fromProto(pAvgTransactionLatency),
+        minSkew = DurationConversion.fromProto(pMinSkew),
+        maxSkew = DurationConversion.fromProto(pMaxSkew),
       ) match {
         case Failure(err) => Left(ErrorFactories.invalidArgument(err.toString))
         case Success(ok) => Right(ok)

@@ -162,8 +162,6 @@ object KVTest {
       )
     }
 
-  val minMRTDelta: Duration = theDefaultConfig.timeModel.minTtl
-
   def runCommand(
       submitter: Party,
       submissionSeed: Option[crypto.Hash],
@@ -236,6 +234,8 @@ object KVTest {
       )
       result <- submit(subm)
     } yield result
+
+  val minMRTDelta: Duration = Duration.ofSeconds(1)
 
   def submitConfig(
       configModify: Configuration => Configuration,

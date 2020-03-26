@@ -81,7 +81,7 @@ object SandboxIndexAndWriteService {
         metrics,
       )
       .flatMap(ledger =>
-        owner(MeteredLedger(ledger, metrics), participantId, initialConfig.timeModel, timeProvider))
+        owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
 
   def inMemory(
       ledgerId: LedgerIdMode,
@@ -103,19 +103,19 @@ object SandboxIndexAndWriteService {
         ledgerEntries,
         intialConfig,
       )
-    owner(MeteredLedger(ledger, metrics), participantId, intialConfig.timeModel, timeProvider)
+    owner(MeteredLedger(ledger, metrics), participantId, intialConfig, timeProvider)
   }
 
   private def owner(
       ledger: Ledger,
       participantId: ParticipantId,
-      timeModel: ParticipantState.TimeModel,
+      initialConfig: Configuration,
       timeProvider: TimeProvider,
   )(implicit mat: Materializer): ResourceOwner[IndexAndWriteService] = {
     val indexSvc = new LedgerBackedIndexService(ledger, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
         Source
-          .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
+          .single(LedgerConfiguration(initialConfig.maxDeduplicationTime))
           .concat(Source.future(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
     }
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)

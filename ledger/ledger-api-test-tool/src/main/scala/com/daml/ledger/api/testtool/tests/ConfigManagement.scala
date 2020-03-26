@@ -19,9 +19,9 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
 
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(
-        minTransactionLatency = Some(Duration(0, 1)),
-        maxClockSkew = Some(Duration(60, 0)),
-        maxTtl = Some(Duration(120, 0)),
+        avgTransactionLatency = Some(Duration(0, 1)),
+        minSkew = Some(Duration(60, 0)),
+        maxSkew = Some(Duration(120, 0)),
       )
       for {
         // Get the current time model

@@ -340,8 +340,7 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
     xs <- getLedgerConfiguration lid
     Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
     let expected = LedgerConfiguration {
-            minTtl = Duration {durationSeconds = 2, durationNanos = 0},
-            maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
+            maxDeduplicationTime = Duration {durationSeconds = 86400, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
 
 tUploadDarFileBad :: SandboxTest

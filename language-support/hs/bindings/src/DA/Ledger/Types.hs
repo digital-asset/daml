@@ -251,8 +251,7 @@ data Timestamp = Timestamp
     deriving (Eq,Ord,Show)
 
 data LedgerConfiguration = LedgerConfiguration
-    { minTtl :: LL.Duration
-    , maxTtl :: LL.Duration
+    { maxDeduplicationTime :: LL.Duration
     }
     deriving (Eq,Ord,Show)
 

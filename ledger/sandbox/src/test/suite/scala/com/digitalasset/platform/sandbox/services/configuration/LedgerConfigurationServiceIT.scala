@@ -24,15 +24,14 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
   "LedgerConfigurationService" when {
     "asked for ledger configuration" should {
       "return expected configuration" in {
-        val LedgerConfiguration(Some(minTtl), Some(maxTtl)) =
+        val LedgerConfiguration(Some(maxDeduplicationTime)) =
           LedgerConfigurationServiceGrpc
             .blockingStub(channel)
             .getLedgerConfiguration(GetLedgerConfigurationRequest(ledgerId().unwrap))
             .next()
             .getLedgerConfiguration
 
-        minTtl shouldEqual toProto(config.timeModel.minTtl)
-        maxTtl shouldEqual toProto(config.timeModel.maxTtl)
+        maxDeduplicationTime shouldEqual toProto(config.submissionConfig.maxDeduplicationTime)
       }
     }
   }

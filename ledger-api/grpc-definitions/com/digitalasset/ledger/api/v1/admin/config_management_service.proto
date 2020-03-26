@@ -73,17 +73,23 @@ message SetTimeModelResponse {
 }
 
 message TimeModel {
-  // The expected minimum latency of a transaction.
-  // Required.
-  google.protobuf.Duration min_transaction_latency = 1;
+  reserved 1; // was min_transaction_latency
+  reserved 2; // was max_clock_skew
+  reserved 3; // was max_ttl
 
-  // The maximum allowed clock skew between the ledger and clients.
+  // The expected average latency of a transaction, i.e., the average time
+  // from submitting the transaction to a [[WriteService]] and the transaction
+  // being assigned a record time.
   // Required.
-  google.protobuf.Duration max_clock_skew = 2;
+  google.protobuf.Duration avg_transaction_latency = 4;
 
-  // The maximum allowed time to live for a transaction.
-  // Must be greater than the derived minimum time to live.
+  // The minimimum skew between ledger time and record time: lt_TX >= rt_TX - minSkew
   // Required.
-  google.protobuf.Duration max_ttl = 3;
+  google.protobuf.Duration min_skew = 5;
+
+  // The maximum skew between ledger time and record time: lt_TX <= rt_TX + maxSkew
+  // Required.
+  google.protobuf.Duration max_skew = 6;
+
 }
 
