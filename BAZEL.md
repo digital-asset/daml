@@ -716,45 +716,6 @@ external dependencies, then [this
 document](https://github.com/digital-asset/daml/blob/master/BAZEL-haskell.md)
 is for you!
 
-## Documentation packages in Bazel
-
-'daml-foundations' documentation resides in the DA git repository in
-sub-directories of the path `//daml-foundations/daml-tools/docs`. Each
-sub-directory there is a documentation "package". A documentation
-package contains a `BUILD.bazel` file.
-
-The rule for producing a documentation package under Bazel is
-`da_doc_package` and it is brought into the scope of a `BUILD.bazel`
-file with the following directive.
-```
-load ("//bazel_tools:docs.bzl", "da_doc_package")
-```
-
-### Synopsis
-
-`da_doc_package (name, prepare, extra_sources)`
-
-Build a documentation package.
-
-Attributes:
-  - `name`
-    Required. A unique name for the package.
-  - `prepare`
-    Optional. If provided then it is interpreted as a bash script to be
-    executed on the documentation sources before the bundle generation
-    step (see below for what that means).
-  - `extra_sources`
-    Optional. Default value is the empty list.
-
-The output of `da_doc_package` with name `"foo"` is a bundle
-`sources.tar.gzip` in the path
-`//bazel-bin/daml-foundations/daml-tools/docs/foo`. The bundle for `"foo"` would be produced with the command:
-```
-bazel build //daml-foundations/daml-tools/docs/foo:foo
-```
-The contents of the bundle will be copies of files under the directory
-`//daml-foundations/daml-tools/doc/foo/sources`.
-
 ## Scala in Bazel
 
 In this section we will provide an overview of how Scala targets are defined in
