@@ -168,13 +168,15 @@ abstract class ApiCodecCompressed[Cid](
         val Seq(kType, vType) = prim.typArgs;
         {
           case JsArray(entries) =>
-            V.ValueGenMap(ImmArray(entries.map {
+            val decEntries = entries.map {
               case JsArray(Vector(key, value)) =>
                 jsValueToApiValue(key, kType, defs) ->
                   jsValueToApiValue(value, vType, defs)
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
-            }))
+            }
+            // TODO SC sort entries by key, check for dups
+            V.ValueGenMap(ImmArray(decEntries))
         }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))

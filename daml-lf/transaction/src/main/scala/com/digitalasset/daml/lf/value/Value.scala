@@ -193,8 +193,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     }
   }
 
-  import Name.equalInstance
-
   object VersionedValue extends CidContainer1[VersionedValue] {
     implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
       ScalazEqual.withNatural(Equal[Cid].equalIsNatural) { (a, b) =>
