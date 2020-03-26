@@ -162,7 +162,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 confFile <- liftIO $ mkConfFile pkgConf pkgModuleNames pkgId
+                 confFile <- liftIO $ mkConfFile lfVersion pkgConf pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
                  pure $
@@ -269,9 +269,9 @@ getDamlRootFiles srcRoot = do
         else pure [toNormalizedFilePath' srcRoot]
 
 mkConfFile ::
-       PackageConfigFields -> [String] -> LF.PackageId -> IO (String, BS.ByteString)
-mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = do
-    deps <- mapM darUnitId =<< expandSdkPackages pDependencies
+       LF.Version -> PackageConfigFields -> [String] -> LF.PackageId -> IO (String, BS.ByteString)
+mkConfFile lfVersion PackageConfigFields {..} pkgModuleNames pkgId = do
+    deps <- mapM darUnitId =<< expandSdkPackages lfVersion pDependencies
     pure (confName, confContent deps)
   where
     darUnitId "daml-stdlib" = pure damlStdlib

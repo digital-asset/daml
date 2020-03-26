@@ -126,7 +126,7 @@ getDamlGhcSession options@Options{..} = do
           if getInferDependantPackages optInferDependantPackages
           then do
             let root = fromMaybe "." mbProjectRoot
-            more <- dependantUnitsFromDamlYaml root
+            more <- dependantUnitsFromDamlYaml optDamlLfVersion root
             pure $ map mkPackageFlag (base ++ more) ++ optPackageImports
           else
             pure $ map mkPackageFlag base ++ optPackageImports
@@ -451,16 +451,17 @@ checkDFlags Options {..} dflags@DynFlags {..}
 -- When invoked outside of the SDK, we will only error out
 -- if there is actually an SDK package so that
 -- When there is no SDK
-expandSdkPackages :: [FilePath] -> IO [FilePath]
-expandSdkPackages dars = do
+expandSdkPackages :: LF.Version -> [FilePath] -> IO [FilePath]
+expandSdkPackages lfVersion dars = do
     mbSdkPath <- handleIO (\_ -> pure Nothing) $ Just <$> getSdkPath
     mapM (expand mbSdkPath) dars
   where
     isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
+    sdkSuffix = "-" <> LF.renderVersion lfVersion
     expand mbSdkPath fp
       | fp `elem` basePackages = pure fp
       | isSdkPackage fp = case mbSdkPath of
-            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <.> "dar"
+            Just sdkPath -> pure $ sdkPath </> "daml-libs" </> fp <> sdkSuffix <.> "dar"
             Nothing -> fail $ "Cannot resolve SDK dependency '" ++ fp ++ "'. Use daml assistant."
       | otherwise = pure fp
 
@@ -478,10 +479,10 @@ mkBaseUnits optMbPackageName
       [ stringToUnitId "daml-prim"
       , damlStdlib ]
 
-dependantUnitsFromDamlYaml :: FilePath -> IO [UnitId]
-dependantUnitsFromDamlYaml root = do
+dependantUnitsFromDamlYaml :: LF.Version -> FilePath -> IO [UnitId]
+dependantUnitsFromDamlYaml lfVersion root = do
   (deps,dataDeps) <- depsFromDamlYaml (ProjectPath root)
-  deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
+  deps <- expandSdkPackages lfVersion (filter (`notElem` basePackages) deps)
   calcUnitsFromDeps root (deps ++ dataDeps)
 
 depsFromDamlYaml :: ProjectPath -> IO ([FilePath],[FilePath])

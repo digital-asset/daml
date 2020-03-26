@@ -9,4 +9,3 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-trigger.dar
-
