@@ -32,9 +32,7 @@ import Data.Maybe
 import Data.Bifoldable
 import Options.Applicative
 import System.Directory
-import System.FilePath hiding ((<.>), (</>))
-import System.FilePath.Posix((</>)) -- Make sure we generate / on all platforms.
-import qualified System.FilePath as FP
+import System.FilePath hiding ((<.>))
 import System.Process
 import System.Exit
 
@@ -215,7 +213,7 @@ daml2ts Daml2TsParams {..} = do
         case genModule pkgMap scope pkgId mod of
           Nothing -> pure Set.empty
           Just (modTxt, ds) -> do
-            let outputFile = packageSrcDir </> T.unpack (modPath (unModuleName (moduleName mod))) FP.<.> "ts"
+            let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) </> "module.ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
             pure ds
@@ -230,9 +228,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     let (defSers, refs) = unzip (map (genDataDef curPkgId mod tpls) serDefs)
         imports = (PRSelf, modName) `Set.delete` Set.unions refs
         (internalImports, externalImports) = splitImports imports
-        rootPath =
-          let lenModName = length (unModuleName modName)
-          in if lenModName == 1 then ["."] else replicate (lenModName - 1) ".."
+        rootPath = map (const "..") (unModuleName modName)
         defs = map biconcat defSers
         modText = T.unlines $ intercalate [""] $ filter (not . null) $
           modHeader
@@ -267,7 +263,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     internalImportDecl :: [T.Text] -> ModuleName -> T.Text
     internalImportDecl rootPath modName =
       "import * as " <> genModuleRef (PRSelf, modName) <> " from '" <>
-        modPath (rootPath ++ unModuleName modName) <> "';"
+        modPath (rootPath ++ unModuleName modName ++ ["module"]) <> "';"
 
     -- Calculate an import declaration for a module from another package.
     externalImportDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
@@ -586,16 +582,14 @@ writeIndexTs packageSrcDir pkgId modules =
     entry :: Module -> [T.Text]
     entry mod
       | null $ defDataTypes mod = []
-      | otherwise = importDecl var path <> exportDecl var name
+      | otherwise = importDecl var path : exportDecl var name
       where
         name = unModuleName (moduleName mod)
         var = modVar "__" name
-        path = "\"" <> modPath ("." : name) <> "\""
+        path = modPath ("." : name ++ ["module"])
 
-    importDecl :: T.Text -> T.Text -> [T.Text]
-    importDecl var path =
-      [ "import * as " <> var <> " from "  <> path <> ";"
-      ]
+    importDecl :: T.Text -> T.Text -> T.Text
+    importDecl var path = "import * as " <> var <> " from '"  <> path <> "';"
 
     exportDecl :: T.Text -> [T.Text] -> [T.Text]
     exportDecl var name =

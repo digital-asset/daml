@@ -71,8 +71,15 @@ main = do
 --       grover-1.0/
 --         package.json
 --         tsconfig.json
---         src/ *.ts
---         lib/ *.js
+--         src/
+--           index.ts
+--           Grover/
+--             module.ts
+--         lib/
+--           index.{js,d.ts}
+--           Grover/
+--             module.{js,d.ts}
+--       ...
 --     daml-types  <-- referred to by the "resolutions" field in package.json
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
@@ -193,7 +200,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         setupYarnEnvironment
         daml2tsProject [groverDar, groverDar] daml2tsDir
-        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" ]
+        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "module" ]
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -205,9 +212,9 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
           ["-o", daml2tsDir]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4")) [ "index", "DAVL" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5")) [ "index", "DAVL" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5")) [ "index", "Upgrade" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4")) [ "index", "DAVL" </> "module" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5")) [ "index", "DAVL" </> "module" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5")) [ "index", "Upgrade" </> "module" ]
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
