@@ -170,15 +170,15 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val EnrichedContractIdFormat: RootJsonFormat[domain.EnrichedContractId] =
     jsonFormat2(domain.EnrichedContractId)
 
-  private[this] val offsetHintKey = "offsetHint"
+  private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
 
   implicit val InitialContractKeyStreamRequest
     : RootJsonReader[domain.ContractKeyStreamRequest[None.type, JsValue]] = { jsv =>
     val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
     jsv match {
-      case JsObject(fields) if fields contains offsetHintKey =>
+      case JsObject(fields) if fields contains contractIdAtOffsetKey =>
         deserializationError(
-          s"$offsetHintKey is not allowed for WebSocket streams starting at the beginning")
+          s"$contractIdAtOffsetKey is not allowed for WebSocket streams starting at the beginning")
       case _ =>
     }
     domain.ContractKeyStreamRequest(None, ekey)
@@ -187,7 +187,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ResumingContractKeyStreamRequest: RootJsonReader[
     domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]] = { jsv =>
     val off = jsv match {
-      case JsObject(fields) => fields get offsetHintKey map (_.convertTo[Option[String]])
+      case JsObject(fields) => fields get contractIdAtOffsetKey map (_.convertTo[Option[String]])
       case _ => None
     }
     val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]

@@ -282,7 +282,7 @@ object WebSocketService {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       val NelO = Foldable[NonEmptyList].compose[Option]
-      request traverse (_.offsetHint) map NelO.toSet
+      request traverse (_.contractIdAtOffset) map NelO.toSet
     }
   }
 }

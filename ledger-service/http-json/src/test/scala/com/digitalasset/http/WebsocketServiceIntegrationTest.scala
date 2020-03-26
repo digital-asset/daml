@@ -354,11 +354,13 @@ class WebsocketServiceIntegrationTest
   "fetch should receive deltas as contracts are archived/created, filtering out phantom archives" in withHttpService {
     (uri, encoder, _) =>
       val templateId = domain.TemplateId(None, "Account", "Account")
-      def fetchRequest(offsetHint: Option[Option[domain.ContractId]] = None) = {
+      def fetchRequest(contractIdAtOffset: Option[Option[domain.ContractId]] = None) = {
         import spray.json._, json.JsonProtocol._
         List(
           Map("templateId" -> "Account:Account".toJson, "key" -> List("Alice", "abc123").toJson)
-            ++ offsetHint.map(ocid => "offsetHint" -> ocid.toJson).toList).toJson.compactPrint
+            ++ contractIdAtOffset
+              .map(ocid => contractIdAtOffsetKey -> ocid.toJson)
+              .toList).toJson.compactPrint
       }
       val f1 =
         postCreateCommand(accountCreateCommand(domain.Party("Alice"), "abc123"), encoder, uri)
@@ -431,7 +433,7 @@ class WebsocketServiceIntegrationTest
             liveStart
         }
 
-        // check offsetHints' effects on phantom filtering
+        // check contractIdAtOffsets' effects on phantom filtering
         resumes <- Future.traverse(Seq((None, 2L), (Some(None), 0L), (Some(Some(cid1)), 1L))) {
           case (abcHint, expectArchives) =>
             (singleClientFetchStream(uri, fetchRequest(abcHint), Some(liveOffset))
@@ -468,9 +470,8 @@ class WebsocketServiceIntegrationTest
     val baseVal =
       domain.EnrichedContractKey(domain.TemplateId(Some("ab"), "cd", "ef"), JsString("42"): JsValue)
     val baseMap = baseVal.toJson.asJsObject.fields
-    val offsetHintKey = "offsetHint"
-    val withSome = JsObject(baseMap + (offsetHintKey -> JsString("hi")))
-    val withNone = JsObject(baseMap + (offsetHintKey -> JsNull))
+    val withSome = JsObject(baseMap + (contractIdAtOffsetKey -> JsString("hi")))
+    val withNone = JsObject(baseMap + (contractIdAtOffsetKey -> JsNull))
 
     "initial JSON reader" - {
       type T = domain.ContractKeyStreamRequest[None.type, JsValue]
@@ -479,7 +480,7 @@ class WebsocketServiceIntegrationTest
         JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest(None, baseVal))
       }
 
-      "errors on offsetHint presence" in {
+      "errors on contractIdAtOffset presence" in {
         a[DeserializationException] shouldBe thrownBy {
           withSome.convertTo[T]
         }
@@ -582,6 +583,8 @@ object WebsocketServiceIntegrationTest {
       })
       .collect { case \/-(t) => t }
       .toMat(Sink.headOption)(Keep.right)
+
+  private val contractIdAtOffsetKey = "contractIdAtOffset"
 
   private case class SimpleScenario(
       id: String,
