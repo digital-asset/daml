@@ -94,7 +94,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         new SubmissionValidator(
           new FakeStateAccess(mockStateOperations),
           failingProcessSubmission,
-          () => aLogEntryId())
+          allocateLogEntryId = () => aLogEntryId(),
+          metricRegistry = new MetricRegistry,
+        )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Left(ValidationError(reason)) => reason should include("Validation failed")
@@ -119,7 +121,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         SubmissionValidator.processSubmission(new KeyValueCommitting(new MetricRegistry)),
-        mockLogEntryIdGenerator)
+        mockLogEntryIdGenerator,
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
@@ -151,7 +155,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId())
+        allocateLogEntryId = () => aLogEntryId(),
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
@@ -179,7 +185,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId())
+        allocateLogEntryId = () => aLogEntryId(),
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
