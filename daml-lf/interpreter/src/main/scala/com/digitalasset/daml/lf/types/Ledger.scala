@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.data.Relation.Relation
+import com.digitalasset.daml.lf.transaction.Transaction.TContractId
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -552,36 +553,40 @@ object Ledger {
         )
     }
 
-    def divulgeContracts(witnesses: Set[Party], coids: Set[ContractId]): EnrichState =
-      coids.foldLeft(this) {
-        case (s, coid) => s.divulgeCoidTo(witnesses, coid)
-      }
+    def divulgeContracts(
+        localContracts: Map[TContractId, Transaction.NodeId],
+        witnesses: Set[Party],
+        coids: Set[ContractId],
+    ): EnrichState =
+      coids.foldLeft(this)(_.divulgeContract(localContracts, witnesses, _))
 
-    def divulgeCoidTo(witnesses: Set[Party], coid: ContractId): EnrichState = {
-      def divulgeRelativeCoidTo(ws: Set[Party], rcoid: RelativeContractId): EnrichState = {
-        val nid = rcoid.txnid
-        copy(
-          localDivulgences = localDivulgences
-            .updated(nid, ws union localDivulgences.getOrElse(nid, Set.empty)),
+    def divulgeContract(
+        localContracts: Map[TContractId, Transaction.NodeId],
+        witnesses: Set[Party],
+        coid: ContractId,
+    ): EnrichState =
+      localContracts
+        .get(coid)
+        .fold(
+          coid match {
+            case acoid: AbsoluteContractId =>
+              copy(
+                globalDivulgences = globalDivulgences
+                  .updated(acoid, witnesses union globalDivulgences.getOrElse(acoid, Set.empty))
+              )
+            case rcoid: RelativeContractId =>
+              throw new IllegalArgumentException(
+                s"relative contract id $rcoid does not match any known local contract")
+          }
+        )(
+          nid =>
+            copy(
+              localDivulgences = localDivulgences
+                .updated(nid, witnesses union localDivulgences.getOrElse(nid, Set.empty)),
+          )
         )
-      }
 
-      coid match {
-        case rcoid: RelativeContractId =>
-          divulgeRelativeCoidTo(witnesses, rcoid)
-        case acoid: AbsoluteContractId =>
-          divulgeAbsoluteCoidTo(witnesses, acoid)
-      }
-    }
-
-    def divulgeAbsoluteCoidTo(witnesses: Set[Party], acoid: AbsoluteContractId): EnrichState = {
-      copy(
-        globalDivulgences = globalDivulgences
-          .updated(acoid, witnesses union globalDivulgences.getOrElse(acoid, Set.empty)),
-      )
-    }
-
-    def authorize(
+    private def authorize(
         nodeId: Transaction.NodeId,
         passIf: Boolean,
         failWith: FailedAuthorization,
@@ -826,6 +831,8 @@ object Ledger {
       tr: Transaction.Transaction,
   ): EnrichedTransaction = {
 
+    val localContracts = tr.localContracts
+
     // Before we traversed through an exercise node the exercise witnesses
     // contain only the initial authorizers.
     val initialParentExerciseWitnesses: Set[Party] =
@@ -869,7 +876,10 @@ object Ledger {
           // well-authorized by A : A `intersect` stakeholders(fetched contract id) = non-empty
           // ------------------------------------------------------------------
           state
-            .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
+            .divulgeContract(
+              localContracts,
+              parentExerciseWitnesses -- fetch.stakeholders,
+              fetch.coid)
             .discloseNode(parentExerciseWitnesses, nodeId, fetch)
             ._2
             .authorizeFetch(
@@ -906,7 +916,10 @@ object Ledger {
           // Then enrich and authorize the children.
           val (witnesses, state1) = state0.discloseNode(parentExerciseWitnesses, nodeId, ex)
           val state2 =
-            state1.divulgeCoidTo(parentExerciseWitnesses -- ex.stakeholders, ex.targetCoid)
+            state1.divulgeContract(
+              localContracts,
+              parentExerciseWitnesses -- ex.stakeholders,
+              ex.targetCoid)
           ex.children.foldLeft(state2) { (s, childNodeId) =>
             enrichNode(
               s,
@@ -1029,27 +1042,6 @@ object Ledger {
       }
     rewrite(value)
   }
-
-  /*
-  def relativeContractIdToNodeId(commitPrefix: String,
-                                 rcoid: RelativeContractId): NodeId =
-    NodeId(commitPrefix ++ rcoid.index.toString)
-
-  def contractIdToNodeId(commitPrefix: String, coid: ContractId): NodeId =
-    coid match {
-      case acoid: AbsoluteContractId => absoluteContractIdToNodeId(acoid)
-      case rcoid: RelativeContractId =>
-        relativeContractIdToNodeId(commitPrefix, rcoid)
-    }
-
-  def contractIdToNodeIdOrTrNodeId(
-      coid: ContractId): Either[NodeId, Tr.NodeId] = {
-    coid match {
-      case AbsoluteContractId(acoid) => Left(acoid)
-      case RelativeContractId(rcoid) => Right(rcoid)
-    }
-  }
-   */
 
   // ----------------------------------------------------------------
   // Cache for active contracts and nodes
