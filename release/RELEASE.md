@@ -105,13 +105,17 @@ latest commit on master.
    1. Create a new project with `daml new quickstart quickstart-java`
       and switch to it using `cd quickstart`.
 
+   1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
+
    1. Run `daml start`. Your browser should be opened automatically at
       `http://localhost:7500`. Login as `Alice` and verify that there is
-      1 contract and 3 templates. Close the tab and kill `daml start` using `Ctrl-C`.
+      1 contract and 3 templates. Close the tab and kill `daml start` using
+      `Ctrl-C`.
 
    1. Run `daml build`.
 
-   1. In 3 separate terminals (since each command except for `daml script` will block), run
+   1. In 3 separate terminals (since each command except for `daml script …`
+      will block), run:
 
       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time`
@@ -121,7 +125,7 @@ latest commit on master.
       > Note: It takes some time for our artifacts to be available on Maven
       > Central. If you try running the last command before the artifacts are
       > available, you will get a "not found" error. Trying to build again _in
-      > the next 24h_ will result in:
+      > the next 24 hours_ will result in:
       >
       > ```
       > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
@@ -207,7 +211,7 @@ latest commit on master.
    title should be the version number (i.e. same as the git tag). For a
    snapshot, the message should be set to
 
-   > This is a snapshot release. Use at your own risks.
+   > This is a snapshot release. Use at your own risk.
 
    For a stable release, the message should contain the team-lead-approved
    release notes, and the "prerelease" checkbox should be unticked.
