@@ -101,11 +101,11 @@ class BatchingQueueSpec
 
       for {
         res1 <- queue.offer(correlatedSubmission1)
-        _ = eventually(Timeout(10 * maxWait)) {
+        _ = eventually(Timeout(1.second)) {
           batches.size should be(1)
         }
         res2 <- queue.offer(correlatedSubmission2)
-        _ <- eventually(Timeout(10 * maxWait)) {
+        _ <- eventually(Timeout(1.second)) {
           batches.size should be(2)
         }
       } yield {
@@ -177,7 +177,7 @@ class BatchingQueueSpec
         }
       } yield {
         // Wait for the second batch to be emitted due to wait exceeding.
-        eventually(Timeout(maxWaitDuration * 2)) {
+        eventually(Timeout(1.second)) {
           batches.size should be(2)
         }
 
