@@ -304,7 +304,7 @@ final class Engine {
             commandPreprocessor
               .preprocessExercise(templateId, coid, choice, absChosenVal))
 
-      case NodeFetch(coid, templateId, _, _, _, _) =>
+      case NodeFetch(coid, templateId, _, _, _, _, _) =>
         asAbsoluteContractId(coid)
           .flatMap(acoid => commandPreprocessor.preprocessFetch(templateId, acoid))
 
@@ -323,7 +323,7 @@ final class Engine {
           ResultError(ValidationError(s"invalid transaction, root refers to non-existing node $id"))
         case Some(node) =>
           node match {
-            case NodeFetch(_, _, _, _, _, _) =>
+            case NodeFetch(_, _, _, _, _, _, _) =>
               ResultError(ValidationError(s"Transaction contains a fetch root node $id"))
             case _ =>
               translateNode(commandPreprocessor)(node).map((id, _)) match {

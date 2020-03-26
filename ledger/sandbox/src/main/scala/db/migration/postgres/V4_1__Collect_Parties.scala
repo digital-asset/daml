@@ -105,7 +105,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
       .fold[Set[Ref.Party]](Set.empty) {
         case (parties, (_, node)) =>
           node match {
-            case nf: NodeFetch[AbsoluteContractId] =>
+            case nf: NodeFetch.WithTxValue[AbsoluteContractId] =>
               parties
                 .union(nf.signatories)
                 .union(nf.stakeholders)

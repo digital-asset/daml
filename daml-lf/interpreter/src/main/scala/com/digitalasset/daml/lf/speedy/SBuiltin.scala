@@ -803,10 +803,7 @@ object SBuiltin {
       }
       val sigs = extractParties(args.get(2))
       val obs = extractParties(args.get(3))
-      val key = args.get(4) match {
-        case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
-        case v => crash(s"Expected optional key with maintainers, got: $v")
-      }
+      val key = extractOptionalKeyWithMaintainers(args.get(4))
 
       val (coid, newPtx) = machine.ptx
         .insertCreate(
@@ -856,10 +853,7 @@ object SBuiltin {
       val obs = extractParties(args.get(4))
       val ctrls = extractParties(args.get(5))
 
-      val mbKey = args.get(6) match {
-        case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
-        case v => crash(s"Expected optional key with maintainers, got: $v")
-      }
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -1061,18 +1055,21 @@ object SBuiltin {
     *    :: ContractId a
     *    -> List Party    (signatories)
     *    -> List Party    (observers)
+    *    -> Optional {key: key, maintainers: List Party}  (template key, if present)
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(4) {
+  final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(5) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(3))
+      checkToken(args.get(4))
       val coid = args.get(0) match {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
       val signatories = extractParties(args.get(1))
       val observers = extractParties(args.get(2))
+      val key = extractOptionalKeyWithMaintainers(args.get(3))
+
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
         case PartialTransaction.ContextExercise(ctx, _) =>
@@ -1088,6 +1085,7 @@ object SBuiltin {
         contextActors intersect stakeholders,
         signatories,
         stakeholders,
+        key
       )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
@@ -1602,6 +1600,13 @@ object SBuiltin {
               maintainers = extractParties(vals.get(1))
             ))
       case _ => crash(s"Invalid key with maintainers: $v")
+    }
+
+  private def extractOptionalKeyWithMaintainers(
+      optKey: SValue): Option[KeyWithMaintainers[Tx.Value[Nothing]]] =
+    optKey match {
+      case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
+      case v => crash(s"Expected optional key with maintainers, got: $v")
     }
 
   private def checkLookupMaintainers(

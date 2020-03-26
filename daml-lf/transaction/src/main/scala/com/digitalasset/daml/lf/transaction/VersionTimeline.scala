@@ -57,6 +57,7 @@ object VersionTimeline {
       Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
       This(That(TransactionVersion("9"))),
       That(LanguageVersion(LMV.V1, "8")),
+      This(That(TransactionVersion("10"))),
       // FIXME https://github.com/digital-asset/daml/issues/2256
       //  * change the following line when LF 1.9 is frozen.
       //  * do not insert line after this once until 1.9 is frozen.

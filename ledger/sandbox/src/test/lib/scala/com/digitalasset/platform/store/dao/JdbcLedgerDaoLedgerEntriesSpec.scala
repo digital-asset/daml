@@ -150,7 +150,8 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
             None,
             Some(Set(alice, bob)),
             Set(alice, bob),
-            Set(alice, bob)
+            Set(alice, bob),
+            None,
           )
         ),
         ImmArray(event1, event2),

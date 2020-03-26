@@ -130,7 +130,8 @@ class ImplicitPartyAdditionIT
             None,
             Some(Set("fetch-acting-party")),
             Set("fetch-signatory"),
-            Set("fetch-signatory")
+            Set("fetch-signatory"),
+            None,
           )
         )
         // Wait until both transactions have been processed

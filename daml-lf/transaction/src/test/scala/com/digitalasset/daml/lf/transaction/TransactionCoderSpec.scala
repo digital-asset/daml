@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
 import com.digitalasset.daml.lf.transaction.TransactionVersions._
@@ -76,7 +76,7 @@ class TransactionCoderSpec
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
-        (node: NodeFetch[ContractId], valVer: ValueVersion) =>
+        (node: NodeFetch.WithTxValue[Tx.TContractId], valVer: ValueVersion) =>
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -352,7 +352,7 @@ class TransactionCoderSpec
         case _: Node.NodeCreate[_, _] | _: Node.NodeExercises[_, _, _] |
             _: Node.NodeLookupByKey[_, _] =>
           true
-        case _: Node.NodeFetch[_] => false
+        case f: Node.NodeFetch[_, _] => f.key.isDefined
       }
 
   private def changeAllValueVersions(tx: Tx.Transaction, ver: ValueVersion): Tx.Transaction =

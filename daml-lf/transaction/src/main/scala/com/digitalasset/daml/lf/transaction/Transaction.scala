@@ -219,7 +219,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     fold(Set.empty[Cid2]) {
       case (acc, (_, Node.NodeExercises(_, coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _))) =>
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
         acc + coid
@@ -248,9 +248,9 @@ final case class GenTransaction[Nid, +Cid, +Val](
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nf1: NodeFetch[Cid] =>
+            case nf1: NodeFetch[Cid, Val] =>
               node2 match {
-                case nf2: NodeFetch[Cid2] => compare(nf1, nf2) && go(rest)
+                case nf2: NodeFetch[Cid2, Val2] => compare(nf1, nf2) && go(rest)
                 case _ => false
               }
             case nc1: NodeCreate[Cid, Val] =>
@@ -300,7 +300,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     fold(BackStack.empty[String]) {
       case (errs, (_, node)) =>
         node match {
-          case _: NodeFetch[Cid] => errs
+          case _: NodeFetch[Cid, Val] => errs
           case nc: NodeCreate[Cid, Val] =>
             errs :++ f(nc.coinst.arg) :++ (nc.key match {
               case None => ImmArray.empty
@@ -324,7 +324,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
               case Some(k) => f(z1, k.key)
             }
             z2
-          case _: Node.NodeFetch[_] => z
+          case nf: Node.NodeFetch[_, Val] => nf.key.fold(z)(k => f(z, k.key))
           case e: Node.NodeExercises[_, _, Val] => f(z, e.chosenValue)
           case lk: Node.NodeLookupByKey[_, Val] => f(z, lk.key.key)
         }

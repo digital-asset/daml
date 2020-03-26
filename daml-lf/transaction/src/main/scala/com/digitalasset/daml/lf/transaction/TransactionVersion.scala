@@ -25,6 +25,7 @@ object TransactionVersions
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
+  private[transaction] val minContractKeyInFetch = TransactionVersion("10")
 
   def assignVersion(
       a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
@@ -43,13 +44,13 @@ object TransactionVersions
       if (a.nodes.values.exists {
           case nc: Node.NodeCreate[_, _] => nc.key.isDefined
           case _: Node.NodeLookupByKey[_, _] => true
-          case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
+          case _: Node.NodeFetch[_, _] | _: Node.NodeExercises[_, _, _] => false
         }) minKeyOrLookupByKey
       else
         minVersion,
       // a NodeFetch with actingParties implies minimum version 5
       if (a.nodes.values
-          .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
+          .exists { case nf: Node.NodeFetch[_, _] => nf.actingParties.nonEmpty; case _ => false })
         minFetchActors
       else
         minVersion,
@@ -79,6 +80,14 @@ object TransactionVersions
             case _ => false
           })
         minMaintainersInExercise
+      else
+        minVersion,
+      if (a.nodes.values
+          .exists {
+            case nf: Node.NodeFetch[_, _] => nf.key.isDefined
+            case _ => false
+          })
+        minContractKeyInFetch
       else
         minVersion,
     )
