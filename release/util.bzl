@@ -75,7 +75,7 @@ def sdk_tarball(name, version):
           cp -L $(location //triggers/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location //daml-script/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/script-logback.xml
 
-          tar zcf $@ --format=ustar $$OUT
+          tar c --format=ustar --sort=name --owner=root:0 --group=root:0 --mtime=0 $$OUT | gzip -n > $@
         """.format(version = version),
         visibility = ["//visibility:public"],
     )
