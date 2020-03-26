@@ -122,7 +122,7 @@ class SubmissionValidator[LogResult](
       ) => Future[T],
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
-      case Right(_: Envelope.BatchMessage) =>
+      case Right(_: Envelope.SubmissionBatchMessage) =>
         Future.successful(
           Left(ValidationFailed.ValidationError("Validation of batches is not supported.")))
 

@@ -24,7 +24,7 @@ object Envelope {
 
   final case class StateValueMessage(value: Proto.DamlStateValue) extends Message
 
-  final case class BatchMessage(value: Proto.DamlSubmissionBatch) extends Message
+  final case class SubmissionBatchMessage(value: Proto.DamlSubmissionBatch) extends Message
 
   private def enclose(
       kind: Proto.Envelope.MessageKind,
@@ -43,20 +43,21 @@ object Envelope {
       .build
       .toByteString
 
-  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, true)
+  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, compression = true)
   def enclose(sub: Proto.DamlSubmission, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
-  def enclose(logEntry: Proto.DamlLogEntry): ByteString = enclose(logEntry, true)
+  def enclose(logEntry: Proto.DamlLogEntry): ByteString = enclose(logEntry, compression = true)
   def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
-  def enclose(stateValue: Proto.DamlStateValue): ByteString = enclose(stateValue, true)
+  def enclose(stateValue: Proto.DamlStateValue): ByteString =
+    enclose(stateValue, compression = true)
   def enclose(stateValue: Proto.DamlStateValue, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
 
   def enclose(batch: Proto.DamlSubmissionBatch): ByteString =
-    enclose(Proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, false)
+    enclose(Proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, compression = false)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
     openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
@@ -91,7 +92,7 @@ object Envelope {
             .map(StateValueMessage)
         case Proto.Envelope.MessageKind.SUBMISSION_BATCH =>
           parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage)).right
-            .map(BatchMessage)
+            .map(SubmissionBatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${envelope.getKind}")
       }
