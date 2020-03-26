@@ -13,8 +13,8 @@ object ConflictDetection {
 
   /** Detect conflicts in a log entry and attempt to recover. */
   def conflictDetectAndRecover(
-      invalidatedKeys: Set[DamlStateKey],
-      inputKeys: Set[DamlStateKey],
+      invalidatedKeys: collection.Set[DamlStateKey],
+      inputKeys: collection.Set[DamlStateKey],
       logEntry: DamlLogEntry,
       outputState: Map[DamlStateKey, DamlStateValue])
     : Option[(DamlLogEntry, Map[DamlStateKey, DamlStateValue])] = {
@@ -30,6 +30,7 @@ object ConflictDetection {
 
       logEntry.getPayloadCase match {
         case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
+          println("CONFLICTING TRANSACTION")
           val txEntry = logEntry.getTransactionEntry
 
           val builder = DamlLogEntry.newBuilder
@@ -51,16 +52,19 @@ object ConflictDetection {
           // packages from the log entry and output state. This is likely overkill
           // though, so instead we'll just completely drop the submission.
           // Note though that some test-tool tests fail because of this.
+          println("DROP PACKAGE UPLOAD")
           None
 
         case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
           // TODO(JM): Does it already exist or is it a duplicate? Same reasoning
           // applies here as with package upload.
+          println("DROP PARTY ALLOCATION ENTRY")
           None
 
         case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
           // TODO(JM): Either duplicate, or there's a concurrent configuration change.
           // Very rare so fine to drop this.
+          println("DROP CONFIGURATION ENTRY")
           None
 
         case other =>

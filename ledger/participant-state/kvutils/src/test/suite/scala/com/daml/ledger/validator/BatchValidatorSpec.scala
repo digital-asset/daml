@@ -27,8 +27,8 @@ class BatchValidatorSpec
       .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
       .build()
 
-  private class FakeLedgerState(mockOps: LedgerOps) extends LedgerState {
-    override def inTransaction[T](body: LedgerOps => Future[T]): Future[T] =
+  private class FakeLedgerState(mockOps: BatchLedgerOps) extends BatchLedgerState {
+    override def inTransaction[T](body: BatchLedgerOps => Future[T]): Future[T] =
       body(mockOps)
   }
 
@@ -41,9 +41,8 @@ class BatchValidatorSpec
 
     "return invalid submission for invalid envelope in batch" in {
 
-      val mockStateOps = mock[LedgerOps]
-      val validator = new BatchValidator(
-        BatchValidationParameters.default,
+      val mockStateOps = mock[BatchLedgerOps]
+      val validator = BatchValidator(
         () => allocateRandomLogEntryId,
         new FakeLedgerState(mockStateOps)
       )
@@ -59,6 +58,7 @@ class BatchValidatorSpec
         .validateAndCommit(
           newRecordTime().toInstant,
           aParticipantId(),
+          "aCorrelationId",
           Envelope.enclose(batchBuilder.build))
         .failed
         .map { result =>

@@ -5,6 +5,7 @@ package com.daml.ledger.on.memory
 
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -43,23 +44,22 @@ final class InMemoryLedgerBatchingReaderWriter(
     extends LedgerWriter
     with LedgerReader {
 
-  private val theParticipantId = participantId // FIXME(JM): How to refer to the parent participantId below?
   private implicit val executionContext = materializer.executionContext
 
-  private val committer = new BatchValidator(
-    BatchValidationParameters.default,
+  private val committer = BatchValidator(
     () => sequentialLogEntryId.next(),
     new InMemoryLedgerStateAccess2(state, dispatcher)
   )
 
+  private val theParticipantId = participantId // FIXME(JM): How to refer to the parent participantId below?
   private val underlyingWriter = new LedgerWriter {
     override def currentHealth(): HealthStatus = Healthy
     override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] = {
-      println("COMMITTING BATCH")
       committer
         .validateAndCommit(
           timeProvider.getCurrentTime,
           participantId,
+          correlationId,
           envelope
         )
         .map(_ => SubmissionResult.Acknowledged)
@@ -73,8 +73,8 @@ final class InMemoryLedgerBatchingReaderWriter(
 
   private val batchingQueue =
     DefaultBatchingQueue(
-      maxQueueSize = 100,
-      maxBatchSizeBytes = 8L * 1024 * 1024,
+      maxQueueSize = 1000,
+      maxBatchSizeBytes = 16L * 1024 * 1024,
       maxWaitDuration = 50.millis,
       maxConcurrentCommits = 10)
 
@@ -107,37 +107,60 @@ final class InMemoryLedgerBatchingReaderWriter(
 
 class InMemoryLedgerStateAccess2(currentState: InMemoryState, dispatcher: Dispatcher[Index])(
     implicit executionContext: ExecutionContext
-) extends LedgerState {
+) extends BatchLedgerState {
 
-  override def inTransaction[T](body: LedgerOps => Future[T]): Future[T] =
-    currentState.withFutureWriteLock { (log, state) =>
-      val ledgerOps = new InMemoryLedgerStateOps(log, state).toLedgerOps
-      val result = body(ledgerOps)
-      dispatcher.signalNewHead(log.size - 1)
+  override def inTransaction[T](body: BatchLedgerOps => Future[T]): Future[T] = {
+    val inMemoryOps = new InMemoryLedgerStateOps(currentState)
+
+    // TODO(JM): This implementation is slightly silly as we have multi-threaded access
+    // to the ledger ops. That is the reason why we don't hold the "InMemoryState" lock:
+    // it wouldn't actually help against the multiple access here. Instead we only take the
+    // lock when we're writing to the state. This gives us more interleaving, but has the downside
+    // that if state is written after appending to log, we may end up waking consumers too early
+    // (as another participant might've written to store and signalled).
+    // A better implementation would concurrency-safe data structures to allow for the concurrent writes,
+    // and we'd just use the semaphore for transactionality (e.g. one participant writes to store at a time).
+    body(inMemoryOps).map { result =>
+      inMemoryOps.getNewHead().foreach(dispatcher.signalNewHead)
       result
     }
+  }
 }
 
 private class InMemoryLedgerStateOps(
-    log: InMemoryState.MutableLog,
-    state: InMemoryState.MutableState
+    inMemoryState: InMemoryState
 )(implicit executionContext: ExecutionContext)
-    extends RawLedgerOps {
+    extends BatchLedgerOps {
+
+  private val newHead = new AtomicInteger(-1)
+  def getNewHead(): Option[Int] = {
+    val n = newHead.get()
+    if (n >= 0) Some(n) else None
+  }
+
   override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
     Future.successful {
-      keys.map(keyBytes => state.get(keyBytes))
+      inMemoryState.withReadLock { (_, state) =>
+        keys.map(keyBytes => state.get(keyBytes))
+      }
     }
 
   override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
     Future.successful {
-      state ++= keyValuePairs.map {
-        case (keyBytes, valueBytes) => keyBytes -> valueBytes
+      inMemoryState.withWriteLock[Unit] { (_, state) =>
+        state ++= keyValuePairs.map {
+          case (keyBytes, valueBytes) => keyBytes -> valueBytes
+        }
       }
     }
 
   override def appendToLog(key: Key, value: Value): Future[Unit] =
-    Future.successful {
-      val _ = appendEntry(log, LedgerEntry.LedgerRecord(_, key, value))
+    Future {
+      inMemoryState.withWriteLock { (log, _) =>
+        val idx = appendEntry(log, LedgerEntry.LedgerRecord(_, key, value))
+        newHead.updateAndGet(idx.max(_))
+        ()
+      }
     }
 }
 

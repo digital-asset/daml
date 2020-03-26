@@ -25,7 +25,7 @@ da_scala_library(
         "//ledger/participant-state",
         "//ledger/participant-state/kvutils",
         "//libs-scala/resources",
-                "//libs-scala/contextualized-logging",
+        "//libs-scala/contextualized-logging",
 
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
@@ -113,6 +113,10 @@ conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=CommandDeduplicationIT",
+        "--exclude=LotsOfPartiesIT", # XXX
+        "--exclude=TransactionScaleIT", # XXX
+        "--exclude=PackageManagementServiceIT", # XXX
+        "--exclude=SemanticTests", # XXX
     ],
 )
 

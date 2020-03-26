@@ -43,7 +43,7 @@ object ParticipantConfig {
 object Config {
   val DefaultPort: Port = Port(6865)
 
-  val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
