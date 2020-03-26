@@ -37,7 +37,7 @@ const MainView: React.FC = () => {
       return false;
     }
   }
-// FOLLOW_BEGIN
+// FOLLOW_END
 
   return (
     <Container>
