@@ -9,6 +9,7 @@ package com.daml.ledger.participant.state.kvutils
   * Changes:
   * [after 100.13.55]: *BACKWARDS INCOMPATIBLE*
   * - Remove use of relative contract ids. Introduces kvutils version 2.
+  * - Introduce DamlSubmissionBatch.
   *
   * [after 100.13.52]: *BACKWARDS INCOMPATIBLE*
   * - Use hash for serializing contract keys instead of serializing the value, as
@@ -72,6 +73,7 @@ object Version {
     *        it is unclear how to set a sensible default value if the submission time is unknown.
     *      * Add submissionTime in DamlTransactionEntry and use it instead of ledgerTime to derive
     *        contract ids.
+    *      * Add DamlSubmissionBatch message.
     */
   val version: Long = 3
 }

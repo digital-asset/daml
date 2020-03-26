@@ -18,7 +18,8 @@ import com.digitalasset.ledger.api.v1.transaction.{
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionsResponse,
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.ApiOffset
@@ -59,29 +60,34 @@ private[events] trait EventsTable {
     private def instantToTimestamp(t: Instant): Timestamp =
       Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
-    def toFlatTransaction(events: List[Entry[Event]]): Option[GetFlatTransactionResponse] = {
+    private def flatTransaction[R](makeResponse: ApiTransaction => R)(
+        events: Seq[Entry[Event]],
+    ): Option[R] =
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
-            GetFlatTransactionResponse(
-              transaction = Some(
-                ApiTransaction(
-                  transactionId = first.transactionId,
-                  commandId = first.commandId,
-                  effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-                  workflowId = first.workflowId,
-                  offset = ApiOffset.toApiString(first.eventOffset),
-                  events = flatEvents,
-                )
+            makeResponse(
+              ApiTransaction(
+                transactionId = first.transactionId,
+                commandId = first.commandId,
+                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                workflowId = first.workflowId,
+                offset = ApiOffset.toApiString(first.eventOffset),
+                events = flatEvents,
               )
             )
           )
         else None
-
       }
-    }
+
+    def toGetTransactionsResponse(events: Vector[Entry[Event]]): Seq[GetTransactionsResponse] =
+      flatTransaction(tx => GetTransactionsResponse(Seq(tx)))(events).toList
+
+    def toGetFlatTransactionResponse(
+        events: List[Entry[Event]]): Option[GetFlatTransactionResponse] =
+      flatTransaction(tx => GetFlatTransactionResponse(Some(tx)))(events)
 
     def toTransactionTree(events: List[Entry[TreeEvent]]): Option[GetTransactionResponse] =
       events.headOption.map(

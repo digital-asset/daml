@@ -64,7 +64,7 @@ jobs:
           HEAD=$(git rev-parse HEAD)
           while ! nix-build -A tools.sed -A tools.jq -A tools.curl nix; do :; done
           echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '.[] | .tag_name')
           DIR=$(pwd)
           VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
           # Our docker tags should be stable. Therefore, we only build the image if it has not already

@@ -722,7 +722,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = inTheFuture(10.seconds),
       deduplicateUntil = inTheFuture(10.seconds).toInstant,
     )
 
@@ -783,7 +782,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }

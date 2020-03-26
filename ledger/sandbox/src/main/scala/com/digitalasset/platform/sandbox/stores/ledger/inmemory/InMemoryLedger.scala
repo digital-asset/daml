@@ -212,8 +212,6 @@ class InMemoryLedger(
         _ => {
           val (transactionForIndex, disclosureForIndex, globalDivulgence) =
             Ledger.convertToCommittedTransaction(transactionId, transaction)
-          // 5b. modify the ActiveContracts, while checking that we do not have double
-          // spends or timing issues
           val acsRes = acs.addTransaction(
             transactionMeta.ledgerEffectiveTime.toInstant,
             transactionId,

@@ -27,7 +27,6 @@ private[testtool] final class LedgerSession(
               host,
               port,
               config.ssl,
-              config.commandTtlFactor,
               config.partyAllocation,
             ),
           )

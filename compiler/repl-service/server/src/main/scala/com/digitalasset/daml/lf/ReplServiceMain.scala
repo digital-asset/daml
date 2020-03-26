@@ -23,7 +23,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.LedgerClient
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import java.net.{InetAddress, InetSocketAddress}
@@ -155,7 +154,10 @@ object ReplServiceMain extends App {
 
 }
 
-class ReplService(val clients: Participants[LedgerClient], ec: ExecutionContext, mat: Materializer)
+class ReplService(
+    val clients: Participants[ScriptLedgerClient],
+    ec: ExecutionContext,
+    mat: Materializer)
     extends ReplServiceGrpc.ReplServiceImplBase {
   var packages: Map[PackageId, Package] = Map.empty
   var compiledDefinitions: Map[SDefinitionRef, SExpr] = Map.empty

@@ -189,7 +189,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
       scala.collection.mutable.Map[Nid, Event[Nid, Cid, Val]]()
 
     def isIrrelevantNode(nid: Nid): Boolean = tx.nodes(nid) match {
-      case _: NodeFetch[Cid] => true
+      case _: NodeFetch[_, _] => true
       case _: NodeLookupByKey[_, _] => true
       case _ => false
 
@@ -235,7 +235,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
               )
               evts += (nodeId -> evt)
               go(relevantChildren ++: remaining)
-            case nf: NodeFetch[Cid] =>
+            case nf: NodeFetch[Cid, Val] =>
               throw new RuntimeException(
                 s"Unexpected fetch node $nf, we purge them before we get here!")
             case nlbk: NodeLookupByKey[Cid, Val] =>

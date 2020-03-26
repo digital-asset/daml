@@ -75,12 +75,14 @@ LF_VERSIONS = [
             srcs = [":daml_lf_%s_archive_proto_srcs" % version],
             outs = ["daml_lf_%s_archive_proto_zip.zip" % version],
             cmd = """
-                     DESTDIR=protobuf/com/digitalasset/daml_lf_%s &&           \
-                     mkdir -p $$DESTDIR/ &&                                    \
-                     cp $(SRCS) $$DESTDIR/ &&                                  \
-                     $(location @zip_dev_env//:zip) \"$@\" -r $$DESTDIR/
-                   """ % (mangle_for_java(version)),
-            tools = ["@zip_dev_env//:zip"],
+                DESTDIR=protobuf/com/digitalasset/daml_lf_{version};
+                MAPPINGS=()
+                for src in $(SRCS); do
+                    MAPPINGS+=("$$DESTDIR/$$(basename $$src)=$$src")
+                done
+                $(rootpath @bazel_tools//tools/zip:zipper) cC "$@" "$${{MAPPINGS[@]}}"
+            """.format(version = mangle_for_java(version)),
+            tools = ["@bazel_tools//tools/zip:zipper"],
             visibility = ["//visibility:public"],
         ),
         pkg_tar(

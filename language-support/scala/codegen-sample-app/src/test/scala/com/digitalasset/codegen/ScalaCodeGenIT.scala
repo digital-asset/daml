@@ -8,8 +8,6 @@ import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.codegen.util.TestUtil.{TestContext, requiredResource}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{CommandId, WorkflowId}
@@ -72,7 +70,6 @@ class ScalaCodeGenIT
   private val ledgerId = this.getClass.getSimpleName
   private val applicationId = ledgerId + "-client"
   private val decoder: DecoderType = EventDecoder.createdEventToContractRef
-  private val timeProvider = TimeProvider.UTC
   private val traceContext = TraceContext(1L, 2L, 3L, Some(4L))
 
   private val alice = P.Party("Alice")
@@ -448,15 +445,12 @@ class ScalaCodeGenIT
       party: P.Party,
       seq: P.Update[_]*): SubmitRequest = {
 
-    val now = timeProvider.getCurrentTime
     val commands = Commands(
       ledgerId = ledger.ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = applicationId,
       commandId = CommandId.unwrap(commandId),
       party = P.Party.unwrap(party),
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plus(java.time.Duration.ofSeconds(2)))),
       commands = seq.map(_.command)
     )
     SubmitRequest(Some(commands), Some(traceContext))

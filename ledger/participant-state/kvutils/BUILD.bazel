@@ -39,6 +39,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
+        "//ledger/participant-state-metrics",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_guava_guava",

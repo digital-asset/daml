@@ -239,18 +239,20 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private def toListContainerExerciseCmd(
       templateId: Identifier,
-      contractId: AbsoluteContractId): ExerciseCommand = {
+      contractId: AbsoluteContractId
+  ): ExerciseCommand = {
     val choice = "ToListContainer"
-    val emptyArgs = ValueRecord(None, ImmArray(Seq()))
-    ExerciseCommand(templateId, contractId.coid, choice, (emptyArgs))
+    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
   private def toListOfIntContainers(
       templateId: Identifier,
-      contractId: AbsoluteContractId): ExerciseCommand = {
+      contractId: AbsoluteContractId
+  ): ExerciseCommand = {
     val choice = "ToListOfIntContainers"
-    val emptyArgs = ValueRecord(None, ImmArray(Seq()))
-    ExerciseCommand(templateId, contractId.coid, choice, (emptyArgs))
+    val emptyArgs = ValueRecord(None, ImmArray.empty)
+    ExerciseCommand(templateId, contractId, choice, (emptyArgs))
   }
 
   private def listUtilCreateCmd(templateId: Identifier): CreateCommand = {
@@ -264,7 +266,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     val choiceDefRef = Identifier(templateId.packageId, qn(s"LargeTransaction:$choice"))
     val damlList = ValueList(FrontStack(elements = List.range(0L, size.toLong).map(ValueInt64)))
     val choiceArgs = ValueRecord(Some(choiceDefRef), ImmArray((None, damlList)))
-    ExerciseCommand(templateId, contractId.coid, choice, (choiceArgs))
+    ExerciseCommand(templateId, contractId, choice, choiceArgs)
   }
 
   private def assertSizeExerciseTransaction(

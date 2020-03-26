@@ -4,8 +4,7 @@
 package com.digitalasset.extractor
 
 import java.nio.file.Files
-import java.time.temporal.ChronoUnit
-import java.time.{Duration, Instant}
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -23,7 +22,6 @@ import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
 import com.digitalasset.timer.Delayed
-import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 import scalaz.{OneAnd, \/}
@@ -43,17 +41,7 @@ final class AuthSpec
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
-  private lazy val dummyRequest = {
-    // we need to adjust the time of the request because we pass 10
-    // days in the test scenario.
-    val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
-    val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
-    val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(wrappedLedgerId, "commandId1").update(
-      _.commands.ledgerEffectiveTime := let,
-      _.commands.maximumRecordTime := mrt
-    )
-  }
+  private lazy val dummyRequest = dummyCommands(wrappedLedgerId, "commandId1")
 
   private val operator = "OPERATOR"
   private val operatorPayload = AuthServiceJWTPayload(

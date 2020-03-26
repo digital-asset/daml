@@ -6,22 +6,25 @@ package com.daml.ledger.javaapi.data;
 import com.digitalasset.ledger.api.v1.CommandSubmissionServiceOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 public class SubmitRequest {
 
     static public CommandSubmissionServiceOuterClass.SubmitRequest toProto(@NonNull String ledgerId,
-                                                                                                 @NonNull String workflowId,
-                                                                                                 @NonNull String applicationId,
-                                                                                                 @NonNull String commandId,
-                                                                                                 @NonNull String party,
-                                                                                                 @NonNull Instant ledgerEffectiveTime,
-                                                                                                 @NonNull Instant maximumRecordTime,
-                                                                                                 @NonNull List<@NonNull Command> commands) {
+                                                                           @NonNull String workflowId,
+                                                                           @NonNull String applicationId,
+                                                                           @NonNull String commandId,
+                                                                           @NonNull String party,
+                                                                           @NonNull Optional<Instant> minLedgerTimeAbs,
+                                                                           @NonNull Optional<Duration> minLedgerTimeRel,
+                                                                           @NonNull Optional<Duration> deduplicationTime,
+                                                                           @NonNull List<@NonNull Command> commands) {
         return CommandSubmissionServiceOuterClass.SubmitRequest.newBuilder()
                 .setCommands(SubmitCommandsRequest.toProto(ledgerId, workflowId, applicationId, commandId,
-                        party, ledgerEffectiveTime, maximumRecordTime, commands))
+                        party, minLedgerTimeAbs, minLedgerTimeRel, deduplicationTime, commands))
                 .build();
     }
 

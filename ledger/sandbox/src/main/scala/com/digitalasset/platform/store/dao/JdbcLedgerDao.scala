@@ -20,13 +20,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails
 }
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  Configuration,
-  Offset,
-  ParticipantId,
-  TransactionId
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -52,6 +46,7 @@ import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.digitalasset.platform.store._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
@@ -256,7 +251,7 @@ private class JdbcLedgerDao(
   override def getConfigurationEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_configuration_entries",
         Some(
@@ -268,7 +263,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(configurationEntryParser.*)
+            .asVectorOf(configurationEntryParser)
       }
     }
 
@@ -465,7 +460,7 @@ private class JdbcLedgerDao(
   override def getPartyEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_party_entries",
         Some(
@@ -477,7 +472,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(partyEntryParser.*)
+            .asVectorOf(partyEntryParser)
       }
     }
   }
@@ -1071,7 +1066,6 @@ private class JdbcLedgerDao(
     (rejectionReason.description, rejectionReason match {
       case _: Inconsistent => "Inconsistent"
       case _: OutOfQuota => "OutOfQuota"
-      case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
@@ -1082,7 +1076,6 @@ private class JdbcLedgerDao(
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
-      case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
@@ -1369,7 +1362,7 @@ private class JdbcLedgerDao(
 
       case (_, _, _, _, _, _, _, _, _) =>
         sys.error(
-          "mapContractDetails called with partial data, can not map to either active or divulged contract")
+          "mapContractDetails called with partial data, cannot map to either active or divulged contract")
     }
 
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
@@ -1402,7 +1395,7 @@ private class JdbcLedgerDao(
   override def getLedgerEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         s"load_ledger_entries",
         Some(
@@ -1414,7 +1407,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(EntryParser.*)
+            .asVectorOf(EntryParser)
           parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
       }
     }.map((toLedgerEntry _).tupled)
@@ -1457,7 +1450,7 @@ private class JdbcLedgerDao(
       filter: TransactionFilter): Future[LedgerSnapshot] = {
 
     val contractStream =
-      PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      PaginatingAsyncStream(PageSize) { queryOffset =>
         dbDispatcher.executeSql(
           "load_active_contracts",
           Some(s"bounds: ]0, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
@@ -1470,7 +1463,7 @@ private class JdbcLedgerDao(
                 "template_parties" -> byPartyAndTemplate(filter),
                 "wildcard_parties" -> justByParty(filter),
               )
-              .as(ContractDataParser.*)(conn)
+              .asVectorOf(ContractDataParser)
         }
       }.mapAsync(1) { contractResult =>
         dbDispatcher
@@ -1668,7 +1661,7 @@ private class JdbcLedgerDao(
   override def getPackageEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_package_entries",
         Some(
@@ -1680,7 +1673,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(packageEntryParser.*)
+            .asVectorOf(packageEntryParser)
       }
     }
   }

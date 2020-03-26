@@ -32,5 +32,5 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       participantId,
       metricRegistry,
       heartbeats = heartbeats,
-    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
 }

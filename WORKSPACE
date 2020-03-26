@@ -270,17 +270,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-dev_env_tool(
-    name = "zip_dev_env",
-    nix_include = ["bin/zip"],
-    nix_label = "@zip_nix",
-    nix_paths = ["bin/zip"],
-    tools = ["zip"],
-    win_include = ["usr/bin/zip.exe"],
-    win_paths = ["usr/bin/zip.exe"],
-    win_tool = "msys2",
-)
-
 load(
     "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
@@ -725,19 +714,6 @@ yarn_install(
         "typescript/index.bzl": "def tsc(*args, **kwargs):\n    pass",
     },
 )
-
-# Bazel Skydoc - Build rule documentation generator
-load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
-
-rules_sass_dependencies()
-
-load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
-
-sass_repositories()
-
-load("@io_bazel_skydoc//skylark:skylark.bzl", "skydoc_repositories")
-
-skydoc_repositories()
 
 # We usually use the _deploy_jar target to produce self-contained jars, but here we're using jar_jar because the size
 # of codegen tool is substantially reduced (as shown below) and that the presence of JVM internal com.sun classes could

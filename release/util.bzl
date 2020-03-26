@@ -22,16 +22,14 @@ def sdk_tarball(name, version):
             "//daml-assistant/daml-helper:daml-helper-dist",
             "//language-support/ts/codegen:daml2ts-dist",
             "//templates:templates-tarball.tar.gz",
-            "//triggers/daml:daml-trigger.dar",
-            "//daml-script/daml:daml-script.dar",
+            "//triggers/daml:daml-trigger-dars",
+            "//daml-script/daml:daml-script-dars",
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
-        tools = ["@zip_dev_env//:zip"],
         outs = ["{}.tar.gz".format(name)],
         cmd = """
           # damlc
           VERSION={version}
-          ZIP=$$PWD/$(location @zip_dev_env//:zip)
           OUT=sdk-$$VERSION
           mkdir -p $$OUT
 
@@ -50,8 +48,8 @@ def sdk_tarball(name, version):
           tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
 
           mkdir -p $$OUT/daml-libs
-          cp -t $$OUT/daml-libs $(location //triggers/daml:daml-trigger.dar)
-          cp -t $$OUT/daml-libs $(location //daml-script/daml:daml-script.dar)
+          cp -t $$OUT/daml-libs $(locations //triggers/daml:daml-trigger-dars)
+          cp -t $$OUT/daml-libs $(locations //daml-script/daml:daml-script-dars)
 
           mkdir -p $$OUT/daml-helper
           tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
@@ -75,7 +73,7 @@ def sdk_tarball(name, version):
           cp -L $(location //triggers/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location //daml-script/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/script-logback.xml
 
-          tar zcf $@ --format=ustar $$OUT
+          tar c --format=ustar --sort=name --owner=root:0 --group=root:0 --mtime=0 $$OUT | gzip -n > $@
         """.format(version = version),
         visibility = ["//visibility:public"],
     )

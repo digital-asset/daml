@@ -94,7 +94,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         new SubmissionValidator(
           new FakeStateAccess(mockStateOperations),
           failingProcessSubmission,
-          () => aLogEntryId())
+          allocateLogEntryId = () => aLogEntryId(),
+          metricRegistry = new MetricRegistry,
+        )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
         inside(_) {
           case Left(ValidationError(reason)) => reason should include("Validation failed")
@@ -119,7 +121,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         SubmissionValidator.processSubmission(new KeyValueCommitting(new MetricRegistry)),
-        mockLogEntryIdGenerator)
+        mockLogEntryIdGenerator,
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
@@ -151,7 +155,9 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId())
+        allocateLogEntryId = () => aLogEntryId(),
+        metricRegistry = new MetricRegistry,
+      )
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {
@@ -163,6 +169,74 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
               writtenKeyValues should have size 1
               Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
               logEntryCaptor.getAllValues should have size 1
+          }
+        }
+    }
+
+    "support batch with single submission" in {
+      val mockStateOperations = mock[LedgerStateOperations[Int]]
+      val expectedLogResult: Int = 7
+      when(mockStateOperations.readState(any[Seq[Bytes]]()))
+        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
+        .thenReturn(Future.successful(()))
+      val logEntryCaptor = captor[Bytes]
+      when(mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture()))
+        .thenReturn(Future.successful(expectedLogResult))
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val instance = new SubmissionValidator(
+        new FakeStateAccess(mockStateOperations),
+        (_, _, _, _, _) => logEntryAndStateResult,
+        () => aLogEntryId(),
+        metricRegistry = new MetricRegistry)
+      val batchEnvelope =
+        Envelope.enclose(
+          DamlSubmissionBatch.newBuilder
+            .addSubmissions(
+              DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                .setCorrelationId("aCorrelationId")
+                .setSubmission(anEnvelope()))
+            .build)
+      instance
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          inside(_) {
+            case Right(actualLogResult) =>
+              actualLogResult should be(expectedLogResult)
+              writtenKeyValuesCaptor.getAllValues should have size 1
+              val writtenKeyValues = writtenKeyValuesCaptor.getValue
+              writtenKeyValues should have size 1
+              Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
+              logEntryCaptor.getAllValues should have size 1
+          }
+        }
+    }
+
+    "fail when batch contains more than one submission" in {
+      val mockStateOperations = mock[LedgerStateOperations[Int]]
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val instance = new SubmissionValidator(
+        new FakeStateAccess(mockStateOperations),
+        (_, _, _, _, _) => logEntryAndStateResult,
+        () => aLogEntryId(),
+        metricRegistry = new MetricRegistry)
+      val batchEnvelope =
+        Envelope.enclose(
+          DamlSubmissionBatch.newBuilder
+            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+              .setCorrelationId("aCorrelationId")
+              .setSubmission(anEnvelope()))
+            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+              .setCorrelationId("aCorrelationId2")
+              .setSubmission(anEnvelope()))
+            .build)
+      instance
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          inside(_) {
+            case Left(ValidationError(reason)) =>
+              reason should include("Unsupported batch size")
           }
         }
     }
@@ -179,7 +253,8 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         new FakeStateAccess(mockStateOperations),
         (_, _, _, _, _) => logEntryAndStateResult,
-        () => aLogEntryId())
+        allocateLogEntryId = () => aLogEntryId(),
+        metricRegistry = new MetricRegistry)
       instance
         .validateAndCommit(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId())
         .map {

@@ -57,13 +57,19 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-$DAML2TS -o daml2ts $DAR -p $TMP_DIR/package.json
-$YARN install --frozen-lockfile
-$YARN workspaces run build
-$YARN workspaces run lint
+# Call daml2ts.
+PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2ts $DAR
+# We only needed this package.json in order to provide resolution of
+# daml-types to daml2ts and that's done with now.
+rm package.json
+# Since we eschew using workspaces and resolutions in this test, patch
+# up the daml-ledger dependency on daml-types.
+sed -i"" "s|\"@daml/types\": \"0.0.0\"|\"@daml/types\": \"file:../daml-types\"|" daml-ledger/package.json
 
-# Invoke 'yarn test' in the 'build-and-lint-test' package
-# directory. Control is thereby passed to
-# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
+# Build, lint, test.
 cd build-and-lint-test
+$YARN install --pure-lockfile > /dev/null 2>&1
+$YARN run build && $YARN run lint
+# Invoke 'yarn test'. Control is thereby passed to
+# 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
 JAVA=$JAVA SANDBOX=$SANDBOX JSON_API=$JSON_API DAR=$DAR $YARN test

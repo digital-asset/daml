@@ -40,8 +40,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       // and there might be an actual clock skew between the devices running the test and the ledger.
       // This test therefore does not attempt to simulate any clock skew
       // but simply checks whether basic command submission with an unmodified LET works.
+      val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
       } yield {
         // No assertions to make, since the command went through as expected

@@ -1,11 +1,12 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.state
+package com.daml.ledger.participant.state.v1.metrics
 
 import java.util.concurrent.CompletionStage
 
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.metrics.Metrics
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   Party,
@@ -19,7 +20,6 @@ import com.daml.ledger.participant.state.v1.{
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.platform.metrics.timedFuture
 
 final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, prefix: String)
     extends WriteService {
@@ -57,5 +57,5 @@ final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, p
     delegate.currentHealth()
 
   private def time[T](name: String, future: => CompletionStage[T]): CompletionStage[T] =
-    timedFuture(metrics.timer(s"$prefix.$name"), future)
+    Metrics.timedCompletionStage(metrics.timer(s"$prefix.$name"), future)
 }

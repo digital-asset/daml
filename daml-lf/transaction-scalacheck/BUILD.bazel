@@ -13,7 +13,7 @@ da_scala_library(
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalacopts = lf_scalacopts,
+    scalacopts = lf_scalacopts + ["-Xsource:2.13"],
     tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-scalacheck:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [

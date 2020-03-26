@@ -23,7 +23,7 @@ object PlatformTypes {
   type NodeLookupByKey[Cid] = N.NodeLookupByKey.WithTxValue[Cid]
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
-  type NodeFetch[Cid] = N.NodeFetch[Cid]
+  type NodeFetch[Cid] = N.NodeFetch.WithTxValue[Cid]
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
   type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]

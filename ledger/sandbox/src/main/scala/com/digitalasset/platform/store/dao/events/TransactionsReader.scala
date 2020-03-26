@@ -32,8 +32,9 @@ private[dao] object TransactionsReader {
           ) { implicit connection =>
             query.as(EventsTable.flatEventParser.*)
           }
-          .map(EventsTable.Entry.toFlatTransaction)(executionContext)
+          .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
       }
+
       override def lookupTransactionTreeById(
           transactionId: TransactionId,
           requestingParties: Set[Party],

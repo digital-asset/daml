@@ -302,14 +302,6 @@ class Ledger {
   }
 
   /**
-   * @deprecated since version 0.13.51. Use `Ledger.query` wihtout a `query`
-   * argument instead.
-   */
-  async fetchAll<T extends object, K, I extends string>(template: Template<T, K, I>): Promise<CreateEvent<T, K, I>[]> {
-    return this.query(template, {} as Query<T>);
-  }
-
-  /**
    * Fetch a contract identified by its contract ID.
    *
    * @param template The template of the contract to be fetched.
@@ -352,13 +344,6 @@ class Ledger {
     };
     const json = await this.submit('v1/fetch', payload);
     return jtv.Result.withException(jtv.oneOf(jtv.constant(null), decodeCreateEvent(template)).run(json));
-  }
-
-  /**
-   * @deprecated since version 0.13.51. Use `Ledger.fetchByKey` instead.
-   */
-  async lookupByKey<T extends object, K, I extends string>(template: Template<T, K, I>, key: K): Promise<CreateEvent<T, K, I> | null> {
-    return this.fetchByKey(template, key);
   }
 
   /**

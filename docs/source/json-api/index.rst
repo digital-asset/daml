@@ -80,15 +80,13 @@ From a DAML project directory:
       --ledger-port <value>
             Ledger port number
       --address <value>
-            IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
+            IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
       --http-port <value>
             HTTP JSON API service port number
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
-      --default-ttl <value>
-            Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. Defaults to 30 seconds
       --max-inbound-message-size <value>
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
@@ -398,18 +396,14 @@ When creating a new contract, client may specify an optional ``meta`` field:
         "owner": "Alice"
       },
       "meta": {
-      	"commandId": "a unique ID",
-      	"ledgerEffectiveTime": 1579730994499,
-      	"maximumRecordTime": 1579731004499
+      	"commandId": "a unique ID"
       }
     }
 
 Where:
 
-- ``commandId`` -- optional field, a unique string identifying the command;
-- ``ledgerEffectiveTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, an approximation of the wall clock time on the ledger server;
-- ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
- 
+- ``commandId`` -- optional field, a unique string identifying the command.
+
 Exercise by Contract ID
 ***********************
 

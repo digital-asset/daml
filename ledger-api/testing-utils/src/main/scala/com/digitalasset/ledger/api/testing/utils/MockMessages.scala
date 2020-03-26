@@ -34,17 +34,8 @@ object MockMessages {
   val party = "party"
   val party2 = "party2"
   val ledgerEffectiveTime = Timestamp(0L, 0)
-  val maximumRecordTime = ledgerEffectiveTime.copy(seconds = ledgerEffectiveTime.seconds + 30L)
 
-  val commands = Commands(
-    ledgerId,
-    workflowId,
-    applicationId,
-    commandId,
-    party,
-    Some(ledgerEffectiveTime),
-    Some(maximumRecordTime),
-    Nil)
+  val commands = Commands(ledgerId, workflowId, applicationId, commandId, party, Nil)
 
   val submitRequest = SubmitRequest(Some(commands), None)
 

@@ -17,8 +17,8 @@ import com.digitalasset.ports.Port
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
-import io.netty.channel.EventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
+import io.netty.channel.{EventLoopGroup, ServerChannel}
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -52,6 +52,7 @@ final class LedgerApiServer(
 
     for {
       serverEsf <- new ExecutionSequencerFactoryOwner().acquire()
+      channelType = EventLoopGroupOwner.serverChannelType
       workerEventLoopGroup <- new EventLoopGroupOwner(
         actorSystem.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
@@ -68,6 +69,7 @@ final class LedgerApiServer(
         sslContext,
         interceptors,
         metrics,
+        channelType,
         bossEventLoopGroup,
         workerEventLoopGroup,
         apiServices,
@@ -115,6 +117,7 @@ final class LedgerApiServer(
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: MetricRegistry,
+      channelType: Class[_ <: ServerChannel],
       bossEventLoopGroup: EventLoopGroup,
       workerEventLoopGroup: EventLoopGroup,
       apiServices: ApiServices,
@@ -131,6 +134,7 @@ final class LedgerApiServer(
         builder.maxInboundMessageSize(maxInboundMessageSize)
         interceptors.foreach(builder.intercept)
         builder.intercept(new MetricsInterceptor(metrics))
+        builder.channelType(channelType)
         builder.bossEventLoopGroup(bossEventLoopGroup)
         builder.workerEventLoopGroup(workerEventLoopGroup)
         apiServices.services.foreach(builder.addService)
