@@ -16,7 +16,6 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
 import "com/digitalasset/daml_lf_dev/daml_lf.proto";
 import "com/digitalasset/daml/lf/transaction.proto";
 import "com/digitalasset/daml/lf/value.proto";
@@ -32,6 +31,7 @@ message Envelope {
     SUBMISSION = 0;
     LOG_ENTRY = 1;
     STATE_VALUE = 2;
+    SUBMISSION_BATCH = 3;
   }
 
   enum CompressionSchema {
@@ -64,6 +64,16 @@ message DamlSubmission {
     DamlPartyAllocationEntry party_allocation_entry = 5;
   }
   bytes submission_seed = 6;
+}
+
+// A batch of enveloped [[DamlSubmission]]'s.
+message DamlSubmissionBatch {
+  message CorrelatedSubmission {
+    bytes submission = 1;
+    string correlation_id = 2;
+  }
+
+  repeated CorrelatedSubmission submissions = 2;
 }
 
 // A log entry for a committed DAML submission.
