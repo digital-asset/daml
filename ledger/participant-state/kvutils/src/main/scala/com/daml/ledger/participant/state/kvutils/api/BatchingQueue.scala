@@ -6,13 +6,13 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
 
+import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.v1.SubmissionResult
 
 import scala.concurrent.Future
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 object BatchingQueue {
   type CommitBatchFunction =
@@ -65,11 +65,9 @@ case class DefaultBatchingQueue(
   @SuppressWarnings(Array("org.wartremover.warts.Any")) /* Keep.left */
   def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
       implicit materializer: Materializer): RunningBatchingQueueHandle = {
-    val commitSink =
-      Sink.foreachAsync(maxConcurrentCommits)(commitBatch)
-
     val materializedQueue = queue
-      .toMat(commitSink)(Keep.left)
+      .mapAsync(maxConcurrentCommits)(commitBatch)
+      .to(Sink.ignore)
       .run()
 
     val queueAlive = new AtomicBoolean(true)
@@ -93,8 +91,9 @@ case class DefaultBatchingQueue(
           }(materializer.executionContext)
       }
 
-      override def close(): Unit =
+      override def close(): Unit = {
         materializedQueue.complete()
+      }
     }
   }
 }

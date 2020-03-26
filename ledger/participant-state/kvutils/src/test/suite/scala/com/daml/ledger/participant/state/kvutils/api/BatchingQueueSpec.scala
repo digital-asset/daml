@@ -49,6 +49,23 @@ class BatchingQueueSpec
       }
     }
 
+    "report dead and return error when queue is closed" in {
+      val correlatedSubmission = createCorrelatedSubmission("1")
+      val queue = DefaultBatchingQueue(
+        maxQueueSize = 10,
+        maxBatchSizeBytes = correlatedSubmission.getSerializedSize / 2L, // To force emitting the batch right away.
+        maxWaitDuration = 1.millis,
+        maxConcurrentCommits = 1
+      ).run { _ =>
+        Future.unit
+      }
+      queue.alive should be(true)
+      queue.close()
+      eventually {
+        queue.alive should be(false)
+      }
+    }
+
     "not commit empty batches" in {
       val mockCommit =
         mock[Function[Seq[DamlSubmissionBatch.CorrelatedSubmission], Future[Unit]]]
