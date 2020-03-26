@@ -51,5 +51,6 @@ da_haskell_test(
         ":daml-lf-ast",
         "//compiler/daml-lf-tools",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )

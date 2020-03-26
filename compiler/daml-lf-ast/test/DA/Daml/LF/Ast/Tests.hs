@@ -5,9 +5,7 @@ module DA.Daml.LF.Ast.Tests
     ( main
     ) where
 
-import Control.Monad (unless)
 import Data.Foldable
-import Data.List (isInfixOf)
 import Data.List.Extra (trim)
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
@@ -24,6 +22,7 @@ import DA.Daml.LF.Ast.Version
 import DA.Daml.LF.Ast.World (initWorld)
 import DA.Daml.LF.TypeChecker (checkModule)
 import DA.Pretty (renderPretty)
+import DA.Test.Util
 
 main :: IO ()
 main = defaultMain $ testGroup "DA.Daml.LF.Ast"
@@ -213,7 +212,7 @@ typeSynTests =
     let name = renderPretty ty1 <> " =/= " <> renderPretty ty2
     let mod = makeModuleToTestTypeSyns ty1 ty2
     testCase name $ case typeCheck mod of
-      Left s -> assertStringContains s (Fragment frag)
+      Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
 
   mkBadTestcase :: ([DefTypeSyn],String) -> TestTree
@@ -221,7 +220,7 @@ typeSynTests =
     let name = looseNewlines $ renderPretty defs
     let mod = makeModule defs []
     testCase name $ case typeCheck mod of
-      Left s -> assertStringContains s (Fragment frag)
+      Left s -> assertInfixOf frag s
       Right () -> assertFailure "expected type error, but got none"
     where
       looseNewlines = unwords . map trim . lines
@@ -387,11 +386,5 @@ typeSynTests =
 typeCheck :: Module -> Either String ()
 typeCheck mod = do
   let version = V1 (PointStable 7)
-  either (Left . renderPretty) Right $ checkModule (initWorld [] version) version mod
-
-assertStringContains :: String -> Fragment -> IO ()
-assertStringContains text (Fragment frag) =
-  unless (frag `isInfixOf` text) (assertFailure msg)
-  where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ text
-
-newtype Fragment = Fragment String
+  let diags = checkModule (initWorld [] version) version mod
+  if null diags then Right () else Left (show diags)
