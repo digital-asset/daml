@@ -105,6 +105,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           ))),
       ""
     )
+
   def lookupContractWithKey(
       @deprecated("shut up unused arguments warning", "blah") id: AbsoluteContractId)
     : Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {

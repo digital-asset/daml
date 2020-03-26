@@ -447,7 +447,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch[V.AbsoluteContractId, Tx.Value[V.AbsoluteContractId]] =>
+      case fetch: N.NodeFetch.WithTxValue[AbsoluteContractId] =>
         builder.setFetch(
           Node.Fetch.newBuilder
             .setContractId(fetch.coid.coid)

@@ -76,7 +76,7 @@ class TransactionCoderSpec
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
-        (node: NodeFetch[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
+        (node: NodeFetch.WithTxValue[Tx.TContractId], valVer: ValueVersion) =>
           val encodedNode =
             TransactionCoder
               .encodeNode(
