@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
+import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
 import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
@@ -17,16 +17,16 @@ const MainView: React.FC = () => {
   const allUsers = useStreamQuery(User).contracts;
 // USERS_END
 
-  // Sorted list of friends of the current user
-  const friends = useMemo(() =>
+  // Sorted list of users that are following the current user
+  const followers = useMemo(() =>
     allUsers
     .map(user => user.payload)
     .filter(user => user.username !== username)
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-// STARTFOLLOWING_BEGIN
-  const [exerciseFollow] = useExerciseByKey(User.Follow);
+// FOLLOW_BEGIN
+  const exerciseFollow = useExerciseByKey(User.Follow);
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
@@ -37,52 +37,52 @@ const MainView: React.FC = () => {
       return false;
     }
   }
-// STARTFOLLOWING_END
+// FOLLOW_BEGIN
 
-return (
-  <Container>
-    <Grid centered columns={2}>
-      <Grid.Row stretched>
-        <Grid.Column>
-          <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
-              {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
-          </Header>
+  return (
+    <Container>
+      <Grid centered columns={2}>
+        <Grid.Row stretched>
+          <Grid.Column>
+            <Header as='h1' size='huge' color='blue' textAlign='center' style={{padding: '1ex 0em 0ex 0em'}}>
+                {myUser ? `Welcome, ${myUser.username}!` : 'Loading...'}
+            </Header>
 
-          <Segment>
-            <Header as='h2'>
-              <Icon name='user' />
-              <Header.Content>
-                {myUser?.username ?? 'Loading...'}
-                <Header.Subheader>Users I'm following</Header.Subheader>
-              </Header.Content>
-            </Header>
-            <Divider />
-            <PartyListEdit
-              parties={myUser?.following ?? []}
-              onAddParty={follow}
-            />
-          </Segment>
-          <Segment>
-            <Header as='h2'>
-              <Icon name='globe' />
-              <Header.Content>
-                The Network
-                <Header.Subheader>My followers and users they are following</Header.Subheader>
-              </Header.Content>
-            </Header>
-            <Divider />
+            <Segment>
+              <Header as='h2'>
+                <Icon name='user' />
+                <Header.Content>
+                  {myUser?.username ?? 'Loading...'}
+                  <Header.Subheader>Users I'm following</Header.Subheader>
+                </Header.Content>
+              </Header>
+              <Divider />
+              <PartyListEdit
+                parties={myUser?.following ?? []}
+                onAddParty={follow}
+              />
+            </Segment>
+            <Segment>
+              <Header as='h2'>
+                <Icon name='globe' />
+                <Header.Content>
+                  The Network
+                  <Header.Subheader>My followers and users they are following</Header.Subheader>
+                </Header.Content>
+              </Header>
+              <Divider />
 // USERLIST_BEGIN
-            <UserList
-              users={following}
-              onFollow={follow}
-            />
+              <UserList
+                users={followers}
+                onFollow={follow}
+              />
 // USERLIST_END
-          </Segment>
-        </Grid.Column>
-      </Grid.Row>
-    </Grid>
-  </Container>
-);
+            </Segment>
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+    </Container>
+  );
 }
 
 export default MainView;
