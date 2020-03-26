@@ -103,7 +103,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
       RejectionReason.OutOfQuota(""),
       RejectionReason.PartyNotKnownOnLedger(""),
       RejectionReason.SubmitterCannotActViaParticipant(""),
-      RejectionReason.TimedOut(""),
+      RejectionReason.InvalidLedgerTime(""),
     )
 
     for {

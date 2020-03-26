@@ -142,7 +142,7 @@ conformance_test(
     ],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=ssl-test,port=6865",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",

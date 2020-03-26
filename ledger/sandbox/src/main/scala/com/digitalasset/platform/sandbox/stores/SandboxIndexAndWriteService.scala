@@ -56,7 +56,7 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
       jdbcUrl: String,
-      timeModel: ParticipantState.TimeModel,
+      initialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -75,17 +75,18 @@ object SandboxIndexAndWriteService {
         acs,
         templateStore,
         ledgerEntries,
+        initialConfig,
         queueDepth,
         startMode,
         metrics,
       )
       .flatMap(ledger =>
-        owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider))
+        owner(MeteredLedger(ledger, metrics), participantId, initialConfig.timeModel, timeProvider))
 
   def inMemory(
       ledgerId: LedgerIdMode,
       participantId: ParticipantId,
-      timeModel: ParticipantState.TimeModel,
+      intialConfig: ParticipantState.Configuration,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       ledgerEntries: ImmArray[LedgerEntryOrBump],
@@ -99,8 +100,10 @@ object SandboxIndexAndWriteService {
         timeProvider,
         acs,
         templateStore,
-        ledgerEntries)
-    owner(MeteredLedger(ledger, metrics), participantId, timeModel, timeProvider)
+        ledgerEntries,
+        intialConfig,
+      )
+    owner(MeteredLedger(ledger, metrics), participantId, intialConfig.timeModel, timeProvider)
   }
 
   private def owner(

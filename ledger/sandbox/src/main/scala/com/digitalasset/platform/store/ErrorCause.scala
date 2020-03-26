@@ -34,4 +34,8 @@ object ErrorCause {
         }
         .mkString("Sequencing errors: [", ", ", "]")
   }
+
+  final case class LedgerTime(retries: Int) extends ErrorCause {
+    override def explain: String = s"Could not find a suitable ledger time after $retries retries"
+  }
 }

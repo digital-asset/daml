@@ -37,11 +37,6 @@ trait ConfigProvider[ExtraConfig] {
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
     )
 
-  def indexerMetricRegistry(
-      participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(s"indexer-${participantConfig.participantId}")
-
   def apiServerConfig(
       participantConfig: ParticipantConfig,
       config: Config[ExtraConfig]): ApiServerConfig =
@@ -56,11 +51,6 @@ trait ConfigProvider[ExtraConfig] {
       portFile = participantConfig.portFile,
     )
 
-  def apiServerMetricRegistry(
-      participantConfig: ParticipantConfig,
-      config: Config[ExtraConfig]): MetricRegistry =
-    SharedMetricRegistries.getOrCreate(s"ledger-api-server-${participantConfig.participantId}")
-
   def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
     CommandConfiguration.default
 
@@ -74,6 +64,12 @@ trait ConfigProvider[ExtraConfig] {
 
   def authService(config: Config[ExtraConfig]): AuthService =
     AuthServiceWildcard
+
+  def metricRegistry(
+      participantConfig: ParticipantConfig,
+      config: Config[ExtraConfig],
+  ): MetricRegistry =
+    SharedMetricRegistries.getOrCreate(participantConfig.participantId)
 }
 
 trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[ExtraConfig] {

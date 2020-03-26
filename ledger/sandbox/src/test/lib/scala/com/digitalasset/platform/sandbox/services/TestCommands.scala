@@ -4,18 +4,12 @@
 package com.digitalasset.platform.sandbox.services
 
 import java.io.File
-import java.time.Instant
 import java.util
 
-import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{
-  applicationId,
-  ledgerEffectiveTime,
-  maximumRecordTime
-}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.applicationId
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -26,7 +20,6 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timest
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.testing.TestTemplateIdentifiers
-import com.google.protobuf.timestamp.{Timestamp => GTimestamp}
 import scalaz.syntax.tag._
 
 trait TestCommands {
@@ -41,8 +34,6 @@ trait TestCommands {
       ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
-      let: GTimestamp = ledgerEffectiveTime,
-      maxRecordTime: GTimestamp = maximumRecordTime,
       appId: String = applicationId,
   ): SubmitRequest =
     M.submitRequest.update(
@@ -50,8 +41,6 @@ trait TestCommands {
       _.commands.ledgerId := ledgerId.unwrap,
       _.commands.applicationId := appId,
       _.commands.commands := commands,
-      _.commands.ledgerEffectiveTime := let,
-      _.commands.maximumRecordTime := maxRecordTime
     )
 
   protected def dummyCommands(
@@ -122,8 +111,6 @@ trait TestCommands {
     "appId",
     "cmd",
     "Alice",
-    Some(TimestampConversion.fromInstant(Instant.now)),
-    Some(TimestampConversion.fromInstant(Instant.now)),
     Seq(
       Command(Command.Command.Create(
         CreateCommand(Some(templateIds.parameterShowcase), Option(paramShowcaseArgs)))))

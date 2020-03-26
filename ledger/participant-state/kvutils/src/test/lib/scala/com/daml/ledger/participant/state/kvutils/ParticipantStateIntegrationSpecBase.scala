@@ -9,6 +9,7 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
@@ -62,6 +63,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       participantId: ParticipantId,
       testId: String,
       heartbeats: Source[Instant, NotUsed],
+      metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -72,7 +74,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeats)
+      participantStateFactory(ledgerId, participantId, testId, heartbeats, new MetricRegistry)
     }
 
   override protected def beforeEach(): Unit = {
@@ -720,7 +722,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = inTheFuture(10.seconds),
       deduplicateUntil = inTheFuture(10.seconds).toInstant,
     )
 
@@ -781,7 +782,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }

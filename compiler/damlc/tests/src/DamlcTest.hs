@@ -20,6 +20,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
+import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
@@ -246,6 +247,3 @@ callProcessSilent cmd args = do
       hPutStrLn stderr $ unlines ["stdout:", out]
       hPutStrLn stderr $ unlines ["stderr: ", err]
       exitFailure
-
-assertInfixOf :: String -> String -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)

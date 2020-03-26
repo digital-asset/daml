@@ -10,7 +10,6 @@ import com.typesafe.scalalogging.LazyLogging
 import scala.util.{Failure, Success, Try}
 
 /** In-memory projection of ledger events. */
-@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 case class Ledger(
     private val forParty: ApiTypes.Party,
     private val lastTransaction: Option[Transaction],
@@ -176,14 +175,6 @@ case class Ledger(
         eventById = eventById + (event.id -> event)
       )
     }
-  }
-
-  private def contractsByTemplateIdWithout(contractId: ApiTypes.ContractId) = {
-    val entryWithoutContract = for {
-      contract <- contractById.get(contractId)
-      templateContracts <- contractsByTemplateId.get(contract.template.id)
-    } yield contract.template.id -> (templateContracts - contract)
-    contractsByTemplateId ++ entryWithoutContract.toMap
   }
 
   def allContractsCount: Int = {

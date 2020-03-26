@@ -44,6 +44,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val lookupFlatTransactionById: Timer = metrics.timer("daml.index.lookup_flat_transaction_by_id")
     val lookupTransactionTreeById: Timer = metrics.timer("daml.index.lookup_transaction_tree_by_id")
     val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
+    val lookupMaximumLedgerTime: Timer = metrics.timer("daml.index.lookup_maximum_ledger_time")
     val getParties: Timer = metrics.timer("daml.index.get_parties")
     val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
@@ -101,6 +102,9 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       Metrics.lookupTransactionTreeById,
       ledger.lookupTransactionTreeById(transactionId, requestingParties),
     )
+
+  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
+    timedFuture(Metrics.lookupMaximumLedgerTime, ledger.lookupMaximumLedgerTime(contractIds))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     timedFuture(Metrics.getParties, ledger.getParties(parties))

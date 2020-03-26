@@ -7,10 +7,12 @@ module DA.Daml.Compiler.Repl (runRepl) where
 import BasicTypes (Boxity(..))
 import qualified "zip-archive" Codec.Archive.Zip as Zip
 import Control.Exception hiding (TypeError)
+import Control.Lens (toListOf)
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 import DA.Daml.LF.Reader (readDalfs, Dalfs(..))
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -19,6 +21,7 @@ import DA.Daml.Options.Types
 import Data.Bifunctor (first)
 import qualified Data.ByteString.Lazy as BSL
 import Data.Foldable
+import Data.Graph
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
@@ -137,6 +140,20 @@ splitStmt (BodyStmt _ expr _ _) = Just (noLoc $ WildPat noExt, expr)
 splitStmt (BindStmt _ pat expr _ _) = Just (ParPat noExt pat, expr)
 splitStmt _ = Nothing
 
+-- | Sort DALF packages in topological order.
+-- I.e. if @a@ appears before @b@, then @b@ does not depend on @a@.
+topologicalSort :: [LF.DalfPackage] -> [LF.DalfPackage]
+topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
+  where
+    (graph, fromVertex, _) = graphFromEdges
+      [ (lfPkg, pkgId, deps)
+      | lfPkg <- lfPkgs
+      , let pkgId = LF.dalfPackageId lfPkg
+      , let astPkg = LF.extPackagePkg (LF.dalfPackagePkg lfPkg)
+      , let deps = [dep | LF.PRImport dep <- toListOf packageRefs astPkg]
+      ]
+    toPkg = (\(pkg, _, _) -> pkg) . fromVertex
+
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
 runRepl opts mainDar replClient ideState = do
     Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
@@ -144,7 +161,7 @@ runRepl opts mainDar replClient ideState = do
     let moduleNames = map LF.moduleName (NM.elems (LF.packageModules pkg))
     Just pkgs <- runAction ideState (use GeneratePackageMap "Dummy.daml")
     Just stablePkgs <- runAction ideState (use GenerateStablePackages "Dummy.daml")
-    for_ (toList pkgs <> toList stablePkgs) $ \pkg -> do
+    for_ (topologicalSort (toList pkgs <> toList stablePkgs)) $ \pkg -> do
         r <- ReplClient.loadPackage replClient (LF.dalfPackageBytes pkg)
         case r of
             Left err -> do

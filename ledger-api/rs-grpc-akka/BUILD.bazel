@@ -29,6 +29,9 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    visibility = [
+        "//:__subpackages__",
+    ],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_grpc_grpc_netty",
@@ -36,7 +39,7 @@ da_scala_library(
     deps = [
         ":rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test",
+        "//ledger-api/rs-grpc-bridge:rs-grpc-bridge-test-lib",
         "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "@maven//:com_google_protobuf_protobuf_java",

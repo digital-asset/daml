@@ -10,15 +10,16 @@ import java.time.Duration
   *                            The client will backpressure when this number is reached.
   * @param maxParallelSubmissions The maximum number of parallel command submissions at a given time.
   *                               The client will backpressure when this number is reached.
-  * @param overrideTtl If true, the ttls of incoming commands will be set to [[ttl]]
-  * @param ttl The TTL to set on commands
+  * @param defaultDeduplicationTime The deduplication time to use for commands that do not have
+  *                                 a deduplication time set. The deduplication time is also used
+  *                                 as the time after which commands time out in the command client.
   */
 final case class CommandClientConfiguration(
     maxCommandsInFlight: Int,
     maxParallelSubmissions: Int,
-    overrideTtl: Boolean,
-    ttl: Duration)
+    defaultDeduplicationTime: Duration,
+)
 
 object CommandClientConfiguration {
-  def default = CommandClientConfiguration(1, 1, true, Duration.ofSeconds(30L))
+  def default = CommandClientConfiguration(1, 1, Duration.ofSeconds(30L))
 }

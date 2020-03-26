@@ -3,6 +3,8 @@
 
 package com.digitalasset.ledger.client.services.commands
 
+import java.time.{Duration => JDuration}
+
 import akka.NotUsed
 import akka.stream.scaladsl.{Concat, Flow, GraphDSL, Merge, Source}
 import akka.stream.{DelayOverflowStrategy, FlowShape, OverflowStrategy}
@@ -38,12 +40,14 @@ object CommandTrackerFlow {
         SubmissionMat],
       createCommandCompletionSource: LedgerOffset => Source[CompletionStreamElement, NotUsed],
       startingOffset: LedgerOffset,
-      backOffDuration: FiniteDuration = 1.second): Flow[
+      maxDeduplicationTime: () => JDuration,
+      backOffDuration: FiniteDuration = 1.second,
+  ): Flow[
     Ctx[Context, SubmitRequest],
     Ctx[Context, Completion],
     Materialized[SubmissionMat, Context]] = {
 
-    val trackerExternal = new CommandTracker[Context]()
+    val trackerExternal = new CommandTracker[Context](maxDeduplicationTime)
 
     Flow.fromGraph(GraphDSL.create(commandSubmissionFlow, trackerExternal)(Materialized.apply) {
       implicit builder => (submissionFlow, tracker) =>

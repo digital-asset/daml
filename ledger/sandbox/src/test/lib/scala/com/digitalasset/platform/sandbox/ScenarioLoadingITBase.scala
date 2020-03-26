@@ -3,9 +3,6 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-
 import akka.stream.scaladsl.Sink
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -28,7 +25,6 @@ import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, Suite, WordSpec}
@@ -38,7 +34,6 @@ import scala.concurrent.Future
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
     "org.wartremover.warts.StringPlusAny"
   ))
 abstract class ScenarioLoadingITBase
@@ -97,17 +92,7 @@ abstract class ScenarioLoadingITBase
   private def extractEvents(response: GetActiveContractsResponse) =
     response.activeContracts.toSet
 
-  lazy val dummyRequest = {
-    // we need to adjust the time of the request because we pass 10
-    // days in the test scenario.
-    val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
-    val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
-    val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(ledgerId(), "commandId1").update(
-      _.commands.ledgerEffectiveTime := let,
-      _.commands.maximumRecordTime := mrt
-    )
-  }
+  lazy val dummyRequest = dummyCommands(ledgerId(), "commandId1")
 
   implicit val ec = DirectExecutionContext
 

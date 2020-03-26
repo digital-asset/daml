@@ -490,8 +490,6 @@ ordering. Text-like literals (``LitText`` and ``LitParty``) are
 ordered lexicographically. In the followinng we will denote the
 corresponding (non-strict) order by ``≤ₗ``.
 
-
-
 Identifiers
 ~~~~~~~~~~~
 
@@ -553,9 +551,6 @@ strings as *package identifiers*.  ::
   Module names
         ModName ::= Name                            -- ModName
 
-  Contract identifiers
-           cid                                      -- ContractId
-
   Package identifiers
            pid  ::=  PackageIdString                -- PkgId
 
@@ -565,12 +560,24 @@ strings as *package identifiers*.  ::
   Package versions
            pversion ::= PackageVersionString        -- PackageVersion
 
-We do not specify an explicit syntax for contract identifiers as it is
-not possible to refer to them statically within a program. In
-practice, contract identifiers can be created dynamically through
-interactions with the underlying ledger. See the `operation semantics
-of update statements <Update Interpretation_>`_ for the formal
-specification of those interactions.
+  V0 Contract identifiers:
+          cidV0  ∈  #[a-zA-Z0-9\._:-#/ ]+           -- V0ContractId
+
+  V1 Contract identifiers:
+          cidV1  ∈  00([0-9a-f][0-9a-f]){32,96}    -- V1ContractId
+
+  Contract identifiers:
+          cid := cidV0 | cidV1                      -- ContractId
+
+Contract identifiers can be created dynamically through interactions
+with the underlying ledger. See the `operation semantics of update
+statements <Update Interpretation_>`_ for the formal specification of
+those interactions. Depending on its configuration, a DAML-LF engine
+can produce V0 or V1 contract identifiers.  When configured to produce
+V0 contract identifiers, a DAML-LF compliant engine must refuse to
+load any DAML-LF >= 1.dev archives.  On the contrary, when configured
+to produce V1 contract ids, a DAML-LF compliant engine must accept to
+load any DAML-LF version.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.

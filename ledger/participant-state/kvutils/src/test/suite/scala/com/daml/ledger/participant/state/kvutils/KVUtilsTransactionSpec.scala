@@ -3,7 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlTransactionRejectionEntry
@@ -17,18 +16,18 @@ import com.digitalasset.daml.lf.command.{
   ExerciseCommand
 }
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{Ref, FrontStack, SortedLookupList}
+import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
-  ValueUnit,
-  ValueParty,
-  ValueOptional,
   ValueList,
-  ValueVariant,
+  ValueOptional,
+  ValueParty,
   ValueRecord,
-  ValueTextMap
+  ValueTextMap,
+  ValueUnit,
+  ValueVariant
 }
 import org.scalatest.{Matchers, WordSpec}
 
@@ -102,19 +101,6 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       }
     }
 
-    /* Disabled while we rework the time model.
-    "reject transaction with elapsed max record time" in KVTest.runTestWithSimplePackage(
-      for {
-        tx <- runSimpleCommand(alice, simpleCreateCmd)
-        logEntry <- submitTransaction(submitter = alice, tx = tx, mrtDelta = Duration.ZERO)
-          .map(_._2)
-      } yield {
-        logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
-      }
-    )
-     */
-
     "reject transaction with out of bounds LET" in KVTest.runTestWithSimplePackage(alice, bob, eve) {
       val seed = hash(this.getClass.getName)
       for {
@@ -124,12 +110,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
           submitter = alice,
           transaction = transaction,
           submissionSeed = seed,
-          letDelta = conf.timeModel.minTtl)
+          letDelta = conf.timeModel.maxSkew.plusMillis(1))
           .map(_._2)
       } yield {
         logEntry.getPayloadCase shouldEqual DamlLogEntry.PayloadCase.TRANSACTION_REJECTION_ENTRY
-        // FIXME(JM): Bad reason, need one for bad/expired LET!
-        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED
+        logEntry.getTransactionRejectionEntry.getReasonCase shouldEqual DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME
       }
     }
 
@@ -284,12 +269,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
-        reg
+        metricRegistry.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
+        metricRegistry
           .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
           .getCount should be >= 1L
-        reg.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
+        metricRegistry.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
       }
     }
 

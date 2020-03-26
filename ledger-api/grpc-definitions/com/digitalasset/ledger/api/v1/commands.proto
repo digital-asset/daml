@@ -47,13 +47,8 @@ message Commands {
   // Required
   string party = 5;
 
-  // MUST be an approximation of the wall clock time on the ledger server.
-  // Required
-  google.protobuf.Timestamp ledger_effective_time = 6;
-
-  // The deadline for observing this command in the completion stream before it can be considered to have timed out.
-  // Required
-  google.protobuf.Timestamp maximum_record_time = 7;
+  reserved 6; // was ledger_effective_time
+  reserved 7; // was maximum_record_time
 
   // Individual elements of this atomic command. Must be non-empty.
   // Required

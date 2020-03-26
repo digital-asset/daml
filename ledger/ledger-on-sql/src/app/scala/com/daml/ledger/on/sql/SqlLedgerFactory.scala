@@ -56,9 +56,10 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       new SqlLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
+        metricRegistry(participantConfig, config),
         jdbcUrl,
-        seedService = SeedService(Seeding.Strong))
-        .acquire()
+        seedService = SeedService(Seeding.Strong),
+      ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
     }
   }

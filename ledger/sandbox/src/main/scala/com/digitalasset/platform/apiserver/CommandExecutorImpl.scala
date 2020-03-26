@@ -48,7 +48,7 @@ class CommandExecutorImpl(
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]],
       commands: Commands,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+  ): Future[Either[ErrorCause.DamlLf, CommandExecutionResult]] = {
 
     consume(engine.submit(commands, participant, submissionSeed))(
       getPackage,
@@ -66,7 +66,6 @@ class CommandExecutorImpl(
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
-              Time.Timestamp.assertFromInstant(submitted.maximumRecordTime),
               submitted.deduplicateUntil,
             ),
             transactionMeta = TransactionMeta(

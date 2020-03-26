@@ -120,7 +120,7 @@ object KeyHasher extends KeyHasher {
   private[this] def putString(digest: MessageDigest, value: String): Unit = {
     val bytes = Utf8.getBytes(value)
     putInt(digest, bytes.length)
-    digest.update(bytes)
+    digest.update(bytes.toByteBuffer)
   }
 
   // Do not use directly. It is package visible for testing purpose.

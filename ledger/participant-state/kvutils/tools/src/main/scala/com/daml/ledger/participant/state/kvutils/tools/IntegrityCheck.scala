@@ -8,6 +8,7 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
@@ -36,13 +37,13 @@ object IntegrityCheck extends App {
   val filename = args(0)
   println(s"Verifying integrity of $filename...")
 
-  val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
+  val metricRegistry = new MetricRegistry
   // Register JVM related metrics.
   (new metrics.jvm.GarbageCollectorMetricSet).getMetrics.forEach { (k, m) =>
-    val _ = registry.register(s"jvm.gc.$k", m)
+    val _ = metricRegistry.register(s"jvm.gc.$k", m)
   }
   (new metrics.jvm.MemoryUsageGaugeSet).getMetrics.forEach { (k, m) =>
-    val _ = registry.register(s"jvm.mem.$k", m)
+    val _ = metricRegistry.register(s"jvm.mem.$k", m)
   }
 
   val ledgerDumpStream: DataInputStream =
@@ -54,6 +55,7 @@ object IntegrityCheck extends App {
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
+  val keyValueCommitting = new KeyValueCommitting(metricRegistry)
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
   var total_t_commit = 0L
@@ -82,7 +84,7 @@ object IntegrityCheck extends App {
     print(s"verifying ${Pretty.prettyEntryId(entry.getEntryId)}: commit... ")
     val (t_commit, (logEntry2, outputState)) = Helpers.time(
       () =>
-        KeyValueCommitting.processSubmission(
+        keyValueCommitting.processSubmission(
           engine,
           entry.getEntryId,
           Conversions.parseTimestamp(logEntry.getRecordTime),
@@ -135,7 +137,7 @@ object IntegrityCheck extends App {
 
   // Dump detailed metrics.
   val reporter = metrics.ConsoleReporter
-    .forRegistry(metrics.SharedMetricRegistries.getOrCreate("kvutils"))
+    .forRegistry(metricRegistry)
     .convertRatesTo(TimeUnit.SECONDS)
     .convertDurationsTo(TimeUnit.MILLISECONDS)
     .build

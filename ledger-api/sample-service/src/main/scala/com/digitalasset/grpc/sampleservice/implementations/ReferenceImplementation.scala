@@ -10,6 +10,7 @@ import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.ExecutionContext
+
 class ReferenceImplementation
     extends HelloService
     with Responding
@@ -23,13 +24,14 @@ class ReferenceImplementation
 
   override def serverStreaming(
       request: HelloRequest,
-      responseObserver: StreamObserver[HelloResponse]): Unit = {
+      responseObserver: StreamObserver[HelloResponse],
+  ): Unit = {
     validateRequest(request)
     for (i <- 1.to(request.reqInt)) responseObserver.onNext(HelloResponse(i))
     responseObserver.onCompleted()
   }
 
-  private def validateRequest(request: HelloRequest) =
+  private def validateRequest(request: HelloRequest): Unit =
     if (request.reqInt < 0)
       throw Status.INVALID_ARGUMENT
         .withDescription("request cannot be negative")

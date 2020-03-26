@@ -30,7 +30,7 @@ daml_compile(
 #       - 'ts/codegen/tests/daml/*'
 #         The DAML that goes into the DAR ('build-and-lint-1.0.0.dar');
 #       - 'ts/codegen/tests/ts/*'
-#         A skeleton yarn workspaces root containing a TypeScript package
+#         A yarn workspaces root containing a single TypeScript package
 #         'build-and-lint-test' which houses the test driver 'test.ts'.
 #
 # 'build-and-lint' creates a temp directory ('root' say), and uses the
@@ -43,10 +43,10 @@ daml_compile(
 #          __tests__/
 #            test.ts
 #      daml2ts/
-#        build-and-lint-1.0.0/  -- The TypeScript generated from 'build-and-lint-1.0.0.dar'
+#        build-and-lint-1.0.0/  -- The artifacts generated of 'build-and-lint-1.0.0.dar'
 #        057eed/
 #        ...
-#      package.json  -- Enumeration of the workspaces : build-and-lint, daml2ts/build-and-lint-1.0.0, ...
+#      package.json  -- Singleton package workspace : build-and-lint-test
 #      node_modules/
 #        @daml/
 #          types/
@@ -54,8 +54,8 @@ daml_compile(
 #        ...
 #
 # In more detail, the actions of 'build-and-lint' are to:
-#  - Invoke 'daml2ts' on 'build-and-lint-1.0.0.dar' produce TypeScript bindings (
-#    in the 'daml2ts' directory);
+#  - Invoke 'daml2ts' on 'build-and-lint-1.0.0.dar' to produce bindings
+#    (in the 'daml2ts' directory);
 #  - Invoke from 'root':
 #    - 'yarn workspaces run install';
 #    - 'yarn workspaces run build';
@@ -136,17 +136,22 @@ da_haskell_test(
         "@davl//:released/davl-v5.dar",
     ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
         "extra",
         "filepath",
         "process",
         "tasty",
         "tasty-hunit",
+        "text",
+        "unordered-containers",
     ],
     main_function = "DA.Test.Daml2Ts.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

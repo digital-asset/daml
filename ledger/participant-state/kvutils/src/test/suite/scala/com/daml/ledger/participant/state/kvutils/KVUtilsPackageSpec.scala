@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPackageUploadRejectionEntry
@@ -93,10 +92,11 @@ class KVUtilsPackageSpec extends WordSpec with Matchers with BazelRunfiles {
         _ <- submitArchives("simple-archive-submission-1", simpleArchive).map(_._2)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.package_upload.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.package_upload.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.package_upload.run_timer").getCount should be >= 1L
+        metricRegistry.counter("kvutils.committer.package_upload.accepts").getCount should be >= 1L
+        metricRegistry
+          .counter("kvutils.committer.package_upload.rejections")
+          .getCount should be >= 1L
+        metricRegistry.timer("kvutils.committer.package_upload.run_timer").getCount should be >= 1L
       }
     }
 

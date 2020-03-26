@@ -17,7 +17,7 @@ import com.digitalasset.ledger.client.binding.retrying.CommandRetryFlow.{
   SubmissionFlowType
 }
 import com.digitalasset.util.Ctx
-import com.google.protobuf.timestamp.Timestamp
+import com.google.protobuf.duration.{Duration => protoDuration}
 import com.google.rpc.Code
 import com.google.rpc.status.Status
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -34,7 +34,7 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
     Flow[In[RetryInfo[Status]]]
       .map {
         case Ctx(context @ RetryInfo(_, _, _, status), SubmitRequest(Some(commands), tc)) =>
-          if (commands.ledgerEffectiveTime.get.seconds == 0) {
+          if (commands.deduplicationTime.get.nanos == 0) {
             Ctx(context, Completion(commands.commandId, Some(status), traceContext = tc))
           } else {
             Ctx(
@@ -53,9 +53,9 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
 
   private def createRetry(retryInfo: RetryInfo[Status], completion: Completion) = {
     val commands = retryInfo.request.commands.get
-    val let = commands.ledgerEffectiveTime.get
-    val newLet = let.copy(seconds = let.seconds + 1)
-    SubmitRequest(Some(commands.copy(ledgerEffectiveTime = Some(newLet))))
+    val dedupTime = commands.deduplicationTime.get
+    val newDedupTime = dedupTime.copy(nanos = dedupTime.nanos + 1)
+    SubmitRequest(Some(commands.copy(deduplicationTime = Some(newDedupTime))))
   }
 
   val retryFlow: SubmissionFlowType[RetryInfo[Status]] =
@@ -71,9 +71,10 @@ class CommandRetryFlowUT extends AsyncWordSpec with Matchers with AkkaTest {
           "applicationId",
           "commandId",
           "party",
-          Some(Timestamp(0, 0)),
-          Some(Timestamp(0, 0)),
-          Seq.empty)),
+          Seq.empty,
+          Some(protoDuration.of(120, 0)),
+        )
+      ),
       None
     )
 

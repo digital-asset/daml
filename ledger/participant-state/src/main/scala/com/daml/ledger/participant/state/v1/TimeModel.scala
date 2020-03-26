@@ -44,11 +44,13 @@ case class TimeModel private (
     */
   val futureAcceptanceWindow: Duration = maxClockSkew
 
+  // TODO(RA) Old ledger time model, remove.
   def checkTtl(givenLedgerEffectiveTime: Instant, givenMaximumRecordTime: Instant): Boolean = {
     val givenTtl = Duration.between(givenLedgerEffectiveTime, givenMaximumRecordTime)
     !givenTtl.minus(minTtl).isNegative && !maxTtl.minus(givenTtl).isNegative
   }
 
+  // TODO(RA) Old ledger time model, remove.
   def checkLet(
       currentTime: Instant,
       givenLedgerEffectiveTime: Instant,
@@ -59,6 +61,23 @@ case class TimeModel private (
     val lowerBound = givenLedgerEffectiveTime.minus(futureAcceptanceWindow)
     !currentTime.isBefore(lowerBound) && !currentTime.isAfter(givenMaximumRecordTime)
   }
+
+  /**
+    * Verifies whether the given ledger time and record time are valid under the ledger time model.
+    * In particular, checks the skew condition: rt_TX - s_min <= lt_TX <= rt_TX + s_max.
+    */
+  def checkTime(
+      ledgerTime: Instant,
+      recordTime: Instant
+  ): Either[String, Unit] = {
+    val lowerBound = recordTime.minus(minSkew)
+    val upperBound = recordTime.plus(maxSkew)
+    if (ledgerTime.isBefore(lowerBound) || ledgerTime.isAfter(upperBound))
+      Left(s"Ledger time $ledgerTime outside of range [$lowerBound, $upperBound]")
+    else
+      Right(())
+  }
+
 }
 
 object TimeModel {

@@ -9,10 +9,12 @@ import com.digitalasset.dec.DirectExecutionContext
 import scala.concurrent.Future
 
 package object metrics {
-  def timedFuture[T](timer: Timer, f: => Future[T]): Future[T] = {
+
+  def timedFuture[T](timer: Timer, future: => Future[T]): Future[T] = {
     val ctx = timer.time()
-    val res = f
-    res.onComplete(_ => ctx.stop())(DirectExecutionContext)
-    res
+    val result = future
+    result.onComplete(_ => ctx.stop())(DirectExecutionContext)
+    result
   }
+
 }

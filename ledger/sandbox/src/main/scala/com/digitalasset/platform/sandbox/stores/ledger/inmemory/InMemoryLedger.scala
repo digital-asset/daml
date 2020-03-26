@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -83,13 +84,21 @@ class InMemoryLedger(
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
-    ledgerEntries: ImmArray[LedgerEntryOrBump])
-    extends Ledger {
+    ledgerEntries: ImmArray[LedgerEntryOrBump],
+    initialConfig: Configuration,
+) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
+    l.publish(
+      InMemoryConfigEntry(
+        ConfigurationEntry.Accepted(
+          submissionId = UUID.randomUUID.toString,
+          participantId = participantId,
+          configuration = initialConfig,
+        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -116,7 +125,7 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = None
+  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
@@ -161,6 +170,16 @@ class InMemoryLedger(
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
+  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
+    Future.successful(this.synchronized {
+      contractIds.foldLeft[Instant](Instant.EPOCH)((acc, id) => {
+        val let = acs.activeContracts
+          .getOrElse(id, sys.error(s"Contract $id not found while looking for maximum ledger time"))
+          .let
+        if (let.isAfter(acc)) let else acc
+      })
+    })
+
   override def publishHeartbeat(time: Instant): Future[Unit] =
     Future.successful(this.synchronized[Unit] {
       entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
@@ -183,53 +202,50 @@ class InMemoryLedger(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
+    val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
-      // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
-      // than the time window between LET and MRT allows for.
-      // See https://github.com/digital-asset/daml/issues/987
-      handleError(
-        submitterInfo,
-        RejectionReason.TimedOut(
-          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
-    } else {
-      val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-        Ledger.convertToCommittedTransaction(transactionId, transaction)
-      // 5b. modify the ActiveContracts, while checking that we do not have double
-      // spends or timing issues
-      val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime.toInstant,
-        transactionId,
-        transactionMeta.workflowId,
-        Some(submitterInfo.submitter),
-        transactionForIndex,
-        disclosureForIndex,
-        globalDivulgence,
-        List.empty
+    val timeModel = ledgerConfiguration.get.timeModel
+    timeModel
+      .checkTime(ledgerTime, recordTime)
+      .fold(
+        reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
+        _ => {
+          val (transactionForIndex, disclosureForIndex, globalDivulgence) =
+            Ledger.convertToCommittedTransaction(transactionId, transaction)
+          val acsRes = acs.addTransaction(
+            transactionMeta.ledgerEffectiveTime.toInstant,
+            transactionId,
+            transactionMeta.workflowId,
+            Some(submitterInfo.submitter),
+            transactionForIndex,
+            disclosureForIndex,
+            globalDivulgence,
+            List.empty
+          )
+          acsRes match {
+            case Left(err) =>
+              handleError(
+                submitterInfo,
+                RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+            case Right(newAcs) =>
+              acs = newAcs
+              val entry = LedgerEntry
+                .Transaction(
+                  Some(submitterInfo.commandId),
+                  transactionId,
+                  Some(submitterInfo.applicationId),
+                  Some(submitterInfo.submitter),
+                  transactionMeta.workflowId,
+                  transactionMeta.ledgerEffectiveTime.toInstant,
+                  recordTime,
+                  transactionForIndex,
+                  disclosureForIndex
+                )
+              entries.publish(InMemoryLedgerEntry(entry))
+              ()
+          }
+        }
       )
-      acsRes match {
-        case Left(err) =>
-          handleError(
-            submitterInfo,
-            RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
-        case Right(newAcs) =>
-          acs = newAcs
-          val entry = LedgerEntry
-            .Transaction(
-              Some(submitterInfo.commandId),
-              transactionId,
-              Some(submitterInfo.applicationId),
-              Some(submitterInfo.submitter),
-              transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime.toInstant,
-              recordTime,
-              transactionForIndex,
-              disclosureForIndex
-            )
-          entries.publish(InMemoryLedgerEntry(entry))
-          ()
-      }
-    }
 
   }
 

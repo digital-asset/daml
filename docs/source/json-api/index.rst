@@ -80,15 +80,13 @@ From a DAML project directory:
       --ledger-port <value>
             Ledger port number
       --address <value>
-            IP address that HTTP JSON API service listens on. Defaults to 0.0.0.0.
+            IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
       --http-port <value>
             HTTP JSON API service port number
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
-      --default-ttl <value>
-            Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. Defaults to 30 seconds
       --max-inbound-message-size <value>
             Optional max inbound message size in bytes. Defaults to 4194304
       --query-store-jdbc-config "driver=<JDBC driver class name>,url=<JDBC connection url>,user=<user>,password=<password>,createSchema=<true|false>"
@@ -265,6 +263,8 @@ Successful response with a warning, HTTP status: 200 OK
         "warnings": <JSON object>
     }
 
+.. _error-format:
+
 Failure, HTTP status: 400 | 401 | 404 | 500
 ===========================================
 
@@ -396,18 +396,14 @@ When creating a new contract, client may specify an optional ``meta`` field:
         "owner": "Alice"
       },
       "meta": {
-      	"commandId": "a unique ID",
-      	"ledgerEffectiveTime": 1579730994499,
-      	"maximumRecordTime": 1579731004499
+      	"commandId": "a unique ID"
       }
     }
 
 Where:
 
-- ``commandId`` -- optional field, a unique string identifying the command;
-- ``ledgerEffectiveTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, an approximation of the wall clock time on the ledger server;
-- ``maximumRecordTime`` -- optional field, the number of milliseconds from the epoch of ``1970-01-01T00:00:00Z``, a deadline for observing this command in the completion stream before it can be considered to have timed out.
- 
+- ``commandId`` -- optional field, a unique string identifying the command.
+
 Exercise by Contract ID
 ***********************
 
@@ -1053,6 +1049,54 @@ Streaming API
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
 
+JavaScript/Node.js example demonstrating how to establish Streaming API connection:
+
+.. code-block:: javascript
+
+    const WebSocket = require("ws")
+
+    console.log("Starting")
+
+    const wsProtocol = "daml.ws.auth"
+    const tokenPrefix = "jwt.token."
+    const jwt =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
+    const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol]
+
+    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols)
+
+    ws.on("open", function open() {
+      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}))
+    })
+
+    ws.on("message", function incoming(data) {
+      console.log(data)
+    })
+
+Error and Warning Reporting
+===========================
+
+Errors and warnings reported as part of the regular ``on-message`` flow.
+
+Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
+
+Streaming API reports only one type of warnings -- unknown template IDs, which is formatted as:
+
+.. code-block:: none
+
+    {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
+
+Examples:
+
+.. code-block:: none
+
+    {"warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
+
+    {
+      "errors":["JsonReaderError. Cannot read JSON: <{\"templateIds\":[]}>. Cause: spray.json.DeserializationException: search requires at least one item in 'templateIds'"],
+      "status":400
+    }
+
 Contracts Query Stream
 ======================
 
@@ -1194,30 +1238,28 @@ Some notes on behavior:
    paired between polls), such contracts may or may not appear in any
    result object.
 
-2. No ``archived`` ever contains a contract ID occurring within an
+2. No ``archived`` ever contains a contract ID occurring within a
    ``created`` in the same array.  So, for example, supposing you are
-   keeping an internal map of active contracts, you can apply the
-   ``created`` first or the ``archived`` first and be guaranteed to get
-   the same results.
+   keeping an internal map of active contracts keyed by contract ID, you
+   can apply the ``created`` first or the ``archived`` first, forwards,
+   backwards, or in random order, and be guaranteed to get the same
+   results.
 
 3. Within a given array, if an ``archived`` and ``created`` refer to
    contracts with the same template ID and contract key, the
    ``archived`` is guaranteed to occur before the ``created``.
 
-4. You will almost certainly receive contract IDs in ``archived`` that
+4. Except in cases of #3, within a single response array, the order of
+   ``created`` and ``archived`` is undefined and does not imply that any
+   element occurred "before" or "after" any other one.
+
+5. You will almost certainly receive contract IDs in ``archived`` that
    you never received a ``created`` for.  These are contracts that
    query filtered out, but for which the server no longer is aware of
    that.  You can safely ignore these.  However, such "phantom archives"
    *are* guaranteed to represent an actual archival *on the ledger*, so
    if you are keeping a more global dataset outside the context of this
    specific search, you can use that archival information as you wish.
-
-5. Within a single response array, the order of ``created`` and
-   ``archived`` is undefined and does not imply that any element
-   occurred "before" or "after" any other one.  As specified in note #2,
-   order of application of changes doesn't matter; you will get the same
-   results if you walk the array forwards, backwards, or in random
-   order.
 
 Fetch by Key Contracts Stream
 =============================

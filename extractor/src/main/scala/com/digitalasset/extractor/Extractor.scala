@@ -257,7 +257,7 @@ class Extractor[T](config: ExtractorConfig, target: T)(
       LedgerClientConfiguration(
         config.appId,
         LedgerIdRequirement(ledgerId = "", enabled = false),
-        CommandClientConfiguration(1, 1, overrideTtl = true, java.time.Duration.ofSeconds(20L)),
+        CommandClientConfiguration(1, 1, java.time.Duration.ofSeconds(20L)),
         sslContext = config.tlsConfig.client,
         tokenHolder.flatMap(_.token)
       )

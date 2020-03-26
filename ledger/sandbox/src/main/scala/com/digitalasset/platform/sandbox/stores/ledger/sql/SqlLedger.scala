@@ -4,6 +4,8 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
@@ -56,6 +58,7 @@ object SqlLedger {
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
       metrics: MetricRegistry,
@@ -73,6 +76,7 @@ object SqlLedger {
             acs,
             packages,
             initialLedgerEntries,
+            initialConfig,
             queueDepth,
             // we use `maxConcurrentConnections` for the maximum batch size, since it doesn't make
             // sense to try to persist more ledger entries concurrently than we have SQL executor
@@ -86,6 +90,7 @@ private final class SqlLedger(
     ledgerId: LedgerId,
     participantId: ParticipantId,
     headAtInitialization: Offset,
+    configAtInitialization: Option[Configuration],
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
     packages: InMemoryPackageStore,
@@ -165,6 +170,25 @@ private final class SqlLedger(
     checkpointQueue.complete()
   }
 
+  // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
+  // changed entry. Transactions written around the same time as a configuration change entry might not use the correct
+  // time model.
+  private[this] val currentConfiguration =
+    new AtomicReference[Option[Configuration]](configAtInitialization)
+
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant): Either[String, Unit] = {
+    val recordTime = timeProvider.getCurrentTime
+
+    currentConfiguration
+      .get()
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, cannot validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def storeLedgerEntry(offset: Offset, entry: PersistenceEntry): Future[Unit] =
     ledgerDao
       .storeLedgerEntry(offset, entry)
@@ -192,38 +216,37 @@ private final class SqlLedger(
       val (transactionForIndex, disclosureForIndex, globalDivulgence) =
         Ledger.convertToCommittedTransaction(transactionId, transaction)
 
+      val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
-      val entry = if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
-        // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
-        // than the time window between LET and MRT allows for.
-        // See https://github.com/digital-asset/daml/issues/987
-        PersistenceEntry.Rejection(
-          LedgerEntry.Rejection(
-            recordTime,
-            submitterInfo.commandId,
-            submitterInfo.applicationId,
-            submitterInfo.submitter,
-            RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime}")
+      val entry = checkTimeModel(ledgerTime)
+        .fold(
+          reason =>
+            PersistenceEntry.Rejection(
+              LedgerEntry.Rejection(
+                recordTime,
+                submitterInfo.commandId,
+                submitterInfo.applicationId,
+                submitterInfo.submitter,
+                RejectionReason.InvalidLedgerTime(reason)
+              )
+          ),
+          _ =>
+            PersistenceEntry.Transaction(
+              LedgerEntry.Transaction(
+                Some(submitterInfo.commandId),
+                transactionId,
+                Some(submitterInfo.applicationId),
+                Some(submitterInfo.submitter),
+                transactionMeta.workflowId,
+                transactionMeta.ledgerEffectiveTime.toInstant,
+                recordTime,
+                transactionForIndex,
+                disclosureForIndex
+              ),
+              globalDivulgence,
+              List.empty
           )
         )
-      } else {
-        PersistenceEntry.Transaction(
-          LedgerEntry.Transaction(
-            Some(submitterInfo.commandId),
-            transactionId,
-            Some(submitterInfo.applicationId),
-            Some(submitterInfo.submitter),
-            transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
-            recordTime,
-            transactionForIndex,
-            disclosureForIndex
-          ),
-          globalDivulgence,
-          List.empty
-        )
-      }
 
       storeLedgerEntry(offset, entry)
 
@@ -315,15 +338,24 @@ private final class SqlLedger(
           // we persist a rejection. This is done inside storeConfigurationEntry
           // as we need to check against the current configuration within the same
           // database transaction.
-          ledgerDao
-            .storeConfigurationEntry(
-              offset,
-              recordTime,
-              submissionId,
-              participantId,
-              config,
-              None
-            )
+          // NOTE(RA): Since the new configuration can be rejected inside storeConfigurationEntry,
+          // we look up the current configuration again to see if it was stored successfully.
+          implicit val ec: ExecutionContext = DEC
+          for {
+            response <- ledgerDao
+              .storeConfigurationEntry(
+                offset,
+                recordTime,
+                submissionId,
+                participantId,
+                config,
+                None
+              )
+            newConfig <- ledgerDao.lookupLedgerConfiguration()
+          } yield {
+            currentConfiguration.set(newConfig.map(_._2))
+            response
+          }
         }
 
       storeF
@@ -365,6 +397,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       queueDepth: Int,
       maxBatchSize: Int,
   )(implicit mat: Materializer): Future[SqlLedger] = {
@@ -374,20 +407,36 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       case SqlStartMode.AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
+          ledgerId <- initialize(
+            initialLedgerId,
+            participantId,
+            timeProvider,
+            acs,
+            packages,
+            initialLedgerEntries,
+            initialConfig)
         } yield ledgerId
       case SqlStartMode.ContinueIfExists =>
-        initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
+        initialize(
+          initialLedgerId,
+          participantId,
+          timeProvider,
+          acs,
+          packages,
+          initialLedgerEntries,
+          initialConfig)
     }
 
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
+      ledgerConfig <- ledgerDao.lookupLedgerConfiguration()
     } yield
       new SqlLedger(
         ledgerId,
         participantId,
         ledgerEnd,
+        ledgerConfig.map(_._2),
         ledgerDao,
         timeProvider,
         packages,
@@ -401,10 +450,12 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
   private def initialize(
       initialLedgerId: LedgerIdMode,
+      participantId: ParticipantId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveLedgerState,
       packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
   ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
@@ -436,7 +487,13 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
         logger.info(s"Initializing ledger with ID: $ledgerId")
         for {
           _ <- ledgerDao.initializeLedger(ledgerId, Offset.begin)
-          _ <- initializeLedgerEntries(initialLedgerEntries, timeProvider, packages, acs)
+          _ <- initializeLedgerEntries(
+            initialLedgerEntries,
+            initialConfig,
+            timeProvider,
+            packages,
+            acs,
+            participantId)
         } yield ()
       } else {
         Future.unit
@@ -463,16 +520,18 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
 
   private def initializeLedgerEntries(
       initialLedgerEntries: ImmArray[LedgerEntryOrBump],
+      initialConfig: Configuration,
       timeProvider: TimeProvider,
       packages: InMemoryPackageStore,
       acs: InMemoryActiveLedgerState,
+      participantId: ParticipantId,
   )(implicit executionContext: ExecutionContext): Future[Unit] = {
     if (initialLedgerEntries.nonEmpty) {
       logger.info(s"Initializing ledger with ${initialLedgerEntries.length} ledger entries.")
     }
 
     val (ledgerEnd, ledgerEntries) =
-      initialLedgerEntries.foldLeft((0L, Vector.empty[(Offset, LedgerEntry)])) {
+      initialLedgerEntries.foldLeft((1L, Vector.empty[(Offset, LedgerEntry)])) {
         case ((offset, entries), entryOrBump) =>
           entryOrBump match {
             case LedgerEntryOrBump.Entry(entry) =>
@@ -485,6 +544,14 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
     val contracts = acs.activeContracts.values.toList
     for {
       _ <- copyPackages(packages, timeProvider.getCurrentTime, SandboxOffset.toOffset(ledgerEnd))
+      _ <- ledgerDao.storeConfigurationEntry(
+        offset = SandboxOffset.toOffset(0),
+        recordedAt = timeProvider.getCurrentTime,
+        submissionId = UUID.randomUUID.toString,
+        participantId = participantId,
+        configuration = initialConfig,
+        rejectionReason = None,
+      )
       _ <- ledgerDao.storeInitialState(contracts, ledgerEntries, SandboxOffset.toOffset(ledgerEnd))
     } yield ()
   }

@@ -11,6 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
@@ -29,7 +30,8 @@ import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServices,
   LedgerApiServer,
-  TimeServiceBackend
+  TimeServiceBackend,
+  TimedIndexService
 }
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
@@ -239,7 +241,7 @@ final class SandboxServer(
           config.ledgerIdMode,
           participantId,
           jdbcUrl,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,
@@ -253,7 +255,7 @@ final class SandboxServer(
         "in-memory" -> SandboxIndexAndWriteService.inMemory(
           config.ledgerIdMode,
           participantId,
-          config.timeModel,
+          defaultConfiguration,
           timeProvider,
           acs,
           ledgerEntries,
@@ -293,8 +295,14 @@ final class SandboxServer(
           ApiServices
             .create(
               participantId = participantId,
-              writeService = indexAndWriteService.writeService,
-              indexService = indexAndWriteService.indexService,
+              writeService = new TimedWriteService(
+                indexAndWriteService.writeService,
+                metrics,
+                "daml.sandbox.writeService"),
+              indexService = new TimedIndexService(
+                indexAndWriteService.indexService,
+                metrics,
+                "daml.sandbox.indexService"),
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,

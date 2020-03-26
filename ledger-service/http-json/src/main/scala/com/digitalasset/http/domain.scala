@@ -3,8 +3,6 @@
 
 package com.digitalasset.http
 
-import java.time.Instant
-
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref
@@ -103,8 +101,7 @@ object domain {
 
   final case class CommandMeta(
       commandId: Option[CommandId],
-      ledgerEffectiveTime: Option[Instant],
-      maximumRecordTime: Option[Instant],
+      // TODO(Leo): add Option[WorkflowId] back
   )
 
   final case class CreateCommand[+LfV](

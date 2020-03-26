@@ -1,10 +1,10 @@
 {
   "private": true,
   "workspaces": [
-    "build-and-lint-test"
+    "build-and-lint-test",
+    "daml2ts"
   ],
   "resolutions": {
-    "@daml/types": "file:daml-types",
-    "@daml/ledger": "file:daml-ledger"
+    "@daml/types": "file:daml-types"
   }
 }
