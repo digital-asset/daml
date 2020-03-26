@@ -1247,7 +1247,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   }
 
   "fetching contracts that have keys correctly fills in the transaction structure" when {
-    val fetchedCid = AbsoluteContractId("1")
+    val fetchedCid = AbsoluteContractId(ContractIdString.assertFromString("1"))
     val now = Time.Timestamp.now()
 
     "fetched via a fetch" in {
@@ -1277,7 +1277,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "fetched via a fetchByKey" in {
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
-      val fetcherCid = AbsoluteContractId("2")
+      val fetcherCid = AbsoluteContractId(ContractIdString.assertFromString("2"))
       val fetcherInst = ContractInst(
         TypeConName(basicTestsPkgId, fetcherTemplate),
         assertAsVersionedValue(
