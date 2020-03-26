@@ -33,7 +33,7 @@ resource "google_compute_region_instance_group_manager" "TEMP_garys-agent-linux"
 
 resource "google_compute_instance_template" "TEMP_garys-agent-linux" {
   name_prefix  = "temp-garys-agent-linux-"
-  machine_type = "custom-8-16384"
+  machine_type = "custom-8-24576"
   labels       = "${local.labels}"
 
   disk {
