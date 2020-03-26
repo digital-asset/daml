@@ -4,8 +4,8 @@
 package com.digitalasset.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
-import akka.stream.scaladsl.{Flow, Source}
+import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
+import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.stream.Materializer
 import com.digitalasset.http.EndpointsCompanion._
 import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
@@ -21,7 +21,6 @@ import scalaz.{Liskov, NonEmptyList}
 import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
-import scalaz.syntax.show._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -30,7 +29,7 @@ import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, \/, \/-}
-import spray.json.{JsArray, JsObject, JsString, JsValue}
+import spray.json.{JsArray, JsObject, JsValue}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -207,8 +206,8 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQuery[List[domain.EnrichedContractKey[LfV]]] =
-    new StreamQuery[List[domain.EnrichedContractKey[LfV]]] {
+    : StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] =
+    new StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] {
 
       type Positive = Unit
 
@@ -217,10 +216,10 @@ object WebSocketService {
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def parse(
           decoder: DomainJsonDecoder,
-          jv: JsValue): Error \/ List[domain.EnrichedContractKey[LfV]] =
+          jv: JsValue): Error \/ NonEmptyList[domain.EnrichedContractKey[LfV]] =
         for {
           as <- SprayJson
-            .decode[List[domain.EnrichedContractKey[JsValue]]](jv)
+            .decode[NonEmptyList[domain.EnrichedContractKey[JsValue]]](jv)
             .liftErr(InvalidUserInput)
           bs = as.map(a => decodeWithFallback(decoder, a))
         } yield bs
@@ -235,7 +234,7 @@ object WebSocketService {
       override def allowPhantonArchives: Boolean = false
 
       override def predicate(
-          request: List[domain.EnrichedContractKey[LfV]],
+          request: NonEmptyList[domain.EnrichedContractKey[LfV]],
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: TypeLookup): StreamPredicate[Positive] = {
 
@@ -269,6 +268,7 @@ class WebSocketService(
     extends LazyLogging {
 
   import WebSocketService._
+  import Statement.discard
   import util.ErrorOps._
   import com.digitalasset.http.json.JsonProtocol._
 
@@ -320,9 +320,11 @@ class WebSocketService(
           msg.toStrict(config.maxDuration).map { m =>
             SprayJson.parse(m.text).liftErr(InvalidUserInput)
           }
-        case _ =>
-          Future successful -\/(
-            InvalidUserInput("Cannot process your input, Expect a single JSON message"))
+        case bm: BinaryMessage =>
+          // ignore binary messages but drain content to avoid the stream being clogged
+          discard { bm.dataStream.runWith(Sink.ignore) }
+          Future successful -\/(InvalidUserInput(
+            "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"))
       }
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
       .map {
@@ -333,9 +335,15 @@ class WebSocketService(
             a <- Q.parse(decoder, jv)
           } yield (offPrefix, a)
       }
+      .map {
+        _.flatMap {
+          case (offPrefix, a) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
+        }
+      }
+      .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .flatMapConcat {
-        case \/-((offPrefix, a)) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
-        case -\/(e) => Source.single(wsErrorMessage(e.shows))
+        case \/-(s) => s
+        case -\/(e) => Source.single(wsErrorMessage(e))
       }
   }
 
@@ -343,13 +351,13 @@ class WebSocketService(
       jwt: Jwt,
       jwtPayload: JwtPayload,
       offPrefix: Option[domain.StartingOffset],
-      request: A): Source[Message, NotUsed] = {
+      request: A): Error \/ Source[Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
     val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      contractsService
+      val source = contractsService
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
@@ -358,11 +366,10 @@ class WebSocketService(
         .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => TextMessage(jsv.compactPrint))
+      \/-(source)
     } else {
-      Source.single(
-        wsErrorMessage(
-          s"Cannot resolve any templateId from request: ${request: A}, " +
-            s"unresolved templateIds: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
+      -\/(InvalidUserInput(
+        s"Cannot resolve any of the requested template IDs: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
     }
   }
 
@@ -412,10 +419,9 @@ class WebSocketService(
       .collect { case (_, Some(x)) => x }
   }
 
-  private[http] def wsErrorMessage(errorMsg: String): TextMessage.Strict =
-    TextMessage(
-      JsObject("error" -> JsString(errorMsg)).compactPrint
-    )
+  private[http] def wsErrorMessage(error: Error): TextMessage.Strict = {
+    TextMessage(errorResponse(error).toJson.compactPrint)
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])

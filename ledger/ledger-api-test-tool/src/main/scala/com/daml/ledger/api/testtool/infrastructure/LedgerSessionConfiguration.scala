@@ -9,7 +9,6 @@ private[testtool] final case class LedgerSessionConfiguration(
     participants: Vector[(String, Int)],
     shuffleParticipants: Boolean,
     ssl: Option[TlsConfiguration],
-    commandTtlFactor: Double,
     loadScaleFactor: Double,
     partyAllocation: PartyAllocationConfiguration,
 )

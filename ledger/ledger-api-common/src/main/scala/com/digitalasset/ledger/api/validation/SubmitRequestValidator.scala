@@ -15,13 +15,15 @@ class SubmitRequestValidator(commandsValidator: CommandsValidator) {
 
   def validate(
       req: SubmitRequest,
-      currentTime: Instant,
+      currentLedgerTime: Instant,
+      currentUtcTime: Instant,
       maxDeduplicationTime: Duration): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
       validatedCommands <- commandsValidator.validateCommands(
         commands,
-        currentTime,
+        currentLedgerTime,
+        currentUtcTime,
         maxDeduplicationTime)
     } yield submission.SubmitRequest(validatedCommands, req.traceContext.map(toBrave))
 

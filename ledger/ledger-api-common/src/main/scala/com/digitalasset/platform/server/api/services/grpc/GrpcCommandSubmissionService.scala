@@ -27,7 +27,8 @@ import scala.concurrent.Future
 class GrpcCommandSubmissionService(
     protected val service: CommandSubmissionService with AutoCloseable,
     val ledgerId: LedgerId,
-    currentTime: () => Instant,
+    currentLedgerTime: () => Instant,
+    currentUtcTime: () => Instant,
     maxDeduplicationTime: () => Duration
 ) extends ApiCommandSubmissionService
     with ProxyCloseable
@@ -40,7 +41,7 @@ class GrpcCommandSubmissionService(
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator
-      .validate(request, currentTime(), maxDeduplicationTime())
+      .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime())
       .fold(
         Future.failed,
         service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))

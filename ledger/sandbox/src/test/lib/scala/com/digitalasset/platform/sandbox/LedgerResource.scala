@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -29,19 +29,28 @@ object LedgerResource {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
+      initialConfig: Configuration,
       acs: InMemoryActiveLedgerState = InMemoryActiveLedgerState.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     new OwnedResource(
       ResourceOwner.successful(
-        new InMemoryLedger(ledgerId, participantId, timeProvider, acs, packages, entries)))
+        new InMemoryLedger(
+          ledgerId,
+          participantId,
+          timeProvider,
+          acs,
+          packages,
+          entries,
+          initialConfig)))
 
   def postgres(
       testClass: Class[_],
       ledgerId: LedgerId,
       participantId: ParticipantId,
       timeProvider: TimeProvider,
+      initialConfig: Configuration,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
   )(
@@ -61,6 +70,7 @@ object LedgerResource {
           InMemoryActiveLedgerState.empty,
           packages,
           ImmArray.empty,
+          initialConfig,
           128,
           SqlStartMode.AlwaysReset,
           metrics

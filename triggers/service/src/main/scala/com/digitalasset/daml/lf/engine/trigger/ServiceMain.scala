@@ -91,8 +91,8 @@ object TriggerActor {
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
         ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-        commandClient =
-          CommandClientConfiguration.default.copy(ttl = config.ledgerConfig.commandTtl),
+        commandClient = CommandClientConfiguration.default.copy(
+          defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
       )
 

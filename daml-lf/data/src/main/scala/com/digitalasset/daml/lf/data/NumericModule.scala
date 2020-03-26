@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
+import scalaz.Order
+
 import java.math.{BigDecimal, BigInteger}
 
 import scala.math.{BigDecimal => BigDec}
@@ -363,5 +365,8 @@ object NumericModule {
     def toUnscaledString: String = Numeric toUnscaledString self
     def toScaledString: String = Numeric toString self
   }
+
+  implicit def `Numeric Order`: Order[Numeric] =
+    Order.fromScalaOrdering[BigDecimal].contramap(identity)
 
 }

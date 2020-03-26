@@ -9,12 +9,12 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
-import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.KVOffset
 import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
@@ -35,6 +35,7 @@ import scala.util.{Failure, Success}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
+    metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
     database: Database,
     dispatcher: Dispatcher[Index],
@@ -50,13 +51,17 @@ final class SqlLedgerReaderWriter(
     DamlLogEntryId.newBuilder
       .setEntryId(
         ByteString.copyFromUtf8(
-          UUID.nameUUIDFromBytes(seedService.nextSeed().toByteArray).toString))
+          UUID.nameUUIDFromBytes(seedService.nextSeed().bytes.toByteArray).toString))
       .build()
 
   private val committer = new ValidatingCommitter[Index](
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(SqlLedgerStateAccess, allocateNextLogEntryId = () => allocateSeededLogEntryId()),
+      .create(
+        SqlLedgerStateAccess,
+        allocateNextLogEntryId = () => allocateSeededLogEntryId(),
+        metricRegistry = metricRegistry,
+      ),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
 
@@ -110,10 +115,11 @@ object SqlLedgerReaderWriter {
   class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
+      metricRegistry: MetricRegistry,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
       heartbeats: Source[Instant, NotUsed] = Source.empty,
-      seedService: SeedService
+      seedService: SeedService,
   )(implicit materializer: Materializer, logCtx: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
     override def acquire()(
@@ -129,10 +135,12 @@ object SqlLedgerReaderWriter {
         new SqlLedgerReaderWriter(
           ledgerId,
           participantId,
+          metricRegistry,
           timeProvider,
           database,
           dispatcher,
-          seedService)
+          seedService,
+        )
   }
 
   private def updateOrRetrieveLedgerId(initialLedgerId: Option[LedgerId], database: Database)(

@@ -7,6 +7,7 @@ DAML Assistant (``daml``)
 ``daml`` is a command-line tool that does a lot of useful things related to the SDK. Using ``daml``, you can:
 
 - Create new DAML projects: ``daml new <path to create project in>``
+- Create a new project based on `create-daml-app <https://github.com/digital-asset/create-daml-app>`_: ``daml create-daml-app <path to create project in>``
 - Initialize a DAML project: ``daml init``
 - Compile a DAML project: ``daml build``
 
@@ -138,6 +139,10 @@ Here is what each field means:
 - ``json-api-options``: a list of options that will be passed to the HTTP JSON API in ``daml start``.
 - ``script-options``: a list of options that will be passed to the DAML script
   runner when running the ``init-script`` as part of ``daml start``.
+- ``start-navigator``: Controls whether navigator is started as part
+  of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
+  say ``daml start --start-navigator=true``, the CLI argument takes precedence over
+  the value in ``daml.yaml``.
 
 ..  TODO (@robin-da) document the dependency syntax
 

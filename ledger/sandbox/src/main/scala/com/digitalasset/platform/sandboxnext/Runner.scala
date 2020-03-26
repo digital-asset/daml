@@ -14,7 +14,8 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DarReader
@@ -28,7 +29,8 @@ import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServerConfig,
   StandaloneApiServer,
-  TimeServiceBackend
+  TimeServiceBackend,
+  TimedIndexService
 }
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.indexer.{
@@ -152,18 +154,21 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
+                  metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   heartbeats = heartbeats,
-                  seedService = SeedService(seeding)
+                  seedService = SeedService(seeding),
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+                readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
+                writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>
-                  ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
+                  readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- ResourceOwner.forFuture(() =>
-                  Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
+                  Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
                 _ <- new StandaloneIndexerServer(
-                  readService = ledger,
+                  readService = readService,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
@@ -204,9 +209,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   commandConfig = config.commandConfig,
                   partyConfig = config.partyConfig,
                   submissionConfig = config.submissionConfig,
-                  readService = ledger,
-                  writeService = ledger,
+                  readService = readService,
+                  writeService = writeService,
                   authService = authService,
+                  transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
                   seeding = Some(seeding),
@@ -238,7 +244,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       owner.acquire()
     }
 
-  private def uploadDar(from: File, to: KeyValueParticipantState)(
+  private def uploadDar(from: File, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -261,6 +267,10 @@ object Runner {
 
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
+
+  private val IndexServicePrefix = "daml.services.index"
+  private val ReadServicePrefix = "daml.services.read"
+  private val WriteServicePrefix = "daml.services.write"
 
   private val HeartbeatInterval: FiniteDuration = 1.second
 }

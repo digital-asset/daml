@@ -129,8 +129,9 @@ public class IouMain {
                 "IouApp",
                 UUID.randomUUID().toString(),
                 party,
-                Instant.EPOCH,
-                Instant.EPOCH.plusSeconds(10),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Collections.singletonList(c))
                 .blockingGet();
     }

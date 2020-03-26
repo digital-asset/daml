@@ -21,7 +21,6 @@ import org.scalatest.{Matchers, WordSpec}
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
     "org.wartremover.warts.StringPlusAny"
   ))
 class ScenarioLoadingITDivulgence

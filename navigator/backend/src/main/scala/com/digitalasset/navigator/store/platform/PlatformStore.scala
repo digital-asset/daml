@@ -285,7 +285,6 @@ class PlatformStore(
       CommandClientConfiguration(
         maxCommandsInFlight,
         maxParallelSubmissions,
-        overrideTtl = false,
         Duration.ofSeconds(30)),
       sslContext,
       token

@@ -3,15 +3,11 @@
 
 package com.digitalasset.ledger.api.refinements
 
-import java.time.{Duration, Instant}
-
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.refinements.ApiTypes._
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
 import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 import com.digitalasset.ledger.api.v1.value.Identifier
-import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.{Matchers, WordSpec}
 
 class CompositeCommandAdapterUT extends WordSpec with Matchers {
@@ -33,25 +29,13 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
         submittedTraceContext
       )
 
-      val timeProvider = TimeProvider.Constant(Instant.ofEpochSecond(60))
-
       val submitRequest = CompositeCommandAdapter(
         LedgerId("ledgerId"),
         ApplicationId("applicationId"),
-        Duration.ofMinutes(1),
-        timeProvider
       ).transform(compositeCommand)
 
       submitRequest.commands shouldBe Some(
-        Commands(
-          "ledgerId",
-          "workflowId",
-          "applicationId",
-          "commandId",
-          "party",
-          Some(Timestamp(60, 0)),
-          Some(Timestamp(120, 0)),
-          commands))
+        Commands("ledgerId", "workflowId", "applicationId", "commandId", "party", commands))
 
       submitRequest.traceContext shouldBe submittedTraceContext
     }

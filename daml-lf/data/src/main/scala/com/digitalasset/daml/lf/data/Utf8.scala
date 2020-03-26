@@ -1,10 +1,13 @@
 // Copyright (c) 2020 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.digitalasset.daml.lf
+package data
 
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+
+import com.google.common.io.BaseEncoding
+import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -30,13 +33,13 @@ object Utf8 {
     arr.result()
   }
 
-  def getBytes(s: String): Array[Byte] =
-    s.getBytes(StandardCharsets.UTF_8)
+  def getBytes(s: String): Bytes =
+    Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
   def sha256(s: String): String = {
     val digest = MessageDigest.getInstance("SHA-256")
-    val array = digest.digest(getBytes(s))
-    array.map("%02x" format _).mkString
+    digest.update(getBytes(s).toByteBuffer)
+    BaseEncoding.base16().lowerCase().encode(digest.digest())
   }
 
   def implode(ts: ImmArray[String]): String =

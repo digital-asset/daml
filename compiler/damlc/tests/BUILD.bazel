@@ -70,6 +70,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 

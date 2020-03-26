@@ -115,7 +115,7 @@ object Ordering extends scala.math.Ordering[SValue] {
     s.forall(x => '0' < x && x < '9' || 'a' < x && x < 'f')
 
   @inline
-  private val underlyingCidDiscriminatorLength = 65
+  private val underlyingCidDiscriminatorLength = 66
 
   private def compareCid(cid1: Ref.ContractIdString, cid2: Ref.ContractIdString): Int = {
     // FIXME https://github.com/digital-asset/daml/issues/2256

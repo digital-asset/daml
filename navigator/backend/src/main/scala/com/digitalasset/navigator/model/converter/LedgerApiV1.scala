@@ -19,7 +19,6 @@ import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfValueToApiValue
 }
 
-import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
 import scalaz.syntax.bifunctor._
@@ -478,25 +477,18 @@ case object LedgerApiV1 {
   def writeCommands(
       party: Model.PartyState,
       command: Model.Command,
-      maxRecordDelay: Long,
       ledgerId: String,
       applicationId: Ref.LedgerString
   ): Result[V1.commands.Commands] = {
     for {
       ledgerCommand <- writeCommand(party, command)
     } yield {
-      val ledgerEffectiveTime =
-        new Timestamp(command.platformTime.getEpochSecond, command.platformTime.getNano)
-      val maximumRecordTime =
-        ledgerEffectiveTime.copy(seconds = ledgerEffectiveTime.seconds + maxRecordDelay)
       V1.commands.Commands(
         ledgerId,
         Tag.unwrap(command.workflowId),
         applicationId,
         Tag.unwrap(command.id),
         Tag.unwrap(party.name),
-        Some(ledgerEffectiveTime),
-        Some(maximumRecordTime),
         List(ledgerCommand)
       )
     }

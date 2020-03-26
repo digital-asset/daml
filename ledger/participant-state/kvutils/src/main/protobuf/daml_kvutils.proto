@@ -132,7 +132,7 @@ message DamlSubmitterInfo {
   string submitter = 1;
   string command_id = 2;
   string application_id = 3;
-  google.protobuf.Timestamp maximum_record_time = 4;
+  reserved 4; // was maximum_record_time
   google.protobuf.Timestamp deduplicate_until = 5;
 }
 
@@ -174,11 +174,12 @@ message DamlTransactionEntry {
 message DamlTransactionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
+  reserved 5; // was reason.maximum_record_time_exceeded
+
   oneof reason {
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
-    MaximumRecordTimeExceeded maximum_record_time_exceeded = 5;
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;

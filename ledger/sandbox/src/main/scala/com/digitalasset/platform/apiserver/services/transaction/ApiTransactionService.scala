@@ -64,7 +64,6 @@ final class ApiTransactionService private (
 
   private val subscriptionIdCounter = new AtomicLong()
 
-  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override def getTransactions(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] =
     withEnrichedLoggingContext(

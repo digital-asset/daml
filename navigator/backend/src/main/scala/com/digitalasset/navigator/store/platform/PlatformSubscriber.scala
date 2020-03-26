@@ -312,12 +312,9 @@ class PlatformSubscriber(
       command: Command,
       sender: ActorRef
   ): Unit = {
-    // Delay for observing this command in the completion stream before considering it lost, in seconds.
-    val maxRecordDelay: Long = 30L
-
     // Convert to ledger API command
     converter.LedgerApiV1
-      .writeCommands(party, command, maxRecordDelay, ledgerClient.ledgerId.unwrap, applicationId)
+      .writeCommands(party, command, ledgerClient.ledgerId.unwrap, applicationId)
       .fold[Unit](
         error => {
           // Failed to convert command. Most likely, the argument is incomplete.

@@ -34,6 +34,7 @@ compile_deps = [
     "//ledger/ledger-on-sql",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
     "//ledger/participant-state/kvutils",
     "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
@@ -235,6 +236,8 @@ da_scala_library(
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:com_typesafe_play_anorm_2_12",
+        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
@@ -269,7 +272,9 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
@@ -296,6 +301,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_config",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_awaitility_awaitility",
@@ -303,6 +309,7 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -413,7 +420,7 @@ server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
         "--static-time",
-        "--contract-id-seeding=weak",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -430,7 +437,7 @@ NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -438,7 +445,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],

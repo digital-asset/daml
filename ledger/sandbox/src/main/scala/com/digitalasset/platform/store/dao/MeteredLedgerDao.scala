@@ -43,6 +43,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       metrics.timer("daml.index.db.lookup_ledger_configuration")
     val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
     val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
+    val lookupMaximumLedgerTime: Timer = metrics.timer("daml.index.db.lookup_maximum_ledger_time")
     val getParties: Timer = metrics.timer("daml.index.db.get_parties")
     val listKnownParties: Timer = metrics.timer("daml.index.db.list_known_parties")
     val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
@@ -71,6 +72,11 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     timedFuture(
       Metrics.lookupActiveContract,
       ledgerDao.lookupActiveOrDivulgedContract(contractId, forParty))
+
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Instant] =
+    timedFuture(Metrics.lookupMaximumLedgerTime, ledgerDao.lookupMaximumLedgerTime(contractIds))
 
   override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] =
     timedFuture(Metrics.lookupLedgerEntry, ledgerDao.lookupLedgerEntry(offset))

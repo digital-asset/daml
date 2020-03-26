@@ -29,7 +29,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
 import com.digitalasset.daml.lf.engine.script._
 
@@ -86,8 +85,6 @@ class TestRunner(
   val ttl = java.time.Duration.ofSeconds(30)
   val timeProvider: TimeProvider =
     if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
-  val commandUpdater =
-    new CommandUpdater(timeProviderO = Some(timeProvider), ttl = ttl, overrideTtl = true)
 
   def genericTest[A](
       // test name
@@ -113,14 +110,7 @@ class TestRunner(
 
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- Runner.run(
-        dar,
-        scriptId,
-        inputValue,
-        clients,
-        applicationId,
-        commandUpdater,
-        timeProvider)
+      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

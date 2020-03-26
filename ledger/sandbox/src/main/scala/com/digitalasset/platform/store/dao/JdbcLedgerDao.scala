@@ -20,13 +20,7 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails
 }
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  Configuration,
-  Offset,
-  ParticipantId,
-  TransactionId
-}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -52,6 +46,7 @@ import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.events.EventIdFormatter.split
 import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
 import com.digitalasset.platform.store.Conversions._
+import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.digitalasset.platform.store._
 import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
@@ -256,7 +251,7 @@ private class JdbcLedgerDao(
   override def getConfigurationEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_configuration_entries",
         Some(
@@ -268,7 +263,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(configurationEntryParser.*)
+            .asVectorOf(configurationEntryParser)
       }
     }
 
@@ -465,7 +460,7 @@ private class JdbcLedgerDao(
   override def getPartyEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_party_entries",
         Some(
@@ -477,7 +472,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(partyEntryParser.*)
+            .asVectorOf(partyEntryParser)
       }
     }
   }
@@ -1071,7 +1066,6 @@ private class JdbcLedgerDao(
     (rejectionReason.description, rejectionReason match {
       case _: Inconsistent => "Inconsistent"
       case _: OutOfQuota => "OutOfQuota"
-      case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
@@ -1082,7 +1076,6 @@ private class JdbcLedgerDao(
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
-      case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
@@ -1228,6 +1221,18 @@ private class JdbcLedgerDao(
         |  (le.effective_at is null or c.archive_offset is null)
         | """.stripMargin)
 
+  private val ContractMaxLetParser = date("max_ledger_time")
+
+  private val SQL_SELECT_CONTRACT_MAX_LET =
+    SQL("""
+          |select max(le.effective_at) as max_ledger_time
+          |from contract_data cd
+          |inner join contracts c on c.id=cd.id
+          |inner join ledger_entries le on c.transaction_id = le.transaction_id
+          |where
+          |  cd.id in ({contract_ids})
+          | """.stripMargin)
+
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
 
@@ -1250,6 +1255,19 @@ private class JdbcLedgerDao(
       .map {
         case None => LetUnknown
         case Some(let) => Let(let.toInstant)
+      }
+
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Instant] =
+    dbDispatcher
+      .executeSql("lookup_maximum_ledger_time") { implicit conn =>
+        SQL_SELECT_CONTRACT_MAX_LET
+          .on("contract_ids" -> contractIds.map(_.coid))
+          .as(ContractMaxLetParser.singleOpt)
+          .getOrElse(
+            sys.error(s"Failed to load the maximum ledger time for contracts $contractIds"))
+          .toInstant
       }
 
   override def lookupActiveOrDivulgedContract(
@@ -1344,7 +1362,7 @@ private class JdbcLedgerDao(
 
       case (_, _, _, _, _, _, _, _, _) =>
         sys.error(
-          "mapContractDetails called with partial data, can not map to either active or divulged contract")
+          "mapContractDetails called with partial data, cannot map to either active or divulged contract")
     }
 
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
@@ -1377,7 +1395,7 @@ private class JdbcLedgerDao(
   override def getLedgerEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         s"load_ledger_entries",
         Some(
@@ -1389,7 +1407,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(EntryParser.*)
+            .asVectorOf(EntryParser)
           parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
       }
     }.map((toLedgerEntry _).tupled)
@@ -1432,7 +1450,7 @@ private class JdbcLedgerDao(
       filter: TransactionFilter): Future[LedgerSnapshot] = {
 
     val contractStream =
-      PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      PaginatingAsyncStream(PageSize) { queryOffset =>
         dbDispatcher.executeSql(
           "load_active_contracts",
           Some(s"bounds: ]0, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
@@ -1445,7 +1463,7 @@ private class JdbcLedgerDao(
                 "template_parties" -> byPartyAndTemplate(filter),
                 "wildcard_parties" -> justByParty(filter),
               )
-              .as(ContractDataParser.*)(conn)
+              .asVectorOf(ContractDataParser)
         }
       }.mapAsync(1) { contractResult =>
         dbDispatcher
@@ -1643,7 +1661,7 @@ private class JdbcLedgerDao(
   override def getPackageEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_package_entries",
         Some(
@@ -1655,7 +1673,7 @@ private class JdbcLedgerDao(
               "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(packageEntryParser.*)
+            .asVectorOf(packageEntryParser)
       }
     }
   }
@@ -1710,29 +1728,9 @@ private class JdbcLedgerDao(
       ()
     }
 
-  private val SQL_TRUNCATE_ALL_TABLES =
-    SQL("""
-        |truncate ledger_entries cascade;
-        |truncate disclosures cascade;
-        |truncate contracts cascade;
-        |truncate contract_data cascade;
-        |truncate contract_witnesses cascade;
-        |truncate contract_key_maintainers cascade;
-        |truncate parameters cascade;
-        |truncate contract_keys cascade;
-        |truncate configuration_entries cascade;
-        |truncate package_entries cascade;
-        |truncate participant_command_completions cascade;
-        |truncate participant_command_submissions cascade;
-        |truncate participant_events cascade;
-        |truncate participant_event_flat_transaction_witnesses cascade;
-        |truncate participant_event_witnesses_complement cascade;
-      """.stripMargin)
-
   override def reset(): Future[Unit] =
     dbDispatcher.executeSql("truncate_all_tables") { implicit conn =>
-      val _ = SQL_TRUNCATE_ALL_TABLES.execute()
-      ()
+      val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
 
   override val transactionsWriter: TransactionsWriter =
@@ -1823,6 +1821,8 @@ object JdbcLedgerDao {
     protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES: String
     protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String
 
+    protected[JdbcLedgerDao] def SQL_TRUNCATE_TABLES: String
+
     protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR
       : String // TODO: Avoid brittleness of error message checks
   }
@@ -1902,6 +1902,31 @@ object JdbcLedgerDao {
          |order by c.create_offset
          |limit {pageSize} offset {queryOffset}
          |""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |truncate table configuration_entries cascade;
+        |truncate table contracts cascade;
+        |truncate table contract_data cascade;
+        |truncate table contract_divulgences cascade;
+        |truncate table contract_keys cascade;
+        |truncate table contract_key_maintainers cascade;
+        |truncate table contract_observers cascade;
+        |truncate table contract_signatories cascade;
+        |truncate table contract_witnesses cascade;
+        |truncate table disclosures cascade;
+        |truncate table ledger_entries cascade;
+        |truncate table package_entries cascade;
+        |truncate table parameters cascade;
+        |truncate table participant_command_completions cascade;
+        |truncate table participant_command_submissions cascade;
+        |truncate table participant_events cascade;
+        |truncate table participant_event_flat_transaction_witnesses cascade;
+        |truncate table participant_event_witnesses_complement cascade;
+        |truncate table parties cascade;
+        |truncate table party_entries cascade;
+      """.stripMargin
+
   }
 
   object H2DatabaseQueries extends Queries {
@@ -1980,6 +2005,32 @@ object JdbcLedgerDao {
          |order by c.create_offset
          |limit {pageSize} offset {queryOffset}
          |""".stripMargin
+
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |set referential_integrity false;
+        |truncate table configuration_entries;
+        |truncate table contracts;
+        |truncate table contract_data;
+        |truncate table contract_divulgences;
+        |truncate table contract_keys;
+        |truncate table contract_key_maintainers;
+        |truncate table contract_observers;
+        |truncate table contract_signatories;
+        |truncate table contract_witnesses;
+        |truncate table disclosures;
+        |truncate table ledger_entries;
+        |truncate table package_entries;
+        |truncate table parameters;
+        |truncate table participant_command_completions;
+        |truncate table participant_command_submissions;
+        |truncate table participant_events;
+        |truncate table participant_event_flat_transaction_witnesses;
+        |truncate table participant_event_witnesses_complement;
+        |truncate table parties;
+        |truncate table party_entries;
+        |set referential_integrity true;
+      """.stripMargin
 
   }
 }

@@ -5,6 +5,7 @@ package com.daml.ledger.validator
 
 import java.util.UUID
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
@@ -108,7 +109,6 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   private def runValidation[T](
       envelope: Bytes,
       correlationId: String,
@@ -185,10 +185,11 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
+      metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission,
+      processSubmission(new KeyValueCommitting(metricRegistry)),
       allocateNextLogEntryId,
       checkForMissingInputs,
     )
@@ -199,13 +200,14 @@ object SubmissionValidator {
       .setEntryId(ByteString.copyFromUtf8(UUID.randomUUID().toString))
       .build()
 
-  private[validator] def processSubmission(
+  private[validator] def processSubmission(keyValueCommitting: KeyValueCommitting)(
       damlLogEntryId: DamlLogEntryId,
       recordTime: Timestamp,
       damlSubmission: DamlSubmission,
       participantId: ParticipantId,
-      inputState: Map[DamlStateKey, Option[DamlStateValue]]): LogEntryAndState =
-    KeyValueCommitting.processSubmission(
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+  ): LogEntryAndState =
+    keyValueCommitting.processSubmission(
       engine,
       damlLogEntryId,
       recordTime,

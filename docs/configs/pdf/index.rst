@@ -103,6 +103,7 @@ Experimental features
    tools/visual
    daml2ts/index
    getting-started/index
+   getting-started/testing
 
 Support and updates
 -------------------

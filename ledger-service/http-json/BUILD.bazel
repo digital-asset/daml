@@ -129,7 +129,6 @@ da_scala_test(
         "//daml-lf/interface",
         "//daml-lf/transaction",
         "//daml-lf/transaction-scalacheck",
-        "//language-support/java/bindings:bindings-java-tests-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/db-backend",

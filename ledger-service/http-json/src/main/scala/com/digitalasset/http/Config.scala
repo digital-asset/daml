@@ -30,7 +30,6 @@ private[http] final case class Config(
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
-    defaultTtl: FiniteDuration = HttpService.DefaultTimeToLive
 )
 
 private[http] object Config {

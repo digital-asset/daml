@@ -4,10 +4,13 @@
 -- | Test utils
 module DA.Test.Util (
     standardizeQuotes,
-    standardizeEoL
+    standardizeEoL,
+    assertInfixOf
 ) where
 
+import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
+import Test.Tasty.HUnit
 
 standardizeQuotes :: T.Text -> T.Text
 standardizeQuotes msg = let
@@ -19,3 +22,6 @@ standardizeQuotes msg = let
 
 standardizeEoL :: T.Text -> T.Text
 standardizeEoL = T.replace (T.singleton '\r') T.empty
+
+assertInfixOf :: String -> String -> Assertion
+assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)

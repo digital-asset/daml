@@ -18,7 +18,6 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.platform.sandbox.perf.util.DarUtil
-import com.google.protobuf.timestamp.Timestamp
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -31,8 +30,6 @@ trait TestHelper {
 
   val ledgerId: String = "ledger-server"
   val applicationId: String = "app1"
-  val ledgerEffectiveTime = Some(Timestamp(0L, 0))
-  val maximumRecordTime = ledgerEffectiveTime.map(x => x.copy(seconds = x.seconds + 30L))
   val traceContext = Some(TraceContext(1L, 2L, 3L, Some(4L)))
 
   val party = "party"
@@ -68,8 +65,6 @@ trait TestHelper {
       workflowId = workflowId,
       applicationId = applicationId,
       commandId = commandId,
-      ledgerEffectiveTime = ledgerEffectiveTime,
-      maximumRecordTime = maximumRecordTime,
       party = party,
       commands = Seq(Command(command))
     )

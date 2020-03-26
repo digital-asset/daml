@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit.MINUTES
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
 import com.digitalasset.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -84,8 +83,6 @@ class LedgerClientBinding(
   private val compositeCommandAdapter = new CompositeCommandAdapter(
     LedgerId(ledgerClient.ledgerId.unwrap),
     ApplicationId(ledgerClientConfig.applicationId),
-    ledgerClientConfig.commandClient.ttl,
-    timeProvider
   )
 
   def retryingConfirmedCommands[C](party: Party)(
@@ -96,27 +93,18 @@ class LedgerClientBinding(
         ledgerClient.commandClient,
         timeProvider,
         retryTimeout,
-        createRetry(ledgerClientConfig.commandClient.ttl))
+        createRetry)
     } yield
       Flow[Ctx[C, CompositeCommand]]
         .map(_.map(compositeCommandAdapter.transform))
         .via(tracking)
 
-  private def createRetry[C](
-      ttl: Duration)(retryInfo: RetryInfo[C], completion: Completion): SubmitRequest = {
-    val newLet = timeProvider.getCurrentTime
-
-    val newCommands = retryInfo.request.commands.map(
-      _.copy(
-        ledgerEffectiveTime = Some(fromInstant(newLet)),
-        maximumRecordTime = Some(fromInstant(newLet plus ttl)))
-    )
-
-    if (newCommands.isEmpty) {
+  private def createRetry[C](retryInfo: RetryInfo[C], completion: Completion): SubmitRequest = {
+    if (retryInfo.request.commands.isEmpty) {
       logger.warn(s"Retrying with empty commands for {}", retryInfo.request)
     }
 
-    retryInfo.request.copy(commands = newCommands)
+    retryInfo.request
   }
 
   type CommandsFlow[C] = Flow[Ctx[C, CompositeCommand], Ctx[C, Completion], NotUsed]

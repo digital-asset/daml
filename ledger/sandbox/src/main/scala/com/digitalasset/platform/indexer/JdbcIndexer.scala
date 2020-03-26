@@ -314,8 +314,6 @@ class JdbcIndexer private[indexer] (
     case RejectionReason.Inconsistent =>
       domain.RejectionReason.Inconsistent(RejectionReason.Inconsistent.description)
     case RejectionReason.Disputed(_) => domain.RejectionReason.Disputed(state.description)
-    case RejectionReason.MaximumRecordTimeExceeded =>
-      domain.RejectionReason.TimedOut(state.description)
     case RejectionReason.ResourcesExhausted => domain.RejectionReason.OutOfQuota(state.description)
     case RejectionReason.PartyNotKnownOnLedger =>
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)

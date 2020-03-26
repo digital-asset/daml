@@ -4,9 +4,9 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.nio.file.Paths
-import java.time.Instant
+import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.archive.DarReader
@@ -210,6 +210,7 @@ class SqlLedgerSpec
             .withPackages(Instant.EPOCH, None, packages)
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
+          initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
           queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
           metrics,

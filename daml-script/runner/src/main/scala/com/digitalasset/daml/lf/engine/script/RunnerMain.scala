@@ -25,7 +25,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.auth.TokenHolder
 
@@ -63,10 +62,6 @@ object RunnerMain {
             case _ =>
               throw new RuntimeException(s"Unexpected TimeProviderType: $config.timeProviderType")
           }
-        val commandUpdater = new CommandUpdater(
-          timeProviderO = Some(timeProvider),
-          ttl = config.commandTtl,
-          overrideTtl = true)
 
         val system: ActorSystem = ActorSystem("ScriptRunner")
         implicit val sequencer: ExecutionSequencerFactory =
@@ -105,14 +100,7 @@ object RunnerMain {
         }
         val flow: Future[Unit] = for {
           clients <- Runner.connect(participantParams, clientConfig)
-          _ <- Runner.run(
-            dar,
-            scriptId,
-            inputValue,
-            clients,
-            applicationId,
-            commandUpdater,
-            timeProvider)
+          _ <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
         } yield ()
 
         flow.onComplete(_ => system.terminate())
