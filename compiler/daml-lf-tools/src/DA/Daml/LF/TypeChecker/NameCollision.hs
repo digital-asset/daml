@@ -27,11 +27,9 @@ data Name
     = NModule ModuleName
     | NVirtualModule ModuleName ModuleName
     -- ^ For a module A.B.C we insert virtual module names A and A.B.
-    -- This is an extension of the check that prevents you from having
-    -- a type B in module A if you have a module A.B to also fail if you
-    -- have a module A.B.C but not A.B. At the moment, we only emit a warning
-    -- for this but this will be an error in future SDK versions.
-    -- The second module name stores the original module for error messages.
+    -- This is used to check that you do not have a type B
+    -- in a module A and a module A.B.C at the same time,
+    -- even if you don't have a module A.B.
     | NRecordType ModuleName TypeConName
     | NVariantType ModuleName TypeConName
     | NEnumType ModuleName TypeConName
@@ -53,7 +51,7 @@ displayName = \case
     NModule (ModuleName m) ->
         T.concat ["module ", dot m]
     NVirtualModule (ModuleName m) (ModuleName mOrigin) ->
-        T.concat ["virtual module ", dot m, " (from ", dot mOrigin <> ")"]
+        T.concat ["module prefix ", dot m, " (from ", dot mOrigin <> ")"]
     NRecordType (ModuleName m) (TypeConName t) ->
         T.concat ["record ", dot m, ":", dot t]
     NVariantType (ModuleName m) (TypeConName t) ->
@@ -128,7 +126,7 @@ fullyResolve = FRName . map T.toLower . \case
 -- | State of the name collision checker. This is a
 -- map from fully resolved names within a package to their
 -- original names. We update this map as we go along.
-data NCState = NCState (M.Map FRName [Name])
+newtype NCState = NCState (M.Map FRName [Name])
 
 -- | Initial name collision checker state.
 initialState :: NCState
@@ -150,7 +148,7 @@ addName name (NCState nameMap)
     | otherwise =
         let err = EForbiddenNameCollision (displayName name) (map displayName badNames)
             diag = toDiagnostic DsError err
-        -- If name is virtual are all badNames are virtual, we demote it to a
+        -- If name is virtual or all badNames are virtual, we demote it to a
         -- warning for now.
         in Left $ if all isVirtual badNames || isVirtual name
                then diag

@@ -372,7 +372,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             ]
         (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
         assertInfixOf "Created" out
-        assertInfixOf "collision between variant A:B and virtual module A.B (from A.B.C)" err
+        assertInfixOf "collision between variant A:B and module prefix A.B (from A.B.C)" err
         exitCode @?= ExitSuccess
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do

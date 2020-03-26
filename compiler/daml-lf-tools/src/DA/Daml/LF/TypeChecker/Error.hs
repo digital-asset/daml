@@ -8,7 +8,7 @@ module DA.Daml.LF.TypeChecker.Error(
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
     errorLocation,
-    toDiagnostic
+    toDiagnostic,
     ) where
 
 import DA.Pretty
