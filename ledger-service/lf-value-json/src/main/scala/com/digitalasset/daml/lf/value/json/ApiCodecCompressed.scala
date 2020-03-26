@@ -164,14 +164,18 @@ abstract class ApiCodecCompressed[Cid](
             jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
-      case Model.DamlLfPrimType.GenMap => {
-        case JsArray(entries) =>
-          V.ValueGenMap(ImmArray(entries.map {
-            case JsArray(Vector(key, value)) =>
-              jsValueToApiValue(key, prim.typArgs(0), defs) ->
-                jsValueToApiValue(value, prim.typArgs(1), defs)
-          }))
-      }
+      case Model.DamlLfPrimType.GenMap =>
+        val Seq(kType, vType) = prim.typArgs;
+        {
+          case JsArray(entries) =>
+            V.ValueGenMap(ImmArray(entries.map {
+              case JsArray(Vector(key, value)) =>
+                jsValueToApiValue(key, kType, defs) ->
+                  jsValueToApiValue(value, vType, defs)
+              case _ =>
+                deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
+            }))
+        }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
