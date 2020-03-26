@@ -451,6 +451,7 @@ object TypedValueGenerators {
       (nestSize, self.map(ValueAddend.list(_))),
       (nestSize, self.map(ValueAddend.optional(_))),
       (nestSize, self.map(ValueAddend.map(_))),
+      (nestSize, Gen.zip(self, self).map { case (k, v) => ValueAddend.genMap(k, v) }),
     )
   }
 
