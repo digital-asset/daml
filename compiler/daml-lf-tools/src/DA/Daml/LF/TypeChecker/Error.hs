@@ -7,11 +7,14 @@ module DA.Daml.LF.TypeChecker.Error(
     TemplatePart(..),
     UnserializabilityReason(..),
     SerializabilityRequirement(..),
-    errorLocation
+    errorLocation,
+    toDiagnostic
     ) where
 
 import DA.Pretty
 import qualified Data.Text as T
+import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import Numeric.Natural
 
 import DA.Daml.LF.Ast
@@ -319,3 +322,14 @@ instance Pretty Context where
       hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
       hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+
+toDiagnostic :: DiagnosticSeverity -> Error -> Diagnostic
+toDiagnostic sev err = Diagnostic
+    { _range = noRange
+    , _severity = Just sev
+    , _code = Nothing
+    , _tags = Nothing
+    , _source = Just "DAML-LF typechecker"
+    , _message = renderPretty err
+    , _relatedInformation = Nothing
+    }

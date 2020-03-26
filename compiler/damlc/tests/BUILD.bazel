@@ -242,6 +242,7 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
