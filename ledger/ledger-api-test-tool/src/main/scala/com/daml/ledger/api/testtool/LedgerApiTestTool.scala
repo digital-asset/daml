@@ -111,7 +111,6 @@ object LedgerApiTestTool {
         config.participants,
         config.shuffleParticipants,
         config.tlsConfig,
-        config.commandSubmissionTtlScaleFactor,
         config.loadScaleFactor,
         config.partyAllocation,
       ),

@@ -38,9 +38,9 @@ private[platform] object CompletionFromTransaction {
   def toErrorCode(rejection: RejectionReason): Code = {
     rejection match {
       case _: RejectionReason.Inconsistent | _: RejectionReason.Disputed |
-          _: RejectionReason.PartyNotKnownOnLedger | _: RejectionReason.InvalidLedgerTime =>
+          _: RejectionReason.PartyNotKnownOnLedger =>
         Code.INVALID_ARGUMENT
-      case _: RejectionReason.OutOfQuota | _: RejectionReason.TimedOut =>
+      case _: RejectionReason.OutOfQuota | _: RejectionReason.InvalidLedgerTime =>
         Code.ABORTED
       case _: RejectionReason.SubmitterCannotActViaParticipant =>
         Code.PERMISSION_DENIED

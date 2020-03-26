@@ -71,7 +71,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     clearPackageDb
   | otherwise = do
     clearPackageDb
-    deps <- expandSdkPackages (filter (`notElem` basePackages) deps)
+    deps <- expandSdkPackages (optDamlLfVersion opts) (filter (`notElem` basePackages) deps)
     depsExtracted <- mapM extractDar deps
 
     let uniqSdkVersions = nubSort $ unPackageSdkVersion thisSdkVer : map edSdkVersions depsExtracted
@@ -303,6 +303,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
     -- write the conf file and refresh the package cache
     (cfPath, cfBs) <-
             mkConfFile
+                (LF.packageLfVersion dalf)
                 PackageConfigFields
                     { pName = pkgName
                     , pSrc = error "src field was used for creation of pkg conf file"

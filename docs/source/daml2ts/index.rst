@@ -21,7 +21,7 @@ Usage
 
 ``daml2ts`` is invoked via the DAML SDK assistant.
 
-In outline, the command to generate TypeScript from DAML is ``daml codegen ts DAR -o OUTDIR –main-package-name=PACKAGE`` where ``DAR`` is the path to a DAR file (generated via ``daml build``), ``OUTDIR`` is a directory where you want the TypeScript to be written and ``PACKAGE`` is a desired TypeScript package name.
+In outline, the command to generate JavaScript and TypeScript typings from DAML is ``daml codegen ts DAR -o OUTDIR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the JavaScript to be written.
 
 Here's a complete example that generates TypeScript from a project produced from the standard "skeleton" template.
 
@@ -31,15 +31,15 @@ Here's a complete example that generates TypeScript from a project produced from
    daml new my-proj skeleton # Create a new project based off the skeleton template
    cd my-proj # Enter the newly created project directory
    daml build  # Compile the project's DAML files into a DAR
-   daml codegen ts .daml/dist/my-proj-0.0.1.dar -o generated/ts --main-package-name=my-proj # Generate Typescript from the DAR
+   daml codegen ts .daml/dist/my-proj-0.0.1.dar -o daml2ts # Generate script bindings from the DAR
 
 - On execution of these commands:
 
-  - The directory ``my-proj/generated/ts`` contains the generated TypeScript source files;
+  - The directory ``my-proj/daml2ts`` contains generated TypeScript and Javascript artifacts;
   - The files are arranged into directories;
-  - One of those directories will be named as per the ``PACKAGE`` argument and will contain the TypeScript definitions corresponding to the DAML files in the project;
-  - For example, ``generated/ts/my-proj/Main.ts`` contains the TypeScript definitions for ``daml/Main.daml``;
-  - The remaining directories contain supporting TypeScript corresponding to modules of the DAML standard library;
+  - One of those directories will be named as my-proj-0.0.1 and will contain the definitions corresponding to the DAML files in the project;
+  - For example, ``generated/ts/my-proj/src/Main.ts`` contains the definitions for ``daml/Main.daml``;
+  - The remaining directories correspond to modules of the DAML standard library;
   - Those directories have numeric names (the names are hashes of the DAML-LF package they are derived from).
 
 To get a quickstart idea of how to use what has been generated, you may wish to jump to the `Templates and choices`_ section and return to the reference material that follows as needed.

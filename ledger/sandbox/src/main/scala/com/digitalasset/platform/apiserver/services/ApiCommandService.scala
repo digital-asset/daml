@@ -170,7 +170,7 @@ object ApiCommandService {
       new ApiCommandService(services, configuration),
       ledgerId = configuration.ledgerId,
       currentLedgerTime = () => timeProvider.getCurrentTime,
-      currentUTCTime = () => Instant.now,
+      currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () => configuration.maxDeduplicationTime,
     )
 

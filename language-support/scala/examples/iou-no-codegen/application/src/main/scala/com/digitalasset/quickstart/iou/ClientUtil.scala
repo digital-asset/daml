@@ -8,7 +8,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -43,15 +42,12 @@ class ClientUtil(
     transactionClient.getLedgerEnd().flatMap(response => toFuture(response.offset))
 
   def submitCommand(party: String, workflowId: WorkflowId, cmd: Command.Command): Future[Empty] = {
-    val now = timeProvider.getCurrentTime
     val commands = Commands(
       ledgerId = LedgerId.unwrap(ledgerId),
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = ApplicationId.unwrap(applicationId),
       commandId = uniqueId,
       party = party,
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plusNanos(ttl.toNanos))),
       commands = Seq(Command(cmd))
     )
 

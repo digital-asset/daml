@@ -32,7 +32,7 @@ final case class CreateCommand(templateId: Identifier, argument: Value[Value.Abs
   */
 final case class ExerciseCommand(
     templateId: Identifier,
-    contractId: ContractIdString,
+    contractId: Value.AbsoluteContractId,
     choiceId: ChoiceName,
     argument: Value[Value.AbsoluteContractId],
 ) extends Command

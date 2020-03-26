@@ -122,7 +122,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           BasicTests_WithKey,
           ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ) =>
-        Some(AbsoluteContractId("1"))
+        Some(toContractId("1"))
       case _ =>
         None
     }
@@ -950,7 +950,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             children,
             _,
             _) =>
-          coid shouldBe AbsoluteContractId(originalCoid)
+          coid shouldBe toContractId(originalCoid)
           consuming shouldBe true
           actingParties shouldBe Set(bob)
           children.map(_.index) shouldBe ImmArray(1)
@@ -1002,10 +1002,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       partyEvents.roots.length shouldBe 1
       val bobExercise = partyEvents.events(partyEvents.roots(0))
       val cid =
-        AbsoluteContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
+        toContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
       bobExercise shouldBe
         ExerciseEvent(
-          contractId = AbsoluteContractId(originalCoid),
+          contractId = toContractId(originalCoid),
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
           choiceArgument = assertAsVersionedValue(
@@ -1048,7 +1048,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val submissionSeed = hash("dynamic fetch actors")
     val fetchedStrCid = "1"
-    val fetchedCid = AbsoluteContractId(fetchedStrCid)
+    val fetchedCid = toContractId(fetchedStrCid)
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
       (Some[Name]("sig1"), ValueParty(alice)),
@@ -1060,7 +1060,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
 
     val fetcher1StrCid = "2"
-    val fetcher1Cid = AbsoluteContractId(fetcher1StrCid)
+    val fetcher1Cid = toContractId(fetcher1StrCid)
     val fetcher1TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(alice)),
       (Some[Name]("obs"), ValueParty(bob)),
@@ -1068,7 +1068,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     )
 
     val fetcher2StrCid = "3"
-    val fetcher2Cid = AbsoluteContractId(fetcher2StrCid)
+    val fetcher2Cid = toContractId(fetcher2StrCid)
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
@@ -1171,7 +1171,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val submissionSeed = hash("reinterpreting fetch nodes")
 
-    val fetchedCid = AbsoluteContractId("1")
+    val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
@@ -1337,8 +1337,8 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
-  private implicit def toContractId(s: String): ContractIdString =
-    ContractIdString.assertFromString(s)
+  private implicit def toContractId(s: String): AbsoluteContractId =
+    AbsoluteContractId(ContractIdString.assertFromString(s))
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

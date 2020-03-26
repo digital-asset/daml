@@ -172,7 +172,6 @@ object ImplicitPartyAdditionIT {
   private val ledgerConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1))
 
   private val LET = Instant.EPOCH.plusSeconds(10)
-  private val MRT = Instant.EPOCH.plusSeconds(10)
   private val DeduplicateUntil = Instant.now.plusSeconds(3600)
 
   private val templateId1: Ref.Identifier = Ref.Identifier(
@@ -205,7 +204,6 @@ object ImplicitPartyAdditionIT {
       Ref.Party.assertFromString(submitter),
       Ref.LedgerString.assertFromString("appId"),
       Ref.LedgerString.assertFromString(commandId),
-      Time.Timestamp.assertFromInstant(MRT),
       DeduplicateUntil,
     )
 

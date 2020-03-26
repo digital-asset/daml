@@ -3,11 +3,8 @@
 
 package com.digitalasset.quickstart.iou
 
-import java.time.Instant
-
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
@@ -63,8 +60,6 @@ object IouMain extends App with StrictLogging {
 
   private val applicationId = ApplicationId("IOU Example")
 
-  private val timeProvider = TimeProvider.Constant(Instant.EPOCH)
-
   // <doc-ref:ledger-client-configuration>
   private val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
@@ -79,7 +74,7 @@ object IouMain extends App with StrictLogging {
     LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
 
   private val clientUtilF: Future[ClientUtil] =
-    clientF.map(client => new ClientUtil(client, applicationId, 30.seconds, timeProvider))
+    clientF.map(client => new ClientUtil(client, applicationId))
 
   private val offset0F: Future[LedgerOffset] = clientUtilF.flatMap(_.ledgerEnd)
 

@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.engine.trigger.test
 
 import java.nio.file.{Path, Paths}
 import java.io.File
-import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream._
@@ -25,7 +24,6 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.v1.command_submission_service._
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.value
@@ -315,15 +313,16 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     for {
       r <- client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = party,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
+        .trackSingleCommand(
+          SubmitRequest(
+            commands = Some(
+              Commands(
+                ledgerId = client.ledgerId.unwrap,
+                applicationId = runner.applicationId.unwrap,
+                commandId = commandId,
+                party = party,
+                commands = commands
+              ))))
       t <- client.transactionClient.getFlatTransactionById(r.transactionId, Seq(party))
     } yield t.transaction.get.events.head.getCreated.contractId
   }
@@ -359,15 +358,16 @@ case class AcsTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     for {
       comp <- client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = party,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
+        .trackSingleCommand(
+          SubmitRequest(
+            commands = Some(
+              Commands(
+                ledgerId = client.ledgerId.unwrap,
+                applicationId = runner.applicationId.unwrap,
+                commandId = commandId,
+                party = party,
+                commands = commands
+              ))))
       _ <- Future {
         if (comp.getStatus.code != 0) {
           throw new RuntimeException("archive failed")
@@ -508,15 +508,16 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     for {
       _ <- client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = owner,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
+        .trackSingleCommand(
+          SubmitRequest(
+            commands = Some(
+              Commands(
+                ledgerId = client.ledgerId.unwrap,
+                applicationId = runner.applicationId.unwrap,
+                commandId = commandId,
+                party = owner,
+                commands = commands
+              ))))
     } yield ()
   }
 
@@ -540,15 +541,16 @@ case class CopyTests(dar: Dar[(PackageId, Package)], runner: TestRunner) {
     for {
       _ <- client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = subscriber,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
+        .trackSingleCommand(
+          SubmitRequest(
+            commands = Some(
+              Commands(
+                ledgerId = client.ledgerId.unwrap,
+                applicationId = runner.applicationId.unwrap,
+                commandId = commandId,
+                party = subscriber,
+                commands = commands
+              ))))
     } yield ()
   }
 
@@ -886,15 +888,16 @@ case class TemplateFilterTests(dar: Dar[(PackageId, Package)], runner: TestRunne
     for {
       r <- client.commandClient
         .withTimeProvider(Some(Runner.getTimeProvider(runner.config.timeProviderType)))
-        .trackSingleCommand(SubmitRequest(commands = Some(Commands(
-          ledgerId = client.ledgerId.unwrap,
-          applicationId = runner.applicationId.unwrap,
-          commandId = commandId,
-          party = party,
-          ledgerEffectiveTime = Some(fromInstant(Instant.EPOCH)),
-          maximumRecordTime = Some(fromInstant(Instant.EPOCH.plusSeconds(5))),
-          commands = commands
-        ))))
+        .trackSingleCommand(
+          SubmitRequest(
+            commands = Some(
+              Commands(
+                ledgerId = client.ledgerId.unwrap,
+                applicationId = runner.applicationId.unwrap,
+                commandId = commandId,
+                party = party,
+                commands = commands
+              ))))
     } yield ()
   }
 

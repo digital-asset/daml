@@ -75,8 +75,6 @@ data Commands = Commands
     , aid          :: ApplicationId
     , cid          :: CommandId
     , party        :: Party
-    , leTime       :: Timestamp
-    , mrTime       :: Timestamp
     , dedupTime    :: Maybe LL.Duration
     , coms         :: [Command]
     , minLeTimeAbs :: Maybe Timestamp

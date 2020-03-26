@@ -5,8 +5,9 @@ package com.digitalasset.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.dec.DirectExecutionContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
 
 object PaginatingAsyncStream {
 
@@ -27,12 +28,10 @@ object PaginatingAsyncStream {
     * https://use-the-index-luke.com/sql/partial-results/fetch-next-page
     *
     * @param pageSize number of items to retrieve per call
-    * @param executionContext where the offset for the next page is computed
     * @param queryPage takes the offset from which to start the next page and returns that page
     * @tparam T the type of the items returned in each call
     */
-  def apply[T](pageSize: Int, executionContext: ExecutionContext)(
-      queryPage: Long => Future[List[T]]): Source[T, NotUsed] = {
+  def apply[T](pageSize: Int)(queryPage: Long => Future[Vector[T]]): Source[T, NotUsed] = {
     Source
       .unfoldAsync(Option(0L)) {
         case None => Future.successful(None)
@@ -41,7 +40,7 @@ object PaginatingAsyncStream {
             val resultSize = result.size.toLong
             val newQueryOffset = if (resultSize < pageSize) None else Some(queryOffset + pageSize)
             Some(newQueryOffset -> result)
-          }(executionContext)
+          }(DirectExecutionContext)
       }
       .flatMapConcat(Source(_))
   }

@@ -61,8 +61,6 @@ class SubmitRequestValidatorTest
       applicationId = applicationId,
       commandId = commandId,
       party = submitter,
-      ledgerEffectiveTime = None,
-      maximumRecordTime = None,
       commands = Seq(command),
       deduplicationTime = Some(deduplicationTime),
       minLedgerTimeAbs = None,
@@ -85,7 +83,6 @@ class SubmitRequestValidatorTest
       commandId = commandId,
       submitter = DomainMocks.party,
       ledgerEffectiveTime = ledgerTime,
-      maximumRecordTime = Instant.EPOCH,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
@@ -221,29 +218,6 @@ class SubmitRequestValidatorTest
           internal.submittedAt,
           internal.maxDeduplicationTime
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
-      }
-
-      "ignore ledgerEffectiveTime values" in {
-        // Note: until ledgerEffectiveTime is removed, it is simply ignored
-        commandsValidator.validateCommands(
-          api.commands.copy(
-            ledgerEffectiveTime = Some(TimestampConversion.fromInstant(Instant.now))),
-          internal.ledgerTime,
-          internal.submittedAt,
-          internal.maxDeduplicationTime
-        ) shouldEqual Right(internal.emptyCommands)
-      }
-
-      "ignore mrt values" in {
-        // Note: until MRT is removed, it is simply ignored
-        commandsValidator
-          .validateCommands(
-            api.commands.copy(
-              maximumRecordTime = Some(TimestampConversion.fromInstant(Instant.now))),
-            internal.ledgerTime,
-            internal.submittedAt,
-            internal.maxDeduplicationTime
-          ) shouldEqual Right(internal.emptyCommands)
       }
 
       "not allow negative deduplication time" in {

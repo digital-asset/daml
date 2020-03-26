@@ -555,7 +555,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 126-136
+      :lines: 126-137
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.

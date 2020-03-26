@@ -14,7 +14,8 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1
-import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
+import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DarReader
@@ -28,7 +29,8 @@ import com.digitalasset.platform.apiserver.{
   ApiServer,
   ApiServerConfig,
   StandaloneApiServer,
-  TimeServiceBackend
+  TimeServiceBackend,
+  TimedIndexService
 }
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.indexer.{
@@ -42,7 +44,6 @@ import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandboxnext.Runner._
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.state.{TimedIndexService, TimedReadService, TimedWriteService}
 import com.digitalasset.platform.store.FlywayMigrations
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.akka.AkkaResourceOwner
@@ -243,7 +244,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       owner.acquire()
     }
 
-  private def uploadDar(from: File, to: WriteService)(
+  private def uploadDar(from: File, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -267,8 +268,8 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val ReadServicePrefix = "daml.services.read"
   private val IndexServicePrefix = "daml.services.index"
+  private val ReadServicePrefix = "daml.services.read"
   private val WriteServicePrefix = "daml.services.write"
 
   private val HeartbeatInterval: FiniteDuration = 1.second

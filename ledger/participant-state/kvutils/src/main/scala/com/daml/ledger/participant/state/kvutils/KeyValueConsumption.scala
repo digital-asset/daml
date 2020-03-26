@@ -194,8 +194,6 @@ object KeyValueConsumption {
         wrap(RejectionReason.Inconsistent)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         wrap(RejectionReason.ResourcesExhausted)
-      case DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
-        wrap(RejectionReason.MaximumRecordTimeExceeded)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
         List()
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>

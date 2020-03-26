@@ -71,14 +71,24 @@ da_haskell_test(
     name = "integration-tests",
     timeout = "long",
     srcs = glob(["src/**/*.hs"]),
+    args = [
+        "$(location //:yarn)",
+        # The TS codegen test which needs this next arg is not
+        # run on Windows but we need to pass something on Windows
+        # to make the test harness happy. If it should be misued,
+        # hopefully "daml-types-not-available" will end up in the
+        # error message.
+        "daml-types-not-available" if is_windows else "$(location //language-support/ts/daml-types:npm_package)",
+    ],
     data = [
         ":integration-tests-mvn",
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ],
+    ] + ([] if is_windows else ["//language-support/ts/daml-types:npm_package"]),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [

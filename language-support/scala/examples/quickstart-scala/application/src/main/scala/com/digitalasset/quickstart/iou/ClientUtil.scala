@@ -7,8 +7,6 @@ import java.util.UUID
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands.Commands
@@ -22,14 +20,12 @@ import com.google.protobuf.empty.Empty
 
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientUtil(
     client: LedgerClient,
     applicationId: ApplicationId,
-    ttl: Duration,
-    timeProvider: TimeProvider) {
+) {
 
   import ClientUtil._
 
@@ -51,15 +47,12 @@ class ClientUtil(
       party: P.Party,
       workflowId: WorkflowId,
       seq: P.Update[P.ContractId[T]]*): SubmitRequest = {
-    val now = timeProvider.getCurrentTime
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = ApplicationId.unwrap(applicationId),
       commandId = uniqueId,
       party = P.Party.unwrap(party),
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plusNanos(ttl.toNanos))),
       commands = seq.map(_.command)
     )
     SubmitRequest(Some(commands), None)

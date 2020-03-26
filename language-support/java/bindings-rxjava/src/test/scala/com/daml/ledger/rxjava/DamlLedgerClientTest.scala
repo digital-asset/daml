@@ -141,8 +141,9 @@ class DamlLedgerClientTest
           commands.getApplicationId,
           commands.getCommandId,
           commands.getParty,
-          commands.getLedgerEffectiveTime,
-          commands.getMaximumRecordTime,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(1l, TimeUnit.SECONDS)
@@ -183,8 +184,9 @@ class DamlLedgerClientTest
           commands.getApplicationId,
           commands.getCommandId,
           commands.getParty,
-          commands.getLedgerEffectiveTime,
-          commands.getMaximumRecordTime,
+          commands.getMinLedgerTimeAbsolute,
+          commands.getMinLedgerTimeRelative,
+          commands.getDeduplicationTime,
           commands.getCommands
         )
         .timeout(1l, TimeUnit.SECONDS)

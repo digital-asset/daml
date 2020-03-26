@@ -171,7 +171,7 @@ private[engine] class CommandPreprocessor(compiledPackages: MutableCompiledPacka
       case CreateCommand(templateId, argument) =>
         preprocessCreate(templateId, argument)
       case ExerciseCommand(templateId, contractId, choiceId, argument) =>
-        preprocessExercise(templateId, Value.AbsoluteContractId(contractId), choiceId, argument)
+        preprocessExercise(templateId, contractId, choiceId, argument)
       case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         preprocessExerciseByKey(
           templateId,

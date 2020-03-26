@@ -47,11 +47,8 @@ message Commands {
   // Required
   string party = 5;
 
-  // Deprecated. This field currently has the same function as min_ledger_time_abs, and will be removed in the future.
-  google.protobuf.Timestamp ledger_effective_time = 6;
-
-  // Deprecated. This field is ignored, and will be removed in the future.
-  google.protobuf.Timestamp maximum_record_time = 7;
+  reserved 6; // was ledger_effective_time
+  reserved 7; // was maximum_record_time
 
   // Individual elements of this atomic command. Must be non-empty.
   // Required
