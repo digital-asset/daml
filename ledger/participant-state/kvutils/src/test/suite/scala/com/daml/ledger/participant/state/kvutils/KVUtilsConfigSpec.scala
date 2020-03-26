@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
 import com.digitalasset.daml.lf.data.Ref
@@ -17,8 +18,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
   "configuration" should {
 
     "be able to build, pack, unpack and parse" in {
-      val subm = KeyValueSubmission.unpackDamlSubmission(
-        KeyValueSubmission.packDamlSubmission(KeyValueSubmission.configurationToSubmission(
+      val keyValueSubmission = new KeyValueSubmission(new MetricRegistry)
+      val subm = keyValueSubmission.unpackDamlSubmission(
+        keyValueSubmission.packDamlSubmission(keyValueSubmission.configurationToSubmission(
           maxRecordTime = theRecordTime,
           submissionId = Ref.LedgerString.assertFromString("foobar"),
           participantId = Ref.ParticipantId.assertFromString("participant"),

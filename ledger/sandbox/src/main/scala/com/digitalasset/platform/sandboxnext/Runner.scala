@@ -160,7 +160,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   heartbeats = heartbeats,
                   seedService = SeedService(seeding),
                 )
-                ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+                ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
                 writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>

@@ -53,14 +53,15 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
       val jdbcUrl = config.extra.jdbcUrl.getOrElse {
         throw new IllegalStateException("No JDBC URL provided.")
       }
+      val metrics = metricRegistry(participantConfig, config)
       new SqlLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
-        metricRegistry(participantConfig, config),
+        metrics,
         jdbcUrl,
         seedService = SeedService(Seeding.Strong),
       ).acquire()
-        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
 

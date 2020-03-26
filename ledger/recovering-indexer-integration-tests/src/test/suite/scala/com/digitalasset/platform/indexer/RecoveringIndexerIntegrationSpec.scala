@@ -224,12 +224,12 @@ object RecoveringIndexerIntegrationSpec {
     override def apply(ledgerId: Option[LedgerId], participantId: ParticipantId)(
         implicit materializer: Materializer,
         logCtx: LoggingContext
-    ): ResourceOwner[ParticipantState] =
-      new InMemoryLedgerReaderWriter.SingleParticipantOwner(
-        ledgerId,
-        participantId,
-        new MetricRegistry,
-      ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter))
+    ): ResourceOwner[ParticipantState] = {
+      val metricRegistry = new MetricRegistry
+      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId, metricRegistry)
+        .map(readerWriter =>
+          new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
+    }
   }
 
   private object ParticipantStateThatFailsOften extends ParticipantStateFactory {
