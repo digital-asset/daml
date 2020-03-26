@@ -269,7 +269,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
     assertTsFileExists proj file = do
       assertFileExists (proj </> "src" </> file <.> "ts")
       assertFileExists (proj </> "lib" </> file <.> "js")
-      assertFileExists (proj </> "lib" </> file <.> ".d.ts")
+      assertFileExists (proj </> "lib" </> file <.> "d.ts")
         where
           assertFileExists :: FilePath -> IO ()
           assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
