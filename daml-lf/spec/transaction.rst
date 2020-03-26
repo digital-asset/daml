@@ -425,11 +425,11 @@ Version 10 adds the field:
 
 * `message KeyWithMaintainers`_ key_with_maintainers
 
-``key_with_maintainers`` is optional. If present:
-
-* The ``template_id`` field must refer to a template with a DAML-LF key definition;
-* The fields ``key`` and ``maintainers`` of ``key_with_maintainers``
-  must conform to the key definition for the ``template_id``
+``key_with_maintainers`` is optional. It is present if and only if the
+``template_id`` field refers to a template with a DAML-LF key
+definition.  When present, the field's sub-fields ``key`` and
+``maintainers`` must conform to the key definition for the
+``template_id``.
 
 
 message NodeExercise
