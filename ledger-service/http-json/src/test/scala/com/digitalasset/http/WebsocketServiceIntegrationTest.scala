@@ -474,10 +474,10 @@ class WebsocketServiceIntegrationTest
     val withNone = JsObject(baseMap + (contractIdAtOffsetKey -> JsNull))
 
     "initial JSON reader" - {
-      type T = domain.ContractKeyStreamRequest[None.type, JsValue]
+      type T = domain.ContractKeyStreamRequest[Unit, JsValue]
 
       "shares EnrichedContractKey format" in {
-        JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest(None, baseVal))
+        JsObject(baseMap).convertTo[T] should ===(domain.ContractKeyStreamRequest((), baseVal))
       }
 
       "errors on contractIdAtOffset presence" in {

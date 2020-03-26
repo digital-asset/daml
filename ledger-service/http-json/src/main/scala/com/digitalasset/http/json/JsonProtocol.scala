@@ -173,7 +173,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
 
   implicit val InitialContractKeyStreamRequest
-    : RootJsonReader[domain.ContractKeyStreamRequest[None.type, JsValue]] = { jsv =>
+    : RootJsonReader[domain.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
     val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
     jsv match {
       case JsObject(fields) if fields contains contractIdAtOffsetKey =>
@@ -181,7 +181,7 @@ object JsonProtocol extends DefaultJsonProtocol {
           s"$contractIdAtOffsetKey is not allowed for WebSocket streams starting at the beginning")
       case _ =>
     }
-    domain.ContractKeyStreamRequest(None, ekey)
+    domain.ContractKeyStreamRequest((), ekey)
   }
 
   implicit val ResumingContractKeyStreamRequest: RootJsonReader[

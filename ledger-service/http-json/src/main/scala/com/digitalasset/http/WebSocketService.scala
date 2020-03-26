@@ -273,7 +273,7 @@ object WebSocketService {
   }
 
   private[this] object InitialEnrichedContractKeyWithStreamQuery
-      extends EnrichedContractKeyWithStreamQuery[None.type] {
+      extends EnrichedContractKeyWithStreamQuery[Unit] {
     override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = Some(Set.empty)
   }
 
