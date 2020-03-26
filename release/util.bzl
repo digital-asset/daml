@@ -26,12 +26,10 @@ def sdk_tarball(name, version):
             "//daml-script/daml:daml-script-dars",
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
-        tools = ["@zip_dev_env//:zip"],
         outs = ["{}.tar.gz".format(name)],
         cmd = """
           # damlc
           VERSION={version}
-          ZIP=$$PWD/$(location @zip_dev_env//:zip)
           OUT=sdk-$$VERSION
           mkdir -p $$OUT
 
