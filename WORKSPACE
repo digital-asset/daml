@@ -270,17 +270,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-dev_env_tool(
-    name = "zip_dev_env",
-    nix_include = ["bin/zip"],
-    nix_label = "@zip_nix",
-    nix_paths = ["bin/zip"],
-    tools = ["zip"],
-    win_include = ["usr/bin/zip.exe"],
-    win_paths = ["usr/bin/zip.exe"],
-    win_tool = "msys2",
-)
-
 load(
     "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
