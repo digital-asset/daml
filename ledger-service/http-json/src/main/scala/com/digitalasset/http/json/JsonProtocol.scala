@@ -43,6 +43,21 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
     nela => JsArray(nela.map(_.toJson).list.toVector)
 
+  /** This intuitively pointless extra type is here to give it specificity
+    * so this instance will beat [[CollectionFormats#listFormat]].
+    * You would normally achieve the conflict resolution by putting this
+    * instance in a parent of [[CollectionFormats]], but that kind of
+    * extension isn't possible here.
+    */
+  final class JsonReaderList[A: JsonReader] extends JsonReader[List[A]] {
+    override def read(json: JsValue) = json match {
+      case JsArray(elements) => elements.iterator.map(_.convertTo[A]).toList
+      case _ => deserializationError(s"must be a list, but got $json")
+    }
+  }
+
+  implicit def `List reader only`[A: JsonReader]: JsonReaderList[A] = new JsonReaderList
+
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
     jsonFormat3(domain.PartyDetails.apply)
 
@@ -154,6 +169,31 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val EnrichedContractIdFormat: RootJsonFormat[domain.EnrichedContractId] =
     jsonFormat2(domain.EnrichedContractId)
+
+  private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
+
+  implicit val InitialContractKeyStreamRequest
+    : RootJsonReader[domain.ContractKeyStreamRequest[Unit, JsValue]] = { jsv =>
+    val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
+    jsv match {
+      case JsObject(fields) if fields contains contractIdAtOffsetKey =>
+        deserializationError(
+          s"$contractIdAtOffsetKey is not allowed for WebSocket streams starting at the beginning")
+      case _ =>
+    }
+    domain.ContractKeyStreamRequest((), ekey)
+  }
+
+  implicit val ResumingContractKeyStreamRequest: RootJsonReader[
+    domain.ContractKeyStreamRequest[Option[Option[domain.ContractId]], JsValue]] = { jsv =>
+    val off = jsv match {
+      case JsObject(fields) => fields get contractIdAtOffsetKey map (_.convertTo[Option[String]])
+      case _ => None
+    }
+    val ekey = jsv.convertTo[domain.EnrichedContractKey[JsValue]]
+    type OO[+A] = Option[Option[A]]
+    domain.ContractKeyStreamRequest(domain.ContractId.subst[OO, String](off), ekey)
+  }
 
   implicit val ContractLocatorFormat: RootJsonFormat[domain.ContractLocator[JsValue]] =
     new RootJsonFormat[domain.ContractLocator[JsValue]] {

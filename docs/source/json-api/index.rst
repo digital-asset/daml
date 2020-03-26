@@ -1295,4 +1295,32 @@ Example:
         {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
-The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.
+The output stream has the same format as the output from the `Contracts
+Query Stream`_. We further guarantee that for every ``archived`` event
+appearing on the stream there has been a matching ``created`` event
+earlier in the stream, except in the case of missing
+``contractIdAtOffset`` fields in the case described below.
+
+You may supply an optional ``offset`` for the stream, exactly as with
+query streams.  However, you should supply with each ``{templateId,
+key}`` pair a ``contractIdAtOffset``, which is the contract ID currently
+associated with that pair at the point of the given offset, or ``null``
+if no contract ID was associated with the pair at that offset.  For
+example, with the above keys, if you had one ``"abc123"`` contract but
+no ``"def345"`` contract, you might specify:
+
+.. code-block:: json
+
+    [
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
+         "contractIdAtOffset": "#1:0"},
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"},
+         "contractIdAtOffset": null}
+    ]
+
+If every ``contractIdAtOffset`` is specified, as is so in the example
+above, you will not receive any ``archived`` events for contracts
+created before the offset *unless* those contracts are identified in a
+``contractIdAtOffset``.  By contrast, if any ``contractIdAtOffset`` is
+missing, ``archived`` event filtering will be disabled, and you will
+receive "phantom archives" as with query streams.
