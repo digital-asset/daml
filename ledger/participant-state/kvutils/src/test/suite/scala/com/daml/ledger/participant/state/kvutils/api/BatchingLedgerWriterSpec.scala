@@ -6,141 +6,95 @@ package com.daml.ledger.participant.state.kvutils.api
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
-import com.daml.ledger.participant.state.{kvutils, v1}
 import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.{kvutils, v1}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
-import org.mockito.Mockito._
+import org.mockito.Mockito.{times, verify, when}
 import org.mockito.{ArgumentCaptor, ArgumentMatchers}
 import org.scalatest.concurrent.Eventually
-import org.scalatest.mockito.MockitoSugar
+import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, Future}
 
 class BatchingLedgerWriterSpec
     extends AsyncWordSpec
-    with MockitoSugar
     with AkkaBeforeAndAfterAll
     with Eventually
     with Matchers {
 
-  "DefaultBatchingQueue" should {
+  import BatchingLedgerWriterSpec._
 
-    "report dead when queue is closed" in {
-      val queue = DefaultBatchingQueue(10, 5, 1.millis, 1)
-        .run { batch =>
-          throw new RuntimeException("kill the queue")
+  "BatchingLedgerWriter" should {
+
+    "report unhealthy when queue is dead" in {
+      val handle = mock[RunningBatchingQueueHandle]
+      when(handle.alive).thenReturn(false)
+      val queue = mock[BatchingQueue]
+      when(queue.run(any[BatchingQueue.CommitBatchFunction]())(any[Materializer]()))
+        .thenReturn(handle)
+      val writer = mock[LedgerWriter]
+      val batchingWriter =
+        LoggingContext.newLoggingContext { implicit ctx =>
+          new BatchingLedgerWriter(queue, writer)
         }
-      val subm1 = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-        .setCorrelationId("1")
-        .setSubmission(ByteString.copyFromUtf8("helloworld"))
-        .build
+      batchingWriter.currentHealth shouldBe HealthStatus.unhealthy
+      Future.successful(succeed)
+    }
 
-      queue.alive should be(true)
+    "construct batch correctly" in {
+      val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
+      val mockWriter = createMockWriter(captor = Some(batchCaptor))
+      val batchingWriter =
+        LoggingContext.newLoggingContext { implicit logCtx =>
+          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+        }
+      val expected = createExpectedBatch(aCorrelationId -> aSubmission)
       for {
-        res <- queue.offer(subm1)
+        submissionResult <- batchingWriter.commit(aCorrelationId, aSubmission)
       } yield {
-        res should be(SubmissionResult.Acknowledged)
-        queue.alive should be(false)
+        verify(mockWriter).commit(anyString(), ArgumentMatchers.eq(expected))
+        submissionResult should be(SubmissionResult.Acknowledged)
       }
     }
 
-    "not commit empty batches" in {
-      val mockCommit =
-        mock[Function[Seq[DamlSubmissionBatch.CorrelatedSubmission], Future[Unit]]]
-      val queue = DefaultBatchingQueue(1, 1024, 1.millis, 1)
-      queue.run(mockCommit)
-      Thread.sleep(5.millis.toMillis);
-      verifyZeroInteractions(mockCommit)
-      succeed
-    }
-
-    // Test that we commit a batch when we have a submission and the maxWaitDuration has been reached.
-    "commit batch after maxWaitDuration" in {
-      val maxWait = 5.millis
-      var batches = Seq.empty[Seq[DamlSubmissionBatch.CorrelatedSubmission]]
-      val queue =
-        DefaultBatchingQueue(10, 1024, maxWait, 1)
-          .run { batch =>
-            {
-              batches = batch +: batches
-              Future.successful(())
-            }
-          }
-
-      val subm1 = DamlSubmissionBatch.CorrelatedSubmission.newBuilder.setCorrelationId("1").build
-      val subm2 = DamlSubmissionBatch.CorrelatedSubmission.newBuilder.setCorrelationId("2").build
-
+    "continue even when commit fails" in {
+      val mockWriter =
+        createMockWriter(captor = None, submissionResult = SubmissionResult.Overloaded)
+      val batchingWriter =
+        LoggingContext.newLoggingContext { implicit logCtx =>
+          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
+        }
       for {
-        res1 <- queue.offer(subm1)
-        _ = eventually {
-          batches.size should be(1)
-        }
-        res2 <- queue.offer(subm2)
-        _ <- eventually {
-          batches.size should be(2)
-        }
+        result1 <- batchingWriter.commit("test1", aSubmission)
+        result2 <- batchingWriter.commit("test2", aSubmission)
+        result3 <- batchingWriter.commit("test3", aSubmission)
       } yield {
-        res1 should be(SubmissionResult.Acknowledged)
-        res2 should be(SubmissionResult.Acknowledged)
-        batches should be(Seq(Seq(subm2), Seq(subm1)))
-        queue.alive should be(true)
+        verify(mockWriter, times(3))
+          .commit(anyString(), any[kvutils.Bytes])
+        all(Seq(result1, result2, result3)) should be(SubmissionResult.Acknowledged)
+        batchingWriter.currentHealth should be(HealthStatus.healthy)
       }
     }
 
-    "commit batch after max batch size exceeded" in {
-      var batches = Seq.empty[Seq[DamlSubmissionBatch.CorrelatedSubmission]]
-      val queue =
-        DefaultBatchingQueue(10, 15, 50.millis, 1)
-          .run { batch =>
-            {
-              batches = batch +: batches
-              Future.successful(())
-            }
-          }
-
-      val subm1 = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-        .setCorrelationId("1")
-        .setSubmission(ByteString.copyFromUtf8("helloworld"))
-        .build
-      val subm2 = DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-        .setCorrelationId("2")
-        .setSubmission(ByteString.copyFromUtf8("helloworld"))
-        .build
-
-      for {
-        res1 <- queue.offer(subm1)
-        _ = {
-          batches.size should be(0)
-        }
-        res2 <- queue.offer(subm2)
-      } yield {
-        // First batch emitted.
-        batches.size should be(1)
-
-        // Wait for second batch.
-        eventually {
-          batches.size should be(2)
-        }
-
-        res1 should be(SubmissionResult.Acknowledged)
-        res2 should be(SubmissionResult.Acknowledged)
-        batches should be(Seq(Seq(subm2), Seq(subm1)))
-        queue.alive should be(true)
-      }
-    }
   }
 
-  def immediateBatchingQueue: BatchingQueue =
+}
+
+object BatchingLedgerWriterSpec {
+  val aCorrelationId = "aCorrelationId"
+  val aSubmission = ByteString.copyFromUtf8("a submission")
+
+  def immediateBatchingQueue()(implicit executionContext: ExecutionContext): BatchingQueue =
     new BatchingQueue {
       override def run(commitBatch: Seq[DamlSubmissionBatch.CorrelatedSubmission] => Future[Unit])(
-          implicit materializer: Materializer): BatchingQueueHandle =
-        new BatchingQueueHandle {
+          implicit materializer: Materializer): RunningBatchingQueueHandle =
+        new RunningBatchingQueueHandle {
           override def alive: Boolean = true
           override def offer(
               submission: DamlSubmissionBatch.CorrelatedSubmission): Future[SubmissionResult] =
@@ -148,48 +102,14 @@ class BatchingLedgerWriterSpec
               .map { _ =>
                 SubmissionResult.Acknowledged
               }
+
+          override def close(): Unit = ()
         }
     }
 
-  "BatchingLedgerWriter" should {
-
-    "construct batch correctly" in {
-      val batchCaptor = MockitoHelpers.captor[kvutils.Bytes]
-      val mockWriter = createWriter(Some(batchCaptor))
-      val batchingWriter =
-        LoggingContext.newLoggingContext { implicit logCtx =>
-          new BatchingLedgerWriter(immediateBatchingQueue, mockWriter)
-        }
-      val (corId1, subm1) = "test1" -> ByteString.copyFrom(Array[Byte](1, 2, 3))
-      val expected = createExpectedBatch(corId1, subm1)
-      for {
-        res1 <- batchingWriter.commit(corId1, subm1)
-      } yield {
-        verify(mockWriter).commit(anyString(), ArgumentMatchers.eq(expected))
-        res1 should be(SubmissionResult.Acknowledged)
-      }
-    }
-
-    "drop batch when commit fails" in {
-      val mockWriter = createWriter(None, SubmissionResult.Overloaded)
-      val batchingWriter = createBatchingWriter(mockWriter, 5, 1.millis)
-      val subm = ByteString.copyFrom(Array[Byte](1, 2, 3, 4, 5))
-      for {
-        res1 <- batchingWriter.commit("test1", subm)
-        res2 <- batchingWriter.commit("test2", subm)
-        res3 <- batchingWriter.commit("test3", subm)
-      } yield {
-        verify(mockWriter, times(3))
-          .commit(anyString(), any[kvutils.Bytes])
-        all(Seq(res1, res2, res3)) should be(SubmissionResult.Acknowledged)
-        batchingWriter.currentHealth should be(HealthStatus.healthy)
-      }
-    }
-  }
-
-  private def createWriter(
+  private def createMockWriter(
       captor: Option[ArgumentCaptor[kvutils.Bytes]] = None,
-      result: SubmissionResult = SubmissionResult.Acknowledged): LedgerWriter = {
+      submissionResult: SubmissionResult = SubmissionResult.Acknowledged): LedgerWriter = {
     val writer = mock[LedgerWriter]
     when(writer.commit(anyString(), captor.map(_.capture()).getOrElse(any[kvutils.Bytes]())))
       .thenReturn(Future.successful(SubmissionResult.Acknowledged))
@@ -198,29 +118,18 @@ class BatchingLedgerWriterSpec
     writer
   }
 
-  private def createBatchingWriter(
-      writer: LedgerWriter,
-      maxBatchSizeBytes: Long,
-      maxWaitDuration: FiniteDuration) =
-    LoggingContext.newLoggingContext { implicit logCtx =>
-      new BatchingLedgerWriter(
-        DefaultBatchingQueue(
-          maxQueueSize = 128,
-          maxBatchSizeBytes = maxBatchSizeBytes,
-          maxWaitDuration = maxWaitDuration,
-          maxConcurrentCommits = 1
-        ),
-        writer = writer,
-      )
-    }
-
-  private def createExpectedBatch(corId: String, subm: kvutils.Bytes): kvutils.Bytes =
+  private def createExpectedBatch(correlatedSubmissions: (String, kvutils.Bytes)*): kvutils.Bytes =
     Envelope
       .enclose(
         DamlSubmissionBatch.newBuilder
-          .addSubmissions(
-            DamlSubmissionBatch.CorrelatedSubmission.newBuilder
-              .setCorrelationId(corId)
-              .setSubmission(subm))
+          .addAllSubmissions(
+            correlatedSubmissions.map {
+              case (correlationId, submission) =>
+                DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                  .setCorrelationId(correlationId)
+                  .setSubmission(submission)
+                  .build
+            }.asJava
+          )
           .build)
 }

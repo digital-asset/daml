@@ -167,6 +167,45 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         }
     }
 
+    "support batch with single submission" in {
+      val mockStateOperations = mock[LedgerStateOperations[Int]]
+      val expectedLogResult: Int = 7
+      when(mockStateOperations.readState(any[Seq[Bytes]]()))
+        .thenReturn(Future.successful(Seq(Some(aStateValue()))))
+      val writtenKeyValuesCaptor = captor[RawKeyValuePairs]
+      when(mockStateOperations.writeState(writtenKeyValuesCaptor.capture()))
+        .thenReturn(Future.successful(()))
+      val logEntryCaptor = captor[Bytes]
+      when(mockStateOperations.appendToLog(any[Bytes](), logEntryCaptor.capture()))
+        .thenReturn(Future.successful(expectedLogResult))
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val instance = new SubmissionValidator(
+        new FakeStateAccess(mockStateOperations),
+        (_, _, _, _, _) => logEntryAndStateResult,
+        () => aLogEntryId())
+      val batchEnvelope =
+        Envelope.enclose(
+          DamlSubmissionBatch.newBuilder
+            .addSubmissions(
+              DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+                .setCorrelationId("aCorrelationId")
+                .setSubmission(anEnvelope()))
+            .build)
+      instance
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          inside(_) {
+            case Right(actualLogResult) =>
+              actualLogResult should be(expectedLogResult)
+              writtenKeyValuesCaptor.getAllValues should have size 1
+              val writtenKeyValues = writtenKeyValuesCaptor.getValue
+              writtenKeyValues should have size 1
+              Try(SubmissionValidator.bytesToStateValue(writtenKeyValues.head._2)).isSuccess shouldBe true
+              logEntryCaptor.getAllValues should have size 1
+          }
+        }
+    }
+
     "return invalid submission if state cannot be written" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       when(mockStateOperations.writeState(any[RawKeyValuePairs]()))

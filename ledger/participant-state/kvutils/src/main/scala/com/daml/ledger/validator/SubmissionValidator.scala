@@ -122,9 +122,26 @@ class SubmissionValidator[LogResult](
       ) => Future[T],
   )(implicit logCtx: LoggingContext): Future[Either[ValidationFailed, T]] =
     Envelope.open(envelope) match {
-      case Right(_: Envelope.BatchMessage) =>
-        Future.successful(
-          Left(ValidationFailed.ValidationError("Validation of batches is not supported.")))
+      case Right(Envelope.BatchMessage(batch)) =>
+        // NOTE(JM)): We support validation of batches of size 1, but not more as batch validation
+        // does not currently fit these interfaces (e.g. multiple "LogResult"s).
+        // A separate batch validator is used instead for the time being, but we support batches here
+        // to allow testing and integration of BatchingLedgerWriter.
+        batch.getSubmissionsList.asScala.toList match {
+          case correlatedSubmission :: Nil =>
+            runValidation(
+              correlatedSubmission.getSubmission,
+              correlatedSubmission.getCorrelationId,
+              recordTime,
+              participantId,
+              postProcessResult)
+          case submissions =>
+            logger.error(s"Unsupported batch size of ${submissions.length}, rejecting submission.")
+            Future.successful(
+              Left(
+                ValidationFailed.ValidationError(
+                  "SubmissionValidator only supports batches with single submission")))
+        }
 
       case Right(Envelope.SubmissionMessage(submission)) =>
         val declaredInputs = submission.getInputDamlStateList.asScala
