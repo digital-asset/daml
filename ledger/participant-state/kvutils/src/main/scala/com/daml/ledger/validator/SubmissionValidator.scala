@@ -137,10 +137,8 @@ class SubmissionValidator[LogResult](
               postProcessResult)
           case submissions =>
             logger.error(s"Unsupported batch size of ${submissions.length}, rejecting submission.")
-            Future.successful(
-              Left(
-                ValidationFailed.ValidationError(
-                  "SubmissionValidator only supports batches with single submission")))
+            Future.successful(Left(
+              ValidationFailed.ValidationError(s"Unsupported batch size of ${submissions.length}")))
         }
 
       case Right(Envelope.SubmissionMessage(submission)) =>

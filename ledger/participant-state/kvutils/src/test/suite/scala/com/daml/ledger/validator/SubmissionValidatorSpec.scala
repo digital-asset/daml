@@ -206,6 +206,33 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         }
     }
 
+    "fail when batch contains more than one submission" in {
+      val mockStateOperations = mock[LedgerStateOperations[Int]]
+      val logEntryAndStateResult = (aLogEntry(), someStateUpdates)
+      val instance = new SubmissionValidator(
+        new FakeStateAccess(mockStateOperations),
+        (_, _, _, _, _) => logEntryAndStateResult,
+        () => aLogEntryId())
+      val batchEnvelope =
+        Envelope.enclose(
+          DamlSubmissionBatch.newBuilder
+            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+              .setCorrelationId("aCorrelationId")
+              .setSubmission(anEnvelope()))
+            .addSubmissions(DamlSubmissionBatch.CorrelatedSubmission.newBuilder
+              .setCorrelationId("aCorrelationId2")
+              .setSubmission(anEnvelope()))
+            .build)
+      instance
+        .validateAndCommit(batchEnvelope, "aBatchCorrelationId", newRecordTime(), aParticipantId())
+        .map {
+          inside(_) {
+            case Left(ValidationError(reason)) =>
+              reason should include("Unsupported batch size")
+          }
+        }
+    }
+
     "return invalid submission if state cannot be written" in {
       val mockStateOperations = mock[LedgerStateOperations[Int]]
       when(mockStateOperations.writeState(any[RawKeyValuePairs]()))
