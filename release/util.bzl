@@ -26,12 +26,10 @@ def sdk_tarball(name, version):
             "//daml-script/daml:daml-script-dars",
             "//daml-assistant/daml-sdk:sdk_deploy.jar",
         ],
-        tools = ["@zip_dev_env//:zip"],
         outs = ["{}.tar.gz".format(name)],
         cmd = """
           # damlc
           VERSION={version}
-          ZIP=$$PWD/$(location @zip_dev_env//:zip)
           OUT=sdk-$$VERSION
           mkdir -p $$OUT
 
@@ -75,7 +73,7 @@ def sdk_tarball(name, version):
           cp -L $(location //triggers/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/trigger-logback.xml
           cp -L $(location //daml-script/runner:src/main/resources/logback.xml) $$OUT/daml-sdk/script-logback.xml
 
-          tar zcf $@ --format=ustar $$OUT
+          tar c --format=ustar --sort=name --owner=root:0 --group=root:0 --mtime=0 $$OUT | gzip -n > $@
         """.format(version = version),
         visibility = ["//visibility:public"],
     )
