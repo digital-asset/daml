@@ -6,10 +6,11 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.time.{Clock, Duration}
 import java.util.UUID
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
-import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateWriterSpec._
+import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope}
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.crypto
@@ -30,7 +31,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "submit a transaction" in {
       val transactionCaptor = captor[Bytes]
       val writer = createWriter(transactionCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer)
+      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
       val recordTime = newRecordTime()
 
       instance.submitTransaction(
@@ -44,7 +45,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "upload a package" in {
       val packageUploadCaptor = captor[Bytes]
       val writer = createWriter(packageUploadCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer)
+      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
 
       instance.uploadPackages(aSubmissionId, List.empty, sourceDescription = None)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
@@ -54,7 +55,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "submit a configuration" in {
       val configurationCaptor = captor[Bytes]
       val writer = createWriter(configurationCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer)
+      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
 
       instance.submitConfiguration(newRecordTime().addMicros(10000), aSubmissionId, aConfiguration)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())
@@ -64,7 +65,7 @@ class KeyValueParticipantStateWriterSpec extends WordSpec {
     "allocate a party without hint" in {
       val partyAllocationCaptor = captor[Bytes]
       val writer = createWriter(partyAllocationCaptor)
-      val instance = new KeyValueParticipantStateWriter(writer)
+      val instance = new KeyValueParticipantStateWriter(writer, new MetricRegistry)
 
       instance.allocateParty(hint = None, displayName = None, aSubmissionId)
       verify(writer, times(1)).commit(anyString(), any[Bytes]())

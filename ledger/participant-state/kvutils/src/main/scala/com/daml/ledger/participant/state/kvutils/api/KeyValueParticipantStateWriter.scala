@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.util.UUID
 import java.util.concurrent.CompletionStage
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
@@ -15,7 +16,10 @@ import com.digitalasset.ledger.api.health.HealthStatus
 
 import scala.compat.java8.FutureConverters
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService {
+class KeyValueParticipantStateWriter(writer: LedgerWriter, metricRegistry: MetricRegistry)
+    extends WriteService {
+
+  private val keyValueSubmission = new KeyValueSubmission(metricRegistry)
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -23,7 +27,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService 
       transaction: SubmittedTransaction,
   ): CompletionStage[SubmissionResult] = {
     val submission =
-      KeyValueSubmission.transactionToSubmission(
+      keyValueSubmission.transactionToSubmission(
         submitterInfo,
         transactionMeta,
         transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
@@ -36,7 +40,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService 
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
-    val submission = KeyValueSubmission
+    val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
         archives,
@@ -50,7 +54,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService 
       submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] = {
     val submission =
-      KeyValueSubmission
+      keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
     commit(submissionId, submission)
   }
@@ -61,7 +65,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter) extends WriteService 
       submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
-      KeyValueSubmission.partyToSubmission(
+      keyValueSubmission.partyToSubmission(
         submissionId,
         Some(party),
         displayName,

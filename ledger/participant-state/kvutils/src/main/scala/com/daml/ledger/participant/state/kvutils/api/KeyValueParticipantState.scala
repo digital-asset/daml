@@ -8,6 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
@@ -21,16 +22,19 @@ import com.digitalasset.ledger.api.health.HealthStatus
   * Will report [[com.digitalasset.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
-  * @param reader  [[LedgerReader]] instance to adapt
-  * @param writer  [[LedgerWriter]] instance to adapt
+  * @param reader       [[LedgerReader]] instance to adapt
+  * @param writer       [[LedgerWriter]] instance to adapt
   * @param materializer materializer to use when streaming updates from `reader`
   */
-class KeyValueParticipantState(reader: LedgerReader, writer: LedgerWriter)(
-    implicit materializer: Materializer)
+class KeyValueParticipantState(
+    reader: LedgerReader,
+    writer: LedgerWriter,
+    metricRegistry: MetricRegistry,
+)(implicit materializer: Materializer)
     extends ReadService
     with WriteService {
   private val readerAdapter = new KeyValueParticipantStateReader(reader)
-  private val writerAdapter = new KeyValueParticipantStateWriter(writer)
+  private val writerAdapter = new KeyValueParticipantStateWriter(writer, metricRegistry)
 
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     readerAdapter.getLedgerInitialConditions()
