@@ -153,6 +153,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//language-support/ts/codegen:daml2ts-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],

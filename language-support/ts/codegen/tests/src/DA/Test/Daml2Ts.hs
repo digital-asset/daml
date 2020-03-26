@@ -13,13 +13,13 @@ import System.Exit
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
+import DA.Daml.Daml2TsUtils
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
-import Data.Hashable
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -35,12 +35,6 @@ configConsts = ConfigConsts
       , (NpmPackageName "@typescript-eslint/parser", NpmPackageVersion "2.11.0")
       ]
   }
-newtype NpmPackageName = NpmPackageName {unNpmPackageName :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
-newtype NpmPackageVersion = NpmPackageVersion {unNpmPackageVersion :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON)
 
 main :: IO ()
 main = do
@@ -233,7 +227,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
       copyDirectory damlTypes "daml-types"
-      writePackageJson
+      writeRootPackageJson Nothing ["daml2ts"]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
@@ -262,15 +256,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         ] ++
         ["  - " ++ dependency | dependency <- dependencies] ++
         ["build-options: [--target=" <> LF.renderVersion ver <> "]" | Just ver <- [mbLfVersion]]
-
-    writePackageJson :: IO ()
-    writePackageJson = BSL.writeFile "package.json" $ encode packageJson
-      where
-        packageJson = object
-          [ "private" .= True
-          , "workspaces" .= (["daml2ts"] :: [T.Text])
-          , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
-          ]
 
     assertTsFileExists :: FilePath -> String -> IO ()
     assertTsFileExists proj file = do

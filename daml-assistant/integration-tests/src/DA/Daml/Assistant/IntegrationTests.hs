@@ -31,13 +31,11 @@ import Test.Main
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
-import qualified Data.ByteString.Lazy as BSL
-import qualified Data.HashMap.Strict as HMS
-import Data.Aeson
 
 import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
+import DA.Daml.Daml2TsUtils
 import SdkVersion
 
 main :: IO ()
@@ -524,12 +522,7 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                           createDirectoryIfMissing True "generated"
                           withCurrentDirectory "generated" $ do
                             copyDirectory damlTypes "daml-types"
-                            BSL.writeFile "package.json" $ encode $
-                              object
-                                [ "private" .= True
-                                , "workspaces" .= [T.pack lang]
-                                , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
-                                ]
+                            writeRootPackageJson Nothing [lang]
                         callCommandQuiet $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace

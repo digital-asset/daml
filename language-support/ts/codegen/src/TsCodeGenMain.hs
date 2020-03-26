@@ -19,9 +19,9 @@ import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
-import Data.Hashable
 
 import Control.Monad.Extra
+import DA.Daml.Daml2TsUtils
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Optics
 import Data.Either
@@ -56,12 +56,6 @@ configConsts sdkVersion = ConfigConsts
       [ (NpmPackageName "typescript", NpmPackageVersion "~3.7.3")
       ]
   }
-newtype NpmPackageName = NpmPackageName {unNpmPackageName :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
-newtype NpmPackageVersion = NpmPackageVersion {unNpmPackageVersion :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON)
 
 data Options = Options
     { optInputDars :: [FilePath]
