@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.store.dao.events
 
-import anorm.{Row, RowParser, SQL, SimpleSql, SqlQuery, ~}
+import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.digitalasset.ledger.TransactionId
 import com.digitalasset.ledger.api.v1.event.Event
 import com.digitalasset.platform.store.Conversions._
@@ -68,7 +68,6 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "event_offset",
       "transaction_id",
       "ledger_effective_time",
-      "case when submitter in ({requesting_parties}) then command_id else '' end as command_id",
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
@@ -103,19 +102,10 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  private def lookupFlatTransactionByIdQuery(
-      transactionId: TransactionId,
-      requestingParties: Set[Party],
-  ): SimpleSql[Row] =
-    SQL"select #$selectColumns from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns)"
-
   def prepareLookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
-    lookupFlatTransactionByIdQuery.on(
-      "transaction_id" -> transactionId,
-      "requesting_parties" -> requestingParties,
-    )
+    SQL"select #$selectColumns, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns)"
 
 }
