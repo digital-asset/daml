@@ -126,5 +126,6 @@ da_haskell_test(
         "//language-support/ts/codegen/tests:daml2ts-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
