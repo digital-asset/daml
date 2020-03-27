@@ -546,18 +546,18 @@ runNew targetFolder templateNameM = do
     files <- listFilesRecursive targetFolder
     mapM_ setWritable files
 
-    -- Update daml.yaml
-    let configPath = targetFolder </> projectConfigName
-        configTemplatePath = configPath <.> "template"
-
-    whenM (doesFileExist configTemplatePath) $ do
-        configTemplate <- readFileUTF8 configTemplatePath
+    -- Substitute strings in template files (not a DAML template!)
+    -- e.g. the SDK version numbers in daml.yaml and package.json
+    let templateFiles = filter (".template" `isSuffixOf`) files
+    forM_ templateFiles $ \templateFile -> do
+        templateContent <- readFileUTF8 templateFile
         sdkVersion <- getSdkVersion
-        let config = replace "__VERSION__"  sdkVersion
-                   . replace "__PROJECT_NAME__" projectName
-                   $ configTemplate
-        writeFileUTF8 configPath config
-        removeFile configTemplatePath
+        let content = replace "__VERSION__"  sdkVersion
+                    . replace "__PROJECT_NAME__" projectName
+                    $ templateContent
+            realFile = dropExtension templateFile
+        writeFileUTF8 realFile content
+        removeFile templateFile
 
     -- Done.
     putStrLn $

@@ -319,9 +319,7 @@ runCommand = \case
     RunJar {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $
         runJar jarPath mbLogbackConfig remainingArguments
-    New {..}
-        | templateNameM == Just "create-daml-app" -> runCreateDamlApp targetFolder
-        | otherwise -> runNew targetFolder templateNameM
+    New {..} -> runNew targetFolder templateNameM
     CreateDamlApp{..} -> runCreateDamlApp targetFolder
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates
