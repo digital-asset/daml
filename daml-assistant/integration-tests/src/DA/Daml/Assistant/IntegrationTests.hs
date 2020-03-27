@@ -550,7 +550,11 @@ fetchTest tmpDir = testCaseSteps "daml ledger fetch-dar" $ \step -> do
         pid <- getMainPidByInspecingDar origDar "proj1"
         step "fetch/validate"
         let fetchedDar = "fetched.dar"
-        callCommandQuiet $ unwords ["daml ledger fetch-dar --port", show port, pid, fetchedDar]
+        callCommandQuiet $ unwords [ "daml ledger fetch-dar"
+                                   , "--port", show port
+                                   , "--main-package-id", pid
+                                   , "-o", fetchedDar
+                                   ]
         callCommandQuiet $ unwords ["daml damlc validate-dar", fetchedDar]
 
 deployTest :: FilePath -> TestTree

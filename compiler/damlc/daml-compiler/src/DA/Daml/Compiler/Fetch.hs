@@ -77,11 +77,11 @@ downloadPackage ledgerArgs pid = do
         lid <- L.getLedgerIdentity
         L.getPackage lid $ convPid pid
   runWithLedgerArgs ledgerArgs ls >>= \case
-    Nothing -> error $ "Unable to download package with identity: " <> show pid
+    Nothing -> fail $ "Unable to download package with identity: " <> show pid
     Just (L.Package bs) -> do
       let mode = LFArchive.DecodeAsMain
       case LFArchive.decodePackage mode pid bs of
-        Left err -> error $ show err
+        Left err -> fail $ show err
         Right pkg -> return pkg
   where
     convPid :: LF.PackageId -> L.PackageId
