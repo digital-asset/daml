@@ -91,9 +91,9 @@ private[kvutils] class ProcessTransactionSubmission(
     get(dedupKey).flatMap { dedupEntry =>
       def isAfterDeduplicationTime(stateValue: DamlStateValue): Boolean = {
         lazy val cmdDedup = stateValue.getCommandDedup
-        lazy val dedupTime = parseTimestamp(cmdDedup.getDeduplicationTime).toInstant
-        !stateValue.hasCommandDedup || !cmdDedup.hasDeduplicationTime || dedupTime.isBefore(
-          Instant.now()) // should this use record time instead?
+        lazy val dedupTime = parseTimestamp(cmdDedup.getDeduplicatedUntil).toInstant
+        !stateValue.hasCommandDedup || !cmdDedup.hasDeduplicatedUntil || dedupTime.isBefore(
+          recordTime.toInstant)
       }
       if (dedupEntry.forall(isAfterDeduplicationTime)) {
         Commit.set(
@@ -102,7 +102,7 @@ private[kvutils] class ProcessTransactionSubmission(
               .setCommandDedup(
                 DamlCommandDedupValue.newBuilder
                   .setRecordTime(buildTimestamp(recordTime))
-                  .setDeduplicationTime(transactionEntry.submitterInfo.getDeduplicateUntil)
+                  .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
                   .build)
               .build)
       } else {
