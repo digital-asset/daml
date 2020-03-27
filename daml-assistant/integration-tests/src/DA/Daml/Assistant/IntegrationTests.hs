@@ -59,26 +59,31 @@ main = do
     mbComSpec <- getEnv "COMSPEC"
     let mbCmdDir = takeDirectory <$> mbComSpec
     let damlDir = tmpDir </> "daml"
-    withArgs args (withEnv
+    withArgs args $ withEnv
         [ ("DAML_HOME", Just damlDir)
         , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-        ] $ defaultMain (tests damlDir tmpDir damlTypesDir))
+        ] $ do
+      install tmpDir
+      defaultMain (tests damlDir tmpDir damlTypesDir)
+
+install :: FilePath -> IO ()
+install tmpDir = do
+    let tarballDir = tmpDir </> "tarball"
+    releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+    createDirectory tarballDir
+    runConduitRes
+        $ sourceFileBS releaseTarball
+        .| Zlib.ungzip
+        .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError tarballDir)
+    if isWindows
+        then callProcessQuiet
+            (tarballDir </> "daml" </> damlInstallerName)
+            ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
+        else callCommandQuiet $ tarballDir </> "install.sh"
 
 tests :: FilePath -> FilePath -> FilePath -> TestTree
 tests damlDir tmpDir damlTypesDir = testGroup "Integration tests"
-    [ testCase "install" $ do
-        releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-        createDirectory tarballDir
-        runConduitRes
-            $ sourceFileBS releaseTarball
-            .| Zlib.ungzip
-            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError tarballDir)
-        if isWindows
-            then callProcessQuiet
-                (tarballDir </> "daml" </> damlInstallerName)
-                ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
-            else callCommandQuiet $ tarballDir </> "install.sh"
-    , testCase "daml version" $ callCommandQuiet "daml version"
+    [ testCase "daml version" $ callCommandQuiet "daml version"
     , testCase "daml --help" $ callCommandQuiet "daml --help"
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , noassistantTests damlDir
@@ -91,7 +96,6 @@ tests damlDir tmpDir damlTypesDir = testGroup "Integration tests"
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
-          tarballDir = tmpDir </> "tarball"
           deployDir = tmpDir </> "deploy"
           codegenDir = tmpDir </> "codegen"
 
