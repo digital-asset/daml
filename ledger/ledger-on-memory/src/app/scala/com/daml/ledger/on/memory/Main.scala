@@ -42,7 +42,11 @@ object Main {
     ): ResourceOwner[KeyValueParticipantState] =
       for {
         readerWriter <- owner(config, participantConfig)
-      } yield new KeyValueParticipantState(readerWriter, readerWriter)
+      } yield
+        new KeyValueParticipantState(
+          readerWriter,
+          readerWriter,
+          metricRegistry(participantConfig, config))
 
     def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
         implicit materializer: Materializer,
