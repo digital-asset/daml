@@ -519,6 +519,8 @@ withSandboxOnFreePort f = do
       race_ (waitForProcess' sandboxProc ph) $ do
         waitForConnectionOnPort (threadDelay 100000) port
         f port
+        -- waitForProcess' will block on Windows so we explicitly kill the process.
+        terminateProcess ph
 
 -- | Using `daml inspect-dar`, discover the main package-identifier of a dar.
 getMainPidByInspecingDar :: FilePath -> String -> IO String
