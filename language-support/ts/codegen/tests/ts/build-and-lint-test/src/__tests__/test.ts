@@ -7,7 +7,7 @@ import { encode } from 'jwt-simple';
 import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
 
-import buildAndLint from '@daml.js/build-and-lint-1.0.0'
+import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
 const LEDGER_ID = 'build-and-lint-test';
 const APPLICATION_ID = 'build-and-lint-test';
