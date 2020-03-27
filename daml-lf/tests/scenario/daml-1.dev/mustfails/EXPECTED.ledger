@@ -38,7 +38,7 @@ TX #10 1969-12-31T23:58:20Z [Test:128]
 TX #11 1969-12-31T23:58:20Z [Test:129]
 #11:0
 │   known to (since): Alice (#11), Bob (#11)
-└─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on #10:0
+└─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 0081c0c94e36abbade4cdc759c4b53a0ace9b7478e96545e497575d0ea1356b12a
     with {  } value-version: 6
     children:
     #11:1
@@ -85,4 +85,4 @@ TX #21 1969-12-31T23:58:20Z [Test:345]
 mustFailAt 'Alice' [Test:346]
 
 active contracts:
-   #4:0, #7:0, #11:1, #13:0, #16:0, #18:0, #21:0
+   0013a42e7cdda25452d375a54fac3c7eb55fb543272276e44e6fa6e1bab310940a, 00952e67b495979b48a0bc5d49f15d2a75aa87b58a3c2acc79a2fb1fc4a9c29f0e, 00c03269537484009ec6d8a26e95d14ed273a11b78506a7b79eedfaf1bb80f9da0, 00c2e2252aa17403ef21f0fec77ee019185f05bb59ecdb8c97ec6f0077c9924bbd, 00dd7ed69c8c3d2ad435020c8fb0878d21addcd8f7cd9744e524d00824b276588c, 00f41219ff99113febdc2726c6db18f777c4aa7ef22a86f642797d2bfded3f6394, 00fdf46e88e33308d02e84af70e4aa102beceedfce9b823b710f554a3703253183

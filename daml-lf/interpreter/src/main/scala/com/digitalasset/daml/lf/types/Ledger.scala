@@ -1231,7 +1231,7 @@ object Ledger {
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
       val globalImplicitDisclosure = richTr.globalImplicitDisclosure.map {
-        case (cid, parties) => ledgerData.coidToNodeId(cid) -> parties
+        case (cid, parties) => cacheAfterProcess.coidToNodeId(cid) -> parties
       }
       Relation
         .union(
