@@ -202,6 +202,7 @@ private[events] trait EventsTable {
       createAgreementText: Option[String],
       createKeyValue: Option[InputStream],
       eventWitnesses: Array[String],
+      verbose: Boolean,
   ): CreatedEvent =
     CreatedEvent(
       eventId = eventId,
@@ -213,7 +214,7 @@ private[events] trait EventsTable {
             failureContext = s"attempting to deserialize persisted key to value",
             LfEngineToApi
               .lfVersionedValueToApiValue(
-                verbose = true,
+                verbose = verbose,
                 value = deserialize(key),
               ),
         )
@@ -223,7 +224,7 @@ private[events] trait EventsTable {
           failureContext = s"attempting to deserialize persisted create argument to record",
           LfEngineToApi
             .lfVersionedValueToApiRecord(
-              verbose = true,
+              verbose = verbose,
               recordValue = deserialize(createArgument),
             ),
         )
@@ -246,6 +247,7 @@ private[events] trait EventsTable {
       exerciseActors: Array[String],
       exerciseChildEventIds: Array[String],
       eventWitnesses: Array[String],
+      verbose: Boolean,
   ): ExercisedEvent =
     ExercisedEvent(
       eventId = eventId,
@@ -257,7 +259,7 @@ private[events] trait EventsTable {
           failureContext = s"attempting to deserialize persisted exercise argument to value",
           LfEngineToApi
             .lfVersionedValueToApiValue(
-              verbose = true,
+              verbose = verbose,
               value = deserialize(exerciseArgument),
             ),
         )
@@ -272,7 +274,7 @@ private[events] trait EventsTable {
             failureContext = s"attempting to deserialize persisted exercise result to value",
             LfEngineToApi
               .lfVersionedValueToApiValue(
-                verbose = true,
+                verbose = verbose,
                 value = deserialize(key),
               ),
         )

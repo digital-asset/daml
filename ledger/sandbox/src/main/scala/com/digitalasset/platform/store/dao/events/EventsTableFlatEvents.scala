@@ -10,7 +10,7 @@ import com.digitalasset.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
-  private val createdFlatEventParser: RowParser[Entry[Event]] =
+  private def createdFlatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
@@ -32,6 +32,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
                 createAgreementText = createAgreementText,
                 createKeyValue = createKeyValue,
                 eventWitnesses = eventWitnesses,
+                verbose = verbose,
               )
             )
           )
@@ -61,7 +62,14 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         )
     }
 
-  val flatEventParser: RowParser[Entry[Event]] = createdFlatEventParser | archivedFlatEventParser
+  private val verboseFlatEventParser: RowParser[Entry[Event]] =
+    createdFlatEventParser(verbose = true) | archivedFlatEventParser
+
+  private val succinctFlatEventParser: RowParser[Entry[Event]] =
+    createdFlatEventParser(verbose = false) | archivedFlatEventParser
+
+  def flatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
+    if (verbose) verboseFlatEventParser else succinctFlatEventParser
 
   private val selectColumns =
     Seq(

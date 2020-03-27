@@ -30,7 +30,7 @@ private[dao] object TransactionsReader {
             description = "lookup_flat_transaction_by_id",
             extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
           ) { implicit connection =>
-            query.as(EventsTable.flatEventParser.*)
+            query.as(EventsTable.flatEventParser(verbose = true).*)
           }
           .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
       }
@@ -45,10 +45,11 @@ private[dao] object TransactionsReader {
             description = "lookup_transaction_tree_by_id",
             extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
           ) { implicit connection =>
-            query.as(EventsTable.treeEventParser.*)
+            query.as(EventsTable.treeEventParser(verbose = true).*)
           }
           .map(EventsTable.Entry.toTransactionTree)(executionContext)
       }
+
     }
 }
 

@@ -9,7 +9,7 @@ import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 
 private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
-  private val createdTreeEventParser: RowParser[Entry[TreeEvent]] =
+  private def createdTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
@@ -31,13 +31,14 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                 createAgreementText = createAgreementText,
                 createKeyValue = createKeyValue,
                 eventWitnesses = eventWitnesses,
+                verbose = verbose,
               )
             )
           )
         )
     }
 
-  private val exercisedTreeEventParser: RowParser[Entry[TreeEvent]] =
+  private def exercisedTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
     exercisedEventRow map {
       case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         Entry(
@@ -60,14 +61,21 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
                 exerciseActors = exerciseActors,
                 exerciseChildEventIds = exerciseChildEventIds,
                 eventWitnesses = eventWitnesses,
+                verbose = verbose,
               )
             )
           )
         )
     }
 
-  val treeEventParser
-    : RowParser[Entry[TreeEvent]] = createdTreeEventParser | exercisedTreeEventParser
+  private val verboseTreeEventParser: RowParser[Entry[TreeEvent]] =
+    createdTreeEventParser(verbose = true) | exercisedTreeEventParser(verbose = true)
+
+  private val succinctTreeEventParser: RowParser[Entry[TreeEvent]] =
+    createdTreeEventParser(verbose = false) | exercisedTreeEventParser(verbose = false)
+
+  def treeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
+    if (verbose) verboseTreeEventParser else succinctTreeEventParser
 
   def prepareLookupTransactionTreeById(
       transactionId: TransactionId,
