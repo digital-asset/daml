@@ -635,7 +635,7 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
         exitFailure
 
 writeIndexTs :: PackageId -> FilePath -> [ModuleName] -> IO ()
-writeIndexTs pkgId packageSrcDir modNames =
+writeIndexTs pkgId packageSrcDir modNames = do
   processIndexTree pkgId packageSrcDir (buildIndexTree modNames)
 
 -- NOTE(MH): The module structure of a DAML package can have "holes", i.e.,
@@ -666,8 +666,24 @@ buildIndexTree = foldl' merge empty . map path
       , children = Map.unionWith merge (children t1) (children t2)
       }
 
+printIndexTree :: String -> IndexTree -> IO ()
+printIndexTree label t = go ("", "") label t
+  where
+    go (pc, pd) label IndexTree {..} = do
+      putStrLn $ pd ++ label ++ ['*' | isVirtual]
+      let cs = map (first T.unpack) $ Map.toList children
+          n = length cs - 1
+      foldM_ (child n) 0 cs
+        where
+          child n i (label, c) = do
+            let pd'  = pc ++ if i == n then "└─ " else "├─ "
+                pc'  = pc ++ if i == n then "   " else "│  "
+            go (pc', pd') label c
+            pure (i + 1)
+
 processIndexTree :: PackageId -> FilePath -> IndexTree -> IO ()
 processIndexTree pkgId srcDir root = do
+  printIndexTree srcDir root
   T.writeFileUtf8 (srcDir </> "index.ts") $ T.unlines $
     reexportChildren root ++
     [ "export const packageId = '" <> unPackageId pkgId <> "';" ]
