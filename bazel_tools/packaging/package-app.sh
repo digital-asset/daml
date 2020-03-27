@@ -175,4 +175,4 @@ else
 fi
 cd $WORKDIR && tar c $NAME \
     --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
-    | gzip -n $OUT
+    | gzip -n > $OUT
