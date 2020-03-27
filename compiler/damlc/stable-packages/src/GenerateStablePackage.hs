@@ -75,7 +75,7 @@ main = do
     ModuleName ["DA", "Logic", "Types"] ->
       writePackage daLogicTypes optOutputPath
     ModuleName ["DA", "Validation", "Types"] ->
-      writePackage (daValidationTypes (PackageId $ encodePackageHash daNonEmptyTypes)) optOutputPath
+      writePackage (daValidationTypes (encodePackageHash daNonEmptyTypes)) optOutputPath
     ModuleName ["DA", "Internal", "Down"] ->
       writePackage daInternalDown optOutputPath
     ModuleName ["DA", "Internal", "Erased"] ->

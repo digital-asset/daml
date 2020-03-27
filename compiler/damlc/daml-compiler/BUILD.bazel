@@ -56,6 +56,7 @@ da_haskell_library(
         "//compiler/repl-service/client",
         "//compiler/scenario-service/client",
         "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/da-hs-base",
     ],
 )

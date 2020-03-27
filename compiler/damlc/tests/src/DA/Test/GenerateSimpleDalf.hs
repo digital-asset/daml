@@ -120,7 +120,7 @@ main = do
             , packageModules = NM.fromList [mod]
             , packageMetadata = Nothing
             }
-    let (bytes, hash) = encodeArchiveAndHash pkg
+    let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile file bytes
     T.putStrLn hash
     pure ()
