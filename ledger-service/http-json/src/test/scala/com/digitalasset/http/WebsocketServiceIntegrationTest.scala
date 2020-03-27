@@ -82,27 +82,25 @@ class WebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-//    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" ignore withHttpService {
-//      (uri, _, _) =>
-//        val inputFlow = scenario.flow.mapConcat(x => List(x, x))
-//        val webSocketFlow =
-//          Http().webSocketClientFlow(
-//            WebSocketRequest(
-//              uri = uri.copy(scheme = "ws").withPath(scenario.path),
-//              subprotocol = validSubprotocol))
-
-//        wsConnectRequest(uri.copy(scheme = "ws").withPath(scenario.path), validSubprotocol, flow)._1 flatMap {
-//          x =>
-//            x.response.status shouldBe StatusCodes.BadRequest
-//            flow.toMat(collectResultsAsTextMessageSkipOffsetTicks)(Keep.right).flatMap { msgs =>
-//              inside(msgs) {
-//                case Seq(errorMsg) =>
-//                  val error = decodeErrorResponse(errorMsg)
-//                  error.status shouldBe StatusCodes.BadRequest
-//              }
-//            }
-//        }
-//    }
+    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" ignore withHttpService {
+      (uri, _, _) =>
+        val input = scenario.input.mapConcat(x => List(x, x))
+        val webSocketFlow =
+          Http().webSocketClientFlow(
+            WebSocketRequest(
+              uri = uri.copy(scheme = "ws").withPath(scenario.path),
+              subprotocol = validSubprotocol))
+        input
+          .via(webSocketFlow)
+          .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+          .flatMap { msgs =>
+            inside(msgs) {
+              case Seq(errorMsg) =>
+                val error = decodeErrorResponse(errorMsg)
+                error.status shouldBe StatusCodes.BadRequest
+            }
+          }
+    }
   }
 
   private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =

@@ -28,6 +28,7 @@ import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
+import com.digitalasset.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -344,6 +345,10 @@ class WebSocketService(
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
+      .map { x =>
+        println(s"----> $x")
+        x
+      }
       .mapAsync(1) {
         case msg: TextMessage =>
           msg.toStrict(config.maxDuration).map { m =>
@@ -364,6 +369,8 @@ class WebSocketService(
             a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
           } yield (offPrefix, a)
       }
+      .via(allowOnlyFirstInput(
+        InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
       .map {
         _.flatMap {
           case (offPrefix, qq: Q.Query[q]) =>
