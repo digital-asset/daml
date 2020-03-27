@@ -130,6 +130,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def encodeNode[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],

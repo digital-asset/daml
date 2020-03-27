@@ -171,8 +171,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  import Name.equalInstance
-
   final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
 
