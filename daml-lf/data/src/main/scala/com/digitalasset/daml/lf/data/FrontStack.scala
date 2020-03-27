@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.data
 
 import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
+import ScalazEqual.toIterableForScalazInstances
 
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.syntax.applicative._
@@ -186,7 +187,7 @@ object FrontStack extends FrontStackInstances {
 
       override def order(as: FrontStack[A], bs: FrontStack[A]) = {
         import scalaz.std.iterable._
-        toIterableForScalaz(as) ?|? toIterableForScalaz(bs)
+        toIterableForScalazInstances(as.iterator) ?|? toIterableForScalazInstances(bs.iterator)
       }
     }
 
@@ -207,15 +208,6 @@ sealed abstract class FrontStackInstances {
       override val A = Equal[A]
     }
 
-  /** The Equal and Order instances only use `iterator` directly, so
-    * this is perfectly sufficient.  If you want a public version, you
-    * need something more along the lines of [[ImmArray.ImmArraySeq]].
-    */
-  protected final def toIterableForScalaz[A](xs: FrontStack[A]): Iterable[A] =
-    new Iterable[A] {
-      override final def iterator = xs.iterator
-    }
-
   protected sealed trait `FrontStack Equal`[A] extends Equal[FrontStack[A]] {
     implicit def A: Equal[A]
 
@@ -223,7 +215,7 @@ sealed abstract class FrontStackInstances {
 
     override final def equal(as: FrontStack[A], bs: FrontStack[A]) = {
       import scalaz.std.iterable._
-      toIterableForScalaz(as) === toIterableForScalaz(bs)
+      toIterableForScalazInstances(as.iterator) === toIterableForScalazInstances(bs.iterator)
     }
 
   }

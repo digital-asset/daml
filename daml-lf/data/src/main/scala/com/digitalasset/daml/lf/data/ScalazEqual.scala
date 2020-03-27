@@ -42,6 +42,16 @@ private[digitalasset] object ScalazEqual {
   def match2[A, B, C](fallback: => C)(f: A => (B PartialFunction C))(a: A, b: B): C =
     f(a).applyOrElse(b, (_: B) => fallback)
 
+  /** The Equal and Order instances only use `iterator` directly, so
+    * this is perfectly sufficient.  If you want a public version, you
+    * need something more along the lines of [[ImmArray.ImmArraySeq]],
+    * customized for the specific type.
+    */
+  private[data] def toIterableForScalazInstances[A](iter: => Iterator[A]): Iterable[A] =
+    new Iterable[A] {
+      override final def iterator = iter
+    }
+
   implicit final class `Match2 syntax`[+A, +B](private val self: (A, B)) extends AnyVal {
     def match2[C](f: A => (B PartialFunction C))(fallback: => C): C =
       ScalazEqual.match2(fallback)(f)(self._1, self._2)
