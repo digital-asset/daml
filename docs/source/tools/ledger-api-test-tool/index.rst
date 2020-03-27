@@ -142,18 +142,13 @@ will still print information about failed tests.
 Tuning the testing behaviour of the tool
 ========================================
 
-Use the command line options ``--timeout-scale-factor`` and
-``--command-submission-ttl-scale-factor`` to tune timeouts applied by the tool.
+Use the command line option ``--timeout-scale-factor`` to tune timeouts applied
+  by the tool.
 
 - Set ``--timeout-scale-factor`` to a floating point value higher than 1.0 to make
   the tool wait longer for expected events coming from the DAML ledger
   implementation under test. Conversely use values smaller than 1.0 to make it
   wait shorter.
-- Set ``--command-submission-ttl-scale-factor`` to adjust the time-to-live of
-  commands as represented by the :ref:`deduplication time <com.digitalasset.ledger.api.v1.Commands.deduplication_time>` on the Ledger API.
-  The default value is 1.0 and will be applied to the default TTL, which is the
-  maximum TTL as returned by the LedgerConfigurationService. In any case,
-  the used TTL value will be clipped to stay between the minimum and maximum TTL.
 
 Verbose output
 ==============
