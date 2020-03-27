@@ -72,7 +72,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     createdTreeEventParser(verbose = true) | exercisedTreeEventParser(verbose = true)
 
   private val succinctTreeEventParser: RowParser[Entry[TreeEvent]] =
-    createdTreeEventParser(verbose = false) | exercisedTreeEventParser(verbose = true)
+    createdTreeEventParser(verbose = false) | exercisedTreeEventParser(verbose = false)
 
   def treeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
     if (verbose) verboseTreeEventParser else succinctTreeEventParser
