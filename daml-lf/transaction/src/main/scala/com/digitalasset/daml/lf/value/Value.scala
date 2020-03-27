@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
-import scalaz.Equal
+import scalaz.{Equal, Order}
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.equal._
@@ -131,7 +131,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
 
 }
 
-object Value extends CidContainer1WithDefaultCidResolver[Value] {
+object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Value] {
 
   // TODO (FM) make this tail recursive
   private[lf] override def map1[Cid, Cid2](f: Cid => Cid2): Value[Cid] => Value[Cid2] = {
@@ -253,53 +253,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   // currently those can be structs, although we should probably ban that.
   final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
-  // Order of GenMap entries is relevant for this equality.
-  implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
-    ScalazEqual.withNatural(Equal[Cid].equalIsNatural) {
-      ScalazEqual.match2(fallback = false) {
-        case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp |
-            _: ValueParty | _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
-        case r: ValueRecord[Cid] => {
-          case ValueRecord(tycon2, fields2) =>
-            import r._
-            tycon == tycon2 && fields === fields2
-        }
-        case v: ValueVariant[Cid] => {
-          case ValueVariant(tycon2, variant2, value2) =>
-            import v._
-            tycon == tycon2 && variant == variant2 && value === value2
-        }
-        case v: ValueEnum => {
-          case ValueEnum(tycon2, value2) =>
-            import v._
-            tycon == tycon2 && value == value2
-        }
-        case ValueContractId(value) => {
-          case ValueContractId(value2) =>
-            value === value2
-        }
-        case ValueList(values) => {
-          case ValueList(values2) =>
-            values === values2
-        }
-        case ValueOptional(value) => {
-          case ValueOptional(value2) =>
-            value === value2
-        }
-        case ValueStruct(fields) => {
-          case ValueStruct(fields2) =>
-            fields === fields2
-        }
-        case ValueTextMap(map1) => {
-          case ValueTextMap(map2) =>
-            map1 === map2
-        }
-        case genMap: ValueGenMap[Cid] => {
-          case ValueGenMap(entries2) =>
-            genMap.entries === entries2
-        }
-      }
-    }
+  implicit def `Value Order instance`[Cid: Order]: Order[Value[Cid]] = new `Value Order instance`
 
   /** A contract instance is a value plus the template that originated it. */
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
@@ -376,4 +330,72 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   val ValueFalse: ValueBool = ValueBool.Fasle
   val ValueNil: ValueList[Nothing] = ValueList(FrontStack.empty)
   val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
+}
+
+sealed abstract class ValueInstances {
+  // Order of GenMap entries is relevant for this equality.
+  implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
+    new `Value Equal instance`[Cid] {
+      override val E = Equal[Cid]
+    }
+}
+
+private final class `Value Order instance`[Cid](implicit val E: Order[Cid])
+    extends Order[Value[Cid]]
+    with `Value Equal instance`[Cid] {
+  override final def order(a: Value[Cid], b: Value[Cid]) = ???
+}
+
+private sealed trait `Value Equal instance`[Cid] extends Equal[Value[Cid]] {
+  import Value._
+  import ScalazEqual._
+
+  implicit def E: Equal[Cid]
+
+  override final def equalIsNatural: Boolean = E.equalIsNatural
+
+  override final def equal(a: Value[Cid], b: Value[Cid]) =
+    (a, b).match2 {
+      case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp | _: ValueParty |
+          _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
+      case r: ValueRecord[Cid] => {
+        case ValueRecord(tycon2, fields2) =>
+          import r._
+          tycon == tycon2 && fields === fields2
+      }
+      case v: ValueVariant[Cid] => {
+        case ValueVariant(tycon2, variant2, value2) =>
+          import v._
+          tycon == tycon2 && variant == variant2 && value === value2
+      }
+      case v: ValueEnum => {
+        case ValueEnum(tycon2, value2) =>
+          import v._
+          tycon == tycon2 && value == value2
+      }
+      case ValueContractId(value) => {
+        case ValueContractId(value2) =>
+          value === value2
+      }
+      case ValueList(values) => {
+        case ValueList(values2) =>
+          values === values2
+      }
+      case ValueOptional(value) => {
+        case ValueOptional(value2) =>
+          value === value2
+      }
+      case ValueStruct(fields) => {
+        case ValueStruct(fields2) =>
+          fields === fields2
+      }
+      case ValueTextMap(map1) => {
+        case ValueTextMap(map2) =>
+          map1 === map2
+      }
+      case genMap: ValueGenMap[Cid] => {
+        case ValueGenMap(entries2) =>
+          genMap.entries === entries2
+      }
+    }(fallback = false)
 }
