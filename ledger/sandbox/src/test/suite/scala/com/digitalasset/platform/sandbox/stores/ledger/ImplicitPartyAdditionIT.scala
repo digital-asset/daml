@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueText,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.daml.lf.value.ValueVersion
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -116,7 +116,7 @@ class ImplicitPartyAdditionIT
             signatories = Set("exercise-signatory"),
             controllers = Set("exercise-signatory"),
             children = ImmArray.empty,
-            exerciseResult = None,
+            exerciseResult = Some(textValue("result")),
             key = None
           )
         )
@@ -183,7 +183,7 @@ object ImplicitPartyAdditionIT {
   )
 
   private def textValue(t: String) =
-    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(t))
+    VersionedValue(ValueVersion("5"), ValueText(t))
 
   private def publishSingleNodeTx(
       ledger: Ledger,
