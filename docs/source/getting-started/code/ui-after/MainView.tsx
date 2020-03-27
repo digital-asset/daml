@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
+import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
 import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
@@ -19,15 +19,15 @@ const MainView: React.FC = () => {
   const myUser = myUserResult.contract?.payload;
   const allUsers = useStreamQuery(User).contracts;
 
-  // Sorted list of users that the current user is following
-  const following = useMemo(() =>
+  // Sorted list of users that are following the current user
+  const followers = useMemo(() =>
     allUsers
     .map(user => user.payload)
     .filter(user => user.username !== username)
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-  const [exerciseFollow] = useExerciseByKey(User.Follow);
+  const exerciseFollow = useExerciseByKey(User.Follow);
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
@@ -72,7 +72,7 @@ const MainView: React.FC = () => {
               </Header>
               <Divider />
               <UserList
-                users={following}
+                users={followers}
                 onFollow={follow}
               />
             </Segment>
@@ -82,11 +82,11 @@ const MainView: React.FC = () => {
                 <Icon name='pencil square' />
                 <Header.Content>
                   Messages
-                  <Header.Subheader>Send a message to a user you are following</Header.Subheader>
+                  <Header.Subheader>Send a message to a follower</Header.Subheader>
                 </Header.Content>
               </Header>
               <MessageEdit
-                following={following.map(user => user.username)}
+                followers={followers.map(follower => follower.username)}
               />
               <Divider />
               <MessageList />

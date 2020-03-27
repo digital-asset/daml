@@ -5,69 +5,63 @@
 import React from 'react'
 import { Form, Button } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml2ts/create-daml-app/lib/create-daml-app-0.1.0/User';
+import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
 import { useParty, useExerciseByKey } from '@daml/react';
 
 type Props = {
-  following: Party[];
+  followers: Party[];
 }
 
 /**
- * React component to edit a message to send to a friend.
+ * React component to edit a message to send to a follower.
  */
-const MessageEdit: React.FC<Props> = ({following}) => {
+const MessageEdit: React.FC<Props> = ({followers}) => {
   const sender = useParty();
-  const [receiver, setReceiver] = React.useState('');
-  const [content, setContent] = React.useState('');
+  const [receiver, setReceiver] = React.useState<string | undefined>();
+  const [content, setContent] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [exerciseSendMessage] = useExerciseByKey(User.SendMessage);
+  const exerciseSendMessage = useExerciseByKey(User.SendMessage);
 
-  const sendMessage = async (receiver: string, content: string): Promise<boolean> => {
+  const submitMessage = async (event: React.FormEvent) => {
     try {
-      await exerciseSendMessage(receiver, {sender, content});
-      return true;
-    } catch (error) {
-      alert("Error sending message:\n" + JSON.stringify(error));
-      return false;
-    }
-  }
-
-  const submitMessage = async (event?: React.FormEvent) => {
-    if (event) {
       event.preventDefault();
+      if (receiver === undefined) {
+        return;
+      }
+      setIsSubmitting(true);
+      await exerciseSendMessage(receiver, {sender, content});
+      setContent("");
+    } catch (error) {
+      alert(`Error sending message:\n${JSON.stringify(error)}`);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(true);
-    const success = await sendMessage(receiver, content);
-    setIsSubmitting(false);
-    if (success) {
-      // Keep the receiver selected for follow-on messages
-      // but clear the message text.
-      setContent('');
-    }
-  }
-
-  // Options for dropdown menu
-  const followingOptions = following.map(f => ({ key: f, text: f, value: f }));
+  };
 
   return (
     <Form onSubmit={submitMessage}>
       <Form.Dropdown
-        fluid
         selection
-        placeholder='Select a user that you are following'
-        options={followingOptions}
+        className='test-select-message-receiver'
+        placeholder="Select a follower"
+        options={followers.map(follower => ({ key: follower, text: follower, value: follower }))}
         value={receiver}
-        onChange={(event) => setReceiver(event.currentTarget.textContent ?? '')}
+        onChange={event => setReceiver(event.currentTarget.textContent ?? undefined)}
       />
       <Form.Input
-        fluid
-        readOnly={isSubmitting}
-        loading={isSubmitting}
+        className='test-select-message-content'
         placeholder="Write a message"
         value={content}
-        onChange={(event) => setContent(event.currentTarget.value)}
+        onChange={event => setContent(event.currentTarget.value)}
       />
-      <Button type="submit">Send</Button>
+      <Button
+        fluid
+        className='test-select-message-send-button'
+        type="submit"
+        disabled={isSubmitting || receiver === undefined || content === ""}
+        loading={isSubmitting}
+        content="Send"
+      />
     </Form>
   );
 };
