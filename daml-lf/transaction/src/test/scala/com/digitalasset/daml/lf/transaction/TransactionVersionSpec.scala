@@ -16,27 +16,33 @@ import scala.collection.immutable.HashMap
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
 
+  def fixVersion(v: TransactionVersion) =
+    VersionTimeline.maxVersion(TransactionVersions.minOutputVersion, v)
+
   "assignVersion" should {
     "prefer picking an older version" in {
-      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe TransactionVersion("1")
+      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe fixVersion(
+        TransactionVersion("1"))
     }
 
     "pick version 2 when confronted with newer data" in {
       val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
+      assignVersion(assignValueVersions(usingOptional)) shouldBe fixVersion(TransactionVersion("2"))
     }
 
     "pick version 7 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe fixVersion(
+        TransactionVersion("7"))
     }
 
     "pick version 2 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe fixVersion(
+        TransactionVersion("2"))
     }
 
   }
