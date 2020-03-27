@@ -157,7 +157,6 @@ client_server_build(
     testonly = True,  # only test targets can depend on this.
     client = "//ledger/ledger-api-test-tool",
     client_args = [
-        "--exclude=LotsOfPartiesIT,TransactionScaleIT",
         "--timeout-scale-factor=20",
         "localhost:6865",
     ],
