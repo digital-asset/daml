@@ -7,6 +7,7 @@ genrule(
         "default-gitignore",
         "default-dlint-yaml",
         "skeleton/**",
+        "create-daml-app/**",
         "quickstart-java/**",
         "quickstart-scala/**",
     ]) + [
@@ -23,7 +24,7 @@ genrule(
         OUT=templates-tarball
 
         # templates in templates dir
-        for d in skeleton quickstart-scala quickstart-java; do
+        for d in skeleton create-daml-app quickstart-scala quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
             cp $$SRC/default-gitignore $$OUT/$$d/.gitignore
