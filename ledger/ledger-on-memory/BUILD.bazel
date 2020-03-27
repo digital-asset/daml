@@ -8,7 +8,6 @@ load(
     "da_scala_test",
 )
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
-load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@io_bazel_rules_docker//java:image.bzl", "java_image")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -154,19 +153,9 @@ conformance_test(
     ],
 )
 
-container_image(
-    name = "app-image-base",
-    base = "@openjdk_base//image",
-    cmd = None,
-    directory = "/usr/bin",
-    files = [
-        "@com_github_grpc_ecosystem_grpc_health_probe_binary//file",
-    ],
-) if not is_windows else None
-
 java_image(
     name = "app-image",
-    base = ":app-image-base",
+    base = "@openjdk_base//image",
     main_class = "com.daml.ledger.on.memory.Main",
     resources = ["src/app/resources/logback.xml"],
     visibility = ["//visibility:public"],
