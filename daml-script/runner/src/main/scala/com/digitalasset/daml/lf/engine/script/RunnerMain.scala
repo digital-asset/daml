@@ -96,14 +96,12 @@ object RunnerMain {
         val flow: Future[Unit] = for {
 
           clients <- if (config.jsonApi) {
-            config.accessTokenFile match {
-              case None => throw new RuntimeException("json-api requires a token")
-              case Some(tokenFile) =>
-                val token = Files.readAllLines(tokenFile).stream.collect(Collectors.joining("\n"))
-                val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
-                val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
-                Runner.jsonClients(participantParams, token, envIface)
-            }
+            // We fail during config parsing if this does not exist.
+            val tokenFile = config.accessTokenFile.get
+            val token = Files.readAllLines(tokenFile).stream.collect(Collectors.joining("\n"))
+            val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
+            val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
+            Runner.jsonClients(participantParams, token, envIface)
           } else {
             // Note (MK): For now, we only support using a single-token for everything.
             // We might want to extend this to allow for multiple tokens, e.g., one token per party +

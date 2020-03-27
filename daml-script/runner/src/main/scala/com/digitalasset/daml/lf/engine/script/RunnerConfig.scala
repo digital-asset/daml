@@ -140,6 +140,8 @@ object RunnerConfig {
         failure("Must specify either --ledger-host or --participant-config")
       } else if (c.timeProviderType == null) {
         failure("Must specify either --wall-clock-time or --static-time")
+      } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
+        failure("The json-api requires an access token")
       } else {
         success
       }

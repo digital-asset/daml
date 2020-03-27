@@ -25,13 +25,19 @@ main = do
     testClient <- locateRunfiles (mainWorkspace </> "daml-script" </> "test" </> exe "test_client_json")
     dar <- locateRunfiles (mainWorkspace </> "daml-script" </> "test" </> "script-test.dar")
     withTempFile $ \tempFile -> do
-        withCreateProcess (proc sandbox [dar, "--port-file", tempFile, "--wall-clock-time", "--ledgerid=myledger"]) $ \_ _ _ _ -> do
-        _ <- readPortFile maxRetries tempFile
-        withCreateProcess (proc jsonApi ["--ledger-host=localhost", "--ledger-port=6865", "--http-port=7500", "--wrapper_script_flag=--jvm_flag=-Dlogback.configurationFile=" <> logback]) $ \_ _ _ _ -> do
-              waitForConnectionOnPort (threadDelay 500000) 7500
-              withTempFile $ \tokenFile -> do
-                  T.writeFileUtf8 tokenFile token
-                  callProcess testClient [dar, "--access-token-file=" <> tokenFile]
+        withCreateProcess (proc sandbox [dar, "--port=0", "--port-file", tempFile, "--wall-clock-time", "--ledgerid=myledger"]) $ \_ _ _ _ -> do
+        port <- readPortFile maxRetries tempFile
+        withCreateProcess
+            (proc jsonApi
+                  [ "--ledger-host=localhost"
+                  , "--ledger-port=" <> show port
+                  , "--http-port=7500"
+                  , "--wrapper_script_flag=--jvm_flag=-Dlogback.configurationFile=" <> logback
+                  ]) $ \_ _ _ _ -> do
+            waitForConnectionOnPort (threadDelay 500000) 7500
+            withTempFile $ \tokenFile -> do
+                T.writeFileUtf8 tokenFile token
+                callProcess testClient [dar, "--access-token-file=" <> tokenFile]
 
 token :: T.Text
 token =

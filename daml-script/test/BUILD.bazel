@@ -234,6 +234,9 @@ da_haskell_test(
         "unordered-containers",
     ],
     main_function = "JsonTestRunner.main",
+    # Exclusive since we hardcode the port of the JSON API and because
+    # we start 3 processes (sandbox, json-api and the actual tests) so this is
+    # quite expensive.
     tags = ["exclusive"],
     deps = [
         "//daml-assistant/daml-helper:daml-helper-lib",

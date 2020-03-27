@@ -236,7 +236,8 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
 //    only one party there. So at least initially, we’re probably best off by just adding validation
 //    that ensures that the party you pass to `submit` and `query` matches.
 // 4. `submitMustFail` is not yet supported. No fundamental reason for this but it’s also not
-//    very useful in a production ledger.
+//    very useful in a production ledger. Currently, we just fail during unmarshalling for
+//    failed requests.
 class JsonLedgerClient(
     uri: Uri,
     token: String,
