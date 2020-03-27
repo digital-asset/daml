@@ -5,8 +5,9 @@ package com.digitalasset.daml.lf.data
 
 import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 
-import scalaz.{Applicative, Equal, Traverse}
+import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.syntax.applicative._
+import scalaz.syntax.order._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
@@ -145,7 +146,7 @@ final class FrontStack[+A] private (fq: FQ[A], len: Int) {
   override def toString: String = "FrontStack(" + iterator.map(_.toString).mkString(",") + ")"
 }
 
-object FrontStack {
+object FrontStack extends FrontStackInstances {
   private[this] val emptySingleton: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
   def empty[A]: FrontStack[A] = emptySingleton
 
@@ -179,14 +180,14 @@ object FrontStack {
       )
   }
 
-  implicit def equalInstance[A](implicit A: Equal[A]): Equal[FrontStack[A]] =
-    ScalazEqual.withNatural(Equal[A].equalIsNatural) { (as, bs) =>
-      val ai = as.iterator
-      val bi = bs.iterator
-      @tailrec def go(): Boolean =
-        if (ai.hasNext) bi.hasNext && A.equal(ai.next, bi.next) && go()
-        else !bi.hasNext
-      go()
+  implicit def `FrontStack Order`[A: Order]: Order[FrontStack[A]] =
+    new Order[FrontStack[A]] with `FrontStack Equal`[A] {
+      override val A = Order[A]
+
+      override def order(as: FrontStack[A], bs: FrontStack[A]) = {
+        import scalaz.std.iterable._
+        toIterableForScalaz(as) ?|? toIterableForScalaz(bs)
+      }
     }
 
   private sealed trait FQ[+A]
@@ -198,4 +199,32 @@ object FrontStack {
 
 object FrontStackCons {
   def unapply[A](xs: FrontStack[A]): Option[(A, FrontStack[A])] = xs.pop
+}
+
+sealed abstract class FrontStackInstances {
+  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] =
+    new `FrontStack Equal`[A] {
+      override val A = Equal[A]
+    }
+
+  /** The Equal and Order instances only use `iterator` directly, so
+    * this is perfectly sufficient.  If you want a public version, you
+    * need something more along the lines of [[ImmArray.ImmArraySeq]].
+    */
+  protected final def toIterableForScalaz[A](xs: FrontStack[A]): Iterable[A] =
+    new Iterable[A] {
+      override final def iterator = xs.iterator
+    }
+
+  protected sealed trait `FrontStack Equal`[A] extends Equal[FrontStack[A]] {
+    implicit def A: Equal[A]
+
+    override final def equalIsNatural = A.equalIsNatural
+
+    override final def equal(as: FrontStack[A], bs: FrontStack[A]) = {
+      import scalaz.std.iterable._
+      toIterableForScalaz(as) === toIterableForScalaz(bs)
+    }
+
+  }
 }
