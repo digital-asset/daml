@@ -45,8 +45,11 @@ fetchDar ledgerArgs rootPid saveAs = do
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
-  let pName :: LF.PackageName = LF.PackageName $ T.pack "reconstructed"
-  let pVersion = Nothing
+  let (pName,pVersion) = do
+        let LF.Package {packageMetadata} = pkg
+        case packageMetadata of
+          Nothing -> (LF.PackageName $ T.pack "reconstructed",Nothing)
+          Just LF.PackageMetadata{packageName,packageVersion} -> (packageName,Just packageVersion)
   let pSdkVersion = PackageSdkVersion SdkVersion.sdkVersion
   let srcRoot = error "unexpected use of srcRoot when there are no sources"
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
@@ -57,7 +60,7 @@ recoverPackageName :: LF.Package -> (String,LF.PackageId) -> T.Text
 recoverPackageName pkg (tag,pid)= do
   let LF.Package {packageMetadata} = pkg
   case packageMetadata of
-    Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName -- Never seen this!
+    Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName
     -- fallback, manufacture a name from the pid
     Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
 
