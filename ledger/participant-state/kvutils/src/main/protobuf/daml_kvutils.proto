@@ -350,11 +350,15 @@ message DamlCommandDedupKey {
   string submitter = 1;
   string application_id = 2;
   string command_id = 3;
+  google.protobuf.Timestamp submissionUntil = 4;
+
+
 }
 
 message DamlCommandDedupValue {
   // record time will be used in the future for pruning
   google.protobuf.Timestamp record_time = 1;
+  google.protobuf.Timestamp deduplication_time = 2;
 }
 
 message DamlSubmissionDedupKey {
