@@ -10,6 +10,7 @@ load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
@@ -53,6 +54,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/interface",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-script/runner:script-runner-lib",
@@ -62,6 +64,7 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
         "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:io_spray_spray_json_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -80,6 +83,12 @@ da_scala_binary(
 da_scala_binary(
     name = "test_client_multi_participant",
     main_class = "com.digitalasset.daml.lf.engine.script.test.MultiParticipant",
+    deps = [":test-lib"],
+)
+
+da_scala_binary(
+    name = "test_client_json",
+    main_class = "com.digitalasset.daml.lf.engine.script.test.JsonApi",
     deps = [":test-lib"],
 )
 
@@ -199,6 +208,41 @@ client_server_test(
     ],
     server_files = ["$(rootpath :script-test.dar)"],
     tags = ["exclusive"],
+)
+
+# Trying to make this work via client_server_test is too much of a pain so we just
+# write a custom test runner.
+da_haskell_test(
+    name = "test_json",
+    srcs = [":JsonTestRunner.hs"],
+    data = [
+        ":script-test.dar",
+        ":test_client_json",
+        "//ledger-service/http-json:http-json-binary",
+        "//ledger-service/http-json:release/json-api-logback.xml",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "text",
+        "unordered-containers",
+    ],
+    main_function = "JsonTestRunner.main",
+    # Exclusive since we hardcode the port of the JSON API and because
+    # we start 3 processes (sandbox, json-api and the actual tests) so this is
+    # quite expensive.
+    tags = ["exclusive"],
+    deps = [
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
 )
 
 sh_test(
