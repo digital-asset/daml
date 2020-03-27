@@ -1061,11 +1061,11 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
 
     const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
 
-    ws.on("open", function open() {
+    ws.addEventListener("open", function open() {
       ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}));
     });
 
-    ws.on("message", function incoming(data) {
+    ws.addEventListener("message", function incoming(data) {
       console.log(data);
     });
 
