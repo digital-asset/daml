@@ -141,12 +141,9 @@ object SandboxServer {
       for {
         currentPort <- port
         _ <- release()
-      } yield
-        new SandboxState(
-          materializer,
-          metrics,
-          packageStore,
-          newApiServer(materializer, metrics, packageStore, currentPort))
+        replacementApiServer = newApiServer(materializer, metrics, packageStore, currentPort)
+        _ <- replacementApiServer.asFuture
+      } yield new SandboxState(materializer, metrics, packageStore, replacementApiServer)
 
     def release()(implicit executionContext: ExecutionContext): Future[Unit] =
       apiServerResource.release()
