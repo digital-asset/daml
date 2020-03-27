@@ -82,11 +82,14 @@ private[events] trait EventsTable {
         else None
       }
 
-    def toGetTransactionsResponse(events: Vector[Entry[Event]]): Seq[GetTransactionsResponse] =
+    def toGetTransactionsResponse(
+        events: Vector[Entry[Event]],
+    ): List[GetTransactionsResponse] =
       flatTransaction(tx => GetTransactionsResponse(Seq(tx)))(events).toList
 
     def toGetFlatTransactionResponse(
-        events: List[Entry[Event]]): Option[GetFlatTransactionResponse] =
+        events: List[Entry[Event]],
+    ): Option[GetFlatTransactionResponse] =
       flatTransaction(tx => GetFlatTransactionResponse(Some(tx)))(events)
 
     def toTransactionTree(events: List[Entry[TreeEvent]]): Option[GetTransactionResponse] =
