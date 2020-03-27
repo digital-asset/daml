@@ -103,10 +103,11 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "create_key_value",
     ).mkString(", ")
 
-  private val lookupFlatTransactionByIdQuery: SqlQuery =
-    SQL(
-      s"select $selectColumns from $flatEventsTable where transaction_id = {transaction_id} and event_witness in ({requesting_parties}) group by ($groupByColumns)"
-    )
+  private def lookupFlatTransactionByIdQuery(
+      transactionId: TransactionId,
+      requestingParties: Set[Party],
+  ): SimpleSql[Row] =
+    SQL"select #$selectColumns from #$flatEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns)"
 
   def prepareLookupFlatTransactionById(
       transactionId: TransactionId,
