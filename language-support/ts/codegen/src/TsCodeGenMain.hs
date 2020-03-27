@@ -10,13 +10,13 @@ import qualified DA.Pretty
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HMS
+import qualified Data.Map as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Set.Lens as Set
 import qualified Data.Text.Extended as T
 import qualified Data.Text.IO as T
 import qualified "zip-archive" Codec.Archive.Zip as Zip
-import qualified Data.Map as Map
 import Data.Aeson hiding (Options)
 import Data.Aeson.Encode.Pretty
 
@@ -189,26 +189,26 @@ daml2ts Daml2TsParams {..} = do
           -- We use this, for example, when generating import declarations e.g.
           --   import * as pkgd14e08_DA_Internal_Template from '@daml.js/d14e08/lib/DA/Internal/Template';
     createDirectoryIfMissing True packageSrcDir
-    let modules = NM.toList (packageModules pkg)
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
-    dependencies <- Set.toList . Set.unions <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    (nonEmptyModNames, dependenciesSets) <- unzip <$> mapM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
+    writeIndexTs pkgId packageSrcDir (catMaybes nonEmptyModNames)
+    let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
-    writeIndexTs packageSrcDir pkgId modules
     writeTsConfig packageDir
     writePackageJson packageDir sdkVersion scope dependencies
     pure (pkgName, dependencies)
     where
       -- Write the .ts file for a single DAML-LF module.
-      writeModuleTs :: FilePath -> Scope -> Module -> IO (Set.Set Dependency)
+      writeModuleTs :: FilePath -> Scope -> Module -> IO (Maybe ModuleName, Set.Set Dependency)
       writeModuleTs packageSrcDir scope mod = do
         case genModule pkgMap scope pkgId mod of
-          Nothing -> pure Set.empty
+          Nothing -> pure (Nothing, Set.empty)
           Just (modTxt, ds) -> do
             let outputFile = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod))) </> "module.ts"
             createDirectoryIfMissing True (takeDirectory outputFile)
             T.writeFileUtf8 outputFile modTxt
-            pure ds
+            pure (Just (moduleName mod), ds)
 
 -- Generate the .ts content for a single module.
 genModule :: Map.Map PackageId (Maybe PackageName, Package) ->
@@ -261,7 +261,7 @@ genModule pkgMap (Scope scope) curPkgId mod
     externalImportDecl :: Map.Map PackageId (Maybe PackageName, Package) ->
                       PackageId -> T.Text
     externalImportDecl pkgMap pkgId =
-      "import " <> pkgVar pkgId <> " from '" <> scope <> "/" <> pkgRefStr pkgMap pkgId <> "';"
+      "import * as " <> pkgVar pkgId <> " from '" <> scope <> "/" <> pkgRefStr pkgMap pkgId <> "';"
 
     -- Produce a package name for a package ref.
     pkgRefStr :: Map.Map PackageId (Maybe PackageName, Package) -> PackageId -> T.Text
@@ -528,11 +528,6 @@ genModuleRef (pkgRef, modName) = case pkgRef of
   where
     name = unModuleName modName
 
--- Calculate a variable name from a module name e.g. 'modVar "__"
--- ["A", "B"]' is '__A_B'.
-modVar :: T.Text -> [T.Text] -> T.Text
-modVar prefix parts = prefix <> T.intercalate "_" parts
-
 -- Calculate a filepath from a module name e.g. 'modPath [".", "A",
 -- "B"]' is "./A/B".
 modPath :: [T.Text] -> T.Text
@@ -548,59 +543,6 @@ onLast f = \case
     [] -> []
     [l] -> [f l]
     x : xs -> x : onLast f xs
-
-writeIndexTs :: FilePath -> PackageId -> [Module] -> IO ()
-writeIndexTs packageSrcDir pkgId modules =
-  T.writeFileUtf8 (packageSrcDir </> "index.ts") (T.unlines lines)
-  where
-    lines :: [T.Text]
-    lines = header <> concatMap entry modules <> footer
-
-    header :: [T.Text]
-    header =
-      [ "/* eslint-disable @typescript-eslint/camelcase */"
-      , "/* eslint-disable @typescript-eslint/no-namespace */"
-        -- NOTE(MH): We produce a lot of _seemingly_ unused variables because
-        -- ESLint unfortunately regards `A` in `export import A = B` as unused.
-      , "/* eslint-disable @typescript-eslint/no-unused-vars */"
-      , "namespace __All {"
-      , "  export const packageId = '" <> unPackageId pkgId <> "';"
-      , "}"
-      ]
-
-    footer :: [T.Text]
-    footer = [ "export default __All;" ]
-
-    entry :: Module -> [T.Text]
-    entry mod
-      | null $ defDataTypes mod = []
-      | otherwise = importDecl var path : exportDecl var name
-      where
-        name = unModuleName (moduleName mod)
-        var = modVar "__" name
-        path = modPath ("." : name ++ ["module"])
-
-    importDecl :: T.Text -> T.Text -> T.Text
-    importDecl var path = "import * as " <> var <> " from '"  <> path <> "';"
-
-    exportDecl :: T.Text -> [T.Text] -> [T.Text]
-    exportDecl var name =
-      [ "namespace __All {"
-      ] <>  go 2 var name <>
-      ["}"]
-      where
-        spaces i = T.pack $ replicate i ' '
-
-        go :: Int -> T.Text -> [T.Text] -> [T.Text]
-        go indent var [m] = let ws = spaces indent in
-          [ ws <> "export import " <> m <> " = " <> var <> ";"
-          ]
-        go indent var (m : parts) = let ws = spaces indent in
-          [ ws <> "export namespace " <> m <> " {"
-          ] <>
-          go (indent + 2) var parts <>
-          [ ws <> "}" ]
-        go _ _ [] = []
 
 writeTsConfig :: FilePath -> IO ()
 writeTsConfig dir =
@@ -691,3 +633,61 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
         putStrLn $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
         putStrLn err
         exitFailure
+
+writeIndexTs :: PackageId -> FilePath -> [ModuleName] -> IO ()
+writeIndexTs pkgId packageSrcDir modNames =
+  processIndexTree pkgId packageSrcDir (buildIndexTree modNames)
+
+-- NOTE(MH): The module structure of a DAML package can have "holes", i.e.,
+-- you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
+-- module `A.B` a "virtual module". In order to use ES2015 modules and form
+-- a hierarchy of these, we need to produce JavaScript modules for virtual
+-- DAML modules as well. To this end, we assemble the names of all modules
+-- into a tree structure where each node is marked whether is is virtual or
+-- not. Afterwards, we take this tree structure and write a resembling
+-- directory structure full of `index.ts` files to disk.
+data IndexTree = IndexTree
+  { isVirtual :: Bool
+  , children :: Map.Map T.Text IndexTree
+  }
+
+buildIndexTree :: [ModuleName] -> IndexTree
+buildIndexTree = foldl' merge empty . map path
+  where
+    empty = IndexTree{isVirtual = True, children = Map.empty}
+    leaf = IndexTree{isVirtual = False, children = Map.empty}
+
+    path :: ModuleName -> IndexTree
+    path = foldr (\name node -> empty{children = Map.singleton name node}) leaf . unModuleName
+
+    merge :: IndexTree -> IndexTree -> IndexTree
+    merge t1 t2 = IndexTree
+      { isVirtual = isVirtual t1 && isVirtual t2
+      , children = Map.unionWith merge (children t1) (children t2)
+      }
+
+processIndexTree :: PackageId -> FilePath -> IndexTree -> IO ()
+processIndexTree pkgId srcDir root = do
+  T.writeFileUtf8 (srcDir </> "index.ts") $ T.unlines $
+    reexportChildren root ++
+    [ "export const packageId = '" <> unPackageId pkgId <> "';" ]
+  processChildren (ModuleName []) root
+  where
+    processChildren :: ModuleName -> IndexTree -> IO ()
+    processChildren parentModName parent =
+      forM_ (Map.toList (children parent)) $ \(name, node) -> do
+        let modName = ModuleName (unModuleName parentModName ++ [name])
+        let modDir = srcDir </> joinPath (map T.unpack (unModuleName modName))
+        createDirectoryIfMissing True modDir
+        T.writeFileUtf8 (modDir </> "index.ts") $ T.unlines $
+          reexportChildren node ++
+          [ "export * from './module';" | not (isVirtual node) ]
+        processChildren modName node
+
+    reexportChildren :: IndexTree -> [T.Text]
+    reexportChildren = concatMap reexport . Map.keys . children
+      where
+        reexport name =
+          [ "import * as " <> name <> " from './" <> name <> "';"
+          , "export import " <> name <> " = " <> name <> ";"
+          ]
