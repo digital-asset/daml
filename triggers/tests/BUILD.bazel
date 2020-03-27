@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_test_suite",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -53,7 +54,10 @@ EOF
 
 da_scala_binary(
     name = "test_client",
-    srcs = glob(["src/**/*.scala"]),
+    srcs = glob(
+        ["src/**/*.scala"],
+        exclude = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TriggerIt.scala"],
+    ),
     main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
@@ -102,6 +106,44 @@ client_server_test(
         "--port=0",
     ],
     server_files = ["$(rootpath :acs.dar)"],
+)
+
+da_scala_test_suite(
+    name = "trigger-integration-tests",
+    srcs = glob(
+        ["src/**/*.scala"],
+        exclude = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TestMain.scala"],
+    ),
+    data = [":acs.dar"],
+    resources = ["//triggers/runner:src/main/resources/logback.xml"],
+    deps = [
+        ":test_client",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/direct-execution-context",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 client_server_test(
