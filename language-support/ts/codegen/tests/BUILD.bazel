@@ -175,5 +175,6 @@ da_haskell_test(
         "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 ) if not is_windows else None

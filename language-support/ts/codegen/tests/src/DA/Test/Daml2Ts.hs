@@ -21,6 +21,7 @@ import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
 import Test.Tasty
 import Test.Tasty.HUnit
+import DA.Test.Util
 
 -- Referenced from the DAVL test. Lifted here for easy
 -- maintenance.
@@ -105,7 +106,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir]) ""
         assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
-        assertIsInfixOf "A duplicate name for different packages error was expected." "Duplicate name 'grover-1.0' for different packages detected" err
+        assertInfixOf "Duplicate name 'grover-1.0' for different packages detected" err
 
   , testCaseSteps "Different name, same package test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -136,7 +137,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir]) ""
         assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
-        assertIsInfixOf "A different names for same package error was expected." "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err
+        assertInfixOf "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -292,7 +293,3 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
     assertFileLines file expectedContent = do
       actualContent <- T.lines <$> T.readFileUtf8 file
       assertEqual ("The content of file '" ++ file ++ "' does not match") expectedContent actualContent
-
-    assertIsInfixOf :: String -> String -> String -> IO ()
-    assertIsInfixOf msg x y =
-      assertBool (msg ++ "\nexpected infix: " ++ show x ++ "\nbut got: " ++ show y) (x `isInfixOf` y)
