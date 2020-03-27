@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -17,8 +17,6 @@ import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.digitalasset.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import scalaz.{Liskov, NonEmptyList}
-import Liskov.<~<
 import com.digitalasset.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
@@ -28,8 +26,9 @@ import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.set._
 import scalaz.std.tuple._
-import scalaz.{-\/, \/, \/-}
-import spray.json.{JsArray, JsObject, JsValue}
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
+import Liskov.<~<
+import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -134,14 +133,17 @@ object WebSocketService {
       )(_ append _)
   }
 
-  trait StreamQuery[A] {
+  sealed abstract class StreamQueryReader[A] {
+    case class Query[Q](q: Q, alg: StreamQuery[Q])
+    def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue): Error \/ Query[_]
+  }
+
+  sealed trait StreamQuery[A] {
 
     /** Extra data on success of a predicate. */
     type Positive
 
-    def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ A
-
-    def allowPhantonArchives: Boolean
+    def removePhantomArchives(request: A): Option[Set[domain.ContractId]]
 
     def predicate(
         request: A,
@@ -151,19 +153,21 @@ object WebSocketService {
     def renderCreatedMetadata(p: Positive): Map[String, JsValue]
   }
 
-  implicit val SearchForeverRequestWithStreamQuery: StreamQuery[domain.SearchForeverRequest] =
-    new StreamQuery[domain.SearchForeverRequest] {
+  implicit val SearchForeverRequestWithStreamQuery: StreamQueryReader[domain.SearchForeverRequest] =
+    new StreamQueryReader[domain.SearchForeverRequest]
+    with StreamQuery[domain.SearchForeverRequest] {
 
       type Positive = NonEmptyList[Int]
 
-      override def parse(decoder: DomainJsonDecoder, jv: JsValue): Error \/ SearchForeverRequest = {
+      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
         import JsonProtocol._
         SprayJson
           .decode[SearchForeverRequest](jv)
           .liftErr(InvalidUserInput)
+          .map(Query(_, this))
       }
 
-      override def allowPhantonArchives: Boolean = true
+      override def removePhantomArchives(request: SearchForeverRequest) = None
 
       override def predicate(
           request: SearchForeverRequest,
@@ -206,56 +210,81 @@ object WebSocketService {
     }
 
   implicit val EnrichedContractKeyWithStreamQuery
-    : StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] =
-    new StreamQuery[NonEmptyList[domain.EnrichedContractKey[LfV]]] {
-
-      type Positive = Unit
+    : StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] =
+    new StreamQueryReader[domain.ContractKeyStreamRequest[_, _]] {
 
       import JsonProtocol._
 
       @SuppressWarnings(Array("org.wartremover.warts.Any"))
-      override def parse(
-          decoder: DomainJsonDecoder,
-          jv: JsValue): Error \/ NonEmptyList[domain.EnrichedContractKey[LfV]] =
-        for {
-          as <- SprayJson
-            .decode[NonEmptyList[domain.EnrichedContractKey[JsValue]]](jv)
-            .liftErr(InvalidUserInput)
-          bs = as.map(a => decodeWithFallback(decoder, a))
-        } yield bs
+      override def parse(resumingAtOffset: Boolean, decoder: DomainJsonDecoder, jv: JsValue) = {
+        type NelCKRH[Hint, V] = NonEmptyList[domain.ContractKeyStreamRequest[Hint, V]]
+        def go[Hint](alg: StreamQuery[NelCKRH[Hint, LfV]])(
+            implicit ev: JsonReader[NelCKRH[Hint, JsValue]]) =
+          for {
+            as <- SprayJson
+              .decode[NelCKRH[Hint, JsValue]](jv)
+              .liftErr(InvalidUserInput)
+            bs = as.map(a => decodeWithFallback(decoder, a))
+          } yield Query(bs, alg)
+        if (resumingAtOffset) go(ResumingEnrichedContractKeyWithStreamQuery)
+        else go(InitialEnrichedContractKeyWithStreamQuery)
+      }
 
-      private def decodeWithFallback(
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      private def decodeWithFallback[Hint](
           decoder: DomainJsonDecoder,
-          a: domain.EnrichedContractKey[JsValue]): domain.EnrichedContractKey[LfV] =
+          a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
         decoder
           .decodeUnderlyingValuesToLf(a)
           .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
 
-      override def allowPhantonArchives: Boolean = false
-
-      override def predicate(
-          request: NonEmptyList[domain.EnrichedContractKey[LfV]],
-          resolveTemplateId: PackageService.ResolveTemplateId,
-          lookupType: TypeLookup): StreamPredicate[Positive] = {
-
-        import util.Collections._
-
-        val (resolvedWithKey, unresolved) =
-          request.toSet.partitionMap { x: domain.EnrichedContractKey[LfV] =>
-            resolveTemplateId(x.templateId).map((_, x.key)).toLeftDisjunction(x.templateId)
-          }
-
-        val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
-        val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
-          if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
-            Some(())
-          else None
-        }
-        (q.keySet, unresolved, fn)
-      }
-
-      override def renderCreatedMetadata(p: Unit) = Map.empty
     }
+
+  private[this] sealed abstract class EnrichedContractKeyWithStreamQuery[Cid]
+      extends StreamQuery[NonEmptyList[domain.ContractKeyStreamRequest[Cid, LfV]]] {
+    type Positive = Unit
+
+    protected type CKR[+V] = domain.ContractKeyStreamRequest[Cid, V]
+
+    override def predicate(
+        request: NonEmptyList[CKR[LfV]],
+        resolveTemplateId: PackageService.ResolveTemplateId,
+        lookupType: TypeLookup): StreamPredicate[Positive] = {
+
+      import util.Collections._
+
+      val (resolvedWithKey, unresolved) =
+        request.toSet.partitionMap { x: CKR[LfV] =>
+          resolveTemplateId(x.ekey.templateId)
+            .map((_, x.ekey.key))
+            .toLeftDisjunction(x.ekey.templateId)
+        }
+
+      val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
+      val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
+        if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
+          Some(())
+        else None
+      }
+      (q.keySet, unresolved, fn)
+    }
+
+    override def renderCreatedMetadata(p: Unit) = Map.empty
+  }
+
+  private[this] object InitialEnrichedContractKeyWithStreamQuery
+      extends EnrichedContractKeyWithStreamQuery[Unit] {
+    override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = Some(Set.empty)
+  }
+
+  private[this] object ResumingEnrichedContractKeyWithStreamQuery
+      extends EnrichedContractKeyWithStreamQuery[Option[Option[domain.ContractId]]] {
+    override def removePhantomArchives(request: NonEmptyList[CKR[LfV]]) = {
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+      val NelO = Foldable[NonEmptyList].compose[Option]
+      request traverse (_.contractIdAtOffset) map NelO.toSet
+    }
+  }
 }
 
 class WebSocketService(
@@ -276,7 +305,7 @@ class WebSocketService(
 
   private val numConns = new java.util.concurrent.atomic.AtomicInteger(0)
 
-  private[http] def transactionMessageHandler[A: StreamQuery](
+  private[http] def transactionMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, _] =
@@ -309,11 +338,11 @@ class WebSocketService(
       }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def wsMessageHandler[A: StreamQuery](
+  private def wsMessageHandler[A: StreamQueryReader](
       jwt: Jwt,
       jwtPayload: JwtPayload,
   ): Flow[Message, Message, NotUsed] = {
-    val Q = implicitly[StreamQuery[A]]
+    val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
       .mapAsync(1) {
         case msg: TextMessage =>
@@ -332,12 +361,14 @@ class WebSocketService(
           for {
             offPrefix <- oeso.sequence
             jv <- ejv
-            a <- Q.parse(decoder, jv)
+            a <- Q.parse(resumingAtOffset = offPrefix.isDefined, decoder, jv)
           } yield (offPrefix, a)
       }
       .map {
         _.flatMap {
-          case (offPrefix, a) => getTransactionSourceForParty[A](jwt, jwtPayload, offPrefix, a)
+          case (offPrefix, qq: Q.Query[q]) =>
+            implicit val SQ: StreamQuery[q] = qq.alg
+            getTransactionSourceForParty[q](jwt, jwtPayload, offPrefix, qq.q: q)
         }
       }
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
@@ -361,7 +392,7 @@ class WebSocketService(
         .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
-        .via(removePhantomArchives(remove = !Q.allowPhantonArchives))
+        .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -390,15 +421,14 @@ class WebSocketService(
         case Some((_, a)) => renderEvents(a._1, a._2)
       }
 
-  private def removePhantomArchives[A, B](remove: Boolean) =
-    if (remove) removePhantomArchives_[A, B]
-    else Flow[StepAndErrors[A, B]]
+  private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
+    remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
 
-  private def removePhantomArchives_[A, B]
+  private def removePhantomArchives_[A, B](initialState: Set[domain.ContractId])
     : Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
     import ContractStreamStep.{LiveBegin, Txn, Acs}
     Flow[StepAndErrors[A, B]]
-      .scan((Set.empty[String], Option.empty[StepAndErrors[A, B]])) {
+      .scan((Tag unsubst initialState, Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _))) =>
           val newInserts: Vector[String] =
             domain.ContractId.unsubst(idstep.inserts.map(_._1.contractId))

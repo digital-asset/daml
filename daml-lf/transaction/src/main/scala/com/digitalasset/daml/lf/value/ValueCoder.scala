@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
@@ -62,8 +62,8 @@ object ValueCoder {
         cid match {
           case RelativeContractId(nid) =>
             Right(Left("~" + nid.index.toString))
-          case AbsoluteContractId(s) =>
-            Right(Left(s))
+          case acoid: AbsoluteContractId =>
+            Right(Left(acoid.coid))
         } else
         cid match {
           case RelativeContractId(nid) =>
@@ -73,8 +73,9 @@ object ValueCoder {
                   .setRelative(true)
                   .setContractId(nid.index.toString)
                   .build))
-          case AbsoluteContractId(s) =>
-            Right(Right(proto.ContractId.newBuilder.setRelative(false).setContractId(s).build))
+          case acoid: AbsoluteContractId =>
+            Right(
+              Right(proto.ContractId.newBuilder.setRelative(false).setContractId(acoid.coid).build))
         }
   }
 
@@ -108,8 +109,8 @@ object ValueCoder {
           idx => Some(RelativeContractId(NodeId(idx)))
         )
 
-    private def stringToCidString(s: String): Either[DecodeError, Ref.ContractIdString] =
-      Ref.ContractIdString
+    private def stringToCidString(s: String): Either[DecodeError, Value.AbsoluteContractId] =
+      Value.AbsoluteContractId
         .fromString(s)
         .left
         .map(_ => //
@@ -129,7 +130,7 @@ object ValueCoder {
           else if (stringForm.startsWith("~"))
             stringToRelativeCid(stringForm.drop(1))
           else
-            stringToCidString(stringForm).map(coid => Some(AbsoluteContractId(coid)))
+            stringToCidString(stringForm).map(Some(_))
         }
       } else {
         if (stringForm.nonEmpty)
@@ -139,7 +140,7 @@ object ValueCoder {
         else if (structForm.getRelative)
           stringToRelativeCid(structForm.getContractId)
         else
-          stringToCidString(structForm.getContractId).map(coid => Some(AbsoluteContractId(coid)))
+          stringToCidString(structForm.getContractId).map(Some(_))
       }
 
   }
@@ -151,10 +152,10 @@ object ValueCoder {
         structForm: ValueOuterClass.ContractId,
     ): Either[DecodeError, Option[AbsoluteContractId]] =
       CidDecoder.decodeOptional(sv, stringForm, structForm).flatMap {
+        case Some(cid: AbsoluteContractId) =>
+          Right(Some(cid))
         case Some(RelativeContractId(_)) =>
           Left(DecodeError("Unexpected relative contractId"))
-        case Some(AbsoluteContractId(coid)) =>
-          Right(Some(AbsoluteContractId(coid)))
         case None =>
           Right(None)
       }

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
@@ -194,13 +194,13 @@ ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 finalPackageCheck :: NormalizedFilePath -> LF.Package -> Action (Maybe ())
 finalPackageCheck fp pkg = do
-    case LF.nameCheckPackage pkg of
-        Left e -> do
-            sendFileDiagnostics [ideErrorPretty fp e]
-            pure Nothing
+    sendFileDiagnostics diags
+    pure r
+    where (diags, r) = diagsToIdeResult fp (LF.nameCheckPackage pkg)
 
-        Right () ->
-            pure $ Just ()
+diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
+diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
+    where r = if any ((Just DsError ==) . _severity) diags then Nothing else Just ()
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
@@ -271,12 +271,11 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
-        pure $ toIdeResult $ do
-            let liftError e = [ideErrorPretty file e]
-            dalf <- mapLeft liftError $
-                Serializability.inferModule world lfVersion rawDalf
-            mapLeft liftError $ LF.checkModule world lfVersion dalf
-            pure dalf
+        pure $! case Serializability.inferModule world lfVersion rawDalf of
+            Left err -> ([ideErrorPretty file err], Nothing)
+            Right dalf ->
+                let diags = LF.checkModule world lfVersion dalf
+                in second (dalf <$) (diagsToIdeResult file diags)
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.
@@ -400,17 +399,15 @@ generateSerializedDalfRule options =
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
                                     let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
-                                    let liftError e = [ideErrorPretty file e]
-                                    let dalfOrErr = do
-                                            dalf <- mapLeft liftError $
-                                                Serializability.inferModule world lfVersion rawDalf
-                                            mapLeft liftError $ LF.checkModule world lfVersion dalf
-                                            pure dalf
-                                    case dalfOrErr of
-                                        Left diags -> pure (diags, Nothing)
+                                    case Serializability.inferModule world lfVersion rawDalf of
+                                        Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do
-                                            writeDalfFile (dalfFileName file) dalf
-                                            pure ([], Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
+                                            let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
+                                            fmap (diags,) $ case checkResult of
+                                                Nothing -> pure Nothing
+                                                Just () -> do
+                                                    writeDalfFile (dalfFileName file) dalf
+                                                    pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
 readSerializedDalfRule :: Rules ()

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.index
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain.{Filters, InclusiveFilters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record}
@@ -18,7 +18,7 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
   private val otherPartyWhoSeesEvents = Ref.Party.assertFromString("otherParty")
   private val packageId = "myPackage"
   private val eventId = Ref.LedgerString.assertFromString("someEventId")
-  private val contractId = Ref.ContractIdString.assertFromString("someContractId")
+  private val contractId = Value.AbsoluteContractId.assertFromString("#someContractId")
   private val party1 = Ref.Party.assertFromString("party1")
   private val party2 = Ref.Party.assertFromString("party2")
   private val module1 = "module1"
@@ -38,7 +38,7 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
   private def mkIdent(mod: String, ent: String, pkgId: String = packageId) =
     Ref.Identifier(
       Ref.PackageId.assertFromString(pkgId),
-      QualifiedName(Ref.ModuleName.assertFromString(mod), Ref.DottedName.assertFromString(ent)))
+      Ref.QualifiedName(Ref.ModuleName.assertFromString(mod), Ref.DottedName.assertFromString(ent)))
 
   private val mapping = Map(
     party1 -> getFilter(Seq(module1 -> template1)),
@@ -103,7 +103,7 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
       Event.Event.Created(
         CreatedEvent(
           eventId,
-          contractId,
+          contractId.coid,
           Some(templateId),
           None,
           Some(Record(None, Seq.empty)),
@@ -118,7 +118,7 @@ final class EventFilterSpec extends WordSpec with Matchers with ScalaFutures wit
       Event.Event.Archived(
         ArchivedEvent(
           eventId,
-          contractId,
+          contractId.coid,
           Some(templateId),
           Seq(party, otherPartyWhoSeesEvents)
         )))

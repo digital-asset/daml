@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -27,7 +27,6 @@ object Ledger {
   private object ScenarioNodeId {
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
       txNodeIdToScenarioNodeId(commitPrefix, txnid.index)
-
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
@@ -64,7 +63,7 @@ object Ledger {
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
-        AbsoluteContractId(relativeToScenarioNodeId(commitPrefix, rcoid))
+        AbsoluteContractId.V0.assertFromString(relativeToScenarioNodeId(commitPrefix, rcoid))
     }
 
   def contractIdToAbsoluteContractId(
@@ -183,7 +182,8 @@ object Ledger {
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction,
   ): RichTransaction = {
-    def makeAbs(cid: Value.RelativeContractId) = relativeToContractIdString(commitPrefix, cid)
+    def makeAbs(cid: Value.RelativeContractId) =
+      Ref.ContractIdString.assertFromString(relativeToContractIdString(commitPrefix, cid))
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,

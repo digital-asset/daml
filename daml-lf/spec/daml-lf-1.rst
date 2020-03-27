@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Copyright © 2020, `Digital Asset (Switzerland) GmbH
@@ -413,14 +413,7 @@ and other similar pitfalls. ::
      PackageIdChar  ∈  [a-zA-Z0-9\-_ ]               -- PackageIdChar
 
   PartyId strings
-     PartyIdString ::= ' PartyIdChars '               -- PartyIdString
-
-  Sequences of PartyId character
-      PartyIdChars ::= PartyIdChar                    -- PartyIdChars
-                    |  PartyIdChars PartyIdChar
-
-  PartyId character
-       PartyIdChar  ∈  [a-zA-Z0-9:\-_ ]              -- PartyIdChar
+     PartyIdString  ∈  [a-zA-Z0-9:\-_ ]{1,255}       -- PartyIdChar
 
   PackageName strings
    PackageNameString ∈ [a-zA-Z0-9:\-_]+             -- PackageNameString

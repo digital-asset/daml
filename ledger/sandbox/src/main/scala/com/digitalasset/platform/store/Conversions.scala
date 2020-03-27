@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.store
@@ -19,6 +19,7 @@ import anorm.{
 }
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value
 
 object Conversions {
 
@@ -80,12 +81,14 @@ object Conversions {
       implicit strToStm: ToStatement[String]): ToStatement[Ref.ParticipantId] =
     subStringToStatement(strToStm)
 
-  implicit def columnToContractId(implicit c: Column[String]): Column[Ref.ContractIdString] =
-    stringColumnToX(Ref.ContractIdString.fromString)(c)
+  implicit def columnToContractId(implicit c: Column[String]): Column[Value.AbsoluteContractId] =
+    stringColumnToX(Value.AbsoluteContractId.fromString)(c)
 
   implicit def contractIdToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[Ref.ContractIdString] =
-    subStringToStatement(strToStm)
+      implicit strToStm: ToStatement[String]
+  ): ToStatement[Value.AbsoluteContractId] =
+    (s: PreparedStatement, index: Int, v: Value.AbsoluteContractId) =>
+      strToStm.set(s, index, v.coid)
 
   def emptyStringToNullColumn(implicit c: Column[String]): Column[String] = new Column[String] {
     override def apply(value: Any, meta: MetaDataItem) = value match {
@@ -108,9 +111,9 @@ object Conversions {
       implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[Ref.ParticipantId] =
     subStringMetaParameter(strParamMetaData)
 
-  def contractIdString(columnName: String)(
-      implicit c: Column[String]): RowParser[Ref.ContractIdString] =
-    SqlParser.get[Ref.ContractIdString](columnName)(columnToContractId(c))
+  def contractId(columnName: String)(
+      implicit c: Column[String]): RowParser[Value.AbsoluteContractId] =
+    SqlParser.get[Value.AbsoluteContractId](columnName)(columnToContractId(c))
 
   implicit def contractIdStringMetaParameter(implicit strParamMetaData: ParameterMetaData[String])
     : ParameterMetaData[Ref.ContractIdString] =

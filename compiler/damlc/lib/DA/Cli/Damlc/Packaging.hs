@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.Packaging
@@ -8,7 +8,6 @@ module DA.Cli.Damlc.Packaging
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Extra
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import Control.Monad.IO.Class
@@ -173,7 +172,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
               ]
             ]
     when (not $ null newerLfDeps) $
-        errorIO $ "Targeted LF version " <> DA.Pretty.renderPretty (optDamlLfVersion opts) <> " but dependencies have newer LF versions: " ++
+        exitWithError $ "Targeted LF version " <> DA.Pretty.renderPretty (optDamlLfVersion opts) <> " but dependencies have newer LF versions: " ++
           intercalate ", " [ T.unpack (LF.unPackageId pkgId) <> " (" <> unitIdString unitId <> "): " <> DA.Pretty.renderPretty ver | ((pkgId, unitId), ver) <- newerLfDeps ]
 
     let unitIdConflicts = MS.filter ((>=2) . Set.size) .  MS.fromListWith Set.union $ concat
@@ -297,7 +296,7 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
             (toNormalizedFilePath' ".")
             [fp | (fp, _content) <- src']
     when (isNothing res) $
-      errorIO
+      exitWithError
           $ "Failed to compile interface for data-dependency: "
           <> unitIdString (pkgNameVersion pkgName mbPkgVersion)
     -- write the conf file and refresh the package cache
@@ -505,3 +504,15 @@ showPackageFlag unitId exposeImplicit mods = concat
   where showRenaming (a, b)
           | a == b = GHC.moduleNameString a
           | otherwise = GHC.moduleNameString a <> " as " <> GHC.moduleNameString b
+
+-- NOTE (MK) We used to call just errorIO here. However for reasons
+-- that I do not understand this sometimes seemed to result in test failures
+-- on Windows (never saw it anywhere else) where the executable failed
+-- as expected but we got no output.
+-- So now we are extra careful to make sure that the error message is actually
+-- written somewhere.
+exitWithError :: String -> IO ()
+exitWithError msg = do
+    hPutStrLn stderr msg
+    hFlush stderr
+    exitFailure

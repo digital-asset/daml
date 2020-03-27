@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.trigger
@@ -143,7 +143,7 @@ object Converter {
     record(
       contractIdTy,
       ("templateId", fromTemplateTypeRep(triggerIds, templateId)),
-      ("contractId", SContractId(AbsoluteContractId(ContractIdString.assertFromString(contractId))))
+      ("contractId", SContractId(AbsoluteContractId.assertFromString(contractId)))
     )
   }
 
@@ -383,7 +383,7 @@ object Converter {
 
   private def toAbsoluteContractId(v: SValue): Either[String, AbsoluteContractId] = {
     v match {
-      case SContractId(cid @ AbsoluteContractId(_)) => Right(cid)
+      case SContractId(cid: AbsoluteContractId) => Right(cid)
       case _ => Left(s"Expected AbsoluteContractId but got $v")
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api.validation
@@ -126,14 +126,14 @@ final class CommandsValidator(ledgerId: LedgerId) {
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- validateIdentifier(templateId)
-          contractId <- requireLedgerString(e.value.contractId, "contract_id")
+          contractId <- requireAbsoluteContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield
           ExerciseCommand(
             templateId = validatedTemplateId,
-            contractId = Lf.AbsoluteContractId(contractId),
+            contractId = contractId,
             choiceId = choice,
             argument = validatedValue)
 

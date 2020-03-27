@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Ledger API Test Tool
@@ -150,7 +150,7 @@ Use the command line options ``--timeout-scale-factor`` and
   implementation under test. Conversely use values smaller than 1.0 to make it
   wait shorter.
 - Set ``--command-submission-ttl-scale-factor`` to adjust the time-to-live of
-  commands as represented by the MRT (Maximum Record Time) on the Ledger API.
+  commands as represented by the :ref:`deduplication time <com.digitalasset.ledger.api.v1.Commands.deduplication_time>` on the Ledger API.
   The default value is 1.0 and will be applied to the default TTL, which is the
   maximum TTL as returned by the LedgerConfigurationService. In any case,
   the used TTL value will be clipped to stay between the minimum and maximum TTL.

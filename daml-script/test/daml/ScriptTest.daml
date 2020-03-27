@@ -1,11 +1,12 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ApplicativeDo #-}
 
 module ScriptTest where
 
-import DA.Foldable
+import DA.Assert
+import DA.Foldable hiding (length)
 import DA.Time
 import Daml.Script
 
@@ -175,3 +176,21 @@ traceOrder = do
     debug "abc"
     x <- getTime
     debug "def"
+
+jsonBasic : Party -> Script Int
+jsonBasic p = do
+  cid <- submit p $ createCmd (TProposal p p)
+  (cid, r) <- submit p $ exerciseCmd cid Accept
+  results <- query @T p
+  results === [(cid, T p p)]
+  pure r
+
+jsonCreateAndExercise : Party -> Script Int
+jsonCreateAndExercise p =
+  fmap snd $ submit p $ createAndExerciseCmd (TProposal p p) Accept
+
+jsonExerciseByKey : Party -> Script (ContractId WithKey, ContractId WithKey)
+jsonExerciseByKey p = do
+  cid1 <- submit p $ createCmd (WithKey p)
+  cid2 <- submit p $ exerciseByKeyCmd @WithKey p GetCid
+  pure (cid1, cid2)

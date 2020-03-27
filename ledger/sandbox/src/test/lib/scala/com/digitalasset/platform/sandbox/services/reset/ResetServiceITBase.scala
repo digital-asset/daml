@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.services.reset
@@ -64,7 +64,7 @@ abstract class ResetServiceITBase
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
-  protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, 10.millis)
+  protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, scaled(10.millis))
 
   override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 

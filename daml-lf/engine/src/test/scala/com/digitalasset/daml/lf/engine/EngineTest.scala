@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -122,7 +122,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           BasicTests_WithKey,
           ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
           ) =>
-        Some(toContractId("1"))
+        Some(toContractId("#1"))
       case _ =>
         None
     }
@@ -201,7 +201,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "translate exercise commands argument including labels" in {
-      val originalCoid = toContractId("1")
+      val originalCoid = toContractId("#1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val let = Time.Timestamp.now()
       val command = ExerciseCommand(
@@ -217,7 +217,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "translate exercise commands argument without labels" in {
-      val originalCoid = "1"
+      val originalCoid = toContractId("#1")
       val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
       val let = Time.Timestamp.now()
       val command = ExerciseCommand(
@@ -492,7 +492,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val let = Time.Timestamp.now()
     val transactionSeed = crypto.Hash.deriveTransactionSeed(submissionSeed, participant, let)
     val command =
-      ExerciseCommand(templateId, "1", "Hello", ValueRecord(Some(hello), ImmArray.empty))
+      ExerciseCommand(
+        templateId,
+        toContractId("#1"),
+        "Hello",
+        ValueRecord(Some(hello), ImmArray.empty))
 
     val res = commandTranslator
       .preprocessCommands(Commands(party, ImmArray(command), let, "test"))
@@ -881,7 +885,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   "exercise callable command" should {
     val submissionSeed = hash("exercise callable command")
-    val originalCoid = "1"
+    val originalCoid = toContractId("#1")
     val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
     // we need to fix time as cid are depending on it
     val let = Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")
@@ -950,7 +954,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             children,
             _,
             _) =>
-          coid shouldBe toContractId(originalCoid)
+          coid shouldBe originalCoid
           consuming shouldBe true
           actingParties shouldBe Set(bob)
           children.map(_.index) shouldBe ImmArray(1)
@@ -1005,7 +1009,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         toContractId("00b39433a649bebecd3b01d651be38a75923efdb92f34592b5600aee3fec8a8cc3")
       bobExercise shouldBe
         ExerciseEvent(
-          contractId = toContractId(originalCoid),
+          contractId = originalCoid,
           templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
           choice = "Transfer",
           choiceArgument = assertAsVersionedValue(
@@ -1047,8 +1051,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     // Test a couple of scenarios, with different combination of signatories/observers/actors on the parent action
 
     val submissionSeed = hash("dynamic fetch actors")
-    val fetchedStrCid = "1"
-    val fetchedCid = toContractId(fetchedStrCid)
+    val fetchedCid = toContractId("#1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
       (Some[Name]("sig1"), ValueParty(alice)),
@@ -1059,16 +1062,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val fetcherStrTid = "BasicTests:Fetcher"
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
 
-    val fetcher1StrCid = "2"
-    val fetcher1Cid = toContractId(fetcher1StrCid)
+    val fetcher1Cid = toContractId("#2")
     val fetcher1TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(alice)),
       (Some[Name]("obs"), ValueParty(bob)),
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
 
-    val fetcher2StrCid = "3"
-    val fetcher2Cid = toContractId(fetcher2StrCid)
+    val fetcher2Cid = toContractId("#3")
     val fetcher2TArgs = ImmArray(
       (Some[Name]("sig"), ValueParty(party)),
       (Some[Name]("obs"), ValueParty(alice)),
@@ -1109,7 +1110,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         case (actors, (_, n)) => actors union actFetchActors(n)
       }
 
-    def runExample(cid: String, exerciseActor: Party) = {
+    def runExample(cid: AbsoluteContractId, exerciseActor: Party) = {
       val command = ExerciseCommand(
         fetcherTid,
         cid,
@@ -1139,18 +1140,18 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
 
-      val Right(tx) = runExample(fetcher1StrCid, clara)
+      val Right(tx) = runExample(fetcher1Cid, clara)
       txFetchActors(tx) shouldBe Set(alice, clara)
     }
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
-      val Right(tx) = runExample(fetcher2StrCid, party)
+      val Right(tx) = runExample(fetcher2Cid, party)
       txFetchActors(tx) shouldBe Set()
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val Right(tx) = runExample(fetcher1StrCid, clara)
+      val Right(tx) = runExample(fetcher1Cid, clara)
       val fetchNodes =
         tx.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
           case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
@@ -1171,7 +1172,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val submissionSeed = hash("reinterpreting fetch nodes")
 
-    val fetchedCid = toContractId("1")
+    val fetchedCid = toContractId("#1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
@@ -1247,7 +1248,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   }
 
   "fetching contracts that have keys correctly fills in the transaction structure" when {
-    val fetchedCid = AbsoluteContractId(ContractIdString.assertFromString("1"))
+    val fetchedCid = toContractId("#1")
     val now = Time.Timestamp.now()
 
     "fetched via a fetch" in {
@@ -1277,7 +1278,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     "fetched via a fetchByKey" in {
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
-      val fetcherCid = AbsoluteContractId(ContractIdString.assertFromString("2"))
+      val fetcherCid = toContractId("#2")
       val fetcherInst = ContractInst(
         TypeConName(basicTestsPkgId, fetcherTemplate),
         assertAsVersionedValue(
@@ -1337,8 +1338,8 @@ object EngineTest {
   private implicit def toName(s: String): Name =
     Name.assertFromString(s)
 
-  private implicit def toContractId(s: String): AbsoluteContractId =
-    AbsoluteContractId(ContractIdString.assertFromString(s))
+  private def toContractId(s: String): AbsoluteContractId =
+    AbsoluteContractId.assertFromString(s)
 
   private def ArrayList[X](as: X*): util.ArrayList[X] = {
     val a = new util.ArrayList[X](as.length)

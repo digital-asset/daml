@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml
@@ -61,7 +61,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
       TParty ->
         ValueParty(Ref.Party.assertFromString("Alice")),
       TContractId(TTyCon(recordCon)) ->
-        ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("contractId"))),
+        ValueContractId(AbsoluteContractId.assertFromString("#contractId")),
       TList(TText) ->
         ValueList(FrontStack(ValueText("a"), ValueText("b"))),
       TTextMap(TBool) ->

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, Identifier, Name}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 
@@ -297,9 +297,66 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed trait ContractId
+  sealed abstract class ContractId
 
-  final case class AbsoluteContractId(coid: ContractIdString) extends ContractId
+  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+    def coid: String
+  }
+
+  object AbsoluteContractId {
+    final case class V0(coid: Ref.ContractIdString) extends AbsoluteContractId {
+      override def toString: String = s"AbsoluteContractId($coid)"
+    }
+
+    object V0 {
+      def fromString(s: String): Either[String, V0] =
+        Ref.ContractIdString.fromString(s).map(V0(_))
+
+      def assertFromString(s: String): V0 = assertRight(fromString(s))
+    }
+
+    final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)
+        extends AbsoluteContractId {
+      lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
+      lazy val coid: Ref.HexString = toBytes.toHexString
+      override def toString: String = s"AbsoluteContractId($coid)"
+    }
+
+    object V1 {
+
+      val prefix: Bytes = Bytes.assertFromString("00")
+
+      private val suffixStart: Int = crypto.Hash.underlyingHashLength + prefix.length
+
+      def fromString(s: String): Either[String, V1] =
+        Bytes
+          .fromString(s)
+          .flatMap(
+            bytes =>
+              if (bytes.startsWith(prefix) && bytes.length >= suffixStart)
+                crypto.Hash
+                  .fromBytes(bytes.slice(prefix.length, suffixStart))
+                  .map(
+                    V1(_, bytes.slice(suffixStart, bytes.length))
+                  )
+              else
+                Left(s"""cannot parse V1 ContractId "$s""""))
+
+      def assertFromString(s: String): V1 = assertRight(fromString(s))
+
+    }
+
+    def fromString(s: String): Either[String, AbsoluteContractId] =
+      V1.fromString(s)
+        .left
+        .flatMap(_ => V0.fromString(s))
+        .left
+        .map(_ => s"""cannot parse ContractId "$s"""")
+
+    def assertFromString(s: String): AbsoluteContractId =
+      assertRight(fromString(s))
+  }
+
   final case class RelativeContractId(txnid: NodeId) extends ContractId
 
   object ContractId {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox
@@ -141,12 +141,9 @@ object SandboxServer {
       for {
         currentPort <- port
         _ <- release()
-      } yield
-        new SandboxState(
-          materializer,
-          metrics,
-          packageStore,
-          newApiServer(materializer, metrics, packageStore, currentPort))
+        replacementApiServer = newApiServer(materializer, metrics, packageStore, currentPort)
+        _ <- replacementApiServer.asFuture
+      } yield new SandboxState(materializer, metrics, packageStore, replacementApiServer)
 
     def release()(implicit executionContext: ExecutionContext): Future[Unit] =
       apiServerResource.release()

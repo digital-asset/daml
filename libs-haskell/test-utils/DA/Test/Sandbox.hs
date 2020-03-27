@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Tasty resource for starting sandbox
@@ -13,8 +13,8 @@ module DA.Test.Sandbox
 import Control.Exception
 import DA.Bazel.Runfiles
 import DA.PortFile
+import DA.Test.Util
 import System.FilePath
-import System.Info.Extra
 import System.IO.Extra
 import System.Process
 import Test.Tasty
@@ -99,10 +99,3 @@ data SandboxResource = SandboxResource
     }
 destroySandbox :: SandboxResource -> IO ()
 destroySandbox = cleanupProcess . sandboxProcess
-
-nullDevice :: FilePath
-nullDevice
-    -- taken from typed-process
-    | isWindows = "\\\\.\\NUL"
-    | otherwise =  "/dev/null"
-

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
@@ -1208,11 +1208,32 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         eval(e"TO_TEXT_PARTY 'alice'") shouldEqual Right(SText("alice"))
       }
 
-      "FROM_TEXT_PARTY" in {
-        eval(e"""FROM_TEXT_PARTY "alice" """) shouldEqual Right(
-          SOptional(Some(SParty(Ref.Party.assertFromString("alice")))),
-        )
-        eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldEqual Right(SOptional(None))
+      "FROM_TEXT_PARTY" - {
+        "should convert correct string" in {
+          eval(e"""FROM_TEXT_PARTY "alice" """) shouldEqual Right(
+            SOptional(Some(SParty(Ref.Party.assertFromString("alice")))),
+          )
+        }
+        "should not convert string with incorrect char" in {
+          eval(e"""FROM_TEXT_PARTY "bad%char" """) shouldEqual Right(SOptional(None))
+        }
+
+        "should not convert too long string" in {
+          val party255 = "p" * 255
+          val party256 = party255 + "p"
+          eval(e"""FROM_TEXT_PARTY "$party255" """) shouldEqual Right(
+            SOptional(Some(SParty(Ref.Party.assertFromString(party255)))),
+          )
+          eval(e"""FROM_TEXT_PARTY "$party256" """) shouldEqual Right(SOptional(None))
+        }
+
+        "should not convert empty string" in {
+          eval(e"""FROM_TEXT_PARTY "p" """) shouldEqual Right(
+            SOptional(Some(SParty(Ref.Party.assertFromString("p")))),
+          )
+          eval(e"""FROM_TEXT_PARTY "" """) shouldEqual Right(SOptional(None))
+        }
+
       }
 
       "FROM_TEXT_INT64" in {

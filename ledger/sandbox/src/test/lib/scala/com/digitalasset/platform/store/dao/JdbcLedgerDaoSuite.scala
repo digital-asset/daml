@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.store.dao
@@ -186,7 +186,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     val offset = nextOffset()
     val id = offset.toLong
     val txId = s"trId$id"
-    val absCid = AbsoluteContractId(s"cId$id")
+    val absCid = AbsoluteContractId.assertFromString(s"#cId$id")
     val let = Instant.now
     val eid = event(txId, id)
     offset -> LedgerEntry.Transaction(
@@ -225,7 +225,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   protected def fullyTransient: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
-    val absCid = AbsoluteContractId(UUID.randomUUID().toString)
+    val absCid = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
     val let = Instant.now
     val createId = event(txId, 0)
     val exerciseId = event(txId, 1)
@@ -263,8 +263,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     */
   protected def withChildren: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
-    val absCid1 = AbsoluteContractId(UUID.randomUUID().toString)
-    val absCid2 = AbsoluteContractId(UUID.randomUUID().toString)
+    val absCid1 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
+    val absCid2 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
     val let = Instant.now
     val createId = event(txId, 0)
     val exerciseId = event(txId, 1)
@@ -332,7 +332,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
           HashMap(
             event(s"transactionId$id", id) -> NodeCreate(
               nodeSeed = None,
-              coid = AbsoluteContractId(s"contractId$id"),
+              coid = AbsoluteContractId.assertFromString(s"#contractId$id"),
               coinst = someContractInstance,
               optLocation = None,
               signatories = Set(party),
@@ -372,7 +372,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
           HashMap(
             event(s"transactionId$id", id) -> NodeExercises(
               nodeSeed = None,
-              targetCoid = AbsoluteContractId(s"contractId${cid.toLong}"),
+              targetCoid = AbsoluteContractId.assertFromString(s"#contractId${cid.toLong}"),
               templateId = someTemplateId,
               choiceId = Ref.ChoiceName.assertFromString("Archive"),
               optLocation = None,
@@ -423,7 +423,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
               KeyWithMaintainers(
                 VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                 Set(party)),
-              result.map(id => AbsoluteContractId(s"contractId${id.toLong}")),
+              result.map(id => AbsoluteContractId.assertFromString(s"#contractId${id.toLong}")),
             )),
           ImmArray(event(s"transactionId$id", id)),
         ),
@@ -453,7 +453,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         GenTransaction(
           HashMap(
             event(s"transactionId$id", id) -> NodeFetch(
-              coid = AbsoluteContractId(s"contractId${cid.toLong}"),
+              coid = AbsoluteContractId.assertFromString(s"#contractId${cid.toLong}"),
               templateId = someTemplateId,
               optLocation = None,
               actingParties = Some(Set(party)),
@@ -487,8 +487,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         GenTransaction(HashMap.empty, ImmArray.empty),
         Map.empty
       ),
-      Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),
-      List(AbsoluteContractId(s"contractId$id") -> someContractInstance)
+      Map(AbsoluteContractId.assertFromString(s"#contractId$id") -> Set(bob)),
+      List(AbsoluteContractId.assertFromString(s"#contractId$id") -> someContractInstance)
     )
   }
 

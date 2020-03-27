@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -721,7 +721,7 @@ abstract class AbstractHttpServiceIntegrationTest
 
   "exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService {
     (uri, encoder, _) =>
-      val contractId = lar.ContractId("NonExistentContractId")
+      val contractId = lar.ContractId("#NonExistentContractId")
       val exerciseJson: JsValue = encodeExercise(encoder)(iouExerciseTransferCommand(contractId))
       postJsonRequest(uri.withPath(Uri.Path("/v1/exercise")), exerciseJson)
         .flatMap {
@@ -729,7 +729,7 @@ abstract class AbstractHttpServiceIntegrationTest
             status shouldBe StatusCodes.InternalServerError
             assertStatus(output, StatusCodes.InternalServerError)
             expectedOneErrorMessage(output) should include(
-              "couldn't find contract AbsoluteContractId(NonExistentContractId)")
+              "couldn't find contract AbsoluteContractId(#NonExistentContractId)")
         }: Future[Assertion]
   }
 
@@ -804,7 +804,7 @@ abstract class AbstractHttpServiceIntegrationTest
   private def testExerciseCommandEncodingDecoding(
       encoder: DomainJsonEncoder,
       decoder: DomainJsonDecoder): Assertion = {
-    val command0 = iouExerciseTransferCommand(lar.ContractId("a-contract-ID"))
+    val command0 = iouExerciseTransferCommand(lar.ContractId("#a-contract-ID"))
     val jsVal: JsValue = encodeExercise(encoder)(command0)
     val command1 = decodeExercise(decoder)(jsVal)
     command1.bimap(removeRecordId, identity) should ===(command0)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -341,9 +341,9 @@ class HashSpec extends WordSpec with Matchers {
         ).map(VA.party.inj)
       val contractIds =
         List(
-          "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
-          "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
-        ).map(x => AbsoluteContractId(Ref.ContractIdString.assertFromString(x)))
+          "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
+          "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
+        ).map(AbsoluteContractId.V1.assertFromString)
           .map(VA.contractId.inj)
 
       val enumT1 = VA.enum("Color", List("Red", "Green"))._2
@@ -464,10 +464,10 @@ class HashSpec extends WordSpec with Matchers {
           | 274830656c6f7de1daf729d11c57c40ef271a101a831d89e45f034ce7bd71d9d
           |ValueParty(bob)
           | dc1f0fc026d3200a1781f0989dd1801022e028e8afe5d953a033e6d35e8ea50b
-          |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | 399c8d4fb942204c9384a8bda062676d75a3a52080c798f98560b2914af61ad8
-          |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | f05d36c187b003a1c1ca669579bdcf0cfce85ce634029cc533d23d24fd8382a1
+          |ValueContractId(AbsoluteContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          | 0649b1e1e7f34be457c44146e449299109167b9199101349873142ed05878b96
+          |ValueContractId(AbsoluteContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          | 0b8c0cc8ebbd56e275b60cf73133387322a42448986dc3858b31eef23098e8e8
           |ValueOptional(None)
           | 01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086
           |ValueOptional(Some(ValueBool(false)))
@@ -538,7 +538,7 @@ class HashSpec extends WordSpec with Matchers {
       val actualOutput = testCases
         .map { value =>
           val hash = Hash
-            .builder(Hash.Purpose.Testing, Hash.aCid2String)
+            .builder(Hash.Purpose.Testing, Hash.aCid2Bytes)
             .addTypedValue(value)
             .build
             .toHexString

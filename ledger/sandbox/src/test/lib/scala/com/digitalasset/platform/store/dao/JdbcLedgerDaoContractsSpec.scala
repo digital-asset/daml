@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.store.dao
@@ -25,7 +25,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec {
   it should "be able to persist and load contracts" in {
     val offset = nextOffset()
     val offsetString = offset.toLong
-    val absCid = AbsoluteContractId(s"cId1-$offsetString")
+    val absCid = AbsoluteContractId.assertFromString(s"#cId1-$offsetString")
     val txId = s"trId-$offsetString"
     val workflowId = s"workflowId-$offsetString"
     val let = Instant.now

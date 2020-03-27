@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
@@ -31,7 +31,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
 
   def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdString =
     // It is safe to concatenate numbers and "-" to form a valid ContractId
-    Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"#$txCounter-${r.txnid.index}")
 
   def updateWithAbsoluteContractId(
       tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =

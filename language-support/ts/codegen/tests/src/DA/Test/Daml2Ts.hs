@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
 module DA.Test.Daml2Ts (main) where
@@ -13,34 +13,28 @@ import System.Exit
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
-import Data.Maybe
+import DA.Test.Daml2TsUtils
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
-import Data.Hashable
 import Test.Tasty
 import Test.Tasty.HUnit
+import DA.Test.Util
 
 -- Referenced from the DAVL test. Lifted here for easy
 -- maintenance.
 data ConfigConsts = ConfigConsts
-  { pkgDevDependencies :: HMS.HashMap NpmPackageName NpmPackageVersion }
+  { pkgDevDependencies :: HMS.HashMap T.Text T.Text }
 configConsts :: ConfigConsts
 configConsts = ConfigConsts
   { pkgDevDependencies = HMS.fromList
-      [ (NpmPackageName "eslint", NpmPackageVersion "^6.7.2")
-      , (NpmPackageName "@typescript-eslint/eslint-plugin", NpmPackageVersion "2.11.0")
-      , (NpmPackageName "@typescript-eslint/parser", NpmPackageVersion "2.11.0")
+      [ ("eslint", "^6.7.2")
+      , ("@typescript-eslint/eslint-plugin", "2.11.0")
+      , ("@typescript-eslint/parser", "2.11.0")
       ]
   }
-newtype NpmPackageName = NpmPackageName {unNpmPackageName :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON, ToJSONKey)
-newtype NpmPackageVersion = NpmPackageVersion {unNpmPackageVersion :: T.Text}
-  deriving stock (Eq, Show)
-  deriving newtype (Hashable, FromJSON, ToJSON)
 
 main :: IO ()
 main = do
@@ -74,10 +68,12 @@ main = do
 --         src/
 --           index.ts
 --           Grover/
+--             index.ts
 --             module.ts
 --         lib/
 --           index.{js,d.ts}
 --           Grover/
+--             index.{js,d.ts}
 --             module.{js,d.ts}
 --       ...
 --     daml-types  <-- referred to by the "resolutions" field in package.json
@@ -92,17 +88,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
-        writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (grover </> "daml" </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
@@ -111,20 +98,15 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           elmoDar = elmo </> ".daml" </> "dist" </> "elmo-1.0.dar"
       createDirectoryIfMissing True elmoDaml
       withCurrentDirectory elmo $ do
-        writeFileUTF8 (elmoDaml </> "Elmo.daml") $ unlines
-          [ "module Elmo where"
-          , "template Elmo"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          ]
+        writeFileUTF8 (elmoDaml </> "Elmo.daml") "module Elmo where data Elmo = Elmo"
         writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
         step "daml2ts..."
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "A duplicate name for different packages error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
+        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        assertInfixOf "Duplicate name 'grover-1.0' for different packages detected" err
 
   , testCaseSteps "Different name, same package test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -135,17 +117,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
       -- Locked to DAML-LF 1.7 since we get different package ids due to
       -- package metadata in DAML-LF 1.8.
       withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (groverDaml </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
@@ -154,17 +127,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
       createDirectoryIfMissing True superGroverDaml
       withCurrentDirectory superGrover $ do
-        writeFileUTF8 (superGroverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (superGroverDaml </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
@@ -172,7 +136,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
+        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        assertInfixOf "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -182,17 +147,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (groverDaml </> "Grover.daml")
+          "module Grover where data Grver = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
@@ -200,7 +156,50 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         setupYarnEnvironment
         daml2tsProject [groverDar, groverDar] daml2tsDir
-        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "module" ]
+        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "index", "Grover" </> "module" ]
+
+  , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
+      let projectRoot = here </> "project"
+          daml2tsDir = here </> "daml2ts"
+          projectTs =  daml2tsDir </> "project-1.0"
+          projectDar = projectRoot </> ".daml" </> "dist" </> "project-1.0.dar"
+      createDirectoryIfMissing True projectRoot
+      withCurrentDirectory projectRoot $ do
+        createDirectoryIfMissing True ("daml" </> "A" </> "B")
+        writeFileUTF8 ("daml" </> "A.daml") "module A where data X = X"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where data Y = Y"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "D.daml") "module A.B.D where data Z = Z"
+        writeDamlYaml "project" ["A"] ["daml-prim", "daml-stdlib"] Nothing
+        step "daml build..."
+        buildProject []
+      withCurrentDirectory here $ do
+        step "daml2ts..."
+        setupYarnEnvironment
+        daml2tsProject [projectDar] daml2tsDir
+        mapM_ (assertTsFileExists projectTs)
+          [ "index"
+          , "A" </> "index"
+          , "A" </> "module"
+          , "A" </> "B" </> "index"
+          , "A" </> "B" </> "C" </> "index"
+          , "A" </> "B" </> "C" </> "module"
+          , "A" </> "B" </> "D" </> "index"
+          , "A" </> "B" </> "D" </> "module"
+          ]
+        assertFileDoesNotExist (projectTs </> "src" </> "A" </> "B" </> "module.ts")
+
+        withCurrentDirectory (projectTs </> "src") $ do
+          let reexportIndex name =
+                [ "import * as " <> name <> " from './" <> name <> "';"
+                , "export import " <> name <> " = " <> name <> ";"
+                ]
+          let reexportModule = ["export * from './module';"]
+          indexContents <- T.lines <$> T.readFileUtf8 "index.ts"
+          assertBool "index.ts does not reexport A" (reexportIndex "A" `isPrefixOf` indexContents)
+          assertFileLines ("A" </> "index.ts") (reexportIndex "B" ++ reexportModule)
+          assertFileLines ("A" </> "B" </> "index.ts") (reexportIndex "C" ++ reexportIndex "D")
+          assertFileLines ("A" </> "B" </> "C" </> "index.ts") reexportModule
+          assertFileLines ("A" </> "B" </> "D" </> "index.ts") reexportModule
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -218,22 +217,38 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
-        BSL.writeFile "package.json" $ encode (
+        BSL.writeFile "package.json" $ encode $
           object
             [ "private" .= True
             , "devDependencies" .= pkgDevDependencies configConsts
             , "workspaces" .= pkgs
             , "name" .= ("daml2ts" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)
-            ])
+            ]
+        BSL.writeFile ".eslintrc.json" $ encode $
+          object
+            [ "parser" .= ("@typescript-eslint/parser" :: T.Text)
+            , "parserOptions" .= object [("project", "./tsconfig.json")]
+            , "plugins" .= (["@typescript-eslint"] :: [T.Text])
+            , "extends" .= (
+                [ "eslint:recommended"
+                , "plugin:@typescript-eslint/eslint-recommended"
+                , "plugin:@typescript-eslint/recommended"
+                , "plugin:@typescript-eslint/recommended-requiring-type-checking"
+                ] :: [T.Text])
+            , "rules" .= object
+              [ ("@typescript-eslint/explicit-function-return-type", "off")
+              , ("@typescript-eslint/no-inferrable-types", "off")
+              ]
+          ]
         callProcessSilent yarn ["install", "--pure-lockfile"]
-        callProcessSilent yarn ["workspaces", "run", "eslint", "--ext", ".ts", "--max-warnings", "0", "src/"]
+        callProcessSilent yarn ["workspaces", "run", "eslint", "-c", ".." </> ".eslintrc.json", "--ext", ".ts", "--max-warnings", "0", "src/"]
   ]
   where
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
       copyDirectory damlTypes "daml-types"
-      writePackageJson
+      writeRootPackageJson Nothing ["daml2ts"]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
@@ -263,15 +278,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         ["  - " ++ dependency | dependency <- dependencies] ++
         ["build-options: [--target=" <> LF.renderVersion ver <> "]" | Just ver <- [mbLfVersion]]
 
-    writePackageJson :: IO ()
-    writePackageJson = BSL.writeFile "package.json" $ encode packageJson
-      where
-        packageJson = object
-          [ "private" .= True
-          , "workspaces" .= (["daml2ts"] :: [T.Text])
-          , "resolutions" .= HMS.fromList ([("@daml/types", "file:daml-types")] :: [(T.Text, T.Text)])
-          ]
-
     assertTsFileExists :: FilePath -> String -> IO ()
     assertTsFileExists proj file = do
       assertFileExists (proj </> "src" </> file <.> "ts")
@@ -280,3 +286,10 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         where
           assertFileExists :: FilePath -> IO ()
           assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
+    assertFileDoesNotExist :: FilePath -> IO ()
+    assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " should not exist") . not
+
+    assertFileLines :: FilePath -> [T.Text] -> IO ()
+    assertFileLines file expectedContent = do
+      actualContent <- T.lines <$> T.readFileUtf8 file
+      assertEqual ("The content of file '" ++ file ++ "' does not match") expectedContent actualContent

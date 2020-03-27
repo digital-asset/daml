@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -63,7 +63,7 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
       "ensureNoRelCid is used " in {
         val value = VersionedValue(
           ValueVersions.minVersion,
-          ValueContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString("#0:0"))),
+          ValueContractId(AbsoluteContractId.assertFromString("#0:0")),
         )
         val contract = ContractInst(tmplId, value, "agreed")
         value.ensureNoRelCid.map(_.version) shouldBe Right(ValueVersions.minVersion)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -32,7 +32,7 @@ final class Hash private (val bytes: Bytes) {
 object Hash {
 
   private val version = 0.toByte
-  private val underlyingHashLength = 32
+  val underlyingHashLength = 32
 
   private case class HashingError(msg: String) extends Exception with NoStackTrace
 
@@ -76,14 +76,16 @@ object Hash {
   def secureRandom: () => Hash =
     random(assertFromByteArray(SecureRandom.getInstanceStrong.generateSeed(underlyingHashLength)))
 
-  implicit val `Hash Ordering`: Ordering[Hash] =
+  implicit val ordering: Ordering[Hash] =
     Ordering.by(_.bytes)
 
   @throws[HashingError]
-  private[lf] val aCid2String: Value.ContractId => String = {
-    case (Value.AbsoluteContractId(cid)) =>
-      cid
-    case (Value.RelativeContractId(_)) =>
+  private[lf] val aCid2Bytes: Value.ContractId => Bytes = {
+    case cid @ Value.AbsoluteContractId.V1(_, _) =>
+      cid.toBytes
+    case Value.AbsoluteContractId.V0(s) =>
+      Utf8.getBytes(s)
+    case Value.RelativeContractId(_) =>
       error("Hashing of relative contract id is not supported")
   }
 
@@ -91,7 +93,7 @@ object Hash {
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => error("Hashing of relative contract id is not supported in contract key")
 
-  private[crypto] sealed abstract class Builder(cid2String: Value.ContractId => String) {
+  private[crypto] sealed abstract class Builder(cid2Bytes: Value.ContractId => Bytes) {
 
     protected def update(a: ByteBuffer): Unit
 
@@ -175,8 +177,11 @@ object Hash {
     }
 
     @throws[HashingError]
-    final def addCid(cid: Value.ContractId): this.type =
-      add(cid2String(cid))
+    final def addCid(cid: Value.ContractId): this.type = {
+      val bytes = cid2Bytes(cid)
+      add(bytes.length)
+      add(bytes)
+    }
 
     // In order to avoid hash collision, this should be used together
     // with another data representing uniquely the type of `value`.
@@ -239,8 +244,8 @@ object Hash {
   // Do not call this method from outside Hash object/
   private[crypto] def builder(
       purpose: Purpose,
-      cid2String: Value.ContractId => String,
-  ): Builder = new Builder(cid2String) {
+      cid2Bytes: Value.ContractId => Bytes,
+  ): Builder = new Builder(cid2Bytes) {
 
     private val md = MessageDigest.getInstance("SHA-256")
 

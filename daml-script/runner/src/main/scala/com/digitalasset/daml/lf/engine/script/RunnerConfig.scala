@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
@@ -22,6 +22,7 @@ case class RunnerConfig(
     inputFile: Option[File],
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
+    jsonApi: Boolean,
 )
 
 object RunnerConfig {
@@ -122,6 +123,12 @@ object RunnerConfig {
         arguments.copy(tlsConfig =
           arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
 
+    opt[Unit]("json-api")
+      .action { (t, c) =>
+        c.copy(jsonApi = true)
+      }
+      .text("Run DAML Script via the HTTP JSON API instead of via gRPC (experimental).")
+
     help("help").text("Print this usage text")
 
     checkConfig(c => {
@@ -133,6 +140,8 @@ object RunnerConfig {
         failure("Must specify either --ledger-host or --participant-config")
       } else if (c.timeProviderType == null) {
         failure("Must specify either --wall-clock-time or --static-time")
+      } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
+        failure("The json-api requires an access token")
       } else {
         success
       }
@@ -152,6 +161,7 @@ object RunnerConfig {
         inputFile = None,
         accessTokenFile = None,
         tlsConfig = None,
+        jsonApi = false,
       )
     )
 }

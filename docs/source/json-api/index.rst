@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _json-api:
@@ -1053,25 +1053,21 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
 
 .. code-block:: javascript
 
-    const WebSocket = require("ws")
-
-    console.log("Starting")
-
-    const wsProtocol = "daml.ws.auth"
-    const tokenPrefix = "jwt.token."
+    const wsProtocol = "daml.ws.auth";
+    const tokenPrefix = "jwt.token.";
     const jwt =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU"
-    const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol]
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJBbGljZSJdfX0.VdDI96mw5hrfM5ZNxLyetSVwcD7XtLT4dIdHIOa9lcU";
+    const subprotocols = [`${tokenPrefix}${jwt}`, wsProtocol];
 
-    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols)
+    const ws = new WebSocket("ws://localhost:7575/v1/stream/query", subprotocols);
 
     ws.on("open", function open() {
-      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}))
-    })
+      ws.send(JSON.stringify({templateIds: ["Iou:Iou"]}));
+    });
 
     ws.on("message", function incoming(data) {
-      console.log(data)
-    })
+      console.log(data);
+    });
 
 Error and Warning Reporting
 ===========================
@@ -1295,4 +1291,32 @@ Example:
         {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"}}
     ]
 
-The output stream has the same format as the output from the `Contracts Query Stream`_. We further guarantee that for every ``archived`` event appearing on the stream there has been a matching ``created`` event earlier in the stream.
+The output stream has the same format as the output from the `Contracts
+Query Stream`_. We further guarantee that for every ``archived`` event
+appearing on the stream there has been a matching ``created`` event
+earlier in the stream, except in the case of missing
+``contractIdAtOffset`` fields in the case described below.
+
+You may supply an optional ``offset`` for the stream, exactly as with
+query streams.  However, you should supply with each ``{templateId,
+key}`` pair a ``contractIdAtOffset``, which is the contract ID currently
+associated with that pair at the point of the given offset, or ``null``
+if no contract ID was associated with the pair at that offset.  For
+example, with the above keys, if you had one ``"abc123"`` contract but
+no ``"def345"`` contract, you might specify:
+
+.. code-block:: json
+
+    [
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "abc123"},
+         "contractIdAtOffset": "#1:0"},
+        {"templateId": "Account:Account", "key": {"_1": "Alice", "_2": "def345"},
+         "contractIdAtOffset": null}
+    ]
+
+If every ``contractIdAtOffset`` is specified, as is so in the example
+above, you will not receive any ``archived`` events for contracts
+created before the offset *unless* those contracts are identified in a
+``contractIdAtOffset``.  By contrast, if any ``contractIdAtOffset`` is
+missing, ``archived`` event filtering will be disabled, and you will
+receive "phantom archives" as with query streams.

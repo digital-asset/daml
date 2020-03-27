@@ -1,10 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 package engine
 package script
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
 import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
@@ -45,7 +47,7 @@ object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false)
     JsString(obj.coid)
   override final def jsValueToApiContractId(json: JsValue) = json match {
     case JsString(s) =>
-      ContractIdString.fromString(s).fold(deserializationError(_), AbsoluteContractId)
+      AbsoluteContractId.fromString(s).fold(deserializationError(_), identity)
     case _ => deserializationError("ContractId must be a string")
   }
 }
@@ -159,6 +161,21 @@ object Runner {
         })
         .map(_.toMap)
     } yield Participants(defaultClient, participantClients, participantParams.party_participants)
+  }
+
+  def jsonClients(
+      participantParams: Participants[ApiParameters],
+      token: String,
+      envIface: EnvironmentInterface)(
+      implicit ec: ExecutionContext,
+      system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
+    def client(params: ApiParameters) = {
+      val uri = Uri(params.host + ":" + params.port.toString)
+      new JsonLedgerClient(uri, token, envIface, system)
+    }
+    val defClient = participantParams.default_participant.map(client(_))
+    val otherClients = participantParams.participants.map({ case (k, v) => (k, client(v)) })
+    Future { Participants(defClient, otherClients, participantParams.party_participants) }
   }
 
   // Executes a DAML script

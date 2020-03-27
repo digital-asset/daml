@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # hlint configuration file
@@ -239,10 +239,11 @@
     - warn: {lhs: identity x, rhs: x, side: not (isTypeApp x)}
     - warn: {lhs: identity . x, rhs: x, name: Redundant identity}
     - warn: {lhs: x . identity, rhs: x, name: Redundant identity}
-    - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (y,x)", rhs: "(,x)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # Disabled since we do not want to confuse users with more syntax than necessary.
+    # - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
+    # - warn: {lhs: "\\y -> (y,x)", rhs: "(,x)", name: Use tuple-section, note: RequiresExtension TupleSections}
 
     # CHAR
 
@@ -675,3 +676,6 @@
 # Not helpful for beginner DAML programmers
 - ignore: {name: Eta reduce}
 - ignore: {name: Avoid lambda}
+# Disabled to avoid introducing even more syntax.
+- ignore: {name: Use tuple-section}
+- ignore: {name: Use lambda-case}

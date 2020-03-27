@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -76,7 +76,7 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
     def exerciseCmd(coid: String, templateId: Ref.Identifier): Command =
       ExerciseCommand(
         templateId,
-        Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(coid)),
+        Value.AbsoluteContractId.assertFromString(coid),
         simpleConsumeChoiceid,
         ValueUnit)
 

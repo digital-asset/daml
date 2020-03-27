@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -85,6 +85,11 @@ object domain {
       templateId: Option[TemplateId.OptionalPkg],
       contractId: domain.ContractId,
   ) extends ContractLocator[Nothing]
+
+  final case class ContractKeyStreamRequest[+Cid, +LfV](
+      contractIdAtOffset: Cid,
+      ekey: EnrichedContractKey[LfV],
+  )
 
   case class GetActiveContractsRequest(
       templateIds: Set[TemplateId.OptionalPkg],
@@ -416,6 +421,19 @@ object domain {
       }
   }
 
+  object ContractKeyStreamRequest {
+    implicit def covariantR[Off]: Traverse[ContractKeyStreamRequest[Off, ?]] = {
+      type F[A] = ContractKeyStreamRequest[Off, A]
+      new Traverse[F] {
+        override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
+          fa.ekey traverse f map (ekey => fa copy (ekey = ekey))
+      }
+    }
+
+    implicit def hasTemplateId[Off]: HasTemplateId[ContractKeyStreamRequest[Off, ?]] =
+      HasTemplateId.by[ContractKeyStreamRequest[Off, ?]](_.ekey)
+  }
+
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
     def required(label: String): Error \/ A =
       o toRightDisjunction Error('ErrorOps_required, s"Missing required field $label")
@@ -433,6 +451,25 @@ object domain {
         g: PackageService.ResolveChoiceArgType,
         h: PackageService.ResolveKeyType,
     ): Error \/ LfType
+  }
+
+  object HasTemplateId {
+    def by[F[_]]: By[F] = new By[F](0)
+
+    final class By[F[_]](private val ign: Int) extends AnyVal {
+      def apply[G[_]](nt: F[_] => G[_])(implicit basis: HasTemplateId[G]): HasTemplateId[F] =
+        new HasTemplateId[F] {
+          override def templateId(fa: F[_]) = basis templateId nt(fa)
+
+          override def lfType(
+              fa: F[_],
+              templateId: TemplateId.RequiredPkg,
+              f: PackageService.ResolveTemplateRecordType,
+              g: PackageService.ResolveChoiceArgType,
+              h: PackageService.ResolveKeyType,
+          ) = basis lfType (nt(fa), templateId, f, g, h)
+        }
+    }
   }
 
   object CreateCommand {

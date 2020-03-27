@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.ledger.api.validation
@@ -261,10 +261,10 @@ class SubmitRequestValidatorTest
     "validating contractId values" should {
       "succeed" in {
 
-        val coid = Ref.ContractIdString.assertFromString("coid")
+        val coid = Ref.ContractIdString.assertFromString("#coid")
 
         val input = Value(Sum.ContractId(coid))
-        val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
+        val expected = Lf.ValueContractId(Lf.AbsoluteContractId.V0(coid))
 
         validateValue(input) shouldEqual Right(expected)
       }

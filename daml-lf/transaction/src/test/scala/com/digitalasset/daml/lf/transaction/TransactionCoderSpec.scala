@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
@@ -305,7 +305,7 @@ class TransactionCoderSpec
       val node =
         Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
           nodeSeed = None,
-          coid = absCid("test-cid"),
+          coid = absCid("#test-cid"),
           coinst = ContractInst(
             Identifier(
               PackageId.assertFromString("pkg-id"),
@@ -404,6 +404,6 @@ class TransactionCoderSpec
   }
 
   private def absCid(s: String): Value.AbsoluteContractId =
-    Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(s))
+    Value.AbsoluteContractId.assertFromString(s)
 
 }

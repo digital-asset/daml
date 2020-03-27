@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.Packaging (main) where
@@ -10,6 +10,7 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader (readDalfManifest, readDalfs, packageName, Dalfs(..), DalfManifest(DalfManifest), mainDalfPath, dalfPaths)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import DA.Test.Util
 import Data.Conduit.Tar.Extra (dropDirectory1)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL.Char8
@@ -351,6 +352,28 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "data C = C Int"
             ]
         buildProjectError projDir "" "name collision"
+
+    , testCase "Virtual module name collision" $ withTempDir $ \projDir -> do
+        createDirectoryIfMissing True (projDir </> "src" </> "A" </> "B")
+        writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: proj"
+            , "version: 0.0.1"
+            , "source: src"
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+        writeFileUTF8 (projDir </> "src" </> "A.daml") $ unlines
+            [ "module A where"
+            , "data B = B Int"
+            ]
+        writeFileUTF8 (projDir </> "src" </> "A" </> "B" </> "C.daml") $ unlines
+            [ "module A.B.C where"
+            , "data C = C Int"
+            ]
+        (exitCode, out, err) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
+        assertInfixOf "Created" out
+        assertInfixOf "collision between variant A:B and module prefix A.B (from A.B.C)" err
+        exitCode @?= ExitSuccess
 
     , testCase "Manifest name" $ withTempDir $ \projDir -> do
           createDirectoryIfMissing True (projDir </> "src")

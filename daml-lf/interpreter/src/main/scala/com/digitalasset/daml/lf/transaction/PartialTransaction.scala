@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 
@@ -238,10 +238,7 @@ case class PartialTransaction(
         } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
       val cid = discriminator.fold[Value.ContractId](
         Value.RelativeContractId(Value.NodeId(nextNodeIdx))
-      )(
-        hash =>
-          Value.AbsoluteContractId(Ref.ContractIdString.assertFromString("00" + hash.toHexString))
-      )
+      )(Value.AbsoluteContractId.V1(_))
       val createNode = Node.NodeCreate(
         nodeSeed,
         cid,

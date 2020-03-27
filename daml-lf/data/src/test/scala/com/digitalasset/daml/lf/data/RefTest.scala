@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
@@ -118,7 +118,14 @@ class RefTest extends FreeSpec with Matchers {
       }
     }
 
-    "LedgerString should reject too long strings" in {
+    "reject too long string" in {
+      Party.fromString("p" * 255) shouldBe 'right
+      Party.fromString("p" * 256) shouldBe 'left
+    }
+  }
+
+  "LedgerString" - {
+    "reject too long strings" in {
       val negativeTestCase = "a" * 255
       val positiveTestCase1 = "a" * 256
       val positiveTestCase2 = "a" * 500
@@ -127,4 +134,5 @@ class RefTest extends FreeSpec with Matchers {
       LedgerString.fromString(positiveTestCase2) shouldBe 'left
     }
   }
+
 }

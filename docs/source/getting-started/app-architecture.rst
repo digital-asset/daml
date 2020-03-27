@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 App Architecture
@@ -147,8 +147,8 @@ Another example, showing how to *update* ledger state, is how we exercise the ``
 
 .. literalinclude:: code/ui-before/MainView.tsx
   :language: tsx
-  :start-after: // STARTFOLLOWING_BEGIN
-  :end-before: // STARTFOLLOWING_END
+  :start-after: // FOLLOW_BEGIN
+  :end-before: // FOLLOW_END
 
 The ``useExerciseByKey`` hook returns the ``exerciseFollow`` function.
 The *key* in this case is the username of the current user, used to look up the corresponding ``User`` contract.

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Daml.Helper.Main (main) where
@@ -59,6 +59,7 @@ data Command
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: LedgerFlags, parties :: [String] }
     | LedgerUploadDar { flags :: LedgerFlags, darPathM :: Maybe FilePath }
+    | LedgerFetchDar { flags :: LedgerFlags, pid :: String, saveAs :: FilePath }
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
@@ -217,6 +218,9 @@ commandParser = subparser $ fold
             , command "upload-dar" $ info
                 (ledgerUploadDarCmd <**> helper)
                 (progDesc "Upload DAR file to ledger")
+            , command "fetch-dar" $ info
+                (ledgerFetchDarCmd <**> helper)
+                (progDesc "Fetch DAR from ledger into file")
             , command "navigator" $ info
                 (ledgerNavigatorCmd <**> helper)
                 (forwardOptions <> progDesc "Launch Navigator on ledger")
@@ -244,6 +248,11 @@ commandParser = subparser $ fold
     ledgerUploadDarCmd = LedgerUploadDar
         <$> ledgerFlags
         <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
+
+    ledgerFetchDarCmd = LedgerFetchDar
+        <$> ledgerFlags
+        <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
+        <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
     ledgerNavigatorCmd = LedgerNavigator
         <$> ledgerFlags
@@ -331,6 +340,7 @@ runCommand = \case
     LedgerListParties {..} -> runLedgerListParties flags json
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
     LedgerUploadDar {..} -> runLedgerUploadDar flags darPathM
+    LedgerFetchDar {..} -> runLedgerFetchDar flags pid saveAs
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of

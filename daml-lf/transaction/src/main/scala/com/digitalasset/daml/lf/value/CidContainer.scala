@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -59,7 +59,7 @@ object CidMapper {
           f: Value.RelativeContractId => Ref.ContractIdString,
       ): Value.ContractId => Value.AbsoluteContractId = {
         case acoid: Value.AbsoluteContractId => acoid
-        case rcoid: Value.RelativeContractId => Value.AbsoluteContractId(f(rcoid))
+        case rcoid: Value.RelativeContractId => Value.AbsoluteContractId.V0(f(rcoid))
       }
     }
 }

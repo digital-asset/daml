@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE MultiWayIf #-}
 module DA.Daml.Helper.Run
@@ -19,6 +19,7 @@ module DA.Daml.Helper.Run
     , runLedgerAllocateParties
     , runLedgerListParties
     , runLedgerUploadDar
+    , runLedgerFetchDar
     , runLedgerNavigator
 
     , withJar
@@ -96,6 +97,9 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
+
+import DA.Daml.Compiler.Fetch (fetchDar)
+import qualified DA.Daml.LF.Ast as LF
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -989,6 +993,15 @@ runLedgerUploadDar flags darPathM = do
     bytes <- BS.readFile darPath
     Ledger.uploadDarFile hp bytes
     putStrLn "DAR upload succeeded."
+
+-- | Fetch the packages reachable from a main package-id, and reconstruct a DAR file.
+runLedgerFetchDar :: LedgerFlags -> String -> FilePath -> IO ()
+runLedgerFetchDar flags pidString saveAs = do
+    let pid = LF.PackageId $ T.pack pidString
+    hp <- getHostAndPortDefaults flags
+    putStrLn $ "Fetching " <> show (LF.unPackageId pid) <> " from " <> show hp <> " into " <> saveAs
+    n <- fetchDar hp pid saveAs
+    putStrLn $ "DAR fetch succeeded; contains " <> show n <> " packages."
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator

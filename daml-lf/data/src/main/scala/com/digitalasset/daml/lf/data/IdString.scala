@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.daml.lf.data
 
@@ -91,7 +91,7 @@ sealed abstract class IdString {
     * transactionId, ... We use the same type for those ids, because we
     * construct some by concatenating the others.
     */
-  type LedgerString <: ContractIdString
+  type LedgerString <: String
 
   /** Identifiers for contracts */
   type ContractIdString <: String
@@ -104,7 +104,7 @@ sealed abstract class IdString {
   val PackageId: ConcatenableStringModule[PackageId, HexString]
   val ParticipantId: StringModule[ParticipantId]
   val LedgerString: ConcatenableStringModule[LedgerString, HexString]
-  val ContractIdString: ConcatenableStringModule[ContractIdString, HexString]
+  val ContractIdString: StringModule[ContractIdString]
 }
 
 object IdString {
@@ -235,12 +235,12 @@ private[data] final class IdStringImpl extends IdString {
     new MatchingStringModule("""(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*""")
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-    *underscore. We use them to represent [Party] literals. In this way, we avoid
+    * underscore limited to 255 chars. We use them to represent [Party] literals. In this way, we avoid
     * empty identifiers, escaping problems, and other similar pitfalls.
     */
   override type Party = String
   override val Party: ConcatenableStringModule[Party, HexString] =
-    new ConcatenableMatchingStringModule(":-_ ".contains(_))
+    new ConcatenableMatchingStringModule(":-_ ".contains(_), 255)
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
@@ -264,7 +264,8 @@ private[data] final class IdStringImpl extends IdString {
   /**
     * Legacy contractIds.
     */
-  override type ContractIdString = LedgerString
-  override val ContractIdString: ConcatenableStringModule[LedgerString, HexString] = LedgerString
+  override type ContractIdString = String
+  override val ContractIdString: StringModule[ContractIdString] =
+    new MatchingStringModule("""#[\w._:\-#/ ]{0,254}""")
 
 }
