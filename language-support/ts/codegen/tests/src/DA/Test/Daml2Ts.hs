@@ -68,10 +68,12 @@ main = do
 --         src/
 --           index.ts
 --           Grover/
+--             index.ts
 --             module.ts
 --         lib/
 --           index.{js,d.ts}
 --           Grover/
+--             index.{js,d.ts}
 --             module.{js,d.ts}
 --       ...
 --     daml-types  <-- referred to by the "resolutions" field in package.json
@@ -194,7 +196,50 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         setupYarnEnvironment
         daml2tsProject [groverDar, groverDar] daml2tsDir
-        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "module" ]
+        mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "index", "Grover" </> "module" ]
+
+  , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
+      let projectRoot = here </> "project"
+          daml2tsDir = here </> "daml2ts"
+          projectTs =  daml2tsDir </> "project-1.0"
+          projectDar = projectRoot </> ".daml" </> "dist" </> "project-1.0.dar"
+      createDirectoryIfMissing True projectRoot
+      withCurrentDirectory projectRoot $ do
+        createDirectoryIfMissing True ("daml" </> "A" </> "B")
+        writeFileUTF8 ("daml" </> "A.daml") "module A where\ndata X = X"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where\ndata Y = Y"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "D.daml") "module A.B.D where\ndata Z = Z"
+        writeDamlYaml "project" ["A"] ["daml-prim", "daml-stdlib"] Nothing
+        step "daml build..."
+        buildProject []
+      withCurrentDirectory here $ do
+        step "daml2ts..."
+        setupYarnEnvironment
+        daml2tsProject [projectDar] daml2tsDir
+        mapM_ (assertTsFileExists projectTs)
+          [ "index"
+          , "A" </> "index"
+          , "A" </> "module"
+          , "A" </> "B" </> "index"
+          , "A" </> "B" </> "C" </> "index"
+          , "A" </> "B" </> "C" </> "module"
+          , "A" </> "B" </> "D" </> "index"
+          , "A" </> "B" </> "D" </> "module"
+          ]
+        assertFileDoesNotExist (projectTs </> "src" </> "A" </> "B" </> "module.ts")
+
+        withCurrentDirectory (projectTs </> "src") $ do
+          let reexportIndex name =
+                [ "import * as " <> name <> " from './" <> name <> "';"
+                , "export import " <> name <> " = " <> name <> ";"
+                ]
+          let reexportModule = ["export * from './module';"]
+          indexContents <- T.lines <$> T.readFileUtf8 "index.ts"
+          assertBool "index.ts does not reexport A" (reexportIndex "A" `isPrefixOf` indexContents)
+          assertFileLines ("A" </> "index.ts") (reexportIndex "B" ++ reexportModule)
+          assertFileLines ("A" </> "B" </> "index.ts") (reexportIndex "C" ++ reexportIndex "D")
+          assertFileLines ("A" </> "B" </> "C" </> "index.ts") reexportModule
+          assertFileLines ("A" </> "B" </> "D" </> "index.ts") reexportModule
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -281,3 +326,10 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         where
           assertFileExists :: FilePath -> IO ()
           assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
+    assertFileDoesNotExist :: FilePath -> IO ()
+    assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " should not exist") . not
+
+    assertFileLines :: FilePath -> [T.Text] -> IO ()
+    assertFileLines file expectedContent = do
+      actualContent <- T.lines <$> T.readFileUtf8 file
+      assertEqual ("The content of file '" ++ file ++ "' does not match") expectedContent actualContent
