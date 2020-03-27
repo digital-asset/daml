@@ -36,6 +36,7 @@ import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
 import DA.Test.Daml2TsUtils
+import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
@@ -58,30 +59,16 @@ main = do
     -- on the PATH as mvn.cmd executes cmd.exe
     mbComSpec <- getEnv "COMSPEC"
     let mbCmdDir = takeDirectory <$> mbComSpec
-    let damlDir = tmpDir </> "daml"
     withArgs args (withEnv
-        [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-        ] $ defaultMain (tests damlDir tmpDir damlTypesDir))
+        [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
+        ] $ defaultMain (tests tmpDir damlTypesDir))
 
-tests :: FilePath -> FilePath -> FilePath -> TestTree
-tests damlDir tmpDir damlTypesDir = testGroup "Integration tests"
-    [ testCase "install" $ do
-        releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-        createDirectory tarballDir
-        runConduitRes
-            $ sourceFileBS releaseTarball
-            .| Zlib.ungzip
-            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError tarballDir)
-        if isWindows
-            then callProcessQuiet
-                (tarballDir </> "daml" </> damlInstallerName)
-                ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
-            else callCommandQuiet $ tarballDir </> "install.sh"
-    , testCase "daml version" $ callCommandQuiet "daml version"
+tests :: FilePath -> FilePath -> TestTree
+tests tmpDir damlTypesDir = withSdkResource $ \getSdkDir -> testGroup "Integration tests"
+    [ testCase "daml version" $ callCommandQuiet "daml version"
     , testCase "daml --help" $ callCommandQuiet "daml --help"
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
-    , noassistantTests damlDir
+    , noassistantTests getSdkDir
     , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
@@ -91,17 +78,44 @@ tests damlDir tmpDir damlTypesDir = testGroup "Integration tests"
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
-          tarballDir = tmpDir </> "tarball"
           deployDir = tmpDir </> "deploy"
           codegenDir = tmpDir </> "codegen"
+
+-- | Install the SDK in a temporary directory and provide the path to the SDK directory.
+-- This also adds the bin directory to PATH so calling assistant commands works without
+-- special hacks.
+withSdkResource :: (IO FilePath -> TestTree) -> TestTree
+withSdkResource f =
+    withTempDirResource $ \getDir ->
+    withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
+  where installSdk targetDir = do
+            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+            oldPath <- getSearchPath
+            withTempDir $ \extractDir -> do
+                runConduitRes
+                    $ sourceFileBS releaseTarball
+                    .| Zlib.ungzip
+                    .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
+                setEnv "DAML_HOME" targetDir True
+                if isWindows
+                    then callProcessQuiet
+                        (extractDir </> "daml" </> damlInstallerName)
+                        ["install", "--install-assistant=yes", "--set-path=no", extractDir]
+                    else callCommandQuiet $ extractDir </> "install.sh"
+            setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
+            pure oldPath
+        restoreEnv oldPath = do
+            setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
+            unsetEnv "DAML_HOME"
+
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
-noassistantTests :: FilePath -> TestTree
-noassistantTests damlDir = testGroup "no assistant"
+noassistantTests :: IO FilePath -> TestTree
+noassistantTests getSdkDir = testGroup "no assistant"
     [ testCase "damlc build --init-package-db=no" $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
@@ -116,7 +130,8 @@ noassistantTests damlDir = testGroup "no assistant"
               , "a : ()"
               , "a = ()"
               ]
-          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
+          sdkDir <- getSdkDir
+          let damlcPath = sdkDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
     , testCase "damlc build --init-package-db=yes" $ withTempDir $ \tmpDir -> do
           let projDir = tmpDir </> "foobar"
@@ -134,7 +149,8 @@ noassistantTests damlDir = testGroup "no assistant"
               , "a : ()"
               , "a = ()"
               ]
-          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
+          sdkDir <- getSdkDir
+          let damlcPath = sdkDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
           withCurrentDirectory tmpDir $
               callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
     ]
