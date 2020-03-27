@@ -64,7 +64,7 @@ abstract class ResetServiceITBase
   override protected def config: SandboxConfig =
     super.config.copy(ledgerIdMode = LedgerIdMode.Dynamic)
 
-  protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, 10.millis)
+  protected val eventually: RetryStrategy = RetryStrategy.exponentialBackoff(10, scaled(10.millis))
 
   override protected def darFile: File = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
