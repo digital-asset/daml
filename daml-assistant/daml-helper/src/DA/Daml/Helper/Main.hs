@@ -251,7 +251,7 @@ commandParser = subparser $ fold
 
     ledgerFetchDarCmd = LedgerFetchDar
         <$> ledgerFlags
-        <*> option str (long "main-package-id" <> metavar "PGKID" <> help "Fetch DAR for this package identifier.")
+        <*> option str (long "main-package-id" <> metavar "PKGID" <> help "Fetch DAR for this package identifier.")
         <*> option str (short 'o' <> long "output" <> metavar "PATH" <> help "Save fetched DAR into this file.")
 
     ledgerNavigatorCmd = LedgerNavigator
