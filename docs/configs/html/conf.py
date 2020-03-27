@@ -1,4 +1,4 @@
-# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2020 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -105,6 +105,9 @@ html_show_sphinx = False
 
 # Don't display the link to the sources
 html_show_sourcelink = False
+
+# Don't display the link for scaled images
+html_scaled_image_link = False
 
 # -- Options for HTMLHelp output ------------------------------------------
 
