@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -38,7 +38,7 @@ jobs:
         name: out
 
   - job: check_standard_change_label
-    condition: false #eq(variables['Build.Reason'], 'PullRequest')
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
@@ -61,7 +61,7 @@ jobs:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
-    condition: false #eq(variables['Build.Reason'], 'PullRequest')
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
@@ -71,21 +71,17 @@ jobs:
   - job: Linux
     dependsOn:
       - check_for_release
-      - git_sha
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     timeoutInMinutes: 360
     pool:
-      name: 'garys-linux-pool'
+      name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - bash: |
-          git checkout $(branch_sha)
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -109,7 +105,6 @@ jobs:
   - job: macOS
     dependsOn:
       - check_for_release
-    condition: false
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
@@ -148,21 +143,17 @@ jobs:
   - job: Windows
     dependsOn:
       - check_for_release
-      - git_sha
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     timeoutInMinutes: 360
     pool:
-      name: 'garys-windows-pool'
+      name: 'windows-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - bash: |
-          git checkout $(branch_sha)
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -209,7 +200,7 @@ jobs:
 
   - job: release
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-    condition: and(false, succeeded(),
+    condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     pool:
@@ -292,7 +283,7 @@ jobs:
     dependsOn: [ "check_for_release" ]
     pool:
       vmImage: "Ubuntu-16.04"
-    condition: and(false, eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
@@ -326,7 +317,7 @@ jobs:
       - template: ci/tell-slack-failed.yml
 
   - job: collect_build_data
-    condition: false #always()
+    condition: always()
     dependsOn:
       - Linux
       - macOS
@@ -504,7 +495,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: false #eq(variables['Build.Reason'], 'PullRequest')
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     dependsOn:
       - git_sha
       - collect_build_data

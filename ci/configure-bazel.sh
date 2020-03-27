@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -46,7 +46,7 @@ if is_windows; then
 fi
 
 # sets up write access to the shared remote cache if the branch is not a fork
-if false; then
+if [[ "${IS_FORK}" = False ]]; then
   step "configuring write access to the remote cache"
   GOOGLE_APPLICATION_CREDENTIALS=$(mktemp .tmp.XXXXXXXXXX)
   echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > "$GOOGLE_APPLICATION_CREDENTIALS"
