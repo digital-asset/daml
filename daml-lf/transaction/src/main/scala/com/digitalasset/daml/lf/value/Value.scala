@@ -402,24 +402,9 @@ private final class `Value Order instance`[Cid](implicit val E: Order[Cid])
     extends Order[Value[Cid]]
     with `Value Equal instance`[Cid] {
   import Value._
+  import scalaz.std.anyVal._, scalaz.std.string._
 
   override final def order(a: Value[Cid], b: Value[Cid]) = {
-    import scalaz.std.anyVal._, scalaz.std.string._
-    def ixv(a: Value[Cid]) = a match {
-      case ValueUnit => (0, k { case ValueUnit => EQ })
-      case ValueBool(a) => (10, k { case ValueBool(b) => a ?|? b })
-      case ValueInt64(a) => (20, k { case ValueInt64(b) => a ?|? b })
-      case ValueText(a) => (30, k { case ValueText(b) => a ?|? b })
-      case ValueNumeric(a) => (40, k { case ValueNumeric(b) => a ?|? b })
-      case ValueTimestamp(a) => (50, k { case ValueTimestamp(b) => a ?|? b })
-      case ValueDate(a) => (60, k { case ValueDate(b) => a ?|? b })
-      case ValueParty(a) => (70, k { case ValueParty(b) => a ?|? b })
-      case ValueContractId(a) => (80, k { case ValueContractId(b) => a ?|? b })
-      case ValueOptional(a) => (90, k { case ValueOptional(b) => a ?|? b })
-      case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
-      case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
-      case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
-    }
     val (ixa, cmp) = ixv(a)
     cmp.applyOrElse(b, { b: Value[Cid] =>
       val (ixb, _) = ixv(b)
@@ -427,7 +412,23 @@ private final class `Value Order instance`[Cid](implicit val E: Order[Cid])
     })
   }
 
-  private def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
+  private[this] def ixv(a: Value[Cid]) = a match {
+    case ValueUnit => (0, k { case ValueUnit => EQ })
+    case ValueBool(a) => (10, k { case ValueBool(b) => a ?|? b })
+    case ValueInt64(a) => (20, k { case ValueInt64(b) => a ?|? b })
+    case ValueText(a) => (30, k { case ValueText(b) => a ?|? b })
+    case ValueNumeric(a) => (40, k { case ValueNumeric(b) => a ?|? b })
+    case ValueTimestamp(a) => (50, k { case ValueTimestamp(b) => a ?|? b })
+    case ValueDate(a) => (60, k { case ValueDate(b) => a ?|? b })
+    case ValueParty(a) => (70, k { case ValueParty(b) => a ?|? b })
+    case ValueContractId(a) => (80, k { case ValueContractId(b) => a ?|? b })
+    case ValueOptional(a) => (90, k { case ValueOptional(b) => a ?|? b })
+    case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
+    case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
+    case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
+  }
+
+  private[this] def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
 }
 
 private sealed trait `Value Equal instance`[Cid] extends Equal[Value[Cid]] {
@@ -437,6 +438,8 @@ private sealed trait `Value Equal instance`[Cid] extends Equal[Value[Cid]] {
   implicit def E: Equal[Cid]
 
   override final def equalIsNatural: Boolean = E.equalIsNatural
+
+  implicit final def Self: this.type = this
 
   override final def equal(a: Value[Cid], b: Value[Cid]) =
     (a, b).match2 {
