@@ -64,11 +64,10 @@ main = do
         ] $ defaultMain (tests tmpDir damlTypesDir))
 
 tests :: FilePath -> FilePath -> TestTree
-tests tmpDir damlTypesDir = withSdkResource $ \getSdkDir -> testGroup "Integration tests"
+tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests"
     [ testCase "daml version" $ callCommandQuiet "daml version"
     , testCase "daml --help" $ callCommandQuiet "daml --help"
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
-    , noassistantTests getSdkDir
     , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
@@ -111,49 +110,6 @@ withSdkResource f =
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
-
--- | These tests check that it is possible to invoke (a subset) of damlc
--- commands outside of the assistant.
-noassistantTests :: IO FilePath -> TestTree
-noassistantTests getSdkDir = testGroup "no assistant"
-    [ testCase "damlc build --init-package-db=no" $ withTempDir $ \projDir -> do
-          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
-              , "name: a"
-              , "version: \"1.0\""
-              , "source: Main.daml"
-              , "dependencies: [daml-prim, daml-stdlib]"
-              ]
-          writeFileUTF8 (projDir </> "Main.daml") $ unlines
-              [ "daml 1.2"
-              , "module Main where"
-              , "a : ()"
-              , "a = ()"
-              ]
-          sdkDir <- getSdkDir
-          let damlcPath = sdkDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
-          callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
-    , testCase "damlc build --init-package-db=yes" $ withTempDir $ \tmpDir -> do
-          let projDir = tmpDir </> "foobar"
-          createDirectory projDir
-          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
-              [ "sdk-version: " <> sdkVersion
-              , "name: a"
-              , "version: \"1.0\""
-              , "source: Main.daml"
-              , "dependencies: [daml-prim, daml-stdlib]"
-              ]
-          writeFileUTF8 (projDir </> "Main.daml") $ unlines
-              [ "daml 1.2"
-              , "module Main where"
-              , "a : ()"
-              , "a = ()"
-              ]
-          sdkDir <- getSdkDir
-          let damlcPath = sdkDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
-          withCurrentDirectory tmpDir $
-              callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
-    ]
 
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
