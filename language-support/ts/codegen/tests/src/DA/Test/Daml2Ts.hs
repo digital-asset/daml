@@ -14,7 +14,6 @@ import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
 import DA.Test.Daml2TsUtils
-import Data.Maybe
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
@@ -88,17 +87,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
-        writeFileUTF8 (grover </> "daml" </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (grover </> "daml" </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
@@ -107,20 +97,15 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           elmoDar = elmo </> ".daml" </> "dist" </> "elmo-1.0.dar"
       createDirectoryIfMissing True elmoDaml
       withCurrentDirectory elmo $ do
-        writeFileUTF8 (elmoDaml </> "Elmo.daml") $ unlines
-          [ "module Elmo where"
-          , "template Elmo"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          ]
+        writeFileUTF8 (elmoDaml </> "Elmo.daml") "module Elmo where data Elmo = Elmo"
         writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
         step "daml2ts..."
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "A duplicate name for different packages error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Duplicate name 'grover-1.0' for different packages detected" err))
+        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        assertIsInfixOf "A duplicate name for different packages error was expected." "Duplicate name 'grover-1.0' for different packages detected" err
 
   , testCaseSteps "Different name, same package test" $ \step -> withTempDir $ \here -> do
       let daml2tsDir = here </> "daml2ts"
@@ -131,17 +116,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
       -- Locked to DAML-LF 1.7 since we get different package ids due to
       -- package metadata in DAML-LF 1.8.
       withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (groverDaml </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
@@ -150,17 +126,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           superGroverDar = superGrover </> ".daml" </> "dist" </> "super-grover-1.0.dar"
       createDirectoryIfMissing True superGroverDaml
       withCurrentDirectory superGrover $ do
-        writeFileUTF8 (superGroverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (superGroverDaml </> "Grover.daml")
+          "module Grover where data Grover = Grover"
         writeDamlYaml "super-grover" ["Grover"] ["daml-prim", "daml-stdlib"] (Just LF.version1_7)
         step "daml build..."
         buildProject []
@@ -168,7 +135,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml2ts..."
         setupYarnEnvironment
         (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "A different names for same package error was expected." (exitCode /= ExitSuccess && isJust (stripInfix "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err))
+        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        assertIsInfixOf "A different names for same package error was expected." "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -178,17 +146,8 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
-        writeFileUTF8 (groverDaml </> "Grover.daml") $ unlines
-          [ "module Grover where"
-          , "template Grover"
-          , "  with puppeteer : Party"
-          , "  where"
-          , "    signatory puppeteer"
-          , "    choice Grover_GoSuper: ContractId Grover"
-          , "      controller puppeteer"
-          , "      do"
-          , "        return self"
-          ]
+        writeFileUTF8 (groverDaml </> "Grover.daml")
+          "module Grover where data Grver = Grover"
         writeDamlYaml "grover" ["Grover"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
@@ -206,9 +165,9 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
       createDirectoryIfMissing True projectRoot
       withCurrentDirectory projectRoot $ do
         createDirectoryIfMissing True ("daml" </> "A" </> "B")
-        writeFileUTF8 ("daml" </> "A.daml") "module A where\ndata X = X"
-        writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where\ndata Y = Y"
-        writeFileUTF8 ("daml" </> "A" </> "B" </> "D.daml") "module A.B.D where\ndata Z = Z"
+        writeFileUTF8 ("daml" </> "A.daml") "module A where data X = X"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where data Y = Y"
+        writeFileUTF8 ("daml" </> "A" </> "B" </> "D.daml") "module A.B.D where data Z = Z"
         writeDamlYaml "project" ["A"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject []
@@ -333,3 +292,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
     assertFileLines file expectedContent = do
       actualContent <- T.lines <$> T.readFileUtf8 file
       assertEqual ("The content of file '" ++ file ++ "' does not match") expectedContent actualContent
+
+    assertIsInfixOf :: String -> String -> String -> IO ()
+    assertIsInfixOf msg x y =
+      assertBool (msg ++ "\nexpected infix: " ++ show x ++ "\nbut got: " ++ show y) (x `isInfixOf` y)
