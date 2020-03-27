@@ -1,5 +1,5 @@
-sdk-version: 0.13.55
-name: create-daml-app
+sdk-version: __VERSION__
+name: __PROJECT_NAME__
 version: 0.1.0
 source: daml
 parties:
