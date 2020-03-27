@@ -49,7 +49,7 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   }
 
   test(
-    "CSLSuccessIfMaxDedplicationTimeExceeded",
+    "CSLSuccessIfMaxDeduplicationTimeExceeded",
     "Submission returns OK if deduplication time is too high",
     allocate(SingleParty),
   ) {
