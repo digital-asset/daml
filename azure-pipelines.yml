@@ -71,17 +71,21 @@ jobs:
   - job: Linux
     dependsOn:
       - check_for_release
+      - git_sha
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     timeoutInMinutes: 360
     pool:
       name: 'garys-linux-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          git checkout $(branch_sha)
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
@@ -144,17 +148,21 @@ jobs:
   - job: Windows
     dependsOn:
       - check_for_release
+      - git_sha
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
       is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     timeoutInMinutes: 360
     pool:
       name: 'garys-windows-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: |
+          git checkout $(branch_sha)
       - bash: |
           set -euo pipefail
           git checkout $(release_sha)
