@@ -82,7 +82,8 @@ class WebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" ignore withHttpService {
+/*
+    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
       (uri, _, _) =>
         val input = scenario.input.mapConcat(x => List(x, x))
         val webSocketFlow =
@@ -101,6 +102,7 @@ class WebsocketServiceIntegrationTest
             }
           }
     }
+ */
   }
 
   private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
