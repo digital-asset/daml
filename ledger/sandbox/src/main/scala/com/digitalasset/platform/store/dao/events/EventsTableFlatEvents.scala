@@ -68,7 +68,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "event_offset",
       "transaction_id",
       "ledger_effective_time",
-      "case when submitter = {requesting_parties} then command_id else '' end as command_id",
+      "case when submitter in ({requesting_parties}) then command_id else '' end as command_id",
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
