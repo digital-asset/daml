@@ -523,7 +523,7 @@ bucket = VRecord $ Record Nothing
         [ VVariant $ Variant Nothing (ConstructorId "B") (VBool True)
         , VVariant $ Variant Nothing (ConstructorId "I") (VInt 99)
         ]
-    , RecordField "contract"$ VContract (ContractId "xxxxx")
+    , RecordField "contract"$ VContract (ContractId "#xxxxx")
     , RecordField "list"    $ VList []
     , RecordField "int"     $ VInt 42
     , RecordField "decimal" $ VDecimal 123.456

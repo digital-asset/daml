@@ -44,7 +44,7 @@ private[state] object Conversions {
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
     // [[absoluteContractIdToStateKey]].
-    Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"#$hexTxId:${coid.txnid.index}")
   }
 
   def contractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
@@ -53,7 +53,7 @@ private[state] object Conversions {
       .build
 
   def decodeContractId(coid: String): AbsoluteContractId =
-    AbsoluteContractId(Ref.ContractIdString.assertFromString(coid))
+    AbsoluteContractId.assertFromString(coid)
 
   def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId =
     decodeContractId(key.getContractId)

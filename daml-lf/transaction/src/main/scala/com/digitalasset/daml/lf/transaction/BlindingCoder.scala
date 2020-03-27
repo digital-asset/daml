@@ -37,7 +37,7 @@ object BlindingCoder {
         for {
           parties <- toPartySet(n.getPartiesList)
           coid <- toContractId(n.getContractId)
-        } yield AbsoluteContractId(coid) -> parties)
+        } yield coid -> parties)
 
     for {
       explicit <- sequence(explicitDisclosure)
@@ -92,7 +92,7 @@ object BlindingCoder {
     }
   }
 
-  private def toContractId(s: String): Either[DecodeError, ContractIdString] =
-    ContractIdString.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
+  private def toContractId(s: String): Either[DecodeError, AbsoluteContractId] =
+    AbsoluteContractId.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
 
 }

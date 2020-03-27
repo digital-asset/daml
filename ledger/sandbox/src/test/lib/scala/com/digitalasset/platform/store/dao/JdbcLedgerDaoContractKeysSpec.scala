@@ -202,8 +202,8 @@ private[dao] trait JdbcLedgerDaoContractKeysSpec {
           GenTransaction(HashMap.empty, ImmArray.empty),
           Map.empty
         ),
-        Map(AbsoluteContractId(s"contractId$id") -> Set(bob)),
-        List(AbsoluteContractId(s"contractId$id") -> someContractInstance)
+        Map(AbsoluteContractId.assertFromString(s"#contractId$id") -> Set(bob)),
+        List(AbsoluteContractId.assertFromString(s"#contractId$id") -> someContractInstance)
       )
     }
 

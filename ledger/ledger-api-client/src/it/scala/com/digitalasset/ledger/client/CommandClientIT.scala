@@ -440,7 +440,7 @@ final class CommandClientIT
       }
 
       "not accept exercises with bad contract IDs, return INVALID_ARGUMENT" in {
-        val contractId = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
+        val contractId = "#deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef-123"
         val command =
           submitRequest(
             "Exercise_contract_not_found",

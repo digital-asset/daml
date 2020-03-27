@@ -56,7 +56,7 @@ class ValueConversionRoundTripTest
 
       val testCases: TableFor1[Sum] = Table(
         "values",
-        Sum.ContractId("coid"),
+        Sum.ContractId("#coid"),
         DomainMocks.values.validApiParty.sum,
         Sum.Int64(Long.MinValue),
         Sum.Int64(0),

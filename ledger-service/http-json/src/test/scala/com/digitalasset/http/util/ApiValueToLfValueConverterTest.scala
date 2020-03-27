@@ -4,7 +4,7 @@
 package com.digitalasset.http
 package util
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.value.TypedValueGenerators.genAddend
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.platform.participant.util.LfEngineToApi.lfValueToApiValue
@@ -17,9 +17,8 @@ class ApiValueToLfValueConverterTest
     with Matchers
     with GeneratorDrivenPropertyChecks {
 
-  private[this] val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
-    case (h, t) => V.AbsoluteContractId(Ref.ContractIdString assertFromString (h +: t))
-  }
+  private[this] val genCid = Gen.alphaStr map (t =>
+    V.AbsoluteContractId.V0 assertFromString ('#' +: t))
   import ApiValueToLfValueConverterTest._
 
   "apiValueToLfValue" should {

@@ -87,7 +87,7 @@ class ImplicitPartyAdditionIT
           "CmdId1",
           NodeCreate(
             nodeSeed = None,
-            coid = AbsoluteContractId("cId1"),
+            coid = AbsoluteContractId.assertFromString("#cId1"),
             coinst = ContractInst(
               templateId1,
               textValue("some text"),
@@ -105,7 +105,7 @@ class ImplicitPartyAdditionIT
           "CmdId2",
           NodeExercises(
             nodeSeed = None,
-            targetCoid = AbsoluteContractId("cId1"),
+            targetCoid = AbsoluteContractId.assertFromString("#cId1"),
             templateId = templateId1,
             choiceId = Ref.ChoiceName.assertFromString("choice"),
             optLocation = None,
@@ -125,7 +125,7 @@ class ImplicitPartyAdditionIT
           "fetch-signatory",
           "CmdId3",
           NodeFetch(
-            AbsoluteContractId("cId1"),
+            AbsoluteContractId.assertFromString("#cId1"),
             templateId1,
             None,
             Some(Set("fetch-acting-party")),

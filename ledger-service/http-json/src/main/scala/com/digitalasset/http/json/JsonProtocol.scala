@@ -6,7 +6,6 @@ package com.digitalasset.http.json
 import java.time.Instant
 
 import akka.http.scaladsl.model.StatusCode
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
@@ -93,7 +92,7 @@ object JsonProtocol extends DefaultJsonProtocol {
       JsString(obj.coid)
     protected override final def jsValueToApiContractId(json: JsValue) = json match {
       case JsString(s) =>
-        Ref.ContractIdString fromString s fold (deserializationError(_), AbsoluteContractId)
+        AbsoluteContractId fromString s fold (deserializationError(_), identity)
       case _ => deserializationError("ContractId must be a string")
     }
   }

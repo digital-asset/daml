@@ -144,7 +144,7 @@ object Converter {
 
   def toContractId(v: SValue): Either[String, AbsoluteContractId] =
     v match {
-      case SContractId(cid @ AbsoluteContractId(_)) => Right(cid)
+      case SContractId(cid: AbsoluteContractId) => Right(cid)
       case _ => Left(s"Expected AbsoluteContractId but got $v")
     }
 

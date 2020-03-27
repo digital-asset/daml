@@ -31,7 +31,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
 
   def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdString =
     // It is safe to concatenate numbers and "-" to form a valid ContractId
-    Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"#$txCounter-${r.txnid.index}")
 
   def updateWithAbsoluteContractId(
       tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =

@@ -127,7 +127,7 @@ object TransactionSpec {
   ): NodeExercises[String, V.AbsoluteContractId, Value] =
     NodeExercises(
       nodeSeed = None,
-      targetCoid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
+      targetCoid = V.AbsoluteContractId.assertFromString("#dummyCoid"),
       templateId = Ref.Identifier(
         PackageId.assertFromString("-dummyPkg-"),
         QualifiedName.assertFromString("DummyModule:dummyName"),
@@ -148,7 +148,7 @@ object TransactionSpec {
   val dummyCreateNode: NodeCreate[V.AbsoluteContractId, Value] =
     NodeCreate(
       nodeSeed = None,
-      coid = V.AbsoluteContractId(Ref.ContractIdString.assertFromString("dummyCoid")),
+      coid = V.AbsoluteContractId.assertFromString("#dummyCoid"),
       coinst = ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
