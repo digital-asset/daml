@@ -41,7 +41,7 @@ fetchDar ledgerArgs rootPid saveAs = do
   let dalfDependencies :: [(T.Text,BS.ByteString,LF.PackageId)] =
         [ (txt,bs,pkgId)
         | (pid,pkg) <- xs, pid /= rootPid
-        , let txt = T.pack ("dep-" <> T.unpack (LF.unPackageId pid))
+        , let txt = recoverPackageName pkg ("dep",pid)
         , let (bsl,pkgId) = LFArchive.encodeArchiveAndHash pkg
         , let bs = BSL.toStrict bsl
         ]
@@ -52,6 +52,15 @@ fetchDar ledgerArgs rootPid saveAs = do
   let za = createArchive pName pVersion pSdkVersion pkgId dalf dalfDependencies srcRoot [] [] []
   createDarFile saveAs za
   return $ length xs
+
+recoverPackageName :: LF.Package -> (String,LF.PackageId) -> T.Text
+recoverPackageName pkg (tag,pid)= do
+  let LF.Package {packageMetadata} = pkg
+  case packageMetadata of
+    Just LF.PackageMetadata{packageName} -> LF.unPackageName packageName -- Never seen this!
+    -- fallback, manufacture a name from the pid
+    Nothing -> T.pack (tag <> "-" <> T.unpack (LF.unPackageId pid))
+
 
 -- | Download all Packages reachable from a PackageId; fail if any don't exist or can't be decoded.
 downloadAllReachablePackages :: LedgerArgs -> LF.PackageId -> IO [(LF.PackageId,LF.Package)]
