@@ -235,12 +235,12 @@ private[data] final class IdStringImpl extends IdString {
     new MatchingStringModule("""(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*""")
 
   /** Party identifiers are non-empty US-ASCII strings built from letters, digits, space, colon, minus and,
-    *underscore. We use them to represent [Party] literals. In this way, we avoid
+    * underscore limited to 255 chars. We use them to represent [Party] literals. In this way, we avoid
     * empty identifiers, escaping problems, and other similar pitfalls.
     */
   override type Party = String
   override val Party: ConcatenableStringModule[Party, HexString] =
-    new ConcatenableMatchingStringModule(":-_ ".contains(_))
+    new ConcatenableMatchingStringModule(":-_ ".contains(_), 255)
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
     * lowercase hex-encoded hash of the package contents found in the DAML LF Archive. */
