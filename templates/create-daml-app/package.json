@@ -1,0 +1,28 @@
+{
+    "scripts": {
+        "test": "yarn workspace create-daml-app run test"
+    },
+    "private": true,
+    "workspaces": [
+        "daml-ts/057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3f6183e0e6b01730cc2ba",
+        "daml-ts/40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7",
+        "daml-ts/518032f41fd0175461b35ae0c9691e08b4aea55e62915f8360af2cc7a1f2ba6c",
+        "daml-ts/6839a6d3d430c569b2425e9391717b44ca324b88ba621d597778811b2d05031d",
+        "daml-ts/6c2c0667393c5f92f1885163068cd31800d2264eb088eb6fc740e11241b2bf06",
+        "daml-ts/733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a",
+        "daml-ts/75c0432002539aa2b4dfad33a29023a21211dde15b0d1deafbd4a1a3fe7cdd01",
+        "daml-ts/76bf0fd12bd945762a01f8fc5bbcdfa4d0ff20f8762af490f8f41d6237c6524f",
+        "daml-ts/7cb88863092cc578e214a2d3cd87f099cacbce074ff14e775ce625ec3828b4b7",
+        "daml-ts/8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb",
+        "daml-ts/e22bce619ae24ca3b8e6519281cb5a33b64b3190cc763248b4c3f9ad5087a92c",
+        "daml-ts/99a2705ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235",
+        "daml-ts/bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f",
+        "daml-ts/c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd",
+        "daml-ts/cc348d369011362a5190fe96dd1f0dfbc697fdfd10e382b9e9666f0da05961b7",
+        "daml-ts/d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662",
+        "daml-ts/create-daml-app-0.1.0",
+        "daml-ts/d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ace4c3f52f5c97",
+        "daml-ts/e491352788e56ca4603acc411ffe1a49fefd76ed8b163af86cf5ee5f4c38645b",
+        "ui"
+    ]
+}

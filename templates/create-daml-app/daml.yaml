@@ -1,0 +1,15 @@
+sdk-version: 0.13.55
+name: create-daml-app
+version: 0.1.0
+source: daml
+parties:
+- Alice
+- Bob
+- Charlie
+dependencies:
+- daml-prim
+- daml-stdlib
+- daml-trigger
+sandbox-options:
+- --wall-clock-time
+- --ledgerid=create-daml-app-sandbox

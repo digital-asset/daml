@@ -1,0 +1,21 @@
+daml 1.2
+module User where
+
+template User with
+    username: Party
+    following: [Party]
+  where
+    signatory username
+    observer following
+
+    key username: Party
+    maintainer key
+
+    nonconsuming choice Follow: ContractId User with
+        userToFollow: Party
+      controller username
+      do
+        assertMsg "You cannot follow yourself" (userToFollow /= username)
+        assertMsg "You cannot follow the same user twice" (userToFollow `notElem` following)
+        archive self
+        create this with following = userToFollow :: following

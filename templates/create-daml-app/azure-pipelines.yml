@@ -1,0 +1,77 @@
+# Enable builds on all branches
+trigger:
+  branches:
+    include:
+      - master
+      - direct-messaging
+
+# Enable PR triggers that target the master branch
+pr:
+  autoCancel: true # cancel previous builds on push
+  branches:
+    include:
+      - master
+      - direct-messaging
+
+jobs:
+  - job: build_and_test
+    timeoutInMinutes: 120
+    pool:
+      vmImage: "Ubuntu-16.04"
+    steps:
+      - checkout: self
+
+      # Install DAML SDK, possibly from cache
+      - bash: |
+          set -euo pipefail
+          cat daml.yaml | grep -oP '(?<=sdk-version: ).*' > /tmp/SDK_VERSION
+      - task: CacheBeta@1
+        inputs:
+          key: /tmp/SDK_VERSION
+          path: /tmp/daml
+          cacheHitVar: DAML_CACHE_HIT
+      - bash: |
+          set -euo pipefail
+          DIR=$(pwd)
+
+          # Install DAML SDK
+          SDK_VERSION=$(cat /tmp/SDK_VERSION)
+          curl https://get.daml.com | sh -s $SDK_VERSION
+
+          mkdir -p /tmp/daml
+          cd $HOME/.daml
+          tar czf /tmp/daml/sdk.tar.gz *
+        condition: ne(variables.DAML_CACHE_HIT, 'true')
+        displayName: daml-cache-miss
+      - bash: |
+          set -euo pipefail
+          mkdir -p $HOME/.daml
+          cd $HOME/.daml
+          tar xzf /tmp/daml/sdk.tar.gz
+        condition: eq(variables.DAML_CACHE_HIT, 'true')
+        displayName: daml-cache-hit
+
+      # Build and test TypeScript
+      - bash: |
+          set -euo pipefail
+
+          yarn --version
+          export PATH=$HOME/.daml/bin:$PATH
+          daml build
+          daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+          yarn install --frozen-lockfile
+          yarn workspaces run build
+          yarn workspaces run lint
+          CI=yes yarn run test --ci --all
+        displayName: build-and-test-ts
+
+      - bash: |
+          set -euo pipefail
+          MESSAGE=$(git log --pretty=format:%s -n1)
+          curl -XPOST \
+               -i \
+               -H 'Content-type: application/json' \
+               --data "{\"text\":\"<!here> *FAILED* $(Agent.JobName) ($(Build.SourceBranchName)): <https://dev.azure.com/digitalasset/create-daml-app/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+               $(Slack.URL)
+        condition: and(failed(), in(variables['Build.SourceBranchName'], 'direct-messaging', 'master'))
+        displayName: tell-slack-if-failed
