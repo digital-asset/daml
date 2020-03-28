@@ -68,6 +68,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , packagingTests
     , quickstartTests quickstartDir mvnDir
+    , createDamlAppTests createDamlAppDir
     , cleanTests cleanDir
     , templateTests
     , deployTest deployDir
@@ -75,6 +76,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , codegenTests codegenDir damlTypesDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
+          createDamlAppDir = tmpDir </> "createApp"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           deployDir = tmpDir </> "deploy"
@@ -329,7 +331,7 @@ quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
-    , testCase "daml build " $ withCurrentDirectory quickstartDir $
+    , testCase "daml build" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml test"
@@ -461,10 +463,19 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
 
+createDamlAppTests :: FilePath -> TestTree
+createDamlAppTests createDamlAppDir = testGroup "create-daml-app"
+    [ testCase "daml new" $
+          callCommandQuiet $ unwords ["daml", "new", createDamlAppDir, "create-daml-app"]
+    , testCase "daml build" $ withCurrentDirectory createDamlAppDir $
+          callCommandQuiet "daml build"
+    ]
+
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
 cleanTests baseDir = testGroup "daml clean"
     [ cleanTestFor "skeleton"
+    , cleanTestFor "create-daml-app"
     , cleanTestFor "quickstart-java"
     , cleanTestFor "quickstart-scala"
     ]
