@@ -169,6 +169,7 @@ client_server_build(
     runner_args = ["6865"],
     server = "//ledger/ledger-on-memory:app",
     server_args = [
+        "--contract-id-seeding=testing-weak",
         "--participant participant-id=ledger-dump,port=6865",
     ],
     server_files = [
