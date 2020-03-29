@@ -18,7 +18,7 @@ The application can be run from command line with the following command:
 As run from the main project root directory (adjust the location of the JAR according to 
 your working directory).
 
-Alternatively, the application can be run using the bazel command
+Alternatively, the application can be run using the Bazel command:
 
     bazel run //ledger/ledger-on-memory:app -- --participant participant-id=foo,port=6861
 
