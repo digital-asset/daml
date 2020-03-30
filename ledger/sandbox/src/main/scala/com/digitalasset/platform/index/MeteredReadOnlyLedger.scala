@@ -39,20 +39,34 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     extends ReadOnlyLedger {
 
   private object Metrics {
-    val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
-    val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
-    val lookupFlatTransactionById: Timer = metrics.timer("daml.index.lookup_flat_transaction_by_id")
-    val lookupTransactionTreeById: Timer = metrics.timer("daml.index.lookup_transaction_tree_by_id")
-    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
-    val lookupMaximumLedgerTime: Timer = metrics.timer("daml.index.lookup_maximum_ledger_time")
-    val getParties: Timer = metrics.timer("daml.index.get_parties")
-    val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
-    val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
-    val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
-    val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
-    val deduplicateCommand: Timer = metrics.timer("daml.index.deduplicate_command")
+    private val prefix: String = MetricRegistry.name("daml", "index")
+
+    val lookupContract: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_contract"))
+    val lookupKey: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_key"))
+    val lookupFlatTransactionById: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_flat_transaction_by_id"))
+    val lookupTransactionTreeById: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_transaction_tree_by_id"))
+    val lookupLedgerConfiguration: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_ledger_configuration"))
+    val lookupMaximumLedgerTime: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "lookup_maximum_ledger_time"))
+    val getParties: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "get_parties"))
+    val listKnownParties: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "list_known_parties"))
+    val listLfPackages: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "list_lf_packages"))
+    val getLfArchive: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "get_lf_archive"))
+    val getLfPackage: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "get_lf_package"))
+    val deduplicateCommand: Timer =
+      metrics.timer(MetricRegistry.name(prefix, "deduplicate_command"))
     val removeExpiredDeduplicationData: Timer =
-      metrics.timer("daml.index.remove_expired_deduplication_data")
+      metrics.timer(MetricRegistry.name(prefix, "remove_expired_deduplication_data"))
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
