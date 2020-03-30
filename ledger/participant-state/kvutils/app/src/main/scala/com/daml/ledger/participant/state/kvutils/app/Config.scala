@@ -5,10 +5,13 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.digitalasset.platform.configuration.MetricsReporter
+import com.digitalasset.platform.configuration.Readers._
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
@@ -20,6 +23,8 @@ case class Config[Extra](
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     seeding: Seeding,
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -52,6 +57,8 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       seeding = Seeding.Strong,
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
       extra = extra,
     )
 
@@ -77,7 +84,7 @@ object Config {
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
   ): OptionParser[Config[Extra]] = {
-    val parser = new OptionParser[Config[Extra]](name) {
+    val parser: OptionParser[Config[Extra]] = new OptionParser[Config[Extra]](name) {
       head(name)
 
       opt[Map[String, String]]("participant")
@@ -140,6 +147,16 @@ object Config {
               (),
               s"seeding must be ${seedingMap.keys.mkString(",")}"))
         .action((text, config) => config.copy(seeding = seedingMap(text)))
+        .hidden()
+
+      opt[MetricsReporter]("metrics-reporter")
+        .optional()
+        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
+        .hidden()
+
+      opt[Duration]("metrics-reporting-interval")
+        .optional()
+        .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
 
       help("help").text(s"$name as a service.")
