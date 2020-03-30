@@ -18,13 +18,13 @@ import System.Info.Extra (isWindows)
 import System.IO.Temp
 import System.IO.Extra
 import Data.List.Extra
+import DA.Test.Util
 import qualified Test.Tasty as Tasty
 import qualified Test.Tasty.HUnit as Tasty
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
 import Data.Maybe
-import Control.Exception.Safe
 import Control.Monad
 import Conduit
 import qualified Data.Conduit.Zlib as Zlib
@@ -32,30 +32,6 @@ import qualified Data.Conduit.Tar as Tar
 
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
-
--- | Set the given environment variables, then restore them.
--- Envirnoment variables not in the given list are unmodified.
---
--- Avoids System.Environment.setEnv because it treats empty strings as
--- "delete environment variable", unlike main-tester's withEnv which
--- consequently conflates (Just "") with Nothing.
-withEnv :: [(String, Maybe String)] -> IO t -> IO t
-withEnv vs m = bracket pushEnv popEnv (const m)
-    where
-        pushEnv :: IO [(String, Maybe String)]
-        pushEnv = replaceEnv vs
-
-        popEnv :: [(String, Maybe String)] -> IO ()
-        popEnv vs' = void $ replaceEnv vs'
-
-        replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
-        replaceEnv vs' = do
-            forM vs' $ \(key, newVal) -> do
-                oldVal <- getEnv key
-                case newVal of
-                    Nothing -> unsetEnv key
-                    Just val -> setEnv key val True
-                pure (key, oldVal)
 
 main :: IO ()
 main = do
