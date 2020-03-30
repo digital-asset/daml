@@ -15,6 +15,5 @@
     "esModuleInterop": true,
     "declaration": true,
     "sourceMap": true
-    },
-  "files": ["index.ts"]
+    }
 }
