@@ -32,20 +32,19 @@ typescriptEslintVersion = "^2.16.0"
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" True
     -- We manipulate global state via the working directory and
     -- the environment so running tests in parallel will cause trouble.
+    setEnv "TASTY_NUM_THREADS" "1" True
     yarnPath : damlTypesPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2ts <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2ts")
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
     damlTypes <- locateRunfiles (mainWorkspace </> damlTypesPath)
     davl <- locateRunfiles ("davl" </> "released")
-    -- TODO (SF,2020-03-24): Factor out 'withEnv' from
-    -- 'DA/DamlAssistant/Tests.hs' into a library function and use it here.
     oldPath <- getSearchPath
-    setEnv "PATH" (intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath) True
-    withArgs args (defaultMain $ tests damlTypes yarn damlc daml2ts davl)
+    withArgs args (withEnv
+        [("PATH", Just $ intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath)
+        ] $ defaultMain (tests damlTypes yarn damlc daml2ts davl))
 
 -- It may help to keep in mind for the following tests, this quick
 -- refresher on the layout of a simple project:

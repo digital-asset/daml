@@ -27,7 +27,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
 import System.Process
-import Test.Main
+import Test.Main hiding (withEnv)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
