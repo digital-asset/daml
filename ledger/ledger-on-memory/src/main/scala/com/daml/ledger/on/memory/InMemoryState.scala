@@ -4,7 +4,7 @@
 package com.daml.ledger.on.memory
 
 import java.time.Instant
-import java.util.concurrent.Semaphore
+import java.util.concurrent.locks.StampedLock
 
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Bytes
@@ -20,28 +20,34 @@ private[memory] class InMemoryState(
     log: MutableLog = mutable.ArrayBuffer(Heartbeat(Offset.begin, Instant.EPOCH)),
     state: MutableState = mutable.Map.empty,
 ) {
-  private val lockCurrentState = new Semaphore(1, true)
+  private val lock = new StampedLock
 
-  // This only differs in the interface; it uses the same lock and provides the same objects.
-  def withReadLock[A](action: (ImmutableLog, ImmutableState) => A): A =
-    withWriteLock(action)
-
-  def withWriteLock[A](action: (MutableLog, MutableState) => A): A = {
-    lockCurrentState.acquire()
+  // The log and state only differ in the interface; they're the same objects.
+  def withReadLock[A](action: (ImmutableLog, ImmutableState) => A): A = {
+    val stamp = lock.readLock()
     try {
       action(log, state)
     } finally {
-      lockCurrentState.release()
+      lock.unlockRead(stamp)
+    }
+  }
+
+  def withWriteLock[A](action: (MutableLog, MutableState) => A): A = {
+    val stamp = lock.writeLock()
+    try {
+      action(log, state)
+    } finally {
+      lock.unlockWrite(stamp)
     }
   }
 
   def withFutureWriteLock[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
   ): Future[A] = {
-    lockCurrentState.acquire()
+    val stamp = lock.writeLock()
     action(log, state)
       .andThen {
-        case _ => lockCurrentState.release()
+        case _ => lock.unlockWrite(stamp)
       }
   }
 }
