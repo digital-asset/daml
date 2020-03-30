@@ -176,6 +176,7 @@ da_haskell_library(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-visual",
         "//compiler/repl-service/client",
         "//compiler/scenario-service/client",

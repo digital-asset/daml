@@ -1,0 +1,22 @@
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-package-config",
+    srcs = glob(["**/*.hs"]),
+    hackage_deps = [
+        "base",
+        "safe-exceptions",
+        "text",
+        "yaml",
+    ],
+    src_strip_prefix = "daml-opts-types",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//daml-assistant:daml-project-config",
+    ],
+)

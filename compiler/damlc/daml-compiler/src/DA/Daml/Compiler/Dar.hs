@@ -6,8 +6,6 @@ module DA.Daml.Compiler.Dar
     , createArchive
     , FromDalf(..)
     , breakAt72Bytes
-    , PackageSdkVersion(..)
-    , PackageConfigFields(..)
     , pkgNameVersion
     , getSrcRoot
     , getDamlFiles
@@ -31,6 +29,7 @@ import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 import DA.Daml.LF.Reader (readDalfManifest, packageName)
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
+import DA.Daml.Package.Config
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -57,7 +56,6 @@ import qualified Development.IDE.Types.Logger as IdeLogger
 import SdkVersion
 import System.Directory.Extra
 import System.FilePath
-import qualified Data.Yaml as Y
 
 import MkIface
 import Module
@@ -98,23 +96,6 @@ gernerated separately.
 -- | If true, we create the DAR from an existing .dalf file instead of compiling a *.daml file.
 newtype FromDalf = FromDalf
     { unFromDalf :: Bool
-    }
-
-newtype PackageSdkVersion = PackageSdkVersion
-    { unPackageSdkVersion :: String
-    } deriving (Eq, Y.FromJSON)
-
--- | daml.yaml config fields specific to packaging.
-data PackageConfigFields = PackageConfigFields
-    { pName :: LF.PackageName
-    , pSrc :: String
-    , pExposedModules :: Maybe [String]
-    , pVersion :: Maybe LF.PackageVersion
-    -- ^ This is optional since for `damlc compile` and `damlc package`
-    -- we might not have a version. In `damlc build` this is always set to `Just`.
-    , pDependencies :: [String]
-    , pDataDependencies :: [String]
-    , pSdkVersion :: PackageSdkVersion
     }
 
 buildDar ::
