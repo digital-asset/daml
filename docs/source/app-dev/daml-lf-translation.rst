@@ -177,7 +177,7 @@ Type synonyms
 
 For example, consider the following DAML type declarations.
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: type synonyms
    :end-before: -- end code snippet: type synonyms
@@ -202,14 +202,14 @@ Template data types
 
 Every contract template defines a record type for the parameters of the contract. For example, the template declaration:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: template data types
    :end-before: -- end code snippet: template data types
 
 results in this record declaration:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from template
    :end-before: -- end snippet: data from template
@@ -225,14 +225,14 @@ Choice data types
 
 Every choice within a contract template results in a record type for the parameters of that choice. For example, let’s suppose the earlier ``Iou`` template has the following choices:
 
-.. literalinclude:: code-snippets/daml-lf-translation.daml
+.. literalinclude:: code-snippets/LfTranslation.daml
    :language: daml
    :start-after: -- start code snippet: choice data types
    :end-before: -- end code snippet: choice data types
 
 This results in these two record types:
 
-.. literalinclude:: code-snippets/daml-lf-result.daml
+.. literalinclude:: code-snippets/LfResults.daml
    :language: daml
    :start-after: -- start snippet: data from choices
    :end-before: -- end snippet: data from choices

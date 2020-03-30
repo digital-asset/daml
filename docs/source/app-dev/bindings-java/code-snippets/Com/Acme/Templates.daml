@@ -3,7 +3,7 @@
 
 -- start snippet: template example
 
-module Com.Acme where
+module Com.Acme.Templates where
 
 data BarKey =
   BarKey

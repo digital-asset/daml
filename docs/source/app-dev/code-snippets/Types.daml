@@ -13,7 +13,7 @@ data MyProductType = MyProductType {
   boolField: Bool;
   partyField: Party;
   timeField: Time;
-  listField: List Int;
+  listField: [Int];
   contractIdField: ContractId SomeTemplate
 }
 
