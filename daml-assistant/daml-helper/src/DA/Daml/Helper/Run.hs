@@ -548,7 +548,7 @@ runNew targetFolder templateNameM = do
 
     -- Substitute strings in template files (not a DAML template!)
     -- e.g. the SDK version numbers in daml.yaml and package.json
-    let templateFiles = filter (".template" `isSuffixOf`) files
+    let templateFiles = filter (".template" `isExtensionOf`) files
     forM_ templateFiles $ \templateFile -> do
         templateContent <- readFileUTF8 templateFile
         sdkVersion <- getSdkVersion
