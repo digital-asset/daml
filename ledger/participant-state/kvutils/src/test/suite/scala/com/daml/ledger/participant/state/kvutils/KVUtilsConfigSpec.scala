@@ -163,9 +163,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         }, submissionId = Ref.LedgerString.assertFromString("submission-id-1"))
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        metricRegistry.counter("kvutils.committer.config.accepts").getCount should be >= 1L
-        metricRegistry.counter("kvutils.committer.config.rejections").getCount should be >= 1L
-        metricRegistry.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
+        metricRegistry.counter("daml.kvutils.committer.config.accepts").getCount should be >= 1L
+        metricRegistry.counter("daml.kvutils.committer.config.rejections").getCount should be >= 1L
+        metricRegistry.timer("daml.kvutils.committer.config.run_timer").getCount should be >= 1L
       }
     }
   }
