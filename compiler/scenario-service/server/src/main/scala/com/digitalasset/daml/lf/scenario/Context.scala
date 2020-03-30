@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.scenario
+package com.digitalasset.daml.lf
+package scenario
 
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Decode.ParseError
@@ -149,6 +150,16 @@ class Context(val contextId: Context.ContextId) {
   def allPackages: Map[PackageId, Ast.Package] =
     extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, None))
 
+  private val nextTransactionSeedAndSubmissionTime = {
+    // we seed crypto.Hash.secureRandom with time to get different coid at each run.
+    // This is fine
+    val nextHash =
+      crypto.Hash.secureRandom(
+        crypto.Hash.hashPrivateKey(s"scenario-service started at ${data.Time.Timestamp.now()}"))
+    () =>
+      Some(nextHash() -> data.Time.Timestamp.now())
+  }
+
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
       res <- defns.get(LfDefRef(identifier))
@@ -161,6 +172,7 @@ class Context(val contextId: Context.ContextId) {
         checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
         sexpr = defn,
         compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get,
+        transactionSeedAndSubmissionTime = nextTransactionSeedAndSubmissionTime()
       )
   }
 

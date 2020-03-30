@@ -88,18 +88,20 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
             .interpretScenario(packageId, scenarioId.getName)
             .map {
               case (ledger, machine, errOrValue) =>
-                val builder = RunScenarioResponse.newBuilder
-                errOrValue match {
-                  case Left(err) =>
-                    builder.setError(
-                      Conversions(context.homePackageId)
-                        .convertScenarioError(ledger, machine, err),
-                    )
-                  case Right(value) =>
-                    val conv = Conversions(context.homePackageId)
-                    builder.setResult(conv.convertScenarioResult(ledger, machine, value))
+                remy.catcha {
+                  val builder = RunScenarioResponse.newBuilder
+                  errOrValue match {
+                    case Left(err) =>
+                      builder.setError(
+                        new Conversions(context.homePackageId, ledger, machine)
+                          .convertScenarioError(err),
+                      )
+                    case Right(value) =>
+                      builder.setResult(new Conversions(context.homePackageId, ledger, machine)
+                        .convertScenarioResult(value))
+                  }
+                  builder.build
                 }
-                builder.build
             }
         }
 
