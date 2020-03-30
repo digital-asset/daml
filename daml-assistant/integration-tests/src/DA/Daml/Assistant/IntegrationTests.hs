@@ -61,7 +61,7 @@ main = do
     let mbCmdDir = takeDirectory <$> mbComSpec
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-        , ("TASTY_NUM_THREADS", Just "1")
+        -- , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMain (tests tmpDir damlTypesDir))
 
 tests :: FilePath -> FilePath -> TestTree
