@@ -345,17 +345,7 @@ class WebSocketService(
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
-      .mapAsync(1) {
-        case msg: TextMessage =>
-          msg.toStrict(config.maxDuration).map { m =>
-            SprayJson.parse(m.text).liftErr(InvalidUserInput)
-          }
-        case bm: BinaryMessage =>
-          // ignore binary messages but drain content to avoid the stream being clogged
-          discard { bm.dataStream.runWith(Sink.ignore) }
-          Future successful -\/(InvalidUserInput(
-            "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"))
-      }
+      .mapAsync(1)(parseJson)
       .via(withOptPrefix(ejv => ejv.toOption flatMap readStartingOffset))
       .map {
         case (oeso, ejv) =>
@@ -367,23 +357,40 @@ class WebSocketService(
       }
       .via(allowOnlyFirstInput(
         InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
-      .flatMapMerge(
-        2,
-        x =>
-          x.flatMap {
-              case (offPrefix, qq: Q.Query[q]) =>
-                implicit val SQ: StreamQuery[q] = qq.alg
-                getTransactionSourceForParty[q](jwt, jwtPayload, offPrefix, qq.q: q)
-            }
-            .fold(e => Source.single(-\/(e)), s => s.map(\/-(_))): Source[Error \/ Message, NotUsed]
-      )
+      .flatMapMerge(2, x => sourceFromQuery(Q)(x)(jwt, jwtPayload))
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(_.fold(e => wsErrorMessage(e), identity): Message)
   }
 
+  private def parseJson(x: Message): Future[InvalidUserInput \/ JsValue] = x match {
+    case msg: TextMessage =>
+      msg.toStrict(config.maxDuration).map { m =>
+        SprayJson.parse(m.text).liftErr(InvalidUserInput)
+      }
+    case bm: BinaryMessage =>
+      // ignore binary messages but drain content to avoid the stream being clogged
+      discard { bm.dataStream.runWith(Sink.ignore) }
+      Future successful -\/(
+        InvalidUserInput(
+          "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"))
+  }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def sourceFromQuery[A](Q: StreamQueryReader[A])(
+      x: Error \/ (Option[domain.StartingOffset], Q.Query[_]))(
+      jwt: Jwt,
+      jwtPayload: JwtPayload
+  ): Source[Error \/ Message, NotUsed] =
+    x.flatMap {
+        case (offPrefix, qq: Q.Query[q]) =>
+          implicit val SQ: StreamQuery[q] = qq.alg
+          getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
+      }
+      .fold(e => Source.single(-\/(e)), s => s.map(\/-(_)))
+
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
-      jwtPayload: JwtPayload,
+      party: domain.Party,
       offPrefix: Option[domain.StartingOffset],
       request: A): Error \/ Source[Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
@@ -392,7 +399,7 @@ class WebSocketService(
 
     if (resolved.nonEmpty) {
       val source = contractsService
-        .insertDeleteStepSource(jwt, jwtPayload.party, resolved.toList, offPrefix, Terminates.Never)
+        .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
