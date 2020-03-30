@@ -7,16 +7,27 @@ import java.net.{InetAddress, ServerSocket}
 
 import com.digitalasset.ports.Port
 
-object FreePort {
-  def find(): Port = {
+import scala.annotation.tailrec
+
+private[postgresql] object FreePort {
+
+  @tailrec
+  def find(): PortLock.Locked = {
     val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
-    try {
-      Port(socket.getLocalPort)
+    val portLock = try {
+      val port = Port(socket.getLocalPort)
+      PortLock.lock(port)
     } finally {
-      // We have to release the port so that it can be used. Note that there is a small race window,
-      // as releasing the port then handing it to the server is not atomic. If this turns out to be
-      // an issue, we need to find an atomic way of doing that.
       socket.close()
     }
+    portLock match {
+      case Right(locked) =>
+        socket.close()
+        locked
+      case Left(PortLock.FailedToLock) =>
+        socket.close()
+        find()
+    }
   }
+
 }

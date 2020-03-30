@@ -27,7 +27,8 @@ trait PostgresAround {
     val tempDir = Files.createTempDirectory("postgres_test")
     val dataDir = tempDir.resolve("data")
     val confFile = Paths.get(dataDir.toString, "postgresql.conf")
-    val port = FreePort.find()
+    val lockedPort = FreePort.find()
+    val port = lockedPort.port
     val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
     val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
@@ -36,10 +37,12 @@ trait PostgresAround {
       initializeDatabase()
       createConfigFile()
       startPostgres()
+      lockedPort.unlock()
       createTestDatabase(databaseName)
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
+        lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
         postgresFixture = null
