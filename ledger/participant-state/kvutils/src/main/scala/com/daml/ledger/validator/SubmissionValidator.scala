@@ -4,6 +4,7 @@
 package com.daml.ledger.validator
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -49,6 +50,8 @@ class SubmissionValidator[LogResult](
 )(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
+
+  private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
   def validate(
       envelope: Bytes,
@@ -172,7 +175,7 @@ class SubmissionValidator[LogResult](
         val damlLogEntryId = allocateLogEntryId()
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)
-        ledgerStateAccess
+        timedLedgerStateAccess
           .inTransaction { stateOperations =>
             for {
               readInputs <- timedFuture(
@@ -226,16 +229,49 @@ class SubmissionValidator[LogResult](
     }
 
   private def flattenInputStates(
-      inputs: Map[DamlStateKey, Option[DamlStateValue]]): Map[DamlStateKey, DamlStateValue] =
+      inputs: Map[DamlStateKey, Option[DamlStateValue]]
+  ): Map[DamlStateKey, DamlStateValue] =
     inputs.collect {
       case (key, Some(value)) => key -> value
     }
 
-  object Metrics {
+  private final class TimedLedgerStateAccess(delegate: LedgerStateAccess[LogResult])
+      extends LedgerStateAccess[LogResult] {
+    override def inTransaction[T](
+        body: LedgerStateOperations[LogResult] => Future[T]
+    ): Future[T] = {
+      val acquireStopped = new AtomicBoolean(false)
+      val acquireTimer = Metrics.acquireTransaction.time()
+      delegate
+        .inTransaction { operations =>
+          if (acquireStopped.compareAndSet(false, true)) {
+            acquireTimer.stop()
+          }
+          body(operations)
+            .transform(result => Success((result, Metrics.releaseTransaction.time())))
+        }
+        .transform {
+          case Success((result, releaseTimer)) =>
+            releaseTimer.stop()
+            result
+          case Failure(exception) =>
+            if (acquireStopped.compareAndSet(false, true)) {
+              acquireTimer.stop()
+            }
+            Failure(exception)
+        }
+    }
+  }
+
+  private object Metrics {
     private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "validator")
 
     val openEnvelope: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
+    val acquireTransaction: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "acquire_transaction"))
+    val releaseTransaction: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "release_transaction"))
     val validateSubmission: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
     val processSubmission: Timer =
