@@ -42,7 +42,7 @@ class WebsocketServiceIntegrationTest
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   private val baseQueryInput: Source[Message, NotUsed] =
-    Source.single(TextMessage.Strict("{}"))
+    Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
 
   private val fetchRequest =
     """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
@@ -82,7 +82,6 @@ class WebsocketServiceIntegrationTest
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
-/*
     s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
       (uri, _, _) =>
         val input = scenario.input.mapConcat(x => List(x, x))
@@ -98,11 +97,13 @@ class WebsocketServiceIntegrationTest
             inside(msgs) {
               case Seq(errorMsg) =>
                 val error = decodeErrorResponse(errorMsg)
-                error.status shouldBe StatusCodes.BadRequest
+                error shouldBe domain.ErrorResponse(
+                  List("Multiple requests over the same WebSocket connection are not allowed."),
+                  StatusCodes.BadRequest
+                )
             }
           }
     }
- */
   }
 
   private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =

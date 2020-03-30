@@ -345,10 +345,6 @@ class WebSocketService(
   ): Flow[Message, Message, NotUsed] = {
     val Q = implicitly[StreamQueryReader[A]]
     Flow[Message]
-      .map { x =>
-        println(s"----> $x")
-        x
-      }
       .mapAsync(1) {
         case msg: TextMessage =>
           msg.toStrict(config.maxDuration).map { m =>
@@ -371,18 +367,18 @@ class WebSocketService(
       }
       .via(allowOnlyFirstInput(
         InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
-      .map {
-        _.flatMap {
-          case (offPrefix, qq: Q.Query[q]) =>
-            implicit val SQ: StreamQuery[q] = qq.alg
-            getTransactionSourceForParty[q](jwt, jwtPayload, offPrefix, qq.q: q)
-        }
-      }
+      .flatMapMerge(
+        2,
+        x =>
+          x.flatMap {
+              case (offPrefix, qq: Q.Query[q]) =>
+                implicit val SQ: StreamQuery[q] = qq.alg
+                getTransactionSourceForParty[q](jwt, jwtPayload, offPrefix, qq.q: q)
+            }
+            .fold(e => Source.single(-\/(e)), s => s.map(\/-(_))): Source[Error \/ Message, NotUsed]
+      )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
-      .flatMapConcat {
-        case \/-(s) => s
-        case -\/(e) => Source.single(wsErrorMessage(e))
-      }
+      .map(_.fold(e => wsErrorMessage(e), identity): Message)
   }
 
   private def getTransactionSourceForParty[A: StreamQuery](
