@@ -1,9 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR Record type X has constructor Y with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to X
+-- @ERROR Record type X has constructor Y with different name. Possible solution: Change the constructor name to X
 
--- @ERROR Record type A has constructor B with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to A
+-- @ERROR Record type A has constructor B with different name. Possible solution: Change the constructor name to A
 
 module RecordConstructorCheck where
 
