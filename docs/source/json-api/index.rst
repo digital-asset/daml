@@ -1069,6 +1069,8 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
       console.log(data);
     });
 
+Please note that Streaming API does not allow multiple requests over the same WebSocket connection. The server returns an error and disconnects if second request received over the same WebSocket connection.
+
 Error and Warning Reporting
 ===========================
 
@@ -1090,6 +1092,11 @@ Examples:
 
     {
       "errors":["JsonReaderError. Cannot read JSON: <{\"templateIds\":[]}>. Cause: spray.json.DeserializationException: search requires at least one item in 'templateIds'"],
+      "status":400
+    }
+
+    {
+      "errors":["Multiple requests over the same WebSocket connection are not allowed."],
       "status":400
     }
 
