@@ -3,7 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
-import scalaz.Equal
+import scalaz.{Equal, Order}
+import scalaz.syntax.order._
 
 private[digitalasset] object ScalazEqual {
   def withNatural[A](isNatural: Boolean)(c: (A, A) => Boolean): Equal[A] =
@@ -55,5 +56,36 @@ private[digitalasset] object ScalazEqual {
   implicit final class `Match2 syntax`[+A, +B](private val self: (A, B)) extends AnyVal {
     def match2[C](f: A => (B PartialFunction C))(fallback: => C): C =
       ScalazEqual.match2(fallback)(f)(self._1, self._2)
+  }
+
+  /** Like Order#contramap, but with support for equalIsNatural. */
+  private[data] def orderBy[A, I: Order](f: A => I, inductiveNaturalEqual: Boolean): Order[A] =
+    new OrderBy(f, inductiveNaturalEqual)
+
+  private[data] def equalBy[A, I: Equal](f: A => I, inductiveNaturalEqual: Boolean): Equal[A] = {
+    val eqn = inductiveNaturalEqual
+    new EqualBy[A, I] {
+      override val I = Equal[I]
+      override val k = f
+      override val inductiveNaturalEqual = eqn
+    }
+  }
+
+  private[this] final class OrderBy[A, I](
+      val k: A => I,
+      override val inductiveNaturalEqual: Boolean)(implicit val I: Order[I])
+      extends Order[A]
+      with EqualBy[A, I] {
+    override def order(a: A, b: A) =
+      k(a) ?|? k(b)
+  }
+
+  private[this] sealed trait EqualBy[A, I] extends Equal[A] {
+    def k: A => I
+    implicit def I: Equal[I]
+    def inductiveNaturalEqual: Boolean
+    override final def equalIsNatural = inductiveNaturalEqual && I.equalIsNatural
+    override final def equal(a: A, b: A) =
+      k(a) === k(b)
   }
 }
