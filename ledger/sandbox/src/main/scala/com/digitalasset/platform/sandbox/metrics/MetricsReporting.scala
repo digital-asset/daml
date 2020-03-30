@@ -9,13 +9,6 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.graphite.{Graphite, GraphiteReporter}
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.jvm.{
-  ClassLoadingGaugeSet,
-  GarbageCollectorMetricSet,
-  JvmAttributeGaugeSet,
-  MemoryUsageGaugeSet,
-  ThreadStatesGaugeSet
-}
 import com.codahale.metrics.{
   ConsoleReporter,
   CsvReporter,
@@ -24,6 +17,7 @@ import com.codahale.metrics.{
   ScheduledReporter,
   Slf4jReporter
 }
+import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,11 +45,7 @@ final class MetricsReporting(
 ) extends ResourceOwner[MetricRegistry] {
   def acquire()(implicit executionContext: ExecutionContext): Resource[MetricRegistry] = {
     val registry = new MetricRegistry
-    registry.registerAll("jvm.class_loader", new ClassLoadingGaugeSet)
-    registry.registerAll("jvm.garbage_collector", new GarbageCollectorMetricSet)
-    registry.registerAll("jvm.attributes", new JvmAttributeGaugeSet)
-    registry.registerAll("jvm.memory_usage", new MemoryUsageGaugeSet)
-    registry.registerAll("jvm.thread_states", new ThreadStatesGaugeSet)
+    registry.registerAll(new JvmMetricSet)
     for {
       slf4JReporter <- acquire(newSlf4jReporter(registry))
       _ <- acquire(newJmxReporter(registry))
