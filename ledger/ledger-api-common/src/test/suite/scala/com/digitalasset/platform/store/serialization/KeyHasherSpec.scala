@@ -567,31 +567,31 @@ class KeyHasherSpec extends WordSpec with Matchers {
           | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
           | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
+          |ValueEnum(Some(pkgId:Mod:Color),Red)
           | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
+          |ValueEnum(Some(pkgId:Mod:Color),Green)
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
+          |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
           | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
           | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
           | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
           | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
-          |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
           |""".stripMargin
 
