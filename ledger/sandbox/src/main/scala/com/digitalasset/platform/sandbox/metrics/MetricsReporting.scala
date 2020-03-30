@@ -7,17 +7,10 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.Slf4jReporter.LoggingLevel
-import com.codahale.metrics.graphite.{Graphite, GraphiteReporter}
 import com.codahale.metrics.jmx.JmxReporter
-import com.codahale.metrics.{
-  ConsoleReporter,
-  CsvReporter,
-  MetricRegistry,
-  Reporter,
-  ScheduledReporter,
-  Slf4jReporter
-}
+import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.participant.state.metrics.JvmMetricSet
+import com.digitalasset.platform.configuration.MetricsReporter
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -51,30 +44,13 @@ final class MetricsReporting(
       _ <- acquire(newJmxReporter(registry))
         .map(_.start())
       _ <- extraMetricsReporter.fold(Resource.unit) { reporter =>
-        acquire(newReporter(reporter, registry))
+        acquire(reporter.register(registry))
           .map(_.start(extraMetricsReportingInterval.getSeconds, TimeUnit.SECONDS))
       }
       // Trigger a report to the SLF4J logger on shutdown.
       _ <- Resource(Future.successful(slf4JReporter))(reporter =>
         Future.successful(reporter.report()))
     } yield registry
-  }
-
-  private def newReporter(reporter: MetricsReporter, registry: MetricRegistry)(
-      implicit executionContext: ExecutionContext
-  ): ScheduledReporter = reporter match {
-    case MetricsReporter.Console =>
-      ConsoleReporter
-        .forRegistry(registry)
-        .build()
-    case MetricsReporter.Csv(directory) =>
-      CsvReporter
-        .forRegistry(registry)
-        .build(directory.toFile)
-    case MetricsReporter.Graphite(address) =>
-      GraphiteReporter
-        .forRegistry(registry)
-        .build(new Graphite(address))
   }
 
   private def newJmxReporter(registry: MetricRegistry): JmxReporter =
