@@ -9,7 +9,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.ports.FreePort
 import com.digitalasset.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
