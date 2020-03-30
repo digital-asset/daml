@@ -72,7 +72,7 @@ object MetricsReporter {
           .get
       case _ =>
         throw new InvalidConfigException(
-          s"""Must be one of "console", "csv:PATH", or "graphite[:HOST][:PORT]".""")
+          """Must be one of "console", "csv:PATH", or "graphite[:HOST][:PORT]".""")
     }
   }
 
