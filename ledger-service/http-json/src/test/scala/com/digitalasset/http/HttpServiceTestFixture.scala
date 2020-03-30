@@ -27,7 +27,7 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.{FreePort, Port}
+import com.digitalasset.ports.Port
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
@@ -62,23 +62,22 @@ object HttpServiceTestFixture {
       port <- ledger.portF
     } yield (ledger, port)
 
-    val httpServiceF: Future[(ServerBinding, Int)] = for {
+    val httpServiceF: Future[ServerBinding] = for {
       (_, ledgerPort) <- ledgerF
       contractDao <- contractDaoF
-      httpPort <- Future(FreePort.find())
       httpService <- stripLeft(
         HttpService.start(
           "localhost",
           ledgerPort.value,
           applicationId,
           "localhost",
-          httpPort,
+          0,
           Some(Config.DefaultWsConfig),
           None,
           contractDao,
           staticContentConfig,
           doNotReloadPackages))
-    } yield (httpService, httpPort)
+    } yield httpService
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
@@ -91,10 +90,11 @@ object HttpServiceTestFixture {
     } yield codecs
 
     val fa: Future[A] = for {
-      (_, httpPort) <- httpServiceF
+      httpService <- httpServiceF
+      address = httpService.localAddress
+      uri = Uri.from(scheme = "http", host = address.getHostName, port = address.getPort)
       (encoder, decoder) <- codecsF
       client <- clientF
-      uri = Uri.from(scheme = "http", host = "localhost", port = httpPort)
       a <- testFn(uri, encoder, decoder, client)
     } yield a
 
@@ -103,7 +103,7 @@ object HttpServiceTestFixture {
         .sequence(
           Seq(
             ledgerF.map(_._1.close()),
-            httpServiceF.flatMap(_._1.unbind()),
+            httpServiceF.flatMap(_.unbind()),
           ) map (_ fallbackTo Future.successful(())))
         .transform(_ => ta)
     }
