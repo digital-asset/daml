@@ -47,7 +47,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
 
-abstract class LedgerBackedIndexService(
+class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
     participantId: ParticipantId,
 )(implicit mat: Materializer)
@@ -269,6 +269,15 @@ abstract class LedgerBackedIndexService(
           .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
       .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
+
+  override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
+    configurationEntries(None)
+      .collect {
+        case domain.ConfigurationEntry.Accepted(_, _, config) =>
+          LedgerConfiguration(
+            maxDeduplicationTime = config.maxDeduplicationTime
+          )
+      }
 
   /** Deduplicate commands */
   override def deduplicateCommand(
