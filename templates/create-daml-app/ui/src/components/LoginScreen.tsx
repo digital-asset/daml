@@ -22,7 +22,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
   const login = useCallback(async (credentials: Credentials) => {
     try {
       const ledger = new Ledger({token: credentials.token, httpBaseUrl, wsBaseUrl});
-      let userContract = await ledger.lookupByKey(User, credentials.party);
+      let userContract = await ledger.fetchByKey(User, credentials.party);
       if (userContract === null) {
         const user = {username: credentials.party, following: []};
         userContract = await ledger.create(User, user);

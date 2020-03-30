@@ -5,7 +5,7 @@ import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
 import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
-import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
+import { useParty, useLedger, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
@@ -23,11 +23,11 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-  const exerciseFollow = useExerciseByKey(User.Follow);
+  const ledger = useLedger();
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
-      await exerciseFollow(username, {userToFollow});
+      await ledger.exerciseByKey(User.Follow, username, {userToFollow});
       return true;
     } catch (error) {
       alert("Unknown error:\n" + JSON.stringify(error));

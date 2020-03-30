@@ -97,7 +97,7 @@ test('create and look up user using ledger library', async () => {
   expect(users0).toEqual([]);
   const user: User = {username: party, following: []};
   const userContract1 = await ledger.create(User, user);
-  const userContract2 = await ledger.lookupByKey(User, party);
+  const userContract2 = await ledger.fetchByKey(User, party);
   expect(userContract1).toEqual(userContract2);
   const users = await ledger.query(User);
   expect(users[0]).toEqual(userContract1);
