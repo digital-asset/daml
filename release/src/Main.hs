@@ -123,7 +123,7 @@ main = do
                               "-Dfile=" <> pathToString releaseDir <> pathToString path,
                               "-DgroupId=" <> foldr (<>) "" (List.intersperse "." $ map T.unpack $ groupId mvn_coords),
                               "-DartifactId=" <> (T.unpack $ artifactId mvn_coords),
-                              "-Dversion=100.0.0",
+                              "-Dversion=0.0.0",
                               "-Dpackaging=" <> (T.unpack $ artifactType mvn_coords)]
                   liftIO $ callProcess "mvn" args
          | otherwise -> $logInfo "Dry run selected: not uploading, not installing"

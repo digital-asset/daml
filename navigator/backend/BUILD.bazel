@@ -128,7 +128,7 @@ da_scala_binary(
     name = "navigator-binary",
     main_class = "com.digitalasset.navigator.NavigatorBackend",
     tags = [
-        "maven_coordinates=com.digitalasset:navigator:__VERSION__",
+        "maven_coordinates=com.daml:navigator:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = [

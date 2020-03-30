@@ -12,7 +12,7 @@ da_scala_library(
     name = "scenario-interpreter",
     srcs = glob(["src/main/**/*.scala"]),
     main_class = "com.digitalasset.daml.lf.speedy.Main",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-scenario-interpreter:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-scenario-interpreter:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

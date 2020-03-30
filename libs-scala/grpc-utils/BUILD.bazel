@@ -9,7 +9,7 @@ load(
 da_scala_library(
     name = "grpc-utils",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset:grpc-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:grpc-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
