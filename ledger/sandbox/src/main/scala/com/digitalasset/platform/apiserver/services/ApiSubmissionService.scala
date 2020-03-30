@@ -152,6 +152,10 @@ final class ApiSubmissionService private (
         case CommandDeduplicationNew =>
           recordOnLedger(seed, commands)
             .transform(mapSubmissionResult)
+            .andThen {
+              case Failure(_) =>
+                submissionService.stopDeduplicatingCommand(commands.commandId, commands.submitter)
+            }
         case CommandDeduplicationDuplicate(until) =>
           Metrics.deduplicatedCommandsMeter.mark()
           val reason =
