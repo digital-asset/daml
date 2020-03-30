@@ -8,13 +8,17 @@ module DA.Test.Util (
     assertInfixOf,
     withTempFileResource,
     withTempDirResource,
+    withEnv,
     nullDevice,
 ) where
 
+import Control.Monad
+import Control.Exception.Safe
 import Data.List.Extra (isInfixOf)
 import qualified Data.Text as T
 import System.IO.Extra
 import System.Info.Extra
+import System.Environment.Blank
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -43,3 +47,25 @@ nullDevice
     -- taken from typed-process
     | isWindows = "\\\\.\\NUL"
     | otherwise =  "/dev/null"
+
+-- | Replace all environment variables for test action, then restore them.
+-- Avoids System.Environment.setEnv because it treats empty strings as
+-- "delete environment variable", unlike main-tester's withEnv which
+-- consequently conflates (Just "") with Nothing.
+withEnv :: [(String, Maybe String)] -> IO t -> IO t
+withEnv vs m = bracket pushEnv popEnv (const m)
+    where
+        pushEnv :: IO [(String, Maybe String)]
+        pushEnv = replaceEnv vs
+
+        popEnv :: [(String, Maybe String)] -> IO ()
+        popEnv vs' = void $ replaceEnv vs'
+
+        replaceEnv :: [(String, Maybe String)] -> IO [(String, Maybe String)]
+        replaceEnv vs' = do
+            forM vs' $ \(key, newVal) -> do
+                oldVal <- getEnv key
+                case newVal of
+                    Nothing -> unsetEnv key
+                    Just val -> setEnv key val True
+                pure (key, oldVal)

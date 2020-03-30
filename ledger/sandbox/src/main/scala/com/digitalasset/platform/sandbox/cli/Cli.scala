@@ -4,8 +4,6 @@
 package com.digitalasset.platform.sandbox.cli
 
 import java.io.File
-import java.net.InetSocketAddress
-import java.nio.file.Paths
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
@@ -18,11 +16,11 @@ import com.digitalasset.ledger.api.auth.AuthServiceJWT
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.configuration.MetricsReporter
+import com.digitalasset.platform.configuration.Readers._
 import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
-import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
-import com.google.common.net.HostAndPort
 import io.netty.handler.ssl.ClientAuth
 import scopt.{OptionParser, Read}
 
@@ -34,41 +32,12 @@ import scala.util.Try
 // see we either use nulls or use the mutable builder instead.
 object Cli {
 
-  private implicit val durationRead: Read[Duration] = new Read[Duration] {
-    override def arity: Int = 1
-
-    override val reads: String => Duration = Duration.parse
-  }
-
   private implicit val clientAuthRead: Read[ClientAuth] = Read.reads {
     case "none" => ClientAuth.NONE
     case "optional" => ClientAuth.OPTIONAL
     case "require" => ClientAuth.REQUIRE
     case _ =>
       throw new InvalidConfigException(s"""Must be one of "none", "optional", or "require".""")
-  }
-
-  private implicit val metricsReporterRead: Read[MetricsReporter] = Read.reads {
-    _.split(":", 2).toSeq match {
-      case Seq("console") => MetricsReporter.Console
-      case Seq("csv", directory) => MetricsReporter.Csv(Paths.get(directory))
-      case Seq("graphite") =>
-        MetricsReporter.Graphite()
-      case Seq("graphite", address) =>
-        Try(address.toInt)
-          .map(port => MetricsReporter.Graphite(port))
-          .recover {
-            case _: NumberFormatException =>
-              val hostAndPort = HostAndPort
-                .fromString(address)
-                .withDefaultPort(MetricsReporter.Graphite.defaultPort)
-              MetricsReporter.Graphite(
-                new InetSocketAddress(hostAndPort.getHost, hostAndPort.getPort))
-          }
-          .get
-      case _ =>
-        throw new InvalidConfigException(s"""Must be one of "console", or "csv:PATH".""")
-    }
   }
 
   private val KnownLogLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
@@ -198,13 +167,6 @@ object Cli {
         .optional()
         .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
         .action((_, config) => config.copy(eagerPackageLoading = true))
-
-      opt[Long]("max-ttl-seconds")
-        .optional()
-        .validate(v => Either.cond(v > 0, (), "Max TTL must be a positive number"))
-        .text("The maximum TTL allowed for commands in seconds")
-        .action((maxTtl, config) =>
-          config.copy(timeModel = config.timeModel.copy(maxTtl = Duration.ofSeconds(maxTtl))))
 
       opt[String]("auth-jwt-hs256-unsafe")
         .optional()

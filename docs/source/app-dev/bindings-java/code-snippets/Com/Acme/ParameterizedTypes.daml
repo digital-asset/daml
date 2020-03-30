@@ -3,7 +3,7 @@
 
 -- start snippet: parameterized types example
 
-module Com.Acme where
+module Com.Acme.ParameterizedTypes where
 
 data Attribute a = Attribute
     with v : a

@@ -11,7 +11,7 @@ You can use contract keys to stably refer to a contract, even through iterations
 
 Here's an example of setting up a contract key for a bank account, to act as a bank account ID:
 
-.. literalinclude:: ../code-snippets/ContractKeys.daml
+.. literalinclude:: ../code-snippets/Account.daml
    :language: daml
    :start-after: -- start contract key setup snippet
    :end-before: -- end contract key setup snippet

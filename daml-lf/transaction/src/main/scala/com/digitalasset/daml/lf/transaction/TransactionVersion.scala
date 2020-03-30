@@ -27,6 +27,11 @@ object TransactionVersions
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
   private[transaction] val minContractKeyInFetch = TransactionVersion("10")
 
+  // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
+  // We force output of recent version, but keep reading older version as long as
+  // Sandbox is alive.
+  private[transaction] val minOutputVersion = TransactionVersion("10")
+
   def assignVersion(
       a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
   ): TransactionVersion = {
@@ -34,7 +39,7 @@ object TransactionVersions
     import VersionTimeline.Implicits._
 
     VersionTimeline.latestWhenAllPresent(
-      minVersion,
+      minOutputVersion,
       // latest version used by any value
       a.foldValues(ValueVersion("1")) { (z, vv) =>
         VersionTimeline.maxVersion(z, vv.version)

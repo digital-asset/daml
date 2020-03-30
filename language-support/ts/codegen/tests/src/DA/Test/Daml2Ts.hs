@@ -17,41 +17,32 @@ import DA.Test.Daml2TsUtils
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
 import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Test.Util
 
--- Referenced from the DAVL test. Lifted here for easy
--- maintenance.
-data ConfigConsts = ConfigConsts
-  { pkgDevDependencies :: HMS.HashMap T.Text T.Text }
-configConsts :: ConfigConsts
-configConsts = ConfigConsts
-  { pkgDevDependencies = HMS.fromList
-      [ ("eslint", "^6.7.2")
-      , ("@typescript-eslint/eslint-plugin", "2.11.0")
-      , ("@typescript-eslint/parser", "2.11.0")
-      ]
-  }
+-- Version of eslint we use for linting the generated code.
+eslintVersion :: T.Text
+eslintVersion = "^6.8.0"
+
+-- Version of typescript-eslint for linting the generated code.
+typescriptEslintVersion :: T.Text
+typescriptEslintVersion = "^2.16.0"
 
 main :: IO ()
 main = do
-    setEnv "TASTY_NUM_THREADS" "1" True
-    -- We manipulate global state via the working directory and
-    -- the environment so running tests in parallel will cause trouble.
     yarnPath : damlTypesPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2ts <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2ts")
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
     damlTypes <- locateRunfiles (mainWorkspace </> damlTypesPath)
     davl <- locateRunfiles ("davl" </> "released")
-    -- TODO (SF,2020-03-24): Factor out 'withEnv' from
-    -- 'DA/DamlAssistant/Tests.hs' into a library function and use it here.
     oldPath <- getSearchPath
-    setEnv "PATH" (intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath) True
-    withArgs args (defaultMain $ tests damlTypes yarn damlc daml2ts davl)
+    withArgs args $ withEnv
+        [ ("PATH", Just $ intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath)
+        , ("TASTY_NUM_THREADS", Just "1")
+        ] $ defaultMain (tests damlTypes yarn damlc daml2ts davl)
 
 -- It may help to keep in mind for the following tests, this quick
 -- refresher on the layout of a simple project:
@@ -220,7 +211,11 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         BSL.writeFile "package.json" $ encode $
           object
             [ "private" .= True
-            , "devDependencies" .= pkgDevDependencies configConsts
+            , "devDependencies" .= object
+                [ "eslint" .= eslintVersion
+                , "@typescript-eslint/eslint-plugin" .= typescriptEslintVersion
+                , "@typescript-eslint/parser" .= typescriptEslintVersion
+                ]
             , "workspaces" .= pkgs
             , "name" .= ("daml2ts" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)

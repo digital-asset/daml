@@ -319,7 +319,7 @@ runCommand = \case
         runJar jarPath mbLogbackConfig remainingArguments
     New {..}
         | templateNameM == Just "create-daml-app" -> runCreateDamlApp targetFolder
-        | otherwise -> runNew targetFolder templateNameM [] []
+        | otherwise -> runNew targetFolder templateNameM
     CreateDamlApp{..} -> runCreateDamlApp targetFolder
     Init {..} -> runInit targetFolderM
     ListTemplates -> runListTemplates

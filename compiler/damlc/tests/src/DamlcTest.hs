@@ -75,7 +75,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module ModWithTemplate where"
+        [ "daml 1.2 module Good where"
         , "template MyT"
         , "  with"
         , "    myParty : Party"
@@ -160,24 +160,26 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           assertInfixOf "does not exist" stderr
           exitCode @?= ExitFailure 1
     , testCase "File with compile error" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
               [ "daml 1.2"
               , "module Foo where"
               , "abc"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Parse error" stderr
             exitCode @?= ExitFailure 1
     , testCase "File with failing scenario" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
               [ "daml 1.2"
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1

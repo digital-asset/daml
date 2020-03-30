@@ -27,7 +27,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
 import System.Process
-import Test.Main
+import Test.Main hiding (withEnv)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
@@ -41,9 +41,6 @@ import SdkVersion
 
 main :: IO ()
 main = do
-    -- We manipulate global state via the working directory and
-    -- the environment so running tests in parallel will cause trouble.
-    setEnv "TASTY_NUM_THREADS" "1" True
     yarn : damlTypesPath : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
@@ -61,6 +58,7 @@ main = do
     let mbCmdDir = takeDirectory <$> mbComSpec
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
+        , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMain (tests tmpDir damlTypesDir))
 
 tests :: FilePath -> FilePath -> TestTree
@@ -71,6 +69,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
+    , templateTests
     , deployTest deployDir
     , fetchTest tmpDir
     , codegenTests codegenDir damlTypesDir
@@ -465,6 +464,29 @@ cleanTests baseDir = testGroup "daml clean"
                                 , "    files at end:"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
+
+templateTests :: TestTree
+templateTests = testGroup "templates"
+    [ testCase name $ do
+          withTempDir $ \dir -> withCurrentDirectory dir $ do
+              callCommandQuiet $ unwords ["daml", "new", "foobar", name]
+              withCurrentDirectory (dir </> "foobar") $ callCommandQuiet "daml build"
+    | name <- templateNames
+    ]
+
+
+  -- NOTE (MK) We might want to autogenerate this list at some point but for now
+  -- this should be good enough.
+  where templateNames =
+            [ "copy-trigger"
+            -- daml-intro-1 - daml-intro-6 are not full projects.
+            , "daml-intro-7"
+            , "daml-patterns"
+            , "quickstart-java"
+            , "quickstart-scala"
+            , "script-example"
+            , "skeleton"
+            ]
 
 -- | Check we can generate language bindings.
 codegenTests :: FilePath -> FilePath -> TestTree

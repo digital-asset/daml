@@ -90,14 +90,14 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         )
 
       for {
-        // Submit command A (first TTL window)
+        // Submit command A (first deduplication window)
         _ <- ledger.submitAndWait(requestA)
         failure1 <- ledger.submitAndWait(requestA).failed
 
-        // Wait until the end of first TTL window
+        // Wait until the end of first deduplication window
         _ <- Delayed.by(deduplicationSeconds.seconds)(())
 
-        // Submit command A (second TTL window)
+        // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)
         failure2 <- ledger.submitAndWait(requestA).failed
 
