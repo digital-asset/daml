@@ -23,4 +23,3 @@ da_haskell_library(
         "//daml-assistant:daml-project-config",
     ],
 )
-
