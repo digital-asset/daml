@@ -19,6 +19,7 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -132,6 +133,7 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
+  @tailrec
   private def runValidation[T](
       envelope: Bytes,
       correlationId: String,
