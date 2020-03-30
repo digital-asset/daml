@@ -3,11 +3,12 @@
 
 package com.digitalasset.daml.lf.data
 
+import ScalazEqual.{equalBy, orderBy}
+
 import scala.language.higherKinds
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
-import scalaz.syntax.equal._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
@@ -71,12 +72,7 @@ object SortedLookupList extends SortedLookupListInstances {
   def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
 
   implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
-    new Order[SortedLookupList[X]] with ` SortedLookupList equal`[X] {
-      import scalaz.syntax.order._, scalaz.std.iterable._
-      override val X = Order[X]
-      override final def order(a: SortedLookupList[X], b: SortedLookupList[X]) =
-        (a.toImmArray.toSeq: Iterable[(String, X)]) ?|? b.toImmArray.toSeq
-    }
+    orderBy(_.toImmArray, true)
 
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
     new Traverse[SortedLookupList] {
@@ -89,14 +85,5 @@ object SortedLookupList extends SortedLookupListInstances {
 
 sealed abstract class SortedLookupListInstances {
   implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
-    new ` SortedLookupList equal`[X] {
-      override val X = Equal[X]
-    }
-}
-
-private sealed trait ` SortedLookupList equal`[X] extends Equal[SortedLookupList[X]] {
-  implicit val X: Equal[X]
-  override final def equalIsNatural = X.equalIsNatural
-  override final def equal(a: SortedLookupList[X], b: SortedLookupList[X]) =
-    a.toImmArray === b.toImmArray
+    equalBy(_.toImmArray, true)
 }

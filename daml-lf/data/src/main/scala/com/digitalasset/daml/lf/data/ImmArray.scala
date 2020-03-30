@@ -3,8 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
+import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
+
 import scalaz.syntax.applicative._
-import scalaz.{Applicative, Equal, Foldable, Traverse}
+import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
@@ -320,7 +322,7 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  private def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
+  private[data] def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
     (len == thatArr.len) && {
       indices forall { i =>
         B.equal(uncheckedGet(i), thatArr.uncheckedGet(i))
@@ -337,7 +339,7 @@ final class ImmArray[+A] private (
   override def hashCode(): Int = toSeq.hashCode()
 }
 
-object ImmArray {
+object ImmArray extends ImmArrayInstances {
   private[this] val emptySingleton: ImmArray[Nothing] =
     ImmArray.unsafeFromArraySeq(new mutable.ArraySeq(0))
   def empty[T]: ImmArray[T] = emptySingleton
@@ -378,8 +380,10 @@ object ImmArray {
     }
   }
 
-  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
-    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
+  implicit def immArrayOrderInstance[A: Order]: Order[ImmArray[A]] = {
+    import scalaz.std.iterable._
+    orderBy(ia => toIterableForScalazInstances(ia.iterator), true)
+  }
 
   private[ImmArray] final class IACanBuildFrom[A]
       extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
@@ -459,7 +463,7 @@ object ImmArray {
     }
 
     implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
-      if (Equal[A].equalIsNatural) Equal.equalA else Equal[ImmArray[A]].contramap(_.toImmArray)
+      equalBy(_.toImmArray, true)
 
     private final class IASCanBuildFrom[A] extends GenericCanBuildFrom[A]
 
@@ -469,6 +473,11 @@ object ImmArray {
     override def newBuilder[A]: mutable.Builder[A, ImmArraySeq[A]] =
       ImmArray.newBuilder.mapResult(_.toSeq)
   }
+}
+
+sealed abstract class ImmArrayInstances {
+  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
+    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 }
 
 /** We do not provide apply on purpose -- see slowCons on why we want to discourage consing */

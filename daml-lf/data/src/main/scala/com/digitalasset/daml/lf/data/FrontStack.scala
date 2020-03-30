@@ -4,11 +4,10 @@
 package com.digitalasset.daml.lf.data
 
 import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
-import ScalazEqual.toIterableForScalazInstances
+import ScalazEqual.{orderBy, equalBy, toIterableForScalazInstances}
 
 import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.syntax.applicative._
-import scalaz.syntax.order._
 import scalaz.syntax.traverse._
 
 import scala.annotation.tailrec
@@ -181,15 +180,10 @@ object FrontStack extends FrontStackInstances {
       )
   }
 
-  implicit def `FrontStack Order`[A: Order]: Order[FrontStack[A]] =
-    new Order[FrontStack[A]] with `FrontStack Equal`[A] {
-      override val A = Order[A]
-
-      override def order(as: FrontStack[A], bs: FrontStack[A]) = {
-        import scalaz.std.iterable._
-        toIterableForScalazInstances(as.iterator) ?|? toIterableForScalazInstances(bs.iterator)
-      }
-    }
+  implicit def `FrontStack Order`[A: Order]: Order[FrontStack[A]] = {
+    import scalaz.std.iterable._
+    orderBy(fs => toIterableForScalazInstances(fs.iterator), true)
+  }
 
   private sealed trait FQ[+A]
   private case object FQEmpty extends FQ[Nothing]
@@ -203,20 +197,8 @@ object FrontStackCons {
 }
 
 sealed abstract class FrontStackInstances {
-  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] =
-    new `FrontStack Equal`[A] {
-      override val A = Equal[A]
-    }
-
-  protected sealed trait `FrontStack Equal`[A] extends Equal[FrontStack[A]] {
-    implicit def A: Equal[A]
-
-    override final def equalIsNatural = A.equalIsNatural
-
-    override final def equal(as: FrontStack[A], bs: FrontStack[A]) = {
-      import scalaz.std.iterable._
-      toIterableForScalazInstances(as.iterator) === toIterableForScalazInstances(bs.iterator)
-    }
-
+  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] = {
+    import scalaz.std.iterable._
+    equalBy(fs => toIterableForScalazInstances(fs.iterator), true)
   }
 }
