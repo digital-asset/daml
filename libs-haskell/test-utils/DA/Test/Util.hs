@@ -56,11 +56,7 @@ withEnv :: [(String, Maybe String)] -> IO t -> IO t
 withEnv vs m = bracket pushEnv popEnv (const m)
     where
         pushEnv :: IO [(String, Maybe String)]
-        pushEnv = do
-            oldEnv <- getEnvironment
-            let ks  = map fst vs
-                vs' = [(key, Nothing)  | (key, _) <- oldEnv, key `notElem` ks] ++ vs
-            replaceEnv vs'
+        pushEnv = replaceEnv vs
 
         popEnv :: [(String, Maybe String)] -> IO ()
         popEnv vs' = void $ replaceEnv vs'
