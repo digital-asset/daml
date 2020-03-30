@@ -1222,6 +1222,95 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   }
 
+  "reinterpreting lookup by key" should {
+
+    val submissionSeed = hash("interpreting lookup by key nodes")
+
+    val lookedUpCid = toContractId("#1")
+    val lookerUpTemplate = "BasicTests:LookerUpByKey"
+    val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
+    val lookerUpCid = toContractId("#2")
+    val lookerUpInst = ContractInst(
+      TypeConName(basicTestsPkgId, lookerUpTemplate),
+      assertAsVersionedValue(
+        ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice))))),
+      ""
+    )
+
+    def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+      (key.templateId, key.key) match {
+        case (
+            BasicTests_WithKey,
+            ValueRecord(_, ImmArray((_, ValueParty(`alice`)), (_, ValueInt64(42)))),
+            ) =>
+          Some(lookedUpCid)
+        case _ =>
+          None
+      }
+    }
+
+    def lookupContractMap = Map(
+      lookedUpCid -> withKeyContractInst,
+      lookerUpCid -> lookerUpInst,
+    )
+
+    def firstLookupNode[Nid, Cid, Val](
+        tx: GenTx[Nid, Cid, Val]): Option[NodeLookupByKey[Cid, Val]] =
+      tx.nodes.values.collectFirst {
+        case nl @ NodeLookupByKey(_, _, _, _) => nl
+      }
+
+    val now = Time.Timestamp.now()
+
+    "reinterpret to the same node when lookup finds a contract" in {
+      val exerciseCmd = ExerciseCommand(
+        lookerUpTemplateId,
+        lookerUpCid,
+        "Lookup",
+        ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
+      val Right((tx, txMeta @ _)) = engine
+        .submit(
+          Commands(alice, ImmArray(exerciseCmd), now, "test"),
+          participant,
+          Some(submissionSeed))
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Some(lookupNode) = firstLookupNode(tx)
+      lookupNode.result shouldBe Some(lookedUpCid)
+
+      val freshEngine = Engine()
+      val Right((reinterpreted, dependsOnTime @ _)) = freshEngine
+        .reinterpret(Some(submissionSeed -> now), participant, Set.empty, Seq(lookupNode), now)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      firstLookupNode(reinterpreted) shouldEqual Some(lookupNode)
+    }
+
+    "reinterpret to the same node when lookup doesn't find a contract" in {
+      val exerciseCmd = ExerciseCommand(
+        lookerUpTemplateId,
+        lookerUpCid,
+        "Lookup",
+        ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(57)))))
+      val Right((tx, txMeta @ _)) = engine
+        .submit(
+          Commands(alice, ImmArray(exerciseCmd), now, "test"),
+          participant,
+          Some(submissionSeed))
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val Some(lookupNode) = firstLookupNode(tx)
+      lookupNode.result shouldBe None
+
+      val freshEngine = Engine()
+      val Right((reinterpreted, dependsOnTime @ _)) = freshEngine
+        .reinterpret(Some(submissionSeed -> now), participant, Set.empty, Seq(lookupNode), now)
+        .consume(lookupContract, lookupPackage, lookupKey)
+
+      firstLookupNode(reinterpreted) shouldEqual Some(lookupNode)
+    }
+  }
+
   "getTime set dependsOnTime flag" in {
     val templateId = Identifier(basicTestsPkgId, "BasicTests:TimeGetter")
     def run(choiceName: ChoiceName) = {

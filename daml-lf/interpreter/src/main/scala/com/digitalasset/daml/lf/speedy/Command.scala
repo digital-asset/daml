@@ -46,4 +46,9 @@ object Command {
       choiceArgument: SValue,
   ) extends Command
 
+  final case class LookupByKey(
+      templateId: Identifier,
+      contractKey: SValue,
+  ) extends Command
+
 }
