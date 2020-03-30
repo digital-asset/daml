@@ -344,7 +344,7 @@ argWhitelist = S.fromList
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
     , "extractor", "prettyprint", "postgresql"
-    , "ledger", "list-parties", "allocate-parties", "upload-dar"
+    , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
     , "codegen", "java", "scala", "ts"
     , "deploy"
     , "json-api"
