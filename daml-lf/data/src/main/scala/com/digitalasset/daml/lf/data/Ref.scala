@@ -13,7 +13,7 @@ object Ref {
 
   /* Encoding of byte array */
   type HexString = IdString.HexString
-  val HexString = IdString.HexString
+  val HexString: HexStringModule[Ref.IdString.HexString] = IdString.HexString
 
   type PackageName = IdString.PackageName
   val PackageName: IdString.PackageName.type = IdString.PackageName
@@ -71,6 +71,12 @@ object Ref {
     segments.result()
   }
 
+  private def splitInTwo(s: String, splitCh: Char): Option[(String, String)] = {
+    val splitIndex = s.indexOf(splitCh.toInt)
+    if (splitIndex < 0) None
+    else Some((s.substring(0, splitIndex), s.substring(splitIndex + 1)))
+  }
+
   final class DottedName private (val segments: ImmArray[Name])
       extends Equals
       with Ordered[DottedName] {
@@ -98,8 +104,6 @@ object Ref {
   }
 
   object DottedName {
-    type T = DottedName
-
     def fromString(s: String): Either[String, DottedName] =
       if (s.isEmpty)
         Left(s"Expected a non-empty string")
@@ -107,7 +111,7 @@ object Ref {
         fromSegments(split(s, '.').toSeq)
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String): T =
+    final def assertFromString(s: String): DottedName =
       assertRight(fromString(s))
 
     def fromSegments(strings: Iterable[String]): Either[String, DottedName] = {
@@ -142,13 +146,11 @@ object Ref {
     }
   }
 
-  case class QualifiedName private (module: ModuleName, name: DottedName) {
+  final case class QualifiedName private (module: ModuleName, name: DottedName) {
     override def toString: String = module.toString + ":" + name.toString
     def qualifiedName: String = toString
   }
   object QualifiedName {
-    type T = QualifiedName
-
     def fromString(s: String): Either[String, QualifiedName] = {
       val segments = split(s, ':')
       if (segments.length != 2)
@@ -162,13 +164,31 @@ object Ref {
     }
 
     @throws[IllegalArgumentException]
-    final def assertFromString(s: String): T =
+    def assertFromString(s: String): QualifiedName =
       assertRight(fromString(s))
   }
 
   /* A fully-qualified identifier pointing to a definition in the
    * specified package. */
-  case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
+  final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName) {
+    override def toString: String = packageId.toString + ":" + qualifiedName.toString
+  }
+  object Identifier {
+    def fromString(s: String): Either[String, Identifier] = {
+      splitInTwo(s, ':').fold[Either[String, Identifier]](
+        Left(s"Separator ':' between package identifier and qualified name not found in $s")) {
+        case (packageIdString, qualifiedNameString) =>
+          for {
+            packageId <- PackageId.fromString(packageIdString)
+            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+          } yield Identifier(packageId, qualifiedName)
+      }
+    }
+
+    @throws[IllegalArgumentException]
+    def assertFromString(s: String): Identifier =
+      assertRight(fromString(s))
+  }
 
   /* Choice name in a template. */
   type ChoiceName = Name
