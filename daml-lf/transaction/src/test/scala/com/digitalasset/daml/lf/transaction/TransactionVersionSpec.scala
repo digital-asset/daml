@@ -16,6 +16,9 @@ import scala.collection.immutable.HashMap
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
 
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // Current version of the engine output only the latest version of version/values
+  // #5164 should provide a more granular way to control the version.
   def fixVersion(v: TransactionVersion) =
     VersionTimeline.maxVersion(TransactionVersions.minOutputVersion, v)
 

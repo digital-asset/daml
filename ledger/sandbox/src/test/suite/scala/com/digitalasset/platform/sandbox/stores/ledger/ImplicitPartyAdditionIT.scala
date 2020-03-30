@@ -18,13 +18,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractInst,
-  ValueText,
-  VersionedValue
-}
-import com.digitalasset.daml.lf.value.ValueVersion
+import com.digitalasset.daml.lf.value.{Value, ValueVersions}
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -87,8 +81,8 @@ class ImplicitPartyAdditionIT
           "CmdId1",
           NodeCreate(
             nodeSeed = None,
-            coid = AbsoluteContractId.assertFromString("#cId1"),
-            coinst = ContractInst(
+            coid = Value.AbsoluteContractId.assertFromString("#cId1"),
+            coinst = Value.ContractInst(
               templateId1,
               textValue("some text"),
               "agreement"
@@ -105,7 +99,7 @@ class ImplicitPartyAdditionIT
           "CmdId2",
           NodeExercises(
             nodeSeed = None,
-            targetCoid = AbsoluteContractId.assertFromString("#cId1"),
+            targetCoid = Value.AbsoluteContractId.assertFromString("#cId1"),
             templateId = templateId1,
             choiceId = Ref.ChoiceName.assertFromString("choice"),
             optLocation = None,
@@ -125,7 +119,7 @@ class ImplicitPartyAdditionIT
           "fetch-signatory",
           "CmdId3",
           NodeFetch(
-            AbsoluteContractId.assertFromString("#cId1"),
+            Value.AbsoluteContractId.assertFromString("#cId1"),
             templateId1,
             None,
             Some(Set("fetch-acting-party")),
@@ -183,7 +177,7 @@ object ImplicitPartyAdditionIT {
   )
 
   private def textValue(t: String) =
-    VersionedValue(ValueVersion("5"), ValueText(t))
+    ValueVersions.asVersionedValue(Value.ValueText(t)).toOption.get
 
   private def publishSingleNodeTx(
       ledger: Ledger,
