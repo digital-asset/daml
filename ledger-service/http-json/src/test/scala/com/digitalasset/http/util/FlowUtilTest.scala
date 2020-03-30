@@ -24,7 +24,7 @@ class FlowUtilTest
   implicit val asys: ActorSystem = ActorSystem(this.getClass.getSimpleName)
   implicit val materializer: Materializer = Materializer(asys)
 
-  "allowOnlyFirstInput" should "pass 1st inbound message all other replaced with error" in forAll {
+  "allowOnlyFirstInput" should "pass 1st message through and replace all others with errors" in forAll {
     xs: Vector[Int] =>
       val error = "Error"
       val errorNum = Math.max(xs.size - 1, 0)
