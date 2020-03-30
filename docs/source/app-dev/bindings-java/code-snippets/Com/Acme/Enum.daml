@@ -3,7 +3,7 @@
 
 -- start snippet: enum example
 
-module Com.Acme where
+module Com.Acme.Enum where
 
 data Color = Red | Blue | Green
 -- end snippet: enum example

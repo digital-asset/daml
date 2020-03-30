@@ -3,7 +3,7 @@
 
 -- start snippet: variant example
 
-module Com.Acme where
+module Com.Acme.Variants where
 
 data BookAttribute = Pages Int
                    | Authors [Text]

@@ -5,6 +5,7 @@ module DA.Test.DamlDocTest (main) where
 
 import Data.Default
 import qualified Data.Text.Extended as T
+import System.FilePath
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -106,7 +107,8 @@ doctestHeader =
     ]
 
 shouldGenerate :: [T.Text] -> [T.Text] -> Assertion
-shouldGenerate input expected = withTempFile $ \tmpFile -> do
+shouldGenerate input expected = withTempDir $ \tmpDir -> do
+    let tmpFile = tmpDir </> "Test.daml"
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
     let opts = (defaultOptions Nothing) {optHaddock=Haddock True}
     vfs <- makeVFSHandle
