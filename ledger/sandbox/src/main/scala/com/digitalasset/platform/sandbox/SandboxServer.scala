@@ -295,11 +295,11 @@ final class SandboxServer(
               writeService = new TimedWriteService(
                 indexAndWriteService.writeService,
                 metrics,
-                "daml.sandbox.writeService"),
+                MetricRegistry.name("daml", "services", "write")),
               indexService = new TimedIndexService(
                 indexAndWriteService.indexService,
                 metrics,
-                "daml.sandbox.indexService"),
+                MetricRegistry.name("daml", "services", "index")),
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,

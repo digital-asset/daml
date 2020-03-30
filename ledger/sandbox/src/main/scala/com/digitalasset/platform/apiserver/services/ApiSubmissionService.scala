@@ -27,18 +27,20 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.{Error => LfError}
+import com.digitalasset.daml.lf.transaction.BlindingInfo
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
+import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.apiserver.{
   CommandExecutionResult,
   CommandExecutor,
-  LedgerTimeHelper
+  LedgerTimeHelper,
+  MetricsNaming
 }
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -127,14 +129,17 @@ final class ApiSubmissionService private (
   private[this] val ledgerTimeHelper = LedgerTimeHelper(contractStore, commandExecutor, 3)
 
   private object Metrics {
+    private val servicePrefix: String =
+      MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
+
     val failedInterpretationsMeter: Meter =
-      metrics.meter("daml.lapi.command_submission_service.failed_command_interpretations")
+      metrics.meter(MetricRegistry.name(servicePrefix, "failed_command_interpretations"))
 
     val deduplicatedCommandsMeter: Meter =
-      metrics.meter("daml.lapi.command_submission_service.deduplicated_commands")
+      metrics.meter(MetricRegistry.name(servicePrefix, "deduplicated_commands"))
 
     val submittedTransactionsTimer: Timer =
-      metrics.timer("daml.lapi.command_submission_service.submitted_transactions")
+      metrics.timer(MetricRegistry.name(servicePrefix, "submitted_transactions"))
   }
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
