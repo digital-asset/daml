@@ -41,6 +41,9 @@ import SdkVersion
 
 main :: IO ()
 main = do
+    -- We manipulate global state via the working directory and
+    -- the environment so running tests in parallel will cause trouble.
+    setEnv "TASTY_NUM_THREADS" "1" True
     yarn : damlTypesPath : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
