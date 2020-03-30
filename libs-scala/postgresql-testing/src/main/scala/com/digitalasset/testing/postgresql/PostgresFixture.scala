@@ -5,9 +5,11 @@ package com.digitalasset.testing.postgresql
 
 import java.nio.file.Path
 
+import com.digitalasset.ports.Port
+
 case class PostgresFixture(
     jdbcUrl: String,
-    port: Int,
+    port: Port,
     tempDir: Path,
     dataDir: Path,
     confFile: Path,
