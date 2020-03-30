@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 -- | Types and functions for dealing with package config in daml.yaml
 module DA.Daml.Package.Config
     ( PackageConfigFields (..)
