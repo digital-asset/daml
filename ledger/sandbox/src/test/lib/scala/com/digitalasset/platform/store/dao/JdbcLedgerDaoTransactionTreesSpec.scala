@@ -161,7 +161,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
 
   it should "return a transaction tree with the expected shape for a partially visible transaction" in {
     for {
-      (_, tx) <- store(withChildren)
+      (_, tx) <- store(fullyTransientWithChildren)
       result <- ledgerDao.transactionsReader
         .lookupTransactionTreeById(tx.transactionId, Set("Alice")) // only two children are visible to Alice
     } yield {

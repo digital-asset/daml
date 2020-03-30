@@ -26,6 +26,9 @@ package object events {
   private[events] type DisclosureRelation = lfdata.Relation.Relation[NodeId, Party]
   private[events] val DisclosureRelation = lfdata.Relation.Relation
 
+  private[events] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
+  private[events] val FilterRelation = lfdata.Relation.Relation
+
   /**
     * Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
