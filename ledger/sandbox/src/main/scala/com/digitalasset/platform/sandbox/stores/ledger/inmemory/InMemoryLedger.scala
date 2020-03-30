@@ -32,6 +32,7 @@ import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
+  CommandId,
   Filters,
   InclusiveFilters,
   LedgerId,
@@ -500,26 +501,29 @@ class InMemoryLedger(
         case (offset, InMemoryConfigEntry(entry)) => offset -> entry
       }
 
+  private def deduplicationKey(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): String = commandId.unwrap + "%" + submitter
+
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
-        val entry = commands.get(deduplicationKey)
+        val key = deduplicationKey(commandId, submitter)
+        val entry = commands.get(key)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (deduplicationKey -> CommandDeduplicationEntry(
-            deduplicationKey,
-            deduplicateUntil))
+          commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
           CommandDeduplicationNew
         } else {
           val previousDeduplicateUntil = entry.get.deduplicateUntil
           if (submittedAt.isAfter(previousDeduplicateUntil)) {
             // Previous entry expired - new command
-            commands += (deduplicationKey -> CommandDeduplicationEntry(
-              deduplicationKey,
-              deduplicateUntil))
+            commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
             CommandDeduplicationNew
           } else {
             // Existing previous entry - deduplicate command
@@ -533,6 +537,15 @@ class InMemoryLedger(
     Future.successful {
       this.synchronized {
         commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
+        ()
+      }
+    }
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    Future.successful {
+      val key = deduplicationKey(commandId, submitter)
+      this.synchronized {
+        commands.remove(key)
         ()
       }
     }

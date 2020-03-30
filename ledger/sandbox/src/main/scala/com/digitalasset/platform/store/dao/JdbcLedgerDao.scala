@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -29,6 +30,7 @@ import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{
   Filters,
@@ -1656,15 +1658,22 @@ private class JdbcLedgerDao(
       "deduplicate_until"
     )
 
+  private def deduplicationKey(
+      commandId: domain.CommandId,
+      submitter: Ref.Party,
+  ): String = commandId.unwrap + "%" + submitter
+
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: domain.CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+      val key = deduplicationKey(commandId, submitter)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
-          "deduplicationKey" -> deduplicationKey,
+          "deduplicationKey" -> key,
           "submittedAt" -> submittedAt,
           "deduplicateUntil" -> deduplicateUntil)
         .executeUpdate()
@@ -1675,7 +1684,7 @@ private class JdbcLedgerDao(
       } else {
         // Deduplication row already exists
         val result = SQL_SELECT_COMMAND
-          .on("deduplicationKey" -> deduplicationKey)
+          .on("deduplicationKey" -> key)
           .as(CommandDataParser.single)
 
         CommandDeduplicationDuplicate(result.deduplicateUntil)
@@ -1691,6 +1700,22 @@ private class JdbcLedgerDao(
     dbDispatcher.executeSql("remove_expired_deduplication_data") { implicit conn =>
       SQL_DELETE_EXPIRED_COMMANDS
         .on("currentTime" -> currentTime)
+        .execute()
+      ()
+    }
+
+  private val SQL_DELETE_COMMAND = SQL("""
+     |delete from participant_command_submissions
+     |where deduplication_key = {deduplicationKey}
+    """.stripMargin)
+
+  override def stopDeduplicatingCommand(
+      commandId: domain.CommandId,
+      submitter: Party): Future[Unit] =
+    dbDispatcher.executeSql("stop_deduplicating_command") { implicit conn =>
+      val key = deduplicationKey(commandId, submitter)
+      SQL_DELETE_COMMAND
+        .on("deduplicationKey" -> key)
         .execute()
       ()
     }

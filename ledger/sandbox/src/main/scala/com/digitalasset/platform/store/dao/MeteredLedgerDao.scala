@@ -11,12 +11,13 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails, TransactionFilter}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -53,6 +54,8 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     val deduplicateCommand: Timer = metrics.timer(prefix :+ "deduplicate_command")
     val removeExpiredDeduplicationData: Timer =
       metrics.timer(prefix :+ "remove_expired_deduplication_data")
+    val stopDeduplicatingCommand: Timer =
+      metrics.timer(prefix :+ "stop_deduplicating_command")
   }
 
   override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
@@ -138,17 +141,23 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
   override val completions: CommandCompletionsReader[Offset] = ledgerDao.completions
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     timedFuture(
       Metrics.deduplicateCommand,
-      ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
+      ledgerDao.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
     timedFuture(
       Metrics.removeExpiredDeduplicationData,
       ledgerDao.removeExpiredDeduplicationData(currentTime))
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    timedFuture(
+      Metrics.stopDeduplicatingCommand,
+      ledgerDao.stopDeduplicatingCommand(commandId, submitter))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)

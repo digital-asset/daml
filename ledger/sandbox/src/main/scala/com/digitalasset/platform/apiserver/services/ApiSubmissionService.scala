@@ -48,7 +48,6 @@ import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionS
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.ErrorCause
 import io.grpc.Status
-import scalaz.syntax.tag._
 
 import scala.collection.breakOut
 import scala.compat.java8.FutureConverters
@@ -144,21 +143,22 @@ final class ApiSubmissionService private (
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
       implicit logCtx: LoggingContext): Future[Unit] = {
-    val deduplicationKey = commands.submitter + "%" + commands.commandId.unwrap
     val submittedAt = commands.submittedAt
     val deduplicateUntil = commands.deduplicateUntil
 
-    submissionService.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil).flatMap {
-      case CommandDeduplicationNew =>
-        recordOnLedger(seed, commands)
-          .transform(mapSubmissionResult)
-      case CommandDeduplicationDuplicate(until) =>
-        Metrics.deduplicatedCommandsMeter.mark()
-        val reason =
-          s"A command with the same command ID ${commands.commandId} and submitter ${commands.submitter} was submitted before. Deduplication window until $until"
-        logger.debug(reason)
-        Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
-    }
+    submissionService
+      .deduplicateCommand(commands.commandId, commands.submitter, submittedAt, deduplicateUntil)
+      .flatMap {
+        case CommandDeduplicationNew =>
+          recordOnLedger(seed, commands)
+            .transform(mapSubmissionResult)
+        case CommandDeduplicationDuplicate(until) =>
+          Metrics.deduplicatedCommandsMeter.mark()
+          val reason =
+            s"A command with the same command ID ${commands.commandId} and submitter ${commands.submitter} was submitted before. Deduplication window until $until"
+          logger.debug(reason)
+          Future.failed(Status.ALREADY_EXISTS.augmentDescription(reason).asRuntimeException)
+      }
   }
 
   override def submit(request: SubmitRequest): Future[Unit] =

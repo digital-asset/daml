@@ -21,6 +21,7 @@ import com.digitalasset.dec.{DirectExecutionContext => DEC}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
+  CommandId,
   LedgerId,
   LedgerOffset,
   PackageEntry,
@@ -266,8 +267,15 @@ abstract class LedgerBackedIndexService(
 
   /** Deduplicate commands */
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
+    ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
+
+  override def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit] =
+    ledger.stopDeduplicatingCommand(commandId, submitter)
 }
