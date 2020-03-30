@@ -357,7 +357,16 @@ class WebSocketService(
       }
       .via(allowOnlyFirstInput(
         InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
-      .flatMapMerge(2, x => sourceFromQuery(Q)(x)(jwt, jwtPayload))
+      .flatMapMerge(
+        2,
+        x =>
+          x.flatMap {
+              case (offPrefix, qq: Q.Query[q]) =>
+                implicit val SQ: StreamQuery[q] = qq.alg
+                getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
+            }
+            .fold(e => Source.single(-\/(e)), s => s.map(\/-(_))): Source[Error \/ Message, NotUsed]
+      )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(_.fold(e => wsErrorMessage(e), identity): Message)
   }
@@ -374,19 +383,6 @@ class WebSocketService(
         InvalidUserInput(
           "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"))
   }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def sourceFromQuery[A](Q: StreamQueryReader[A])(
-      x: Error \/ (Option[domain.StartingOffset], Q.Query[_]))(
-      jwt: Jwt,
-      jwtPayload: JwtPayload
-  ): Source[Error \/ Message, NotUsed] =
-    x.flatMap {
-        case (offPrefix, qq: Q.Query[q]) =>
-          implicit val SQ: StreamQuery[q] = qq.alg
-          getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
-      }
-      .fold(e => Source.single(-\/(e)), s => s.map(\/-(_)))
 
   private def getTransactionSourceForParty[A: StreamQuery](
       jwt: Jwt,
