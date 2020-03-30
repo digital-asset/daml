@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService
 }
 import com.daml.ledger.participant.state.v1.SeedService
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.logging.LoggingContext
 import com.digitalasset.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
@@ -59,7 +58,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         participantConfig.participantId,
         metrics,
         jdbcUrl,
-        seedService = SeedService(Seeding.Strong),
+        seedService = SeedService(config.seeding),
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }

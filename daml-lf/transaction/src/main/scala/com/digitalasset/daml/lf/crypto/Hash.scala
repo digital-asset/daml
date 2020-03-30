@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package crypto
 
 import java.nio.ByteBuffer
-import java.security.{MessageDigest, SecureRandom}
+import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
@@ -31,7 +31,7 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
-  private val version = 0.toByte
+  val version = 0.toByte
   val underlyingHashLength = 32
 
   private case class HashingError(msg: String) extends Exception with NoStackTrace
@@ -64,17 +64,13 @@ object Hash {
 
   // A pseudo random generator for Hash based on hmac
   // We mix the given seed with time to mitigate very bad seed.
-  def random(seed: Hash): () => Hash = {
+  // Must be given a high entropy seed when used in production.
+  // Thread safe
+  def secureRandom(seed: Hash): () => Hash = {
     val counter = new AtomicLong
-    val seedWithTime =
-      hMacBuilder(seed).add(Time.Timestamp.now().micros).build
     () =>
-      hMacBuilder(seedWithTime).add(counter.getAndIncrement()).build
+      hMacBuilder(seed).add(counter.getAndIncrement()).build
   }
-
-  // A pseudo random generator for Hash using the best available source of entropy to generate the seed.
-  def secureRandom: () => Hash =
-    random(assertFromByteArray(SecureRandom.getInstanceStrong.generateSeed(underlyingHashLength)))
 
   implicit val ordering: Ordering[Hash] =
     Ordering.by(_.bytes)
