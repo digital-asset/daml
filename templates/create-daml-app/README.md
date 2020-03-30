@@ -1,5 +1,3 @@
-**DISCLAIMER: This is a work in progress!**
-
 [![DAML logo](https://daml.com/static/images/logo.png)](https://www.daml.com)
 
 [![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
