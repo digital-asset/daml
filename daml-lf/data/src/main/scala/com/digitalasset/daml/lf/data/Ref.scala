@@ -13,7 +13,7 @@ object Ref {
 
   /* Encoding of byte array */
   type HexString = IdString.HexString
-  val HexString: HexStringModule[Ref.IdString.HexString] = IdString.HexString
+  val HexString: IdString.HexString.type = IdString.HexString
 
   type PackageName = IdString.PackageName
   val PackageName: IdString.PackageName.type = IdString.PackageName
