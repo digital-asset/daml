@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import scala.util.Try
 import org.typelevel.paiges._
 import org.typelevel.paiges.Doc._
 import com.digitalasset.daml.lf.value.Value
@@ -342,20 +341,13 @@ object Pretty {
       case RelativeContractId(rcoid) => str(rcoid)
     }
 
-  def prettyActiveContracts(c: L.LedgerData): Doc = {
-    def ltNodeId(a: AbsoluteContractId, b: AbsoluteContractId): Boolean = {
-      val ap = a.coid.drop(1).split(':')
-      val bp = b.coid.drop(1).split(':')
-      Try(ap(0).toInt < bp(0).toInt || (ap(0).toInt == bp(0).toInt && ap(1).toInt < bp(1).toInt))
-        .getOrElse(false)
-    }
+  def prettyActiveContracts(c: L.LedgerData): Doc =
     fill(
       comma + space,
       c.activeContracts.toList
-        .sortWith(ltNodeId)
+        .sortBy(_.toString)
         .map(prettyContractId)
     )
-  }
 
   def prettyPackageId(pkgId: PackageId): Doc =
     text(pkgId.take(8))

@@ -1239,31 +1239,26 @@ object SBuiltin {
       val ptxOld = machine.ptx
       val commitLocationOld = machine.commitLocation
 
-      def clearCommit(): Unit = {
-        machine.committers = Set.empty
-        machine.commitLocation = None
-        machine.ptx = PartialTransaction.initial()
-      }
-
       args.get(0) match {
         case SBool(true) =>
           // update expression threw an exception. we're
           // now done.
-          clearCommit
+          machine.clearCommit
           machine.ctrl = CtrlValue.Unit
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
           ptxOld.finish match {
             case Left(_) =>
+              machine.clearCommit
               machine.ctrl = CtrlValue.Unit
-              clearCommit
             case Right(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.ctrl = CtrlValue.Unit
-              throw SpeedyHungry(SResultScenarioMustFail(tx, committerOld, _ => clearCommit))
+              throw SpeedyHungry(
+                SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1286,9 +1281,7 @@ object SBuiltin {
           tx = tx,
           committers = machine.committers,
           callback = newValue => {
-            machine.committers = Set.empty
-            machine.commitLocation = None
-            machine.ptx = PartialTransaction.initial()
+            machine.clearCommit
             machine.ctrl = CtrlValue(newValue)
           },
         ),
