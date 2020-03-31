@@ -119,13 +119,13 @@ class KeyValueParticipantStateReaderSpec
 
       Future
         .sequence(
-          Seq(None, Some(toOffset(1)), Some(toOffset(3)), Some(toOffset(4)))
+          Seq(None, Some(toOffset(1)), Some(toOffset(2)), Some(toOffset(3)))
             .map(offset => offsetsFrom(instances(offset).stateUpdates(offset)))
         )
         .map {
           case Seq(all, afterFirst, beforeLast, afterLast) =>
-            all should have size 4
-            afterFirst should have size 3
+            all should have size 3
+            afterFirst should have size 2
             beforeLast should have size 1
             afterLast should have size 0
         }
