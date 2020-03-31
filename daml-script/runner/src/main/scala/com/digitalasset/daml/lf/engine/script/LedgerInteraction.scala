@@ -11,6 +11,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import akka.util.ByteString
 import io.grpc.{Status, StatusRuntimeException}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -248,9 +249,6 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
 //    for the JSON API since it always infers the party from the JWT (which also means it does
 //    not support multi-party tokens). We add a validation step to `submit` and `query` that
 //    errors out if the token party does not match the party pased as an argument.
-// 4. `submitMustFail` is not yet supported. No fundamental reason for this but it’s also not
-//    very useful in a production ledger. Currently, we just fail during unmarshalling for
-//    failed requests.
 class JsonLedgerClient(
     uri: Uri,
     token: Jwt,
@@ -318,13 +316,11 @@ class JsonLedgerClient(
         case command :: Nil =>
           command match {
             case ScriptLedgerClient.CreateCommand(tplId, argument) =>
-              create(tplId, argument).map(r => Right(List(r)))
-
+              create(tplId, argument)
             case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
-              exercise(tplId, cid, choice, argument).map(r => Right(List(r)))
-
+              exercise(tplId, cid, choice, argument)
             case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
-              exerciseByKey(tplId, key, choice, argument).map(r => Right(List(r)))
+              exerciseByKey(tplId, key, choice, argument)
             case ScriptLedgerClient.CreateAndExerciseCommand(tplId, template, choice, argument) =>
               createAndExercise(tplId, template, choice, argument)
           }
@@ -355,36 +351,26 @@ class JsonLedgerClient(
     }
   }
 
-  private def create(
-      tplId: Identifier,
-      argument: Value[AbsoluteContractId]): Future[ScriptLedgerClient.CreateResult] = {
+  private def create(tplId: Identifier, argument: Value[AbsoluteContractId])
+    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.CreateResult]]] = {
     val ctx = tplId.qualifiedName
     val ifaceType = Converter.toIfaceType(ctx, TTyCon(tplId)).right.get
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("create")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.CreateArgs(tplId, jsonArgument).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
-    Http()
-      .singleRequest(req)
-      .flatMap { resp =>
-        Unmarshal(resp.entity).to[JsonLedgerClient.CreateResponse]
-      }
-      .map {
+    commandRequest[JsonLedgerClient.CreateArgs, JsonLedgerClient.CreateResponse](
+      "create",
+      JsonLedgerClient.CreateArgs(tplId, jsonArgument))
+      .map(_.map {
         case JsonLedgerClient.CreateResponse(cid) =>
-          ScriptLedgerClient.CreateResult(AbsoluteContractId.assertFromString(cid))
-      }
+          List(ScriptLedgerClient.CreateResult(AbsoluteContractId.assertFromString(cid)))
+      })
   }
 
   private def exercise(
       tplId: Identifier,
       contractId: AbsoluteContractId,
       choice: String,
-      argument: Value[AbsoluteContractId]): Future[ScriptLedgerClient.ExerciseResult] = {
+      argument: Value[AbsoluteContractId])
+    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val ctx = tplId.qualifiedName
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -392,34 +378,26 @@ class JsonLedgerClient(
       .template
       .choices(Name.assertFromString(choice))
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("exercise")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
-    Http()
-      .singleRequest(req)
-      .flatMap { resp =>
-        Unmarshal(resp.entity).to[JsonLedgerClient.ExerciseResponse]
-      }
-      .map {
+    commandRequest[JsonLedgerClient.ExerciseArgs, JsonLedgerClient.ExerciseResponse](
+      "exercise",
+      JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument))
+      .map(_.map {
         case JsonLedgerClient.ExerciseResponse(result) =>
-          ScriptLedgerClient.ExerciseResult(
-            tplId,
-            choice,
-            result.convertTo[Value[AbsoluteContractId]](
-              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))))
-      }
+          List(
+            ScriptLedgerClient.ExerciseResult(
+              tplId,
+              choice,
+              result.convertTo[Value[AbsoluteContractId]](
+                LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_)))))
+      })
   }
 
   private def exerciseByKey(
       tplId: Identifier,
       key: Value[AbsoluteContractId],
       choice: String,
-      argument: Value[AbsoluteContractId]): Future[ScriptLedgerClient.ExerciseResult] = {
+      argument: Value[AbsoluteContractId])
+    : Future[Either[StatusRuntimeException, List[ScriptLedgerClient.ExerciseResult]]] = {
     val ctx = tplId.qualifiedName
     val choiceDef = envIface
       .typeDecls(tplId)
@@ -428,30 +406,18 @@ class JsonLedgerClient(
       .choices(Name.assertFromString(choice))
     val jsonKey = LfValueCodec.apiValueToJsValue(key)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("exercise")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient
-          .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument)
-          .toJson
-          .prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
-    Http()
-      .singleRequest(req)
-      .flatMap { resp =>
-        Unmarshal(resp.entity).to[JsonLedgerClient.ExerciseResponse]
-      }
-      .map {
-        case JsonLedgerClient.ExerciseResponse(result) =>
+    commandRequest[JsonLedgerClient.ExerciseByKeyArgs, JsonLedgerClient.ExerciseResponse](
+      "exercise",
+      JsonLedgerClient
+        .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument)).map(_.map {
+      case JsonLedgerClient.ExerciseResponse(result) =>
+        List(
           ScriptLedgerClient.ExerciseResult(
             tplId,
             choice,
             result.convertTo[Value[AbsoluteContractId]](
-              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))))
-      }
+              LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_)))))
+    })
   }
 
   private def createAndExercise(
@@ -468,35 +434,55 @@ class JsonLedgerClient(
       .choices(Name.assertFromString(choice))
     val jsonTemplate = LfValueCodec.apiValueToJsValue(template)
     val jsonArgument = LfValueCodec.apiValueToJsValue(argument)
+    commandRequest[
+      JsonLedgerClient.CreateAndExerciseArgs,
+      JsonLedgerClient.CreateAndExerciseResponse](
+      "create-and-exercise",
+      JsonLedgerClient
+        .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument))
+      .map(_.map {
+        case JsonLedgerClient.CreateAndExerciseResponse(cid, result) =>
+          List(
+            ScriptLedgerClient
+              .CreateResult(AbsoluteContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
+            ScriptLedgerClient.ExerciseResult(
+              tplId,
+              choice,
+              result.convertTo[Value[AbsoluteContractId]](
+                LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))))
+          )
+      })
+  }
+
+  def getResponseDataBytes(
+      resp: HttpResponse)(implicit mat: Materializer, ec: ExecutionContext): Future[String] = {
+    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
+    fb
+  }
+
+  def commandRequest[In, Out](endpoint: String, argument: In)(
+      implicit argumentWriter: JsonWriter[In],
+      outputReader: RootJsonReader[Out]): Future[Either[StatusRuntimeException, Out]] = {
     val req = HttpRequest(
       method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("create-and-exercise")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient
-          .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument)
-          .toJson
-          .prettyPrint),
+      uri = uri.withPath(uri.path./("v1")./(endpoint)),
+      entity = HttpEntity(ContentTypes.`application/json`, argument.toJson.prettyPrint),
       headers = List(Authorization(OAuth2BearerToken(token.value)))
     )
-    Http()
-      .singleRequest(req)
-      .flatMap { resp =>
-        Unmarshal(resp.entity).to[JsonLedgerClient.CreateAndExerciseResponse]
+    Http().singleRequest(req).flatMap { resp =>
+      if (resp.status.isSuccess) {
+        Unmarshal(resp.entity).to[Out].map(Right(_))
+      } else if (resp.status == StatusCodes.InternalServerError) {
+        // TODO (MK) Using a grpc exception here doesn’t make that much sense.
+        // We should refactor this to provide something more general.
+        getResponseDataBytes(resp).map(description =>
+          Left(new StatusRuntimeException(Status.UNKNOWN.withDescription(description))))
+      } else {
+        // A non-500 failure is something like invalid JSON. In that case
+        // the script runner is just broken so fail hard.
+        Future.failed(new RuntimeException(s"Request failed: $resp"))
       }
-      .map {
-        case JsonLedgerClient.CreateAndExerciseResponse(cid, result) =>
-          Right(
-            List(
-              ScriptLedgerClient
-                .CreateResult(AbsoluteContractId.assertFromString(cid)): ScriptLedgerClient.CommandResult,
-              ScriptLedgerClient.ExerciseResult(
-                tplId,
-                choice,
-                result.convertTo[Value[AbsoluteContractId]](
-                  LfValueCodec.apiValueJsonReader(choiceDef.returnType, damlLfTypeLookup(_))))
-            ))
-      }
+    }
   }
 }
 
