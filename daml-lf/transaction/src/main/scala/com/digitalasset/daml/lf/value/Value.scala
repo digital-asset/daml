@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
-import scalaz.{Equal, Order}
+import scalaz.{@@, Equal, Order, Tag}
 import scalaz.Ordering.EQ
 import scalaz.std.option._
 import scalaz.std.tuple._
@@ -254,7 +254,17 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
   // currently those can be structs, although we should probably ban that.
   final case class ValueStruct[+Cid](fields: ImmArray[(Name, Value[Cid])]) extends Value[Cid]
 
-  implicit def `Value Order instance`[Cid: Order]: Order[Value[Cid]] = new `Value Order instance`
+  /** The data constructors of a variant or enum, if defined. */
+  type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
+
+  /** This comparison assumes that you are comparing values of matching type,
+    * and, like the lf-value-json decoder, all variants and enums contain
+    * their identifier.  Moreover, the `Scope` must include all of those
+    * identifiers.
+    */
+  implicit def `Value Order instance`[Cid: Order, Scope <: LookupVariantEnum](
+      implicit Scope: Scope): Order[Value[Cid] @@ Scope] =
+    Tag.subst(new `Value Order instance`(Scope): Order[Value[Cid]])
 
   /** A contract instance is a value plus the template that originated it. */
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
@@ -398,11 +408,13 @@ sealed abstract class ValueInstances {
     }
 }
 
-private final class `Value Order instance`[Cid](implicit val E: Order[Cid])
+private final class `Value Order instance`[Cid](Scope: Value.LookupVariantEnum)(
+    implicit val E: Order[Cid])
     extends Order[Value[Cid]]
     with `Value Equal instance`[Cid] {
   import Value._
   import scalaz.std.anyVal._, scalaz.std.string._
+  import ScalazEqual._2, _2._
 
   override final def order(a: Value[Cid], b: Value[Cid]) = {
     val (ixa, cmp) = ixv(a)
@@ -426,6 +438,10 @@ private final class `Value Order instance`[Cid](implicit val E: Order[Cid])
     case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
     case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
     case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
+    case ValueEnum(idA, a) => (130, k { case ValueEnum(idB, b) => ??? })
+    case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
+    case ValueStruct(a) => (150, k { case ValueStruct(b) => a ?|? b })
+    case ValueVariant(idA, conA, a) => (160, k { case ValueVariant(idB, conB, b) => ??? })
   }
 
   private[this] def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
