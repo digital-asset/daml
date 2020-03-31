@@ -131,7 +131,7 @@ commandParser = subparser $ fold
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Run with old sandbox."))
+        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Run with sandbox-classic."))
 
     navigatorFlag =
         -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
