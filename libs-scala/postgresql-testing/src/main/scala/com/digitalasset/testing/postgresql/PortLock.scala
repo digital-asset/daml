@@ -16,8 +16,17 @@ import com.digitalasset.ports.Port
 
 private[postgresql] object PortLock {
 
-  private val portLockDirectory: Path =
-    Paths.get(sys.props("java.io.tmpdir"), "daml", "postgresql-testing", "ports")
+  // We can't use `sys.props("java.io.tmpdir")` because Bazel changes this for each test run.
+  // For this to be useful, it needs to be shared across concurrent runs.
+  private val portLockDirectory: Path = {
+    val tempDirectory =
+      if (System.getProperty("os.name").startsWith("Windows")) {
+        Paths.get(sys.env("LOCALAPPDATA"), "Temp")
+      } else {
+        Paths.get("/tmp")
+      }
+    tempDirectory.resolve(Paths.get("daml", "build", "postgresql-testing", "ports"))
+  }
 
   def lock(port: Port): Either[FailedToLock, Locked] = {
     Files.createDirectories(portLockDirectory)
