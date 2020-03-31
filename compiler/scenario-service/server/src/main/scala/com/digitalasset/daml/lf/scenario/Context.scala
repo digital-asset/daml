@@ -150,15 +150,9 @@ class Context(val contextId: Context.ContextId) {
   def allPackages: Map[PackageId, Ast.Package] =
     extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, None))
 
-  private val nextTransactionSeedAndSubmissionTime = {
-    // we seed crypto.Hash.secureRandom with time to get different coid at each run.
-    // This is fine
-    val nextHash =
-      crypto.Hash.secureRandom(
-        crypto.Hash.hashPrivateKey(s"scenario-service started at ${data.Time.Timestamp.now()}"))
-    () =>
-      Some(nextHash() -> data.Time.Timestamp.now())
-  }
+  // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
+  private val transactionSeedAndSubmissionTime =
+    Some((crypto.Hash.hashPrivateKey(s"scenario-service"), data.Time.Timestamp.MinValue))
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
@@ -172,7 +166,7 @@ class Context(val contextId: Context.ContextId) {
         checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
         sexpr = defn,
         compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get,
-        transactionSeedAndSubmissionTime = nextTransactionSeedAndSubmissionTime()
+        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime
       )
   }
 

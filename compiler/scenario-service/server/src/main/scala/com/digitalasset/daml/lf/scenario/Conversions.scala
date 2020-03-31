@@ -313,9 +313,7 @@ final class Conversions(
       case acoid: V.AbsoluteContractId =>
         coidToNodeId(acoid)
       case V.RelativeContractId(_) =>
-        remy.catcha(
-          throw new IllegalArgumentException("unexpected relative cotnract id")
-        )
+        throw new IllegalArgumentException("unexpected relative cotnract id")
     }
 
   def convertScenarioStep(
