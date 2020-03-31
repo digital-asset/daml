@@ -143,7 +143,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "return the same result regardless the page size" in {
+  it should "return the same result regardless of the page size" in {
     for {
       (from, to, _) <- storeTestFixture()
       result1 <- transactionsOf(
