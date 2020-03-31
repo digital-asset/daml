@@ -192,8 +192,10 @@ export type StreamCloseEvent = {
  * @typeparam State The accumulated state.
  */
 export interface Stream<T extends object, K, I extends string, State> {
+  on(type: 'live', listener: (state: State) => void): void;
   on(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
   on(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
+  off(type: 'live', listener: (state: State) => void): void;
   off(type: 'change', listener: (state: State, events: readonly Event<T, K, I>[]) => void): void;
   off(type: 'close', listener: (closeEvent: StreamCloseEvent) => void): void;
   close(): void;
@@ -490,7 +492,7 @@ class Ledger {
   ): Stream<T, K, I, State> {
     const protocols = ['jwt.token.' + this.token, 'daml.ws.auth'];
     const ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
-    let haveSeenEvents = false;
+    let isLive = false;
     let state = init;
     const emitter = new EventEmitter();
     ws.addEventListener('open', () => {
@@ -500,21 +502,11 @@ class Ledger {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
-        if (events.length == 0 && isRecordWith('offset', json)) {
-          if (!haveSeenEvents) {
-            // NOTE(MH): If we receive the marker indicating that we are switching
-            // from the ACS to the live stream and we haven't received any events
-            // yet, we signal this by pretending we received an empty list of
-            // events. This never does any harm.
-            haveSeenEvents = true;
-            emitter.emit('change', state, []);
-          }
-        } else {
-          state = change(state, events);
-          if (isRecordWith('offset', json)) {
-            haveSeenEvents = true;
-          }
-          emitter.emit('change', state, events);
+        state = change(state, events);
+        emitter.emit('change', state, events);
+        if (isRecordWith('offset', json) && !isLive) {
+          isLive = true;
+          emitter.emit('live', state);
         }
       } else if (isRecordWith('warnings', json)) {
         console.warn('Ledger.streamQuery warnings', json);

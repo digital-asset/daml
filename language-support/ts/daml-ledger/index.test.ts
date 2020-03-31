@@ -5,19 +5,20 @@ import { Template, Choice, ContractId } from "@daml/types";
 import Ledger, {CreateEvent} from "./index";
 import { Event } from "./index";
 import * as jtv from "@mojotech/json-type-validation";
-import type { EventEmitter } from 'events';
+import { EventEmitter } from 'events';
 import mockConsole from "jest-mock-console";
 
+const mockLive = jest.fn();
 const mockChange = jest.fn();
 const mockConstructor = jest.fn();
 const mockSend = jest.fn();
-const mockFunctions = [mockChange, mockConstructor, mockSend];
+const mockFunctions = [mockLive, mockChange, mockConstructor, mockSend];
 
 type Foo = {key: string};
 const fooKey = 'fooKey';
 
 type Message =
-  | { events: Event<Foo>[] }
+  | { events: Event<Foo>[]; offset?: string }
   | { warnings: string[] }
   | { errors: string[] }
   | string //for unexpected messages
@@ -147,6 +148,18 @@ describe("streamQuery", () => {
     mockInstance.serverSend({ errors: ["not good!"] });
     expect(console.error).toHaveBeenCalledWith("Ledger.streamQuery errors", { errors: ["not good!"] });
     restoreConsole();
+  });
+
+  test("receive live event", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
   });
 
   test("receive empty events", () => {

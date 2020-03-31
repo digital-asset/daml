@@ -154,12 +154,12 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
     const query = queryFactory ? queryFactory() : undefined;
     console.debug(`mount useStreamQuery(${template.templateId}, ...)`, query);
     const stream = state.ledger.streamQuery(template, query);
+    stream.on('live', () => setResult(result => ({...result, loading: false})));
     stream.on('change', contracts => setResult(result => ({...result, contracts})));
     stream.on('close', closeEvent => {
       console.error('useStreamQuery: web socket closed', closeEvent);
       setResult(result => ({...result, loading: true}));
     });
-    setResult(result => ({...result, loading: false}));
     return (): void => {
       console.debug(`unmount useStreamQuery(${template.templateId}, ...)`, query);
       stream.close();
