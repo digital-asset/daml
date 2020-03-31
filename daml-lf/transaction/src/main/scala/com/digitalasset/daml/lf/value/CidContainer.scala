@@ -97,6 +97,9 @@ trait CidContainer[+A] {
       case rcoid: Value.RelativeContractId => Left(rcoid)
     }(self)
 
+  // Sets the suffix of any the V1 AbsoluteContractId `coid` of the container that are not already suffixed.
+  // Uses `f(coid.discriminator)` as suffix.
+  // Fails if encounters relative contract id or a V0 contract id.
   final def suffixCid[B](f: crypto.Hash => Bytes)(
       implicit suffixer: CidSuffixer[A, B]
   ): Either[Value.ContractId, B] =
