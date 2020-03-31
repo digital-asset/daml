@@ -1074,7 +1074,7 @@ Please note that Streaming API does not allow multiple requests over the same We
 Error and Warning Reporting
 ===========================
 
-Errors and warnings reported as part of the regular ``on-message`` flow.
+Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
 
 Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
 
