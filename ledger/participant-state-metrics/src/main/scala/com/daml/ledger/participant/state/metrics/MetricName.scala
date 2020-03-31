@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.metrics
 
 import scala.language.implicitConversions
 
-case class MetricName(segments: Vector[String]) extends AnyVal {
+final class MetricName(private val segments: Vector[String]) extends AnyVal {
   def :+(segment: String): MetricName =
     new MetricName(segments :+ segment)
 
@@ -18,7 +18,7 @@ object MetricName {
   val DAML: MetricName = MetricName("daml")
 
   def apply(segments: String*): MetricName =
-    MetricName(segments.toVector)
+    new MetricName(segments.toVector)
 
   implicit def metricNameToString(name: MetricName): String =
     name.toString
