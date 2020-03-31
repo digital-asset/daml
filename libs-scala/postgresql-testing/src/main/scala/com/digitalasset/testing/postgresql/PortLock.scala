@@ -31,13 +31,13 @@ private[postgresql] object PortLock {
         Right(locked)
       } else {
         locked.unlock()
-        Left(FailedToLock)
+        Left(FailedToLock(port))
       }
     } catch {
       case _: OverlappingFileLockException =>
         channel.close()
         file.close()
-        Left(FailedToLock)
+        Left(FailedToLock(port))
     }
   }
 
@@ -54,8 +54,6 @@ private[postgresql] object PortLock {
     }
   }
 
-  sealed trait FailedToLock
-
-  object FailedToLock extends FailedToLock
+  case class FailedToLock(port: Port) extends RuntimeException(s"Failed to lock port $port.")
 
 }

@@ -19,7 +19,7 @@ class FreePortSpec extends WordSpec with Matchers {
     "lock, to prevent race conditions" in {
       val lockedPort = FreePort.find()
       try {
-        PortLock.lock(lockedPort.port) should be(Left(PortLock.FailedToLock))
+        PortLock.lock(lockedPort.port) should be(Left(PortLock.FailedToLock(lockedPort.port)))
       } finally {
         lockedPort.unlock()
       }
@@ -29,14 +29,11 @@ class FreePortSpec extends WordSpec with Matchers {
       val lockedPort = FreePort.find()
       lockedPort.unlock()
 
-      val lock = PortLock.lock(lockedPort.port)
-      lock match {
-        case Right(locked) =>
-          locked.unlock()
-          succeed
-        case Left(PortLock.FailedToLock) =>
-          fail("Failed to lock the port.")
-      }
+      val locked = PortLock
+        .lock(lockedPort.port)
+        .fold(failure => throw failure, identity)
+      locked.unlock()
+      succeed
     }
 
     "can be unlocked twice" in {

@@ -12,7 +12,7 @@ import scala.annotation.tailrec
 private[postgresql] object FreePort {
 
   @tailrec
-  def find(): PortLock.Locked = {
+  def find(tries: Int = 10): PortLock.Locked = {
     val socket = new ServerSocket(0, 0, InetAddress.getLoopbackAddress)
     val portLock = try {
       val port = Port(socket.getLocalPort)
@@ -24,9 +24,13 @@ private[postgresql] object FreePort {
       case Right(locked) =>
         socket.close()
         locked
-      case Left(PortLock.FailedToLock) =>
+      case Left(failure) =>
         socket.close()
-        find()
+        if (tries <= 1) {
+          throw failure
+        } else {
+          find(tries - 1)
+        }
     }
   }
 
