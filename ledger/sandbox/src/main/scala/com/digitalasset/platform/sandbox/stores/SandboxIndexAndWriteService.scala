@@ -121,7 +121,6 @@ object SandboxIndexAndWriteService {
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {
-      _ <- new HeartbeatScheduler(timeProvider, 1.seconds, "heartbeats", ledger.publishHeartbeat)
       _ <- new HeartbeatScheduler(
         TimeProvider.UTC,
         10.minutes,
