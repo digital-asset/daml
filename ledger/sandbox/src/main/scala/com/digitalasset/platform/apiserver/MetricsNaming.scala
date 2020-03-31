@@ -34,7 +34,7 @@ private[apiserver] object MetricsNaming {
   }
 
   // Turns a camelCased string into a snake_cased one
-  private[apiserver] val camelCaseToSnakeCase: String => String =
+  val camelCaseToSnakeCase: String => String =
     snakifyWholeWord andThen snakifyStart andThen snakifyEnd andThen snakify
 
   private[this] val MetricPrefix = MetricName.DAML :+ "lapi"
