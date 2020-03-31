@@ -366,7 +366,7 @@ server_conformance_test(
     name = "conformance-test-lots-of-parties",
     flaky = True,
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
