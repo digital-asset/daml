@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
 import com.daml.ledger.participant.state.kvutils.committing.Common._
 import com.daml.ledger.participant.state.kvutils.committing.ProcessTransactionSubmission._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -518,17 +519,14 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "committer", "transaction")
+    private val prefix = MetricName("daml", "kvutils", "committer", "transaction")
 
-    val runTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
-    val interpretTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "interpret_timer"))
-    val accepts: Counter = metricRegistry.counter(MetricRegistry.name(prefix, "accepts"))
+    val runTimer: Timer = metricRegistry.timer(prefix :+ "run_timer")
+    val interpretTimer: Timer = metricRegistry.timer(prefix :+ "interpret_timer")
+    val accepts: Counter = metricRegistry.counter(prefix :+ "accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
-        .map(
-          v =>
-            v.getNumber -> metricRegistry.counter(
-              MetricRegistry.name(prefix, s"rejections_${v.name}")))
+        .map(v => v.getNumber -> metricRegistry.counter(prefix :+ s"rejections_${v.name}"))
         .toMap
   }
 }

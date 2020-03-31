@@ -11,6 +11,7 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -295,11 +296,11 @@ final class SandboxServer(
               writeService = new TimedWriteService(
                 indexAndWriteService.writeService,
                 metrics,
-                MetricRegistry.name("daml", "services", "write")),
+                MetricName("daml", "services", "write")),
               indexService = new TimedIndexService(
                 indexAndWriteService.indexService,
                 metrics,
-                MetricRegistry.name("daml", "services", "index")),
+                MetricName("daml", "services", "index")),
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,

@@ -10,6 +10,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -113,16 +114,12 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
-    private val prefix: String = MetricRegistry.name("daml", "indexer")
+    private val prefix = MetricName("daml", "indexer")
 
-    val processedStateUpdatesName: LedgerId =
-      MetricRegistry.name(prefix, "processed_state_updates")
-    val lastReceivedRecordTimeName: LedgerId =
-      MetricRegistry.name(prefix, "last_received_record_time")
-    val lastReceivedOffsetName: LedgerId =
-      MetricRegistry.name(prefix, "last_received_offset")
-    val currentRecordTimeLagName: LedgerId =
-      MetricRegistry.name(prefix, "current_record_time_lag")
+    private val processedStateUpdatesName = prefix :+ "processed_state_updates"
+    private val lastReceivedRecordTimeName = prefix :+ "last_received_record_time"
+    private val lastReceivedOffsetName = prefix :+ "last_received_offset"
+    private val currentRecordTimeLagName = prefix :+ "current_record_time_lag"
 
     val stateUpdateProcessingTimer: Timer = metrics.timer(processedStateUpdatesName)
 

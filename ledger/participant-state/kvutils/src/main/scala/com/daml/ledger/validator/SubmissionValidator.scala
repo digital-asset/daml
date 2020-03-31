@@ -10,6 +10,7 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
@@ -267,24 +268,17 @@ class SubmissionValidator[LogResult](
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "validator")
+    private val prefix = MetricName("daml", "kvutils", "submission", "validator")
 
-    val openEnvelope: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
-    val acquireTransactionLock: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "acquire_transaction_lock"))
+    val openEnvelope: Timer = metricRegistry.timer(prefix :+ "open_envelope")
+    val acquireTransactionLock: Timer = metricRegistry.timer(prefix :+ "acquire_transaction_lock")
     val failedToAcquireTransaction: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "failed_to_acquire_transaction"))
-    val releaseTransactionLock: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "release_transaction_lock"))
-    val validateSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
-    val processSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "process_submission"))
-    val commitSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "commit_submission"))
-    val transformSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "transform_submission"))
+      metricRegistry.timer(prefix :+ "failed_to_acquire_transaction")
+    val releaseTransactionLock: Timer = metricRegistry.timer(prefix :+ "release_transaction_lock")
+    val validateSubmission: Timer = metricRegistry.timer(prefix :+ "validate_submission")
+    val processSubmission: Timer = metricRegistry.timer(prefix :+ "process_submission")
+    val commitSubmission: Timer = metricRegistry.timer(prefix :+ "commit_submission")
+    val transformSubmission: Timer = metricRegistry.timer(prefix :+ "transform_submission")
   }
 }
 

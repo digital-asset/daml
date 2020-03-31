@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   ParticipantId,
@@ -149,18 +150,18 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
   def unpackDamlSubmission(bytes: ByteString): DamlSubmission = DamlSubmission.parseFrom(bytes)
 
   object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "conversion")
+    private val prefix = MetricName("daml", "kvutils", "submission", "conversion")
 
     val transactionOutputs: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "transaction_outputs"))
+      metricRegistry.timer(prefix :+ "transaction_outputs")
     val transactionToSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "transaction_to_submission"))
+      metricRegistry.timer(prefix :+ "transaction_to_submission")
     val archivesToSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "archives_to_submission"))
+      metricRegistry.timer(prefix :+ "archives_to_submission")
     val partyToSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "party_to_submission"))
+      metricRegistry.timer(prefix :+ "party_to_submission")
     val configurationToSubmission: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "configuration_to_submission"))
+      metricRegistry.timer(prefix :+ "configuration_to_submission")
   }
 
 }
