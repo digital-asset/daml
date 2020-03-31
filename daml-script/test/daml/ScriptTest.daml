@@ -194,3 +194,9 @@ jsonExerciseByKey p = do
   cid1 <- submit p $ createCmd (WithKey p)
   cid2 <- submit p $ exerciseByKeyCmd @WithKey p GetCid
   pure (cid1, cid2)
+
+jsonCreate : Party -> Script (ContractId TProposal)
+jsonCreate p = submit p $ createCmd (TProposal p p)
+
+jsonQuery : Party -> Script [(ContractId TProposal, TProposal)]
+jsonQuery p = query @TProposal p
