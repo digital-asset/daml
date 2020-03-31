@@ -180,12 +180,6 @@ class InMemoryLedger(
       })
     })
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    Future.successful(this.synchronized[Unit] {
-      entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
-      ()
-    })
-
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,

@@ -44,8 +44,6 @@ trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
-
-  def publishHeartbeat(instant: Instant): Future[Unit]
 }
 
 object SandboxIndexAndWriteService {
@@ -131,9 +129,6 @@ object SandboxIndexAndWriteService {
         override val indexService: IndexService = indexSvc
 
         override val writeService: WriteService = writeSvc
-
-        override def publishHeartbeat(instant: Instant): Future[Unit] =
-          ledger.publishHeartbeat(instant)
       }
   }
 

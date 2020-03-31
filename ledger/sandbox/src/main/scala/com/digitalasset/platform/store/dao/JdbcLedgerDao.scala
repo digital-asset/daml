@@ -736,10 +736,6 @@ private class JdbcLedgerDao(
   private val SQL_BATCH_INSERT_DISCLOSURES =
     "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
 
-  private val SQL_INSERT_CHECKPOINT =
-    SQL(
-      "insert into ledger_entries(typ, ledger_offset, recorded_at) values('checkpoint', {ledger_offset}, {recorded_at})")
-
   /**
     * Updates the active contract set from the given DAML transaction.
     * Note: This involves checking the validity of the given DAML transaction.
@@ -900,15 +896,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def storeCheckpoint(offset: Offset, checkpoint: LedgerEntry.Checkpoint)(
-      implicit connection: Connection): Unit = {
-    SQL_INSERT_CHECKPOINT
-      .on("ledger_offset" -> offset, "recorded_at" -> checkpoint.recordedAt)
-      .execute()
-
-    ()
-  }
-
   private def serializeTransaction(ledgerEntry: LedgerEntry): Array[Byte] = {
     ledgerEntry match {
       case LedgerEntry.Transaction(transactionId, _, _, _, _, _, _, genTransaction, _) =>
@@ -920,7 +907,7 @@ private class JdbcLedgerDao(
                 s"Failed to serialize transaction! trId: $transactionId. Details: ${err.errorMessage}."),
             identity
           )
-      case _: LedgerEntry.Rejection | _: LedgerEntry.Checkpoint => Array.empty[Byte]
+      case _: LedgerEntry.Rejection => Array.empty[Byte]
     }
   }
 
@@ -993,10 +980,6 @@ private class JdbcLedgerDao(
         case PersistenceEntry.Rejection(rejection) =>
           storeRejection(offset, rejection)
           Ok
-
-        case PersistenceEntry.Checkpoint(checkpoint) =>
-          storeCheckpoint(offset, checkpoint)
-          Ok
       }
 
     dbDispatcher
@@ -1048,7 +1031,6 @@ private class JdbcLedgerDao(
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
                   )
                 case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
-                case cp: LedgerEntry.Checkpoint => storeCheckpoint(offset, cp)
               }
           }
 
@@ -1153,20 +1135,6 @@ private class JdbcLedgerDao(
         val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
         offset -> LedgerEntry
           .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
-      case ParsedEntry(
-          "checkpoint",
-          None,
-          None,
-          None,
-          None,
-          None,
-          None,
-          Some(recordedAt),
-          None,
-          None,
-          None,
-          offset) =>
-        offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
       case invalidRow =>
         sys.error(
           s"invalid ledger entry for offset: ${invalidRow.offset.toApiString}. database row: $invalidRow")

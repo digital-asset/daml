@@ -182,12 +182,6 @@ private final class SqlLedger(
           ()
       }(DEC)
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    persistenceQueue
-      .offer(offsets =>
-        storeLedgerEntry(offsets, PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time))))
-      .map(_ => ())(DEC) //this never pushes back, see createQueues above!
-
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
@@ -440,7 +434,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialConfig: Configuration,
   ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
-    // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
+    // headRef. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
 
     implicit val ec: ExecutionContext = DEC
