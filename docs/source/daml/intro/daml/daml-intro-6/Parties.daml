@@ -55,6 +55,8 @@ template Iou
     signatory issuer, owner
 
     controller owner can
+    -- WARNING: This choice cannot be exercised as we do not have
+    -- the authority of newOwner here. See text for more details.
       Transfer
         : ContractId Iou
         with
@@ -66,6 +68,7 @@ template Iou
 -- IOU_END
 
 -- PROPOSE_TRANSFER_BEGIN
+      -- This is a choice on the Iou template, with controller owner.
       ProposeTransfer
         : ContractId IouTransferProposal
         with
@@ -78,6 +81,9 @@ template Iou
 -- PROPOSE_TRANSFER_END
 
 -- MUTUAL_TRANSFER_BEGIN
+    -- This is a choice on the Iou template.
+    -- Note that Iou does not have the signature of newOwner, so this
+    -- must be called in a context where it is available. See text.
     choice Mutual_Transfer
       : ContractId Iou
       with
