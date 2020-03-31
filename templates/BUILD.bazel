@@ -17,9 +17,6 @@ genrule(
         "//docs:copy-trigger-template",
         "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala-dir",
-        "//language-support/ts/daml-types:npm_package",
-        "//language-support/ts/daml-ledger:npm_package",
-        "//language-support/ts/daml-react:npm_package",
     ],
     outs = ["templates-tarball.tar.gz"],
     cmd = """
@@ -36,13 +33,6 @@ genrule(
         done
 
         ## special cases we should work to remove
-
-        # create-daml-app template
-        # we need local builds of our DAML TypeScript libraries before release time
-        # the released template should use the versions from NPM instead
-        cp -r $(location //language-support/ts/daml-types:npm_package) $$OUT
-        cp -r $(location //language-support/ts/daml-ledger:npm_package) $$OUT
-        cp -r $(location //language-support/ts/daml-react:npm_package) $$OUT
 
         # quickstart-java template
         # right now, uses the preexisting quickstart-java rule and replaces the
