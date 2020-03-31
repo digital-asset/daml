@@ -14,6 +14,8 @@ import scalaz.Ordering.EQ
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.order._
+import scalaz.syntax.semigroup._
+import scalaz.syntax.std.option._
 
 /** Values   */
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
@@ -438,10 +440,44 @@ private final class `Value Order instance`[Cid](Scope: Value.LookupVariantEnum)(
     case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
     case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
     case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
-    case ValueEnum(idA, a) => (130, k { case ValueEnum(idB, b) => ??? })
+    case ValueEnum(idA, a) =>
+      (130, k {
+        case ValueEnum(idB, b) =>
+          ctorOrder(idA, idB, a, b)
+      })
     case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
     case ValueStruct(a) => (150, k { case ValueStruct(b) => a ?|? b })
-    case ValueVariant(idA, conA, a) => (160, k { case ValueVariant(idB, conB, b) => ??? })
+    case ValueVariant(idA, conA, a) =>
+      (160, k {
+        case ValueVariant(idB, conB, b) =>
+          ctorOrder(idA, idB, conA, conB) |+| a ?|? b
+      })
+  }
+
+  private[this] def ctorOrder(
+      idA: Option[Identifier],
+      idB: Option[Identifier],
+      ctorA: Ref.Name,
+      ctorB: Ref.Name) = {
+    val idAB = unifyIds(idA, idB)
+    Scope(idAB) cata ({ ctors =>
+      val lookup = ctors.toSeq
+      (lookup indexOf ctorA) ?|? (lookup indexOf ctorB)
+    },
+    noType(idAB))
+  }
+  @throws[IllegalArgumentException]
+  private[this] def noType(id: Identifier): Nothing =
+    throw new IllegalArgumentException(s"type $id not found in scope")
+
+  // could possibly return Ordering \/ Id instead of throwing in the Some/Some case,
+  // not sure if that could apply to None/None...
+  @throws[IllegalArgumentException]
+  private[this] def unifyIds[Id <: Identifier](a: Option[Id], b: Option[Id]): Id = (a, b) match {
+    case (Some(idA), Some(idB)) =>
+      if (idA != idB) throw new IllegalArgumentException(s"types $idA and $idB don't match")
+      else idA
+    case _ => a orElse b getOrElse (throw new IllegalArgumentException("missing type identifier"))
   }
 
   private[this] def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
