@@ -8,14 +8,14 @@ load(
 
 da_haskell_library(
     name = "daml-package-config",
-    srcs = glob(["**/*.hs"]),
+    srcs = glob(['src/**/*.hs']),
     hackage_deps = [
         "base",
         "safe-exceptions",
         "text",
         "yaml",
     ],
-    src_strip_prefix = "daml-opts-types",
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
