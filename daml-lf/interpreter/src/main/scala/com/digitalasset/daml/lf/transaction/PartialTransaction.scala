@@ -125,7 +125,7 @@ object PartialTransaction {
   *              correct semantics, since otherwise lookups for keys for
   *              locally archived absolute contract ids will succeed wrongly.
   * @param localContracts A map that associates to each contract created the
-  *                      contract the node in which it was created.
+  *                      node in which it was created.
   * @param globalContracts A map that associates to each fetched AbsoluteContractId.V1
   *                       contract id its respective contract instance.
   *                       other format of contract ids are not cached.
@@ -243,7 +243,7 @@ case class PartialTransaction(
         copy(
           globalContracts = globalContracts.updated(
             discriminator,
-            globalContracts.getOrElse(discriminator, Map(suffix -> contract))))
+            globalContracts.getOrElse(discriminator, Map.empty) + (suffix -> contract))
       case _ =>
         this
     }
