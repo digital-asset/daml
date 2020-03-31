@@ -6,12 +6,24 @@ package value
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
+import TypedValueGenerators.genAddend
 
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}
+import org.scalacheck.Arbitrary
+import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Matchers}
+import scalaz.{Order, Tag}
+import scalaz.std.anyVal._
+import scalaz.syntax.functor._
+import scalaz.scalacheck.{ScalazProperties => SzP}
+import scalaz.scalacheck.ScalaCheckBinding._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrivenPropertyChecks {
+class ValueSpec
+    extends FreeSpec
+    with Matchers
+    with Checkers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
   "serialize" - {
     val emptyStruct = ValueStruct(ImmArray.empty)
     val emptyStructError = "contains struct ValueStruct(ImmArray())"
@@ -101,6 +113,27 @@ class ValueSpec extends FreeSpec with Matchers with Checkers with GeneratorDrive
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
+    }
+  }
+
+  // XXX can factor like FlatSpecCheckLaws
+  private def checkLaws(props: org.scalacheck.Properties) =
+    forEvery(Table(("law", "property"), props.properties: _*)) { (_, p) =>
+      check(p, minSuccessful(20))
+    }
+
+  "Order" - {
+    type Cid = Int
+    type T = Value[Cid]
+
+    "for primitive, matching types" - {
+      val EmptyScope: Value.LookupVariantEnum = _ => None
+      implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
+
+      "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
+        checkLaws(SzP.order.laws[T])
+      }
     }
   }
 
