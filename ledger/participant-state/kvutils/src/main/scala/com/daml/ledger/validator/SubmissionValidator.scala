@@ -4,6 +4,7 @@
 package com.daml.ledger.validator
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
@@ -19,6 +20,7 @@ import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.google.protobuf.ByteString
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -48,6 +50,8 @@ class SubmissionValidator[LogResult](
 )(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
+
+  private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
   def validate(
       envelope: Bytes,
@@ -132,6 +136,7 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
+  @tailrec
   private def runValidation[T](
       envelope: Bytes,
       correlationId: String,
@@ -170,43 +175,46 @@ class SubmissionValidator[LogResult](
         val damlLogEntryId = allocateLogEntryId()
         val declaredInputs = submission.getInputDamlStateList.asScala
         val inputKeysAsBytes = declaredInputs.map(keyToBytes)
-        ledgerStateAccess.inTransaction { stateOperations =>
-          val result = for {
-            readInputs <- timedFuture(
-              Metrics.validateSubmission,
-              for {
-                readStateValues <- stateOperations.readState(inputKeysAsBytes)
-                readStateInputs = readStateValues.zip(declaredInputs).map {
-                  case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-                }
-                readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-                missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-                _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
-                  Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
-                else
-                  Future.unit
-              } yield readInputs
-            )
-            logEntryAndState <- timedFuture(
-              Metrics.processSubmission,
-              Future.fromTry(
-                Try(
-                  processSubmission(
-                    damlLogEntryId,
-                    recordTime,
-                    submission,
-                    participantId,
-                    readInputs))))
-            processResult = () =>
-              postProcessResult(
-                damlLogEntryId,
-                flattenInputStates(readInputs),
-                logEntryAndState,
-                stateOperations,
-            )
-            result <- postProcessResultTimer.fold(processResult())(timedFuture(_, processResult()))
-          } yield result
-          result.transform {
+        timedLedgerStateAccess
+          .inTransaction { stateOperations =>
+            for {
+              readInputs <- timedFuture(
+                Metrics.validateSubmission,
+                for {
+                  readStateValues <- stateOperations.readState(inputKeysAsBytes)
+                  readStateInputs = readStateValues.zip(declaredInputs).map {
+                    case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
+                  }
+                  readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
+                  missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
+                  _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
+                    Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+                  else
+                    Future.unit
+                } yield readInputs
+              )
+              logEntryAndState <- timedFuture(
+                Metrics.processSubmission,
+                Future.fromTry(
+                  Try(
+                    processSubmission(
+                      damlLogEntryId,
+                      recordTime,
+                      submission,
+                      participantId,
+                      readInputs))))
+              processResult = () =>
+                postProcessResult(
+                  damlLogEntryId,
+                  flattenInputStates(readInputs),
+                  logEntryAndState,
+                  stateOperations,
+              )
+              result <- postProcessResultTimer.fold(processResult())(
+                timedFuture(_, processResult()))
+            } yield result
+          }
+          .transform {
             case Success(result) =>
               Success(Right(result))
             case Failure(exception: ValidationFailed) =>
@@ -215,23 +223,60 @@ class SubmissionValidator[LogResult](
               logger.error("Unexpected failure during submission validation.", exception)
               Success(Left(ValidationError(exception.getLocalizedMessage)))
           }
-        }
       case _ =>
         Future.successful(
           Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId")))
     }
 
   private def flattenInputStates(
-      inputs: Map[DamlStateKey, Option[DamlStateValue]]): Map[DamlStateKey, DamlStateValue] =
+      inputs: Map[DamlStateKey, Option[DamlStateValue]]
+  ): Map[DamlStateKey, DamlStateValue] =
     inputs.collect {
       case (key, Some(value)) => key -> value
     }
 
-  object Metrics {
+  private final class TimedLedgerStateAccess(delegate: LedgerStateAccess[LogResult])
+      extends LedgerStateAccess[LogResult] {
+    override def inTransaction[T](
+        body: LedgerStateOperations[LogResult] => Future[T]
+    ): Future[T] = {
+      // This is necessary to ensure we capture successful and failed acquisitions separately.
+      // These need to be measured separately as they may have very different characteristics.
+      val acquisitionWasRecorded = new AtomicBoolean(false)
+      val successfulAcquisitionTimer = Metrics.acquireTransactionLock.time()
+      val failedAcquisitionTimer = Metrics.failedToAcquireTransaction.time()
+      delegate
+        .inTransaction { operations =>
+          if (acquisitionWasRecorded.compareAndSet(false, true)) {
+            successfulAcquisitionTimer.stop()
+          }
+          body(operations)
+            .transform(result => Success((result, Metrics.releaseTransactionLock.time())))
+        }
+        .transform {
+          case Success((result, releaseTimer)) =>
+            releaseTimer.stop()
+            result
+          case Failure(exception) =>
+            if (acquisitionWasRecorded.compareAndSet(false, true)) {
+              failedAcquisitionTimer.stop()
+            }
+            Failure(exception)
+        }
+    }
+  }
+
+  private object Metrics {
     private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "validator")
 
     val openEnvelope: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
+    val acquireTransactionLock: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "acquire_transaction_lock"))
+    val failedToAcquireTransaction: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "failed_to_acquire_transaction"))
+    val releaseTransactionLock: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "release_transaction_lock"))
     val validateSubmission: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
     val processSubmission: Timer =
