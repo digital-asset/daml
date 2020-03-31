@@ -53,7 +53,6 @@ object LedgerResource {
       initialConfig: Configuration,
       metrics: MetricRegistry,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      eventsPageSize: Int,
   )(
       implicit executionContext: ExecutionContext,
       materializer: Materializer,
@@ -75,7 +74,7 @@ object LedgerResource {
           queueDepth = 128,
           startMode = SqlStartMode.AlwaysReset,
           metrics = metrics,
-          eventsPageSize = eventsPageSize,
+          eventsPageSize = 100,
         )
       } yield ledger
     )

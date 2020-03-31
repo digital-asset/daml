@@ -73,6 +73,7 @@ final class Runner[T <: ReadWriteService, Extra](
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
                 metrics = metricRegistry,
+                eventsPageSize = config.eventsPageSize,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
