@@ -34,6 +34,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.jwt.domain.Jwt
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -171,7 +172,7 @@ object Runner {
       system: ActorSystem): Future[Participants[JsonLedgerClient]] = {
     def client(params: ApiParameters) = {
       val uri = Uri(params.host + ":" + params.port.toString)
-      new JsonLedgerClient(uri, token, envIface, system)
+      new JsonLedgerClient(uri, Jwt(token), envIface, system)
     }
     val defClient = participantParams.default_participant.map(client(_))
     val otherClients = participantParams.participants.map({ case (k, v) => (k, client(v)) })

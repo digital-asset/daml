@@ -38,6 +38,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll,
   MockMessages,
 }
+import com.digitalasset.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -125,33 +126,41 @@ final class JsonApiIt
   private val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
   private val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
 
-  def getToken(party: String): String = {
-    val payload =
-      s"""{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["$party"]}}"""
+  def getToken(parties: List[String]): String = {
+    val payload = AuthServiceJWTPayload(
+      ledgerId = Some("MyLedger"),
+      participantId = None,
+      exp = None,
+      applicationId = Some("foobar"),
+      actAs = parties,
+      admin = false,
+      readAs = List()
+    )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
-    val jwt = DecodedJwt[String](header, payload)
+    val jwt = DecodedJwt[String](header, AuthServiceJWTCodec.writeToString(payload))
     JwtSigner.HMAC256.sign(jwt, "secret") match {
       case -\/(e) => throw new IllegalStateException(e.toString)
       case \/-(a) => a.value
     }
   }
 
-  private def getClients() = {
+  private def getClients(parties: List[String] = List(party)) = {
     val participantParams =
       Participants(Some(ApiParameters("http://localhost", httpPort)), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, getToken(party), envIface)
+    Runner.jsonClients(participantParams, getToken(parties), envIface)
   }
 
   private val party = "Alice"
 
   private def run(
       clients: Participants[ScriptLedgerClient],
-      name: QualifiedName): Future[SValue] = {
+      name: QualifiedName,
+      inputValue: Option[JsValue] = Some(JsString(party))): Future[SValue] = {
     val scriptId = Identifier(packageId, name)
     Runner.run(
       dar,
       scriptId,
-      Some(JsString(party)),
+      inputValue,
       clients,
       ApplicationId(MockMessages.applicationId),
       TimeProvider.UTC)
@@ -161,7 +170,7 @@ final class JsonApiIt
     "Basic" should {
       "return 42" in {
         for {
-          clients <- getClients
+          clients <- getClients()
           result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonBasic"))
         } yield {
           assert(result == SInt64(42))
@@ -171,7 +180,7 @@ final class JsonApiIt
     "CreateAndExercise" should {
       "return 42" in {
         for {
-          clients <- getClients
+          clients <- getClients()
           result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreateAndExercise"))
         } yield {
           assert(result == SInt64(42))
@@ -181,7 +190,7 @@ final class JsonApiIt
     "ExerciseByKey" should {
       "return equal contract ids" in {
         for {
-          clients <- getClients
+          clients <- getClients()
           result <- run(clients, QualifiedName.assertFromString("ScriptTest:jsonExerciseByKey"))
         } yield {
           result match {
@@ -190,6 +199,41 @@ final class JsonApiIt
             case _ => fail(s"Expected Tuple2 but got $result")
           }
         }
+      }
+    }
+    "submit with party mismatch fails" in {
+      for {
+        clients <- getClients()
+        exception <- recoverToExceptionIf[RuntimeException](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonCreate"),
+            Some(JsString("Bob"))))
+      } yield {
+        assert(
+          exception.getMessage === "Tried to submit a command as Bob but token is only valid for Alice")
+      }
+    }
+    "query with party mismatch fails" in {
+      for {
+        clients <- getClients()
+        exception <- recoverToExceptionIf[RuntimeException](
+          run(
+            clients,
+            QualifiedName.assertFromString("ScriptTest:jsonQuery"),
+            Some(JsString("Bob"))))
+      } yield {
+        assert(exception.getMessage === "Tried to query as Bob but token is only valid for Alice")
+      }
+    }
+    "submit with no party fails" in {
+      for {
+        clients <- getClients(parties = List())
+        exception <- recoverToExceptionIf[RuntimeException](
+          run(clients, QualifiedName.assertFromString("ScriptTest:jsonCreate")))
+      } yield {
+        assert(
+          exception.getMessage === "Tried to submit a command as Alice but token does not provide a unique party identifier")
       }
     }
   }
