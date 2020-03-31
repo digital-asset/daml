@@ -50,7 +50,26 @@ main = do
       let nonDeployJars = filter (not . isDeployJar . artReleaseType) mavenUploadArtifacts
       let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mavenUploadArtifacts
 
-      -- first find out all the missing internal dependencies
+      -- check that all maven artifacts use com.daml as groupId
+      let nonComDamlGroupId = filter (\a -> ("com.daml" /=) $ foldr (<>) "" (List.intersperse "." $ map T.unpack $ pomGroupId $ artMetadata a)) mavenUploadArtifacts
+      when (not (null nonComDamlGroupId)) $ do
+          $logError "Some artifacts don't use com.daml as groupId!"
+          forM_ nonComDamlGroupId $ \artifact -> do
+              $logError ("\t- "# getBazelTarget (artTarget artifact))
+          liftIO exitFailure
+
+      -- check that no artifact id is used more than once
+      let groupedArtifacts = List.groupBy (\a b -> (pomArtifactId $ artMetadata a) == (pomArtifactId $ artMetadata b)) mavenUploadArtifacts
+      let duplicateArtifactIds = filter (\artifacts -> length artifacts > 1) groupedArtifacts
+      when (not (null duplicateArtifactIds)) $ do
+          $logError "Some artifacts use the same artifactId!"
+          forM_ duplicateArtifactIds $ \artifacts -> do
+              $logError (pomArtifactId $ artMetadata $ head artifacts)
+              forM_ artifacts $ \artifact -> do
+                  $logError ("\t- "# getBazelTarget (artTarget artifact))
+          liftIO exitFailure
+
+      -- find out all the missing internal dependencies
       missingDepsForAllArtifacts <- forM nonDeployJars $ \a -> do
           -- run a bazel query to find all internal java and scala library dependencies
           -- We exclude the scenario service and the script service to avoid a false dependency on scala files
