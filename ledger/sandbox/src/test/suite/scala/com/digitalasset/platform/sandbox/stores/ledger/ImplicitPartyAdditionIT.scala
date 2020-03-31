@@ -67,7 +67,8 @@ class ImplicitPartyAdditionIT
             participantId,
             timeProvider,
             ledgerConfig,
-            metrics)
+            metrics,
+          )
         }
     }
   }

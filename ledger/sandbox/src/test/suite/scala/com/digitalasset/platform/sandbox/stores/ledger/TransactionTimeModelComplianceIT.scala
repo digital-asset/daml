@@ -68,7 +68,8 @@ class TransactionTimeModelComplianceIT
             participantId,
             timeProvider,
             ledgerConfig,
-            metrics)
+            metrics,
+          )
         }
     }
   }
