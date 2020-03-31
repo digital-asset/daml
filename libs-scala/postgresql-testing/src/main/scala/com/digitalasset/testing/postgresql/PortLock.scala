@@ -20,8 +20,8 @@ private[postgresql] object PortLock {
   // For this to be useful, it needs to be shared across concurrent runs.
   private val portLockDirectory: Path = {
     val tempDirectory =
-      if (System.getProperty("os.name").startsWith("Windows")) {
-        Paths.get(sys.env("LOCALAPPDATA"), "Temp")
+      if (sys.props("os.name").startsWith("Windows")) {
+        Paths.get(sys.props("user.home"), "AppData", "Local", "Temp")
       } else {
         Paths.get("/tmp")
       }
