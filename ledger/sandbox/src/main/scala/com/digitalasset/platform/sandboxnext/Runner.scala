@@ -269,9 +269,10 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val IndexServicePrefix = MetricName("daml", "services", "index")
-  private val ReadServicePrefix = MetricName("daml", "services", "read")
-  private val WriteServicePrefix = MetricName("daml", "services", "write")
+  private val ServicePrefix = MetricName.DAML :+ "services"
+  private val IndexServicePrefix = ServicePrefix :+ "index"
+  private val ReadServicePrefix = ServicePrefix :+ "read"
+  private val WriteServicePrefix = ServicePrefix :+ "write"
 
   private val HeartbeatInterval: FiniteDuration = 1.second
 }

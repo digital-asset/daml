@@ -7,10 +7,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
@@ -268,7 +268,7 @@ class SubmissionValidator[LogResult](
   }
 
   private object Metrics {
-    private val prefix = MetricName("daml", "kvutils", "submission", "validator")
+    private val prefix = kvutils.MetricPrefix :+ "submission" :+ "validator"
 
     val openEnvelope: Timer = metricRegistry.timer(prefix :+ "open_envelope")
     val acquireTransactionLock: Timer = metricRegistry.timer(prefix :+ "acquire_transaction_lock")

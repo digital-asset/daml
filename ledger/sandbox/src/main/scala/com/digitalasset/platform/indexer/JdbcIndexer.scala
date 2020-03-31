@@ -114,7 +114,7 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
-    private val prefix = MetricName("daml", "indexer")
+    private val prefix = MetricName.DAML :+ "indexer"
 
     private val processedStateUpdatesName = prefix :+ "processed_state_updates"
     private val lastReceivedRecordTimeName = prefix :+ "last_received_record_time"

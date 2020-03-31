@@ -7,7 +7,7 @@ import com.daml.ledger.participant.state.metrics.MetricName
 
 private[app] object Metrics {
 
-  private val ServicePrefix = MetricName("daml", "services")
+  private val ServicePrefix = MetricName.DAML :+ "services"
 
   val IndexServicePrefix: MetricName = ServicePrefix :+ "index"
   val ReadServicePrefix: MetricName = ServicePrefix :+ "read"

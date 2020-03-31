@@ -13,7 +13,6 @@ import com.daml.ledger.participant.state.kvutils.committer.{
   PartyAllocationCommitter
 }
 import com.daml.ledger.participant.state.kvutils.committing._
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
@@ -322,7 +321,7 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
   }
 
   private object Metrics {
-    private val prefix = MetricName("daml", "kvutils", "committer")
+    private val prefix = MetricPrefix :+ "committer"
     private val lastPrefix = prefix :+ "last"
 
     // Timer (and count) of how fast submissions have been processed.

@@ -36,7 +36,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     extends LedgerReadDao {
 
   private object Metrics {
-    private val prefix = MetricName("daml", "index", "db")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
 
     val lookupLedgerId: Timer = metrics.timer(prefix :+ "lookup_ledger_id")
     val lookupLedgerEnd: Timer = metrics.timer(prefix :+ "lookup_ledger_end")
@@ -156,7 +156,7 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    private val prefix = MetricName("daml", "index", "db")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
 
     val storePartyEntry: Timer = metrics.timer(prefix :+ "store_party_entry")
     val storeInitialState: Timer = metrics.timer(prefix :+ "store_initial_state")

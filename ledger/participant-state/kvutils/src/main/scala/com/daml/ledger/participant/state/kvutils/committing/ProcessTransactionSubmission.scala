@@ -4,13 +4,13 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics.{Counter, MetricRegistry, Timer}
+import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
 import com.daml.ledger.participant.state.kvutils.committing.Common._
 import com.daml.ledger.participant.state.kvutils.committing.ProcessTransactionSubmission._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -519,7 +519,7 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = MetricName("daml", "kvutils", "committer", "transaction")
+    private val prefix = kvutils.MetricPrefix :+ "committer" :+ "transaction"
 
     val runTimer: Timer = metricRegistry.timer(prefix :+ "run_timer")
     val interpretTimer: Timer = metricRegistry.timer(prefix :+ "interpret_timer")

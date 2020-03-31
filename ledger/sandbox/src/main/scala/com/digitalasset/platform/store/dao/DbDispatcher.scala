@@ -30,7 +30,7 @@ final class DbDispatcher private (
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
-    private val prefix = MetricName("daml", "index", "db")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
 
     def waitTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "wait")
 

@@ -21,7 +21,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    private val prefix = MetricName("daml", "index")
+    private val prefix = MetricName.DAML :+ "index"
 
     val publishHeartbeat: Timer = metrics.timer(prefix :+ "publish_heartbeat")
     val publishTransaction: Timer = metrics.timer(prefix :+ "publish_transaction")

@@ -40,7 +40,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     extends ReadOnlyLedger {
 
   private object Metrics {
-    private val prefix = MetricName("daml", "index")
+    private val prefix = MetricName.DAML :+ "index"
 
     val lookupContract: Timer = metrics.timer(prefix :+ "lookup_contract")
     val lookupKey: Timer = metrics.timer(prefix :+ "lookup_key")

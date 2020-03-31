@@ -14,9 +14,13 @@ case class MetricName(segments: Vector[String]) extends AnyVal {
 }
 
 object MetricName {
+
+  val DAML: MetricName = MetricName("daml")
+
   def apply(segments: String*): MetricName =
     MetricName(segments.toVector)
 
   implicit def metricNameToString(name: MetricName): String =
     name.toString
+
 }
