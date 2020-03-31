@@ -51,7 +51,7 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultEventsPageSize = 10000
+  val DefaultEventsPageSize = 1000
 
   def default[Extra](extra: Extra): Config[Extra] =
     Config(

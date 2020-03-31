@@ -54,7 +54,7 @@ object SandboxConfig {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultEventsPageSize: Int = 10000
+  val DefaultEventsPageSize: Int = 1000
 
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
