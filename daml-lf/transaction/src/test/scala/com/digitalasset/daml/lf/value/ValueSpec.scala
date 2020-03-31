@@ -6,7 +6,7 @@ package value
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
-import TypedValueGenerators.genAddend
+import TypedValueGenerators.{RNil, ValueAddend => VA, genAddend}
 
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -24,6 +24,8 @@ class ValueSpec
     with Checkers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
+  import ValueSpec._
+
   "serialize" - {
     val emptyStruct = ValueStruct(ImmArray.empty)
     val emptyStructError = "contains struct ValueStruct(ImmArray())"
@@ -126,6 +128,11 @@ class ValueSpec
     type Cid = Int
     type T = Value[Cid]
 
+    val FooScope: Value.LookupVariantEnum =
+      Map(fooVariantId -> ImmArray("quux", "baz"), fooEnumId -> ImmArray("quux", "baz"))
+        .transform((_, ns) => ns map Ref.Name.assertFromString)
+        .lift
+
     "for primitive, matching types" - {
       val EmptyScope: Value.LookupVariantEnum = _ => None
       implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
@@ -135,6 +142,36 @@ class ValueSpec
         checkLaws(SzP.order.laws[T])
       }
     }
+
+    "for record and variant types" - {
+      implicit val ord: Order[T] = Tag unsubst Value.orderInstance(FooScope)
+      "obeys order laws" in forEvery(Table("va", fooRecord, fooVariant)) { va =>
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
+        checkLaws(SzP.order.laws[T])
+      }
+    }
   }
 
+}
+
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+object ValueSpec {
+  private val fooSpec = {
+    import shapeless.syntax.singleton._
+    'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil
+  }
+  private val (_, fooRecord) = VA.record(Ref.Identifier assertFromString "abc:Foo:FooRec", fooSpec)
+  private val fooVariantId = Ref.Identifier assertFromString "abc:Foo:FooVar"
+  private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)
+  private val fooEnumId = Ref.Identifier assertFromString "abc:Foo:FooEnum"
+
+  /*
+  private val genFoos: Gen[(ImmArray[Ref.Name], ValueAddend)] =
+    Gen.nonEmptyContainerOf[ImmArray, Ref.Name](ValueGenerators.nameGen)
+    Gen.oneOf(
+    fooRecord,
+    fooVariant,
+     map ()
+  )
+ */
 }
