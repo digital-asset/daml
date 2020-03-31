@@ -46,11 +46,11 @@ commands:
   completion: true
 - name: sandbox
   path: daml-helper/daml-helper
-  desc: "Launch the new Sandbox"
+  desc: "Launch sandbox"
   args: ["run-jar", "--logback-config=daml-sdk/sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox"]
 - name: sandbox-classic
   path: daml-helper/daml-helper
-  desc: "Launch the old Sandbox"
+  desc: "Launch sandbox-classic (the sandbox implementation which was the default for SDK <= 0.13.55)"
   args: ["run-jar", "--logback-config=daml-sdk/sandbox-logback.xml", "daml-sdk/daml-sdk.jar", "sandbox-classic"]
 - name: navigator
   path: daml-helper/daml-helper
