@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.data
 
-import scalaz.{Equal, Order}
+import scalaz.{@@, Equal, Order, Tag}
 import scalaz.syntax.order._
 
 private[digitalasset] object ScalazEqual {
@@ -87,5 +87,12 @@ private[digitalasset] object ScalazEqual {
     override final def equalIsNatural = inductiveNaturalEqual && I.equalIsNatural
     override final def equal(a: A, b: A) =
       k(a) === k(b)
+  }
+
+  private[lf] sealed trait _2
+  private[lf] object _2 {
+    val T = Tag.of[_2]
+    implicit def `_2 Order`[L, R: Order]: Order[(L, R) @@ _2] =
+      Tag subst Order[R].contramap(_._2)
   }
 }
