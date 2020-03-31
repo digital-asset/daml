@@ -241,14 +241,14 @@ class SubmissionValidator[LogResult](
         body: LedgerStateOperations[LogResult] => Future[T]
     ): Future[T] = {
       val acquireStopped = new AtomicBoolean(false)
-      val acquireTimer = Metrics.acquireTransaction.time()
+      val acquireTimer = Metrics.acquireTransactionLock.time()
       delegate
         .inTransaction { operations =>
           if (acquireStopped.compareAndSet(false, true)) {
             acquireTimer.stop()
           }
           body(operations)
-            .transform(result => Success((result, Metrics.releaseTransaction.time())))
+            .transform(result => Success((result, Metrics.releaseTransactionLock.time())))
         }
         .transform {
           case Success((result, releaseTimer)) =>
@@ -268,10 +268,10 @@ class SubmissionValidator[LogResult](
 
     val openEnvelope: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
-    val acquireTransaction: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "acquire_transaction"))
-    val releaseTransaction: Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "release_transaction"))
+    val acquireTransactionLock: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "acquire_transaction_lock"))
+    val releaseTransactionLock: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "release_transaction_lock"))
     val validateSubmission: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
     val processSubmission: Timer =
