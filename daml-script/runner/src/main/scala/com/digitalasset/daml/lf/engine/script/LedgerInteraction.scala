@@ -11,7 +11,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.unmarshalling._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import io.grpc.StatusRuntimeException
+import io.grpc.{Status, StatusRuntimeException}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.std.either._
@@ -150,7 +150,14 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
     val transactionTreeF = grpcClient.commandServiceClient
       .submitAndWaitForTransactionTree(request)
       .map(Right(_))
-      .recover({ case s: StatusRuntimeException => Left(s) })
+      .recoverWith({
+        case s: StatusRuntimeException
+            // This is used for submit must fail so we only catch ABORTED and INVALID_ARGUMENT.
+            // Errors like PERMISSION_DENIED are not caught.
+            if s.getStatus.getCode == Status.Code.ABORTED || s.getStatus.getCode == Status.Code.INVALID_ARGUMENT =>
+          Future.successful(Left(s))
+
+      })
     transactionTreeF.map(r =>
       r.right.map(transactionTree => {
         val events = transactionTree.getTransaction.rootEventIds
