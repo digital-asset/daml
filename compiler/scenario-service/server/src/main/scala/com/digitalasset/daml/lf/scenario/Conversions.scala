@@ -3,30 +3,42 @@
 
 package com.digitalasset.daml.lf.scenario
 
-import scala.collection.JavaConverters._
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.scenario.api.v1
 import com.digitalasset.daml.lf.scenario.api.v1.{List => _, _}
 import com.digitalasset.daml.lf.speedy.{
   SError,
-  PartialTransaction => SPartialTransaction,
+  SValue,
   Speedy,
-  SValue
+  PartialTransaction => SPartialTransaction
 }
 import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.types.Ledger.ScenarioNodeId
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml.lf.value.{Value => V}
 
-case class Conversions(homePackageId: Ref.PackageId) {
-  def convertScenarioResult(
-      ledger: Ledger.Ledger,
-      machine: Speedy.Machine,
-      svalue: SValue,
-  ): ScenarioResult = {
+import scala.collection.JavaConverters._
 
-    val (nodes, steps) = convertLedger(ledger)
+final class Conversions(
+    homePackageId: Ref.PackageId,
+    ledger: Ledger.Ledger,
+    machine: Speedy.Machine,
+) {
+
+  private val empty: Empty = Empty.newBuilder.build
+
+  private val packageIdSelf: PackageIdentifier =
+    PackageIdentifier.newBuilder.setSelf(empty).build
+
+  private val coidToNodeId = ledger.ledgerData.coidToNodeId
+
+  private val nodes =
+    ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
+
+  private val steps = ledger.scenarioSteps.map {
+    case (idx, step) => convertScenarioStep(idx.toInt, step)
+  }
+
+  def convertScenarioResult(svalue: SValue): ScenarioResult = {
     val builder = ScenarioResult.newBuilder
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
@@ -39,11 +51,8 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def convertScenarioError(
-      ledger: Ledger.Ledger,
-      machine: Speedy.Machine,
       err: SError.SError,
   ): ScenarioError = {
-    val (nodes, steps) = convertLedger(ledger)
     val builder = ScenarioError.newBuilder
       .addAllNodes(nodes.asJava)
       .addAllScenarioSteps(steps.asJava)
@@ -188,16 +197,6 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.setMessage(msgAndLoc._1).build
   }
 
-  def convertLedger(ledger: Ledger.Ledger): (Iterable[Node], Iterable[ScenarioStep]) =
-    (
-      ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
-      // NOTE(JM): Iteration over IntMap is in key-order. The IntMap's Int is IntMapUtils.Int for some reason.
-      ,
-      ledger.scenarioSteps.map {
-        case (idx, step) => convertScenarioStep(idx.toInt, step, ledger.ledgerData.coidToNodeId)
-      },
-    )
-
   def convertFailedAuthorizations(fas: Ledger.FailedAuthorizations): FailedAuthorizations = {
     val builder = FailedAuthorizations.newBuilder
     fas.map {
@@ -303,31 +302,23 @@ case class Conversions(homePackageId: Ref.PackageId) {
   }
 
   def mkContractRef(coid: V.ContractId, templateId: Ref.Identifier): ContractRef =
-    coid match {
-      case acoid: V.AbsoluteContractId =>
-        ContractRef.newBuilder
-          .setRelative(false)
-          .setContractId(acoid.coid)
-          .setTemplateId(convertIdentifier(templateId))
-          .build
-      case V.RelativeContractId(txnid) =>
-        ContractRef.newBuilder
-          .setRelative(true)
-          .setContractId(txnid.index.toString)
-          .setTemplateId(convertIdentifier(templateId))
-          .build
-    }
+    ContractRef.newBuilder
+      .setRelative(false)
+      .setContractId(convertContractId(coid))
+      .setTemplateId(convertIdentifier(templateId))
+      .build
 
   def convertContractId(coid: V.ContractId): String =
     coid match {
-      case acoid: V.AbsoluteContractId => acoid.coid
-      case V.RelativeContractId(txnid) => txnid.index.toString
+      case acoid: V.AbsoluteContractId =>
+        coidToNodeId(acoid)
+      case V.RelativeContractId(_) =>
+        throw new IllegalArgumentException("unexpected relative cotnract id")
     }
 
   def convertScenarioStep(
       stepId: Int,
       step: Ledger.ScenarioStep,
-      coidToNodeId: AbsoluteContractId => ScenarioNodeId,
   ): ScenarioStep = {
     val builder = ScenarioStep.newBuilder
     builder.setStepId(stepId)
@@ -340,7 +331,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setCommit(
           commitBuilder
             .setTxId(txId.index)
-            .setTx(convertTransaction(rtx, coidToNodeId))
+            .setTx(convertTransaction(rtx))
             .build,
         )
       case Ledger.PassTime(dt) =>
@@ -364,7 +355,6 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
   def convertTransaction(
       rtx: Ledger.RichTransaction,
-      coidToNodeId: AbsoluteContractId => ScenarioNodeId,
   ): Transaction = {
     val convertedGlobalImplicitDisclosure = rtx.globalImplicitDisclosure.map {
       case (coid, parties) => coidToNodeId(coid) -> parties
@@ -447,10 +437,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
         create.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setCreate(createBuilder.build)
-      case fetch: N.NodeFetch.WithTxValue[AbsoluteContractId] =>
+      case fetch: N.NodeFetch.WithTxValue[V.AbsoluteContractId] =>
         builder.setFetch(
           Node.Fetch.newBuilder
-            .setContractId(fetch.coid.coid)
+            .setContractId(coidToNodeId(fetch.coid))
             .setTemplateId(convertIdentifier(fetch.templateId))
             .addAllSignatories(fetch.signatories.map(convertParty).asJava)
             .addAllStakeholders(fetch.stakeholders.map(convertParty).asJava)
@@ -465,7 +455,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         ex.optLocation.map(loc => builder.setLocation(convertLocation(loc)))
         builder.setExercise(
           Node.Exercise.newBuilder
-            .setTargetContractId(ex.targetCoid.coid)
+            .setTargetContractId(coidToNodeId(ex.targetCoid))
             .setTemplateId(convertIdentifier(ex.templateId))
             .setChoiceId(ex.choiceId)
             .setConsuming(ex.consuming)
@@ -488,7 +478,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         val lbkBuilder = Node.LookupByKey.newBuilder
           .setTemplateId(convertIdentifier(lbk.templateId))
           .setKeyWithMaintainers(convertKeyWithMaintainers(lbk.key))
-        lbk.result.foreach(cid => lbkBuilder.setContractId(cid.coid))
+        lbk.result.foreach(cid => lbkBuilder.setContractId(coidToNodeId(cid)))
         builder.setLookupByKey(lbkBuilder)
 
     }
@@ -569,9 +559,6 @@ case class Conversions(homePackageId: Ref.PackageId) {
     builder.build
   }
 
-  lazy val packageIdSelf: PackageIdentifier =
-    PackageIdentifier.newBuilder.setSelf(empty).build
-
   def convertPackageId(pkg: Ref.PackageId): PackageIdentifier =
     if (pkg == homePackageId)
       // Reconstitute the self package reference.
@@ -600,10 +587,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
 
   }
 
-  val empty: Empty = Empty.newBuilder.build
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def convertValue[Cid](value: V[Cid]): Value = {
+  def convertValue(value: V[V.ContractId]): Value = {
     val builder = Value.newBuilder
     value match {
       case V.ValueRecord(tycon, fields) =>
@@ -650,12 +634,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         tycon.foreach(x => eBuilder.setEnumId(convertIdentifier(x)))
         builder.setEnum(eBuilder.build)
       case V.ValueContractId(coid) =>
-        coid match {
-          case acoid: V.AbsoluteContractId =>
-            builder.setContractId(acoid.coid)
-          case V.RelativeContractId(txnid) =>
-            builder.setContractId(txnid.index.toString)
-        }
+        builder.setContractId(convertContractId(coid))
       case V.ValueList(values) =>
         builder.setList(
           v1.List.newBuilder
