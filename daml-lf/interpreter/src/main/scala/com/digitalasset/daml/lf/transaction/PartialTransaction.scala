@@ -243,7 +243,9 @@ case class PartialTransaction(
         copy(
           globalContracts = globalContracts.updated(
             discriminator,
-            globalContracts.getOrElse(discriminator, Map.empty) + (suffix -> contract))
+            globalContracts.getOrElse(discriminator, Map.empty).updated(suffix, contract)
+          )
+        )
       case _ =>
         this
     }
