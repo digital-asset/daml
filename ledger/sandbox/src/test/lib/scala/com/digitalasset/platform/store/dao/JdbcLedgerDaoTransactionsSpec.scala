@@ -13,6 +13,7 @@ import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.api.v1.event.EventOps.EventOps
 import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
 
@@ -127,7 +128,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "match the results of lookupFlatTransactionById" in {
     for {
       (from, to, transactions) <- storeTestFixture()
-      individualLookups <- lookupIndividually(transactions, Set(alice, bob, charlie))
+      lookups <- lookupIndividually(transactions, Set(alice, bob, charlie))
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
@@ -138,7 +139,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             verbose = true,
           ))
     } yield {
-      result should contain theSameElementsInOrderAs individualLookups
+      comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
     }
   }
 
@@ -395,9 +396,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  private def onlyFor(party: Party): Map[Party, Set[Identifier]] =
-    Map(party -> Set.empty)
-
   private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
     for {
       from <- ledgerDao.lookupLedgerEnd()
@@ -428,5 +426,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       .map(_._2)
       .runWith(Sink.seq)
       .map(_.flatMap(_.transactions))
+
+  // Ensure two sequences of transactions are comparable:
+  // - witnesses do not have to appear in a specific order
+  private def comparable(txs: Seq[Transaction]): Seq[Transaction] =
+    txs.map(tx => tx.copy(events = tx.events.map(_.modifyWitnessParties(_.sorted))))
 
 }
