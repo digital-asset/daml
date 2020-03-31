@@ -1100,6 +1100,11 @@ Examples:
       "status":400
     }
 
+    {
+      "errors":["Could not resolve any template ID from request."],
+      "status":400
+    }
+
 Contracts Query Stream
 ======================
 
