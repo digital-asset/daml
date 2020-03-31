@@ -8,6 +8,9 @@ import scala.language.implicitConversions
 case class MetricName(segments: Vector[String]) extends AnyVal {
   def :+(segment: String): MetricName =
     new MetricName(segments :+ segment)
+
+  override def toString: String =
+    segments.mkString(".")
 }
 
 object MetricName {
@@ -15,5 +18,5 @@ object MetricName {
     MetricName(segments.toVector)
 
   implicit def metricNameToString(name: MetricName): String =
-    name.segments.mkString(".")
+    name.toString
 }

@@ -129,17 +129,17 @@ final class ApiSubmissionService private (
   private[this] val ledgerTimeHelper = LedgerTimeHelper(contractStore, commandExecutor, 3)
 
   private object Metrics {
-    private val servicePrefix: String =
+    private val servicePrefix =
       MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
 
     val failedInterpretationsMeter: Meter =
-      metrics.meter(MetricRegistry.name(servicePrefix, "failed_command_interpretations"))
+      metrics.meter(servicePrefix :+ "failed_command_interpretations")
 
     val deduplicatedCommandsMeter: Meter =
-      metrics.meter(MetricRegistry.name(servicePrefix, "deduplicated_commands"))
+      metrics.meter(servicePrefix :+ "deduplicated_commands")
 
     val submittedTransactionsTimer: Timer =
-      metrics.timer(MetricRegistry.name(servicePrefix, "submitted_transactions"))
+      metrics.timer(servicePrefix :+ "submitted_transactions")
   }
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(

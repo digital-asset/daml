@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.apiserver
 
-import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.metrics.MetricName
 
 private[apiserver] object MetricsNaming {
 
@@ -34,24 +34,24 @@ private[apiserver] object MetricsNaming {
   }
 
   // Turns a camelCased string into a snake_cased one
-  val camelCaseToSnakeCase: String => String =
+  private[apiserver] val camelCaseToSnakeCase: String => String =
     snakifyWholeWord andThen snakifyStart andThen snakifyEnd andThen snakify
 
   // assert(nameForService("org.example.SomeService") == "daml.lapi.some_service")
-  def nameForService(fullServiceName: String): String = {
+  def nameForService(fullServiceName: String): MetricName = {
     val serviceName = camelCaseToSnakeCase(fullServiceName.split('.').last)
-    MetricRegistry.name("daml", "lapi", serviceName)
+    MetricName("daml", "lapi", serviceName)
   }
 
   // assert(nameFor("org.example.SomeService/someMethod") == "daml.lapi.some_service.some_method")
-  def nameFor(fullMethodName: String): String = {
+  def nameFor(fullMethodName: String): MetricName = {
     val serviceAndMethodName = fullMethodName.split('/')
     assert(
       serviceAndMethodName.length == 2,
       s"Expected service and method names separated by '/', got '$fullMethodName'")
     val prefix = nameForService(serviceAndMethodName(0))
     val methodName = camelCaseToSnakeCase(serviceAndMethodName(1))
-    MetricRegistry.name(prefix, methodName)
+    prefix :+ methodName
   }
 
 }
