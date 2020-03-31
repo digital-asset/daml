@@ -264,8 +264,7 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
     * their identifier.  Moreover, the `Scope` must include all of those
     * identifiers.
     */
-  implicit def `Value Order instance`[Cid: Order, Scope <: LookupVariantEnum](
-      implicit Scope: Scope): Order[Value[Cid] @@ Scope] =
+  def orderInstance[Cid: Order](Scope: LookupVariantEnum): Order[Value[Cid] @@ Scope.type] =
     Tag.subst(new `Value Order instance`(Scope): Order[Value[Cid]])
 
   /** A contract instance is a value plus the template that originated it. */
