@@ -588,4 +588,6 @@ object domain {
       extends ServiceWarning
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
+
+  final case class WarningsWrapper(warnings: ServiceWarning)
 }
