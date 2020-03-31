@@ -265,7 +265,6 @@ final class SandboxServer(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
       )
-      observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
       // the reset service is special, since it triggers a server shutdown
       resetService = new SandboxResetService(
         ledgerId,
@@ -292,7 +291,7 @@ final class SandboxServer(
               commandConfig = config.commandConfig,
               partyConfig = config.partyConfig,
               submissionConfig = config.submissionConfig,
-              optTimeServiceBackend = observingTimeServiceBackend,
+              optTimeServiceBackend = timeServiceBackendO,
               metrics = metrics,
               healthChecks = healthChecks,
               seedService = config.seeding.map(SeedService(_)),

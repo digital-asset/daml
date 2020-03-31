@@ -113,8 +113,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
       val timeServiceBackend = timeProviderType match {
         case TimeProviderType.Static =>
-          val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
-          Some(backend)
+          Some(TimeServiceBackend.simple(Instant.EPOCH))
         case TimeProviderType.WallClock =>
           None
       }
