@@ -130,7 +130,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] =
-      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness in ($parties) group by (#$groupByColumns) order by (event_offset, transaction_id, node_index) limit $pageSize offset $rowOffset"
+      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness in ($parties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
 
     def sameTemplates(
         startExclusive: Offset,
