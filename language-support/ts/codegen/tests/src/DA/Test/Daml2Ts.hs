@@ -202,9 +202,22 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
           ["-o", daml2tsDir]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4")) [ "index", "DAVL" </> "module" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5")) [ "index", "DAVL" </> "module" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5")) [ "index", "Upgrade" </> "module" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4"))
+          [ "index"
+          , "DAVL" </> "index"
+          , "DAVL" </> "module"
+          ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5"))
+          [ "index"
+          , "DAVL" </> "index"
+          , "DAVL" </> "V5" </> "index"
+          , "DAVL" </> "V5" </> "module"
+          ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5"))
+          [ "index"
+          , "Upgrade" </> "index"
+          , "Upgrade" </> "module"
+          ]
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
