@@ -23,7 +23,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -33,6 +33,7 @@ import com.digitalasset.ledger
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   Filters,
+  InclusiveFilters,
   LedgerId,
   LedgerOffset,
   PartyDetails,
@@ -43,7 +44,8 @@ import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.packages.InMemoryPackageStore
@@ -121,6 +123,34 @@ class InMemoryLedger(
       .getSource(startExclusive, endInclusive)
       .collect {
         case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
+      }
+
+  override def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToFlatTransaction(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                TransactionFilter(filter.map {
+                  case (party, templates) =>
+                    party -> Filters(
+                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                }),
+                verbose
+              )
+              .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
+              .toList
+          )
+        case _ =>
+          Source.empty
       }
 
   // mutable state

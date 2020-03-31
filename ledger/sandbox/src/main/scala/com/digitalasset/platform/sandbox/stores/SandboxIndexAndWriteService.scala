@@ -64,21 +64,23 @@ object SandboxIndexAndWriteService {
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
+      eventsPageSize: Int,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
-        ServerRole.Sandbox,
-        jdbcUrl,
-        ledgerId,
-        participantId,
-        timeProvider,
-        acs,
-        templateStore,
-        ledgerEntries,
-        initialConfig,
-        queueDepth,
-        startMode,
-        metrics,
+        serverRole = ServerRole.Sandbox,
+        jdbcUrl = jdbcUrl,
+        ledgerId = ledgerId,
+        participantId = participantId,
+        timeProvider = timeProvider,
+        acs = acs,
+        packages = templateStore,
+        initialLedgerEntries = ledgerEntries,
+        initialConfig = initialConfig,
+        queueDepth = queueDepth,
+        startMode = startMode,
+        metrics = metrics,
+        eventsPageSize = eventsPageSize,
       )
       .flatMap(ledger =>
         owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))

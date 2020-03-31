@@ -46,12 +46,15 @@ final case class SandboxConfig(
     seeding: Option[Seeding],
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
+    eventsPageSize: Int,
 )
 
 object SandboxConfig {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+
+  val DefaultEventsPageSize: Int = 10000
 
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
@@ -77,6 +80,7 @@ object SandboxConfig {
       seeding = Some(Seeding.Strong),
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
+      eventsPageSize = DefaultEventsPageSize,
     )
 
   lazy val default: SandboxConfig =

@@ -177,6 +177,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
+                  eventsPageSize = config.eventsPageSize,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -213,6 +214,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
+                  eventsPageSize = config.eventsPageSize,
                   transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
