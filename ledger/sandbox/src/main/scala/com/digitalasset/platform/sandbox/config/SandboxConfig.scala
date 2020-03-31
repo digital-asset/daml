@@ -59,7 +59,7 @@ object SandboxConfig {
       port = DefaultPort,
       portFile = None,
       damlPackages = Nil,
-      timeProviderType = None,
+      timeProviderType = Some(TimeProviderType.WallClock),
       timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
       partyConfig = PartyConfiguration.default.copy(
