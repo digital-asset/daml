@@ -228,8 +228,10 @@ class SubmissionValidator[LogResult](
     }
 
   object Metrics {
-    private val prefix = MetricRegistry.name("kvutils", "submission", "validator")
-    val openEnvelope: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
+    private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "validator")
+
+    val openEnvelope: Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "open_envelope"))
     val validateSubmission: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "validate_submission"))
     val processSubmission: Timer =

@@ -518,7 +518,8 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("kvutils", "committer", "transaction")
+    private val prefix = MetricRegistry.name("daml", "kvutils", "committer", "transaction")
+
     val runTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
     val interpretTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "interpret_timer"))
     val accepts: Counter = metricRegistry.counter(MetricRegistry.name(prefix, "accepts"))
