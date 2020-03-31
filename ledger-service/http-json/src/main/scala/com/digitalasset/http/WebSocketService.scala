@@ -363,7 +363,7 @@ class WebSocketService(
           case (offPrefix, qq: Q.Query[q]) =>
             implicit val SQ: StreamQuery[q] = qq.alg
             getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
-        }.fold(e => Source.single(-\/(e)), identity): Source[Error \/ Message, NotUsed]
+        }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed]
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(_.fold(e => wsErrorMessage(e), identity): Message)

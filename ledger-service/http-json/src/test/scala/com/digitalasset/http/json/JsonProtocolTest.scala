@@ -117,7 +117,7 @@ class JsonProtocolTest
   }
 
   "domain.WarningsWrapper" - {
-    "WarningsWrapper serialization" in forAll(genWarningsWrapper) { x =>
+    "serialization" in forAll(genWarningsWrapper) { x =>
       inside(x.toJson) {
         case JsObject(fields) if fields.contains("warnings") && fields.size == 1 =>
           Succeeded
