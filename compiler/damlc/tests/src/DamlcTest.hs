@@ -4,6 +4,7 @@ module DamlcTest
    ( main
    ) where
 
+import Control.Monad
 import Data.List.Extra (isInfixOf)
 import System.Directory
 import System.Environment.Blank
@@ -236,3 +237,15 @@ modArchiveWith :: FilePath -> FilePath -> (ZA.Archive -> ZA.Archive) -> IO ()
 modArchiveWith inFile outFile f = do
   archive <- ZA.toArchive <$> BSL.readFile inFile
   BSL.writeFile outFile $ ZA.fromArchive (f archive)
+
+
+-- | Only displays stdout and stderr on errors
+-- TODO Move this in a shared testing-utils library
+callProcessSilent :: FilePath -> [String] -> IO ()
+callProcessSilent cmd args = do
+    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
+    unless (exitCode == ExitSuccess) $ do
+      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
+      hPutStrLn stderr $ unlines ["stdout:", out]
+      hPutStrLn stderr $ unlines ["stderr: ", err]
+      exitFailure
