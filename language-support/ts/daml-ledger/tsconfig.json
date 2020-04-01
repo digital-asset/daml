@@ -16,5 +16,5 @@
     "declaration": true,
     "sourceMap": true
     },
-  "files": ["index.ts", "index.test.ts"]
+  "files": ["index.ts"]
 }
