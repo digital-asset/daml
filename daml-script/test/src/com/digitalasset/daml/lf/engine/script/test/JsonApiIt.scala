@@ -20,12 +20,7 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.script.{
-  ApiParameters,
-  Participants,
-  Runner,
-  ScriptLedgerClient
-}
+import com.digitalasset.daml.lf.engine.script._
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.speedy.SError._
@@ -132,14 +127,14 @@ final class JsonApiIt
   private val ifaceDar = dar.map(pkg => InterfaceReader.readInterface(() => \/-(pkg))._2)
   private val envIface = EnvironmentInterface.fromReaderInterfaces(ifaceDar)
 
-  def getToken(parties: List[String], admin: Boolean): String = {
+  def getToken(parties: List[String]): String = {
     val payload = AuthServiceJWTPayload(
       ledgerId = Some("MyLedger"),
       participantId = None,
       exp = None,
       applicationId = Some("foobar"),
       actAs = parties,
-      admin = admin,
+      admin = false,
       readAs = List()
     )
     val header = """{"alg": "HS256", "typ": "JWT"}"""
@@ -150,10 +145,10 @@ final class JsonApiIt
     }
   }
 
-  private def getClients(parties: List[String] = List(party), admin: Boolean = false) = {
+  private def getClients(parties: List[String] = List(party)) = {
     val participantParams =
       Participants(Some(ApiParameters("http://localhost", httpPort)), Map.empty, Map.empty)
-    Runner.jsonClients(participantParams, getToken(parties, admin), envIface)
+    Runner.jsonClients(participantParams, getToken(parties), envIface)
   }
 
   private val party = "Alice"
@@ -259,19 +254,6 @@ final class JsonApiIt
           QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"))
       } yield {
         assert(result == SUnit)
-      }
-    }
-    "allocateParty" in {
-      for {
-        // TODO (MK) At the moment the JSON API requires a token with a single
-        // party even for allocating a new party.
-        clients <- getClients(parties = List("Alice"), admin = true)
-        result <- run(
-          clients,
-          QualifiedName.assertFromString("ScriptTest:jsonAllocateParty"),
-          Some(JsString("Eve")))
-      } yield {
-        assert(result == SParty(Party.assertFromString("Eve")))
       }
     }
   }
