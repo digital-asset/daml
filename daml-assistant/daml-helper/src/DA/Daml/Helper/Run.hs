@@ -5,7 +5,6 @@ module DA.Daml.Helper.Run
     ( runDamlStudio
     , runInit
     , runNew
-    , runCreateDamlApp
     , runJar
     , runDaml2ts
     , runListTemplates
@@ -51,20 +50,14 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception.Safe
 import Control.Monad
-import Control.Monad.IO.Class
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
-import Data.Conduit (runConduitRes, (.|))
-import Data.Conduit.Combinators (sinkHandle)
-import qualified Data.Conduit.Tar.Extra as Tar
-import qualified Data.Conduit.Zlib as Zlib
 import Data.Foldable
 import qualified Data.HashMap.Strict as HashMap
 import Data.Maybe
 import qualified Data.Map.Strict as Map
 import Data.List.Extra
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSChar8
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import DA.PortFile
 import qualified Data.Text as T
