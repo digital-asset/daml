@@ -130,7 +130,7 @@ trap - EXIT
 echo "$(tput setaf 3)Successfully installed daml-head command.$(tput sgr 0)"
 
 if [ "$SKIP_JARS" -eq "0" ]; then
-    echo "$(tput setaf 3)Installing JARs as 100.0.0...$(tput sgr 0)"
+    echo "$(tput setaf 3)Installing JARs as 0.0.0...$(tput sgr 0)"
 
     function cleanup() {
       echo "$(tput setaf 3)FAILED TO INSTALL JARS! $(tput sgr 0)"
@@ -143,5 +143,5 @@ if [ "$SKIP_JARS" -eq "0" ]; then
 
     trap - EXIT
 
-    echo "$(tput setaf 3)Done installing JARs as 100.0.0.$(tput sgr 0)"
+    echo "$(tput setaf 3)Done installing JARs as 0.0.0.$(tput sgr 0)"
 fi

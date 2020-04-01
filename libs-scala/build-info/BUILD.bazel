@@ -12,7 +12,7 @@ da_scala_library(
     resources = [
         "//:mvn_version_file",
     ],
-    tags = ["maven_coordinates=com.digitalasset:build-info:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:build-info:__VERSION__"],
     visibility = [
         "//:__subpackages__",
     ],

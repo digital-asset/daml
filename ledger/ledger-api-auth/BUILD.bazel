@@ -12,7 +12,7 @@ da_scala_library(
     name = "ledger-api-auth",
     srcs = glob(["src/main/scala/com/digitalasset/ledger/api/auth/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-auth:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

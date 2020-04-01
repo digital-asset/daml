@@ -15,6 +15,7 @@ module Util (
     ArtifactLocation(..),
     BazelLocations(..),
     BazelTarget(..),
+    PomData(..),
 
     artifactFiles,
     mavenArtifactCoords,
@@ -64,7 +65,7 @@ data ReleaseType
     = TarGz
     | Zip
     | Jar JarType
-    deriving Show
+    deriving (Eq, Show)
 
 data JarType
     = Plain
