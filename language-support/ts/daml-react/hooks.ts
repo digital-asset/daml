@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Template } from "@daml/types";
+import { Template, Party } from "@daml/types";
 import Ledger, { CreateEvent, Query } from '@daml/ledger';
 import { useState, useContext, useEffect } from "react";
 import { DamlLedgerState, DamlLedgerContext } from './context'
@@ -28,7 +28,7 @@ const useDamlState = (): DamlLedgerState => {
 /**
  * React hook to get the party currently connected to the ledger.
  */
-export const useParty = () => {
+export const useParty = (): Party => {
   const state = useDamlState();
   return state.party;
 }
@@ -75,7 +75,7 @@ export function useQuery<T extends object, K, I extends string>(template: Templa
   useEffect(() => {
     setResult({contracts: [], loading: true});
     const query = queryFactory ? queryFactory() : undefined;
-    const load = async () => {
+    const load = async (): Promise<void> => {
       const contracts = await state.ledger.query(template, query);
       setResult({contracts, loading: false});
     };
@@ -119,7 +119,7 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
   useEffect(() => {
     const key = keyFactory();
     setResult({contract: null, loading: true});
-    const load = async () => {
+    const load = async (): Promise<void> => {
       const contract = await state.ledger.fetchByKey(template, key);
       setResult({contract, loading: false});
     };
@@ -160,7 +160,7 @@ export function useStreamQuery<T extends object, K, I extends string>(template: 
       setResult(result => ({...result, loading: true}));
     });
     setResult(result => ({...result, loading: false}));
-    return () => {
+    return (): void => {
       console.debug(`unmount useStreamQuery(${template.templateId}, ...)`, query);
       stream.close();
     };
@@ -196,7 +196,7 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(templ
       setResult(result => ({...result, loading: true}));
     });
     setResult(result => ({...result, loading: false}));
-    return () => {
+    return (): void => {
       console.debug(`unmount useStreamFetchByKey(${template.templateId}, ...)`, key);
       stream.close();
     };
@@ -210,5 +210,5 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(templ
  */
 export const useReload = (): () => void => {
   const state = useDamlState();
-  return () => state.triggerReload();
+  return (): void => state.triggerReload();
 }
