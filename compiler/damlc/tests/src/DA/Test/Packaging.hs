@@ -703,6 +703,64 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           (exitCode, _, stderr) <- readProcessWithExitCode damlc ["build", "--project-root", projDir] ""
           exitCode @?= ExitFailure 1
           assertBool ("Expected \"non-exhaustive\" error in stderr but got: " <> show stderr) ("non-exhaustive" `isInfixOf` stderr)
+
+    , testCaseSteps "data-dependencies + exposed-modules" $ \step -> withTempDir $ \projDir -> do
+          step "Building dependency"
+          createDirectoryIfMissing True (projDir </> "dependency")
+          writeFileUTF8 (projDir </> "dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "exposed-modules: [B]"
+            ]
+          writeFileUTF8 (projDir </> "dependency" </> "A.daml") $ unlines
+            [ "module A where"
+            ]
+          writeFileUTF8 (projDir </> "dependency" </> "B.daml") $ unlines
+            [ "module B where"
+            , "class C a where f : a"
+            ]
+          withCurrentDirectory (projDir </> "dependency") $ callProcessSilent damlc ["build", "-o", "dependency.dar"]
+          step "Building data-dependency"
+          createDirectoryIfMissing True (projDir </> "data-dependency")
+          writeFileUTF8 (projDir </> "data-dependency" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: data-dependency"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "B.daml") $ unlines
+            [ "module B where"
+            , "class C a where f : a"
+            ]
+          writeFileUTF8 (projDir </> "data-dependency" </> "C.daml") $ unlines
+            [ "module C where"
+            , "import B"
+            , "data Foo = Foo"
+            , "instance C Foo where f = Foo"
+            ]
+          withCurrentDirectory (projDir </> "data-dependency") $ callProcessSilent damlc ["build", "-o", "data-dependency.dar"]
+          step "Building main"
+          createDirectoryIfMissing True (projDir </> "main")
+          writeFileUTF8 (projDir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib, " <> show (projDir </> "dependency" </> "dependency.dar") <> "]"
+            , "data-dependencies: [" <> show (projDir </> "data-dependency" </> "data-dependency.dar") <>  "]"
+            ]
+          writeFileUTF8 (projDir </> "main" </> "Main.daml") $ unlines
+            [ "module Main where"
+            , "import \"dependency\" B"
+            , "import C"
+            , "foo : Foo"
+            , "foo = f"
+            ]
+          withCurrentDirectory (projDir </> "main") $ callProcessSilent damlc ["build", "-o", "main.dar"]
     ] <>
     [ lfVersionTests damlc
     , dataDependencyTests tools
