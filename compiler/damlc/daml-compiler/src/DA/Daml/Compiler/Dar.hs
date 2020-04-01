@@ -56,7 +56,6 @@ import qualified Development.IDE.Types.Logger as IdeLogger
 import SdkVersion
 import System.Directory.Extra
 import System.FilePath
-import System.IO
 
 import MkIface
 import Module
@@ -152,12 +151,6 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
-                         ]
-                 liftIO $ whenJust (fmap (pkgModuleNames \\) pExposedModules) $ \hidden ->
-                     when (notNull hidden) $
-                     hPutStr stderr $ unlines
-                         [ "WARNING: The following modules are not part of exposed-modules: " <> show hidden
-                         , "This can cause issues if those modules are referenced from a data-dependency."
                          ]
                  confFile <- liftIO $ mkConfFile lfVersion pkgConf pkgModuleNames pkgId
                  let dataFiles = [confFile]
