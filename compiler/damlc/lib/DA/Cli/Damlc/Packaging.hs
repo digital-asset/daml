@@ -261,7 +261,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         removePathForcibly dbPath
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
 
--- Given the produce the list of exposed modules for each package.
+-- Produce the list of exposed modules for each package.
 getExposedModules :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)
 getExposedModules df =
     MS.fromList $
