@@ -61,23 +61,19 @@ private[events] trait EventsTable {
     private def instantToTimestamp(t: Instant): Timestamp =
       Timestamp(seconds = t.getEpochSecond, nanos = t.getNano)
 
-    private def flatTransaction[R](makeResponse: ApiTransaction => R)(
-        events: Seq[Entry[Event]],
-    ): Option[R] =
+    private def flatTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
-            makeResponse(
-              ApiTransaction(
-                transactionId = first.transactionId,
-                commandId = first.commandId,
-                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-                workflowId = first.workflowId,
-                offset = ApiOffset.toApiString(first.eventOffset),
-                events = flatEvents,
-              )
+            ApiTransaction(
+              transactionId = first.transactionId,
+              commandId = first.commandId,
+              effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+              workflowId = first.workflowId,
+              offset = ApiOffset.toApiString(first.eventOffset),
+              events = flatEvents,
             )
           )
         else None
@@ -86,12 +82,12 @@ private[events] trait EventsTable {
     def toGetTransactionsResponse(
         events: Vector[Entry[Event]],
     ): List[GetTransactionsResponse] =
-      flatTransaction(tx => GetTransactionsResponse(Seq(tx)))(events).toList
+      flatTransaction(events).toList.map(tx => GetTransactionsResponse(Seq(tx)))
 
     def toGetFlatTransactionResponse(
         events: List[Entry[Event]],
     ): Option[GetFlatTransactionResponse] =
-      flatTransaction(tx => GetFlatTransactionResponse(Some(tx)))(events)
+      flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
 
     private def treeOf(events: Seq[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
 
@@ -118,23 +114,19 @@ private[events] trait EventsTable {
 
     }
 
-    private def transactionTree[R](makeResponse: ApiTransactionTree => R)(
-        events: Seq[Entry[TreeEvent]],
-    ): Option[R] =
+    private def transactionTree(events: Seq[Entry[TreeEvent]]): Option[ApiTransactionTree] =
       events.headOption.map(
         first => {
           val (eventsById, rootEventIds) = treeOf(events)
-          makeResponse(
-            ApiTransactionTree(
-              transactionId = first.transactionId,
-              commandId = first.commandId,
-              workflowId = first.workflowId,
-              effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-              offset = ApiOffset.toApiString(first.eventOffset),
-              eventsById = eventsById,
-              rootEventIds = rootEventIds,
-              traceContext = None,
-            )
+          ApiTransactionTree(
+            transactionId = first.transactionId,
+            commandId = first.commandId,
+            workflowId = first.workflowId,
+            effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+            offset = ApiOffset.toApiString(first.eventOffset),
+            eventsById = eventsById,
+            rootEventIds = rootEventIds,
+            traceContext = None,
           )
         }
       )
@@ -142,12 +134,12 @@ private[events] trait EventsTable {
     def toGetTransactionTreesResponse(
         events: Vector[Entry[TreeEvent]],
     ): List[GetTransactionTreesResponse] =
-      transactionTree(tx => GetTransactionTreesResponse(Seq(tx)))(events).toList
+      transactionTree(events).toList.map(tx => GetTransactionTreesResponse(Seq(tx)))
 
     def toGetTransactionResponse(
         events: List[Entry[TreeEvent]],
     ): Option[GetTransactionResponse] =
-      transactionTree(tx => GetTransactionResponse(Some(tx)))(events)
+      transactionTree(events).map(tx => GetTransactionResponse(Some(tx)))
 
   }
 
