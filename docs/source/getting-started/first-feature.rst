@@ -136,8 +136,8 @@ The prop will be passed down from the ``MainView`` component, reusing the work r
 You can see this ``following`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
-The DAML-specific ``useExerciseByKey`` hook gives us a function to both look up a ``User`` contract and exercise the ``SendMessage`` choice on it.
-The call to ``exerciseSendMessage`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
+The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
+The call to ``ledger.exerciseByKey`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
 The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMessage`` additionally uses the ``isSubmitting`` state to ensure message requests are processed one at a time.
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
