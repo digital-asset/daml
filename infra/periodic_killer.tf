@@ -21,7 +21,6 @@ resource "google_project_iam_custom_role" "periodic-killer" {
   permissions = [
     "compute.instances.delete",
     "compute.instances.list",
-    "compute.zoneOperations.get",
     "compute.zones.list",
   ]
 }
