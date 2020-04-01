@@ -14,10 +14,6 @@ navigator_scalacopts = [
     "-Xsource:2.13",
 ]
 
-common_jvm_flags = [
-    "-Xmx2G",
-]
-
 # All frontend resource files.
 # These come in a manually created JAR file, this rule is just wrapping it in
 # a java_import, so that it is a valid target for the 'resources' property of
