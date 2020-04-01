@@ -33,9 +33,7 @@ import qualified Data.Conduit.Tar as Tar
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
 
--- | Set the given environment variables, then restore them.
--- Envirnoment variables not in the given list are unmodified.
---
+-- | Replace all environment variables for test action, then restore them.
 -- Avoids System.Environment.setEnv because it treats empty strings as
 -- "delete environment variable", unlike main-tester's withEnv which
 -- consequently conflates (Just "") with Nothing.
@@ -43,7 +41,11 @@ withEnv :: [(String, Maybe String)] -> IO t -> IO t
 withEnv vs m = bracket pushEnv popEnv (const m)
     where
         pushEnv :: IO [(String, Maybe String)]
-        pushEnv = replaceEnv vs
+        pushEnv = do
+            oldEnv <- getEnvironment
+            let ks  = map fst vs
+                vs' = [(key, Nothing)  | (key, _) <- oldEnv, key `notElem` ks] ++ vs
+            replaceEnv vs'
 
         popEnv :: [(String, Maybe String)] -> IO ()
         popEnv vs' = void $ replaceEnv vs'
