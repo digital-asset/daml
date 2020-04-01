@@ -45,6 +45,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
 import com.digitalasset.platform.index.TransactionConversion
@@ -129,7 +130,8 @@ class InMemoryLedger(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Ref.Identifier]],
-      verbose: Boolean): Source[(Offset, GetTransactionsResponse), NotUsed] =
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     entries
       .getSource(startExclusive, endInclusive)
       .flatMapConcat {
@@ -149,6 +151,29 @@ class InMemoryLedger(
               .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
               .toList
           )
+        case _ =>
+          Source.empty
+      }
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToTransactionTree(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                requestingParties,
+                verbose)
+              .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
+              .toList)
         case _ =>
           Source.empty
       }

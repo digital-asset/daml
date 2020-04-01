@@ -39,7 +39,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{LedgerEntry, PartyLedgerEntry}
+import com.digitalasset.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
 import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
@@ -96,18 +96,17 @@ abstract class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    between(startExclusive, endInclusive)(acceptedTransactions)
-      .mapConcat {
-        case (offset, transaction) =>
-          TransactionConversion
-            .ledgerEntryToTransactionTree(
-              offset,
-              transaction,
-              filter.filtersByParty.keySet,
-              verbose)
-            .map(tx => GetTransactionTreesResponse(Seq(tx)))
-            .toList
-      }
+    between(startExclusive, endInclusive)(
+      (from, to) =>
+        ledger
+          .transactionTrees(
+            startExclusive = from,
+            endInclusive = to,
+            requestingParties = filter.filtersByParty.keySet,
+            verbose = verbose,
+          )
+          .map(_._2)
+    )
 
   override def transactions(
       startExclusive: domain.LedgerOffset,
@@ -125,7 +124,7 @@ abstract class LedgerBackedIndexService(
               case (party, filters) =>
                 party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
             },
-            verbose = verbose
+            verbose = verbose,
           )
           .map(_._2)
     )
@@ -164,17 +163,6 @@ abstract class LedgerBackedIndexService(
         }
     }
   }
-
-  private def acceptedTransactions(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset],
-  ): Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] =
-    ledger
-      .ledgerEntries(startExclusive, endInclusive)
-      .collect {
-        case (offset, t: LedgerEntry.Transaction) =>
-          (toAbsolute(offset), t)
-      }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
     Future.successful(toAbsolute(ledger.ledgerEnd))
