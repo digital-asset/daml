@@ -92,12 +92,12 @@ class ScenarioService extends ScenarioServiceGrpc.ScenarioServiceImplBase {
                 errOrValue match {
                   case Left(err) =>
                     builder.setError(
-                      new Conversions(context.homePackageId, ledger, machine)
-                        .convertScenarioError(err),
+                      Conversions(context.homePackageId)
+                        .convertScenarioError(ledger, machine, err),
                     )
                   case Right(value) =>
-                    builder.setResult(new Conversions(context.homePackageId, ledger, machine)
-                      .convertScenarioResult(value))
+                    val conv = Conversions(context.homePackageId)
+                    builder.setResult(conv.convertScenarioResult(ledger, machine, value))
                 }
                 builder.build
             }
