@@ -173,6 +173,5 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
 else
     cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
-cd $WORKDIR && tar c $NAME \
-    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
-    | gzip -n > $OUT
+cd $WORKDIR && tar czf $OUT $NAME
+

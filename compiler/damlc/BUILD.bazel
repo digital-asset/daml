@@ -333,9 +333,7 @@ genrule(
             --input-format=json \
             --format=Html \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
-        tar c daml-base-html \
-            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
-            | gzip -n > $(OUTS)
+        tar czf $(OUTS) daml-base-html
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
