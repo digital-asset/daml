@@ -337,11 +337,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    , testCase "Sandbox Classic startup" $
+    , testCase "Sandbox Next startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox-classic", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox-next", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -410,7 +410,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox-classic", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
