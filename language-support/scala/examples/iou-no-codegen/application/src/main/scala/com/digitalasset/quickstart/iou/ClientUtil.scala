@@ -7,6 +7,7 @@ import java.util.UUID
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -18,12 +19,14 @@ import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.quickstart.iou.FutureUtil.toFuture
 import com.google.protobuf.empty.Empty
 
+import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientUtil(
     client: LedgerClient,
     applicationId: ApplicationId,
-) {
+    ttl: Duration,
+    timeProvider: TimeProvider) {
 
   import ClientUtil._
 
@@ -45,7 +48,7 @@ class ClientUtil(
       applicationId = ApplicationId.unwrap(applicationId),
       commandId = uniqueId,
       party = party,
-      commands = Seq(Command(cmd)),
+      commands = Seq(Command(cmd))
     )
 
     commandClient.submitSingleCommand(SubmitRequest(Some(commands), None))
