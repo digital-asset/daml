@@ -230,6 +230,7 @@ object TypedValueGenerators {
             spec.prjRec(fields)
           case _ => None
         }
+        override def injord[Cid: Order] = spec.record[Cid]
         override def injarb[Cid: Arbitrary] = spec.recarb[Cid]
         override def injshrink[Cid: Shrink] = spec.recshrink
       })
@@ -248,6 +249,7 @@ object TypedValueGenerators {
             spec.prjVar get name flatMap (_(vv))
           case _ => None
         }
+        override def injord[Cid: Order] = spec.varord[Cid]
         override def injarb[Cid: Arbitrary] =
           Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
         override def injshrink[Cid: Shrink] = spec.varshrink
@@ -265,6 +267,7 @@ object TypedValueGenerators {
           case ValueEnum(_, dc) => get(dc)
           case _ => None
         }
+        override def injord[Cid: Order] = Order.orderBy(values.indexOf)
         override def injarb[Cid: Arbitrary] = Arbitrary(Gen.oneOf(values))
         override def injshrink[Cid: Shrink] =
           Shrink { ev =>
@@ -355,6 +358,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] val t: List[(Ref.Name, Type)]
     private[TypedValueGenerators] def injRec[Cid](v: HRec[Cid]): List[Value[Cid]]
     private[TypedValueGenerators] def prjRec[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
+    private[TypedValueGenerators] implicit def record[Cid: Order]: Order[HRec[Cid]]
     private[TypedValueGenerators] implicit def recarb[Cid: Arbitrary]: Arbitrary[HRec[Cid]]
     private[TypedValueGenerators] implicit def recshrink[Cid: Shrink]: Shrink[HRec[Cid]]
 
@@ -363,6 +367,7 @@ object TypedValueGenerators {
     // could be made more efficient by replacing ~> with a Nat GADT,
     // but the :+: case is tricky enough as it is
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
+    private[TypedValueGenerators] implicit def varord[Cid: Order]: Order[HVar[Cid]]
     private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary]: Map[Ref.Name, Gen[HVar[Cid]]]
     private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
