@@ -125,7 +125,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox .daml/dist/quickstart-0.0.1.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --wall-clock-time .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 
@@ -139,7 +139,7 @@ In this section, you will run the quickstart application and get introduced to t
       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 100.13.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = WallClock, ledger = in-memory, daml-engine = {}
+      Initialized sandbox version 100.13.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/ledger-api>` on port ``6865``.
 
@@ -171,7 +171,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, in our case with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#9:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
    Your contract ID may vary. There's a lot going on in a DAML ledger, so things could have happened in a different order, or other internal ledger events might have occurred. The actual value doesn't matter. We'll refer to this contract as ``#9:1`` in the rest of this document, and you'll need to substitute your own value mentally.
 
@@ -374,11 +374,11 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
       #6:1
       │   known to (since): 'Alice' (#6), 'Bob' (#6)
       └─> fetch #4:1 (Iou:Iou)
-
+      
       #6:2
       │   known to (since): 'Alice' (#6), 'Bob' (#6)
       └─> fetch #3:1 (Iou:Iou)
-
+      
       #6:3
       │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
       └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
@@ -399,7 +399,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      amount = 110.0;
                      observers = []);
                 newOwner = 'Alice'
-
+      
       #6:5
       │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
       └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
@@ -415,7 +415,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                 currency = "USD";
                 amount = 110.0;
                 observers = []
-
+      
       #6:7
       │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
       └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
@@ -436,7 +436,7 @@ In the transaction view, transaction ``#6`` is of particular interest, as it sho
                      amount = 100.0;
                      observers = ['Bob']);
                 newOwner = 'Bob'
-
+      
       #6:9
       │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
       └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)

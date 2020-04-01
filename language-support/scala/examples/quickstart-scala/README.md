@@ -3,7 +3,7 @@
 This example demonstrates how to:
 - set up and configure Scala codegen (see `codegen` configuration in the `./daml.yaml`)
 - instantiate a contract and send a corresponding create command to the ledger
-- how to exercise a choice and send a corresponding exercise command
+- how to exercise a choice and send a corresponding exercise command  
 - subscribe to receive ledger events and decode them into generated Scala ADTs
 
 All instructions below assume that you have DAML SDK installed. If you have not installed it yet, please follow these instructions: https://docs.daml.com/getting-started/installation.html
@@ -49,7 +49,7 @@ codegen:
 ## Start Sandbox
 This examples requires a running sandbox. To start it, run the following command:
 ```
-$ daml sandbox ./.daml/dist/quickstart-0.0.1.dar
+$ daml sandbox --wall-clock-time ./.daml/dist/quickstart-0.0.1.dar
 ```
 where `./.daml/dist/quickstart-0.0.1.dar` is the DAR file created in the previous step.
 
