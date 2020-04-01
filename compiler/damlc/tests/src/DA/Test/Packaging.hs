@@ -34,7 +34,7 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     repl <- locateRunfiles (mainWorkspace </> "daml-lf" </> "repl" </> exe "repl")
-    davlDar <- locateRunfiles ("davl-v3" </> "released" </> "davl-v3.dar")
+    davlDar <- locateRunfiles ("davl" </> "released" </> "davl-v3.dar")
     oldProjDar <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "tests" </> "dars" </> "old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar")
     let validate dar = callProcessSilent damlc ["validate-dar", dar]
     defaultMain $ tests Tools{..}
