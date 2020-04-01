@@ -12,7 +12,6 @@ genrule(
     ]) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
-        "//docs:daml-patterns",
         "//docs:copy-trigger-template",
         "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala-dir",
@@ -49,9 +48,6 @@ genrule(
 
         mkdir -p $$OUT/script-example
         tar xf $(location //docs:script-example-template) -C $$OUT/script-example
-
-        mkdir -p $$OUT/daml-patterns
-        tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,
