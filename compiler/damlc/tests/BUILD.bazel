@@ -112,7 +112,6 @@ da_haskell_test(
         "base",
         "data-default",
         "extra",
-        "filepath",
         "ghcide",
         "haskell-lsp-types",
         "tasty",

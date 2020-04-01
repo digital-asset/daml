@@ -3,7 +3,7 @@
 
 -- start snippet: product types example
 
-module Com.Acme.ProductTypes where
+module Com.Acme where
 
 data Person = Person with name : Name; age : Decimal
 data Name = Name with firstName : Text; lastName : Text

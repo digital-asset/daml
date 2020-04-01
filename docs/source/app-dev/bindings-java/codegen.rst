@@ -200,18 +200,18 @@ Records (a.k.a product types)
 
 A :ref:`DAML record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the DAML record fields. A DAML field having the type of another record is represented as a field having the type of the generated class for that record.
 
-.. literalinclude:: ./code-snippets/Com/Acme/ProductTypes.daml
+.. literalinclude:: ./code-snippets/ProductTypes.daml
    :language: daml
    :start-after: -- start snippet: product types example
    :end-before: -- end snippet: product types example
-   :caption: Com/Acme/ProductTypes.daml
+   :caption: Com/Acme.daml
 
 A Java file is generated that defines the class for the type ``Person``:
 
 .. code-block:: java
-  :caption: com/acme/producttypes/Person.java
+  :caption: com/acme/Person.java
   
-  package com.acme.producttypes;
+  package com.acme;
 
   public class Person {
     public final Name name;
@@ -226,9 +226,9 @@ A Java file is generated that defines the class for the type ``Person``:
 A Java file is generated that defines the class for the type ``Name``:
 
   .. code-block:: java
-    :caption: com/acme/producttypes.Name.java
+    :caption: com/acme/Name.java
 
-    package com.acme.producttypes;
+    package com.acme;
 
     public class Name {
       public final String fistName;
@@ -258,11 +258,11 @@ The Java codegen generates three classes for a DAML template:
       Represents an actual contract on the ledger. It contains a field for the contract ID (of type ``TemplateName.ContractId``) and a field for the template data (of type ``TemplateName``). With the static method ``TemplateName.Contract.fromCreatedEvent``, you can deserialize a `CreatedEvent <https://docs.daml.com/app-dev/bindings-java/javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ to an instance of ``TemplateName.Contract``.
 
 
-  .. literalinclude:: ./code-snippets/Com/Acme/Templates.daml
+  .. literalinclude:: ./code-snippets/Templates.daml
      :language: daml
      :start-after: -- start snippet: template example
      :end-before: -- end snippet: template example
-     :caption: Com/Acme/Templates.daml
+     :caption: Com/Acme.daml
 
 A file is generated that defines three Java classes:
 
@@ -271,14 +271,14 @@ A file is generated that defines three Java classes:
 #. ``Bar.Contract``
 
 .. code-block:: java
-  :caption: com/acme/templates/Bar.java
+  :caption: com/acme/Bar.java
   :emphasize-lines: 3,14,24
 
-  package com.acme.templates;
+  package com.acme;
 
   public class Bar extends Template {
 
-    public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme.Templates", "Bar");
+    public static final Identifier TEMPLATE_ID = new Identifier("some-package-id", "Com.Acme", "Bar");
 
     public final String owner;
     public final String name;
@@ -316,18 +316,18 @@ Variants (a.k.a sum types)
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
-.. literalinclude:: ./code-snippets/Com/Acme/Variants.daml
+.. literalinclude:: ./code-snippets/Variants.daml
    :language: daml
    :start-after: -- start snippet: variant example
    :end-before: -- end snippet: variant example
-   :caption: Com/Acme/Variants.daml
+   :caption: Com/Acme.daml
 
 The Java code generated for this variant is:
 
 .. code-block:: java
-  :caption: com/acme/variants/BookAttribute.java
+  :caption: com/acme/BookAttribute.java
 
-  package com.acme.variants;
+  package com.acme;
 
   public class BookAttribute {
     public static BookAttribute fromValue(Value value) { /* ... */ }
@@ -337,9 +337,9 @@ The Java code generated for this variant is:
   }
 
 .. code-block:: java
-  :caption: com/acme/variants/bookattribute/Pages.java
+  :caption: com/acme/bookattribute/Pages.java
 
-  package com.acme.variants.bookattribute;
+  package com.acme.bookattribute;
 
   public class Pages extends BookAttribute {
     public final Long longValue;
@@ -351,9 +351,9 @@ The Java code generated for this variant is:
   }
 
 .. code-block:: java
-  :caption: com/acme/variants/bookattribute/Authors.java
+  :caption: com/acme/bookattribute/Authors.java
 
-  package com.acme.variants.bookattribute;
+  package com.acme.bookattribute;
 
   public class Authors extends BookAttribute {
     public final List<String> listValue;
@@ -366,9 +366,9 @@ The Java code generated for this variant is:
   }
 
 .. code-block:: java
-  :caption: com/acme/variants/bookattribute/Title.java
+  :caption: com/acme/bookattribute/Title.java
 
-  package com.acme.variants.bookattribute;
+  package com.acme.bookattribute;
 
   public class Title extends BookAttribute {
     public final String stringValue;
@@ -380,9 +380,9 @@ The Java code generated for this variant is:
   }
 
 .. code-block:: java
-  :caption: com/acme/variants/bookattribute/Published.java
+  :caption: com/acme/bookattribute/Published.java
 
-  package com.acme.variants.bookattribute;
+  package com.acme.bookattribute;
 
   public class Published extends BookAttribute {
     public final Long year;
@@ -405,19 +405,19 @@ The Java codegen uses Java Generic types to represent :ref:`DAML parameterized t
 
 This DAML fragment defines the parameterized type ``Attribute``, used by the ``BookAttribute`` type for modeling the characteristics of the book:
 
-.. literalinclude:: ./code-snippets/Com/Acme/ParameterizedTypes.daml
+.. literalinclude:: ./code-snippets/ParameterizedTypes.daml
    :language: daml
    :start-after: -- start snippet: parameterized types example
    :end-before: -- end snippet: parameterized types example
-   :caption: Com/Acme/ParametrizedTypes.daml
+   :caption: Com/Acme.daml
 
 The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
-  :caption: com/acme/parametrizedtypes/Attribute.java
+  :caption: com/acme/Attribute.java
   :emphasize-lines: 3,8,10
 
-  package com.acme.parametrizedtypes;
+  package com.acme;
 
   public class Attribute<a> {
     public final a value;
@@ -438,18 +438,18 @@ constructors but without argument nor type parameters. The generated code is
 standard java Enum whose constants map enum type constructors.
 
 
-.. literalinclude:: ./code-snippets/Com/Acme/Enum.daml
+.. literalinclude:: ./code-snippets/Enum.daml
    :language: daml
    :start-after: -- start snippet: enum example
    :end-before: -- end snippet: enum example
-   :caption: Com/Acme/Enum.daml
+   :caption: Com/Acme.daml
 
 The Java code generated for this variant is:
 
 .. code-block:: java
-  :caption: com/acme/enum/Color.java
+  :caption: com/acme/Color.java
 
-  package com.acme.enum;
+  package com.acme;
 
 
   public enum Color {
@@ -469,9 +469,9 @@ The Java code generated for this variant is:
 
 
 .. code-block:: java
-  :caption: com/acme/enum/bookattribute/Authors.java
+  :caption: com/acme/bookattribute/Authors.java
 
-  package com.acme.enum.bookattribute;
+  package com.acme.bookattribute;
 
   public class Authors extends BookAttribute {
     public final List<String> listValue;
