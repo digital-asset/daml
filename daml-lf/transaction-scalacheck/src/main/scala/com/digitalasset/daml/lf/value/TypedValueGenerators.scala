@@ -28,7 +28,6 @@ import scalaz.syntax.traverse._
 import scalaz.std.map._
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.std.vector._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import Arbitrary.arbitrary
 
@@ -337,6 +336,15 @@ object TypedValueGenerators {
           Lambda[Value ~> PrjResult](tv => tf(tv) map (Inr(_)))
         } updated (fname, Lambda[Value ~> PrjResult](hv => h.prj(hv) map (pv => Inl(field[K](pv)))))
 
+        override def varord[Cid: Order] =
+          (a, b) =>
+            (a, b) match {
+              case (Inr(at), Inr(bt)) => self.varord[Cid].order(at, bt)
+              case (Inl(_), Inr(_)) => Ordering.LT
+              case (Inr(_), Inl(_)) => Ordering.GT
+              case (Inl(ah), Inl(bh)) => h.injord[Cid].order(ah, bh)
+          }
+
         override def vararb[Cid: Arbitrary] =
           self.vararb[Cid] transform { (_, ta) =>
             ta map (Inr(_))
@@ -380,6 +388,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def injRec[Cid](v: HNil) = List.empty
     private[TypedValueGenerators] override def prjRec[Cid](v: ImmArray[(_, Value[Cid])]) =
       Some(HNil)
+    private[TypedValueGenerators] override def record[Cid: Order] = (_, _) => Ordering.EQ
     private[TypedValueGenerators] override def recarb[Cid: Arbitrary] =
       Arbitrary(Gen const HNil)
     private[TypedValueGenerators] override def recshrink[Cid: Shrink] =
@@ -387,6 +396,7 @@ object TypedValueGenerators {
 
     private[TypedValueGenerators] override def injVar[Cid](v: CNil) = v.impossible
     private[TypedValueGenerators] override val prjVar = Map.empty
+    private[TypedValueGenerators] override def varord[Cid: Order] = (v, _) => v.impossible
     private[TypedValueGenerators] override def vararb[Cid: Arbitrary] = Map.empty
     private[TypedValueGenerators] override def varshrink[Cid: Shrink] = Shrink.shrinkAny
   }
