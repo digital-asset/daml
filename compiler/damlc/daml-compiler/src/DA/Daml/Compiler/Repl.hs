@@ -161,6 +161,25 @@ data ReplState = ReplState
 
 type ReplM a = Repl.HaskelineT (State.StateT ReplState IO) a
 
+data ReplInput
+  = ReplStatement (Stmt GhcPs (LHsExpr GhcPs))
+  | ReplImport (ImportDecl GhcPs)
+
+parseReplInput :: String -> DynFlags -> Either Error ReplInput
+parseReplInput input dflags = swapEither $ do
+    -- We use @Either ReplInput Error@ to short-circuit on success.
+    -- The most common input will be statements. So, we try parsing statements
+    -- first and emit statement parse errors on failure.
+    e <- tryParse (parseStatement input dflags) (ReplStatement . unLoc)
+    _ <- tryParse (parseImport input dflags) (ReplImport . unLoc)
+    pure e
+  where
+    swapEither = either Right Left
+    tryParse :: ParseResult a -> (a -> ReplInput) -> Either ReplInput Error
+    tryParse (POk _ result) f = Left (f result)
+    tryParse (PFailed _ _ errMsg) _ = Right (ParseError errMsg)
+
+
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
 runRepl opts mainDar replClient ideState = do
     Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
@@ -199,9 +218,10 @@ runRepl opts mainDar replClient ideState = do
         -> Int
         -> IO (Either Error (LPat GhcPs, Type))
     handleLine moduleNames binds dflags l i = runExceptT $ do
-        stmt <- case parseStatement l dflags of
-            POk _ lStmt -> pure (unLoc lStmt)
-            PFailed _ _ errMsg -> throwError (ParseError errMsg)
+        input <- ExceptT $ pure $ parseReplInput l dflags
+        stmt <- case input of
+            ReplStatement stmt -> pure stmt
+            ReplImport _ -> throwError (ParseError "IMPORT NOT IMPLEMENTED")
         (bind, expr) <- maybe (throwError (UnsupportedStatement l)) pure (splitStmt stmt)
         liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
             (renderModule dflags moduleNames i binds bind expr)
