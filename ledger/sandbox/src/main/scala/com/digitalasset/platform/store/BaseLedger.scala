@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,7 +21,7 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.TransactionId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, TransactionFilter}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
@@ -178,13 +179,17 @@ abstract class BaseLedger(
       RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
+    ledgerDao.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    ledgerDao.stopDeduplicatingCommand(commandId, submitter)
 
   override def close(): Unit = {
     dispatcher.close()

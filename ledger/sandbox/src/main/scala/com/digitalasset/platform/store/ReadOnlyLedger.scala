@@ -17,7 +17,13 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  LedgerId,
+  PartyDetails,
+  TransactionFilter
+}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
@@ -111,16 +117,28 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed]
 
   /** Deduplicates commands.
-    * Returns None if this is the first time the command is submitted
-    * Returns Some(entry) if the command was submitted before
+    * Returns CommandDeduplicationNew if this is the first time the command is submitted
+    * Returns CommandDeduplicationDuplicate if the command was submitted before
     *
     * Note: The deduplication cache is used by the submission service,
     * it does not modify any on-ledger data.
     */
   def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult]
+
+  /**
+    * Stops deduplicating the given command.
+    *
+    * Note: The deduplication cache is used by the submission service,
+    * it does not modify any on-ledger data.
+    */
+  def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit]
 
   /**
     * Remove all expired deduplication entries. This method has to be called

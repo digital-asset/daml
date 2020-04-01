@@ -11,6 +11,7 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -18,7 +19,13 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  LedgerId,
+  PartyDetails,
+  TransactionFilter
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
@@ -58,6 +65,8 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     val deduplicateCommand: Timer = metrics.timer(prefix :+ "deduplicate_command")
     val removeExpiredDeduplicationData: Timer =
       metrics.timer(prefix :+ "remove_expired_deduplication_data")
+    val stopDeduplicatingCommand: Timer =
+      metrics.timer(prefix :+ "stop_deduplicating_command")
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -161,17 +170,26 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     ledger.configurationEntries(startExclusive)
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     timedFuture(
       Metrics.deduplicateCommand,
-      ledger.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
+      ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
     timedFuture(
       Metrics.removeExpiredDeduplicationData,
       ledger.removeExpiredDeduplicationData(currentTime))
+
+  override def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit] =
+    timedFuture(
+      Metrics.stopDeduplicatingCommand,
+      ledger.stopDeduplicatingCommand(commandId, submitter))
 }
 
 object MeteredReadOnlyLedger {

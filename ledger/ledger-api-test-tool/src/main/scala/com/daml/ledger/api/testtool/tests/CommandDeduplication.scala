@@ -74,6 +74,28 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
   }
 
   test(
+    "CDStopOnSubmissionFailure",
+    "Stop deduplicating commands on submission failure",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      // Do not set the deduplication timeout.
+      // The server will default to the maximum possible deduplication timeout.
+      val requestA = ledger.submitRequest(alice, Dummy(bob).create.command)
+
+      for {
+        // Submit an invalid command (should fail with INVALID_ARGUMENT)
+        failure1 <- ledger.submit(requestA).failed
+
+        // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
+        failure2 <- ledger.submit(requestA).failed
+      } yield {
+        assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
+        assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
+      }
+  }
+
+  test(
     "CDSimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),

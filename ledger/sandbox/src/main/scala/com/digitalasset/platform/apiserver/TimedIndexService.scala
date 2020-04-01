@@ -12,12 +12,19 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, LedgerOffset, TransactionId}
+import com.digitalasset.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  LedgerId,
+  LedgerOffset,
+  TransactionId
+}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
@@ -134,13 +141,20 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
     time("configuration_entries", delegate.configurationEntries(startExclusive))
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant
   ): Future[v2.CommandDeduplicationResult] =
     time(
       "deduplicate_command",
-      delegate.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
+      delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
+
+  override def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): Future[Unit] =
+    time("stop_deduplicating_command", delegate.stopDeduplicatingCommand(commandId, submitter))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
