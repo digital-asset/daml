@@ -137,6 +137,7 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any")) // required to make `.view` work
   @tailrec
   private def runValidation[T](
       envelope: Bytes,
@@ -183,10 +184,10 @@ class SubmissionValidator[LogResult](
                 Metrics.validateSubmission,
                 for {
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
-                  readStateInputs = readStateValues.zip(declaredInputs).map {
-                    case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-                  }
-                  readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
+                  readInputs = readStateValues.view
+                    .zip(declaredInputs)
+                    .map { case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue)) }
+                    .toMap
                   missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
                   _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
                     Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
