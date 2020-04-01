@@ -16,8 +16,10 @@ import org.scalatest.{FreeSpec, Matchers}
 import scalaz.{Order, Tag}
 import scalaz.std.anyVal._
 import scalaz.syntax.functor._
+import scalaz.syntax.order._
 import scalaz.scalacheck.{ScalazProperties => SzP}
 import scalaz.scalacheck.ScalaCheckBinding._
+import shapeless.syntax.singleton._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ValueSpec
@@ -151,6 +153,13 @@ class ValueSpec
         implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
         checkLaws(SzP.order.laws[T])
       }
+
+      "matches constructor rank" in {
+        val fooCp = shapeless.Coproduct[fooVariant.Inj[Cid]]
+        val quux = fooCp('quux ->> 42L)
+        val baz = fooCp('baz ->> 42L)
+        (fooVariant.inj(quux) ?|? fooVariant.inj(baz)) shouldBe scalaz.Ordering.LT
+      }
     }
 
     "for enum types" - {
@@ -169,10 +178,8 @@ class ValueSpec
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 object ValueSpec {
-  private val fooSpec = {
-    import shapeless.syntax.singleton._
+  private val fooSpec =
     'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil
-  }
   private val (_, fooRecord) = VA.record(Identifier assertFromString "abc:Foo:FooRec", fooSpec)
   private val fooVariantId = Identifier assertFromString "abc:Foo:FooVar"
   private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)
