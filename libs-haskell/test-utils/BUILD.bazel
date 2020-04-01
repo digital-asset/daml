@@ -14,7 +14,6 @@ da_haskell_library(
         "extra",
         "filepath",
         "process",
-        "safe-exceptions",
         "tasty",
         "tasty-hunit",
         "text",

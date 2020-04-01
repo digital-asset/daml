@@ -134,7 +134,6 @@ da_haskell_test(
         ":daml-lib",
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
     ],
 )
 
