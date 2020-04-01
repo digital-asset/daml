@@ -547,12 +547,21 @@ da_scala_test_suite(
     # Expected runtime and resource requirements.
     size = "small",
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 
 The `size` attribute is used to determine the default timeout and resource
 requirements. Refer to the [official documentation][bazel_test_size] for
 details about test size and other common test attributes.
+
+A couple of arguments have been added:
+
+  * `initial_heap_size` is translated to `-Xms`, and defaults to `512m`, and
+  * `max_heap_size` is translated to `-Xmx`, and defaults to `2g`.
 
 #### Executables
 
@@ -581,6 +590,10 @@ da_scala_binary(
     # A list of files that should be present in the runtime path at runtime.
     data = [ ... ],
     ...
+
+    # You can adjust the heap size as follows:
+    initial_heap_size = "512m",
+    max_heap_size = "2g",
 )
 ```
 

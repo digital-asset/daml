@@ -125,6 +125,17 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
+default_initial_heap_size = "512m"
+default_max_heap_size = "2g"
+
+def _set_jvm_flags(arguments, initial_heap_size, max_heap_size):
+    result = {}
+    result.update(arguments)
+    result.update({
+        "jvm_flags": arguments.get("jvm_flags", []) + ["-Xms{}".format(initial_heap_size), "-Xmx{}".format(max_heap_size)],
+    })
+    return result
+
 def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
     rule(
         name = name,
@@ -471,7 +482,7 @@ def da_scala_macro_library(**kwargs):
     _wrap_rule(scala_macro_library, **kwargs)
     _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(name, **kwargs):
+def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable.
 
@@ -484,6 +495,7 @@ def da_scala_binary(name, **kwargs):
     arguments = {}
     arguments.update(default_compile_arguments)
     arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
     _wrap_rule(scala_binary, name, **arguments)
 
     if "tags" in arguments:
@@ -507,7 +519,7 @@ def da_scala_binary(name, **kwargs):
                 )
                 break
 
-def da_scala_test(**kwargs):
+def da_scala_test(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -520,9 +532,10 @@ def da_scala_test(**kwargs):
     arguments = {}
     arguments.update(default_compile_arguments)
     arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
     _wrap_rule(scala_test, **arguments)
 
-def da_scala_test_suite(**kwargs):
+def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala test executable for each source file and bundle them into one target.
 
@@ -532,7 +545,10 @@ def da_scala_test_suite(**kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test_suite
     """
-    _wrap_rule(scala_test_suite, use_short_names = is_windows, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_test_suite, use_short_names = is_windows, **arguments)
 
 # TODO make the jmh rule work with plugins -- probably
 # just a matter of passing the flag in

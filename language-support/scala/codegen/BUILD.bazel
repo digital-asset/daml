@@ -79,7 +79,6 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    jvm_flags = common_jvm_flags,
     scalacopts = common_scalacopts,
     deps = [
         ":codegen",
