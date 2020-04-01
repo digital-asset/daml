@@ -6,9 +6,11 @@ package value
 
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
-import TypedValueGenerators.{RNil, ValueAddend => VA, genAddend}
+import Ref.{Identifier, Name}
+import ValueGenerators.{idGen, nameGen}
+import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Matchers}
 import scalaz.{Order, Tag}
@@ -150,6 +152,17 @@ class ValueSpec
         checkLaws(SzP.order.laws[T])
       }
     }
+
+    "for enum types" - {
+      "obeys order laws" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map ea.inj
+            checkLaws(SzP.order.laws[T])
+          }
+      }
+    }
   }
 
 }
@@ -160,14 +173,24 @@ object ValueSpec {
     import shapeless.syntax.singleton._
     'quux ->> VA.int64 :: 'baz ->> VA.int64 :: RNil
   }
-  private val (_, fooRecord) = VA.record(Ref.Identifier assertFromString "abc:Foo:FooRec", fooSpec)
-  private val fooVariantId = Ref.Identifier assertFromString "abc:Foo:FooVar"
+  private val (_, fooRecord) = VA.record(Identifier assertFromString "abc:Foo:FooRec", fooSpec)
+  private val fooVariantId = Identifier assertFromString "abc:Foo:FooVar"
   private val (_, fooVariant) = VA.variant(fooVariantId, fooSpec)
-  private val fooEnumId = Ref.Identifier assertFromString "abc:Foo:FooEnum"
+  private val fooEnumId = Identifier assertFromString "abc:Foo:FooEnum"
 
+  private[this] val scopeOfEnumsGen: Gen[Map[Identifier, Seq[Name]]] =
+    Gen.mapOf(Gen.zip(idGen, Gen.nonEmptyContainerOf[Set, Name](nameGen) map (_.toSeq)))
+
+  private val enumDetailsAndScopeGen
+    : Gen[(Map[Identifier, VA.EnumAddend[Seq[Name]]], Value.LookupVariantEnum)] =
+    scopeOfEnumsGen flatMap { details =>
+      (
+        details transform ((name, members) => VA.enum(name, members)._2),
+        details.transform((_, members) => members.to[ImmArray]).lift)
+    }
   /*
-  private val genFoos: Gen[(ImmArray[Ref.Name], ValueAddend)] =
-    Gen.nonEmptyContainerOf[ImmArray, Ref.Name](ValueGenerators.nameGen)
+  private val genFoos: Gen[(ImmArray[Name], ValueAddend)] =
+    Gen.nonEmptyContainerOf[ImmArray, Name](ValueGenerators.nameGen)
     Gen.oneOf(
     fooRecord,
     fooVariant,
