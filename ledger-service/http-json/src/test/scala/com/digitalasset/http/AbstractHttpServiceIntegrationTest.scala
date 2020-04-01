@@ -901,7 +901,7 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(output, StatusCodes.BadRequest)
           val errorMsg = expectedOneErrorMessage(output)
           errorMsg should include("Cannot read JSON: <[]>")
-          errorMsg should include("must be a list with at least 1 element")
+          errorMsg should include("must be a JSON array with at least 1 element")
       }: Future[Assertion]
   }
 
