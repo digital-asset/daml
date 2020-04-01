@@ -71,12 +71,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <Divider />
-              // USERLIST_BEGIN
+              {/* USERLIST_BEGIN */}
               <UserList
                 users={followers}
                 onFollow={follow}
               />
-              // USERLIST_END
+              {/* USERLIST_END */}
             </Segment>
           </Grid.Column>
         </Grid.Row>
