@@ -10,7 +10,7 @@ da_scala_library(
     name = "participant-state-metrics",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-metrics:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-metrics:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

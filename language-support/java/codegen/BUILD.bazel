@@ -43,7 +43,7 @@ da_scala_library(
     resources = [
         "src/main/resources/logback.xml",
     ],
-    tags = ["maven_coordinates=com.daml:codegen-java-lib:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.java:codegen-lib:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -99,7 +99,7 @@ jar_jar(
     name = "shaded_binary",
     input_jar = "//language-support/java/codegen:codegen_deploy.jar",
     rules = "shade_rule",
-    tags = ["maven_coordinates=com.daml:codegen-java:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.java:codegen:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 
