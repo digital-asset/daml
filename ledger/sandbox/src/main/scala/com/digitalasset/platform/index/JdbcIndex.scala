@@ -23,10 +23,9 @@ object JdbcIndex {
       participantId: ParticipantId,
       jdbcUrl: String,
       metrics: MetricRegistry,
-      eventsPageSize: Int,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
     ReadOnlySqlLedger
-      .owner(serverRole, jdbcUrl, ledgerId, metrics, eventsPageSize)
+      .owner(serverRole, jdbcUrl, ledgerId, metrics)
       .map { ledger =>
         new LedgerBackedIndexService(MeteredReadOnlyLedger(ledger, metrics), participantId) {
           override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
