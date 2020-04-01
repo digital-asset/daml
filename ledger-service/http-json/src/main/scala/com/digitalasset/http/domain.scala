@@ -24,6 +24,7 @@ import scalaz.{
   Applicative,
   Bitraverse,
   NonEmptyList,
+  OneAnd,
   Semigroup,
   Show,
   Tag,
@@ -92,7 +93,7 @@ object domain {
   )
 
   case class GetActiveContractsRequest(
-      templateIds: Set[TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
   )
 

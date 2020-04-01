@@ -24,7 +24,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, Tag, \/, \/-}
+import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
 import scala.collection.breakOut
@@ -170,7 +170,7 @@ class ContractsService(
   def search(
       jwt: Jwt,
       party: domain.Party,
-      templateIds: Set[domain.TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
@@ -326,10 +326,14 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
-      xs: Set[Tid],
+      xs: OneAnd[Set, Tid]
   ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {
-    xs.partitionMap { x =>
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
+
+    xs.toSet.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }
   }

@@ -12,7 +12,7 @@ import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
-import scalaz.{-\/, NonEmptyList, \/-}
+import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
@@ -36,7 +36,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit def NonEmptyListReader[A: JsonReader]: JsonReader[NonEmptyList[A]] = {
     case JsArray(hd +: tl) =>
       NonEmptyList(hd.convertTo[A], tl map (_.convertTo[A]): _*)
-    case _ => deserializationError("must be a list with at least 1 element")
+    case _ => deserializationError("must be a JSON array with at least 1 element")
   }
 
   implicit def NonEmptyListWriter[A: JsonWriter]: JsonWriter[NonEmptyList[A]] =
@@ -245,7 +245,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     */
   implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
     case class GACR(
-        templateIds: Set[domain.TemplateId.OptionalPkg],
+        templateIds: Vector[domain.TemplateId.OptionalPkg],
         query: Option[Map[String, JsValue]])
     val validKeys = Set("templateIds", "query")
     implicit val primitive: JsonReader[GACR] = jsonFormat2(GACR.apply)
@@ -253,12 +253,15 @@ object JsonProtocol extends DefaultJsonProtocol {
       {
         val GACR(tids, q) = jsv.convertTo[GACR]
         val extras = jsv.asJsObject.fields.keySet diff validKeys
-        if (tids.isEmpty)
-          deserializationError("search requires at least one item in 'templateIds'")
-        else if (extras.nonEmpty)
+        if (extras.nonEmpty)
           deserializationError(
             s"unsupported query fields ${extras}; likely should be within 'query' subobject")
-        domain.GetActiveContractsRequest(tids, q getOrElse Map.empty)
+        tids match {
+          case Vector() =>
+            deserializationError("search requires at least one item in 'templateIds'")
+          case h +: t =>
+            domain.GetActiveContractsRequest(OneAnd(h, t.toSet), q getOrElse Map.empty)
+        }
       }
   }
 

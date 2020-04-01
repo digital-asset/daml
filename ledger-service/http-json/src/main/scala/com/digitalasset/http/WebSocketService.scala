@@ -170,18 +170,20 @@ object WebSocketService {
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive] = {
 
+        import scalaz.syntax.foldable._
         import util.Collections._
 
         val (resolved, unresolved, q) = request.queries.zipWithIndex
           .foldMap {
             case (gacr, ix) =>
               val (resolved, unresolved) =
-                gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+                gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
               val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
               (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
