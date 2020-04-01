@@ -16,43 +16,27 @@ import scala.collection.immutable.HashMap
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
 
-  import VersionTimeline.maxVersion
-
-  // FIXME: https://github.com/digital-asset/daml/issues/5164
-  // Currently the engine uses `TransactionVersions.minOutputVersion` or latter.
-  // #5164 should provide a more granular way to control the versioning.
-  // Once #5164 is resolved, update those tests with different values for `minOutputVersion`.
-  val minOutputVersion = TransactionVersions.minOutputVersion
-
   "assignVersion" should {
     "prefer picking an older version" in {
-      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("1"))
+      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe TransactionVersion("1")
     }
 
     "pick version 2 when confronted with newer data" in {
       val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(usingOptional)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("2"))
+      assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
     }
 
     "pick version 7 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("7"))
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
     }
 
     "pick version 2 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
         ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
-        minOutputVersion,
-        TransactionVersion("2"))
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
     }
 
   }

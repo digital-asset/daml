@@ -18,7 +18,13 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.{Value, ValueVersions}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractInst,
+  ValueText,
+  VersionedValue
+}
+import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -81,8 +87,8 @@ class ImplicitPartyAdditionIT
           "CmdId1",
           NodeCreate(
             nodeSeed = None,
-            coid = Value.AbsoluteContractId.assertFromString("#cId1"),
-            coinst = Value.ContractInst(
+            coid = AbsoluteContractId.assertFromString("#cId1"),
+            coinst = ContractInst(
               templateId1,
               textValue("some text"),
               "agreement"
@@ -99,7 +105,7 @@ class ImplicitPartyAdditionIT
           "CmdId2",
           NodeExercises(
             nodeSeed = None,
-            targetCoid = Value.AbsoluteContractId.assertFromString("#cId1"),
+            targetCoid = AbsoluteContractId.assertFromString("#cId1"),
             templateId = templateId1,
             choiceId = Ref.ChoiceName.assertFromString("choice"),
             optLocation = None,
@@ -110,7 +116,7 @@ class ImplicitPartyAdditionIT
             signatories = Set("exercise-signatory"),
             controllers = Set("exercise-signatory"),
             children = ImmArray.empty,
-            exerciseResult = Some(textValue("result")),
+            exerciseResult = None,
             key = None
           )
         )
@@ -119,7 +125,7 @@ class ImplicitPartyAdditionIT
           "fetch-signatory",
           "CmdId3",
           NodeFetch(
-            Value.AbsoluteContractId.assertFromString("#cId1"),
+            AbsoluteContractId.assertFromString("#cId1"),
             templateId1,
             None,
             Some(Set("fetch-acting-party")),
@@ -177,7 +183,7 @@ object ImplicitPartyAdditionIT {
   )
 
   private def textValue(t: String) =
-    ValueVersions.asVersionedValue(Value.ValueText(t)).toOption.get
+    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(t))
 
   private def publishSingleNodeTx(
       ledger: Ledger,
