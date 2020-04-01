@@ -15,10 +15,10 @@ import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.configuration.{
   CommandConfiguration,
-  MetricsReporter,
   PartyConfiguration,
   SubmissionConfiguration
 }
+import com.digitalasset.platform.sandbox.metrics.MetricsReporter
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.ports.Port
 
