@@ -19,6 +19,10 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
+-- | DAML-LF version 1.5
+version1_5 :: Version
+version1_5 = V1 $ PointStable 5
+
 -- | DAML-LF version 1.6
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
@@ -43,7 +47,7 @@ supportedOutputVersions :: [Version]
 supportedOutputVersions = [version1_6, version1_7, version1_8, versionDev]
 
 supportedInputVersions :: [Version]
-supportedInputVersions = supportedOutputVersions
+supportedInputVersions = version1_5 : supportedOutputVersions
 
 
 data Feature = Feature
