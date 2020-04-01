@@ -24,16 +24,9 @@ replaceable.
 ## Getting started
 
 Before you can run the application, you need to install the
-[DAML SDK](https://docs.daml.com/getting-started/installation.html) and [yarn](https://yarnpkg.com/en/docs/install)
-package manager for JavaScript.
+[yarn](https://yarnpkg.com/en/docs/install) package manager for JavaScript.
 
-You can make a copy of this project either by clicking the
-"Use this template" button above or by cloning this repository directly via
-```
-git clone https://github.com/digital-asset/create-daml-app.git
-```
-
-Once you have copy of the project, there are two steps to build it.
+There are two steps to build the project.
 First, we need to generate TypeScript code bindings for the compiled DAML model.
 At the root of the repository, run
 ```

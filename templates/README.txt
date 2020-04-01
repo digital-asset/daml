@@ -5,6 +5,10 @@ Testing the create-daml-app template
 
 While automated integration tests for the create-daml-app template are being built,
 we have the following manual testing procedure.
+Note that this is for testing against the head of the daml repo.
+For testing against a released SDK, you can skip past the package.json step and use
+`daml` instead of `daml-head` after installing the released version.
+
 
 First, build the SDK from head using the `daml-sdk-head` command.
 This gives an executable DAML assistant called `daml-head` in your path.
@@ -41,7 +45,21 @@ package.json:
 }
 
 Now you can continue to build and run the project as described in create-daml-app/README.md,
-using `daml-head` instead of `daml` everywhere.
-After following those instructions and getting the app up and running, also make sure the
-UI tests work using `yarn test` in the `ui` folder.
+using `daml-head` instead of `daml`.
+Specifically, you should run the following in the root directory:
+```
+daml-head build
+daml-head codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
+daml-head start
+```
+
+Then in another terminal, navigate to `create-daml-app/ui/` and run:
+```
+yarn install
+yarn start
+```
+And check that the app works.
+
+Finally, terminate both the `daml start` and `yarn start` processes and run
+`yarn test` from the `ui` directory. All tests should pass.
 
