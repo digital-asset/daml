@@ -22,9 +22,6 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       .single(beginAfter.map(KVOffset.onlyKeepHighestIndex))
       .flatMapConcat(reader.events)
       .flatMapConcat {
-        case LedgerEntry.Heartbeat(offset, instant) =>
-          val update = Update.Heartbeat(Time.Timestamp.assertFromInstant(instant))
-          Source.single(offset -> update)
         case LedgerEntry.LedgerRecord(offset, entryId, envelope) =>
           Envelope
             .open(envelope)
