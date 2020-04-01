@@ -32,18 +32,7 @@ main = do
 
 createDamlAppTests :: FilePath -> TestTree
 createDamlAppTests damlHelper = testGroup "create-daml-app"
-    [ testCase "Succeeds with SDK 0.13.55" $ withTempDir $ \dir -> do
-          env <- getEnvironment
-          (exit, out, err) <- readCreateProcessWithExitCode
-              (proc damlHelper ["create-daml-app", dir </> "foobar"])
-                   { env = Just (("DAML_SDK_VERSION", "0.13.55") : env) }
-              ""
-          err @?= ""
-          assertInfixOf "Created" out
-          exit @?= ExitSuccess
-          assertBool "daml.yaml does not exist" =<<
-              doesFileExist (dir </> "foobar" </> "daml.yaml")
-    , testCase "Fails with SDK 0.0.1" $ withTempDir $ \dir -> do
+    [ testCase "Fails with SDK 0.0.1" $ withTempDir $ \dir -> do
           -- Note that we do not test 0.0.0 since people
           -- might be tempted to create that tag temporarily for
           -- testing purposes.

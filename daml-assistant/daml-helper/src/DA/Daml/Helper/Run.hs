@@ -564,49 +564,6 @@ runNew targetFolder templateNameM = do
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
 
-runCreateDamlApp :: FilePath -> IO ()
-runCreateDamlApp targetFolder = do
-    whenM (doesDirectoryExist targetFolder) $ do
-        hPutStr stderr $ unlines
-            [ "Directory " <> show targetFolder <> " already exists."
-            , "Please specify a new directory or delete the directory."
-            ]
-        exitFailure
-
-    sdkVersion <- getSdkVersion
-    request <- HTTP.parseRequest ("GET " <> url sdkVersion)
-    HTTP.withResponse request $ \response -> do
-        if | HTTP.getResponseStatus response == HTTP.notFound404 -> do
-                 -- We treat 404s specially to provide a better error message.
-                 hPutStrLn stderr $ unlines
-                     [ "create-daml-app is not available for SDK version " <> sdkVersion <> "."
-                     , "You need to use at least SDK version 1.0. If this is a new release,"
-                     , "try again in a few hours."
-                     ]
-                 exitFailure
-           | not (HTTP.statusIsSuccessful $ HTTP.getResponseStatus response) -> do
-                 hPutStrLn stderr $ unlines
-                     [ "Failed to download create-daml-app from " <> show (url sdkVersion) <> "."
-                     , "Verify that your network is working and that you can"
-                     , "access https://github.com/digital-asset/create-daml-app"
-                     ]
-                 hPrint stderr (HTTP.getResponseStatus response)
-                 runConduitRes (HTTP.getResponseBody response .| sinkHandle stderr )
-                 -- trailing newline
-                 BSChar8.hPutStrLn stderr ""
-                 exitFailure
-           | otherwise -> do
-                 -- Successful request so now extract it to the target folder.
-                 let extractError msg e = liftIO $ fail $
-                         "Failed to extract tarball: " <> T.unpack msg <> ": " <> T.unpack e
-                 runConduitRes $
-                     HTTP.getResponseBody response
-                     .| Zlib.ungzip
-                     .| Tar.untar (Tar.restoreFile extractError targetFolder)
-                 putStrLn $ "Created a new DAML app in " <> show targetFolder <> "."
-    where
-        url version = "https://github.com/digital-asset/create-daml-app/archive/v" <> version <> ".tar.gz"
-
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
 
