@@ -15,8 +15,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
-import DA.Daml.Package.Config (PackageSdkVersion(..))
-import DA.Daml.Compiler.Dar (createDarFile,createArchive)
+import DA.Daml.Compiler.Dar (PackageSdkVersion(..),createDarFile,createArchive)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as LFArchive
