@@ -5,16 +5,10 @@ package com.daml.ledger.participant.state.kvutils.app
 
 import java.nio.file.Path
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.kvutils.app.Metrics.{
-  IndexServicePrefix,
-  ReadServicePrefix,
-  WriteServicePrefix
-}
-import com.daml.ledger.participant.state.metrics.JvmMetricSet
+import com.daml.ledger.participant.state.kvutils.app.Metrics._
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
@@ -55,14 +49,7 @@ class Runner[T <: ReadWriteService, Extra](
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
             val metricRegistry = factory.metricRegistry(participantConfig, config)
-            metricRegistry.registerAll(new JvmMetricSet)
             for {
-              _ <- config.metricsReporter.fold(Resource.unit)(
-                reporter =>
-                  ResourceOwner
-                    .forCloseable(() => reporter.register(metricRegistry))
-                    .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
-                    .acquire())
               ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
               readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
               writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
