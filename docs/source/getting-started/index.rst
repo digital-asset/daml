@@ -51,9 +51,14 @@ Running the app
 
 We'll start by getting the app up and running, and then explain the different components which we will later extend.
 
-First off, open a terminal, clone the template project and move to the project folder::
+First off, open a terminal and instantiate the template project.
+::
 
-    git clone https://github.com/digital-asset/create-daml-app.git
+    daml new create-daml-app
+
+This creates a new folder with contents from our template.
+Change to the new folder::
+
     cd create-daml-app
 
 Next we need to compile the DAML code to a DAR file::
@@ -65,12 +70,13 @@ Once the DAR file is created you will see this message in terminal ``Created .da
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
 
-Now, use Yarn to install the project dependencies and build the app::
+Now, changing to the ``ui`` folder, use Yarn to install the project dependencies and build the app::
 
+    cd ui
     yarn install
-    yarn workspaces run build
+    yarn build
 
 These steps may take a couple of minutes each (it's worth it!).
 You should see ``Compiled successfully.`` in the output if everything worked as expected.
@@ -81,7 +87,7 @@ We can now run the app in two steps.
 You'll need two terminal windows running for this.
 In one terminal, at the root of the ``create-daml-app`` directory, run the command::
 
-    daml start --start-navigator=no
+    daml start
 
 You will know that the command has started successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
@@ -142,5 +148,3 @@ Just switch to the window where you are logged in as yourself - the network shou
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
 When you're ready, let's move on to the :doc:`architecture of our app <app-architecture>`.
-
-.. TODO: Add screenshots for the app above
