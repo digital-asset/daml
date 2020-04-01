@@ -366,8 +366,6 @@ object Transaction {
 
   type Value[+Cid] = Value.VersionedValue[Cid]
 
-  type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
-
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
   type LeafNode = LeafOnlyNode.WithTxValue[TContractId]
