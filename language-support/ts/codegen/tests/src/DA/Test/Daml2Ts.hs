@@ -17,18 +17,24 @@ import DA.Test.Daml2TsUtils
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HMS
 import Data.Aeson
 import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Test.Util
 
--- Version of eslint we use for linting the generated code.
-eslintVersion :: T.Text
-eslintVersion = "^6.8.0"
-
--- Version of typescript-eslint for linting the generated code.
-typescriptEslintVersion :: T.Text
-typescriptEslintVersion = "^2.16.0"
+-- Referenced from the DAVL test. Lifted here for easy
+-- maintenance.
+data ConfigConsts = ConfigConsts
+  { pkgDevDependencies :: HMS.HashMap T.Text T.Text }
+configConsts :: ConfigConsts
+configConsts = ConfigConsts
+  { pkgDevDependencies = HMS.fromList
+      [ ("eslint", "^6.7.2")
+      , ("@typescript-eslint/eslint-plugin", "2.11.0")
+      , ("@typescript-eslint/parser", "2.11.0")
+      ]
+  }
 
 main :: IO ()
 main = do
@@ -214,11 +220,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         BSL.writeFile "package.json" $ encode $
           object
             [ "private" .= True
-            , "devDependencies" .= object
-                [ "eslint" .= eslintVersion
-                , "@typescript-eslint/eslint-plugin" .= typescriptEslintVersion
-                , "@typescript-eslint/parser" .= typescriptEslintVersion
-                ]
+            , "devDependencies" .= pkgDevDependencies configConsts
             , "workspaces" .= pkgs
             , "name" .= ("daml2ts" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)
