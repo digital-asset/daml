@@ -6,10 +6,9 @@ module DA.Daml.Compiler.Repl (runRepl) where
 
 import BasicTypes (Boxity(..))
 import qualified "zip-archive" Codec.Archive.Zip as Zip
-import Control.Exception hiding (TypeError)
 import Control.Lens (toListOf)
-import Control.Monad
 import Control.Monad.Except
+import qualified Control.Monad.State.Strict as State
 import Control.Monad.Trans.Maybe
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
@@ -44,8 +43,8 @@ import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import RdrName (mkRdrUnqual)
 import SrcLoc (unLoc)
+import qualified System.Console.Repline as Repl
 import System.Exit
-import System.IO.Error
 import System.IO.Extra
 import Type
 
@@ -154,6 +153,14 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
       ]
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
+data ReplState = ReplState
+  { moduleNames :: [LF.ModuleName]
+  , bindings :: [(LPat GhcPs, Type)]
+  , lineNumber :: Int
+  }
+
+type ReplM a = Repl.HaskelineT (State.StateT ReplState IO) a
+
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
 runRepl opts mainDar replClient ideState = do
     Right Dalfs{..} <- readDalfs . Zip.toArchive <$> BSL.readFile mainDar
@@ -168,7 +175,21 @@ runRepl opts mainDar replClient ideState = do
                 hPutStrLn stderr ("Package could not be loaded: " <> show err)
                 exitFailure
             Right _ -> pure ()
-    go moduleNames 0 []
+    let initReplState = ReplState
+          { moduleNames = moduleNames
+          , bindings = []
+          , lineNumber = 0
+          }
+    -- TODO[AH] Use Repl.evalReplOpts once we're using repline >= 0.2.2
+    let replM = Repl.evalRepl banner command options prefix tabComplete initialiser
+          where
+            banner = pure "daml> "
+            command = replLine
+            options = []
+            prefix = Nothing
+            tabComplete = Repl.Cursor $ \_ _ -> pure []
+            initialiser = pure ()
+    State.evalStateT replM initReplState
   where
     handleLine
         :: [LF.ModuleName]
@@ -199,26 +220,25 @@ runRepl opts mainDar replClient ideState = do
         case scriptRes of
             Right _ -> pure (bind, stmtTy)
             Left err -> throwError (ScriptError err)
-    go :: [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> IO ()
-    go moduleNames !i !binds = do
-         putStr "daml> "
-         hFlush stdout
-         l <- catchJust (guard . isEOFError) getLine (const exitSuccess)
-         dflags <-
-             hsc_dflags . hscEnv <$>
-             runAction ideState (use_ GhcSession $ lineFilePath i)
-         r <- handleLine moduleNames binds dflags l i
-         case r of
-             Left err -> do
-                 renderError dflags err
-                 -- If we get an error we don’t increment i and we
-                 -- do not get a new binding
-                 go moduleNames i binds
-             Right (pat, ty) -> do
-                 let boundVars = mkOccSet (map occName (collectPatBinders pat))
-                 go moduleNames
-                    (i + 1 :: Int)
-                    (map (first (shadowPat boundVars)) binds <> [(toTuplePat pat, ty)])
+    replLine :: String -> ReplM ()
+    replLine line = do
+        ReplState {moduleNames, bindings, lineNumber} <- State.get
+        dflags <- liftIO $
+            hsc_dflags . hscEnv <$>
+            runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
+        r <- liftIO $ handleLine moduleNames bindings dflags line lineNumber
+        case r of
+            Left err -> do
+                liftIO $ renderError dflags err
+                -- If we get an error we don’t increment i and we
+                -- do not get a new binding
+            Right (pat, ty) -> do
+                let boundVars = mkOccSet (map occName (collectPatBinders pat))
+                State.put $! ReplState
+                  { moduleNames = moduleNames
+                  , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat pat, ty)]
+                  , lineNumber = lineNumber + 1
+                  }
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
