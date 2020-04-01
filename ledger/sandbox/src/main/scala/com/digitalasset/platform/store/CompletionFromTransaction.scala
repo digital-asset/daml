@@ -76,10 +76,6 @@ private[platform] object CompletionFromTransaction {
         checkpoint = toApiCheckpoint(recordTime, offset),
         Seq(Completion(commandId, Some(Status(toErrorCode(reason).value(), reason.description))))
       )
-    case (offset, LedgerEntry.Checkpoint(recordTime)) =>
-      offset -> CompletionStreamResponse(
-        checkpoint = toApiCheckpoint(recordTime, offset),
-        completions = Seq())
   }
 
 }

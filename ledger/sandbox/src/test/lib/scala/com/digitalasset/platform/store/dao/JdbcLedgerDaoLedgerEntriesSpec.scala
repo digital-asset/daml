@@ -29,21 +29,6 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
 
   behavior of "JdbcLedgerDao (ledger entries)"
 
-  it should "be able to persist and load a checkpoint" in {
-    val checkpoint = LedgerEntry.Checkpoint(Instant.now)
-    val offset = nextOffset()
-
-    for {
-      startingOffset <- ledgerDao.lookupLedgerEnd()
-      _ <- ledgerDao.storeLedgerEntry(offset, PersistenceEntry.Checkpoint(checkpoint))
-      entry <- ledgerDao.lookupLedgerEntry(offset)
-      endingOffset <- ledgerDao.lookupLedgerEnd()
-    } yield {
-      entry shouldEqual Some(checkpoint)
-      endingOffset should be > startingOffset
-    }
-  }
-
   it should "be able to persist and load a rejection" in {
     val offset = nextOffset()
     val rejection = LedgerEntry.Rejection(

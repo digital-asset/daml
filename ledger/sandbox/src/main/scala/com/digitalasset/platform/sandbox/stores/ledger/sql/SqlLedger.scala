@@ -9,9 +9,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.Done
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
-import akka.stream.scaladsl.GraphDSL.Implicits._
-import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
-import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
+import akka.stream.scaladsl.{Keep, Sink, Source, SourceQueueWithComplete}
+import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
@@ -43,10 +42,7 @@ import scala.util.{Failure, Success}
 
 object SqlLedger {
 
-  private type Queues = (
-      SourceQueueWithComplete[Offset => Future[Unit]],
-      SourceQueueWithComplete[Offset => Future[Unit]],
-  )
+  private type PersistentQueue = SourceQueueWithComplete[Offset => Future[Unit]]
 
   def owner(
       serverRole: ServerRole,
@@ -107,9 +103,8 @@ private final class SqlLedger(
 
   // the reason for modelling persistence as a reactive pipeline is to avoid having race-conditions between the
   // moving ledger-end, the async persistence operation and the dispatcher head notification
-  private val (checkpointQueue, persistenceQueue): Queues = createQueues()
+  private val persistenceQueue: PersistentQueue = createQueue()
 
-  watchForFailures(checkpointQueue, "checkpoint")
   watchForFailures(persistenceQueue, "persistence")
 
   private def watchForFailures(queue: SourceQueueWithComplete[_], name: String): Unit =
@@ -120,29 +115,17 @@ private final class SqlLedger(
         logger.error(s"$name queue has been closed with a failure!", throwable)
       }(DEC)
 
-  private def createQueues(): Queues = {
+  private def createQueue(): PersistentQueue = {
     implicit val ec: ExecutionContext = DEC
 
-    val checkpointQueue = Source.queue[Offset => Future[Unit]](1, OverflowStrategy.dropHead)
     val persistenceQueue =
       Source.queue[Offset => Future[Unit]](queueDepth, OverflowStrategy.dropNew)
-
-    val mergedSources =
-      Source.fromGraph(GraphDSL.create(checkpointQueue, persistenceQueue)(_ -> _) {
-        implicit b => (checkpointSource, persistenceSource) =>
-          val merge = b.add(MergePreferred[Offset => Future[Unit]](1))
-
-          checkpointSource ~> merge.preferred
-          persistenceSource ~> merge.in(0)
-
-          SourceShape(merge.out)
-      })
 
     // By default we process the requests in batches when under pressure (see semantics of `batch`). Note
     // that this is safe on the read end because the readers rely on the dispatchers to know the
     // ledger end, and not the database itself. This means that they will not start reading from the new
     // ledger end until we tell them so, which we do when _all_ the entries have been committed.
-    mergedSources
+    persistenceQueue
       .batch(maxBatchSize.toLong, Queue(_))(_.enqueue(_))
       .mapAsync(1) { queue =>
         val startOffset = SandboxOffset.fromOffset(dispatcher.getHead())
@@ -159,7 +142,7 @@ private final class SqlLedger(
             dispatcher.signalNewHead(SandboxOffset.toOffset(startOffset + queue.length)) //signalling downstream subscriptions
           }
       }
-      .toMat(Sink.ignore)(Keep.left[Queues, Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[PersistentQueue, Future[Done]])
       .run()
   }
 
@@ -168,7 +151,6 @@ private final class SqlLedger(
   override def close(): Unit = {
     super.close()
     persistenceQueue.complete()
-    checkpointQueue.complete()
   }
 
   // Note: ledger entries are written in batches, and this variable is updated while writing a ledger configuration
@@ -200,12 +182,6 @@ private final class SqlLedger(
           logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
           ()
       }(DEC)
-
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    checkpointQueue
-      .offer(offsets =>
-        storeLedgerEntry(offsets, PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time))))
-      .map(_ => ())(DEC) //this never pushes back, see createQueues above!
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -459,7 +435,7 @@ private final class SqlLedgerFactory(ledgerDao: LedgerDao)(implicit logCtx: Logg
       initialConfig: Configuration,
   ): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
-    // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
+    // headRef. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
 
     implicit val ec: ExecutionContext = DEC

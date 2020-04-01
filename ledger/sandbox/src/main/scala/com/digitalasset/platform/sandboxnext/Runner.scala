@@ -26,13 +26,7 @@ import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{
-  ApiServer,
-  ApiServerConfig,
-  StandaloneApiServer,
-  TimeServiceBackend,
-  TimedIndexService
-}
+import com.digitalasset.platform.apiserver._
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
@@ -52,7 +46,6 @@ import com.digitalasset.resources.{ResettableResourceOwner, Resource, ResourceOw
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -112,13 +105,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 
-      val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
+      val timeServiceBackend = timeProviderType match {
         case TimeProviderType.Static =>
-          val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
-          (Some(backend), backend.changes)
+          Some(TimeServiceBackend.simple(Instant.EPOCH))
         case TimeProviderType.WallClock =>
-          val clock = Clock.systemUTC()
-          (None, new RegularHeartbeat(clock, HeartbeatInterval))
+          None
       }
 
       val owner = for {
@@ -145,14 +136,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Therefore we don't need to "reset" the KV Ledger and Index separately.
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
-                heartbeats <- heartbeatMechanism
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
                   metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                  heartbeats = heartbeats,
                   seedService = SeedService(seeding),
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
@@ -268,6 +257,4 @@ object Runner {
   private val IndexServicePrefix = MetricRegistry.name("daml", "services", "index")
   private val ReadServicePrefix = MetricRegistry.name("daml", "services", "read")
   private val WriteServicePrefix = MetricRegistry.name("daml", "services", "write")
-
-  private val HeartbeatInterval: FiniteDuration = 1.second
 }

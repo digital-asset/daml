@@ -12,9 +12,8 @@ CREATE TABLE ${table.prefix}meta
 CREATE TABLE ${table.prefix}log
 (
     sequence_no         INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    entry_id            VARBINARY(16384),
-    envelope            BLOB,
-    heartbeat_timestamp BIGINT
+    entry_id            VARBINARY(16384) NOT NULL,
+    envelope            BLOB NOT NULL
 );
 
 CREATE TABLE ${table.prefix}state

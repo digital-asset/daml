@@ -14,7 +14,6 @@ import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -246,8 +245,6 @@ object RecoveringIndexerIntegrationSpec {
           doAnswer(invocation => {
             val beginAfter = invocation.getArgument[Option[Offset]](0)
             delegate.stateUpdates(beginAfter).flatMapConcat {
-              case value @ (_, Heartbeat(_)) =>
-                Source.single(value)
               case value @ (offset, _) =>
                 if (lastFailure.isEmpty || lastFailure.get < offset) {
                   lastFailure = Some(offset)
