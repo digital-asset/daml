@@ -206,6 +206,3 @@ jsonFailingCreateAndExercise p = submit p $ createAndExerciseCmd (C p 0) ShouldF
 
 jsonExpectedFailureCreateAndExercise : Party -> Script ()
 jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd (C p 0) ShouldFail
-
-jsonAllocateParty : Text -> Script Party
-jsonAllocateParty p = allocatePartyWithHint p (PartyIdHint p)
