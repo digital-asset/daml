@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -36,7 +37,7 @@ import scala.util.{Failure, Success, Try}
   *                               in order to pass validation
   * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
   */
-class SubmissionValidator[LogResult](
+class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
     processSubmission: (
         DamlLogEntryId,
@@ -46,13 +47,22 @@ class SubmissionValidator[LogResult](
         Map[DamlStateKey, Option[DamlStateValue]],
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
-    checkForMissingInputs: Boolean = false,
+    checkForMissingInputs: Boolean,
+    maximumStateValueCacheSize: Long,
     metricRegistry: MetricRegistry,
 )(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
 
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
+
+  private val stateValueCache = CacheBuilder
+    .newBuilder()
+    .maximumWeight(maximumStateValueCacheSize)
+    .weigher[Bytes, DamlStateValue]((bytes, value) => bytes.size() + value.getSerializedSize)
+    .build(new CacheLoader[Bytes, DamlStateValue] {
+      override def load(bytes: Bytes): DamlStateValue = bytesToStateValue(bytes)
+    })
 
   def validate(
       envelope: Bytes,
@@ -186,7 +196,7 @@ class SubmissionValidator[LogResult](
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
                   readInputs = readStateValues.view
                     .zip(declaredInputs)
-                    .map { case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue)) }
+                    .map { case (valueBytes, key) => (key, valueBytes.map(stateValueCache.get)) }
                     .toMap
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs
@@ -303,16 +313,20 @@ object SubmissionValidator {
 
   private lazy val engine = Engine()
 
+  private val DefaultMaximumStateValueCacheSize: Long = 64 * 1024 * 1024
+
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
+      maximumStateValueCacheSize: Long = DefaultMaximumStateValueCacheSize,
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(
       ledgerStateAccess,
       allocateNextLogEntryId,
       checkForMissingInputs,
+      maximumStateValueCacheSize,
       metricRegistry,
       inStaticTimeMode = false,
     )
@@ -323,17 +337,18 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
+      maximumStateValueCacheSize: Long = DefaultMaximumStateValueCacheSize,
       metricRegistry: MetricRegistry,
       inStaticTimeMode: Boolean,
-  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
+  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =
     new SubmissionValidator(
       ledgerStateAccess,
       processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
+      maximumStateValueCacheSize,
       metricRegistry,
     )
-  }
 
   private[validator] def allocateRandomLogEntryId(): DamlLogEntryId =
     DamlLogEntryId.newBuilder
