@@ -106,9 +106,6 @@ html_show_sphinx = False
 # Don't display the link to the sources
 html_show_sourcelink = False
 
-# Don't display the link for scaled images
-html_scaled_image_link = False
-
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
