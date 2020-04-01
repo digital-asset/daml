@@ -9,7 +9,6 @@ import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
-  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
 import com.digitalasset.platform.ApiOffset
@@ -31,9 +30,6 @@ private[dao] final class TransactionsReader(
 ) {
 
   private def offsetFor(response: GetTransactionsResponse): Offset =
-    ApiOffset.assertFromString(response.transactions.head.offset)
-
-  private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
   def getFlatTransactions(
@@ -81,36 +77,6 @@ private[dao] final class TransactionsReader(
       .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
   }
 
-  def getTransactionTrees(
-      startExclusive: Offset,
-      endInclusive: Offset,
-      requestingParties: Set[Party],
-      verbose: Boolean,
-  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
-    val events =
-      PaginatingAsyncStream(pageSize) { offset =>
-        val query =
-          EventsTable
-            .preparePagedGetTransactionTrees(
-              startExclusive = startExclusive,
-              endInclusive = endInclusive,
-              requestingParties = requestingParties,
-              pageSize = pageSize,
-              rowOffset = offset,
-            )
-            .withFetchSize(Some(pageSize))
-        dispatcher.executeSql("get_transaction_trees") { implicit connection =>
-          query.asVectorOf(EventsTable.treeEventParser(verbose = verbose))
-        }
-      }
-
-    groupContiguous(events)(by = _.transactionId)
-      .flatMapConcat { events =>
-        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
-        Source(response.map(r => offsetFor(r) -> r))
-      }
-  }
-
   def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
@@ -123,7 +89,7 @@ private[dao] final class TransactionsReader(
       ) { implicit connection =>
         query.as(EventsTable.treeEventParser(verbose = true).*)
       }
-      .map(EventsTable.Entry.toGetTransactionResponse)(executionContext)
+      .map(EventsTable.Entry.toTransactionTree)(executionContext)
   }
 
 }
