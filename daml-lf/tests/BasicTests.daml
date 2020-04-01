@@ -340,19 +340,6 @@ template FetcherByKey
           (_, c) <- fetchByKey @WithKey (p, n)
           pure c
 
-template LookerUpByKey
-  with p: Party
-  where
-    signatory p
-
-    controller p can
-      nonconsuming Lookup : Maybe (ContractId WithKey)
-        with
-          n : Int
-        do
-          lookupByKey @WithKey (p, n)
-
-
 test_failedAuths = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"

@@ -271,12 +271,6 @@ final class Engine {
         ResultDone(acoid)
     }
 
-  private[this] def asValueWithNoContractIds(v: Value[Value.ContractId]): Result[Value[Nothing]] =
-    v.ensureNoCid.fold(
-      coid => ResultError(ValidationError(s"engine: found a contract ID $coid in the given value")),
-      ResultDone(_)
-    )
-
   // Translate a GenNode into an expression re-interpretable by the interpreter
   private[this] def translateNode[Cid <: Value.ContractId](
       commandPreprocessor: CommandPreprocessor)(
@@ -314,11 +308,8 @@ final class Engine {
         asAbsoluteContractId(coid)
           .flatMap(acoid => commandPreprocessor.preprocessFetch(templateId, acoid))
 
-      case NodeLookupByKey(templateId, _, key, _) =>
-        for {
-          validatedKeyValue <- asValueWithNoContractIds(key.key.value)
-          res <- commandPreprocessor.preprocessLookupByKey(templateId, validatedKeyValue)
-        } yield res
+      case NodeLookupByKey(_, _, _, _) =>
+        sys.error("TODO lookup by key command translate")
     }
   }
 

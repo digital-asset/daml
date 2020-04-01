@@ -166,29 +166,6 @@ private[engine] class CommandPreprocessor(compiledPackages: MutableCompiledPacka
     )
   }
 
-  private[engine] def preprocessLookupByKey(
-      templateId: ValueRef,
-      contractKey: Value[Nothing]
-  ): Result[(Type, SpeedyCommand)] = {
-    Result.needTemplate(
-      compiledPackages,
-      templateId,
-      template => {
-        template.key match {
-          case None =>
-            ResultError(
-              Error(s"Impossible to lookup by key, no key is defined for template $templateId"))
-          case Some(ck) =>
-            for {
-              key <- translateValue(ck.typ, contractKey)
-            } yield
-              TTyCon(templateId) -> SpeedyCommand
-                .LookupByKey(templateId, key)
-        }
-      }
-    )
-  }
-
   private[engine] def preprocessCommand(cmd: Command): Result[(Type, SpeedyCommand)] =
     cmd match {
       case CreateCommand(templateId, argument) =>
