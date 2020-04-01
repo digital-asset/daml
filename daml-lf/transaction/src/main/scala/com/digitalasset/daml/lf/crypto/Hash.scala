@@ -62,7 +62,8 @@ object Hash {
   def assertFromByteArray(a: Array[Byte]): Hash =
     data.assertRight(fromByteArray(a))
 
-  // A cryptographic pseudo random generator of Hashes based on hmac
+  // A pseudo random generator for Hash based on hmac
+  // We mix the given seed with time to mitigate very bad seed.
   // Must be given a high entropy seed when used in production.
   // Thread safe
   def secureRandom(seed: Hash): () => Hash = {

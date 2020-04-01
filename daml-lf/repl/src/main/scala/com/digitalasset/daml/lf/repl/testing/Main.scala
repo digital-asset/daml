@@ -1,8 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
-package speedy
+package com.digitalasset.daml.lf.speedy
 package testing
 
 import com.digitalasset.daml.lf.data._
@@ -98,13 +97,6 @@ object Main extends App {
   ))
 object Repl {
 
-  private val nextSeed =
-    // We use a static seed to get reproducible run
-    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
-
-  private val nextSeedWithTime =
-    () => Some(nextSeed() -> Time.Timestamp.MinValue)
-
   def repl(): Unit = repl(initialState())
   def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
   def repl(state0: State): Unit = {
@@ -168,7 +160,7 @@ object Repl {
 
   case class ScenarioRunnerHelper(packages: Map[PackageId, Package]) {
     private val build = Speedy.Machine
-      .newBuilder(PureCompiledPackages(packages).right.get, nextSeedWithTime())
+      .newBuilder(PureCompiledPackages(packages).right.get)
       .fold(err => sys.error(err.toString), identity)
     def run(submissionVersion: LanguageVersion, expr: Expr)
       : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {

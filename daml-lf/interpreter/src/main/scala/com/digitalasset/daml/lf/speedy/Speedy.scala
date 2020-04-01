@@ -4,8 +4,9 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
@@ -231,27 +232,6 @@ object Speedy {
       }
       println("============================================================")
     }
-
-    // fake participant to generate a new transactionSeed when running scenarios
-    private val scenarioServiceParticipant = Ref.ParticipantId.assertFromString("scenario-service")
-
-    // reinitialize the state of the machine with a new fresh submission seed.
-    // Should be used only when running scenario
-    def clearCommit: Unit = {
-      committers = Set.empty
-      commitLocation = None
-      val seedWithTime = for {
-        time <- ptx.submissionTime
-        currentSeed <- ptx.context.contextSeed
-        newSeed = crypto.Hash.deriveTransactionSeed(
-          currentSeed,
-          scenarioServiceParticipant,
-          time
-        )
-      } yield newSeed -> time
-      ptx = PartialTransaction.initial(seedWithTime)
-    }
-
   }
 
   object Machine {
@@ -280,7 +260,6 @@ object Speedy {
 
     def newBuilder(
         compiledPackages: CompiledPackages,
-        submissionSeedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None
     ): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
@@ -288,7 +267,6 @@ object Speedy {
           SEApp(compiler.compile(expr), Array(SEValue.Token)),
           checkSubmitterInMaintainers,
           compiledPackages,
-          submissionSeedWithTime,
         )
       })
     }
@@ -312,7 +290,6 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
@@ -321,7 +298,7 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages, seedWithTime)
+      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages)
     }
 
     // Construct a machine from an SExpr. This is useful when you don’t have
@@ -569,7 +546,6 @@ object Speedy {
           .body,
       )
     }
-
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
