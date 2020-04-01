@@ -188,11 +188,7 @@ class SubmissionValidator[LogResult](
                     .zip(declaredInputs)
                     .map { case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue)) }
                     .toMap
-                  missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-                  _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
-                    Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
-                  else
-                    Future.unit
+                  _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs
               )
               logEntryAndState <- timedFuture(
@@ -229,6 +225,22 @@ class SubmissionValidator[LogResult](
         Future.successful(
           Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId")))
     }
+
+  private def verifyAllInputsArePresent[T](
+      declaredInputs: Seq[DamlStateKey],
+      readInputs: Map[DamlStateKey, Option[DamlStateValue]],
+  ): Future[Unit] = {
+    if (checkForMissingInputs) {
+      val missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
+      if (missingInputs.nonEmpty) {
+        Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+      } else {
+        Future.unit
+      }
+    } else {
+      Future.unit
+    }
+  }
 
   private def flattenInputStates(
       inputs: Map[DamlStateKey, Option[DamlStateValue]]
