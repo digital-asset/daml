@@ -2397,7 +2397,7 @@ About scenario interpretation
 The interpretation of scenarios is a feature an engine can provide to
 test business logic within a DAML-LF archive. Nevertheless, the
 present specification does not define how scenarios should be actually
-interpreted. A engine compliant with this specification does not have
+interpreted. An engine compliant with this specification does not have
 to provide support for scenario interpretation. It must however accept
 loading any `valid <Validation_>`_ archive that contains scenario
 expressions, and must handle update statements that actually
