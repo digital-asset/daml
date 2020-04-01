@@ -495,8 +495,8 @@ Strive to make library targets as small as possible. In a situation where
 multiple Scala sources have no interdependencies you can use the
 `da_scala_library_suite` macro to automatically generate one library target per
 Scala source file, and bundle them in one target. This rule takes the same
-attributes as `da_scala_library`, but enables `unused_dependency_checker_mode`
-by default.
+attributes as `da_scala_library` with the exception of
+`unused_dependency_checker_mode` which will always be disabled.
 
 #### Tests
 
