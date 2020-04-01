@@ -428,10 +428,18 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox-classic", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
+              callCommandQuiet $ unwords
+                    [ "daml script"
+                    , "--dar .daml/dist/quickstart-0.0.1.dar"
+                    , "--script-name Setup:initialize"
+                    , "--static-time"
+                    , "--ledger-host localhost"
+                    , "--ledger-port", show sandboxPort
+                    ]
               restPort :: Int <- fromIntegral <$> getFreePort
               let mavenProc = (shell $ unwords ["mvn", mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
               withCreateProcess mavenProc $
