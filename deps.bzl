@@ -35,14 +35,8 @@ rules_haskell_version = "d59ccf9e7785553fd392924fb083d926c7e01134"
 rules_haskell_sha256 = "c29e779f512f72126c774bceb0bee5c01ca8149d30acc400058014f4b2275710"
 rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
 rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
-
-# Recent davl.
-davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
-davl_sha256 = "3e8ae2a05724093e33b7f0363381e81a7e8e9655ccb3aa47ad540ea87e814321"
-
-# Pinned davl relied on by damlc packaging tests.
-davl_v3_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
-davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
+davl_version = "51d3977be2ab22f7f4434fd4692ca2e17a7cce23"
+davl_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae166"
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -262,18 +256,6 @@ def daml_deps():
             executable = True,
         )
 
-    if "davl-v3" not in native.existing_rules():
-        http_archive(
-            name = "davl-v3",
-            strip_prefix = "davl-{}".format(davl_v3_version),
-            urls = ["https://github.com/digital-asset/davl/archive/{}.tar.gz".format(davl_v3_version)],
-            sha256 = davl_v3_sha256,
-            build_file_content = """
-package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v3.dar"])
-            """,
-        )
-
     if "davl" not in native.existing_rules():
         http_archive(
             name = "davl",
@@ -282,6 +264,6 @@ exports_files(["released/davl-v3.dar"])
             sha256 = davl_sha256,
             build_file_content = """
 package(default_visibility = ["//visibility:public"])
-exports_files(["released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
+exports_files(["released/davl-v3.dar", "released/davl-v4.dar", "released/davl-v5.dar", "released/davl-upgrade-v3-v4.dar", "released/davl-upgrade-v4-v5.dar"])
             """,
         )
