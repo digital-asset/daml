@@ -12,8 +12,8 @@ import com.codahale.metrics.jvm.{
   MemoryUsageGaugeSet,
   ThreadStatesGaugeSet
 }
-import com.codahale.metrics.{Metric, MetricSet}
-import com.daml.ledger.participant.state.metrics.JvmMetricSet._
+import com.codahale.metrics.{Metric, MetricRegistry, MetricSet}
+import JvmMetricSet._
 
 import scala.collection.JavaConverters._
 
@@ -29,14 +29,13 @@ class JvmMetricSet extends MetricSet {
   override def getMetrics: util.Map[String, Metric] =
     metricSets.flatMap {
       case (metricSetName, metricSet) =>
-        val metricSetPrefix = Prefix :+ metricSetName
         metricSet.getMetrics.asScala.map {
           case (metricName, metric) =>
-            (metricSetPrefix :+ metricName).toString -> metric
+            MetricRegistry.name(Prefix, metricSetName, metricName) -> metric
         }
     }.asJava
 }
 
 object JvmMetricSet {
-  private val Prefix = MetricName("jvm")
+  private val Prefix = "jvm"
 }

@@ -8,7 +8,6 @@ import java.util.concurrent.Executors
 import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
@@ -25,16 +24,17 @@ private[kvutils] class PackageCommitter(
   override protected val committerName = "package_upload"
 
   private object Metrics {
-    val preloadTimer: Timer = metricRegistry.timer(metricPrefix :+ "preload_timer")
-    val decodeTimer: Timer = metricRegistry.timer(metricPrefix :+ "decode_timer")
-    val accepts: Counter = metricRegistry.counter(metricPrefix :+ "accepts")
-    val rejections: Counter = metricRegistry.counter(metricPrefix :+ "rejections")
+    val preloadTimer: Timer = metricRegistry.timer(metricsName("preload_timer"))
+    val decodeTimer: Timer = metricRegistry.timer(metricsName("decode_timer"))
+    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
+    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
     metricRegistry.gauge(
-      metricPrefix :+ "loaded_packages",
+      metricsName("loaded_packages"),
       () =>
         new Gauge[Int] {
           override def getValue: Int = engine.compiledPackages().packageIds.size
-      })
+      }
+    )
   }
 
   private def rejectionTraceLog(
