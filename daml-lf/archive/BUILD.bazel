@@ -54,7 +54,7 @@ LF_VERSIONS = [
         java_library(
             name = "daml_lf_%s_archive_java_proto" % version,
             srcs = [":daml_lf_%s_archive_java_proto_srcs" % version],
-            tags = ["maven_coordinates=com.digitalasset:daml-lf-%s-archive-java-proto:__VERSION__" % version],
+            tags = ["maven_coordinates=com.daml:daml-lf-%s-archive-java-proto:__VERSION__" % version],
             visibility = ["//visibility:public"],
             deps = ["@maven//:com_google_protobuf_protobuf_java"],
         ),
@@ -140,7 +140,7 @@ da_scala_library(
     name = "daml_lf_archive_reader",
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-archive-reader:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-archive-reader:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":daml_lf_dev_archive_java_proto",
