@@ -1733,7 +1733,7 @@ private class JdbcLedgerDao(
     TransactionsWriter
 
   override val transactionsReader: TransactionsReader =
-    TransactionsReader(dbDispatcher, executionContext)
+    TransactionsReader(dbDispatcher, dbType, executionContext)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

@@ -146,7 +146,7 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
           ),
           event2 -> NodeFetch(
             absCid,
-            someTemplateId,
+            someContractInstance.template,
             None,
             Some(Set(alice, bob)),
             Set(alice, bob),
