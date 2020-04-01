@@ -3,11 +3,21 @@
 
 package com.digitalasset.platform.store.dao
 
+import akka.NotUsed
+import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.participant.state.v1.Offset
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
+import com.digitalasset.ledger.api.v1.transaction.Transaction
+import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionsResponse
 import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.api.v1.event.EventOps.EventOps
+import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Inside, LoneElement, Matchers, OptionValues}
+
+import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Inside with LoneElement {
   this: AsyncFlatSpec with Matchers with JdbcLedgerDaoSuite =>
@@ -113,14 +123,279 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "hide a full transaction if all contracts are transient and the request does not come from the original submitter" in {
+  behavior of "JdbcLedgerDao (getFlatTransactions)"
+
+  it should "match the results of lookupFlatTransactionById" in {
     for {
-      (_, tx) <- store(fullyTransient)
-      result <- ledgerDao.transactionsReader
-        .lookupFlatTransactionById(tx.transactionId, Set(bob))
+      (from, to, transactions) <- storeTestFixture()
+      lookups <- lookupIndividually(transactions, Set(alice, bob, charlie))
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
+            verbose = true,
+          ))
     } yield {
-      result shouldBe None
+      comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
     }
   }
+
+  it should "filter correctly by party" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (_, tx) <- store(withChildren)
+      to <- ledgerDao.lookupLedgerEnd()
+      individualLookupForAlice <- lookupIndividually(Seq(tx), as = Set(alice))
+      individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))
+      individualLookupForCharlie <- lookupIndividually(Seq(tx), as = Set(charlie))
+      resultForAlice <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(alice -> Set.empty),
+            verbose = true,
+          ))
+      resultForBob <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(bob -> Set.empty),
+            verbose = true,
+          ))
+      resultForCharlie <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(charlie -> Set.empty),
+            verbose = true,
+          ))
+    } yield {
+      individualLookupForAlice should contain theSameElementsInOrderAs resultForAlice
+      individualLookupForBob should contain theSameElementsInOrderAs resultForBob
+      individualLookupForCharlie should contain theSameElementsInOrderAs resultForCharlie
+    }
+  }
+
+  it should "filter correctly for a single party" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            alice -> "pkg:mod:Template1",
+            bob -> "pkg:mod:Template3",
+            alice -> "pkg:mod:Template3",
+          )
+        ))
+      to <- ledgerDao.lookupLedgerEnd()
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(alice -> Set(Identifier.assertFromString("pkg:mod:Template3"))),
+            verbose = true,
+          ))
+    } yield {
+      inside(result.loneElement.events.loneElement.event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe alice
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+    }
+  }
+
+  it should "filter correctly by multiple parties with the same template" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            alice -> "pkg:mod:Template1",
+            bob -> "pkg:mod:Template3",
+            alice -> "pkg:mod:Template3",
+          )
+        ))
+      to <- ledgerDao.lookupLedgerEnd()
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(
+              alice -> Set(
+                Identifier.assertFromString("pkg:mod:Template3"),
+              ),
+              bob -> Set(
+                Identifier.assertFromString("pkg:mod:Template3"),
+              )
+            ),
+            verbose = true,
+          ))
+    } yield {
+      val events = result.loneElement.events.toArray
+      events should have length 2
+      inside(events(0).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe bob
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+      inside(events(1).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe alice
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+    }
+  }
+
+  it should "filter correctly by multiple parties with different templates" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      _ <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            alice -> "pkg:mod:Template1",
+            bob -> "pkg:mod:Template3",
+            alice -> "pkg:mod:Template3",
+          )
+        ))
+      to <- ledgerDao.lookupLedgerEnd()
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(
+              alice -> Set(
+                Identifier.assertFromString("pkg:mod:Template1"),
+              ),
+              bob -> Set(
+                Identifier.assertFromString("pkg:mod:Template3"),
+              )
+            ),
+            verbose = true,
+          ))
+    } yield {
+      val events = result.loneElement.events.toArray
+      events should have length 2
+      inside(events(0).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe alice
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template1"
+      }
+      inside(events(1).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe bob
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+    }
+  }
+
+  it should "filter correctly by multiple parties with different template and wildcards" in {
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (_, _) <- store(
+        multipleCreates(
+          operator = "operator",
+          signatoriesAndTemplates = Seq(
+            alice -> "pkg:mod:Template1",
+            bob -> "pkg:mod:Template3",
+            alice -> "pkg:mod:Template3",
+          )
+        ))
+      to <- ledgerDao.lookupLedgerEnd()
+      result <- transactionsOf(
+        ledgerDao.transactionsReader
+          .getFlatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = Map(
+              alice -> Set(
+                Identifier.assertFromString("pkg:mod:Template3"),
+              ),
+              bob -> Set.empty
+            ),
+            verbose = true,
+          ))
+    } yield {
+      val events = result.loneElement.events.toArray
+      events should have length 2
+      inside(events(0).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe bob
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+      inside(events(1).event.created) {
+        case Some(create) =>
+          create.witnessParties.loneElement shouldBe alice
+          val identifier = create.templateId.value
+          identifier.packageId shouldBe "pkg"
+          identifier.moduleName shouldBe "mod"
+          identifier.entityName shouldBe "Template3"
+      }
+    }
+  }
+
+  private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
+    for {
+      from <- ledgerDao.lookupLedgerEnd()
+      (_, t1) <- store(singleCreate)
+      (_, t2) <- store(singleCreate)
+      (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
+      (_, t4) <- store(fullyTransient)
+      (_, t5) <- store(fullyTransientWithChildren)
+      (_, t6) <- store(withChildren)
+      to <- ledgerDao.lookupLedgerEnd()
+    } yield (from, to, Seq(t1, t2, t3, t4, t5, t6))
+
+  private def lookupIndividually(
+      transactions: Seq[LedgerEntry.Transaction],
+      as: Set[Party],
+  ): Future[Seq[Transaction]] =
+    Future
+      .sequence(
+        transactions.map(tx =>
+          ledgerDao.transactionsReader
+            .lookupFlatTransactionById(tx.transactionId, as)))
+      .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
+
+  private def transactionsOf(
+      source: Source[(Offset, GetTransactionsResponse), NotUsed],
+  ): Future[Seq[Transaction]] =
+    source
+      .map(_._2)
+      .runWith(Sink.seq)
+      .map(_.flatMap(_.transactions))
+
+  // Ensure two sequences of transactions are comparable:
+  // - witnesses do not have to appear in a specific order
+  private def comparable(txs: Seq[Transaction]): Seq[Transaction] =
+    txs.map(tx => tx.copy(events = tx.events.map(_.modifyWitnessParties(_.sorted))))
 
 }

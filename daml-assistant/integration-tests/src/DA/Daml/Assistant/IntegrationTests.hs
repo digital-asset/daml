@@ -179,6 +179,24 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+     , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ withTempDir $ \tmpDir -> do
+        callCommandQuiet $ unwords ["daml", "new", tmpDir </> "data-dependency"]
+        withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandQuiet "daml build -o data-dependency.dar"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.0.1"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib, daml-script, daml-trigger]"
+          , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
+          ]
+        writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
+          [ "module A where"
+          , "import Main (setup)"
+          , "setup' = setup"
+          ]
+        withCurrentDirectory (tmpDir </> "proj") $ callCommandQuiet "daml build"
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -337,11 +355,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    , testCase "Sandbox Next startup" $
+    , testCase "Sandbox Classic startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox-next", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox-classic", "--wall-clock-time", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull, std_in = CreatePipe }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -410,10 +428,18 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--static-time", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1, std_in = CreatePipe }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
+              callCommandQuiet $ unwords
+                    [ "daml script"
+                    , "--dar .daml/dist/quickstart-0.0.1.dar"
+                    , "--script-name Setup:initialize"
+                    , "--static-time"
+                    , "--ledger-host localhost"
+                    , "--ledger-port", show sandboxPort
+                    ]
               restPort :: Int <- fromIntegral <$> getFreePort
               let mavenProc = (shell $ unwords ["mvn", mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
               withCreateProcess mavenProc $

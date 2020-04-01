@@ -3,10 +3,14 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import com.daml.ledger.participant.state.metrics.MetricName
+
 private[app] object Metrics {
 
-  val IndexServicePrefix = "daml.services.index"
-  val ReadServicePrefix = "daml.services.read"
-  val WriteServicePrefix = "daml.services.write"
+  private val ServicePrefix = MetricName.DAML :+ "services"
+
+  val IndexServicePrefix: MetricName = ServicePrefix :+ "index"
+  val ReadServicePrefix: MetricName = ServicePrefix :+ "read"
+  val WriteServicePrefix: MetricName = ServicePrefix :+ "write"
 
 }

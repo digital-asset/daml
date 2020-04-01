@@ -351,6 +351,7 @@ object Ledger {
         scenarioSteps = newIMS,
         scenarioStepId = scenarioStepId.next,
       )
+
     }
 
     /** Focusing on a specific view of the ledger, lookup the
@@ -1231,7 +1232,7 @@ object Ledger {
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
       val globalImplicitDisclosure = richTr.globalImplicitDisclosure.map {
-        case (cid, parties) => ledgerData.coidToNodeId(cid) -> parties
+        case (cid, parties) => cacheAfterProcess.coidToNodeId(cid) -> parties
       }
       Relation
         .union(

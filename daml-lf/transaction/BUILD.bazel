@@ -23,7 +23,7 @@ proto_library(
 
 da_java_proto_library(
     name = "value_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-value-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-value-java-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":value_proto"],
 )
@@ -38,7 +38,7 @@ proto_library(
 
 da_java_proto_library(
     name = "transaction_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction-java-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":transaction_proto"],
 )
@@ -51,7 +51,7 @@ proto_library(
 
 da_java_proto_library(
     name = "blindinginfo_java_proto",
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-blindinginfo-java-proto:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-blindinginfo-java-proto:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [":blindinginfo_proto"],
 )
@@ -65,7 +65,7 @@ da_scala_library(
     name = "transaction",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts + ["-Xsource:2.13"],
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-transaction:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":blindinginfo_java_proto",

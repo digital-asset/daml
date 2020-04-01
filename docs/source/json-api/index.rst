@@ -1069,10 +1069,12 @@ JavaScript/Node.js example demonstrating how to establish Streaming API connecti
       console.log(data);
     });
 
+Please note that Streaming API does not allow multiple requests over the same WebSocket connection. The server returns an error and disconnects if second request received over the same WebSocket connection.
+
 Error and Warning Reporting
 ===========================
 
-Errors and warnings reported as part of the regular ``on-message`` flow.
+Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
 
 Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
 
@@ -1082,7 +1084,8 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Examples:
+Error and Warning Examples:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: none
 
@@ -1090,6 +1093,16 @@ Examples:
 
     {
       "errors":["JsonReaderError. Cannot read JSON: <{\"templateIds\":[]}>. Cause: spray.json.DeserializationException: search requires at least one item in 'templateIds'"],
+      "status":400
+    }
+
+    {
+      "errors":["Multiple requests over the same WebSocket connection are not allowed."],
+      "status":400
+    }
+
+    {
+      "errors":["Could not resolve any template ID from request."],
       "status":400
     }
 

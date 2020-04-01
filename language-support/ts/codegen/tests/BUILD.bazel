@@ -101,6 +101,7 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
+    flaky = True,
     tags = [
         "exclusive",  # Due to the use of hardcoded ports in 'build-and-lint.sh'.
     ],
@@ -148,9 +149,7 @@ da_haskell_test(
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2ts",
         "//language-support/ts/daml-types:npm_package",
-        "@davl//:released/davl-upgrade-v3-v4.dar",
         "@davl//:released/davl-upgrade-v4-v5.dar",
-        "@davl//:released/davl-v3.dar",
         "@davl//:released/davl-v4.dar",
         "@davl//:released/davl-v5.dar",
     ],

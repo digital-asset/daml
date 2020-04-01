@@ -9,6 +9,7 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
@@ -35,22 +36,23 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
     extends LedgerReadDao {
 
   private object Metrics {
-    val lookupLedgerId: Timer = metrics.timer("daml.index.db.lookup_ledger_id")
-    val lookupLedgerEnd: Timer = metrics.timer("daml.index.db.lookup_ledger_end")
-    val lookupLedgerEntry: Timer = metrics.timer("daml.index.db.lookup_ledger_entry")
-    val lookupTransaction: Timer = metrics.timer("daml.index.db.lookup_transaction")
-    val lookupLedgerConfiguration: Timer =
-      metrics.timer("daml.index.db.lookup_ledger_configuration")
-    val lookupKey: Timer = metrics.timer("daml.index.db.lookup_key")
-    val lookupActiveContract: Timer = metrics.timer("daml.index.db.lookup_active_contract")
-    val lookupMaximumLedgerTime: Timer = metrics.timer("daml.index.db.lookup_maximum_ledger_time")
-    val getParties: Timer = metrics.timer("daml.index.db.get_parties")
-    val listKnownParties: Timer = metrics.timer("daml.index.db.list_known_parties")
-    val listLfPackages: Timer = metrics.timer("daml.index.db.list_lf_packages")
-    val getLfArchive: Timer = metrics.timer("daml.index.db.get_lf_archive")
-    val deduplicateCommand: Timer = metrics.timer("daml.index.db.deduplicate_command")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
+
+    val lookupLedgerId: Timer = metrics.timer(prefix :+ "lookup_ledger_id")
+    val lookupLedgerEnd: Timer = metrics.timer(prefix :+ "lookup_ledger_end")
+    val lookupLedgerEntry: Timer = metrics.timer(prefix :+ "lookup_ledger_entry")
+    val lookupTransaction: Timer = metrics.timer(prefix :+ "lookup_transaction")
+    val lookupLedgerConfiguration: Timer = metrics.timer(prefix :+ "lookup_ledger_configuration")
+    val lookupKey: Timer = metrics.timer(prefix :+ "lookup_key")
+    val lookupActiveContract: Timer = metrics.timer(prefix :+ "lookup_active_contract")
+    val lookupMaximumLedgerTime: Timer = metrics.timer(prefix :+ "lookup_maximum_ledger_time")
+    val getParties: Timer = metrics.timer(prefix :+ "get_parties")
+    val listKnownParties: Timer = metrics.timer(prefix :+ "list_known_parties")
+    val listLfPackages: Timer = metrics.timer(prefix :+ "list_lf_packages")
+    val getLfArchive: Timer = metrics.timer(prefix :+ "get_lf_archive")
+    val deduplicateCommand: Timer = metrics.timer(prefix :+ "deduplicate_command")
     val removeExpiredDeduplicationData: Timer =
-      metrics.timer("daml.index.db.remove_expired_deduplication_data")
+      metrics.timer(prefix :+ "remove_expired_deduplication_data")
   }
 
   override def maxConcurrentConnections: Int = ledgerDao.maxConcurrentConnections
@@ -154,11 +156,13 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
     with LedgerDao {
 
   private object Metrics {
-    val storePartyEntry: Timer = metrics.timer("daml.index.db.store_party_entry")
-    val storeInitialState: Timer = metrics.timer("daml.index.db.store_initial_state")
-    val storePackageEntry: Timer = metrics.timer("daml.index.db.store_package_entry")
-    val storeLedgerEntry: Timer = metrics.timer("daml.index.db.store_ledger_entry")
-    val storeConfigurationEntry: Timer = metrics.timer("daml.index.db.store_configuration_entry")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
+
+    val storePartyEntry: Timer = metrics.timer(prefix :+ "store_party_entry")
+    val storeInitialState: Timer = metrics.timer(prefix :+ "store_initial_state")
+    val storePackageEntry: Timer = metrics.timer(prefix :+ "store_package_entry")
+    val storeLedgerEntry: Timer = metrics.timer(prefix :+ "store_ledger_entry")
+    val storeConfigurationEntry: Timer = metrics.timer(prefix :+ "store_configuration_entry")
   }
 
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()

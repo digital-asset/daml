@@ -13,6 +13,7 @@ import akka.stream.scaladsl.Sink
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
@@ -25,13 +26,7 @@ import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.logging.ContextualizedLogger
 import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{
-  ApiServer,
-  ApiServerConfig,
-  StandaloneApiServer,
-  TimeServiceBackend,
-  TimedIndexService
-}
+import com.digitalasset.platform.apiserver._
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.indexer.{
   IndexerConfig,
@@ -51,7 +46,6 @@ import com.digitalasset.resources.{ResettableResourceOwner, Resource, ResourceOw
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -91,13 +85,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
     }
 
-  private val timeProviderType = config.timeProviderType.getOrElse {
-    throw new InvalidConfigException(
-      "Sandbox used to default to Static Time mode. In the next release, Wall Clock Time mode will"
-        + " become the default. In this version, you will need to explicitly specify the"
-        + " `--static-time` flag to maintain the previous behavior, or `--wall-clock-time` if you"
-        + " would like to use the new defaults.")
-  }
+  private val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
 
   private val seeding = config.seeding.getOrElse {
     throw new InvalidConfigException(
@@ -117,13 +105,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 
-      val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
+      val timeServiceBackend = timeProviderType match {
         case TimeProviderType.Static =>
-          val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
-          (Some(backend), backend.changes)
+          Some(TimeServiceBackend.simple(Instant.EPOCH))
         case TimeProviderType.WallClock =>
-          val clock = Clock.systemUTC()
-          (None, new RegularHeartbeat(clock, HeartbeatInterval))
+          None
       }
 
       val owner = for {
@@ -150,14 +136,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Therefore we don't need to "reset" the KV Ledger and Index separately.
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
-                heartbeats <- heartbeatMechanism
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
                   metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                  heartbeats = heartbeats,
                   seedService = SeedService(seeding),
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
@@ -176,6 +160,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
+                  eventsPageSize = config.eventsPageSize,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -212,6 +197,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
+                  eventsPageSize = config.eventsPageSize,
                   transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
@@ -268,9 +254,8 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val IndexServicePrefix = "daml.services.index"
-  private val ReadServicePrefix = "daml.services.read"
-  private val WriteServicePrefix = "daml.services.write"
-
-  private val HeartbeatInterval: FiniteDuration = 1.second
+  private val ServicePrefix = MetricName.DAML :+ "services"
+  private val IndexServicePrefix = ServicePrefix :+ "index"
+  private val ReadServicePrefix = ServicePrefix :+ "read"
+  private val WriteServicePrefix = ServicePrefix :+ "write"
 }

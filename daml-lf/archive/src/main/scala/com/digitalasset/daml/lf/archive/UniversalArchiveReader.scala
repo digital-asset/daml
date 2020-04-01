@@ -52,17 +52,25 @@ class UniversalArchiveReader[A](
   * Factory for [[com.digitalasset.daml.lf.archive.UniversalArchiveReader]] class.
   */
 object UniversalArchiveReader {
-  def apply(): UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
-    new UniversalArchiveReader(parseDar(parseDalf), parseDalf)
+  def apply(entrySizeThreshold: Int = DarReader.EntrySizeThreshold)
+    : UniversalArchiveReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
+    new UniversalArchiveReader(parseDar(entrySizeThreshold, parseDalf), parseDalf)
+
+  def apply[A](
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
+    new UniversalArchiveReader[A](parseDar(entrySizeThreshold, parseDalf), parseDalf)
 
   def apply[A](parseDalf: InputStream => Try[A]): UniversalArchiveReader[A] =
-    new UniversalArchiveReader[A](parseDar(parseDalf), parseDalf)
+    new UniversalArchiveReader[A](parseDar(DarReader.EntrySizeThreshold, parseDalf), parseDalf)
 
   private def parseDalf(is: InputStream) = Try(Reader.decodeArchiveFromInputStream(is))
 
   private def parseDar[A](
-      parseDalf: InputStream => Try[A]): (String, ZipInputStream) => Try[Dar[A]] =
-    DarReader { case (_, is) => parseDalf(is) }.readArchive
+      entrySizeThreshold: Int,
+      parseDalf: InputStream => Try[A],
+  ): (String, ZipInputStream) => Try[Dar[A]] =
+    DarReader { case (_, is) => parseDalf(is) }.readArchive(_, _, entrySizeThreshold)
 }
 
 /**

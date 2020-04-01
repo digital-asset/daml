@@ -9,8 +9,9 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -22,7 +23,9 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.entries.{
@@ -39,20 +42,22 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
     extends ReadOnlyLedger {
 
   private object Metrics {
-    val lookupContract: Timer = metrics.timer("daml.index.lookup_contract")
-    val lookupKey: Timer = metrics.timer("daml.index.lookup_key")
-    val lookupFlatTransactionById: Timer = metrics.timer("daml.index.lookup_flat_transaction_by_id")
-    val lookupTransactionTreeById: Timer = metrics.timer("daml.index.lookup_transaction_tree_by_id")
-    val lookupLedgerConfiguration: Timer = metrics.timer("daml.index.lookup_ledger_configuration")
-    val lookupMaximumLedgerTime: Timer = metrics.timer("daml.index.lookup_maximum_ledger_time")
-    val getParties: Timer = metrics.timer("daml.index.get_parties")
-    val listKnownParties: Timer = metrics.timer("daml.index.list_known_parties")
-    val listLfPackages: Timer = metrics.timer("daml.index.list_lf_packages")
-    val getLfArchive: Timer = metrics.timer("daml.index.get_lf_archive")
-    val getLfPackage: Timer = metrics.timer("daml.index.get_lf_package")
-    val deduplicateCommand: Timer = metrics.timer("daml.index.deduplicate_command")
+    private val prefix = MetricName.DAML :+ "index"
+
+    val lookupContract: Timer = metrics.timer(prefix :+ "lookup_contract")
+    val lookupKey: Timer = metrics.timer(prefix :+ "lookup_key")
+    val lookupFlatTransactionById: Timer = metrics.timer(prefix :+ "lookup_flat_transaction_by_id")
+    val lookupTransactionTreeById: Timer = metrics.timer(prefix :+ "lookup_transaction_tree_by_id")
+    val lookupLedgerConfiguration: Timer = metrics.timer(prefix :+ "lookup_ledger_configuration")
+    val lookupMaximumLedgerTime: Timer = metrics.timer(prefix :+ "lookup_maximum_ledger_time")
+    val getParties: Timer = metrics.timer(prefix :+ "get_parties")
+    val listKnownParties: Timer = metrics.timer(prefix :+ "list_known_parties")
+    val listLfPackages: Timer = metrics.timer(prefix :+ "list_lf_packages")
+    val getLfArchive: Timer = metrics.timer(prefix :+ "get_lf_archive")
+    val getLfPackage: Timer = metrics.timer(prefix :+ "get_lf_package")
+    val deduplicateCommand: Timer = metrics.timer(prefix :+ "deduplicate_command")
     val removeExpiredDeduplicationData: Timer =
-      metrics.timer("daml.index.remove_expired_deduplication_data")
+      metrics.timer(prefix :+ "remove_expired_deduplication_data")
   }
 
   override def ledgerId: LedgerId = ledger.ledgerId
@@ -63,6 +68,22 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       startExclusive: Option[Offset],
       endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(startExclusive, endOpt)
+
+  override def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
   override def ledgerEnd: Offset = ledger.ledgerEnd
 

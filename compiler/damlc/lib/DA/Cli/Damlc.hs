@@ -33,6 +33,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
 import DA.Daml.Options.Types
+import DA.Daml.Package.Config
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types (ConfigError(..), ProjectPath(..))
@@ -498,57 +499,8 @@ execLint inputFile opts =
          DlintEnabled _ _ -> opts
          DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
--- | Parse the daml.yaml for package specific config fields.
-parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
-parseProjectConfig project = do
-    pName <- queryProjectConfigRequired ["name"] project
-    pSrc <- queryProjectConfigRequired ["source"] project
-    pExposedModules <- queryProjectConfig ["exposed-modules"] project
-    pVersion <- Just <$> queryProjectConfigRequired ["version"] project
-    pDependencies <- queryProjectConfigRequired ["dependencies"] project
-    pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
-    pSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
-    Right PackageConfigFields {..}
-
 defaultProjectPath :: ProjectPath
 defaultProjectPath = ProjectPath "."
-
-overrideSdkVersion :: PackageConfigFields -> IO PackageConfigFields
-overrideSdkVersion pkgConfig = do
-    sdkVersionM <- getSdkVersionMaybe
-    case sdkVersionM of
-        Nothing ->
-            pure pkgConfig
-        Just sdkVersion -> do
-            when (pSdkVersion pkgConfig /= PackageSdkVersion sdkVersion) $
-                hPutStrLn stderr $ unwords
-                    [ "Warning: Using DAML SDK version"
-                    , sdkVersion
-                    , "from"
-                    , sdkVersionEnvVar
-                    , "enviroment variable instead of DAML SDK version"
-                    , unPackageSdkVersion (pSdkVersion pkgConfig)
-                    , "from"
-                    , projectConfigName
-                    , "config file."
-                    ]
-            pure pkgConfig { pSdkVersion = PackageSdkVersion sdkVersion }
-
---- | replace SDK version with one ghc-pkg accepts
----
---- This should let release version unchanged, but convert snapshot versions.
---- See module SdkVersion (in //BUILD) for details.
-replaceSdkVersionWithGhcPkgVersion :: PackageConfigFields -> PackageConfigFields
-replaceSdkVersionWithGhcPkgVersion p@PackageConfigFields{ pSdkVersion = PackageSdkVersion v } =
-    p { pSdkVersion = PackageSdkVersion $ SdkVersion.toGhcPkgVersion v }
-
-withPackageConfig :: ProjectPath -> (PackageConfigFields -> IO a) -> IO a
-withPackageConfig projectPath f = do
-    project <- readProjectConfig projectPath
-    pkgConfig <- either throwIO pure (parseProjectConfig project)
-    pkgConfig' <- overrideSdkVersion pkgConfig
-    let pkgConfig'' = replaceSdkVersionWithGhcPkgVersion pkgConfig'
-    f pkgConfig''
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.

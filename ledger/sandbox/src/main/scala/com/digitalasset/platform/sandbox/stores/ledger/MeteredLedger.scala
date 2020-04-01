@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time
@@ -20,15 +21,13 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    val publishHeartbeat: Timer = metrics.timer("daml.index.publish_heartbeat")
-    val publishTransaction: Timer = metrics.timer("daml.index.publish_transaction")
-    val publishPartyAllocation: Timer = metrics.timer("daml.index.publish_party_allocation")
-    val uploadPackages: Timer = metrics.timer("daml.index.upload_packages")
-    val publishConfiguration: Timer = metrics.timer("daml.index.publish_configuration")
-  }
+    private val prefix = MetricName.DAML :+ "index"
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    timedFuture(Metrics.publishHeartbeat, ledger.publishHeartbeat(time))
+    val publishTransaction: Timer = metrics.timer(prefix :+ "publish_transaction")
+    val publishPartyAllocation: Timer = metrics.timer(prefix :+ "publish_party_allocation")
+    val uploadPackages: Timer = metrics.timer(prefix :+ "upload_packages")
+    val publishConfiguration: Timer = metrics.timer(prefix :+ "publish_configuration")
+  }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,

@@ -493,10 +493,10 @@ class Ledger {
     let haveSeenEvents = false;
     let state = init;
     const emitter = new EventEmitter();
-    ws.onopen = () => {
+    ws.addEventListener('open', () => {
       ws.send(JSON.stringify(request));
-    };
-    ws.onmessage = event => {
+    });
+    ws.addEventListener('message', event => {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
@@ -523,18 +523,18 @@ class Ledger {
       } else {
         console.error('Ledger.streamQuery unknown message', json);
       }
-    };
+    });
     // NOTE(MH): We ignore the 'error' event since it is always followed by a
     // 'close' event, which we need to handle anyway.
-    ws.onclose = ({code, reason}) => {
+    ws.addEventListener('close', ({code, reason}) => {
       emitter.emit('close', {code, reason});
-    };
+    });
     // TODO(MH): Make types stricter.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const on = (type: string, listener: any) => emitter.on(type, listener);
+    const on = (type: string, listener: any): void => void emitter.on(type, listener);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const off = (type: string, listener: any) => emitter.on(type, listener);
-    const close = () => {
+    const off = (type: string, listener: any): void => void emitter.on(type, listener);
+    const close = (): void => {
       emitter.removeAllListeners();
       ws.close();
     };
@@ -562,7 +562,7 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     const request = {templateIds: [template.templateId], query};
-    const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]) => {
+    const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
       const archiveEvents: Set<ContractId<T>> = new Set();
       const createEvents: CreateEvent<T, K, I>[] = [];
       for (const event of events) {
@@ -593,7 +593,7 @@ class Ledger {
     key: K,
   ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
     const request = [{templateId: template.templateId, key}];
-    const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]) => {
+    const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]): CreateEvent<T, K, I> | null => {
       // NOTE(MH, #4564): We're very lenient here. We should not see a create
       // event when `contract` is currently not null. We should also only see
       // archive events when `contract` is currently not null and the contract

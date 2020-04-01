@@ -87,7 +87,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
-    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -105,7 +105,7 @@ da_scala_library(
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
         ),
-    tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -166,7 +166,9 @@ genrule(
         cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
-        tar zcf $$out sandbox
+        tar c sandbox \
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          | gzip -n > $$out
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
@@ -284,6 +286,7 @@ da_scala_test_suite(
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
+        "//ledger/participant-state-metrics",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
@@ -364,7 +367,7 @@ server_conformance_test(
     name = "conformance-test-lots-of-parties",
     flaky = True,
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -393,7 +396,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-config-management",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -406,7 +409,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-command-deduplication",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -419,7 +422,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,

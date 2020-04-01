@@ -10,6 +10,7 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -37,6 +38,7 @@ final class JdbcIndexerFactory(
     jdbcUrl: String,
     readService: ReadService,
     metrics: MetricRegistry,
+    eventsPageSize: Int,
 )(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -59,7 +61,7 @@ final class JdbcIndexerFactory(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =
     for {
-      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics)
+      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics, eventsPageSize)
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
     } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
 
@@ -113,11 +115,12 @@ class JdbcIndexer private[indexer] (
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
+    private val prefix = MetricName.DAML :+ "indexer"
 
-    val processedStateUpdatesName = "daml.indexer.processed_state_updates"
-    val lastReceivedRecordTimeName = "daml.indexer.last_received_record_time"
-    val lastReceivedOffsetName = "daml.indexer.last_received_offset"
-    val currentRecordTimeLagName = "daml.indexer.current_record_time_lag"
+    private val processedStateUpdatesName = prefix :+ "processed_state_updates"
+    private val lastReceivedRecordTimeName = prefix :+ "last_received_record_time"
+    private val lastReceivedOffsetName = prefix :+ "last_received_offset"
+    private val currentRecordTimeLagName = prefix :+ "current_record_time_lag"
 
     val stateUpdateProcessingTimer: Timer = metrics.timer(processedStateUpdatesName)
 
@@ -161,13 +164,6 @@ class JdbcIndexer private[indexer] (
 
     val externalOffset = offset
     val result = update match {
-      case Heartbeat(recordTime) =>
-        ledgerDao
-          .storeLedgerEntry(
-            externalOffset,
-            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant))
-          )
-
       case PartyAddedToParticipant(
           party,
           displayName,

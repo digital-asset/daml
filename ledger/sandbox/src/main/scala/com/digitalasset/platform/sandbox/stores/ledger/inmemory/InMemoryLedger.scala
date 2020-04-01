@@ -23,7 +23,7 @@ import com.daml.ledger.participant.state.v1.{
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -33,6 +33,7 @@ import com.digitalasset.ledger
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   Filters,
+  InclusiveFilters,
   LedgerId,
   LedgerOffset,
   PartyDetails,
@@ -43,7 +44,9 @@ import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.packages.InMemoryPackageStore
@@ -123,6 +126,58 @@ class InMemoryLedger(
         case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
       }
 
+  override def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToFlatTransaction(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                TransactionFilter(filter.map {
+                  case (party, templates) =>
+                    party -> Filters(
+                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                }),
+                verbose
+              )
+              .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
+              .toList
+          )
+        case _ =>
+          Source.empty
+      }
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToTransactionTree(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                requestingParties,
+                verbose)
+              .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
+              .toList)
+        case _ =>
+          Source.empty
+      }
+
   // mutable state
   private var acs = acs0
   private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
@@ -178,12 +233,6 @@ class InMemoryLedger(
           .let
         if (let.isAfter(acc)) let else acc
       })
-    })
-
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    Future.successful(this.synchronized[Unit] {
-      entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
-      ()
     })
 
   override def publishTransaction(

@@ -9,7 +9,7 @@ load(
 da_scala_library(
     name = "testing-utils",
     srcs = glob(["src/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:testing-utils:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:testing-utils:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

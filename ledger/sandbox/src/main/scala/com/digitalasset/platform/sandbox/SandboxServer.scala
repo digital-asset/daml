@@ -9,8 +9,8 @@ import java.time.{Duration, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -26,17 +26,11 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.{
-  ApiServer,
-  ApiServices,
-  LedgerApiServer,
-  TimeServiceBackend,
-  TimedIndexService
-}
+import com.digitalasset.platform.apiserver._
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -223,7 +217,7 @@ final class SandboxServer(
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
-    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
       (mbLedgerTime, timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
@@ -246,6 +240,7 @@ final class SandboxServer(
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
           metrics,
+          config.eventsPageSize,
         )
 
       case None =>
@@ -272,15 +267,6 @@ final class SandboxServer(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
       )
-      observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
-      _ <- observingTimeServiceBackend
-        .map(
-          _.changes.flatMap(source =>
-            ResourceOwner.forTry(() =>
-              Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
-                .map(_ => ()))))
-        .getOrElse(ResourceOwner.unit)
-        .acquire()
       // the reset service is special, since it triggers a server shutdown
       resetService = new SandboxResetService(
         ledgerId,
@@ -295,11 +281,11 @@ final class SandboxServer(
               writeService = new TimedWriteService(
                 indexAndWriteService.writeService,
                 metrics,
-                "daml.sandbox.writeService"),
+                MetricName.DAML :+ "services" :+ "write"),
               indexService = new TimedIndexService(
                 indexAndWriteService.indexService,
                 metrics,
-                "daml.sandbox.indexService"),
+                MetricName.DAML :+ "services" :+ "write"),
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,
@@ -307,7 +293,7 @@ final class SandboxServer(
               commandConfig = config.commandConfig,
               partyConfig = config.partyConfig,
               submissionConfig = config.submissionConfig,
-              optTimeServiceBackend = observingTimeServiceBackend,
+              optTimeServiceBackend = timeServiceBackendO,
               metrics = metrics,
               healthChecks = healthChecks,
               seedService = config.seeding.map(SeedService(_)),
@@ -349,13 +335,6 @@ final class SandboxServer(
 
   private def start(): Future[SandboxState] = {
     newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
-      if (config.timeProviderType.isEmpty) {
-        throw new InvalidConfigException(
-          "Sandbox used to default to Static Time mode. In the next release, Wall Clock Time mode"
-            + " will become the default. In this version, you will need to explicitly specify the"
-            + " `--static-time` flag to maintain the previous behavior, or `--wall-clock-time` if"
-            + " you would like to use the new defaults.")
-      }
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,

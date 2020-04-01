@@ -155,4 +155,18 @@ object Generators {
       a2 <- Gen.posNum[Int]
       a3 <- Gen.posNum[Int]
     } yield lav1.ledger_offset.LedgerOffset.Value.Absolute(s"${a1: String}-${a2: Int}-${a3: Int}")
+
+  def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
+    Gen
+      .listOf(genDomainTemplateIdO(OptionalPackageIdGen))
+      .map(domain.UnknownTemplateIds)
+
+  def genUnknownParties: Gen[domain.UnknownParties] =
+    Gen.listOf(partyGen).map(domain.UnknownParties)
+
+  def genServiceWarning: Gen[domain.ServiceWarning] =
+    Gen.oneOf(genUnknownTemplateIds, genUnknownParties)
+
+  def genWarningsWrapper: Gen[domain.WarningsWrapper] =
+    genServiceWarning.map(domain.WarningsWrapper)
 }

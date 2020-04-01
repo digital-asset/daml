@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.ledger.participant.state.metrics.MetricName
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.configuration.ServerRole
@@ -29,8 +30,14 @@ final class DbDispatcher private (
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
-    val waitAllTimer: Timer = metrics.timer("daml.index.db.all.wait")
-    val execAllTimer: Timer = metrics.timer("daml.index.db.all.exec")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
+
+    def waitTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "wait")
+
+    def execTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "exec")
+
+    val waitAllTimer: Timer = waitTimer("all")
+    val execAllTimer: Timer = execTimer("all")
   }
 
   override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
@@ -44,8 +51,8 @@ final class DbDispatcher private (
       sql: Connection => T
   ): Future[T] = {
     lazy val extraLogMemoized = extraLog
-    val waitTimer = metrics.timer(s"daml.index.db.$description.wait")
-    val execTimer = metrics.timer(s"daml.index.db.$description.exec")
+    val waitTimer = Metrics.waitTimer(description)
+    val execTimer = Metrics.execTimer(description)
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait

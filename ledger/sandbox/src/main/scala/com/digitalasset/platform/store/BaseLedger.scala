@@ -11,7 +11,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
@@ -25,7 +25,9 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -41,7 +43,10 @@ import scalaz.syntax.tag.ToTagOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao: LedgerReadDao)
+abstract class BaseLedger(
+    val ledgerId: LedgerId,
+    headAtInitialization: Offset,
+    ledgerDao: LedgerReadDao)
     extends ReadOnlyLedger {
 
   implicit private val DEC: ExecutionContext = DirectExecutionContext
@@ -66,6 +71,30 @@ class BaseLedger(val ledgerId: LedgerId, headAtInitialization: Offset, ledgerDao
       endInclusive
     )
   }
+
+  override def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    dispatcher.startingAt(
+      startExclusive.getOrElse(Offset.begin),
+      RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      endInclusive
+    )
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    dispatcher.startingAt(
+      startExclusive.getOrElse(Offset.begin),
+      RangeSource(
+        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)),
+      endInclusive
+    )
 
   override def ledgerEnd: Offset = dispatcher.getHead()
 

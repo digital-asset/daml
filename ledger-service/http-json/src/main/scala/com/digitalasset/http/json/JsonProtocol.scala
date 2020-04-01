@@ -97,8 +97,6 @@ object JsonProtocol extends DefaultJsonProtocol {
     }
   }
 
-  implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
-
   implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
     override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
 
@@ -349,6 +347,9 @@ object JsonProtocol extends DefaultJsonProtocol {
         case x: domain.UnknownParties => UnknownPartiesFormat.write(x)
       }
     }
+
+  implicit val WarningsWrapperFormat: RootJsonFormat[domain.WarningsWrapper] =
+    jsonFormat1(domain.WarningsWrapper)
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)

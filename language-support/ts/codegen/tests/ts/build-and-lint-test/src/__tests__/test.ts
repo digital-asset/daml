@@ -24,6 +24,7 @@ const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 
 const SANDBOX_PORT = 6865;
+const SANDBOX_PORT_FILE = 'sandbox.port';
 const JSON_API_PORT = 7575;
 const HTTP_BASE_URL = `http://localhost:${JSON_API_PORT}/`;
 
@@ -38,26 +39,26 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOnPort = async (jar: string, args: string[], port: number): Promise<ChildProcess> => {
+const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string): Promise<ChildProcess> => {
   const java = getEnv('JAVA');
   const proc = spawn(java, ['-jar', jar, ...args], {stdio: "inherit",});
-  await waitOn({resources: [`tcp:localhost:${port}`]})
+  await waitOn({resources: [resource]})
   return proc;
 }
 
 beforeAll(async () => {
   console.log ('build-and-lint-1.0.0 (' + buildAndLint.packageId + ") loaded");
   const darPath = getEnv('DAR');
-  sandboxProcess = await spawnJvmAndWaitOnPort(
+  sandboxProcess = await spawnJvmAndWaitOn(
     getEnv('SANDBOX'),
-    ['--port', `${SANDBOX_PORT}`, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
-    SANDBOX_PORT,
+    ['--port', `${SANDBOX_PORT}`, '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
+    `file:${SANDBOX_PORT_FILE}`,
   );
   console.log('Sandbox up');
-  jsonApiProcess = await spawnJvmAndWaitOnPort(
+  jsonApiProcess = await spawnJvmAndWaitOn(
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
-    JSON_API_PORT,
+    `tcp:localhost:${JSON_API_PORT}`,
   )
   console.log('JSON API up');
 });

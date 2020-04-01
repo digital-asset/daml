@@ -260,3 +260,32 @@ using a party with an unspecified participant is an error.
 want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
+
+.. daml-script-json-api
+
+Running DAML Script against the HTTP JSON API
+=============================================
+
+In some cases, you only have access to the :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on `project:DABL <https://projectdabl.com>`_. For this usecase, DAML script can be run against the JSON API. Note that if you do have access to the gRPC API, running DAML script against the JSON API does not have any advantages.
+
+To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC API:
+
+#. When running against the JSON API, the ``--host`` argument has to
+   contain an ``http://`` or ``https://`` prefix, e.g., ``daml
+   script --host http://localhost --port 7575 --json-api``.
+#. The JSON API only supports single-command submissions. This means
+   that within a single call to ``submit`` you can only execute one
+   ledger API command, e.g., one ``createCmd`` or one ``exerciseCmd``.
+#. The JSON API requires an authentication token even when it is run
+   against an unauthenticated ledger. The authentication token must be
+   a JWT ``Bearer`` token so the ``--access-token-file`` passed to
+   ``daml script`` should only contain the actual JWT without the
+   ``Bearer`` prefix.
+#. The token must contain exactly one party in ``actAs`` and/or
+   ``readAs``. This party will be used for ``submit`` and
+   ``query``. Passing a party as the argument to ``submit`` and
+   ``query`` that is different from the party in the token is an
+   error.
+#. Since DAML Script only accepts a single token and the party is
+   inferred from the token, this means that you can only use a single
+   party within a DAML script when running against the JSON API.

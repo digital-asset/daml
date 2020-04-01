@@ -41,9 +41,7 @@ abstract class ResetServiceDatabaseIT extends ResetServiceITBase with SandboxFix
         } yield {
 
           val expectedToHaveOneItem = Set(
-            "parameters", // a new set of parameters is stored at startup
-            "participant_command_completions", // using static time, one checkpoint is going to be saved
-            "ledger_entries" // using static time, one checkpoint is going to be saved
+            "parameters" // a new set of parameters is stored at startup
           )
 
           for ((table, count) <- counts if expectedToHaveOneItem(table)) {

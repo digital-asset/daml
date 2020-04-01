@@ -44,8 +44,6 @@ trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
-
-  def publishHeartbeat(instant: Instant): Future[Unit]
 }
 
 object SandboxIndexAndWriteService {
@@ -64,21 +62,23 @@ object SandboxIndexAndWriteService {
       queueDepth: Int,
       templateStore: InMemoryPackageStore,
       metrics: MetricRegistry,
+      eventsPageSize: Int,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexAndWriteService] =
     SqlLedger
       .owner(
-        ServerRole.Sandbox,
-        jdbcUrl,
-        ledgerId,
-        participantId,
-        timeProvider,
-        acs,
-        templateStore,
-        ledgerEntries,
-        initialConfig,
-        queueDepth,
-        startMode,
-        metrics,
+        serverRole = ServerRole.Sandbox,
+        jdbcUrl = jdbcUrl,
+        ledgerId = ledgerId,
+        participantId = participantId,
+        timeProvider = timeProvider,
+        acs = acs,
+        packages = templateStore,
+        initialLedgerEntries = ledgerEntries,
+        initialConfig = initialConfig,
+        queueDepth = queueDepth,
+        startMode = startMode,
+        metrics = metrics,
+        eventsPageSize = eventsPageSize,
       )
       .flatMap(ledger =>
         owner(MeteredLedger(ledger, metrics), participantId, initialConfig, timeProvider))
@@ -121,7 +121,6 @@ object SandboxIndexAndWriteService {
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {
-      _ <- new HeartbeatScheduler(timeProvider, 1.seconds, "heartbeats", ledger.publishHeartbeat)
       _ <- new HeartbeatScheduler(
         TimeProvider.UTC,
         10.minutes,
@@ -132,9 +131,6 @@ object SandboxIndexAndWriteService {
         override val indexService: IndexService = indexSvc
 
         override val writeService: WriteService = writeSvc
-
-        override def publishHeartbeat(instant: Instant): Future[Unit] =
-          ledger.publishHeartbeat(instant)
       }
   }
 

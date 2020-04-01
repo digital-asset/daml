@@ -9,5 +9,5 @@ object Versions {
   println(s"$daSdkVersionKey = ${daSdkVersion: String}")
 
   private def sdkVersionFromFile(): String =
-    "10" + sbt.IO.read(new sbt.File("./SDK_VERSION").getAbsoluteFile).trim
+    sbt.IO.read(new sbt.File("./SDK_VERSION").getAbsoluteFile).trim
 }

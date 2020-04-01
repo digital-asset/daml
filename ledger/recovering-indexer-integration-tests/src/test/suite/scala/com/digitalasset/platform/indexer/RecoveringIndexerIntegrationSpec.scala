@@ -14,7 +14,6 @@ import ch.qos.logback.classic.Level
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.v1.Update.Heartbeat
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
@@ -185,14 +184,15 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
       materializer <- AkkaResourceOwner.forMaterializer(() => Materializer(actorSystem))
       participantState <- newParticipantState(Some(ledgerId), participantId)(materializer, logCtx)
       _ <- new StandaloneIndexerServer(
-        participantState,
-        IndexerConfig(
+        readService = participantState,
+        config = IndexerConfig(
           participantId,
           jdbcUrl,
           startupMode = IndexerStartupMode.MigrateAndStart,
           restartDelay = restartDelay,
         ),
-        new MetricRegistry,
+        metrics = new MetricRegistry,
+        eventsPageSize = 100,
       )(materializer, logCtx)
     } yield participantState
   }
@@ -200,7 +200,7 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
   private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.writeOwner(ServerRole.Testing(getClass), jdbcUrl, new MetricRegistry)
+    JdbcLedgerDao.writeOwner(ServerRole.Testing(getClass), jdbcUrl, new MetricRegistry, 100)
   }
 }
 
@@ -245,8 +245,6 @@ object RecoveringIndexerIntegrationSpec {
           doAnswer(invocation => {
             val beginAfter = invocation.getArgument[Option[Offset]](0)
             delegate.stateUpdates(beginAfter).flatMapConcat {
-              case value @ (_, Heartbeat(_)) =>
-                Source.single(value)
               case value @ (offset, _) =>
                 if (lastFailure.isEmpty || lastFailure.get < offset) {
                   lastFailure = Some(offset)

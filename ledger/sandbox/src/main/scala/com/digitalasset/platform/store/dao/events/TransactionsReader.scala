@@ -3,66 +3,127 @@
 
 package com.digitalasset.platform.store.dao.events
 
-import com.daml.ledger.participant.state.v1.TransactionId
+import akka.NotUsed
+import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
 }
-import com.digitalasset.platform.store.DbType
-import com.digitalasset.platform.store.dao.DbDispatcher
+import com.digitalasset.platform.ApiOffset
+import com.digitalasset.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
+import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[dao] object TransactionsReader {
+/**
+  * @param dispatcher Executes the queries prepared by this object
+  * @param executionContext Runs transformations on data fetched from the database
+  * @param pageSize The number of events to fetch at a time the database when serving streaming calls
+  * @see [[PaginatingAsyncStream]]
+  */
+private[dao] final class TransactionsReader(
+    dispatcher: DbDispatcher,
+    executionContext: ExecutionContext,
+    pageSize: Int,
+) {
 
-  def apply(
-      dispatcher: DbDispatcher,
-      dbType: DbType,
-      executionContext: ExecutionContext): TransactionsReader =
-    new TransactionsReader {
-      override def lookupFlatTransactionById(
-          transactionId: TransactionId,
-          requestingParties: Set[Party],
-      ): Future[Option[GetFlatTransactionResponse]] = {
-        val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
-        dispatcher
-          .executeSql(
-            description = "lookup_flat_transaction_by_id",
-            extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
-          ) { implicit connection =>
-            query.as(EventsTable.flatEventParser(verbose = true).*)
-          }
-          .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
+  private def offsetFor(response: GetTransactionsResponse): Offset =
+    ApiOffset.assertFromString(response.transactions.head.offset)
+
+  private def offsetFor(response: GetTransactionTreesResponse): Offset =
+    ApiOffset.assertFromString(response.transactions.head.offset)
+
+  def getFlatTransactions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetFlatTransactions(
+              startExclusive = startExclusive,
+              endInclusive = endInclusive,
+              filter = filter,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        dispatcher.executeSql("get_flat_transactions") { implicit connection =>
+          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
+        }
       }
 
-      override def lookupTransactionTreeById(
-          transactionId: TransactionId,
-          requestingParties: Set[Party],
-      ): Future[Option[GetTransactionResponse]] = {
-        val query = EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
-        dispatcher
-          .executeSql(
-            description = "lookup_transaction_tree_by_id",
-            extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
-          ) { implicit connection =>
-            query.as(EventsTable.treeEventParser(verbose = true).*)
-          }
-          .map(EventsTable.Entry.toTransactionTree)(executionContext)
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        val response = EventsTable.Entry.toGetTransactionsResponse(events)
+        Source(response.map(r => offsetFor(r) -> r))
       }
-
-    }
-}
-
-private[dao] trait TransactionsReader {
+  }
 
   def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetFlatTransactionResponse]]
+  ): Future[Option[GetFlatTransactionResponse]] = {
+    val query = EventsTable.prepareLookupFlatTransactionById(transactionId, requestingParties)
+    dispatcher
+      .executeSql(
+        description = "lookup_flat_transaction_by_id",
+        extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
+      ) { implicit connection =>
+        query.as(EventsTable.flatEventParser(verbose = true).*)
+      }
+      .map(EventsTable.Entry.toGetFlatTransactionResponse)(executionContext)
+  }
+
+  def getTransactionTrees(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetTransactionTrees(
+              startExclusive = startExclusive,
+              endInclusive = endInclusive,
+              requestingParties = requestingParties,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        dispatcher.executeSql("get_transaction_trees") { implicit connection =>
+          query.asVectorOf(EventsTable.treeEventParser(verbose = verbose))
+        }
+      }
+
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        val response = EventsTable.Entry.toGetTransactionTreesResponse(events)
+        Source(response.map(r => offsetFor(r) -> r))
+      }
+  }
 
   def lookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
-  ): Future[Option[GetTransactionResponse]]
+  ): Future[Option[GetTransactionResponse]] = {
+    val query = EventsTable.prepareLookupTransactionTreeById(transactionId, requestingParties)
+    dispatcher
+      .executeSql(
+        description = "lookup_transaction_tree_by_id",
+        extraLog = Some(s"tx: $transactionId, parties = ${requestingParties.mkString(", ")}"),
+      ) { implicit connection =>
+        query.as(EventsTable.treeEventParser(verbose = true).*)
+      }
+      .map(EventsTable.Entry.toGetTransactionResponse)(executionContext)
+  }
 
 }

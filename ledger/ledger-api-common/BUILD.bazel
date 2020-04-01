@@ -14,7 +14,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
         "@maven//:com_github_ghik_silencer_plugin_2_12",
     ],
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-common:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

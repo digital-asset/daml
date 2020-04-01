@@ -73,10 +73,10 @@ final class TriggerIt
 
   override protected def darFile = new File(rlocation("triggers/tests/acs.dar"))
 
-  private def dar = DarReader().readArchiveFromFile(darFile).get.map {
+  private val dar = DarReader().readArchiveFromFile(darFile).get.map {
     case (pkgId, archive) => Decode.readArchivePayload(pkgId, archive)
   }
-  private def compiledPackages = PureCompiledPackages(dar.all.toMap).right.get
+  private val compiledPackages = PureCompiledPackages(dar.all.toMap).right.get
 
   private def getRunner(client: LedgerClient, name: QualifiedName, party: String): Runner = {
     val triggerId = Identifier(packageId, name)

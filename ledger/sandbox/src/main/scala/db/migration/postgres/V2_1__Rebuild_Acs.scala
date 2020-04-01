@@ -459,15 +459,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ()
   }
 
-  private def storeCheckpoint(offset: Long, checkpoint: LedgerEntry.Checkpoint)(
-      implicit connection: Connection): Unit = {
-    SQL_INSERT_CHECKPOINT
-      .on("ledger_offset" -> offset, "recorded_at" -> checkpoint.recordedAt)
-      .execute()
-
-    ()
-  }
-
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
@@ -566,20 +557,6 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
       val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
       offset -> LedgerEntry
         .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
-    case ParsedEntry(
-        "checkpoint",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(recordedAt),
-        None,
-        None,
-        None,
-        offset) =>
-      offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
     case invalidRow =>
       sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
   }

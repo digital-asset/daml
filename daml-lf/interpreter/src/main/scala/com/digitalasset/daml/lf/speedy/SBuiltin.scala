@@ -815,6 +815,13 @@ object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
+      coid match {
+        case V.AbsoluteContractId.V1(discriminator, _)
+            if machine.ptx.globalContracts.isDefinedAt(discriminator) =>
+          crash(s"The local contract discriminator $discriminator is not fresh in the transaction")
+        case _ =>
+      }
+
       machine.ptx = newPtx
       machine.ctrl = CtrlValue(SContractId(coid))
       checkAborted(machine.ptx)
@@ -1006,9 +1013,14 @@ object SBuiltin {
       }
       val coinst =
         machine.ptx
-          .lookupLocalContract(coid)
+          .lookupCachedContract(coid)
           .getOrElse(
             coid match {
+              case V.AbsoluteContractId.V1(discriminator, _)
+                  if machine.ptx.localContracts.isDefinedAt(
+                    V.AbsoluteContractId.V1(discriminator)) =>
+                crash(
+                  s"The local contract discriminator $discriminator is not fresh in the transaction")
               case acoid: V.AbsoluteContractId =>
                 throw SpeedyHungry(
                   SResultNeedContract(
@@ -1025,6 +1037,7 @@ object SBuiltin {
                           machine.ctrl =
                             CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
                         } else {
+                          machine.ptx = machine.ptx.cachedContract(coid, coinst)
                           machine.ctrl = translateValue(machine, coinst.arg.value)
                         }
                     },
@@ -1239,31 +1252,26 @@ object SBuiltin {
       val ptxOld = machine.ptx
       val commitLocationOld = machine.commitLocation
 
-      def clearCommit(): Unit = {
-        machine.committers = Set.empty
-        machine.commitLocation = None
-        machine.ptx = PartialTransaction.initial()
-      }
-
       args.get(0) match {
         case SBool(true) =>
           // update expression threw an exception. we're
           // now done.
-          clearCommit
+          machine.clearCommit
           machine.ctrl = CtrlValue.Unit
           throw SpeedyHungry(SResultScenarioInsertMustFail(committerOld, commitLocationOld))
 
         case SBool(false) =>
           ptxOld.finish match {
             case Left(_) =>
+              machine.clearCommit
               machine.ctrl = CtrlValue.Unit
-              clearCommit
             case Right(tx) =>
               // Transaction finished successfully. It might still
               // fail when committed, so tell the scenario runner to
               // do that.
               machine.ctrl = CtrlValue.Unit
-              throw SpeedyHungry(SResultScenarioMustFail(tx, committerOld, _ => clearCommit))
+              throw SpeedyHungry(
+                SResultScenarioMustFail(tx, committerOld, _ => machine.clearCommit))
           }
         case v =>
           crash(s"endCommit: expected bool, got: $v")
@@ -1286,9 +1294,7 @@ object SBuiltin {
           tx = tx,
           committers = machine.committers,
           callback = newValue => {
-            machine.committers = Set.empty
-            machine.commitLocation = None
-            machine.ptx = PartialTransaction.initial()
+            machine.clearCommit
             machine.ctrl = CtrlValue(newValue)
           },
         ),

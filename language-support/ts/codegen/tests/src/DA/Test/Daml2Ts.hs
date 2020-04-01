@@ -3,7 +3,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 module DA.Test.Daml2Ts (main) where
 
-import Control.Monad.Extra
 import System.FilePath
 import System.IO.Extra
 import System.Environment.Blank
@@ -202,9 +201,22 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
           ["-o", daml2tsDir]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4")) [ "index", "DAVL" </> "module" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5")) [ "index", "DAVL" </> "module" ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5")) [ "index", "Upgrade" </> "module" ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4"))
+          [ "index"
+          , "DAVL" </> "index"
+          , "DAVL" </> "module"
+          ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5"))
+          [ "index"
+          , "DAVL" </> "index"
+          , "DAVL" </> "V5" </> "index"
+          , "DAVL" </> "V5" </> "module"
+          ]
+        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5"))
+          [ "index"
+          , "Upgrade" </> "index"
+          , "Upgrade" </> "module"
+          ]
       step "eslint..."
       withCurrentDirectory daml2tsDir $ do
         pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
@@ -250,15 +262,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
 
     daml2tsProject :: [FilePath] -> FilePath -> IO ()
     daml2tsProject dars outDir = callProcessSilent daml2ts $ dars ++ ["-o", outDir]
-
-    callProcessSilent :: FilePath -> [String] -> IO ()
-    callProcessSilent cmd args = do
-        (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-        unless (exitCode == ExitSuccess) $ do
-          hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-          hPutStrLn stderr $ unlines ["stdout:", out]
-          hPutStrLn stderr $ unlines ["stderr:", err]
-          exitFailure
 
     writeDamlYaml :: String -> [String] -> [String] -> Maybe LF.Version -> IO ()
     writeDamlYaml mainPackageName exposedModules dependencies mbLfVersion =

@@ -10,7 +10,7 @@ load(
 da_scala_library(
     name = "contextualized-logging",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset:contextualized-logging:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
