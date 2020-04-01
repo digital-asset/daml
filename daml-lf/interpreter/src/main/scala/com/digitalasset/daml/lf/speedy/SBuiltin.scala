@@ -815,13 +815,6 @@ object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
-      coid match {
-        case V.AbsoluteContractId.V1(discriminator, _)
-            if machine.ptx.globalContracts.isDefinedAt(discriminator) =>
-          crash(s"The local contract discriminator $discriminator is not fresh in the transaction")
-        case _ =>
-      }
-
       machine.ptx = newPtx
       machine.ctrl = CtrlValue(SContractId(coid))
       checkAborted(machine.ptx)
@@ -1013,14 +1006,9 @@ object SBuiltin {
       }
       val coinst =
         machine.ptx
-          .lookupCachedContract(coid)
+          .lookupLocalContract(coid)
           .getOrElse(
             coid match {
-              case V.AbsoluteContractId.V1(discriminator, _)
-                  if machine.ptx.localContracts.isDefinedAt(
-                    V.AbsoluteContractId.V1(discriminator)) =>
-                crash(
-                  s"The local contract discriminator $discriminator is not fresh in the transaction")
               case acoid: V.AbsoluteContractId =>
                 throw SpeedyHungry(
                   SResultNeedContract(
@@ -1037,7 +1025,6 @@ object SBuiltin {
                           machine.ctrl =
                             CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
                         } else {
-                          machine.ptx = machine.ptx.cachedContract(coid, coinst)
                           machine.ctrl = translateValue(machine, coinst.arg.value)
                         }
                     },
