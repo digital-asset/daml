@@ -44,7 +44,6 @@ PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$7")
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$8")
 DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$9")
-SDK_VERSION=${10}
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
@@ -65,7 +64,7 @@ PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2ts $DAR
 rm package.json
 # Since we eschew using workspaces and resolutions in this test, patch
 # up the daml-ledger dependency on daml-types.
-sed -i"" "s|\"@daml/types\": \"$SDK_VERSION\"|\"@daml/types\": \"file:../daml-types\"|" daml-ledger/package.json
+sed -i"" "s|\"@daml/types\": \"0.0.0\"|\"@daml/types\": \"file:../daml-types\"|" daml-ledger/package.json
 
 # Build, lint, test.
 cd build-and-lint-test
