@@ -12,7 +12,7 @@ import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{FreeSpec, Matchers}
+import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.{Order, Tag}
 import scalaz.std.anyVal._
 import scalaz.syntax.functor._
@@ -25,6 +25,7 @@ import shapeless.syntax.singleton._
 class ValueSpec
     extends FreeSpec
     with Matchers
+    with Inside
     with Checkers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
@@ -167,6 +168,20 @@ class ValueSpec
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
             implicit val arb: Arbitrary[T] = ea.injarb[Cid] map ea.inj
             checkLaws(SzP.order.laws[T])
+          }
+      }
+
+      "matches constructor rank" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map ea.inj
+            forAll(minSuccessful(20)) { (a: T, b: T) =>
+              inside((a, b)) {
+                case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
+                  (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
+              }
+            }
           }
       }
     }
