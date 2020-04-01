@@ -350,9 +350,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val WarningsWrapperFormat: RootJsonFormat[domain.WarningsWrapper] =
-    jsonFormat1(domain.WarningsWrapper)
-
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)
 

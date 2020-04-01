@@ -106,44 +106,6 @@ class WebsocketServiceIntegrationTest
     }
   }
 
-  List(
-    SimpleScenario(
-      "query",
-      Uri.Path("/v1/stream/query"),
-      Source.single(TextMessage.Strict("""{"templateIds": ["AA:BB"]}"""))),
-    SimpleScenario(
-      "fetch",
-      Uri.Path("/v1/stream/fetch"),
-      Source.single(TextMessage.Strict("""[{"templateId": "AA:BB", "key": ["k", "v"]}]""")))
-  ).foreach { scenario =>
-    s"${scenario.id} report UnknownTemplateIds and error when cannot resolve any template ID" in withHttpService {
-      (uri, _, _) =>
-        val webSocketFlow =
-          Http().webSocketClientFlow(
-            WebSocketRequest(
-              uri = uri.copy(scheme = "ws").withPath(scenario.path),
-              subprotocol = validSubprotocol))
-        scenario.input
-          .via(webSocketFlow)
-          .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-          .flatMap { msgs =>
-            inside(msgs) {
-              case Seq(warningMsg, errorMsg) =>
-                val warning = decodeServiceWarning(warningMsg)
-                inside(warning) {
-                  case domain.UnknownTemplateIds(ids) =>
-                    ids shouldBe List(domain.TemplateId(None, "AA", "BB"))
-                }
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List("Could not resolve any template ID from request."),
-                  StatusCodes.BadRequest
-                )
-            }
-          }
-    }
-  }
-
   private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
     Flow[Message]
       .collect { case m: TextMessage => m.getStrictText }
@@ -630,13 +592,6 @@ class WebsocketServiceIntegrationTest
     import json.JsonProtocol._
     inside(SprayJson.decode1[domain.ErrorResponse, List[String]](str)) {
       case \/-(e) => e
-    }
-  }
-
-  private def decodeServiceWarning(str: String): domain.ServiceWarning = {
-    import json.JsonProtocol._
-    inside(SprayJson.decode[domain.WarningsWrapper](str)) {
-      case \/-(w) => w.warnings
     }
   }
 }
