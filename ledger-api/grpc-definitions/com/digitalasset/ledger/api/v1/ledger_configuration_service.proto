@@ -43,11 +43,9 @@ message GetLedgerConfigurationResponse {
 // LedgerConfiguration contains parameters of the ledger instance that may be useful to clients.
 message LedgerConfiguration {
 
-  reserved 1; // was min_ttl
-  reserved 2; // was max_ttl
+  // Minimum difference between ledger effective time and maximum record time in submitted commands.
+  google.protobuf.Duration min_ttl = 1;
 
-  // The maximum value for the ``deduplication_time`` parameter of command submissions
-  // (as described in ``commands.proto``). This defines the maximum time window during which
-  // commands can be deduplicated.
-  google.protobuf.Duration max_deduplication_time = 3;
+  // Maximum difference between ledger effective time and maximum record time in submitted commands.
+  google.protobuf.Duration max_ttl = 2;
 }

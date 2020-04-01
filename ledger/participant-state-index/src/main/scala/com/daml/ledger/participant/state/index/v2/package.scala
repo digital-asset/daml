@@ -88,7 +88,7 @@ package object v2 {
       recordTime: Instant,
       workflowId: WorkflowId)
 
-  final case class LedgerConfiguration(maxDeduplicationTime: Duration)
+  final case class LedgerConfiguration(minTTL: Duration, maxTTL: Duration)
 
   /** Meta-data of a DAML-LF package
     *

@@ -223,8 +223,9 @@ raiseGetLedgerConfigurationResponse x =
 raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
 raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{..} -> do
-        maxDeduplicationTime <- perhaps "max_deduplication_time" ledgerConfigurationMaxDeduplicationTime
-        return $ LedgerConfiguration {maxDeduplicationTime}
+        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
+        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
+        return $ LedgerConfiguration {minTtl,maxTtl}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case

@@ -79,7 +79,7 @@ final class StandaloneApiServer(
       indexService <- JdbcIndex
         .owner(
           ServerRole.ApiServer,
-          initialConditions.config,
+          initialConditions.config.timeModel,
           domain.LedgerId(initialConditions.ledgerId),
           participantId,
           config.jdbcUrl,
