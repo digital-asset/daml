@@ -22,7 +22,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = hj_scalacopts,
-    tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -63,7 +63,7 @@ da_scala_binary(
     main_class = "com.digitalasset.http.Main",
     scalacopts = hj_scalacopts,
     tags = [
-        "maven_coordinates=com.daml:http-json-deploy:__VERSION__",
+        "maven_coordinates=com.digitalasset.ledger-service:http-json-deploy:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
