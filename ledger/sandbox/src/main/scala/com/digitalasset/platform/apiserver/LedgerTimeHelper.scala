@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -22,8 +21,6 @@ final case class LedgerTimeHelper(
     maxRetries: Int,
 ) {
 
-  private val logger = ContextualizedLogger.get(this.getClass)
-
   /**
     * Executes a command, advancing the ledger time as necessary.
     *
@@ -33,18 +30,14 @@ final case class LedgerTimeHelper(
   def execute(
       commands: ApiCommands,
       submissionSeed: Option[crypto.Hash],
-  )(
-      implicit ec: ExecutionContext,
-      logCtx: LoggingContext): Future[Either[ErrorCause, CommandExecutionResult]] =
+  )(implicit ec: ExecutionContext): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
 
   private[this] def loop(
       commands: ApiCommands,
       submissionSeed: Option[crypto.Hash],
       retriesLeft: Int,
-  )(
-      implicit ec: ExecutionContext,
-      logCtx: LoggingContext): Future[Either[ErrorCause, CommandExecutionResult]] = {
+  )(implicit ec: ExecutionContext): Future[Either[ErrorCause, CommandExecutionResult]] = {
     commandExecutor
       .execute(
         commands.submitter,
@@ -82,18 +75,6 @@ final case class LedgerTimeHelper(
                 else
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
               })
-              .recoverWith {
-                // An error while looking up the maximum ledger time for the used contracts
-                // most likely means that one of the contracts is already not active anymore,
-                // which can happen under contention.
-                // A retry would only be successful in case the archived contracts were referenced by key.
-                // Direct references to archived contracts will result in the same error.
-                case error =>
-                  logger.info(
-                    s"Lookup of maximum ledger time failed. This can happen if there is contention on contracts used by the transaction. Used contracts: ${usedContractIds
-                      .mkString(", ")}. Details: $error")
-                  Future.successful(Left(ErrorCause.LedgerTime(maxRetries - retriesLeft)))
-              }
       }
   }
 
