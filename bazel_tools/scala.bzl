@@ -121,6 +121,10 @@ lf_scalacopts = [
     "-Ywarn-unused",
 ]
 
+default_compile_arguments = {
+    "unused_dependency_checker_mode": "error",
+}
+
 def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
     rule(
         name = name,
@@ -408,7 +412,7 @@ def _create_scaladoc_jar(**kwargs):
             tags = ["scaladoc"],
         )
 
-def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_library(name, **kwargs):
     """
     Define a Scala library.
 
@@ -418,13 +422,15 @@ def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_library, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    _wrap_rule(scala_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -465,7 +471,7 @@ def da_scala_macro_library(**kwargs):
     _wrap_rule(scala_macro_library, **kwargs)
     _create_scala_source_jar(**kwargs)
 
-def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_binary(name, **kwargs):
     """
     Define a Scala executable.
 
@@ -475,11 +481,13 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_binary, name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    _wrap_rule(scala_binary, name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -499,7 +507,7 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
                 )
                 break
 
-def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_test(**kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -509,8 +517,10 @@ def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_test, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    _wrap_rule(scala_test, **arguments)
 
 def da_scala_test_suite(**kwargs):
     """
