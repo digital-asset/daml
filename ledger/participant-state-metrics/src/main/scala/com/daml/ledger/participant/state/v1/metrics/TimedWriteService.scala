@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.v1.metrics
 import java.util.concurrent.CompletionStage
 
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
+import com.daml.ledger.participant.state.metrics.Metrics
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   Party,
@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.ledger.api.health.HealthStatus
 
-final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, prefix: MetricName)
+final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, prefix: String)
     extends WriteService {
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -57,5 +57,5 @@ final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, p
     delegate.currentHealth()
 
   private def time[T](name: String, future: => CompletionStage[T]): CompletionStage[T] =
-    Metrics.timedCompletionStage(metrics.timer(prefix :+ name), future)
+    Metrics.timedCompletionStage(metrics.timer(s"$prefix.$name"), future)
 }
