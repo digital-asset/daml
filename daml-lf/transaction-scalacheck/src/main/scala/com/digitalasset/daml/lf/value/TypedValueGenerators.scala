@@ -430,6 +430,29 @@ object TypedValueGenerators {
     def leafInstances: Seq[F[_]] = Seq(text, int64, unit, date, timestamp, bool, party)
   }
 
+  /** Given a function that produces one-level-nested cases, produce a
+    * ValueAddend gen.
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def fixGenAddend(f: Gen[ValueAddend] => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
+    object Knot {
+      val tie: Gen[ValueAddend] = Gen.sized { sz =>
+        val self = Gen.resize(sz / 2, Gen.lzy(genAddend))
+        val nestSize = sz / 3
+        Gen.frequency(
+          Seq(
+            ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
+            (sz max 1, Gen.const(ValueAddend.contractId)),
+            (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
+            (nestSize, self.map(ValueAddend.optional(_)))
+          ) ++
+            f(self).map((nestSize, _)): _*
+        )
+      }
+    }
+    Knot.tie
+  }
+
   /** This is the key member of interest, supporting many patterns:
     *
     *  1. generating a type and value
@@ -440,32 +463,16 @@ object TypedValueGenerators {
     * prism into [[Value]], a [[Type]] describing that type, and
     * Scalacheck support surrounding that type.''
     */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  val genAddend: Gen[ValueAddend] = Gen.sized { sz =>
-    val self = Gen.resize(sz / 2, Gen.lzy(genAddend))
-    val nestSize = sz / 3
-    Gen.frequency(
-      ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
-      (sz max 1, Gen.const(ValueAddend.contractId)),
-      (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
-      (nestSize, self.map(ValueAddend.list(_))),
-      (nestSize, self.map(ValueAddend.optional(_))),
-      (nestSize, self.map(ValueAddend.map(_))),
-      (nestSize, Gen.zip(self, self).map { case (k, v) => ValueAddend.genMap(k, v) }),
-    )
-  }
+  val genAddend: Gen[ValueAddend] =
+    fixGenAddend(
+      self =>
+        Seq(
+          self.map(ValueAddend.list(_)),
+          self.map(ValueAddend.map(_)),
+          Gen.zip(self, self).map { case (k, v) => ValueAddend.genMap(k, v) },
+      ))
 
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  val genAddendNoListMap: Gen[ValueAddend] = Gen.sized { sz =>
-    val self = Gen.resize(sz / 2, Gen.lzy(genAddendNoListMap))
-    val nestSize = sz / 3
-    Gen.frequency(
-      ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
-      (sz max 1, Gen.const(ValueAddend.contractId)),
-      (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
-      (nestSize, self.map(ValueAddend.optional(_))),
-    )
-  }
+  val genAddendNoListMap: Gen[ValueAddend] = fixGenAddend(_ => Seq.empty)
 
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue[Cid](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
