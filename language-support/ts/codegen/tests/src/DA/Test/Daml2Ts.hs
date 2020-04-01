@@ -19,6 +19,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.Aeson
 import Test.Tasty
 import Test.Tasty.HUnit
+import DA.Test.Process
 import DA.Test.Util
 
 -- Version of eslint we use for linting the generated code.

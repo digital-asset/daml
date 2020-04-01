@@ -13,6 +13,7 @@ da_haskell_library(
         "base",
         "extra",
         "filepath",
+        "network",
         "process",
         "safe-exceptions",
         "tasty",
