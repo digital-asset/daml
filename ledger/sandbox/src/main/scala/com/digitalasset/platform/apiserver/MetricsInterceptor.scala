@@ -6,7 +6,6 @@ package com.digitalasset.platform.apiserver
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 import scala.collection.concurrent.TrieMap
@@ -32,7 +31,7 @@ final class MetricsInterceptor(metrics: MetricRegistry) extends ServerIntercepto
 
   // Cache the result of calling MetricsInterceptor.nameFor, which practically has a
   // limited co-domain and whose cost we don't want to pay every time an endpoint is hit
-  private val fullServiceToMetricNameCache = TrieMap.empty[String, MetricName]
+  private val fullServiceToMetricNameCache = TrieMap.empty[String, String]
 
   override def interceptCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],

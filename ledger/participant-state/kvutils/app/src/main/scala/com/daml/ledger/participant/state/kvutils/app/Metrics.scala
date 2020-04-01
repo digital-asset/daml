@@ -3,14 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.codahale.metrics.MetricRegistry
 
 private[app] object Metrics {
 
-  private val ServicePrefix = MetricName.DAML :+ "services"
-
-  val IndexServicePrefix: MetricName = ServicePrefix :+ "index"
-  val ReadServicePrefix: MetricName = ServicePrefix :+ "read"
-  val WriteServicePrefix: MetricName = ServicePrefix :+ "write"
+  val IndexServicePrefix: String = MetricRegistry.name("daml", "services", "index")
+  val ReadServicePrefix: String = MetricRegistry.name("daml", "services", "read")
+  val WriteServicePrefix: String = MetricRegistry.name("daml", "services", "write")
 
 }
