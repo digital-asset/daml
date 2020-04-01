@@ -51,7 +51,7 @@ private[committer] trait Committer[Submission, PartialResult] {
   protected val metricRegistry: metrics.MetricRegistry
 
   protected def metricsName(metric: String): String =
-    metrics.MetricRegistry.name("daml", "kvutils", "committer", committerName, metric)
+    metrics.MetricRegistry.name("kvutils", "committer", committerName, metric)
 
   // These timers are lazy because they rely on `committerName`, which is defined in the subclass
   // and therefore not set at object initialization.
