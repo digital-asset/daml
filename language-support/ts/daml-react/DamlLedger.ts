@@ -18,7 +18,7 @@ const DamlLedger: React.FC<Props> = ({token, httpBaseUrl, wsBaseUrl, party, chil
   const ledger = useMemo(() => new Ledger({token, httpBaseUrl, wsBaseUrl}), [token, httpBaseUrl, wsBaseUrl]);
   const state: DamlLedgerState = useMemo(() => ({
     reloadToken,
-    triggerReload: (): void => setReloadToken(x => x + 1),
+    triggerReload: () => setReloadToken(x => x +1),
     party,
     ledger,
   }), [party, ledger, reloadToken]);
