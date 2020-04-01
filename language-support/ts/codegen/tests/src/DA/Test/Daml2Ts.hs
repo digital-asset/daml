@@ -3,7 +3,6 @@
 {-# LANGUAGE DerivingStrategies #-}
 module DA.Test.Daml2Ts (main) where
 
-import Control.Monad.Extra
 import System.FilePath
 import System.IO.Extra
 import System.Environment.Blank
@@ -263,15 +262,6 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
 
     daml2tsProject :: [FilePath] -> FilePath -> IO ()
     daml2tsProject dars outDir = callProcessSilent daml2ts $ dars ++ ["-o", outDir]
-
-    callProcessSilent :: FilePath -> [String] -> IO ()
-    callProcessSilent cmd args = do
-        (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-        unless (exitCode == ExitSuccess) $ do
-          hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-          hPutStrLn stderr $ unlines ["stdout:", out]
-          hPutStrLn stderr $ unlines ["stderr:", err]
-          exitFailure
 
     writeDamlYaml :: String -> [String] -> [String] -> Maybe LF.Version -> IO ()
     writeDamlYaml mainPackageName exposedModules dependencies mbLfVersion =

@@ -27,11 +27,6 @@ sealed trait Update extends Product with Serializable {
 
 object Update {
 
-  /** Signal aliveness and the current record time.  */
-  final case class Heartbeat(recordTime: Timestamp) extends Update {
-    override def description: String = s"Heartbeat: $recordTime"
-  }
-
   /** Signal that the current [[Configuration]] has changed. */
   final case class ConfigurationChanged(
       recordTime: Timestamp,

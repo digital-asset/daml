@@ -54,7 +54,7 @@ da_java_library(
     ],
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
-        "maven_coordinates=com.daml.ledger:bindings-java:__VERSION__",
+        "maven_coordinates=com.daml:bindings-java:__VERSION__",
     ],
     visibility = [
         "//visibility:public",

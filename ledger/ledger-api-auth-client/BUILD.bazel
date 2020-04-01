@@ -8,7 +8,7 @@ da_java_library(
     srcs = glob(["src/main/java/com/digitalasset/ledger/api/auth/client/**/*.java"]),
     tags = [
         "javadoc_root_packages=com.digitalasset.ledger.api.auth.client",
-        "maven_coordinates=com.digitalasset.ledger:ledger-api-auth-client:__VERSION__",
+        "maven_coordinates=com.daml:ledger-api-auth-client:__VERSION__",
     ],
     visibility = [
         "//visibility:public",

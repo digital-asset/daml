@@ -50,9 +50,7 @@ trait WriteService
     * [[Update.CommandRejected]] message referencing the same `submitterInfo` as
     * provided in the submission. There can be failure modes where a
     * transaction submission is lost in transit, and no [[Update.CommandRejected]] is
-    * generated. These failures are communicated via [[Update.Heartbeat]]s signalling
-    * that the `maximumRecordTime` provided in the submitter info has been
-    * exceeded. See the comments on [[ReadService.stateUpdates]] for further details.
+    * generated. See the comments on [[ReadService.stateUpdates]] for further details.
     *
     * A note on ledger effective time and record time: transactions are
     * submitted together with a `ledgerEffectiveTime` provided as part of the

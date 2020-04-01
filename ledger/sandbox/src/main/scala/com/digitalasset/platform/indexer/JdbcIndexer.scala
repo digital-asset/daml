@@ -164,13 +164,6 @@ class JdbcIndexer private[indexer] (
 
     val externalOffset = offset
     val result = update match {
-      case Heartbeat(recordTime) =>
-        ledgerDao
-          .storeLedgerEntry(
-            externalOffset,
-            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant))
-          )
-
       case PartyAddedToParticipant(
           party,
           displayName,
