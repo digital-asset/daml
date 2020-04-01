@@ -125,7 +125,7 @@ genrule(
             --includeDir """ + google_protobuf_src + """ \
             --includeDir """ + google_rpc_src + """ \
             --proto google/rpc/status.proto \
-            --out $$(dirname $$(dirname $(@D)))
+            --out $$(dirname $$(dirname $(@D))) 
                #2x dirname because @D works differently for a single output
     """,
     tools = [
@@ -286,7 +286,7 @@ scala_library(
     name = "ledger-api-scalapb",
     srcs = [":ledger-api-scalapb-sources"],
     tags = [
-        "maven_coordinates=com.daml:ledger-api-scalapb:__VERSION__",
+        "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],

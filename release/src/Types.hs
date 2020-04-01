@@ -19,7 +19,6 @@ module Types (
     Version(..),
     (#),
     dropFileName,
-    groupIdString,
     pathToString,
     pathToText,
     throwIO,
@@ -34,7 +33,6 @@ import           Control.Monad.IO.Unlift              (MonadUnliftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Control          (MonadBaseControl)
 import           Data.Aeson
-import qualified Data.List                            as List
 import           Data.Maybe
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
@@ -56,9 +54,6 @@ data MavenCoords = MavenCoords
     , classifier :: Maybe ArtifactType
     , artifactType :: !ArtifactType
     } deriving Show
-
-groupIdString :: GroupId -> String
-groupIdString gid = List.intercalate "." (map T.unpack gid)
 
 newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
     deriving (Eq, Show, FromJSON)

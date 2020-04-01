@@ -15,7 +15,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.daml:daml-lf-data:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-data:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

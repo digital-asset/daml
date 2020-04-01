@@ -6,7 +6,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library", "da_scala
 da_scala_library(
     name = "rs-grpc-akka",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.daml:rs-grpc-akka:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset.ledger-api:rs-grpc-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
