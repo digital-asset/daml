@@ -351,7 +351,6 @@ object Ledger {
         scenarioSteps = newIMS,
         scenarioStepId = scenarioStepId.next,
       )
-
     }
 
     /** Focusing on a specific view of the ledger, lookup the
