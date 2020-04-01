@@ -24,15 +24,20 @@ import qualified Data.Set as Set
 import qualified Data.Text.Extended as T
 import Development.IDE.Core.Rules (useE, useNoFileE)
 import Development.IDE.Core.Service (runActionSync)
+import Development.IDE.GHC.Util (hscEnv)
 import Development.IDE.Types.Location
+import "ghc-lib-parser" DynFlags (DynFlags)
+import "ghc-lib-parser" HscTypes as GHC
 import "ghc-lib-parser" Module (UnitId, unitIdString)
 import qualified Module as GHC
+import qualified "ghc-lib-parser" Packages as GHC
 import System.Directory.Extra
 import System.Exit
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
 import System.Process (callProcess)
+import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
@@ -96,7 +101,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
     loggerH <- getLogger opts "generate package maps"
     mbRes <- withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
         (,) <$> useNoFileE GenerateStablePackages
-            <*> useE GeneratePackageMap  projectRoot
+            <*> useE GeneratePackageMap projectRoot
     (stablePkgs, dependencies) <- maybe (fail "Failed to generate package info") pure mbRes
     let stablePkgIds :: Set LF.PackageId
         stablePkgIds = Set.fromList $ map LF.dalfPackageId $ MS.elems stablePkgs
@@ -191,6 +196,24 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
                 [ show k <> " [" <> intercalate "," (map (T.unpack . LF.unPackageId) (Set.toList v)) <> "]"
                 | (k,v) <- MS.toList unitIdConflicts ]
 
+    -- We only do this at this point to ensure that all checks for duplicate unit ids have come
+    -- before and don’t end up blowing up GHC.
+    exposedModules <- do
+        -- We need to avoid inference of package flags. Otherwise, we will
+        -- try to load package flags for data-dependencies that we have not generated
+        -- yet. We only look for the packages in the package db so the --package flags
+        -- do not matter and can be actively harmful since we might have picked up
+        -- some from the daml.yaml if they are explicitly specified.
+        opts <- pure opts
+            { optInferDependantPackages = InferDependantPackages False
+            , optPackageImports = []
+            }
+        hscEnv <-
+            (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
+            withDamlIdeState opts loggerH diagnosticsLogger $ \ide ->
+            runActionSync ide $ runMaybeT $ useE GhcSession projectRoot
+        pure $! getExposedModules $ hsc_dflags hscEnv
+
     let (depGraph, vertexToNode) = buildLfPackageGraph pkgs stablePkgs dependencies
     -- Iterate over the dependency graph in topological order.
     -- We do a topological sort on the transposed graph which ensures that
@@ -202,7 +225,6 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
       -- so we don’t need to generate interface files for them.
       unless (pkgId `Set.member` stablePkgIds || pkgId `Set.member` dependencyPkgIds) $ do
         let unitIdStr = unitIdString $ unitId pkgNode
-        let _instancesUnitIdStr = "instances-" <> unitIdStr
         let pkgIdStr = T.unpack $ LF.unPackageId pkgId
         let (pkgName, mbPkgVersion) = LF.splitUnitId (unitId pkgNode)
         let deps =
@@ -228,6 +250,7 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             mbPkgVersion
             deps
             dependencies
+            exposedModules
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
@@ -237,6 +260,14 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
         -- reinitializing everything, we probably want to change this.
         removePathForcibly dbPath
         createDirectoryIfMissing True $ dbPath </> "package.conf.d"
+
+-- Produce the list of exposed modules for each package.
+getExposedModules :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)
+getExposedModules df =
+    MS.fromList $
+    map (\pkgConf -> (getUnitId pkgConf, mkUniqSet $ map fst $ GHC.exposedModules pkgConf)) $
+    GHC.listPackageConfigMap df
+    where getUnitId = GHC.DefiniteUnitId . GHC.DefUnitId . GHC.unitId
 
 toGhcModuleName :: LF.ModuleName -> GHC.ModuleName
 toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
@@ -254,13 +285,16 @@ generateAndInstallIfaceFiles ::
     -> Maybe LF.PackageVersion
     -> [(UnitId, LF.DalfPackage)] -- ^ List of packages referenced by this package.
     -> MS.Map UnitId LF.DalfPackage -- ^ Map of all packages in `dependencies`.
+    -> MS.Map UnitId (UniqSet GHC.ModuleName)
     -> IO ()
-generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies = do
+generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase pkgIdStr pkgName mbPkgVersion deps dependencies exposedModules = do
     loggerH <- getLogger opts "generate interface files"
     let src' = [ (toNormalizedFilePath' $ workDir </> fromNormalizedFilePath nfp, str) | (nfp, str) <- src]
     mapM_ writeSrc src'
     -- We expose dependencies under a Pkg_$pkgId prefix so we can unambiguously refer to them
-    -- while avoiding name collisions in package imports.
+    -- while avoiding name collisions in package imports. Note that we can only do this
+    -- for exposed modules. GHC gets very unhappy if you try to remap modules that are not
+    -- exposed.
     -- TODO (MK)
     -- Use this scheme to refer to data-dependencies as well and replace the CurrentSdk prefix by this.
     let depImps =
@@ -268,8 +302,12 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
                   [ (toGhcModuleName modName, toGhcModuleName (prefixDependencyModule dalfPackageId modName))
                   | mod <- NM.toList $ LF.packageModules $ LF.extPackagePkg dalfPackagePkg
                   , let modName = LF.moduleName mod
+                  -- NOTE (MK) I am not sure if this lookup
+                  -- can ever fail but for now, we keep exposing the module in that case.
+                  , maybe True (toGhcModuleName modName `elementOfUniqSet`) mbExposed
                   ]
             | (unitId, LF.DalfPackage{..}) <- MS.toList dependencies <> deps
+            , let mbExposed = MS.lookup unitId exposedModules
             ]
     opts <-
         pure $ opts
@@ -512,7 +550,7 @@ showPackageFlag unitId exposeImplicit mods = concat
 -- as expected but we got no output.
 -- So now we are extra careful to make sure that the error message is actually
 -- written somewhere.
-exitWithError :: String -> IO ()
+exitWithError :: String -> IO a
 exitWithError msg = do
     hPutStrLn stderr msg
     hFlush stderr
