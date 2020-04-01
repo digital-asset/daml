@@ -9,23 +9,17 @@ import com.digitalasset.http.Generators.{
   contractLocatorGen,
   exerciseCmdGen,
   genDomainTemplateId,
-  genDomainTemplateIdO,
-  genServiceWarning,
-  genUnknownParties,
-  genUnknownTemplateIds,
-  genWarningsWrapper
+  genDomainTemplateIdO
 }
 import com.digitalasset.http.Statement.discard
 import com.digitalasset.http.domain
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen.{identifier, listOf}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FreeSpec, Inside, Matchers, Succeeded}
+import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.syntax.std.option._
 import scalaz.syntax.tag._
 import scalaz.{\/, \/-}
-
-import scala.collection.breakOut
 
 class JsonProtocolTest
     extends FreeSpec
@@ -97,34 +91,6 @@ class JsonProtocolTest
     type Loc = domain.ContractLocator[JsValue]
     "roundtrips" in forAll(contractLocatorGen(arbitrary[Int] map (JsNumber(_)))) { locator: Loc =>
       locator.toJson.convertTo[Loc] should ===(locator)
-    }
-  }
-
-  "domain.ServiceWarning" - {
-    "UnknownTemplateIds serialization" in forAll(genUnknownTemplateIds) { x =>
-      val expectedTemplateIds: Vector[JsValue] = x.unknownTemplateIds.map(_.toJson)(breakOut)
-      val expected = JsObject("unknownTemplateIds" -> JsArray(expectedTemplateIds))
-      x.toJson.asJsObject shouldBe expected
-    }
-    "UnknownParties serialization" in forAll(genUnknownParties) { x =>
-      val expectedParties: Vector[JsValue] = x.unknownParties.map(_.toJson)(breakOut)
-      val expected = JsObject("unknownParties" -> JsArray(expectedParties))
-      x.toJson.asJsObject shouldBe expected
-    }
-    "roundtrips" in forAll(genServiceWarning) { x =>
-      x.toJson.convertTo[domain.ServiceWarning] === x
-    }
-  }
-
-  "domain.WarningsWrapper" - {
-    "serialization" in forAll(genWarningsWrapper) { x =>
-      inside(x.toJson) {
-        case JsObject(fields) if fields.contains("warnings") && fields.size == 1 =>
-          Succeeded
-      }
-    }
-    "roundtrips" in forAll(genWarningsWrapper) { x =>
-      x.toJson.convertTo[domain.WarningsWrapper] === x
     }
   }
 
