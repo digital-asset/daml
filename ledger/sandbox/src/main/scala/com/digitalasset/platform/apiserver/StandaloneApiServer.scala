@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.io.File
 import java.nio.file.Files
@@ -13,26 +13,26 @@ import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.buildinfo.BuildInfo
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.StandaloneApiServer._
-import com.digitalasset.platform.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.lf.engine.Engine
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.StandaloneApiServer._
+import com.daml.platform.configuration.{
   CommandConfiguration,
   PartyConfiguration,
   ServerRole,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.index.JdbcIndex
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.platform.index.JdbcIndex
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.JavaConverters._

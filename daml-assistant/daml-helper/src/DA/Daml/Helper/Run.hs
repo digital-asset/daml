@@ -770,7 +770,7 @@ getTokFromFile tokFileM = do
     Just tokFile -> do
       -- This postprocessing step which allows trailing newlines
       -- matches the behavior of the Scala token reader in
-      -- com.digitalasset.auth.TokenHolder.
+      -- com.daml.auth.TokenHolder.
       tok <- intercalate "\n" . lines <$> readFileUTF8 tokFile
       return (Just (Token tok))
 

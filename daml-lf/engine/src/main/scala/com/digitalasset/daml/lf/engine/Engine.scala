@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml.lf.speedy.Pretty
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
+import com.daml.lf.command._
+import com.daml.lf.data._
+import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.Compiler
+import com.daml.lf.speedy.Pretty
+import com.daml.lf.speedy.Speedy.Machine
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.value.Value
+import com.daml.lf.speedy.{Command => SpeedyCommand}
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -452,7 +452,7 @@ final class Engine {
 
   def clearPackages(): Unit = _compiledPackages.clear()
 
-  /** Note: it's important we return a [[com.digitalasset.daml.lf.CompiledPackages]],
+  /** Note: it's important we return a [[com.daml.lf.CompiledPackages]],
     * and not a [[ConcurrentCompiledPackages]], otherwise people would be able
     * to modify them.
     */

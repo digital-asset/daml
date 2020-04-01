@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}

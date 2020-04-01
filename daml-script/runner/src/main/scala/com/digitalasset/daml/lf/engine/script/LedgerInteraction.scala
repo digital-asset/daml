@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -23,28 +23,24 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface.{EnvironmentInterface, InterfaceType}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.jwt.JwtDecoder
-import com.digitalasset.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.jwt.domain.Jwt
+import com.daml.jwt.JwtDecoder
+import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.client.LedgerClient
+import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier

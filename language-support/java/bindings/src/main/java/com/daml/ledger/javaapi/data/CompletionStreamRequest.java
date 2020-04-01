@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.CommandCompletionServiceOuterClass;
+import com.daml.ledger.api.v1.CommandCompletionServiceOuterClass;
 
 import java.util.HashSet;
 import java.util.Objects;

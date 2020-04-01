@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /** An interface to change a ledger via a participant.
   *

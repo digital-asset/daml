@@ -1,16 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
-import com.digitalasset.daml.lf.data.Ref.{
-  DottedName,
-  Identifier,
-  LedgerString,
-  PackageId,
-  Party,
-  QualifiedName
-}
+import com.daml.lf.data.Ref.{DottedName, Identifier, LedgerString, PackageId, Party, QualifiedName}
 import org.scalatest.{EitherValues, FreeSpec, Matchers}
 
 class RefTest extends FreeSpec with Matchers with EitherValues {

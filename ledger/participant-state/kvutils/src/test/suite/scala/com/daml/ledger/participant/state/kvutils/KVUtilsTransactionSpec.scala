@@ -9,17 +9,12 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.TestHelpers._
 import com.daml.ledger.participant.state.v1.Update
-import com.digitalasset.daml.lf.command.{
-  Command,
-  CreateAndExerciseCommand,
-  CreateCommand,
-  ExerciseCommand
-}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.{FrontStack, Ref, SortedLookupList}
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
+import com.daml.lf.command.{Command, CreateAndExerciseCommand, CreateCommand, ExerciseCommand}
+import com.daml.lf.crypto
+import com.daml.lf.data.{FrontStack, Ref, SortedLookupList}
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{
   AbsoluteContractId,
   ValueList,
   ValueOptional,

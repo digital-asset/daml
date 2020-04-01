@@ -6,8 +6,8 @@ package com.daml.ledger
 import java.time.Clock
 import java.util.UUID
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   Authorizer,
   Claim,

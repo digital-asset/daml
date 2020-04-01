@@ -6,7 +6,7 @@
 module DA.Ledger.Services.CommandSubmissionService (submit) where
 
 import Data.Functor
-import Com.Digitalasset.Ledger.Api.V1.CommandSubmissionService
+import Com.Daml.Ledger.Api.V1.CommandSubmissionService
 import DA.Ledger.Convert (lowerCommands)
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService

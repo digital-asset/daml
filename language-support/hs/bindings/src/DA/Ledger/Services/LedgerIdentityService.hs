@@ -3,7 +3,7 @@
 
 module DA.Ledger.Services.LedgerIdentityService (getLedgerIdentity) where
 
-import Com.Digitalasset.Ledger.Api.V1.LedgerIdentityService
+import Com.Daml.Ledger.Api.V1.LedgerIdentityService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types(LedgerId(..))

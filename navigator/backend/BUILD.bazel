@@ -36,7 +36,7 @@ java_library(
 da_scala_library(
     name = "navigator-library",
     srcs = glob([
-        "src/main/scala/com/digitalasset/navigator/**/*.scala",
+        "src/main/scala/**/*.scala",
     ]),
     scalacopts = navigator_scalacopts,
     visibility = ["//visibility:public"],
@@ -122,7 +122,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "navigator-binary",
-    main_class = "com.digitalasset.navigator.NavigatorBackend",
+    main_class = "com.daml.navigator.NavigatorBackend",
     tags = [
         "maven_coordinates=com.daml:navigator:__VERSION__",
         "no_scala_version_suffix",

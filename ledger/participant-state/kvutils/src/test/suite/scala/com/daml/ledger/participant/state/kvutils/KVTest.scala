@@ -8,13 +8,13 @@ import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.command.{Command, Commands}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.command.{Command, Commands}
+import com.daml.lf.crypto
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.Transaction
+import com.daml.daml_lf_dev.DamlLf
 import scalaz.State
 import scalaz.std.list._
 import scalaz.syntax.traverse._

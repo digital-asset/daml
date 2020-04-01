@@ -18,6 +18,6 @@ sandbox-options:
   - --wall-clock-time
 codegen:
   scala:
-    package-prefix: com.digitalasset.quickstart.iou.model
+    package-prefix: com.daml.quickstart.iou.model
     output-directory: scala-codegen/src/main/scala
     verbosity: 2

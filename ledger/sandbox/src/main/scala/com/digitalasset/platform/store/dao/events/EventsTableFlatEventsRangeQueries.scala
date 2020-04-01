@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import anorm.{Row, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.platform.store.Conversions._
+import com.daml.lf.data.Ref.Identifier
+import com.daml.platform.store.Conversions._
 
 private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
 

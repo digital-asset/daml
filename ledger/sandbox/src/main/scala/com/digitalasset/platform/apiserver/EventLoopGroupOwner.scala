@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.resources.{Resource, ResourceOwner}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.{NioServerSocketChannel, NioSocketChannel}
 import io.netty.channel.{Channel, EventLoopGroup, ServerChannel}

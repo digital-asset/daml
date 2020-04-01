@@ -1,20 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.scenario
+package com.daml.lf.scenario
 
-import com.digitalasset.daml.lf.data.{Numeric, Ref}
-import com.digitalasset.daml.lf.scenario.api.v1
-import com.digitalasset.daml.lf.scenario.api.v1.{List => _, _}
-import com.digitalasset.daml.lf.speedy.{
-  SError,
-  SValue,
-  Speedy,
-  PartialTransaction => SPartialTransaction
-}
-import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.scenario.api.v1
+import com.daml.lf.scenario.api.v1.{List => _, _}
+import com.daml.lf.speedy.{SError, SValue, Speedy, PartialTransaction => SPartialTransaction}
+import com.daml.lf.transaction.{Node => N, Transaction => Tx}
+import com.daml.lf.types.Ledger
+import com.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
 

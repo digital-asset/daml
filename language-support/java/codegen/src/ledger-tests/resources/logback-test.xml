@@ -8,7 +8,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.digitalasset" level="INFO" />
+    <logger name="com.daml" level="INFO" />
     <logger name="com.daml" level="INFO" />
 
     <root level="WARN">

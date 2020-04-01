@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.events
+package com.daml.platform.events
 
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.EventId
+import com.daml.lf.data.Ref.{ContractIdString, LedgerString}
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.types.Ledger
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.EventId
 
 import scala.util.{Failure, Success, Try}
 

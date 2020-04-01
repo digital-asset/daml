@@ -1,37 +1,37 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger.test
+package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.Sink
 import java.io.File
 import java.util.UUID
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.{DarReader, Decode}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.ledger.api.testing.utils.MockMessages
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.{value => LedgerApi}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.ledger.api.testing.utils.MockMessages
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest._
 import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.daml.lf.engine.trigger.{Runner, Trigger}
+import com.daml.lf.engine.trigger.{Runner, Trigger}
 
 trait AbstractTriggerTest extends SandboxFixture with TestCommands {
   self: Suite =>

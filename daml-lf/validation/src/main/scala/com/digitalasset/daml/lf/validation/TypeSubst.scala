@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.language.Ast._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.traversable.TypeTraversable
 
 private[validation] object TypeSubst {
 

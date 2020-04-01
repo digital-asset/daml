@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
 import java.time.{Duration, Instant}
 
-import com.digitalasset.api.util.{DurationConversion, TimestampConversion}
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{
+import com.daml.api.util.{DurationConversion, TimestampConversion}
+import com.daml.lf.command._
+import com.daml.lf.data._
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
   Empty => ProtoEmpty,
   Exercise => ProtoExercise,
   ExerciseByKey => ProtoExerciseByKey
 }
-import com.digitalasset.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
-import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
+import com.daml.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.io.File
 
@@ -9,25 +9,25 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
-import com.digitalasset.http.util.FutureUtil
-import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
-import com.digitalasset.ledger.api.auth.AuthService
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.http.dbbackend.ContractDao
+import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.daml.http.util.FutureUtil
+import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import scalaz._
 import scalaz.std.option._
 import scalaz.std.scalaFuture._

@@ -13,9 +13,9 @@ import com.daml.ledger.participant.state.v1.{
   SubmitterInfo,
   TransactionMeta
 }
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.transaction.Transaction
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.google.protobuf.ByteString
 
 import scala.collection.JavaConverters._

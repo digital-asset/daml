@@ -3,10 +3,10 @@
 This component contains the `.proto` definitions specifying the format
 in which DAML-LF packages are stored -- the DAML-LF archive. All the
 proto definitions are kept in the directory
-`src/protorotobuf/com/digitalasset/daml_lf_dev/`
+`src/protobuf/com/daml/daml_lf_dev/`
 
 The entry point definition is `Archive` in
-`src/protorotobuf/com/digitalasset/daml_lf_dev/daml_lf.proto`.  `Archive`
+`src/protobuf/com/daml/daml_lf_dev/daml_lf.proto`.  `Archive`
 contains some metadata about the actual archive (currently the hashing
 function and the hash), and then a binary blob containing the
 archive. The binary blob must be an `ArchivePayload` -- we keep it in
@@ -18,7 +18,7 @@ need to worry about it.
 `ArchivePayload` is a sum type containing the various DAML-LF versions
 supported by the DAML-LF archive. Currently we have two major versions:
 
-* `DAML-LF-0`, which is the deprecated legacy DAML core; 
+* `DAML-LF-0`, which is the deprecated legacy DAML core;
 * `DAML-LF-1`, which is the first version of DAML-LF as specified by
     <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
 
@@ -26,9 +26,10 @@ supported by the DAML-LF archive. Currently we have two major versions:
 
 The component contains also an arbitrary number of snapshots of the
 protobuf definitions as they were as the time a particular version of
-DAML-LF was frozen. Those snapshots are kept in the directories
-`src/protorotobuf/com/digitalasset/daml_lf_x_y/`, where `x.y` is a
-already frozen DAML-LF version.  A snapshot for version `x.y` can be
+DAML-LF was frozen. For versions <= 1.8, those snapshots are kept in the directories
+`src/protobuf/com/digitalasset/daml_lf_x_y/`, where `x.y` is a
+already frozen DAML-LF version.  For newer versions, the directory is
+`src/protobuf/com/daml/daml_lf_x_y/`. A snapshot for version `x.y` can be
 used to read any DAML-LF version from `1.0` to `x.y` without suffering
 breaking changes (at the generated code level) often introduced in the
 current version.

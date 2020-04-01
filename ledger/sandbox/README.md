@@ -43,7 +43,7 @@ Note that the new Ledger API only supports DAML 1.0 or above codebases compiled 
 
 # Ledger API
 
-The new Ledger API uses gRPC. If you just want to create / exercise contracts, I suggest you start by looking at [`command_service.proto`](/ledger-api/grpc-definitions/com/digitalasset/ledger/api/v1/command_service.proto), which exposes a synchronous API to the DAML ledger.
+The new Ledger API uses gRPC. If you just want to create / exercise contracts, I suggest you start by looking at [`command_service.proto`](/ledger-api/grpc-definitions/com/daml/ledger/api/v1/command_service.proto), which exposes a synchronous API to the DAML ledger.
 
 # Logging
 

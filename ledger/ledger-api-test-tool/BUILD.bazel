@@ -40,7 +40,7 @@ dar_to_scala(
     srcs = [
         ":PackageManagementTest.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.packagemanagementtest",
+    package_prefix = "com.daml.ledger.packagemanagementtest",
     srcjar_out = "PackageManagementTest.scala.srcjar",
     verbosity = 2,
 )

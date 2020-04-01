@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import java.time.Instant
 
@@ -9,35 +9,32 @@ import akka.NotUsed
 import akka.actor.Cancellable
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndResponse,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
-import com.digitalasset.ledger.api.v1.command_service._
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionByIdRequest,
   GetTransactionResponse
 }
-import com.digitalasset.ledger.client.services.commands.{
-  CommandCompletionSource,
-  CommandTrackerFlow
-}
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.services.ApiCommandService._
-import com.digitalasset.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
-import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
-import com.digitalasset.util.Ctx
-import com.digitalasset.util.akkastreams.MaxInFlight
+import com.daml.ledger.client.services.commands.{CommandCompletionSource, CommandTrackerFlow}
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.services.ApiCommandService._
+import com.daml.platform.apiserver.services.tracking.{TrackerImpl, TrackerMap}
+import com.daml.platform.server.api.ApiException
+import com.daml.platform.server.api.services.grpc.GrpcCommandService
+import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
 import io.grpc._
 import scalaz.syntax.tag._

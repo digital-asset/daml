@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.digitalasset.timer.RetryStrategy
+import com.daml.timer.RetryStrategy
 
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}

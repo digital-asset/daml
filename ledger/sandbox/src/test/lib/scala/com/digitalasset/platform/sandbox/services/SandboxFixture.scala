@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
-import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
-import com.digitalasset.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.testing.utils.{OwnedResource, Resource, SuiteResource}
+import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
+import com.daml.ports.Port
+import com.daml.resources.ResourceOwner
 import io.grpc.Channel
 import org.scalatest.Suite
 

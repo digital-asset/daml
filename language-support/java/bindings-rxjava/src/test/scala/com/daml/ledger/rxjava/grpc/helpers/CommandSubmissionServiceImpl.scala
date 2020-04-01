@@ -3,10 +3,10 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services.CommandSubmissionServiceAuthorization
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services.CommandSubmissionServiceAuthorization
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionService
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }

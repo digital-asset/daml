@@ -17,7 +17,7 @@ The Scala bindings is a client implementation of the **Ledger API**. The Scala b
 There are two main components:
 
 - Scala codegen
-    DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (:ref:`com.digitalasset.ledger.api.v1.CreateCommand`) and exercising contract choices (:ref:`com.digitalasset.ledger.api.v1.ExerciseCommand`).
+    DAML to Scala code generator. Use this to generate Scala classes from DAML models. The generated Scala code provides a type safe way of creating contracts (:ref:`com.daml.ledger.api.v1.CreateCommand`) and exercising contract choices (:ref:`com.daml.ledger.api.v1.ExerciseCommand`).
 
 - Akka Streams-based API
     The API that you use to send commands to the ledger and receive transactions back.
@@ -117,18 +117,18 @@ and the following code to create an instance of the ``M.Iou`` class:
    :start-after: // <doc-ref:iou-contract-instance>
    :end-before: // </doc-ref:iou-contract-instance>
 
-To send a :ref:`com.digitalasset.ledger.api.v1.CreateCommand` (keep in mind the following code snippet is part of the Scala *for comprehension expression*):
+To send a :ref:`com.daml.ledger.api.v1.CreateCommand` (keep in mind the following code snippet is part of the Scala *for comprehension expression*):
 
 .. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
    :start-after: // <doc-ref:submit-iou-create-command>
    :end-before: // </doc-ref:submit-iou-create-command>
 
-For more details on how to submit a command, please refer to the implementation of `com.digitalasset.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
+For more details on how to submit a command, please refer to the implementation of `com.daml.quickstart.iou.ClientUtil#submitCommand <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/ClientUtil.scala>`_.
 
 Receive a transaction, exercise a choice and send an ExerciseCommand
 ---------------------------------------------------------------------
 
-To receive a transaction as a **newOwner** and decode a :ref:`com.digitalasset.ledger.api.v1.CreatedEvent` for ``IouTransfer`` contract, you need the definition of the **newOwner** ``Party``:
+To receive a transaction as a **newOwner** and decode a :ref:`com.daml.ledger.api.v1.CreatedEvent` for ``IouTransfer`` contract, you need the definition of the **newOwner** ``Party``:
 
 .. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
    :start-after: // <doc-ref:new-owner-definition>
@@ -140,13 +140,13 @@ and the following code that handles subscription and decoding:
    :start-after: // <doc-ref:subscribe-and-decode-iou-transfer>
    :end-before: // </doc-ref:subscribe-and-decode-iou-transfer>
 
-To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that you received and send a corresponding :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand`:
+To exercise ``IouTransfer_Accept`` choice on the ``IouTransfer`` contract that you received and send a corresponding :ref:`com.daml.ledger.api.v1.ExerciseCommand`:
 
 .. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
    :start-after: // <doc-ref:submit-iou-transfer-accept-exercise-command>
    :end-before: // </doc-ref:submit-iou-transfer-accept-exercise-command>
 
-Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.digitalasset.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
+Fore more details on how to subscribe to receive events for a particular party, please refer to the implementation of `com.daml.quickstart.iou.IouMain#newOwnerAcceptsAllTransfers <https://github.com/digital-asset/daml/blob/master/language-support/scala/examples/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala>`_.
 
 
 .. _scala-bindings-authentication:

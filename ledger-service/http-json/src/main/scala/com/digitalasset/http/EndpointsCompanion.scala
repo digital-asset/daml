@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.http.scaladsl.model._
 import akka.util.ByteString
-import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json.SprayJson
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.http.domain.JwtPayload
+import com.daml.http.json.SprayJson
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.auth.AuthServiceJWTCodec
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, Show, \/}
 import spray.json.JsValue
@@ -45,7 +45,7 @@ object EndpointsCompanion {
   }
 
   private[http] def httpResponseError(error: Error): HttpResponse = {
-    import com.digitalasset.http.json.JsonProtocol._
+    import com.daml.http.json.JsonProtocol._
     val resp = errorResponse(error)
     httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
   }

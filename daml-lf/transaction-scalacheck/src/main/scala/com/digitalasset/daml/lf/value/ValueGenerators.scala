@@ -1,21 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.Node.{
-  KeyWithMaintainers,
-  NodeCreate,
-  NodeExercises,
-  NodeFetch
-}
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
-import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.transaction._
+import com.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 

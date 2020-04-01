@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.persistence
+package com.daml.platform.sandbox.persistence
 
-import com.digitalasset.platform.sandbox.SandboxMain
-import com.digitalasset.testing.postgresql.PostgresAround
+import com.daml.platform.sandbox.SandboxMain
+import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {
   def main(args: Array[String]): Unit = {

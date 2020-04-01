@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import ai.x.diff.DiffShow
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
+import com.daml.grpc.{GrpcException, GrpcStatus}
 import io.grpc.Status
 
 import scala.language.higherKinds

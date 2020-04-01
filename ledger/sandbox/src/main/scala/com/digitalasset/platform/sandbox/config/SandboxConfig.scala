@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.config
+package com.daml.platform.sandbox.config
 
 import java.io.File
 import java.nio.file.Path
@@ -10,17 +10,17 @@ import java.time.Duration
 import ch.qos.logback.classic.Level
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.TimeModel
-import com.digitalasset.ledger.api.auth.AuthService
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.{
+import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.{
   CommandConfiguration,
   MetricsReporter,
   PartyConfiguration,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 
 /**
   * Defines the basic configuration for running sandbox

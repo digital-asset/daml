@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger.test
+package com.daml.lf.engine.trigger.test
 
 import java.nio.file.{Path, Paths}
 import java.io.File
@@ -16,39 +16,39 @@ import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.api.v1.command_submission_service._
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.data.Numeric
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml.lf.speedy.SExpr
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
-import com.digitalasset.platform.server.api.validation.FieldValidations.validateIdentifier
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.daml.lf.engine.trigger.{Runner, Trigger, TriggerMsg}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.auth.TokenHolder
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.Dar
+import com.daml.lf.language.Ast._
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Numeric
+import com.daml.lf.data.Ref._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.lf.value.{Value => Lf}
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.lf.speedy.Compiler
+import com.daml.lf.speedy.SExpr
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
+import com.daml.ledger.api.validation.ValueValidator
+import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.daml.platform.server.api.validation.FieldValidations.validateIdentifier
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.lf.engine.trigger.{Runner, Trigger, TriggerMsg}
 
 case class Config(
     ledgerPort: Int,

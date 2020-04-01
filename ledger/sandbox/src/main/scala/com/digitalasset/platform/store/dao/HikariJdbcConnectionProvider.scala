@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.sql.{Connection, SQLTransientConnectionException}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.{Timer, TimerTask}
 
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.store.DbType
-import com.digitalasset.platform.store.dao.HikariJdbcConnectionProvider._
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.health.{HealthStatus, Healthy, Unhealthy}
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.DbType
+import com.daml.platform.store.dao.HikariJdbcConnectionProvider._
+import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}

@@ -522,21 +522,21 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
 #. A connection to the ledger is established using a ``LedgerClient`` object.
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
       :lines: 46-50
       :dedent: 8
 
 #. An in-memory contract store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
       :lines: 58-60
       :dedent: 8
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract store to a recent state.
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
       :lines: 63-73
       :dedent: 8
@@ -546,27 +546,27 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 #. The Transaction Service is wired up to update the contract store on occurrences of ``ArchiveEvent`` and ``CreateEvent`` for Ious. Since ``getTransactions`` is called without end offset, it will stream transactions indefinitely, until the application is terminated.
 
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
       :lines: 75-91
       :dedent: 8
 
 #. Commands are submitted via the Command Submission Service.
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :language: java
       :lines: 126-137
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
       :lines: 107-108
       :dedent: 12
 
-   .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
+   .. literalinclude:: quickstart/template-root/src/main/java/com/daml/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
       :lines: 100-101

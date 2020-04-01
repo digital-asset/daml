@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.engine.{
+import com.daml.lf.command._
+import com.daml.lf.crypto
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.engine.{
   Blinding,
   Engine,
   Result,
@@ -21,13 +21,13 @@ import com.digitalasset.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError
 }
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
-import com.digitalasset.platform.store.ErrorCause
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.Transaction.{Value => TxValue}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future, Promise}

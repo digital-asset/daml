@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java.inner
+package com.daml.lf.codegen.backend.java.inner
 
 import java.util.Optional
 
 import com.daml.ledger.javaapi
 import com.daml.ledger.javaapi.data.CreatedEvent
 import com.daml.ledger.javaapi.data.codegen.{ContractId => CodegenContractId}
-import com.digitalasset.daml.lf.codegen.TypeWithContext
-import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface._
+import com.daml.lf.codegen.TypeWithContext
+import com.daml.lf.codegen.backend.java.ObjectMethods
+import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.daml.lf.iface._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
@@ -295,7 +295,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private def generateIdClass(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String]): TypeSpec = {
@@ -439,7 +439,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private def generateCreateAndExerciseMethods(
       templateClassName: ClassName,
-      choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
+      choices: Map[ChoiceName, TemplateChoice[com.daml.lf.iface.Type]],
       typeDeclarations: Map[QualifiedName, InterfaceType],
       packageId: PackageId,
       packagePrefixes: Map[PackageId, String]) = {

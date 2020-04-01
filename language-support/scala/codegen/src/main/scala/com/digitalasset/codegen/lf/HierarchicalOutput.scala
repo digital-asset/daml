@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
+import com.daml.{codegen => parent}
 import parent.Util
 import parent.types.Namespace
 import parent.exception.UnsupportedDamlTypeException
@@ -11,7 +11,7 @@ import parent.exception.UnsupportedDamlTypeException
 import java.io._
 import scala.reflect.runtime.universe._
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.Identifier
 import scalaz.{Tree => _, _}
 import scalaz.std.tuple._
 import scalaz.std.vector._

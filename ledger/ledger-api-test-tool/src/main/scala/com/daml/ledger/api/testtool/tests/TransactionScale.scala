@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.{Dummy, TextContainer}
+import com.daml.ledger.test_stable.Test.{Dummy, TextContainer}
 import TransactionScale.numberOfCommandsUnit
 
 import scala.concurrent.Future

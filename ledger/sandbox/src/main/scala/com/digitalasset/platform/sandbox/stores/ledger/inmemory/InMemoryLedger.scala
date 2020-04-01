@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.inmemory
+package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
 import java.util.UUID
@@ -21,16 +21,16 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId => _,
   _
 }
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger
-import com.digitalasset.ledger.api.domain.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger
+import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
   Filters,
@@ -41,31 +41,31 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason,
   TransactionFilter
 }
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.index.TransactionConversion
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{
+import com.daml.platform.index.TransactionConversion
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.CompletionFromTransaction
-import com.digitalasset.platform.{ApiOffset, index}
+import com.daml.platform.store.CompletionFromTransaction
+import com.daml.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag.ToTagOps
 

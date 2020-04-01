@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{IndexActiveContractsService => ACSBackend}
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
-import com.digitalasset.ledger.api.v1.active_contracts_service._
-import com.digitalasset.ledger.api.validation.TransactionFilterValidator
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
+import com.daml.dec.DirectExecutionContext
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
+import com.daml.ledger.api.v1.active_contracts_service._
+import com.daml.ledger.api.validation.TransactionFilterValidator
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext

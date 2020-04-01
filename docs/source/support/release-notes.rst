@@ -438,7 +438,7 @@ DAML Compiler
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
-- The simplified kvutils API now uses ``com.digitalasset.resources`` to manage
+- The simplified kvutils API now uses ``com.daml.resources`` to manage
   acquiring and releasing resources instead of ``Closeable``.
 
 DAML Standard Library
@@ -569,7 +569,7 @@ Ledger API Server
 ~~~~~~~~~~~~~~~~~
 
 - Publish the resource management code as a library
-  under ``com.digitalasset:resources``.
+  under ``com.daml:resources``.
 
 Ledger API Authorization
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1144,7 +1144,7 @@ DAML-LF - Internal
    + Add support for type representation values.
 
 - Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.7:
-   + `com.digitalasset.daml-lf-1.7-archive-proto`
+   + `com.daml-lf-1.7-archive-proto`
 
      This package contains the archive protobuf definitions as they
      were introduced when 1.7 was frozen.  These definitions can be
@@ -1282,7 +1282,7 @@ DAML Triggers - Experimental
 DAML-LF - Internal
 ~~~~~~~~~~~~~~~~~~
 
-- Changed the name of the bintray/maven package from ``com.digitalasset.daml-lf-archive-scala`` to ``com.digitalasset.daml-lf-archive-reader``
+- Changed the name of the bintray/maven package from ``com.daml-lf-archive-scala`` to ``com.daml.daml-lf-archive-reader``
 
 .. _release-0-13-30:
 
@@ -1310,25 +1310,25 @@ DAML-LF
 ~~~~~~~
 
 - **Breaking** Rename DAML-LF Archive protobuf package from
-  `com.digitalasset.daml_lf` to `com.digitalasset.daml_lf_dev`. This
+  `com.daml_lf` to `com.daml.daml_lf_dev`. This
   will only affect you do not use the DAML-LF Archive reader provided
   with the SDK but a custom one based on code generation by protoc.
 
 - **Breaking** Some bintray/maven packages are renamed:
-   + `com.digitalasset.daml-lf-proto` becomes
-     `com.digitalasset.daml-lf-dev-archive-proto`
-   + `com.digitalasset.daml-lf-archive` becomes
-     `com.digitalasset:daml-lf-dev-archive-java-proto``
+   + `com.daml-lf-proto` becomes
+     `com.daml-lf-dev-archive-proto`
+   + `com.daml-lf-archive` becomes
+     `com.daml:daml-lf-dev-archive-java-proto``
 
 - Add immutable bintray/maven packages for handling DAML-LF archive up to version 1.6 in a stable way:
-   + `com.digitalasset.daml-lf-1.6-archive-proto`
+   + `com.daml-lf-1.6-archive-proto`
 
      This package contains the archive protobuf definitions as they
      were introduced when 1.6 was frozen.  These definitions can be
      used to read DAML-LF archives up to version 1.6.
 
      The main advantage of this package over the `dev` version
-     (`com.digitalasset.daml-lf-dev-archive-proto`) is that it is
+     (`com.daml-lf-dev-archive-proto`) is that it is
      immutable (it is guaranteed to never changed once introduced
      in the SDK). In other words one can used it without suffering
      frequent breaking changes introduced in the `dev` version.
@@ -1339,15 +1339,15 @@ DAML-LF
 
      We strongly advise anyone reading DAML-LF Archive directly to use
      this package (or the
-     `com.digitalasset:daml-lf-1.6-archive-java-proto` package
+     `com.daml:daml-lf-1.6-archive-java-proto` package
      described below).  Breaking changes to the `dev` version may be
      introduced frequently and without further notice in the release
      notes.
 
-   + `com.digitalasset:daml-lf-1.6-archive-java-proto`
+   + `com.daml:daml-lf-1.6-archive-java-proto`
 
      This package contains the java classes generated from the package
-     `com.digitalasset.daml-lf-1.6-archive-proto`
+     `com.daml-lf-1.6-archive-proto`
 
 
 DAML Triggers
@@ -2780,8 +2780,8 @@ DAML
 Ledger API
 ~~~~~~~~~~
 
-- **BREAKING** Removed the unused field :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` from :ref:`com.digitalasset.ledger.api.v1.Event`,
-  because a :ref:`com.digitalasset.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
+- **BREAKING** Removed the unused field :ref:`com.daml.ledger.api.v1.ExercisedEvent` from :ref:`com.daml.ledger.api.v1.Event`,
+  because a :ref:`com.daml.ledger.api.v1.Transaction` never contains exercised events (only created and archived events): `#960 <https://github.com/digital-asset/daml/issues/960>`_
 
   This change is *backwards compatible on the transport level*, meaning:
 
@@ -2790,7 +2790,7 @@ Ledger API
 
   How to migrate:
 
-  - If you check for the presence of :ref:`com.digitalasset.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.digitalasset.ledger.api.v1.Transaction`, you have to remove this code now.
+  - If you check for the presence of :ref:`com.daml.ledger.api.v1.ExercisedEvent` when handling a :ref:`com.daml.ledger.api.v1.Transaction`, you have to remove this code now.
 
 - Added the :ref:`agreement text <daml-ref-agreements>` as a new field ``agreement_text`` to the ``CreatedEvent`` message. This means you now have access to the agreement text of contracts via the Ledger API.
   The type of this field is ``google.protobuf.StringValue`` to properly reflect the optionality on the wire for full backwards compatibility.
@@ -2886,8 +2886,8 @@ Scala Bindings
 
   How to migrate:
 
-  - If you are pattern matching on ``com.digitalasset.ledger.client.binding.Contract``, you need to add a match clause for the added field.
-  - If you are constructing ``com.digitalasset.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
+  - If you are pattern matching on ``com.daml.ledger.client.binding.Contract``, you need to add a match clause for the added field.
+  - If you are constructing ``com.daml.ledger.client.binding.Contract`` values, for example for tests, you need to add a constructor parameter for the agreement text.
 
 - ``CreateAndExercise`` support via ``createAnd`` method, e.g. ``MyTemplate(owner, someText).createAnd.exerciseAccept(controller, 42)``.
   See `issue #1092 <https://github.com/digital-asset/daml/issues/1092>`__ for more information.
@@ -2902,7 +2902,7 @@ Ledger
   `#1166 <https://github.com/digital-asset/daml/issues/1166>`_.
 - Contract visibility is now properly checked when looking up contracts in the SQL backend, see
   `#784 <https://github.com/digital-asset/daml/issues/784>`_.
-- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.digitalasset.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
+- The sandbox now exposes the :ref:`agreement text <daml-ref-agreements>` of contracts in :ref:`CreatedEvents <com.daml.ledger.api.v1.CreatedEvent>`. See `#1110 <https://github.com/digital-asset/daml/issues/1110>`__
 
 Navigator
 ~~~~~~~~~
@@ -2963,7 +2963,7 @@ SQL Extractor
   Documentation is still in progress, but you can see the :doc:`Migration guide </support/new-assistant>` and the `pull request for the updated documentation <https://github.com/digital-asset/daml/pull/740>`__.
 - **DAML Standard Library**: Added ``fromListWith`` and ``merge`` to ``DA.TextMap``.
 - **DAML Standard Library**: Deprecated ``DA.Map`` and ``DA.Set``. Use the new ``DA.Next.Map`` and ``DA.Next.Set`` instead.
-- **Ledger API**: Added three new methods to the :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+- **Ledger API**: Added three new methods to the :ref:`CommandService <com.daml.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction ID.
 - Beta release of the Windows SDK:
@@ -2976,7 +2976,7 @@ SQL Extractor
 - Add ``fromListWith`` and ``merge`` to ``DA.TextMap``.
 - Release Javadoc artifacts as part of the SDK. See more `here https://github.com/digital-asset/daml/pull/896`
 - Add ``DA.Next.Map`` and ``DA.Next.Set`` and deprecate ``DA.Map`` and ``DA.Set`` in favor of those.
-- Ledger API: Added three new methods to :ref:`CommandService <com.digitalasset.ledger.api.v1.commandservice>`:
+- Ledger API: Added three new methods to :ref:`CommandService <com.daml.ledger.api.v1.commandservice>`:
 
   - ``SubmitAndWaitForTransactionId`` returns the transaction id.
   - ``SubmitAndWaitForTransaction`` returns the transaction.

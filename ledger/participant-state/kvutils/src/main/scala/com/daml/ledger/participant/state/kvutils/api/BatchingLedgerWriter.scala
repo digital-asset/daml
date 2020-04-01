@@ -11,9 +11,9 @@ import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.Envelope
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}

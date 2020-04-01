@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.ApplicationId
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.platform.store.CompletionFromTransaction.{toApiCheckpoint, toErrorCode}
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.data.Ref
+import com.daml.ledger.ApplicationId
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.platform.store.CompletionFromTransaction.{toApiCheckpoint, toErrorCode}
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 
 object CommandCompletionsTable {

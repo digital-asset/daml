@@ -8,7 +8,7 @@ import java.time.Duration
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Configuration, LedgerId, Offset, TimeModel}
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /**
   * Defines how a participant's state is read from the ledger.

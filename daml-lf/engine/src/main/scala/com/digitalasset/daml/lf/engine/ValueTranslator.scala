@@ -1,19 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
 import java.util
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue.SValueContainer
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.CompiledPackages
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.data._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue.SValueContainer
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 import scala.collection.immutable.HashMap

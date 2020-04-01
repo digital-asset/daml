@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.nio.file.Paths
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.Statement.discard
+import com.daml.http.dbbackend.ContractDao
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._

@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
-import com.digitalasset.daml.lf.engine.{Error => LfError}
+import com.daml.lf.engine.{Error => LfError}
 
 sealed abstract class ErrorCause extends Product with Serializable {
   def explain: String

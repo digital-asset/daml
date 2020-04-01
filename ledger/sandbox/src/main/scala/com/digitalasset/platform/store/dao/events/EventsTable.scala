@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import java.io.InputStream
 import java.time.Instant
@@ -9,29 +9,27 @@ import java.time.Instant
 import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref.QualifiedName
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.{
+import com.daml.lf.data.Ref.QualifiedName
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
   TransactionTree => ApiTransactionTree
 }
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
-import com.digitalasset.platform.index.TransactionConversion
-import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.store.Conversions.{instant, offset}
-import com.digitalasset.platform.store.serialization.ValueSerializer.{
-  deserializeValue => deserialize
-}
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.ApiOffset
+import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.platform.index.TransactionConversion
+import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.store.Conversions.{instant, offset}
+import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
 import com.google.protobuf.timestamp.Timestamp
 
 /**

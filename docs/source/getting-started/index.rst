@@ -89,7 +89,7 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the comma
 
     daml start
 
-You will know that the command has started successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
+You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
     1. Compiles the DAML code to a DAR file as in the previous ``daml build`` step.
     2. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.

@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
-import com.digitalasset.ledger.api.domain.{CommandId, EventId, LedgerOffset, TransactionId}
+import com.daml.ledger.api.domain.{CommandId, EventId, LedgerOffset, TransactionId}
 import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 

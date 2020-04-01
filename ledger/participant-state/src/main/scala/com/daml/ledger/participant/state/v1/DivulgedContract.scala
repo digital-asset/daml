@@ -4,7 +4,7 @@
 package com.daml.ledger
 package participant.state.v1
 
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.value.Value
 
 /** A divulged contract, that is, a contract that has been revealed to a non-stakeholder
   * after its creation.

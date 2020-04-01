@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 private[kvutils] class PartyAllocationCommitter(
     override protected val metricRegistry: MetricRegistry,

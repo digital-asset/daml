@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 package script
 
@@ -17,30 +17,30 @@ import scalaz.std.either._
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.ValueTranslator
-import com.digitalasset.daml.lf.iface.EnvironmentInterface
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.api.util.TimeProvider
+import com.daml.lf.{CompiledPackages, PureCompiledPackages}
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.ValueTranslator
+import com.daml.lf.iface.EnvironmentInterface
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.json.ApiCodecCompressed
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 
 object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {

@@ -12,7 +12,7 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.Convert
-import qualified Com.Digitalasset.Ledger.Api.V1.Testing.TimeService as LL
+import qualified Com.Daml.Ledger.Api.V1.Testing.TimeService as LL
 import Google.Protobuf.Empty (Empty(..))
 
 getTime :: LedgerId -> LedgerService (Stream Timestamp)

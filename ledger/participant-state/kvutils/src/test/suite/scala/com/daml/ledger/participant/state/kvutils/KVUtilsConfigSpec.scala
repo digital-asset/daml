@@ -8,7 +8,7 @@ import java.time.Duration
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {

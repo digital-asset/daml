@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.identity
+package com.daml.platform.sandbox.services.identity
 
 import java.util.UUID
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundEach
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxBackend
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundEach
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.testing.postgresql.PostgresAroundAll
 import org.scalatest.{Matchers, WordSpec}
 import scalaz.syntax.tag._
 

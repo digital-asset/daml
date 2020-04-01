@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value.json
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles._
 import data.{Decimal, ImmArray, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{RNil, genAddend, genTypeAndValue, ValueAddend => VA}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-import com.digitalasset.ledger.service.MetadataReader
+import com.daml.ledger.service.MetadataReader
 import org.scalactic.source
 import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -322,7 +322,7 @@ class ApiCodecCompressedSpec
       }
     }
 
-    import com.digitalasset.daml.lf.value.{Value => LfValue}
+    import com.daml.lf.value.{Value => LfValue}
     import ApiCodecCompressed.JsonImplicits._
 
     val packageId: Ref.PackageId = mustBeOne(

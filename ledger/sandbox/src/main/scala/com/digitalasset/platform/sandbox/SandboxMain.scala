@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
-import com.digitalasset.platform.sandbox.cli.Cli
-import com.digitalasset.resources.ProgramResource
+import com.daml.platform.sandbox.cli.Cli
+import com.daml.resources.ProgramResource
 
 object SandboxMain {
   def main(args: Array[String]): Unit = {

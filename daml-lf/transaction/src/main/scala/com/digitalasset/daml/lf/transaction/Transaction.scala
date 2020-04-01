@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Node._
+import com.daml.lf.value.Value
 import scalaz.Equal
 
 import scala.annotation.tailrec

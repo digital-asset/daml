@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
 import org.scalatest._
 
 import scala.concurrent.Future

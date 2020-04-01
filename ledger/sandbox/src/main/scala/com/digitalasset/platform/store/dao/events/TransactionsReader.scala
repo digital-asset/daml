@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
-import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.ApiOffset
+import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 
 import scala.concurrent.{ExecutionContext, Future}
 

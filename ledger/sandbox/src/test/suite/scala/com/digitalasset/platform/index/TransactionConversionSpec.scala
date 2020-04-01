@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.platform.index.TransactionConversion.removeTransient
+import com.daml.lf.value.Value
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.platform.index.TransactionConversion.removeTransient
 import org.scalatest.{Matchers, WordSpec}
 
 final class TransactionConversionSpec extends WordSpec with Matchers {

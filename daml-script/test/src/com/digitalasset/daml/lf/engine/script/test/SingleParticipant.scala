@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script.test
+package com.daml.lf.engine.script.test
 
 import java.nio.file.{Path, Paths}
 import java.io.File
@@ -9,19 +9,19 @@ import java.time.Duration
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref.{Party => LedgerParty}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.auth.TokenHolder
+import com.daml.lf.archive.Dar
+import com.daml.lf.archive.DarReader
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.{FrontStack, FrontStackCons, Numeric}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Ref.{Party => LedgerParty}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 
-import com.digitalasset.daml.lf.engine.script._
+import com.daml.lf.engine.script._
 
 case class Config(
     ledgerPort: Int,

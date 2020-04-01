@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package iface
 package reader
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{DottedName, QualifiedName}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{DottedName, QualifiedName}
+import com.daml.lf.language.{Ast, LanguageVersion}
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.language.implicitConversions

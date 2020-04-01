@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf.data.{Numeric, Utf8}
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.data.{Numeric, Utf8}
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
 
 trait KeyHasher {
 
@@ -44,7 +44,7 @@ object KeyHasher extends KeyHasher {
     * @return the final hash value
     */
   def foldLeft[T](value: Value[AbsoluteContractId], z: T, op: (T, HashToken) => T): T = {
-    import com.digitalasset.daml.lf.value.Value._
+    import com.daml.lf.value.Value._
 
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))

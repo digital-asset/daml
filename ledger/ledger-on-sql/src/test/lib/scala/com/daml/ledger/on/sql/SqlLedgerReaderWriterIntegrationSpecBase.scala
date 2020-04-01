@@ -9,8 +9,8 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.LoggingContext
+import com.daml.resources.ResourceOwner
 
 abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: String)
     extends ParticipantStateIntegrationSpecBase(implementationName) {

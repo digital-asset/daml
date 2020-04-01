@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 import java.util.UUID
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.{ApplicationId, CommandId}
-import com.digitalasset.ledger.api.domain.RejectionReason
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
-import com.digitalasset.platform.store.entries.LedgerEntry
-import com.digitalasset.platform.store.{CompletionFromTransaction, PersistenceEntry}
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.{ApplicationId, CommandId}
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.platform.ApiOffset
+import com.daml.platform.store.dao.JdbcLedgerDaoCompletionsSpec._
+import com.daml.platform.store.entries.LedgerEntry
+import com.daml.platform.store.{CompletionFromTransaction, PersistenceEntry}
 import org.scalatest.{AsyncFlatSpec, LoneElement, Matchers, OptionValues}
 
 import scala.concurrent.Future

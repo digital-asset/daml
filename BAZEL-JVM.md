@@ -217,12 +217,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     ├── module2
@@ -268,13 +268,13 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── BUILD.bazel
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── BUILD.bazel
     │                   ├── SomeSpec.scala
     │                   ⋮
@@ -307,12 +307,12 @@ da
     │   └── src
     │       ├── main
     │       │   └── scala
-    │       │       └── com/digitalasset/module
+    │       │       └── com/daml/module
     │       │           ├── Main.scala
     │       │           ⋮
     │       └── test
     │           └── scala
-    │               └── com/digitalasset/module
+    │               └── com/daml/module
     │                   ├── SomeSpec.scala
     │                   ⋮
     └── module2

@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.EventOuterClass;
+import com.daml.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.StringValue;
 import org.checkerframework.checker.nullness.qual.NonNull;
 

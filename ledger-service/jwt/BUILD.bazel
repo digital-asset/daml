@@ -37,7 +37,7 @@ da_scala_library(
 da_scala_binary(
     name = "jwt-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.jwt.Main",
+    main_class = "com.daml.jwt.Main",
     scalacopts = hj_scalacopts,
     runtime_deps = [
         ":jwt",

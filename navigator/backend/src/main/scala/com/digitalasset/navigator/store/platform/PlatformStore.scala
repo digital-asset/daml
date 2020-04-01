@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store.platform
+package com.daml.navigator.store.platform
 
 import java.net.URLEncoder
 import java.time.{Duration, Instant}
@@ -12,24 +12,24 @@ import akka.actor.{Actor, ActorLogging, ActorRef, Props, Scheduler, Stash}
 import akka.pattern.ask
 import akka.stream.Materializer
 import akka.util.Timeout
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.{ApiTypes, IdGenerator}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.lf.data.Ref
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.{ApiTypes, IdGenerator}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.navigator.ApplicationInfo
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time._
-import com.digitalasset.navigator.util.RetryHelper
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.navigator.ApplicationInfo
+import com.daml.navigator.model._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time._
+import com.daml.navigator.util.RetryHelper
 import io.grpc.Channel
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
 import io.netty.handler.ssl.SslContext

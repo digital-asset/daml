@@ -1,41 +1,41 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client
+package com.daml.ledger.client
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.{
   IsStatusException,
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField}
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.util.Ctx
+import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.api.v1.value.{Record, RecordField}
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.{CommandClient, CompletionStreamElement}
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.platform.common.LedgerIdMode
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest.time.Span

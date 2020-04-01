@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.time.Instant
 
@@ -13,21 +13,21 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.engine.Blinding
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.metrics.timedFuture
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.{FlywayMigrations, PersistenceEntry}
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal

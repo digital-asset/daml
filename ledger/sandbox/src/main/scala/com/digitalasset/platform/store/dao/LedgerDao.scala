@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 
@@ -9,24 +9,24 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
-import com.digitalasset.ledger.api.health.ReportsHealth
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
-import com.digitalasset.platform.store.entries.{
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.health.ReportsHealth
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.PersistenceEntry
+import com.daml.platform.store.PersistenceEntry
 
 import scala.collection.immutable
 import scala.concurrent.Future

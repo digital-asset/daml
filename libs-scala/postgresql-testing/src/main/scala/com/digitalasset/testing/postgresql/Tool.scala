@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.bazeltools.BazelRunfiles.rlocation
 
 private case class Tool private[postgresql] (name: String) {
 

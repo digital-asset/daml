@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
