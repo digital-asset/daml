@@ -27,7 +27,7 @@ resource "google_project_iam_custom_role" "periodic-killer" {
 
 resource "google_compute_instance" "periodic-killer" {
   name         = "periodic-killer"
-  machine_type = "g1-small"
+  machine_type = "f1-micro"
   zone         = "us-east4-a"
 
   boot_disk {
@@ -79,7 +79,7 @@ CRON
 chmod +x /root/periodic-kill.sh
 
 cat <<CRONTAB >> /etc/crontab
-0 4 * * * root /root/periodic-kill.sh >> /root/log 2>&1
+0 4 * * * root /root/periodic-kill.sh >> /root/log
 CRONTAB
 
 tail -f /root/log
