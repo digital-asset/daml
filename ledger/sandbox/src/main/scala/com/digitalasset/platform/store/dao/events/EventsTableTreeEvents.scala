@@ -4,6 +4,7 @@
 package com.digitalasset.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
+import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.ledger.TransactionId
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent
 import com.digitalasset.platform.store.Conversions._
@@ -131,10 +132,22 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "exercise_child_event_ids",
   ).mkString(", ")
 
+  private val orderByColumns =
+    Seq("event_offset", "transaction_id", "node_index").mkString(", ")
+
   def prepareLookupTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): SimpleSql[Row] =
     SQL"select #$selectColumns, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where transaction_id = $transactionId and event_witness in ($requestingParties) group by (#$groupByColumns) order by node_index asc"
+
+  def preparePagedGetTransactionTrees(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      requestingParties: Set[Party],
+      pageSize: Int,
+      rowOffset: Long,
+  ): SimpleSql[Row] =
+    SQL"select #$selectColumns, case when submitter in ($requestingParties) then command_id else '' end as command_id from #$treeEventsTable where event_offset > $startExclusive and event_offset <= $endInclusive and event_witness in ($requestingParties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
 
 }
