@@ -490,8 +490,9 @@ abstract class AbstractHttpServiceIntegrationTest
         encoder
       ).map { response =>
         inside(response) {
-          case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
-            errors.size shouldBe 1
+          case domain.ErrorResponse(errors, warnings, status) =>
+            status shouldBe StatusCodes.BadRequest
+            errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
             warnings shouldBe Some(domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(
               List(domain.TemplateId(None, "AAA", "BBB"), domain.TemplateId(None, "XXX", "YYY")))))
         }

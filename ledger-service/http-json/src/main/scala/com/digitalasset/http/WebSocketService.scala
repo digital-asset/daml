@@ -406,8 +406,7 @@ class WebSocketService(
     } else {
       reportUnresolvedTemplateIds(unresolved)
         .map(jsv => \/-(wsMessage(jsv)))
-        .concat(
-          Source.single(-\/(InvalidUserInput(s"Could not resolve any template ID from request."))))
+        .concat(Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId))))
     }
   }
 
@@ -493,6 +492,7 @@ class WebSocketService(
     if (unresolved.isEmpty) Source.empty
     else {
       import spray.json._
-      Source.single(domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
+      Source.single(
+        domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
     }
 }

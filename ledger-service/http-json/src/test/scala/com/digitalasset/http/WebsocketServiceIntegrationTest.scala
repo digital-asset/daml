@@ -137,7 +137,7 @@ class WebsocketServiceIntegrationTest
                 }
                 val error = decodeErrorResponse(errorMsg)
                 error shouldBe domain.ErrorResponse(
-                  List("Could not resolve any template ID from request."),
+                  List(ErrorMessages.cannotResolveAnyTemplateId),
                   None,
                   StatusCodes.BadRequest
                 )
