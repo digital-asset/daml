@@ -41,23 +41,23 @@ jest.mock('isomorphic-ws', () => class {
     this.eventEmitter = new EventEmitter();
   }
 
-  addEventListener(event: string, handler: (...args: unknown[]) => void): void {
+  addEventListener(event: string, handler: (...args: unknown[]) => void) {
     this.eventEmitter.on(event, handler);
   }
 
-  send(message: string): void {
+  send(message: string) {
     mockSend(JSON.parse(message));
   }
 
-  serverOpen(): void {
+  serverOpen() {
     this.eventEmitter.emit('open');
   }
 
-  serverSend(message: Message): void {
+  serverSend(message: Message) {
     this.eventEmitter.emit('message', {data: JSON.stringify(message)});
   }
 
-  serverClose(event: {code: number; reason: string}): void {
+  serverClose(event: {code: number; reason: string}) {
     this.eventEmitter.emit('close', event);
   }
 });
