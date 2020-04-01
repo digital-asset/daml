@@ -44,7 +44,6 @@ module DA.Daml.Helper.Run
     , NavigatorOptions(..)
     , JsonApiOptions(..)
     , ScriptOptions(..)
-    , SandboxClassic(..)
     ) where
 
 import Control.Concurrent
@@ -742,11 +741,10 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxClassic -> SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
-withSandbox (SandboxClassic classic) (SandboxPort port) args a = withTempFile $ \portFile -> do
+withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
+withSandbox (SandboxPort port) args a = withTempFile $ \portFile -> do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
-    let sandbox = if classic then "sandbox-classic" else "sandbox"
-    withJar damlSdkJar [logbackArg] ([sandbox, "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
+    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
         _port <- readPortFile maxRetries portFile
         a ph
@@ -809,7 +807,6 @@ newtype SandboxOptions = SandboxOptions [String]
 newtype NavigatorOptions = NavigatorOptions [String]
 newtype JsonApiOptions = JsonApiOptions [String]
 newtype ScriptOptions = ScriptOptions [String]
-newtype SandboxClassic = SandboxClassic { unSandboxClassic :: Bool }
 
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
@@ -831,7 +828,6 @@ runStart
     -> NavigatorOptions
     -> JsonApiOptions
     -> ScriptOptions
-    -> SandboxClassic
     -> IO ()
 runStart
   sandboxPortM
@@ -844,7 +840,6 @@ runStart
   (NavigatorOptions navigatorOpts)
   (JsonApiOptions jsonApiOpts)
   (ScriptOptions scriptOpts)
-  sandboxClassic
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
@@ -868,7 +863,7 @@ runStart
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
+    withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust mbInitScript $ \initScript -> do
                 procScript <- toAssistantCommand $

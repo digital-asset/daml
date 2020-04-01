@@ -54,7 +54,6 @@ data Command
       , jsonApiOptions :: JsonApiOptions
       , scriptOptions :: ScriptOptions
       , shutdownStdinClose :: Bool
-      , sandboxClassic :: SandboxClassic
       }
     | Deploy { flags :: LedgerFlags }
     | LedgerListParties { flags :: LedgerFlags, json :: JsonFlag }
@@ -120,7 +119,7 @@ commandParser = subparser $ fold
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = Start
-        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
         <*> jsonApiCfg
@@ -131,7 +130,6 @@ commandParser = subparser $ fold
         <*> (JsonApiOptions <$> many (strOption (long "json-api-option" <> metavar "JSON_API_OPTION" <> help "Pass option to HTTP JSON API")))
         <*> (ScriptOptions <$> many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to DAML script interpreter")))
         <*> stdinCloseOpt
-        <*> (SandboxClassic <$> switch (long "sandbox-classic" <> help "Run with Sandbox Classic."))
 
     navigatorFlag =
         -- We do not use flagYesNoAuto here since that doesn’t allow us to differentiate
@@ -338,7 +336,6 @@ runCommand = \case
             navigatorOptions
             jsonApiOptions
             scriptOptions
-            sandboxClassic
     Deploy {..} -> runDeploy flags
     LedgerListParties {..} -> runLedgerListParties flags json
     LedgerAllocateParties {..} -> runLedgerAllocateParties flags parties
