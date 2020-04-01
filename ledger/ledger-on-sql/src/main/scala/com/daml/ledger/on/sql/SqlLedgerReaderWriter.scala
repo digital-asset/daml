@@ -3,11 +3,12 @@
 
 package com.daml.ledger.on.sql
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
@@ -117,6 +118,7 @@ object SqlLedgerReaderWriter {
       metricRegistry: MetricRegistry,
       jdbcUrl: String,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
       seedService: SeedService,
   )(implicit materializer: Materializer, logCtx: LoggingContext)
       extends ResourceOwner[SqlLedgerReaderWriter] {
@@ -128,6 +130,7 @@ object SqlLedgerReaderWriter {
         database = uninitializedDatabase.migrate()
         ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
         dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
+        _ = publishHeartbeats(database, dispatcher, heartbeats)
       } yield
         new SqlLedgerReaderWriter(
           ledgerId,
@@ -172,4 +175,26 @@ object SqlLedgerReaderWriter {
         Future.fromTry(queries.selectLatestLogEntryId().map(_.map(_ + 1).getOrElse(StartIndex)))
       }
       .map(head => Dispatcher("sql-participant-state", StartIndex, head))
+
+  private def publishHeartbeats(
+      database: Database,
+      dispatcher: Dispatcher[Index],
+      heartbeats: Source[Instant, NotUsed],
+  )(
+      implicit executionContext: ExecutionContext,
+      materializer: Materializer,
+      logCtx: LoggingContext,
+  ): Future[Unit] =
+    heartbeats
+      .runWith(
+        Sink.foreach(timestamp =>
+          database
+            .inWriteTransaction("Publishing heartbeat") { queries =>
+              Future.fromTry(queries.insertHeartbeatIntoLog(timestamp))
+            }
+            .onComplete {
+              case Success(latestSequenceNo) => dispatcher.signalNewHead(latestSequenceNo)
+              case Failure(exception) => logger.error("Publishing heartbeat failed.", exception)
+          }))
+      .map(_ => ())
 }

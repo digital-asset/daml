@@ -23,6 +23,8 @@ import scala.concurrent.Future
 
 trait Ledger extends ReadOnlyLedger {
 
+  def publishHeartbeat(time: Instant): Future[Unit]
+
   def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,

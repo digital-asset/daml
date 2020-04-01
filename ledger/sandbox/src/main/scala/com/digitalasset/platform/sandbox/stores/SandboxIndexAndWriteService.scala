@@ -44,6 +44,8 @@ trait IndexAndWriteService {
   def indexService: IndexService
 
   def writeService: WriteService
+
+  def publishHeartbeat(instant: Instant): Future[Unit]
 }
 
 object SandboxIndexAndWriteService {
@@ -121,6 +123,7 @@ object SandboxIndexAndWriteService {
     val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
 
     for {
+      _ <- new HeartbeatScheduler(timeProvider, 1.seconds, "heartbeats", ledger.publishHeartbeat)
       _ <- new HeartbeatScheduler(
         TimeProvider.UTC,
         10.minutes,
@@ -131,6 +134,9 @@ object SandboxIndexAndWriteService {
         override val indexService: IndexService = indexSvc
 
         override val writeService: WriteService = writeSvc
+
+        override def publishHeartbeat(instant: Instant): Future[Unit] =
+          ledger.publishHeartbeat(instant)
       }
   }
 
