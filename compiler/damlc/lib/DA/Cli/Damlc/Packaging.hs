@@ -44,7 +44,6 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
-import DA.Daml.Package.Config
 import qualified DA.Pretty
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
