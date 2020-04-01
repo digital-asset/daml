@@ -149,8 +149,7 @@ class KeyValueSubmission(metricRegistry: MetricRegistry) {
   def unpackDamlSubmission(bytes: ByteString): DamlSubmission = DamlSubmission.parseFrom(bytes)
 
   object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "submission", "conversion")
-
+    private val prefix = MetricRegistry.name("kvutils", "submission", "conversion")
     val transactionOutputs: Timer =
       metricRegistry.timer(MetricRegistry.name(prefix, "transaction_outputs"))
     val transactionToSubmission: Timer =

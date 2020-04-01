@@ -84,13 +84,13 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
         metricRegistry
-          .counter("daml.kvutils.committer.party_allocation.accepts")
+          .counter("kvutils.committer.party_allocation.accepts")
           .getCount should be >= 1L
         metricRegistry
-          .counter("daml.kvutils.committer.party_allocation.rejections")
+          .counter("kvutils.committer.party_allocation.rejections")
           .getCount should be >= 1L
         metricRegistry
-          .timer("daml.kvutils.committer.party_allocation.run_timer")
+          .timer("kvutils.committer.party_allocation.run_timer")
           .getCount should be >= 1L
       }
     }

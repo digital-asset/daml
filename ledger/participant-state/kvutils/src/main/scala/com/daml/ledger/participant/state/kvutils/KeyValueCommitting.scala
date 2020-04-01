@@ -321,7 +321,7 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "committer")
+    private val prefix = MetricRegistry.name("kvutils", "committer")
 
     // Timer (and count) of how fast submissions have been processed.
     val runTimer: metrics.Timer =

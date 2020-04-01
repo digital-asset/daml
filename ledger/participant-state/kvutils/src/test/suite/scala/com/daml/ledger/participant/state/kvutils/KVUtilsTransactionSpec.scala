@@ -269,15 +269,11 @@ class KVUtilsTransactionSpec extends WordSpec with Matchers {
       } yield {
         val disputed = DamlTransactionRejectionEntry.ReasonCase.DISPUTED
         // Check that we're updating the metrics (assuming this test at least has been run)
+        metricRegistry.counter("kvutils.committer.transaction.accepts").getCount should be >= 1L
         metricRegistry
-          .counter("daml.kvutils.committer.transaction.accepts")
+          .counter(s"kvutils.committer.transaction.rejections_${disputed.name}")
           .getCount should be >= 1L
-        metricRegistry
-          .counter(s"daml.kvutils.committer.transaction.rejections_${disputed.name}")
-          .getCount should be >= 1L
-        metricRegistry
-          .timer("daml.kvutils.committer.transaction.run_timer")
-          .getCount should be >= 1L
+        metricRegistry.timer("kvutils.committer.transaction.run_timer").getCount should be >= 1L
       }
     }
 
