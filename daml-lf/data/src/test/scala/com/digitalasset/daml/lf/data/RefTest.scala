@@ -3,17 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
-import com.digitalasset.daml.lf.data.Ref.{
-  DottedName,
-  Identifier,
-  LedgerString,
-  PackageId,
-  Party,
-  QualifiedName
-}
-import org.scalatest.{EitherValues, FreeSpec, Matchers}
+import com.digitalasset.daml.lf.data.Ref.{DottedName, LedgerString, PackageId, Party, QualifiedName}
+import org.scalatest.{FreeSpec, Matchers}
 
-class RefTest extends FreeSpec with Matchers with EitherValues {
+class RefTest extends FreeSpec with Matchers {
   "DottedName" - {
     "rejects bad segments" - {
       "digit at the start" in {
@@ -75,49 +68,6 @@ class RefTest extends FreeSpec with Matchers with EitherValues {
     "rejects empty dotted names" in {
       QualifiedName.fromString(":bar") shouldBe 'left
       QualifiedName.fromString("bar:") shouldBe 'left
-    }
-
-    "accepts valid qualified names" in {
-      QualifiedName.fromString("foo:bar").right.value shouldBe QualifiedName(
-        module = DottedName.assertFromString("foo"),
-        name = DottedName.assertFromString("bar")
-      )
-      QualifiedName.fromString("foo.bar:baz").right.value shouldBe QualifiedName(
-        module = DottedName.assertFromString("foo.bar"),
-        name = DottedName.assertFromString("baz")
-      )
-      QualifiedName.fromString("foo:bar.baz").right.value shouldBe QualifiedName(
-        module = DottedName.assertFromString("foo"),
-        name = DottedName.assertFromString("bar.baz")
-      )
-      QualifiedName.fromString("foo.bar:baz.quux").right.value shouldBe QualifiedName(
-        module = DottedName.assertFromString("foo.bar"),
-        name = DottedName.assertFromString("baz.quux")
-      )
-    }
-  }
-
-  "Identifier" - {
-
-    val errorMessageBeginning =
-      "Separator ':' between package identifier and qualified name not found in "
-
-    "rejects strings without any colon" in {
-      Identifier.fromString("foo").left.value should startWith(errorMessageBeginning)
-    }
-
-    "rejects strings with empty segments but the error is caught further down the stack" in {
-      Identifier.fromString(":bar").left.value should not startWith errorMessageBeginning
-      Identifier.fromString("bar:").left.value should not startWith errorMessageBeginning
-      Identifier.fromString("::").left.value should not startWith errorMessageBeginning
-      Identifier.fromString("bar:baz").left.value should not startWith errorMessageBeginning
-    }
-
-    "accepts valid identifiers" in {
-      Identifier.fromString("foo:bar:baz").right.value shouldBe Identifier(
-        packageId = PackageId.assertFromString("foo"),
-        qualifiedName = QualifiedName.assertFromString("bar:baz"),
-      )
     }
   }
 
