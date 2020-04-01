@@ -57,7 +57,7 @@ object Queries {
       }
     }
 
-  def getBytes(columnName: String): RowParser[ByteString] =
-    SqlParser.get(columnName)(columnToByteString)
+  def getBytes(columnName: String): RowParser[Option[ByteString]] =
+    SqlParser.get(columnName)(columnToByteString).?
 
 }

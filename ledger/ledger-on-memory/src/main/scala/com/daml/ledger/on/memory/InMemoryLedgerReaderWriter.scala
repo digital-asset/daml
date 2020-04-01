@@ -3,11 +3,12 @@
 
 package com.daml.ledger.on.memory
 
+import java.time.Instant
 import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
@@ -120,6 +121,7 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      heartbeats: Source[Instant, NotUsed] = Source.empty,
   )(implicit materializer: Materializer)
       extends ResourceOwner[InMemoryLedgerReaderWriter] {
     override def acquire()(
@@ -128,6 +130,7 @@ object InMemoryLedgerReaderWriter {
       val state = new InMemoryState
       for {
         dispatcher <- dispatcher.acquire()
+        _ = publishHeartbeats(state, dispatcher, heartbeats)
         readerWriter <- new Owner(
           initialLedgerId,
           participantId,
@@ -175,6 +178,18 @@ object InMemoryLedgerReaderWriter {
           zeroIndex = StartIndex,
           headAtInitialization = StartIndex,
       ))
+
+  private def publishHeartbeats(
+      state: InMemoryState,
+      dispatcher: Dispatcher[Index],
+      heartbeats: Source[Instant, NotUsed]
+  )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[Unit] =
+    heartbeats
+      .runWith(Sink.foreach(timestamp =>
+        dispatcher.signalNewHead(state.withWriteLock { (log, _) =>
+          appendEntry(log, LedgerEntry.Heartbeat(_, timestamp))
+        })))
+      .map(_ => ())
 
   private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
     val entryAtIndex = log.size
