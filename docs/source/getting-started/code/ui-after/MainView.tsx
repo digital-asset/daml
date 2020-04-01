@@ -76,7 +76,7 @@ const MainView: React.FC = () => {
                 onFollow={follow}
               />
             </Segment>
-// MESSAGES_SEGMENT_BEGIN
+            // MESSAGES_SEGMENT_BEGIN
             <Segment>
               <Header as='h2'>
                 <Icon name='pencil square' />
@@ -91,7 +91,7 @@ const MainView: React.FC = () => {
               <Divider />
               <MessageList />
             </Segment>
-// MESSAGES_SEGMENT_END
+            // MESSAGES_SEGMENT_END
           </Grid.Column>
         </Grid.Row>
       </Grid>

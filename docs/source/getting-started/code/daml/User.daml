@@ -1,22 +1,18 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module User where
 
--- MAIN_TEMPLATE_BEGIN
 template User with
     username: Party
     following: [Party]
   where
     signatory username
     observer following
--- MAIN_TEMPLATE_END
 
     key username: Party
     maintainer key
 
--- ADDFRIEND_BEGIN
     nonconsuming choice Follow: ContractId User with
         userToFollow: Party
       controller username
@@ -25,7 +21,6 @@ template User with
         assertMsg "You cannot follow the same user twice" (userToFollow `notElem` following)
         archive self
         create this with following = userToFollow :: following
--- ADDFRIEND_END
 
 -- SENDMESSAGE_BEGIN
     nonconsuming choice SendMessage: ContractId Message with
