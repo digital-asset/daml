@@ -4,11 +4,10 @@
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration, Instant, LocalDate, ZoneOffset}
+import java.time.{Clock, Duration}
 import java.util.UUID
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
@@ -55,14 +54,10 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
-  // This can be overriden by tests for those that don't support heartbeats.
-  protected val supportsHeartbeats: Boolean = true
-
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeats: Source[Instant, NotUsed],
       metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
@@ -71,10 +66,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
 
   private def newParticipantState(
       ledgerId: Option[LedgerId] = None,
-      heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeats, new MetricRegistry)
+      participantStateFactory(ledgerId, participantId, testId, new MetricRegistry)
     }
 
   override protected def beforeEach(): Unit = {
@@ -617,35 +611,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
         val actualNames =
           updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
         actualNames should be(partyNames)
-      }
-    }
-
-    if (supportsHeartbeats) {
-      "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
-        val start = LocalDate.of(2020, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant
-        val heartbeats =
-          Source
-            .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
-            // ensure this doesn't keep running forever, past the length of the test
-            // and make sure we correctly dispatch all events
-            .take(3)
-        newParticipantState(heartbeats = heartbeats)
-          .use { ps =>
-            for {
-              updates <- ps
-                .stateUpdates(beginAfter = None)
-                .idleTimeout(IdleTimeout)
-                .take(3)
-                .runWith(Sink.seq)
-            } yield {
-              updates.map(_._2) should be(
-                Seq(
-                  Update.Heartbeat(Timestamp.assertFromInstant(start)),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(1))),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(2))),
-                ))
-            }
-          }
       }
     }
 

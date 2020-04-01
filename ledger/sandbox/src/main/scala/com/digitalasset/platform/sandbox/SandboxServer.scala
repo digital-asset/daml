@@ -9,7 +9,6 @@ import java.time.{Duration, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
@@ -26,13 +25,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.health.HealthChecks
 import com.digitalasset.logging.LoggingContext.newLoggingContext
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.{
-  ApiServer,
-  ApiServices,
-  LedgerApiServer,
-  TimeServiceBackend,
-  TimedIndexService
-}
+import com.digitalasset.platform.apiserver._
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
@@ -273,15 +266,6 @@ final class SandboxServer(
         "index" -> indexAndWriteService.indexService,
         "write" -> indexAndWriteService.writeService,
       )
-      observingTimeServiceBackend = timeServiceBackendO.map(TimeServiceBackend.observing)
-      _ <- observingTimeServiceBackend
-        .map(
-          _.changes.flatMap(source =>
-            ResourceOwner.forTry(() =>
-              Try(source.runWith(Sink.foreachAsync(1)(indexAndWriteService.publishHeartbeat)))
-                .map(_ => ()))))
-        .getOrElse(ResourceOwner.unit)
-        .acquire()
       // the reset service is special, since it triggers a server shutdown
       resetService = new SandboxResetService(
         ledgerId,
@@ -308,7 +292,7 @@ final class SandboxServer(
               commandConfig = config.commandConfig,
               partyConfig = config.partyConfig,
               submissionConfig = config.submissionConfig,
-              optTimeServiceBackend = observingTimeServiceBackend,
+              optTimeServiceBackend = timeServiceBackendO,
               metrics = metrics,
               healthChecks = healthChecks,
               seedService = config.seeding.map(SeedService(_)),
