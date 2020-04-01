@@ -66,11 +66,6 @@ and operate on the same major version of the serialization format in
 a backward compatible way. This document describes DAML-LF major version
 1, including all its minor versions.
 
-Starting from DAML SDK 1.0 release, DAML-LF versions older than 1.6 are
-deprecated. An engine compliant with the present specification must handle
-all versions newer than or equal to DAML-LF 1.6, no requirement is made on
-handling older version.
-
 Each DAML-LF program is accompanied by the version identifier of the
 language it was serialized in. This number enables the DAML-LF engine
 to interpret previous versions of the language in a backward
@@ -98,8 +93,8 @@ features involved in the change.  One can refer also to the
 and backward compatibility.
 
 
-Version 1.0 (deprecated)
-........................
+Version 1.0
+...........
 
 * Introduction date:
 
@@ -109,8 +104,8 @@ Version 1.0 (deprecated)
 
     Initial version
 
-Version: 1.1 (deprecated)
-.........................
+Version: 1.1
+............
 
 * Introduction date:
 
@@ -141,8 +136,8 @@ Version: 1.1 (deprecated)
     refer to section `Function type vs arrow type`.
 
 
-Version: 1.2 (deprecated)
-.........................
+Version: 1.2
+............
 
 * Introduction date:
 
@@ -161,8 +156,8 @@ Version: 1.2 (deprecated)
     in the surface language
 
 
-Version: 1.3 (deprecated)
-.........................
+Version: 1.3
+............
 
 * Introduction date:
 
@@ -174,8 +169,8 @@ Version: 1.3 (deprecated)
 
   + **Add** support for built-in ``'Map'`` type.
 
-Version: 1.4 (deprecated)
-.........................
+Version: 1.4
+............
 
 * Introduction date:
 
@@ -185,8 +180,8 @@ Version: 1.4 (deprecated)
 
   + **Add** support for complex contract keys.
 
-Version: 1.5 (deprecated)
-.........................
+Version: 1.5
+............
 
 * Introduction date:
 
@@ -223,6 +218,7 @@ Version: 1.6
 
 Version: 1.7
 ............
+
 
 * Introduction date:
 
@@ -574,7 +570,7 @@ can produce V0 or V1 contract identifiers.  When configured to produce
 V0 contract identifiers, a DAML-LF compliant engine must refuse to
 load any DAML-LF >= 1.dev archives.  On the contrary, when configured
 to produce V1 contract ids, a DAML-LF compliant engine must accept to
-load any non-deprecated DAML-LF version.
+load any DAML-LF version.
 
 Also note that package identifiers are typically `cryptographic hash
 <Package hash_>`_ of the content of the package itself.
