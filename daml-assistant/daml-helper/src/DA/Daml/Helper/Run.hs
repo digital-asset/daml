@@ -566,8 +566,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> IO ()
-runNew targetFolder templateNameM = do
+runNew :: FilePath -> Maybe String -> [String] -> [String] -> IO ()
+runNew targetFolder templateNameM pkgDeps dataDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -646,6 +646,8 @@ runNew targetFolder templateNameM = do
         sdkVersion <- getSdkVersion
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
+                   . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
+                   . replace "__DATA_DEPENDENCIES__" (unlines ["  - " <> dep | dep <- dataDeps])
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
