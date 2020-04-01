@@ -5,7 +5,7 @@ package com.digitalasset.platform.apiserver
 
 import com.codahale.metrics.MetricRegistry
 
-private[apiserver] object MetricsNaming {
+object MetricsNaming {
 
   private[this] val capitalization = "[A-Z]+".r
   private[this] val startWordCapitalization = "^[A-Z]+".r
@@ -34,24 +34,18 @@ private[apiserver] object MetricsNaming {
   }
 
   // Turns a camelCased string into a snake_cased one
-  val camelCaseToSnakeCase: String => String =
+  private[apiserver] val camelCaseToSnakeCase: String => String =
     snakifyWholeWord andThen snakifyStart andThen snakifyEnd andThen snakify
 
-  // assert(nameForService("org.example.SomeService") == "daml.lapi.some_service")
-  def nameForService(fullServiceName: String): String = {
-    val serviceName = camelCaseToSnakeCase(fullServiceName.split('.').last)
-    MetricRegistry.name("daml", "lapi", serviceName)
-  }
-
-  // assert(nameFor("org.example.SomeService/someMethod") == "daml.lapi.some_service.some_method")
-  def nameFor(fullMethodName: String): String = {
+  // assert(fullServiceName("org.example.SomeService/someMethod") == "daml.lapi.some_service.some_method")
+  private[apiserver] def nameFor(fullMethodName: String): String = {
     val serviceAndMethodName = fullMethodName.split('/')
     assert(
       serviceAndMethodName.length == 2,
       s"Expected service and method names separated by '/', got '$fullMethodName'")
-    val prefix = nameForService(serviceAndMethodName(0))
+    val serviceName = camelCaseToSnakeCase(serviceAndMethodName(0).split('.').last)
     val methodName = camelCaseToSnakeCase(serviceAndMethodName(1))
-    MetricRegistry.name(prefix, methodName)
+    MetricRegistry.name("daml", "lapi", serviceName, methodName)
   }
 
 }

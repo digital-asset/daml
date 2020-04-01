@@ -29,16 +29,8 @@ final class DbDispatcher private (
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
-    private val prefix: String = MetricRegistry.name("daml", "index", "db")
-
-    def waitTimer(description: String): Timer =
-      metrics.timer(MetricRegistry.name(prefix, description, "wait"))
-
-    def execTimer(description: String): Timer =
-      metrics.timer(MetricRegistry.name(prefix, description, "exec"))
-
-    val waitAllTimer: Timer = waitTimer("all")
-    val execAllTimer: Timer = execTimer("all")
+    val waitAllTimer: Timer = metrics.timer("daml.index.db.all.wait")
+    val execAllTimer: Timer = metrics.timer("daml.index.db.all.exec")
   }
 
   override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
@@ -52,8 +44,8 @@ final class DbDispatcher private (
       sql: Connection => T
   ): Future[T] = {
     lazy val extraLogMemoized = extraLog
-    val waitTimer = Metrics.waitTimer(description)
-    val execTimer = Metrics.execTimer(description)
+    val waitTimer = metrics.timer(s"daml.index.db.$description.wait")
+    val execTimer = metrics.timer(s"daml.index.db.$description.exec")
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait

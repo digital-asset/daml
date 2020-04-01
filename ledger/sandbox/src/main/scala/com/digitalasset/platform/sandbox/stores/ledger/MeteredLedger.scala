@@ -20,18 +20,11 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    private val prefix: String = MetricRegistry.name("daml", "index")
-
-    val publishHeartbeat: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "publish_heartbeat"))
-    val publishTransaction: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "publish_transaction"))
-    val publishPartyAllocation: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "publish_party_allocation"))
-    val uploadPackages: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "upload_packages"))
-    val publishConfiguration: Timer =
-      metrics.timer(MetricRegistry.name(prefix, "publish_configuration"))
+    val publishHeartbeat: Timer = metrics.timer("daml.index.publish_heartbeat")
+    val publishTransaction: Timer = metrics.timer("daml.index.publish_transaction")
+    val publishPartyAllocation: Timer = metrics.timer("daml.index.publish_party_allocation")
+    val uploadPackages: Timer = metrics.timer("daml.index.upload_packages")
+    val publishConfiguration: Timer = metrics.timer("daml.index.publish_configuration")
   }
 
   override def publishHeartbeat(time: Instant): Future[Unit] =
