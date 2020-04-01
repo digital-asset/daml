@@ -24,7 +24,7 @@ fi
   cd compiler
   bazel build //... --build_tag_filters "$tag_filter"
 )
-bazel test //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
+bazel test -t- //... --build_tag_filters "$tag_filter" --test_tag_filters "$tag_filter" --experimental_execution_log_file "$ARTIFACT_DIRS/test_execution${execution_log_postfix}.log"
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
