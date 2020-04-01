@@ -188,10 +188,9 @@ da_scala_test_suite(
     name = "daml_lf_archive_reader_zipbomb_tests",
     srcs = ["src/test/scala/com/digitalasset/daml/lf/archive/ZipBombDetectionSpec.scala"],
     data = [
-        "//libs_python:zblg",
+        ":DarReaderTest.dar",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["dont-run-on-darwin"],  # This test is too memory intensive for the MacOS nodes on CI
     deps = [
         ":daml_lf_1.6_archive_java_proto",
         ":daml_lf_1.7_archive_java_proto",
