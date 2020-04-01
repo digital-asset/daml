@@ -807,12 +807,6 @@ da_scala_library(
 )
 ```
 
-### Scala Macro Libraries
-
-If a Scala library defines macros that should be used by other Scala targets
-later on, then it has to be defined using `da_scala_macro_library`. Macros may
-not be defined and used within the same target.
-
 ### Scala Executables
 
 Scala executables are defined using `da_scala_binary`. It takes most of the
