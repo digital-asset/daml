@@ -113,9 +113,7 @@ class ValueSpec
     implicit val arbT: Arbitrary[T] =
       Arbitrary(versionedValueGen.map(VersionedValue.map1(Unnatural(_))))
 
-    scalaz.scalacheck.ScalazProperties.equal.laws[T].properties foreach {
-      case (s, p) => s in check(p)
-    }
+    "obeys Equal laws" in checkLaws(SzP.equal.laws[T])
 
     "results preserve natural == results" in forAll { (a: T, b: T) =>
       scalaz.Equal[T].equal(a, b) shouldBe (a == b)
