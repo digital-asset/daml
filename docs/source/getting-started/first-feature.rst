@@ -21,7 +21,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that we need to terminate the previous ``daml start --start-navigator=no`` process and run it again.
+    3. Running the app with the new feature.
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
@@ -74,14 +74,8 @@ Since we have changed our DAML code, we also need to rerun the TypeScript code g
 Open a new terminal and run the following commands::
 
   daml build
-  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
 
-Since we've generated new TypeScript packages in the ``daml-ts`` folder, we need to rebuild our project using these dependencies.
-From the root ``create-daml-app`` folder, run::
-
-  yarn workspaces run build
-
-This may take a couple of minutes.
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 
 We can now implement our messaging feature in the UI!
@@ -182,13 +176,15 @@ Let's give the new functionality a spin.
 Running the New Feature
 =======================
 
-We need to terminate the previous ``daml start --start-navigator=no`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start --start-navigator=no`` again we will
+We need to terminate the previous ``daml start`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start`` again we will
 
   - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API
 
-First, navigate to the terminal window where the ``daml start --start-navigator=no`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``daml start --start-navigator=no``.
+First, navigate to the terminal window where the ``daml start`` process is running and terminate the active process by hitting ``Ctrl-C``.
+This shuts down the previous instances of the sandbox.
+Then in the root ``create-daml-app`` folder run ``daml start``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 

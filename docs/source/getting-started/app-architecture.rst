@@ -90,11 +90,10 @@ We do this using a DAML to TypeScript code generation tool in the DAML SDK.
 
 To run code generation, we first need to compile the DAML model to an archive format (a ``.dar`` file).
 The ``daml codegen ts`` command then takes this file as argument to produce a number of TypeScript packages in the output folder.
-It also updates our ``package.json`` file with the newly generated dependencies.
 ::
 
     daml build
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
 
 Now we have a TypeScript interface (types and companion objects) to our DAML model, which we'll use in our UI code next.
 
