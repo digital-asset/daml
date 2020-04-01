@@ -141,13 +141,6 @@ object Conversions {
   ): ToStatement[Ref.QualifiedName] =
     (s: PreparedStatement, index: Int, v: Ref.QualifiedName) => strToStm.set(s, index, v.toString)
 
-  // Identifiers
-
-  implicit def identifierToStatement(
-      implicit strToStm: ToStatement[String],
-  ): ToStatement[Ref.Identifier] =
-    (s: PreparedStatement, index: Int, v: Ref.Identifier) => strToStm.set(s, index, v.toString)
-
   // Offsets
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
