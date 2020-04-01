@@ -205,7 +205,10 @@ da_haskell_test(
     main_function = "DA.Test.IncrementalBuilds.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = ["//libs-haskell/bazel-runfiles"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
 )
 
 # Tests for packaging
