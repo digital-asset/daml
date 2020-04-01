@@ -9,11 +9,13 @@ import { useParty, useLedger, useStreamFetchByKey, useStreamQuery } from '@daml/
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
+// USERS_BEGIN
 const MainView: React.FC = () => {
   const username = useParty();
   const myUserResult = useStreamFetchByKey(User.User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
   const allUsers = useStreamQuery(User.User).contracts;
+// USERS_END
 
   // Sorted list of users that are following the current user
   const followers = useMemo(() =>
@@ -23,6 +25,7 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
+// FOLLOW_BEGIN
   const ledger = useLedger();
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
@@ -34,6 +37,7 @@ const MainView: React.FC = () => {
       return false;
     }
   }
+// FOLLOW_END
 
   return (
     <Container>
@@ -67,10 +71,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <Divider />
+// USERLIST_BEGIN
               <UserList
                 users={followers}
                 onFollow={follow}
               />
+// USERLIST_END
             </Segment>
           </Grid.Column>
         </Grid.Row>

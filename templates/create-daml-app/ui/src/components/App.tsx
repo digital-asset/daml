@@ -11,6 +11,7 @@ import { httpBaseUrl, wsBaseUrl } from '../config';
 /**
  * React component for the entry point into the application.
  */
+// APP_BEGIN
 const App: React.FC = () => {
   const [credentials, setCredentials] = React.useState<Credentials | undefined>();
 
@@ -25,5 +26,6 @@ const App: React.FC = () => {
       </DamlLedger>
     : <LoginScreen onLogin={setCredentials} />
 }
+// APP_END
 
 export default App;
