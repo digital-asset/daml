@@ -71,5 +71,3 @@ sandbox = relaxed
 NIX_CONF
 
 systemctl restart nix-daemon
-
-trap - EXIT
