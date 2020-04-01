@@ -705,7 +705,7 @@ createScenarioContextRule =
                 pure
                 ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        liftIO $ modifyVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
+        liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
@@ -912,11 +912,44 @@ ofInterestRule opts = do
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
-              ctxRoots <- modifyVar envScenarioContexts $ \ctxs -> do
-                  let gcdCtxs = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
-                  pure (gcdCtxs, HashMap.elems gcdCtxs)
-              prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
-              when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
+              mask $ \restore -> do
+                  ctxs <- takeMVar envScenarioContexts
+                  -- Filter down to contexts of files of interest.
+                  let gcdCtxsMap :: HashMap.HashMap NormalizedFilePath SS.ContextId
+                      gcdCtxsMap = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
+                      gcdCtxs = HashMap.elems gcdCtxsMap
+                  -- Note (MK) We don’t want to keep sending GC grpc requests if nothing
+                  -- changed. We used to keep track of the last GC request and GC if that was
+                  -- different. However, that causes an issue in the folllowing scenario.
+                  -- This scenario is exactly what we hit in the integration tests.
+                  --
+                  -- 1. A is the only file of interest.
+                  -- 2. We run GC, no scenario context has been allocated.
+                  --    No scenario contexts will be garbage collected.
+                  -- 3. Now the scenario context is allocated.
+                  -- 4. B is set to the only file of interest.
+                  -- 5. We run GC, the scenario context for B has not been allocated yet.
+                  --    A is not a file of interest so gcdCtxs is still empty.
+                  --    Therefore the old and current contexts are identical.
+                  --
+                  -- We now GC under the following condition:
+                  --
+                  -- > gcdCtxs is different from ctxs or the last GC was different from gcdCtxs
+                  --
+                  -- The former covers the above scenario, the latter covers the case where
+                  -- a scenario context changed but the files of interest did not.
+                  prevCtxRoots <- takeMVar envPreviousScenarioContexts
+                  when (gcdCtxs /= HashMap.elems ctxs || prevCtxRoots /= gcdCtxs) $
+                      -- We want to avoid updating the maps if gcCtxs throws an exception
+                      -- so we do some custom masking. We could still end up GC’ing on the
+                      -- server and getting an exception afterwards. This is fine, at worst
+                      -- we will just GC again.
+                      restore (void $ SS.gcCtxs scenarioService gcdCtxs) `onException`
+                          (putMVar envPreviousScenarioContexts prevCtxRoots >>
+                           putMVar envScenarioContexts ctxs)
+                  -- We are masked so this is atomic.
+                  putMVar envPreviousScenarioContexts gcdCtxs
+                  putMVar envScenarioContexts gcdCtxsMap
 
 getOpenVirtualResourcesRule :: Rules ()
 getOpenVirtualResourcesRule = do
