@@ -48,10 +48,10 @@ const mockStream = <T>(): [Stream <object, string, string, T>, EventEmitter] =>
   const stream =
     {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      on: (type: string, listener: (...args: any[]) => void): void => void emitter.on(type, listener),
+      on: (type: string, listener: (...args: any[]) => void) => emitter.on(type, listener),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      off: (type: string, listener: (...args: any[]) => void): void => void emitter.on(type, listener),
-      close: (): void => {
+      off: (type: string, listener: (...args: any[]) => void) => emitter.on(type, listener),
+      close: () => {
         emitter.removeAllListeners();
         console.log('mock stream closed');
       }
