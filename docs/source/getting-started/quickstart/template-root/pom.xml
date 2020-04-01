@@ -20,7 +20,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.daml</groupId>
+            <groupId>com.daml.ledger</groupId>
             <artifactId>bindings-rxjava</artifactId>
             <version>__VERSION__</version>
             <exclusions>
@@ -50,8 +50,8 @@
                 <version>1.6.0</version>
                 <dependencies>
                     <dependency>
-                        <groupId>com.daml</groupId>
-                        <artifactId>codegen-java</artifactId>
+                        <groupId>com.daml.java</groupId>
+                        <artifactId>codegen</artifactId>
                         <version>__VERSION__</version>
                         <type>jar</type>
                     </dependency>
