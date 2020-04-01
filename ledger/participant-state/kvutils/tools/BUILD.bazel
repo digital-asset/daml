@@ -11,7 +11,7 @@ da_scala_binary(
     srcs = ["src/main/scala/com/daml/ledger/participant/state/kvutils/tools/IntegrityCheck.scala"],
     main_class = "com.daml.ledger.participant.state.kvutils.tools.IntegrityCheck",
     resources = glob(["src/main/resources/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-integrity-check:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-integrity-check:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
