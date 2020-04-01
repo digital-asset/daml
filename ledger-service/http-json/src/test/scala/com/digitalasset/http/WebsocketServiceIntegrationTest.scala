@@ -41,28 +41,27 @@ class WebsocketServiceIntegrationTest
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
-  private val baseQueryInput: Source[Message, NotUsed] =
-    Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
+  private val baseQueryFlow: Flow[Message, Message, NotUsed] =
+    Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict("{}")))
 
   private val fetchRequest =
     """[{"templateId": "Account:Account", "key": ["Alice", "abc123"]}]"""
 
-  private val baseFetchInput: Source[Message, NotUsed] =
-    Source.single(TextMessage.Strict(fetchRequest))
+  private val baseFetchFlow: Flow[Message, Message, NotUsed] =
+    Flow.fromSinkAndSource(Sink.foreach(println), Source.single(TextMessage.Strict(fetchRequest)))
 
   private val validSubprotocol = Option(s"""$tokenPrefix${jwt.value},$wsProtocol""")
 
   List(
-    SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryInput),
-    SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchInput)
+    SimpleScenario("query", Uri.Path("/v1/stream/query"), baseQueryFlow),
+    SimpleScenario("fetch", Uri.Path("/v1/stream/fetch"), baseFetchFlow)
   ).foreach { scenario =>
     s"${scenario.id} request with valid protocol token should allow client subscribe to stream" in withHttpService {
       (uri, _, _) =>
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           validSubprotocol,
-          scenario.input)._1 flatMap (x =>
-          x.response.status shouldBe StatusCodes.SwitchingProtocols)
+          scenario.flow)._1 flatMap (x => x.response.status shouldBe StatusCodes.SwitchingProtocols)
     }
 
     s"${scenario.id} request with invalid protocol token should be denied" in withHttpService {
@@ -70,7 +69,8 @@ class WebsocketServiceIntegrationTest
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           Option("foo"),
-          scenario.input)._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
+          scenario.flow
+        )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
     }
 
     s"${scenario.id} request without protocol token should be denied" in withHttpService {
@@ -78,38 +78,15 @@ class WebsocketServiceIntegrationTest
         wsConnectRequest(
           uri.copy(scheme = "ws").withPath(scenario.path),
           None,
-          scenario.input
+          scenario.flow
         )._1 flatMap (x => x.response.status shouldBe StatusCodes.Unauthorized)
-    }
-
-    s"two ${scenario.id} requests over the same WebSocket connection are NOT allowed" in withHttpService {
-      (uri, _, _) =>
-        val input = scenario.input.mapConcat(x => List(x, x))
-        val webSocketFlow =
-          Http().webSocketClientFlow(
-            WebSocketRequest(
-              uri = uri.copy(scheme = "ws").withPath(scenario.path),
-              subprotocol = validSubprotocol))
-        input
-          .via(webSocketFlow)
-          .runWith(collectResultsAsTextMessageSkipOffsetTicks)
-          .flatMap { msgs =>
-            inside(msgs) {
-              case Seq(errorMsg) =>
-                val error = decodeErrorResponse(errorMsg)
-                error shouldBe domain.ErrorResponse(
-                  List("Multiple requests over the same WebSocket connection are not allowed."),
-                  StatusCodes.BadRequest
-                )
-            }
-          }
     }
   }
 
-  private val collectResultsAsTextMessageSkipOffsetTicks: Sink[Message, Future[Seq[String]]] =
+  private val collectResultsAsTextMessageSkipHeartbeats: Sink[Message, Future[Seq[String]]] =
     Flow[Message]
       .collect { case m: TextMessage => m.getStrictText }
-      .filterNot(isOffsetTick)
+      .filterNot(isHeartbeat)
       .toMat(Sink.seq)(Keep.right)
 
   private val collectResultsAsTextMessage: Sink[Message, Future[Seq[String]]] =
@@ -236,7 +213,7 @@ class WebsocketServiceIntegrationTest
   "query endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientQueryStream(uri, "{}")
-        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
 
       val result = Await.result(clientMsg, 10.seconds)
 
@@ -249,7 +226,7 @@ class WebsocketServiceIntegrationTest
   "fetch endpoint should send error msg when receiving malformed message" in withHttpService {
     (uri, _, _) =>
       val clientMsg = singleClientFetchStream(uri, """[abcdefg!]""")
-        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
 
       val result = Await.result(clientMsg, 10.seconds)
 
@@ -474,7 +451,7 @@ class WebsocketServiceIntegrationTest
   "fetch should should return an error if empty list of (templateId, key) pairs is passed" in withHttpService {
     (uri, _, _) =>
       singleClientFetchStream(uri, "[]")
-        .runWith(collectResultsAsTextMessageSkipOffsetTicks)
+        .runWith(collectResultsAsTextMessageSkipHeartbeats)
         .map { clientMsgs =>
           inside(clientMsgs) {
             case Seq(errorMsg) =>
@@ -530,11 +507,8 @@ class WebsocketServiceIntegrationTest
   private def wsConnectRequest[M](
       uri: Uri,
       subprotocol: Option[String],
-      input: Source[Message, NotUsed]) =
-    Http().singleWebSocketRequest(
-      request = WebSocketRequest(uri = uri, subprotocol = subprotocol),
-      clientFlow = dummyFlow(input)
-    )
+      flow: Flow[Message, Message, M]) =
+    Http().singleWebSocketRequest(WebSocketRequest(uri = uri, subprotocol = subprotocol), flow)
 
   private val parseResp: Flow[Message, JsValue, NotUsed] = {
     import spray.json._
@@ -574,7 +548,7 @@ class WebsocketServiceIntegrationTest
         }
     }
 
-  private def isOffsetTick(str: String): Boolean =
+  private def isHeartbeat(str: String): Boolean =
     SprayJson
       .decode[EventsBlock](str)
       .map { b =>
@@ -600,10 +574,6 @@ object WebsocketServiceIntegrationTest {
   import spray.json._
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def dummyFlow[A](source: Source[A, NotUsed]): Flow[A, A, NotUsed] =
-    Flow.fromSinkAndSource(Sink.foreach(println), source)
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def foldWhile[S, A, T](zero: S)(f: (S, A) => (S \/ T)): Sink[A, Future[Option[T]]] =
     Flow[A]
       .scan(-\/(zero): S \/ T)((st, a) =>
@@ -616,7 +586,10 @@ object WebsocketServiceIntegrationTest {
 
   private val contractIdAtOffsetKey = "contractIdAtOffset"
 
-  private case class SimpleScenario(id: String, path: Uri.Path, input: Source[Message, NotUsed])
+  private case class SimpleScenario(
+      id: String,
+      path: Uri.Path,
+      flow: Flow[Message, Message, NotUsed])
 
   private sealed abstract class StreamState extends Product with Serializable
   private case object NothingYet extends StreamState
