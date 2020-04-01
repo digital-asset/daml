@@ -109,7 +109,6 @@ private class JdbcLedgerDao(
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
-    eventsPageSize: Int,
 )(implicit logCtx: LoggingContext)
     extends LedgerDao {
 
@@ -1734,7 +1733,7 @@ private class JdbcLedgerDao(
     TransactionsWriter
 
   override val transactionsReader: TransactionsReader =
-    new TransactionsReader(dbDispatcher, executionContext, eventsPageSize)
+    TransactionsReader(dbDispatcher, executionContext)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
@@ -1756,10 +1755,9 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       metrics: MetricRegistry,
-      eventsPageSize: Int,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
-    owner(serverRole, jdbcUrl, maxConnections, metrics, eventsPageSize)
+    owner(serverRole, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
 
@@ -1767,12 +1765,11 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       metrics: MetricRegistry,
-      eventsPageSize: Int,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(serverRole, jdbcUrl, maxConnections, metrics, eventsPageSize)
+    owner(serverRole, jdbcUrl, maxConnections, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1781,7 +1778,6 @@ object JdbcLedgerDao {
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-      eventsPageSize: Int,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
@@ -1796,7 +1792,6 @@ object JdbcLedgerDao {
         KeyHasher,
         DbType.jdbcType(jdbcUrl),
         ExecutionContext.fromExecutor(executor),
-        eventsPageSize,
       )
 
   private val PARTY_SEPARATOR = '%'

@@ -219,12 +219,6 @@ object Cli {
         .text("Enables JWT-based authorization, where the JWT is signed by RSA256 with a public key loaded from the given JWKS URL")
         .action((url, config) => config.copy(authService = Some(AuthServiceJWT(JwksVerifier(url)))))
 
-      opt[Int]("events-page-size")
-        .optional()
-        .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${SandboxConfig.DefaultEventsPageSize}.")
-        .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
-
       private val seedingMap = Map[String, Option[Seeding]](
         "no" -> None,
         "testing-static" -> Some(Seeding.Static),

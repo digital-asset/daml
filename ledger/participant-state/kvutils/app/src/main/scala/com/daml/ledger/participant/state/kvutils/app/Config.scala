@@ -17,7 +17,7 @@ import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
 import scopt.OptionParser
 
-final case class Config[Extra](
+case class Config[Extra](
     ledgerId: Option[String],
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
@@ -25,7 +25,6 @@ final case class Config[Extra](
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    eventsPageSize: Int,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -51,8 +50,6 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultEventsPageSize = 1000
-
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
@@ -62,7 +59,6 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      eventsPageSize = DefaultEventsPageSize,
       extra = extra,
     )
 
@@ -136,12 +132,6 @@ object Config {
         .unbounded()
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
-
-      opt[Int]("events-page-size")
-        .optional()
-        .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${Config.DefaultEventsPageSize}.")
-        .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
