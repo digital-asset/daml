@@ -13,3 +13,4 @@ dependencies:
 sandbox-options:
 - --wall-clock-time
 - --ledgerid=create-daml-app-sandbox
+start-navigator: false

@@ -53,9 +53,8 @@ The last step is not absolutely necessary but useful to check that the app compi
 To start the application, there are again two steps.
 In one terminal in the root directory, start a DAML ledger using
 ```
-daml start --start-navigator=no
+daml start
 ```
-(We don't need the DAML Navigator here.)
 This must continue running to serve ledger requests.
 
 Then in a second terminal window in the `ui` directory, start the UI server via
