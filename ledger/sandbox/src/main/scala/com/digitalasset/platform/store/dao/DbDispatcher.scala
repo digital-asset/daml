@@ -7,7 +7,6 @@ import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.configuration.ServerRole
@@ -30,11 +29,13 @@ final class DbDispatcher private (
   private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
-    private val prefix = MetricName.DAML :+ "index" :+ "db"
+    private val prefix: String = MetricRegistry.name("daml", "index", "db")
 
-    def waitTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "wait")
+    def waitTimer(description: String): Timer =
+      metrics.timer(MetricRegistry.name(prefix, description, "wait"))
 
-    def execTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "exec")
+    def execTimer(description: String): Timer =
+      metrics.timer(MetricRegistry.name(prefix, description, "exec"))
 
     val waitAllTimer: Timer = waitTimer("all")
     val execAllTimer: Timer = execTimer("all")
