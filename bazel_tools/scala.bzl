@@ -127,12 +127,35 @@ default_compile_arguments = {
 
 default_initial_heap_size = "512m"
 default_max_heap_size = "2g"
+default_scalac_stack_size = "2m"
 
-def _set_jvm_flags(arguments, initial_heap_size, max_heap_size):
+def _jvm_flags(initial_heap_size, max_heap_size):
+    return ["-Xms{}".format(initial_heap_size), "-Xmx{}".format(max_heap_size)]
+
+def _set_compile_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
     result = {}
     result.update(arguments)
     result.update({
-        "jvm_flags": arguments.get("jvm_flags", []) + ["-Xms{}".format(initial_heap_size), "-Xmx{}".format(max_heap_size)],
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+    })
+    return result
+
+def _set_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
+    result = {}
+    result.update(arguments)
+    result.update({
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+        "jvm_flags": arguments.get("jvm_flags", []) + jvm_flags,
     })
     return result
 
@@ -436,6 +459,7 @@ def da_scala_library(name, **kwargs):
     arguments = {}
     arguments.update(default_compile_arguments)
     arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
     _wrap_rule(scala_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     _create_scaladoc_jar(name = name, **arguments)
@@ -459,12 +483,15 @@ def da_scala_library_suite(name, **kwargs):
 
     [rules_scala_library_suite_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library_suite.md
     """
-    _wrap_rule(scala_library_suite, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_library_suite, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break

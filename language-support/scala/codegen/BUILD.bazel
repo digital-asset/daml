@@ -13,10 +13,6 @@ common_scalacopts = [
     "CONFIG",
 ]
 
-common_jvm_flags = [
-    "-Xmx2G",
-]
-
 da_scala_library(
     name = "codegen",
     srcs =
@@ -32,7 +28,6 @@ da_scala_library(
         # Plugins have to be specified as JARs.
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalac_jvm_flags = common_jvm_flags,
     scalacopts = common_scalacopts,
     tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
     visibility = [
