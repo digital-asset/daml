@@ -3,7 +3,8 @@
         "test": "yarn workspace create-daml-app run test"
     },
     "resolutions": {
-        "@daml/types": "__VERSION__"
+        "@daml/types": "__VERSION__",
+        "@daml/ledger": "__VERSION__"
     },
     "private": true,
     "workspaces": [
