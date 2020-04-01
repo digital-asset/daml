@@ -40,7 +40,7 @@ import qualified DA.Daml.Project.Types as DATypes
 
 -- Version of the the TypeScript compiler we're using.
 tscVersion :: T.Text
-tscVersion = "~3.8.3"
+tscVersion = "~3.7.3"
 
 -- Version of the "@mojotech/json-type-validation" library we're using.
 jtvVersion :: T.Text
