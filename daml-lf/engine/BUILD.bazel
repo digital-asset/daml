@@ -12,7 +12,7 @@ da_scala_library(
     name = "engine",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-engine:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",

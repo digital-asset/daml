@@ -110,7 +110,7 @@ da_scala_binary(
         "//ledger/test-common:dar-files",
     ],
     tags = [
-        "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
+        "maven_coordinates=com.daml:ledger-api-test-tool:__VERSION__",
         # We release this as a fat jar so this tag ensures that the dependencies in the generated
         # POM file are set correctly.
         "fat_jar",

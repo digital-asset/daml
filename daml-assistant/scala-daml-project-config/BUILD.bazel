@@ -12,7 +12,7 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/digitalasset/assistant/**/*.scala",
     ]),
-    tags = ["maven_coordinates=com.daml:daml-project-config:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-sdk-project-config:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

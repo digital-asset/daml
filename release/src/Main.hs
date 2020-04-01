@@ -10,7 +10,7 @@ import Control.Monad.Logger
 import Control.Exception
 import Data.Yaml
 import qualified Data.Set as Set
-import qualified Data.List as List
+import qualified Data.List.Extra as List
 import Path
 import Path.IO hiding (removeFile)
 
@@ -50,7 +50,26 @@ main = do
       let nonDeployJars = filter (not . isDeployJar . artReleaseType) mavenUploadArtifacts
       let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mavenUploadArtifacts
 
-      -- first find out all the missing internal dependencies
+      -- check that all maven artifacts use com.daml as groupId
+      let nonComDamlGroupId = filter (\a -> "com.daml" /= (groupIdString $ pomGroupId $ artMetadata a)) mavenUploadArtifacts
+      when (not (null nonComDamlGroupId)) $ do
+          $logError "Some artifacts don't use com.daml as groupId!"
+          forM_ nonComDamlGroupId $ \artifact -> do
+              $logError ("\t- "# getBazelTarget (artTarget artifact))
+          liftIO exitFailure
+
+      -- check that no artifact id is used more than once
+      let groupedArtifacts = List.groupOn (pomArtifactId . artMetadata) mavenUploadArtifacts
+      let duplicateArtifactIds = filter (\artifacts -> length artifacts > 1) groupedArtifacts
+      when (not (null duplicateArtifactIds)) $ do
+          $logError "Some artifacts use the same artifactId!"
+          forM_ duplicateArtifactIds $ \artifacts -> do
+              $logError (pomArtifactId $ artMetadata $ head artifacts)
+              forM_ artifacts $ \artifact -> do
+                  $logError ("\t- "# getBazelTarget (artTarget artifact))
+          liftIO exitFailure
+
+      -- find out all the missing internal dependencies
       missingDepsForAllArtifacts <- forM nonDeployJars $ \a -> do
           -- run a bazel query to find all internal java and scala library dependencies
           -- We exclude the scenario service and the script service to avoid a false dependency on scala files
@@ -121,9 +140,9 @@ main = do
               forM_ lib_jars $ \(mvn_coords, path) -> do
                   let args = ["install:install-file",
                               "-Dfile=" <> pathToString releaseDir <> pathToString path,
-                              "-DgroupId=" <> foldr (<>) "" (List.intersperse "." $ map T.unpack $ groupId mvn_coords),
+                              "-DgroupId=" <> (groupIdString $ groupId mvn_coords),
                               "-DartifactId=" <> (T.unpack $ artifactId mvn_coords),
-                              "-Dversion=100.0.0",
+                              "-Dversion=0.0.0",
                               "-Dpackaging=" <> (T.unpack $ artifactType mvn_coords)]
                   liftIO $ callProcess "mvn" args
          | otherwise -> $logInfo "Dry run selected: not uploading, not installing"
