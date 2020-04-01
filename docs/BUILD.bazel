@@ -570,13 +570,6 @@ daml_test(
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
 )
 
-pkg_tar(
-    name = "daml-patterns",
-    srcs = glob(["source/daml/patterns/daml/**/*.daml"]) + ["source/daml/patterns/daml.yaml.template"],
-    strip_prefix = "/docs/source/daml/patterns",
-    visibility = ["//visibility:public"],
-)
-
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
