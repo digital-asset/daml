@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import com.codahale.metrics.{Counter, MetricRegistry, Timer}
+import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.Common.Commit._
@@ -518,17 +519,14 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("daml", "kvutils", "committer", "transaction")
+    private val prefix = kvutils.MetricPrefix :+ "committer" :+ "transaction"
 
-    val runTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
-    val interpretTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "interpret_timer"))
-    val accepts: Counter = metricRegistry.counter(MetricRegistry.name(prefix, "accepts"))
+    val runTimer: Timer = metricRegistry.timer(prefix :+ "run_timer")
+    val interpretTimer: Timer = metricRegistry.timer(prefix :+ "interpret_timer")
+    val accepts: Counter = metricRegistry.counter(prefix :+ "accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
-        .map(
-          v =>
-            v.getNumber -> metricRegistry.counter(
-              MetricRegistry.name(prefix, s"rejections_${v.name}")))
+        .map(v => v.getNumber -> metricRegistry.counter(prefix :+ s"rejections_${v.name}"))
         .toMap
   }
 }
