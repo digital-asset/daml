@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
+import scalaz.{@@, Order, Tag}
 import scalaz.syntax.std.string._
 
 /**
@@ -187,6 +188,16 @@ abstract class ApiCodecCompressed[Cid](
       case iface.TypePrim(_, Seq(iface.TypePrim(iface.PrimType.Optional, _))) => true
       case _ => false
     }
+
+  private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V[Cid] @@ defs.type] = {
+    val scope: V.LookupVariantEnum = defs andThen (_ flatMap (_.dataType match {
+      case iface.Variant(fields) => Some(fields.toImmArray map (_._1))
+      case iface.Enum(ctors) => Some(ctors.toImmArray)
+      case iface.Record(_) => None
+    }))
+    implicit def ocid: Order[Cid] = ??? // TODO SC
+    Tag subst (Tag unsubst V.orderInstance[Cid](scope))
+  }
 
   private[this] def jsValueToApiDataType(
       value: JsValue,
