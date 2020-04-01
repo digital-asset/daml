@@ -498,17 +498,6 @@ Scala source file, and bundle them in one target. This rule takes the same
 attributes as `da_scala_library`, but enables `unused_dependency_checker_mode`
 by default.
 
-If a Scala library defines macros then you must use the
-`da_scala_macro_library` rule instead of the above. Otherwise, you will encounter 
-compiler errors of the following form (formatted for readability):
-
-```
-error: macro annotation could not be expanded (the most common reason
-for that is that you need to enable the macro paradise plugin; another
-possibility is that you try to use macro annotation in the same
-compilation run that defines it)
-```
-
 #### Tests
 
 Scala tests can be defined using the `da_scala_test` rule. It will generate an

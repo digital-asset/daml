@@ -6,7 +6,6 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
-    "scala_macro_library",
     "scala_test",
     "scala_test_suite",
 )
@@ -495,19 +494,6 @@ def da_scala_library_suite(name, **kwargs):
             if tag.startswith("maven_coordinates="):
                 fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
-
-def da_scala_macro_library(**kwargs):
-    """
-    Define a Scala library that contains macros.
-
-    Applies common Scala options defined in `bazel_tools/scala.bzl`.
-    And forwards to `scala_macro_library` from `rules_scala`.
-    Refer to the [`rules_scala` documentation][rules_scala_docs].
-
-    [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
-    """
-    _wrap_rule(scala_macro_library, **kwargs)
-    _create_scala_source_jar(**kwargs)
 
 def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
