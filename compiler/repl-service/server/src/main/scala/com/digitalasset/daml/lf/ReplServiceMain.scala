@@ -216,9 +216,7 @@ class ReplService(
       ApplicationId("daml repl"),
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
-      case Failure(e) =>
-        System.err.println(s"$e")
-        respObs.onError(e)
+      case Failure(e) => respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)
         respObs.onNext(RunScriptResponse.newBuilder.build)
