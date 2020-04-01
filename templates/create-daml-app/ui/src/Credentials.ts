@@ -6,6 +6,9 @@ import { ledgerId } from './config';
 
 export const APPLICATION_ID: string = 'create-daml-app';
 
+// NOTE: This is for testing purposes only.
+// To handle authentication properly,
+// see https://docs.daml.com/app-dev/authentication.html.
 export const SECRET_KEY: string = 'secret';
 
 export type Credentials = {
