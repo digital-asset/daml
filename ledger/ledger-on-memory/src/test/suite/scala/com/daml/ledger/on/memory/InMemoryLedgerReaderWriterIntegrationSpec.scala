@@ -3,6 +3,10 @@
 
 package com.daml.ledger.on.memory
 
+import java.time.Instant
+
+import akka.NotUsed
+import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
@@ -20,11 +24,13 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
+      heartbeats: Source[Instant, NotUsed],
       metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState] =
     new InMemoryLedgerReaderWriter.SingleParticipantOwner(
       ledgerId,
       participantId,
       metricRegistry,
+      heartbeats = heartbeats,
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
 }

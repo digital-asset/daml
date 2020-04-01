@@ -4,6 +4,7 @@
 package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
+import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -26,6 +27,11 @@ final class PostgresqlQueries(override protected implicit val connection: Connec
 
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] = Try {
     SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value) RETURNING sequence_no"
+      .as(long("sequence_no").single)
+  }
+
+  override def insertHeartbeatIntoLog(timestamp: Instant): Try[Index] = Try {
+    SQL"INSERT INTO #$LogTable (heartbeat_timestamp) VALUES (${timestamp.toEpochMilli}) RETURNING sequence_no"
       .as(long("sequence_no").single)
   }
 
