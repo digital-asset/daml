@@ -15,7 +15,7 @@
 //   and light.
 
 
-// Minor version history:
+// Minor version history (to be officialized in the spec):
 // * 0 (somewhen in December 2018): initial version
 // * 1 -- 2019-01-10: Add Optional type
 //     -- 2019-01-27: Add <, <=, =>, > for Party
