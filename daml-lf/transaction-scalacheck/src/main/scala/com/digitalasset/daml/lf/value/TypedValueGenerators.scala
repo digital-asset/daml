@@ -308,6 +308,12 @@ object TypedValueGenerators {
             } yield field[K](pvh) :: pvt
           case _ => None
         }
+
+        override def record[Cid: Order] = {
+          import h.{injord => hord}, self.{record => tailord}
+          Order.orderBy { case ah :: at => (ah: h.Inj[Cid], at) }
+        }
+
         override def recarb[Cid: Arbitrary] = {
           import self.{recarb => tailarb}, h.{injarb => headarb}
           Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map {
