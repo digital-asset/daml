@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
+import com.digitalasset.ports.FreePort
 import com.digitalasset.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
@@ -27,8 +28,7 @@ trait PostgresAround {
     val tempDir = Files.createTempDirectory("postgres_test")
     val dataDir = tempDir.resolve("data")
     val confFile = Paths.get(dataDir.toString, "postgresql.conf")
-    val lockedPort = FreePort.find()
-    val port = lockedPort.port
+    val port = FreePort.find()
     val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
     val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
@@ -37,12 +37,10 @@ trait PostgresAround {
       initializeDatabase()
       createConfigFile()
       startPostgres()
-      lockedPort.unlock()
       createTestDatabase(databaseName)
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
-        lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
         postgresFixture = null
