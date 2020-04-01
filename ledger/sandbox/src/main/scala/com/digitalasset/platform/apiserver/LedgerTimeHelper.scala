@@ -75,6 +75,12 @@ final case class LedgerTimeHelper(
                 else
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
               })
+              .recoverWith {
+                // An error while looking up the maximum ledger time for the used contracts
+                // most likely means that one of the contracts is already not active anymore,
+                // which can happen under contention. Retry without advancing time in this case.
+                case _ => loop(commands, submissionSeed, retriesLeft - 1)
+              }
       }
   }
 
