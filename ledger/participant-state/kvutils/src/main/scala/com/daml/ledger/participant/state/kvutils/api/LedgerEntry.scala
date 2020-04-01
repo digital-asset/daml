@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
+import java.time.Instant
+
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.Offset
 
@@ -26,6 +28,13 @@ object LedgerEntry {
       val entryId: Bytes,
       val envelope: Bytes
   ) extends LedgerEntry
+
+  /**
+    * A heart beat read from the ledger.
+    * @param offset  offset of heartbeat log entry
+    * @param instant timestamp of heartbeat
+    */
+  final case class Heartbeat(offset: Offset, instant: Instant) extends LedgerEntry
 
   object LedgerRecord {
     def apply(offset: Offset, entryId: Bytes, envelope: Bytes): LedgerRecord =

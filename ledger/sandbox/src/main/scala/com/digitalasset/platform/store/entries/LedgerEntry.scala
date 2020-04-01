@@ -35,4 +35,7 @@ object LedgerEntry {
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       explicitDisclosure: Relation[EventId, Party])
       extends LedgerEntry
+
+  final case class Checkpoint(recordedAt: Instant) extends LedgerEntry
+
 }
