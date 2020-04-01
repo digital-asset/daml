@@ -23,7 +23,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script._
 import com.digitalasset.daml.lf.iface.EnvironmentInterface
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -235,25 +234,6 @@ final class JsonApiIt
       } yield {
         assert(
           exception.getMessage === "Tried to submit a command as Alice but token does not provide a unique party identifier")
-      }
-    }
-    "submit fails on assertion failure" in {
-      for {
-        clients <- getClients()
-        exception <- recoverToExceptionIf[DamlEUserError](
-          run(clients, QualifiedName.assertFromString("ScriptTest:jsonFailingCreateAndExercise")))
-      } yield {
-        exception.message should include("Error: User abort: Assertion failed.")
-      }
-    }
-    "submitMustFail succeeds on assertion falure" in {
-      for {
-        clients <- getClients()
-        result <- run(
-          clients,
-          QualifiedName.assertFromString("ScriptTest:jsonExpectedFailureCreateAndExercise"))
-      } yield {
-        assert(result == SUnit)
       }
     }
   }
