@@ -104,7 +104,7 @@ First we'll need a sandbox ledger to which we can deploy.
 
 .. code-block:: none
 
-   $ daml sandbox --port 6865
+   $ daml sandbox --port 6865 --wall-clock-time
 
 Now we'll setup the project for the original version of our coin. The project contains the DAML for just the ``Coin`` template, along with a ``CoinProposal`` template which will allow us to issue some coins in the example below.
 
