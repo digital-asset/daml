@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
-package speedy
+package com.digitalasset.daml.lf.speedy
 
+import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
@@ -88,7 +88,7 @@ object PartialTransaction {
 
   def initial(seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None) =
     PartialTransaction(
-      submissionTime = seedWithTime.map(_._2),
+      seedWithTime.map(_._2),
       nextNodeIdx = 0,
       nodes = HashMap.empty,
       consumedBy = Map.empty,

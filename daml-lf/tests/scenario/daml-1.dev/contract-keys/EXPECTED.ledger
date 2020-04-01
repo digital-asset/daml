@@ -19,12 +19,12 @@ TX #4 1970-01-01T00:00:00Z [Test:96]
 │   known to (since): Alice (#4)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "some-key" } value-version: 6
-found 0066d7eab72b04d1ab3c24f2f3cb2a2d9266c2c2dc769c8b4699b6db3a4f56ec46
+found #0:0
 
 TX #5 1970-01-01T00:00:00Z [Test:100]
 #5:0
 │   known to (since): Alice (#5)
-└─> ensure active 0066d7eab72b04d1ab3c24f2f3cb2a2d9266c2c2dc769c8b4699b6db3a4f56ec46
+└─> ensure active #0:0
 
 TX #6 1970-01-01T00:00:00Z [Test:104]
 #6:0
@@ -43,7 +43,7 @@ not found
 TX #8 1970-01-01T00:00:00Z [Test:112]
 #8:0
 │   known to (since): Alice (#8), Bob (#8)
-└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on 0066d7eab72b04d1ab3c24f2f3cb2a2d9266c2c2dc769c8b4699b6db3a4f56ec46
+└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on #0:0
     with {  } value-version: 6
     
 
@@ -66,7 +66,7 @@ key { _1 = 'Alice', _2 = "some-key-2" } value-version: 6
 TX #11 1970-01-01T00:00:00Z [Test:126]
 #11:0
 │   known to (since): Alice (#11), Bob (#11)
-└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on 000384ac92215445db4a2d9f1c1c641fa48d8dbc757f9b191fb20f900c26dceeae
+└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on #10:0
     with {  } value-version: 6
     
 
@@ -88,7 +88,7 @@ key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 6
 │   known to (since): Alice (#12)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 6
-found 00c03269537484009ec6d8a26e95d14ed273a11b78506a7b79eedfaf1bb80f9da0
+found #12:0
 
 TX #13 1970-01-01T00:00:00Z [Test:140]
 #13:0
@@ -100,7 +100,7 @@ TX #13 1970-01-01T00:00:00Z [Test:140]
 TX #14 1970-01-01T00:00:00Z [Test:144]
 #14:0
 │   known to (since): Alice (#14)
-└─> Alice exercises Good:Test:CreateAndLookup@XXXXXXXX on 00da388d7422eb9c3b8a33337795b339eb18e9c08c65e9069ff8d8ad48271c8e73
+└─> Alice exercises Good:Test:CreateAndLookup@XXXXXXXX on #13:0
     with {  } value-version: 6
     children:
     #14:1
@@ -113,10 +113,10 @@ TX #14 1970-01-01T00:00:00Z [Test:144]
     │   known to (since): Alice (#14)
     └─> lookup by key Test:TextKey@XXXXXXXX
     key { _1 = 'Alice', _2 = "same-choice-key" } value-version: 6
-    found 0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667
+    found #14:1
     #14:3
     │   known to (since): Alice (#14)
-    └─> ensure active 0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667
+    └─> ensure active #14:1
 
 mustFailAt 'Alice' [Test:147]
 
@@ -130,7 +130,7 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
 
 #16:1
 │   known to (since): Alice (#16)
-└─> Alice exercises TextKeyNonconsumingChoice:Test:TextKey@XXXXXXXX on 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f
+└─> Alice exercises TextKeyNonconsumingChoice:Test:TextKey@XXXXXXXX on #16:0
     with {  } value-version: 6
     
 
@@ -138,9 +138,9 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
 │   known to (since): Alice (#16)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
-found 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f
+found #16:0
 
 mustFailAt 'Alice' [Test:161]
 
 active contracts:
-   0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667, 00c03269537484009ec6d8a26e95d14ed273a11b78506a7b79eedfaf1bb80f9da0, 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f, 00da388d7422eb9c3b8a33337795b339eb18e9c08c65e9069ff8d8ad48271c8e73
+   #12:0, #13:0, #14:1, #16:0
