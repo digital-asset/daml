@@ -261,7 +261,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     * B is visible to Alice, Bob and Charlie
     *
     */
-  protected def fullyTransientWithChildren: (Offset, LedgerEntry.Transaction) = {
+  protected def withChildren: (Offset, LedgerEntry.Transaction) = {
     val txId = UUID.randomUUID().toString
     val absCid1 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
     val absCid2 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
@@ -300,100 +300,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         childCreateId -> Set(alice, bob, charlie),
         childExerciseId -> Set(alice, bob, charlie),
       )
-    )
-  }
-
-  /**
-    * Creates the following transaction
-    *
-    * Create A --> Exercise A
-    *              |        |
-    *              |        |
-    *              v        v
-    *           Create B  Create C
-    *
-    * A is visible to Charlie
-    * B is visible to Alice and Charlie
-    * C is visible to Bob and Charlie
-    *
-    */
-  protected def withChildren: (Offset, LedgerEntry.Transaction) = {
-    val txId = UUID.randomUUID().toString
-    val absCid1 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
-    val absCid2 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
-    val absCid3 = AbsoluteContractId.assertFromString("#" + UUID.randomUUID().toString)
-    val let = Instant.now
-    val createId = event(txId, 0)
-    val exerciseId = event(txId, 1)
-    val childCreateId1 = event(txId, 2)
-    val childCreateId2 = event(txId, 3)
-    nextOffset() -> LedgerEntry.Transaction(
-      Some(UUID.randomUUID().toString),
-      txId,
-      Some("appID1"),
-      Some(charlie),
-      Some("workflowId"),
-      let,
-      let,
-      addChildren(
-        tx = transaction(
-          createId -> create(absCid1).copy(
-            signatories = Set(charlie),
-            stakeholders = Set(charlie),
-          ),
-          exerciseId -> exercise(absCid1).copy(
-            actingParties = Set(charlie),
-            signatories = Set(charlie),
-            stakeholders = Set(charlie),
-          ),
-        ),
-        parent = exerciseId,
-        childCreateId1 -> create(absCid2),
-        childCreateId2 -> create(absCid3),
-      ),
-      Map(
-        createId -> Set(charlie),
-        exerciseId -> Set(charlie),
-        childCreateId1 -> Set(alice, charlie),
-        childCreateId2 -> Set(bob, charlie),
-      )
-    )
-  }
-
-  /**
-    * Creates a transactions with multiple top-level creates.
-    *
-    * Every contract will be signed by a fixed "operator" and each contract will have a
-    * further signatory and a template as defined by signatoriesAndTemplates.
-    *
-    * @throws IllegalArgumentException if signatoryAndTemplate is empty
-    */
-  protected def multipleCreates(
-      operator: String,
-      signatoriesAndTemplates: Seq[(String, String)],
-  ): (Offset, LedgerEntry.Transaction) = {
-    require(signatoriesAndTemplates.nonEmpty, "multipleCreates cannot create empty transactions")
-    val transactionId = UUID.randomUUID.toString
-    val nodes =
-      for (((signatory, template), index) <- signatoriesAndTemplates.zipWithIndex) yield {
-        val contract = create(AbsoluteContractId.assertFromString("#" + UUID.randomUUID.toString))
-        event(transactionId, index.toLong) -> contract.copy(
-          signatories = Set(operator, signatory),
-          stakeholders = Set(operator, signatory),
-          coinst = contract.coinst.copy(template = Identifier.assertFromString(template)),
-        )
-      }
-    val disclosure = Map(nodes.map { case (event, contract) => event -> contract.signatories }: _*)
-    nextOffset() -> LedgerEntry.Transaction(
-      commandId = Some(UUID.randomUUID().toString),
-      transactionId = transactionId,
-      applicationId = Some("appID1"),
-      submittingParty = Some(operator),
-      workflowId = Some("workflowId"),
-      ledgerEffectiveTime = Instant.now,
-      recordedAt = Instant.now,
-      transaction = GenTransaction(nodes = HashMap(nodes: _*), roots = ImmArray(nodes.map(_._1))),
-      explicitDisclosure = disclosure,
     )
   }
 
