@@ -1,6 +1,8 @@
 Set-StrictMode -Version latest
 $ErrorActionPreference = 'Stop'
 
+pwd
+
 .\dev-env\windows\bin\dadew.ps1 install
 .\dev-env\windows\bin\dadew.ps1 sync
 .\dev-env\windows\bin\dadew.ps1 enable
