@@ -10,10 +10,10 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
@@ -254,8 +254,7 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val ServicePrefix = MetricName.DAML :+ "services"
-  private val IndexServicePrefix = ServicePrefix :+ "index"
-  private val ReadServicePrefix = ServicePrefix :+ "read"
-  private val WriteServicePrefix = ServicePrefix :+ "write"
+  private val IndexServicePrefix = MetricRegistry.name("daml", "services", "index")
+  private val ReadServicePrefix = MetricRegistry.name("daml", "services", "read")
+  private val WriteServicePrefix = MetricRegistry.name("daml", "services", "write")
 }
