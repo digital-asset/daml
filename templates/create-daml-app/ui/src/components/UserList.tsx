@@ -4,10 +4,10 @@
 import React from 'react'
 import { Icon, List } from 'semantic-ui-react'
 import { Party } from '@daml/types';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app-0.1.0';
 
 type Props = {
-  users: User[];
+  users: User.User[];
   onFollow: (userToFollow: Party) => void;
 }
 

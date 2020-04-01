@@ -5,7 +5,7 @@ import React, { useCallback } from 'react'
 import { Button, Form, Grid, Header, Image, Segment } from 'semantic-ui-react'
 import Credentials, { computeCredentials } from '../Credentials';
 import Ledger from '@daml/ledger';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app-0.1.0';
 import { DeploymentMode, deploymentMode, ledgerId, httpBaseUrl, wsBaseUrl } from '../config';
 import { useEffect } from 'react';
 
@@ -22,10 +22,10 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
   const login = useCallback(async (credentials: Credentials) => {
     try {
       const ledger = new Ledger({token: credentials.token, httpBaseUrl, wsBaseUrl});
-      let userContract = await ledger.fetchByKey(User, credentials.party);
+      let userContract = await ledger.fetchByKey(User.User, credentials.party);
       if (userContract === null) {
         const user = {username: credentials.party, following: []};
-        userContract = await ledger.create(User, user);
+        userContract = await ledger.create(User.User, user);
       }
       onLogin(credentials);
     } catch(error) {

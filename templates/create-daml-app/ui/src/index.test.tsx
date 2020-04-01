@@ -5,7 +5,7 @@ import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import waitOn from 'wait-on';
 
 import Ledger from '@daml/ledger';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app-0.1.0';
 import { computeCredentials } from './Credentials';
 
 import puppeteer, { Browser, Page } from 'puppeteer';
@@ -93,13 +93,13 @@ test('create and look up user using ledger library', async () => {
   const partyName = getParty();
   const {party, token} = computeCredentials(partyName);
   const ledger = new Ledger({token});
-  const users0 = await ledger.query(User);
+  const users0 = await ledger.query(User.User);
   expect(users0).toEqual([]);
-  const user: User = {username: party, following: []};
-  const userContract1 = await ledger.create(User, user);
-  const userContract2 = await ledger.fetchByKey(User, party);
+  const user = {username: party, following: []};
+  const userContract1 = await ledger.create(User.User, user);
+  const userContract2 = await ledger.fetchByKey(User.User, party);
   expect(userContract1).toEqual(userContract2);
-  const users = await ledger.query(User);
+  const users = await ledger.query(User.User);
   expect(users[0]).toEqual(userContract1);
 });
 
@@ -156,7 +156,7 @@ test('log in as a new user, log out and log back in', async () => {
   // Check that the ledger contains the new User contract.
   const {token} = computeCredentials(partyName);
   const ledger = new Ledger({token});
-  const users = await ledger.query(User);
+  const users = await ledger.query(User.User);
   expect(users).toHaveLength(1);
   expect(users[0].payload.username).toEqual(partyName);
 
@@ -165,7 +165,7 @@ test('log in as a new user, log out and log back in', async () => {
   await login(page, partyName);
 
   // Check we have the same one user.
-  const usersFinal = await ledger.query(User);
+  const usersFinal = await ledger.query(User.User);
   expect(usersFinal).toHaveLength(1);
   expect(usersFinal[0].payload.username).toEqual(partyName);
 
