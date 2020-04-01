@@ -36,7 +36,7 @@ import com.digitalasset.platform.apiserver.{
 import com.digitalasset.platform.packages.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.SandboxServer._
 import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
 import com.digitalasset.platform.sandbox.metrics.MetricsReporting
 import com.digitalasset.platform.sandbox.services.SandboxResetService
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -223,7 +223,7 @@ final class SandboxServer(
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
-    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
+    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
       (mbLedgerTime, timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
@@ -350,6 +350,13 @@ final class SandboxServer(
 
   private def start(): Future[SandboxState] = {
     newLoggingContext(logging.participantId(participantId)) { implicit logCtx =>
+      if (config.timeProviderType.isEmpty) {
+        throw new InvalidConfigException(
+          "Sandbox used to default to Static Time mode. In the next release, Wall Clock Time mode"
+            + " will become the default. In this version, you will need to explicitly specify the"
+            + " `--static-time` flag to maintain the previous behavior, or `--wall-clock-time` if"
+            + " you would like to use the new defaults.")
+      }
       val packageStore = loadDamlPackages()
       val apiServerResource = buildAndStartApiServer(
         materializer,
