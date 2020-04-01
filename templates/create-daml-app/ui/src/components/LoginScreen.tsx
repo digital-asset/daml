@@ -81,6 +81,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
           <Segment>
             {deploymentMode !== DeploymentMode.PROD_DABL
             ? <>
+                // FORM_BEGIN
                 <Form.Input
                   fluid
                   icon='user'
@@ -97,6 +98,7 @@ const LoginScreen: React.FC<Props> = ({onLogin}) => {
                   onClick={handleLogin}>
                   Log in
                 </Button>
+                // FORM_END
               </>
             : <Button primary fluid onClick={handleDablLogin}>
                 Log in with DABL

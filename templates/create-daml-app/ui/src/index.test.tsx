@@ -117,6 +117,7 @@ const newUiPage = async (): Promise<Page> => {
   return page;
 }
 
+// LOGIN_FUNCTION_BEGIN
 // Log in using a party name and wait for the main screen to load.
 const login = async (page: Page, partyName: string) => {
   const usernameInput = await page.waitForSelector('.test-select-username-field');
@@ -125,6 +126,7 @@ const login = async (page: Page, partyName: string) => {
   await page.click('.test-select-login-button');
   await page.waitForSelector('.test-select-main-menu');
 }
+// LOGIN_FUNCTION_END
 
 // Log out and wait to get back to the login screen.
 const logout = async (page: Page) => {
@@ -146,6 +148,7 @@ const follow = async (page: Page, userToFollow: string) => {
   await page.waitForSelector('.test-select-follow-input > :not(.loading)', {timeout: 40_000});
 }
 
+// LOGIN_TEST_BEGIN
 test('log in as a new user, log out and log back in', async () => {
   const partyName = getParty();
 
@@ -171,6 +174,7 @@ test('log in as a new user, log out and log back in', async () => {
 
   await page.close();
 }, 10_000);
+// LOGIN_TEST_END
 
 // This tests following users in a few different ways:
 // - using the text box in the Follow panel
