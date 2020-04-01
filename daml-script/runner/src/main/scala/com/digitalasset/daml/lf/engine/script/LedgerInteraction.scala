@@ -24,7 +24,6 @@ import scalaz.syntax.traverse._
 import spray.json._
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue._
@@ -240,12 +239,16 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
 // Current limitations and issues when running DAML script over the JSON API:
 // 1. Multi-command submissions are not supported. This is simply not possible until
 //    we have an endpoint for this in the JSON API.
-// 2. This is the biggest issue imho: parties are kind of a mess. `submit` and `query` pretend
+// 2. Party allocation is not yet implemented. While this would be possible, it’s not
+//    all that useful. For local testing, there is no reason to run DAML Script over the
+//    JSON API (and it wouldn’t work properly due to the requirement for JWTs) and for
+//    interacting with a production ledger, you usually don’t need it. But it’s simple enough
+//    that we might implement it anyway.
+// 3. This is the biggest issue imho: parties are kind of a mess. `submit` and `query` pretend
 //    that you can choose the party you submitting commands as. However, this is not the case
 //    for the JSON API since it always infers the party from the JWT (which also means it does
 //    not support multi-party tokens). We add a validation step to `submit` and `query` that
 //    errors out if the token party does not match the party pased as an argument.
-
 class JsonLedgerClient(
     uri: Uri,
     token: Jwt,
@@ -287,9 +290,7 @@ class JsonLedgerClient(
       queryResponse <- if (resp.status.isSuccess) {
         Unmarshal(resp.entity).to[JsonLedgerClient.QueryResponse]
       } else {
-        getResponseDataBytes(resp).flatMap {
-          case body => Future.failed(new RuntimeException(s"Failed to query ledger: $resp, $body"))
-        }
+        Future.failed(new RuntimeException(s"Failed to query ledger: $resp"))
       }
     } yield {
       val ctx = templateId.qualifiedName
@@ -333,27 +334,7 @@ class JsonLedgerClient(
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    val req = HttpRequest(
-      method = HttpMethods.POST,
-      uri = uri.withPath(uri.path./("v1")./("parties")./("allocate")),
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        JsonLedgerClient.AllocatePartyArgs(partyIdHint, displayName).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
-    )
-    for {
-      resp <- Http().singleRequest(req)
-      response <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.AllocatePartyResponse]
-      } else {
-        getResponseDataBytes(resp).flatMap {
-          case body =>
-            Future.failed(new RuntimeException(s"Failed to allocate party: $resp, $body"))
-        }
-      }
-    } yield {
-      SParty(response.identifier)
-    }
+    Future.failed(new RuntimeException("allocateParty is not supported by the JSON API."))
   }
 
   // Check that the party in the token matches the given party.
@@ -533,12 +514,6 @@ object JsonLedgerClient {
       argument: JsValue)
   final case class CreateAndExerciseResponse(contractId: String, result: JsValue)
 
-  final case class AllocatePartyArgs(
-      identifierHint: String,
-      displayName: String
-  )
-  final case class AllocatePartyResponse(identifier: Ref.Party)
-
   object JsonProtocol extends SprayJsonSupport with DefaultJsonProtocol {
     implicit val identifierWriter: JsonWriter[Identifier] = identifier =>
       JsString(
@@ -623,18 +598,6 @@ object JsonLedgerClient {
           }
         case _ => deserializationError(s"Could not parse CreateAndExerciseResponse: $v")
       }
-    }
-
-    implicit val allocatePartyWriter: JsonFormat[AllocatePartyArgs] = jsonFormat2(AllocatePartyArgs)
-    implicit val allocatePartyReader: RootJsonReader[AllocatePartyResponse] = v =>
-      v.asJsObject.getFields("result") match {
-        case Seq(result) =>
-          result.asJsObject.getFields("identifier") match {
-            case Seq(JsString(identifier)) =>
-              AllocatePartyResponse(Ref.Party.assertFromString(identifier))
-            case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
-          }
-        case _ => deserializationError(s"Could not parse AllocatePartyResponse: $v")
     }
   }
 }
