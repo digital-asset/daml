@@ -19,7 +19,6 @@ import com.digitalasset.ledger.api.v1.transaction.{
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
-  GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
@@ -93,7 +92,27 @@ private[events] trait EventsTable {
     ): Option[GetFlatTransactionResponse] =
       flatTransaction(tx => GetFlatTransactionResponse(Some(tx)))(events)
 
-    private def treeOf(events: Seq[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
+    def toTransactionTree(events: List[Entry[TreeEvent]]): Option[GetTransactionResponse] =
+      events.headOption.map(
+        first => {
+          val (eventsById, rootEventIds) = treeOf(events)
+          GetTransactionResponse(
+            transaction = Some(
+              ApiTransactionTree(
+                transactionId = first.transactionId,
+                commandId = first.commandId,
+                workflowId = first.workflowId,
+                effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
+                offset = ApiOffset.toApiString(first.eventOffset),
+                eventsById = eventsById,
+                rootEventIds = rootEventIds,
+                traceContext = None,
+              ))
+          )
+        }
+      )
+
+    private def treeOf(events: List[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
@@ -117,37 +136,6 @@ private[events] trait EventsTable {
       (eventsById, rootEventIds)
 
     }
-
-    private def transactionTree[R](makeResponse: ApiTransactionTree => R)(
-        events: Seq[Entry[TreeEvent]],
-    ): Option[R] =
-      events.headOption.map(
-        first => {
-          val (eventsById, rootEventIds) = treeOf(events)
-          makeResponse(
-            ApiTransactionTree(
-              transactionId = first.transactionId,
-              commandId = first.commandId,
-              workflowId = first.workflowId,
-              effectiveAt = Some(instantToTimestamp(first.ledgerEffectiveTime)),
-              offset = ApiOffset.toApiString(first.eventOffset),
-              eventsById = eventsById,
-              rootEventIds = rootEventIds,
-              traceContext = None,
-            )
-          )
-        }
-      )
-
-    def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]],
-    ): List[GetTransactionTreesResponse] =
-      transactionTree(tx => GetTransactionTreesResponse(Seq(tx)))(events).toList
-
-    def toGetTransactionResponse(
-        events: List[Entry[TreeEvent]],
-    ): Option[GetTransactionResponse] =
-      transactionTree(tx => GetTransactionResponse(Some(tx)))(events)
 
   }
 
