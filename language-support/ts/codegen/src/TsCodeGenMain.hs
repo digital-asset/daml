@@ -582,7 +582,7 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
       pkgs = map (T.unpack . fst3 . nodeFromVertex) $ reverse (topSort g)
   withCurrentDirectory optOutputDir $ do
     BSL.writeFile "package.json" $ encodePretty packageJson
-    callProcessSilent "yarn" ["install", "--pure-lockfile"]
+    yarn ["install", "--pure-lockfile"]
     createDirectoryIfMissing True $ "node_modules" </> scope
     mapM_ build pkgs
     removeFile "package.json" -- Any subsequent runs will regenerate it.
@@ -607,14 +607,14 @@ buildPackages sdkVersion optScope optOutputDir dependencies = do
     build :: String -> IO ()
     build pkg = do
       putStrLn $ "Building " <> pkg
-      callProcessSilent "yarn" ["run", "tsc", "--project", pkg </> "tsconfig.json"]
+      yarn ["run", "tsc", "--project", pkg </> "tsconfig.json"]
       copyDirectory pkg $ "node_modules" </> scope </> pkg
 
-    callProcessSilent :: FilePath -> [String] -> IO ()
-    callProcessSilent cmd args = do
-      (exitCode, _, err) <- readProcessWithExitCode cmd args ""
+    yarn :: [String] -> IO ()
+    yarn args = do
+      (exitCode, _, err) <- readProcessWithExitCode "yarn" args ""
       unless (exitCode == ExitSuccess) $ do
-        putStrLn $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
+        putStrLn $ "Failure: \"yarn " <> unwords args <> "\" exited with " <> show exitCode
         putStrLn err
         exitFailure
 

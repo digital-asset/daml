@@ -1503,16 +1503,6 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
 
     ]
 
--- | Only displays stdout and stderr on errors
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args = do
-    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-    unless (exitCode == ExitSuccess) $ do
-      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-      hPutStrLn stderr $ unlines ["stdout:", out]
-      hPutStrLn stderr $ unlines ["stderr: ", err]
-      exitFailure
-
 -- | Check that the given file exists in the dar in the given directory.
 --
 -- This function automatically strips away the root directory e.g.
