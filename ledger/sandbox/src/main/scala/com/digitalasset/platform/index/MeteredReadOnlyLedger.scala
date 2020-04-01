@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -22,8 +22,7 @@ import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse,
-  GetTransactionsResponse
+  GetTransactionResponse
 }
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.entries.{
@@ -78,14 +77,6 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       startExclusive: Option[Offset],
       endOpt: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     ledger.ledgerEntries(startExclusive, endOpt)
-
-  override def flatTransactions(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset],
-      filter: Map[Party, Set[Identifier]],
-      verbose: Boolean,
-  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
-    ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
 
   override def ledgerEnd: Offset = ledger.ledgerEnd
 

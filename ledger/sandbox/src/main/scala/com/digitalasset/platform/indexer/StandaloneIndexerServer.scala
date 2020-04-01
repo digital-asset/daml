@@ -16,7 +16,6 @@ final class StandaloneIndexerServer(
     readService: ReadService,
     config: IndexerConfig,
     metrics: MetricRegistry,
-    eventsPageSize: Int,
 )(implicit materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[Unit] {
 
@@ -29,7 +28,6 @@ final class StandaloneIndexerServer(
       config.jdbcUrl,
       readService,
       metrics,
-      eventsPageSize,
     )
     val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
     config.startupMode match {

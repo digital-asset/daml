@@ -33,10 +33,9 @@ object ReadOnlySqlLedger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       metrics: MetricRegistry,
-      eventsPageSize: Int,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, metrics, eventsPageSize)
+      ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, metrics)
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger

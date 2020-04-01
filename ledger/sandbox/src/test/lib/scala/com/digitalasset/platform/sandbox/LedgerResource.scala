@@ -62,19 +62,18 @@ object LedgerResource {
       for {
         postgres <- PostgresResource.owner()
         ledger <- SqlLedger.owner(
-          serverRole = ServerRole.Testing(testClass),
-          jdbcUrl = postgres.jdbcUrl,
-          ledgerId = LedgerIdMode.Static(ledgerId),
-          participantId = participantId,
-          timeProvider = timeProvider,
-          acs = InMemoryActiveLedgerState.empty,
-          packages = packages,
-          initialLedgerEntries = ImmArray.empty,
-          initialConfig = initialConfig,
-          queueDepth = 128,
-          startMode = SqlStartMode.AlwaysReset,
-          metrics = metrics,
-          eventsPageSize = 100,
+          ServerRole.Testing(testClass),
+          postgres.jdbcUrl,
+          LedgerIdMode.Static(ledgerId),
+          participantId,
+          timeProvider,
+          InMemoryActiveLedgerState.empty,
+          packages,
+          ImmArray.empty,
+          initialConfig,
+          128,
+          SqlStartMode.AlwaysReset,
+          metrics
         )
       } yield ledger
     )
