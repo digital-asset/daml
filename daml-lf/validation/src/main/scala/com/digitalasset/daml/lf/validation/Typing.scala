@@ -765,18 +765,10 @@ private[validation] object Typing {
         TUpdate(TOptional(TContractId(TTyCon(retrieveByKey.templateId))))
     }
 
-    private def typeOfCommit(typ: Type, party: Expr, update: Expr): Type = {
+    private def checkCommit(typ: Type, party: Expr, update: Expr): Type = {
       checkType(typ, KStar)
       checkExpr(party, TParty)
       checkExpr(update, TUpdate(typ))
-      TScenario(typ)
-    }
-
-    private def typeOfMustFailAt(typ: Type, party: Expr, update: Expr): Type = {
-      checkType(typ, KStar)
-      checkExpr(party, TParty)
-      checkExpr(update, TUpdate(typ))
-      TScenario(TUnit)
     }
 
     private def typeOfScenario(scenario: Scenario): Type = scenario match {
@@ -786,9 +778,11 @@ private[validation] object Typing {
       case ScenarioBlock(bindings, body) =>
         typeOfScenarioBlock(bindings, body)
       case ScenarioCommit(party, update, typ) =>
-        typeOfCommit(typ, party, update)
+        checkCommit(typ, party, update)
+        TScenario(typ)
       case ScenarioMustFailAt(party, update, typ) =>
-        typeOfMustFailAt(typ, party, update)
+        checkCommit(typ, party, update)
+        TScenario(TUnit)
       case ScenarioPass(delta) =>
         checkExpr(delta, TInt64)
         TScenario(TTimestamp)
