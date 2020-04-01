@@ -9,14 +9,14 @@
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.6-archive-proto
   # This is a tarball instead of a jar.
   mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.6_archive_proto_zip
   type: zip
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.6-archive-proto
   # This is a zip archive instead of a jar.
   mavenUpload: false
@@ -26,14 +26,14 @@
 - target: //daml-lf/archive:daml_lf_1.7_archive_proto_tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.7-archive-proto
   # This is a tarball instead of a jar.
   mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.7_archive_proto_zip
   type: zip
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.7-archive-proto
   # This is a zip archive instead of a jar.
   mavenUpload: false
@@ -43,14 +43,14 @@
 - target: //daml-lf/archive:daml_lf_1.8_archive_proto_tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.8-archive-proto
   # This is a tarball instead of a jar.
   mavenUpload: false
 - target: //daml-lf/archive:daml_lf_1.8_archive_proto_zip
   type: zip
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-1.8-archive-proto
   # This is a zip archive instead of a jar.
   mavenUpload: false
@@ -60,14 +60,14 @@
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-dev-archive-proto
   # This is a tarball instead of a jar.
   mavenUpload: false
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_zip
   type: zip
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: daml-lf-dev-archive-proto
   # This is a zip archive instead of a jar.
   mavenUpload: false
@@ -132,7 +132,7 @@
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: ledger-api-protos
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
   type: jar-scala
@@ -183,7 +183,7 @@
 - target: //ledger/sandbox:sandbox-tarball
   type: targz
   location:
-    groupId: com.daml
+    groupId: com.digitalasset
     artifactId: sandbox
   # This is a tarball of the fat jar.
   mavenUpload: false

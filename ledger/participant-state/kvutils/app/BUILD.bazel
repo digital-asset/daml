@@ -13,7 +13,7 @@ da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

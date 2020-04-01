@@ -70,7 +70,7 @@ da_scala_library(
         ) + [
             "//:MVN_VERSION",
         ],
-    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -378,7 +378,7 @@ detailed information.
     ```
     bazel test //ledger/sandbox:sandbox-scala-tests_test_suite_src_test_suite_scala_com_digitalasset_platform_sandbox_stores_ledger_sql_JdbcLedgerDaoSpec.scala
     ```
-
+    
 - Execute a test with a specific name
 
     ```
@@ -395,7 +395,7 @@ detailed information.
       --test_arg=-z \
       --test_arg="should return true"
     ```
-
+    
     More broadly, for Scala tests you can pass through any of the args outlined in http://www.scalatest.org/user_guide/using_the_runner, separating into two instances of the --test-arg parameter as shown in the two examples above.
 
 ### Running Executables

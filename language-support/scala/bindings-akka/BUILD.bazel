@@ -14,7 +14,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml:bindings-akka:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.scala:bindings-akka:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
