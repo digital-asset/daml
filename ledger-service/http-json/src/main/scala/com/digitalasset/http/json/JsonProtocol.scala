@@ -327,12 +327,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def write(obj: StatusCode): JsValue = JsNumber(obj.intValue)
     }
 
-  implicit def OkResponseFormat[A: JsonFormat, B: JsonFormat]
-    : RootJsonFormat[domain.OkResponse[A, B]] = jsonFormat3(domain.OkResponse[A, B])
-
-  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse[JsValue]] = jsonFormat2(
-    domain.ErrorResponse[JsValue])
-
   implicit val ServiceWarningFormat: RootJsonFormat[domain.ServiceWarning] =
     new RootJsonFormat[domain.ServiceWarning] {
       override def read(json: JsValue): domain.ServiceWarning = json match {
@@ -351,12 +345,37 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
     }
 
-  implicit val WarningsWrapperFormat: RootJsonFormat[domain.WarningsWrapper] =
-    jsonFormat1(domain.WarningsWrapper)
+  implicit val AsyncWarningsWrapperFormat: RootJsonFormat[domain.AsyncWarningsWrapper] =
+    jsonFormat1(domain.AsyncWarningsWrapper)
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
     domain.UnknownTemplateIds)
 
   implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
     domain.UnknownParties)
+
+  implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
+    jsonFormat3(domain.OkResponse[R])
+
+  implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
+    jsonFormat3(domain.ErrorResponse)
+
+  implicit def SyncResponse[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
+    new RootJsonFormat[domain.SyncResponse[R]] {
+      private val resultKey = "result"
+      private val errorsKey = "errors"
+
+      override def write(obj: domain.SyncResponse[R]): JsValue = obj match {
+        case a: domain.OkResponse[_] => OkResponseFormat[R].write(a)
+        case b: domain.ErrorResponse => ErrorResponseFormat.write(b)
+      }
+
+      override def read(json: JsValue): domain.SyncResponse[R] = json match {
+        case JsObject(fields) if fields.contains(resultKey) => OkResponseFormat[R].read(json)
+        case JsObject(fields) if fields.contains(errorsKey) => ErrorResponseFormat.read(json)
+        case _ =>
+          deserializationError(
+            s"Invalid response format, expected a JSON object with either $resultKey or $errorsKey field")
+      }
+    }
 }

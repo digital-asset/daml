@@ -457,7 +457,7 @@ class WebSocketService(
   }
 
   private[http] def wsErrorMessage(error: Error): TextMessage.Strict =
-    wsMessage(errorResponse(error).toJson)
+    wsMessage(SprayJson.encodeUnsafe(errorResponse(error)))
 
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
     TextMessage(jsVal.compactPrint)
@@ -493,7 +493,6 @@ class WebSocketService(
     if (unresolved.isEmpty) Source.empty
     else {
       import spray.json._
-      Source.single(domain.WarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
+      Source.single(domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
     }
-
 }

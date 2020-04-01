@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
-import scalaz.syntax.bitraverse._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, NonEmptyList, Show, \/, \/-}
@@ -66,7 +65,7 @@ class Endpoints(
       httpResponse(allocateParty(req))
   }
 
-  def create(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+  def create(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -84,7 +83,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+  def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -110,7 +109,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+  def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -128,7 +127,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+  def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       input <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -189,15 +188,15 @@ class Endpoints(
       }
     }
 
-  def allParties(req: HttpRequest): ET[domain.OkResponse[JsValue, JsValue]] =
+  def allParties(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
       ps <- rightT(partiesService.allParties(t3._1)): ET[List[domain.PartyDetails]]
-      resp = domain.OkResponse(ps, Option.empty[Unit])
-      result <- either(resp.bitraverse(toJsValue(_), toJsValue(_)))
+      resp = domain.OkResponse(ps, None)
+      result <- either(resp.traverse(toJsValue(_)))
     } yield result
 
-  def parties(req: HttpRequest): ET[domain.OkResponse[JsValue, JsValue]] =
+  def parties(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -212,15 +211,13 @@ class Endpoints(
           partiesService.parties(jwt, toNonEmptySet(cmd))
         )): ET[(Set[domain.PartyDetails], Set[domain.Party])]
 
-      resp: domain.OkResponse[List[domain.PartyDetails], domain.UnknownParties] = okResponse(
-        ps._1.toList,
-        ps._2.toList)
+      resp: domain.OkResponse[List[domain.PartyDetails]] = okResponse(ps._1.toList, ps._2.toList)
 
-      result <- either(resp.bitraverse(toJsValue(_), toJsValue(_)))
+      result <- either(resp.traverse(toJsValue(_)))
 
     } yield result
 
-  def allocateParty(req: HttpRequest): ET[domain.OkResponse[JsValue, Unit]] =
+  def allocateParty(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -298,11 +295,11 @@ class Endpoints(
     )
   }
 
-  private def httpResponse[A: JsonWriter, B: JsonWriter](
-      result: ET[domain.OkResponse[A, B]]
+  private def httpResponse[A: JsonWriter](
+      result: ET[domain.OkResponse[A]]
   ): Future[HttpResponse] = {
     val fa: Future[Error \/ JsValue] =
-      result.flatMap(x => either(SprayJson.encode2(x).liftErr(ServerError))).run
+      result.flatMap(x => either(SprayJson.encode1(x).liftErr(ServerError))).run
     fa.map {
         case -\/(e) =>
           httpResponseError(e)
@@ -381,9 +378,10 @@ object Endpoints {
     } yield c
   }
 
-  private def okResponse(parties: List[domain.PartyDetails], unknownParties: List[domain.Party])
-    : domain.OkResponse[List[domain.PartyDetails], domain.UnknownParties] = {
-    if (unknownParties.isEmpty) domain.OkResponse(parties, Option.empty[domain.UnknownParties])
+  private def okResponse(
+      parties: List[domain.PartyDetails],
+      unknownParties: List[domain.Party]): domain.OkResponse[List[domain.PartyDetails]] = {
+    if (unknownParties.isEmpty) domain.OkResponse(parties, None)
     else domain.OkResponse(parties, Some(domain.UnknownParties(unknownParties)))
   }
 
