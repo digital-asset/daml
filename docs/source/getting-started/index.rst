@@ -100,20 +100,12 @@ This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
+
 You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.
 First enter your name and click *Log in*.
-
-   .. figure:: images/create-daml-app-login-screen.png
-      :scale: 50 %
-      :alt: Login screen for the create-daml-app
-      :class: no-scaled-link
-
 You should see the main screen with two panels. One for the users you are following and one for your followers.
 Initially these are both empty as you are not following anyone and you don't have any followers!
 Go ahead and start following users by typing their usernames in the text box and clicking on the *Follow* button in the top panel.
-
-   .. figure:: images/create-daml-app-main-screen-initial-view.png
-      :alt: Main view of the create-daml-app
 
 You'll notice that the users you just started following appear in the *Following* panel.
 However they do *not* yet appear in the *Network* panel.
@@ -121,23 +113,14 @@ This is either because they have not signed up and are not parties on the ledger
 This social network is similar to Twitter and Instagram, where by following someone, say Alice, you make yourself visible to her but not vice versa.
 We will see how we encode this in DAML in the next section.
 
-   .. figure:: images/create-daml-app-bob-follows-alice.png
-      :alt: In the create-daml-app users can follow each other in a similiar fashion as in Twitter or Instagram
-
 To make this relationship reciprocal, open a new browser window/tab at http://localhost:3000.
 (Having separate windows/tabs allows you to see both you and the screen of the user you are following at the same time.)
 Once you log in as the user you are following - Alice, you'll notice your name in her network.
 In fact, Alice can see the entire list of users you are follwing in the *Network* panel.
 This is because this list is part of the user data that became visible when you started follwing her.
 
-   .. figure:: images/create-daml-app-alice-sees-bob.png
-      :alt: In the create-daml-app when you start following somone you reveal the list of people you are following
-
 When Alice starts follwing you, you can see her in your network as well.
 Just switch to the window where you are logged in as yourself - the network should update automatically.
-
-   .. figure:: images/create-daml-app-bob-sees-alice-in-the-network.png
-      :alt: In the create-daml-app when the user you are following follows you back s/he reveals the list of people they are following
 
 Play around more with the app at your leisure: create new users and start following more users.
 Observe when a user becomes visible to others - this will be important to understanding DAML's privacy model later.
