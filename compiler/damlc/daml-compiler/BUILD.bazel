@@ -26,7 +26,6 @@ da_haskell_library(
         "haskell-lsp",
         "lens",
         "mtl",
-        "repline",
         "resourcet",
         "safe",
         "safe-exceptions",
