@@ -78,6 +78,9 @@ object CommandCompletionsTable {
   // necessary to be rendered as part of the completion service
   def prepareInsert(offset: Offset, entry: LedgerEntry): Option[SimpleSql[Row]] =
     entry match {
+      case LedgerEntry.Checkpoint(recordTime) =>
+        Some(
+          SQL"insert into participant_command_completions(completion_offset, record_time) values ($offset, $recordTime)")
       case LedgerEntry.Transaction(
           Some(cmdId),
           txId,

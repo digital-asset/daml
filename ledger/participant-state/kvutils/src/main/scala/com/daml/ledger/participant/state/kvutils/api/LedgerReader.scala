@@ -23,7 +23,8 @@ trait LedgerReader extends ReportsHealth {
     *
     * In case an offset is not specified, all updates must be streamed from the oldest known state.
     * Each update is defined either as an opaque log entry ID and an
-    * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord]]).
+    * envelope ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord]]) or
+    * as a heartbeat ([[com.daml.ledger.participant.state.kvutils.api.LedgerEntry.Heartbeat]]).
     *
     * @param startExclusive offset right after which updates must be streamed; in case not specified updates
     *                       must be returned from the beginning

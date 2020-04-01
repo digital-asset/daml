@@ -12,8 +12,13 @@ CREATE TABLE ${table.prefix}meta
 CREATE TABLE ${table.prefix}log
 (
     sequence_no         SERIAL PRIMARY KEY,
-    entry_id            BYTEA NOT NULL,
-    envelope            BYTEA NOT NULL
+    entry_id            BYTEA,
+    envelope            BYTEA,
+    heartbeat_timestamp BIGINT,
+    CONSTRAINT record_or_timestamp CHECK (
+            (entry_id IS NOT NULL AND envelope IS NOT NULL AND heartbeat_timestamp IS NULL)
+            OR (entry_id IS NULL AND envelope IS NULL AND heartbeat_timestamp IS NOT NULL)
+        )
 );
 
 CREATE TABLE ${table.prefix}state
