@@ -25,7 +25,7 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-// FOLLOW_BEGIN
+  // FOLLOW_BEGIN
   const ledger = useLedger();
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
@@ -37,7 +37,7 @@ const MainView: React.FC = () => {
       return false;
     }
   }
-// FOLLOW_END
+  // FOLLOW_END
 
   return (
     <Container>
@@ -71,12 +71,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <Divider />
-// USERLIST_BEGIN
+              // USERLIST_BEGIN
               <UserList
                 users={followers}
                 onFollow={follow}
               />
-// USERLIST_END
+              // USERLIST_END
             </Segment>
           </Grid.Column>
         </Grid.Row>
