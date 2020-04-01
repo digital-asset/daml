@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics
 import com.codahale.metrics.Timer
-import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
@@ -13,8 +12,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateValue
 }
 import com.daml.ledger.participant.state.kvutils.DamlStateMap
-import com.daml.ledger.participant.state.kvutils.committer.Committer._
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time
 import org.slf4j.{Logger, LoggerFactory}
@@ -39,9 +36,10 @@ import org.slf4j.{Logger, LoggerFactory}
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
   */
 private[committer] trait Committer[Submission, PartialResult] {
-  protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
+  protected type StepInfo = String
+  protected type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
 
-  protected final val logger: Logger = LoggerFactory.getLogger(getClass)
+  protected val logger: Logger = LoggerFactory.getLogger(getClass)
 
   protected val committerName: String
 
@@ -52,14 +50,16 @@ private[committer] trait Committer[Submission, PartialResult] {
 
   protected val metricRegistry: metrics.MetricRegistry
 
-  // These are lazy because they rely on `committerName`, which is defined in the subclass and
-  // therefore not set at object initialization.
-  protected final lazy val metricPrefix: MetricName = MetricPrefix :+ committerName
-  private lazy val runTimer: Timer = metricRegistry.timer(metricPrefix :+ "run_timer")
+  protected def metricsName(metric: String): String =
+    metrics.MetricRegistry.name("daml", "kvutils", "committer", committerName, metric)
+
+  // These timers are lazy because they rely on `committerName`, which is defined in the subclass
+  // and therefore not set at object initialization.
+  private lazy val runTimer: Timer = metricRegistry.timer(metricsName("run_timer"))
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {
       case (info, _) =>
-        info -> metricRegistry.timer(metricPrefix :+ "step_timers" :+ info)
+        info -> metricRegistry.timer(metricsName(s"step_timers.$info"))
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
@@ -92,12 +92,4 @@ private[committer] trait Committer[Submission, PartialResult] {
       }
       sys.error(s"Internal error: Committer $committerName did not produce a result!")
     }
-}
-
-object Committer {
-
-  type StepInfo = String
-
-  private val MetricPrefix = kvutils.MetricPrefix :+ "committer"
-
 }
