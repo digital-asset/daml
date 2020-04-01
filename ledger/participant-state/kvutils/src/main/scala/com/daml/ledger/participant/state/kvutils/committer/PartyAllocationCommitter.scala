@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   partyAllocationDedupKey
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.digitalasset.daml.lf.data.Ref
 
 private[kvutils] class PartyAllocationCommitter(
@@ -18,8 +19,8 @@ private[kvutils] class PartyAllocationCommitter(
   override protected val committerName = "party_allocation"
 
   private object Metrics {
-    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
+    val accepts: Counter = metricRegistry.counter(metricPrefix :+ "accepts")
+    val rejections: Counter = metricRegistry.counter(metricPrefix :+ "rejections")
   }
 
   private def rejectionTraceLog(

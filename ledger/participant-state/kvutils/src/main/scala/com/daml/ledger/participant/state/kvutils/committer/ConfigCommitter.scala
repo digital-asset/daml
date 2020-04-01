@@ -10,6 +10,7 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{
   configurationStateKey
 }
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
 import com.daml.ledger.participant.state.kvutils.committing.Common.getCurrentConfiguration
 import com.daml.ledger.participant.state.v1.Configuration
 
@@ -30,8 +31,8 @@ private[kvutils] class ConfigCommitter(
   override protected val committerName = "config"
 
   private object Metrics {
-    val accepts: Counter = metricRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricRegistry.counter(metricsName("rejections"))
+    val accepts: Counter = metricRegistry.counter(metricPrefix :+ "accepts")
+    val rejections: Counter = metricRegistry.counter(metricPrefix :+ "rejections")
   }
 
   private def rejectionTraceLog(msg: String, submission: DamlConfigurationSubmission): Unit =
