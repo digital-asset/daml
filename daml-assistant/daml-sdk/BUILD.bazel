@@ -37,7 +37,7 @@ da_scala_library(
 da_scala_binary(
     name = "sdk",
     main_class = "com.digitalasset.daml.sdk.SdkMain",
-    tags = ["maven_coordinates=com.daml:sdk:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset.daml.sdk:sdk:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         ":sdk-lib",

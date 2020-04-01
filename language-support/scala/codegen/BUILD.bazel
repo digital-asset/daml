@@ -34,7 +34,7 @@ da_scala_library(
     ],
     scalac_jvm_flags = common_jvm_flags,
     scalacopts = common_scalacopts,
-    tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.scala:codegen:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -60,7 +60,7 @@ da_scala_binary(
         "src/main/scala/com/digitalasset/codegen/Main.scala",
     ],
     main_class = "com.digitalasset.codegen.Main",
-    tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.scala:codegen-main:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

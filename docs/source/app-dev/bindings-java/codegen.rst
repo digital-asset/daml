@@ -14,10 +14,10 @@ When writing applications for the ledger in Java, you want to work with a repres
 Download
 ========
 
-You can download the `latest version <https://search.maven.org/artifact/com.daml/codegen-java>`__  of the Java codegen. Make sure that the following versions are aligned:
+You can download the `latest version <https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/java/codegen/$latest/codegen-$latest.jar?bt_package=sdk-components>`__  of the Java codegen. Make sure that the following versions are aligned:
 
-* the downloaded Java codegen jar file, eg. x.y.z
-* the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. x.y.z
+* the downloaded Java codegen jar file, eg. 10x.y.z
+* the dependency to :ref:`bindings-java <daml-codegen-java-compiling>`, eg. 10x.y.z
 * the ``sdk-version`` attribute in the :ref:`daml.yaml <daml-yaml-configuration>` file, eg. x.y.z
 
 .. _daml-codegen-java-running:
@@ -28,13 +28,13 @@ Run the Java codegen
 The Java codegen takes DAML archive (DAR) files as input and generates Java files for DAML templates, records, and variants. For information on creating DAR files see :ref:`assistant-manual-building-dars`. To use the Java codegen, run this command in a terminal:
 
 .. code-block:: none
-
+  
   java -jar <path-to-codegen-jar>
 
 Use this command to display the help text:
 
 .. code-block:: none
-
+  
   java -jar codegen.jar --help
 
 Generate Java code from DAR files
@@ -43,17 +43,17 @@ Generate Java code from DAR files
 Pass one or more DAR files as arguments to the Java codegen. Use the ``-o`` or ``--output-directory`` parameter for specifying the directory for the generated Java files.
 
 .. code-block:: none
-
+  
   java -jar java-codegen.jar -o target/generated-sources/daml daml/my-project.dar
                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To avoid possible name clashes in the generated Java sources, you should specify a Java package prefix for each input file:
 
 .. code-block:: none
-
+  
   java -jar java-codegen.jar -o target/generated-sources/daml \
       daml/project1.dar=com.example.daml.project1 \
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^        
       daml/project2.dar=com.example.daml.project2
                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. _daml-codegen-java-decoder-class:
@@ -66,7 +66,7 @@ When reading transactions from the ledger, you typically want to convert a `Crea
 To generate such a decoder class, provide the command line parameter ``-d`` or ``--decoderClass`` with a fully qualified class name:
 
 .. code-block:: none
-
+  
   java -jar java-codegen.jar -o target/generated-sources/daml \
       -d com.myproject.DamModelDecoder daml/my-project.dar
       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -103,14 +103,14 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
 Compile the generated Java code
 ===============================
 
-To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath.
+To compile the generated Java code, add the :ref:`Java Bindings <bindings-java-setup-maven>` library with the same version as the Java codegen to the classpath. 
 
 With Maven you can do this by adding a ``dependency`` to the ``pom.xml`` file:
 
 .. code-block:: xml
 
     <dependency>
-        <groupId>com.daml</groupId>
+        <groupId>com.daml.ledger</groupId>
         <artifactId>bindings-rxjava</artifactId>
         <version>x.y.z</version>
     </dependency>
@@ -210,7 +210,7 @@ A Java file is generated that defines the class for the type ``Person``:
 
 .. code-block:: java
   :caption: com/acme/producttypes/Person.java
-
+  
   package com.acme.producttypes;
 
   public class Person {
@@ -538,10 +538,10 @@ containers method ``toOptional``. This method expects a function to
 convert back the value possibiy contains in the container.
 
 .. code-block:: java
-
+  
   Attribute<Optional<Long>> idAttribute2 =
     serializedId.toOptional(v -> v.asInt64().orElseThrow(() -> new IllegalArgumentException("Expected Int64 element")));
-
+  
 Convert Collection values
 """""""""""""""""""""""""
 
@@ -560,7 +560,7 @@ of the container.
 
 To convert back DAML containers to Java ones, one must use the
 containers methods ``toList`` or ``toMap``. Those methods expect
-functions to convert back the container's entries.
+functions to convert back the container's entries.  
 
 .. code-block:: java
 
