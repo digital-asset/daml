@@ -211,10 +211,9 @@ class SqlLedgerSpec
             .fold(sys.error, identity),
           initialLedgerEntries = ImmArray.empty,
           initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
-          queueDepth = queueDepth,
+          queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          metrics = metrics,
-          eventsPageSize = 100,
+          metrics,
         )
         .acquire()(system.dispatcher)
     }

@@ -29,10 +29,9 @@ import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-final class Runner[T <: ReadWriteService, Extra](
+class Runner[T <: ReadWriteService, Extra](
     name: String,
-    factory: LedgerFactory[ReadWriteService, Extra],
-) {
+    factory: LedgerFactory[ReadWriteService, Extra]) {
   def owner(args: Seq[String]): ResourceOwner[Unit] =
     Config
       .owner(name, factory.extraConfigParser, factory.defaultExtraConfig, args)
@@ -73,7 +72,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
                 metrics = metricRegistry,
-                eventsPageSize = config.eventsPageSize,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
@@ -82,7 +80,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 submissionConfig = factory.submissionConfig(config),
                 readService = readService,
                 writeService = writeService,
-                eventsPageSize = config.eventsPageSize,
                 transformIndexService =
                   service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
                 authService = factory.authService(config),

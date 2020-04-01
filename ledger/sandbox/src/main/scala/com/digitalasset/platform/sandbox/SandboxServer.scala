@@ -246,7 +246,6 @@ final class SandboxServer(
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           packageStore,
           metrics,
-          config.eventsPageSize,
         )
 
       case None =>
