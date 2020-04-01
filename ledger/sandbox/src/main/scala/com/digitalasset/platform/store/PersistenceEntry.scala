@@ -26,4 +26,6 @@ object PersistenceEntry {
       globalDivulgence: Relation[AbsoluteContractId, Party],
       divulgedContracts: List[(AbsoluteContractId, AbsoluteContractInst)]
   ) extends PersistenceEntry
+
+  final case class Checkpoint(entry: LedgerEntry.Checkpoint) extends PersistenceEntry
 }
