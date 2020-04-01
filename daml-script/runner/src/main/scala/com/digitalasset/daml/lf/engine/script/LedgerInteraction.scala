@@ -14,8 +14,6 @@ import akka.stream.scaladsl.Sink
 import io.grpc.{Status, StatusRuntimeException}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Failure}
-import scalaz.{-\/, \/-}
 import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.tag._
@@ -28,9 +26,6 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.jwt.JwtDecoder
-import com.digitalasset.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands._
@@ -246,28 +241,20 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
 // 3. This is the biggest issue imho: parties are kind of a mess. `submit` and `query` pretend
 //    that you can choose the party you submitting commands as. However, this is not the case
 //    for the JSON API since it always infers the party from the JWT (which also means it does
-//    not support multi-party tokens). We add a validation step to `submit` and `query` that
-//    errors out if the token party does not match the party pased as an argument.
+//    not support multi-party tokens). I don’t have a great answer for this. For interacting
+//    with a production ledger, this is probably not super important since you usually act as
+//    only one party there. So at least initially, we’re probably best off by just adding validation
+//    that ensures that the party you pass to `submit` and `query` matches.
 // 4. `submitMustFail` is not yet supported. No fundamental reason for this but it’s also not
 //    very useful in a production ledger. Currently, we just fail during unmarshalling for
 //    failed requests.
 class JsonLedgerClient(
     uri: Uri,
-    token: Jwt,
+    token: String,
     envIface: EnvironmentInterface,
     actorSystem: ActorSystem)
     extends ScriptLedgerClient {
   import JsonLedgerClient.JsonProtocol._
-
-  private val decodedJwt = JwtDecoder.decode(token) match {
-    case -\/(e) => throw new IllegalArgumentException(e.toString)
-    case \/-(a) => a
-  }
-  private val tokenPayload: AuthServiceJWTPayload =
-    AuthServiceJWTCodec.readFromString(decodedJwt.payload) match {
-      case Failure(e) => throw e
-      case Success(s) => s
-    }
 
   implicit val system = actorSystem
   implicit val executionContext = system.dispatcher
@@ -284,75 +271,60 @@ class JsonLedgerClient(
       entity = HttpEntity(
         ContentTypes.`application/json`,
         JsonLedgerClient.QueryArgs(templateId).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token)))
     )
-    for {
-      () <- validateTokenParty(party, "query")
-      resp <- Http().singleRequest(req)
-      queryResponse <- if (resp.status.isSuccess) {
-        Unmarshal(resp.entity).to[JsonLedgerClient.QueryResponse]
-      } else {
-        Future.failed(new RuntimeException(s"Failed to query ledger: $resp"))
+    Http()
+      .singleRequest(req)
+      .flatMap { resp =>
+        if (resp.status.isSuccess) {
+          Unmarshal(resp.entity).to[JsonLedgerClient.QueryResponse]
+        } else {
+          throw new RuntimeException(s"Failed to query ledger: $resp")
+        }
       }
-    } yield {
-      val ctx = templateId.qualifiedName
-      val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
-      val parsedResults = queryResponse.results.map(r => {
-        val payload = r.payload.convertTo[Value[AbsoluteContractId]](
-          LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
-        val cid = AbsoluteContractId.assertFromString(r.contractId)
-        ScriptLedgerClient.ActiveContract(templateId, cid, payload)
-      })
-      parsedResults
-    }
+      .map {
+        case JsonLedgerClient.QueryResponse(results) =>
+          val ctx = templateId.qualifiedName
+          val ifaceType = Converter.toIfaceType(ctx, TTyCon(templateId)).right.get
+          val parsedResults = results.map(r => {
+            val payload = r.payload.convertTo[Value[AbsoluteContractId]](
+              LfValueCodec.apiValueJsonReader(ifaceType, damlLfTypeLookup(_)))
+            val cid = AbsoluteContractId.assertFromString(r.contractId)
+            ScriptLedgerClient.ActiveContract(templateId, cid, payload)
+          })
+          parsedResults
+      }
   }
   override def submit(
       applicationId: ApplicationId,
       party: SParty,
-      commands: List[ScriptLedgerClient.Command])(implicit ec: ExecutionContext, mat: Materializer)
-    : Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
-    for {
-      () <- validateTokenParty(party, "submit a command")
-      result <- commands match {
-        case Nil => Future { Right(List()) }
-        case command :: Nil =>
-          command match {
-            case ScriptLedgerClient.CreateCommand(tplId, argument) =>
-              create(tplId, argument).map(r => Right(List(r)))
+      commands: List[ScriptLedgerClient.Command])(
+      implicit ec: ExecutionContext,
+      mat: Materializer) = {
+    commands match {
+      case Nil => Future { Right(List()) }
+      case command :: Nil =>
+        command match {
+          case ScriptLedgerClient.CreateCommand(tplId, argument) =>
+            create(tplId, argument).map(r => Right(List(r)))
 
-            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
-              exercise(tplId, cid, choice, argument).map(r => Right(List(r)))
+          case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
+            exercise(tplId, cid, choice, argument).map(r => Right(List(r)))
 
-            case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
-              exerciseByKey(tplId, key, choice, argument).map(r => Right(List(r)))
-            case ScriptLedgerClient.CreateAndExerciseCommand(tplId, template, choice, argument) =>
-              createAndExercise(tplId, template, choice, argument)
-          }
-        case _ =>
-          Future.failed(
-            new RuntimeException(
-              "Multi-command submissions are not supported by the HTTP JSON API."))
-      }
-    } yield result
+          case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
+            exerciseByKey(tplId, key, choice, argument).map(r => Right(List(r)))
+          case ScriptLedgerClient.CreateAndExerciseCommand(tplId, template, choice, argument) =>
+            createAndExercise(tplId, template, choice, argument)
+        }
+      case _ =>
+        throw new RuntimeException(
+          "Multi-command submissions are not supported by the HTTP JSON API.")
+    }
   }
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    Future.failed(new RuntimeException("allocateParty is not supported by the JSON API."))
-  }
-
-  // Check that the party in the token matches the given party.
-  private def validateTokenParty(party: SParty, what: String): Future[Unit] = {
-    tokenPayload.party match {
-      case None =>
-        Future.failed(new RuntimeException(
-          s"Tried to $what as ${party.value} but token does not provide a unique party identifier"))
-      case Some(tokenParty) if (!(tokenParty == party.value)) =>
-        Future.failed(
-          new RuntimeException(
-            s"Tried to $what as ${party.value} but token is only valid for $tokenParty"))
-      case _ => Future.unit
-    }
+    throw new RuntimeException("allocateParty is not supported by the JSON API.")
   }
 
   private def create(
@@ -367,7 +339,7 @@ class JsonLedgerClient(
       entity = HttpEntity(
         ContentTypes.`application/json`,
         JsonLedgerClient.CreateArgs(tplId, jsonArgument).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token)))
     )
     Http()
       .singleRequest(req)
@@ -398,7 +370,7 @@ class JsonLedgerClient(
       entity = HttpEntity(
         ContentTypes.`application/json`,
         JsonLedgerClient.ExerciseArgs(tplId, contractId, choice, jsonArgument).toJson.prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token)))
     )
     Http()
       .singleRequest(req)
@@ -437,7 +409,7 @@ class JsonLedgerClient(
           .ExerciseByKeyArgs(tplId, jsonKey, choice, jsonArgument)
           .toJson
           .prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token)))
     )
     Http()
       .singleRequest(req)
@@ -477,7 +449,7 @@ class JsonLedgerClient(
           .CreateAndExerciseArgs(tplId, jsonTemplate, choice, jsonArgument)
           .toJson
           .prettyPrint),
-      headers = List(Authorization(OAuth2BearerToken(token.value)))
+      headers = List(Authorization(OAuth2BearerToken(token)))
     )
     Http()
       .singleRequest(req)
@@ -502,7 +474,7 @@ class JsonLedgerClient(
 
 object JsonLedgerClient {
   final case class QueryArgs(templateId: Identifier)
-  final case class QueryResponse(results: List[ActiveContract])
+  final case class QueryResponse(result: List[ActiveContract])
   final case class ActiveContract(contractId: String, payload: JsValue)
 
   final case class CreateArgs(templateId: Identifier, payload: JsValue)
