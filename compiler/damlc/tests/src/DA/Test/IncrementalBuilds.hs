@@ -9,9 +9,10 @@ import Data.Foldable
 import qualified Data.Set as Set
 import Data.Traversable
 import System.Directory.Extra
+import System.Exit
 import System.FilePath
 import System.IO.Extra
-import DA.Test.Util
+import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -136,7 +137,7 @@ tests damlc repl = testGroup "Incremental builds"
       -- ShouldSucceed indicates if scenarios should still succeed after modifications.
       -- This is useful to make sure that modifications have propagated correctly into the DAR.
       test :: String -> [(FilePath, String)] -> [(FilePath, String)] -> [FilePath] -> ShouldSucceed -> TestTree
-      test name initial modification expectedRebuilds (ShouldSucceed shouldSucceed) = testCase name $ withTempDir $ \dir -> do
+      test name initial modification expectedRebuilds shouldSucceed = testCase name $ withTempDir $ \dir -> do
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
             [ "sdk-version: 0.0.0"
             , "name: test-project"
@@ -148,8 +149,8 @@ tests damlc repl = testGroup "Incremental builds"
               createDirectoryIfMissing True (takeDirectory $ dir </> file)
               writeFileUTF8 (dir </> file) content
           let dar = dir </> "out.dar"
-          callProcessSilent damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
-          callProcessSilent repl ["testAll", dar]
+          callProcessSilent (ShouldSucceed True) damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
+          callProcessSilent (ShouldSucceed True) repl ["testAll", dar]
           dalfFiles <- getDalfFiles $ dir </> ".daml/build"
           dalfModTimes <- for dalfFiles $ \f -> do
               modTime <- getModificationTime f
@@ -157,25 +158,33 @@ tests damlc repl = testGroup "Incremental builds"
           for_ modification $ \(file, content) -> do
               createDirectoryIfMissing True (takeDirectory $ dir </> file)
               writeFileUTF8 (dir </> file) content
-          callProcessSilent damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
+          callProcessSilent (ShouldSucceed True) damlc ["build", "--project-root", dir, "-o", dar, "--incremental=yes"]
           rebuilds <- forMaybeM dalfModTimes $ \(f, oldModTime) -> do
               newModTime <- getModificationTime f
               pure $ if newModTime == oldModTime
                   then Nothing
                   else Just (makeRelative (dir </> ".daml/build") f -<.> ".daml")
           assertEqual "Expected rebuilds" (Set.fromList $ map normalise expectedRebuilds) (Set.fromList $ map normalise rebuilds)
-          callProcessSilent repl ["validate", dar]
-          if shouldSucceed
-            then
-              callProcessSilent repl ["testAll", dar]
-            else
-              callProcessSilentError repl ["testAll", dar]
+          callProcessSilent (ShouldSucceed True) repl ["validate", dar]
+          callProcessSilent shouldSucceed repl ["testAll", dar]
           pure ()
 
 getDalfFiles :: FilePath -> IO [FilePath]
 getDalfFiles dir = do
     files <- listFilesRecursive dir
     pure $ filter (\f -> takeExtension f == ".dalf") files
+
+newtype ShouldSucceed = ShouldSucceed Bool
+
+-- | Only displays stdout and stderr on errors
+callProcessSilent :: ShouldSucceed -> FilePath -> [String] -> IO ()
+callProcessSilent (ShouldSucceed shouldSucceed) cmd args = do
+    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
+    unless (shouldSucceed == (exitCode == ExitSuccess)) $ do
+      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
+      hPutStrLn stderr $ unlines ["stdout:", out]
+      hPutStrLn stderr $ unlines ["stderr: ", err]
+      exitFailure
 
 forMaybeM :: Monad m => [a] -> (a -> m (Maybe b)) -> m [b]
 forMaybeM = flip mapMaybeM
