@@ -179,6 +179,24 @@ packagingTests = testGroup "packaging"
         withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+     , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ withTempDir $ \tmpDir -> do
+        callCommandQuiet $ unwords ["daml", "new", tmpDir </> "data-dependency"]
+        withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandQuiet "daml build -o data-dependency.dar"
+        createDirectoryIfMissing True (tmpDir </> "proj")
+        writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
+          [ "sdk-version: " <> sdkVersion
+          , "name: proj"
+          , "version: 0.0.1"
+          , "source: ."
+          , "dependencies: [daml-prim, daml-stdlib, daml-script, daml-trigger]"
+          , "data-dependencies: [" <> show (tmpDir </> "data-dependency" </> "data-dependency.dar") <> "]"
+          ]
+        writeFileUTF8 (tmpDir </> "proj" </> "A.daml") $ unlines
+          [ "module A where"
+          , "import Main (setup)"
+          , "setup' = setup"
+          ]
+        withCurrentDirectory (tmpDir </> "proj") $ callCommandQuiet "daml build"
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")
