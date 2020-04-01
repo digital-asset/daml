@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
 import com.digitalasset.platform.store.entries.{
@@ -49,6 +50,13 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed]
+
+  def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed]
 
   def ledgerEnd: Offset
 

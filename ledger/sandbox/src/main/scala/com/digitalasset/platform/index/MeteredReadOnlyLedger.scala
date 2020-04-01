@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
 import com.digitalasset.platform.metrics.timedFuture
@@ -86,6 +87,14 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       verbose: Boolean,
   ): Source[(Offset, GetTransactionsResponse), NotUsed] =
     ledger.flatTransactions(startExclusive, endInclusive, filter, verbose)
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    ledger.transactionTrees(startExclusive, endInclusive, requestingParties, verbose)
 
   override def ledgerEnd: Offset = ledger.ledgerEnd
 

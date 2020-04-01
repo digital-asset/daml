@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStrea
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
+  GetTransactionTreesResponse,
   GetTransactionsResponse
 }
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
@@ -80,6 +81,18 @@ abstract class BaseLedger(
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.begin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
+      endInclusive
+    )
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    dispatcher.startingAt(
+      startExclusive.getOrElse(Offset.begin),
+      RangeSource(
+        ledgerDao.transactionsReader.getTransactionTrees(_, _, requestingParties, verbose)),
       endInclusive
     )
 
