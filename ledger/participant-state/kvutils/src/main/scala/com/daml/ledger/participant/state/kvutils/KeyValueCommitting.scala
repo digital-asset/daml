@@ -321,33 +321,28 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("kvutils", "committer")
+    private val prefix = "kvutils.committer"
 
     // Timer (and count) of how fast submissions have been processed.
-    val runTimer: metrics.Timer =
-      metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
+    val runTimer: metrics.Timer = metricRegistry.timer(s"$prefix.run_timer")
 
     // Number of exceptions seen.
-    val exceptions: metrics.Counter =
-      metricRegistry.counter(MetricRegistry.name(prefix, "exceptions"))
+    val exceptions: metrics.Counter = metricRegistry.counter(s"$prefix.exceptions")
 
     // Counter to monitor how many at a time and when kvutils is processing a submission.
-    val processing: metrics.Counter =
-      metricRegistry.counter(MetricRegistry.name(prefix, "processing"))
+    val processing: metrics.Counter = metricRegistry.counter(s"$prefix.processing")
 
     val lastRecordTimeGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(MetricRegistry.name(prefix, "last", "record_time"), lastRecordTimeGauge)
+    metricRegistry.register(s"$prefix.last.record_time", lastRecordTimeGauge)
 
     val lastEntryIdGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(MetricRegistry.name(prefix, "last", "entry_id"), lastEntryIdGauge)
+    metricRegistry.register(s"$prefix.last.entry_id", lastEntryIdGauge)
 
     val lastParticipantIdGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(
-      MetricRegistry.name(prefix, "last", "participant_id"),
-      lastParticipantIdGauge)
+    metricRegistry.register(s"$prefix.last.participant_id", lastParticipantIdGauge)
 
     val lastExceptionGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(MetricRegistry.name(prefix, "last", "exception"), lastExceptionGauge)
+    metricRegistry.register(s"$prefix.last.exception", lastExceptionGauge)
   }
 
 }

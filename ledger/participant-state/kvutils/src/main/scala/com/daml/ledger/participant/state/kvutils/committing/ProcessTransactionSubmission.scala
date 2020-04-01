@@ -518,16 +518,13 @@ private[kvutils] class ProcessTransactionSubmission(
   }
 
   private object Metrics {
-    private val prefix = MetricRegistry.name("kvutils", "committer", "transaction")
-    val runTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
-    val interpretTimer: Timer = metricRegistry.timer(MetricRegistry.name(prefix, "interpret_timer"))
-    val accepts: Counter = metricRegistry.counter(MetricRegistry.name(prefix, "accepts"))
+    private val prefix = "kvutils.committer.transaction"
+    val runTimer: Timer = metricRegistry.timer(s"$prefix.run_timer")
+    val interpretTimer: Timer = metricRegistry.timer(s"$prefix.interpret_timer")
+    val accepts: Counter = metricRegistry.counter(s"$prefix.accepts")
     val rejections: Map[Int, Counter] =
       DamlTransactionRejectionEntry.ReasonCase.values
-        .map(
-          v =>
-            v.getNumber -> metricRegistry.counter(
-              MetricRegistry.name(prefix, s"rejections_${v.name}")))
+        .map(v => v.getNumber -> metricRegistry.counter(s"$prefix.rejections_${v.name}"))
         .toMap
   }
 }

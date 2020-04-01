@@ -10,7 +10,7 @@ import org.scalatest.{FlatSpec, Matchers}
 
 final class MetricsNamingSpec extends FlatSpec with Matchers {
 
-  behavior of "MetricsNaming.camelCaseToSnakeCase"
+  behavior of "ApiMetricsNaming.camelCaseToSnakeCase"
 
   import MetricsNaming.camelCaseToSnakeCase
 
@@ -49,21 +49,11 @@ final class MetricsNamingSpec extends FlatSpec with Matchers {
     camelCaseToSnakeCase("AJVMHeap") shouldBe "ajvm_heap"
   }
 
-  behavior of "MetricsNaming.nameForService"
-
-  import MetricsNaming.nameForService
-
-  behavior of "MetricsNaming.nameFor"
-
-  it should "produce the expected name for a selection of services" in {
-    nameForService(CommandServiceGrpc.javaDescriptor.getFullName) shouldBe "daml.lapi.command_service"
-    nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName) shouldBe "daml.lapi.command_submission_service"
-    nameForService(ActiveContractsServiceGrpc.javaDescriptor.getFullName) shouldBe "daml.lapi.active_contracts_service"
-  }
+  behavior of "ApiMetricsNaming.nameFor"
 
   import MetricsNaming.nameFor
 
-  it should "produce the expected name for a selection of service methods" in {
+  it should "produce the expected name for a selection of services" in {
     nameFor(CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName) shouldBe "daml.lapi.command_service.submit_and_wait"
     nameFor(CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName) shouldBe "daml.lapi.command_submission_service.submit"
     nameFor(ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName) shouldBe "daml.lapi.active_contracts_service.get_active_contracts"
