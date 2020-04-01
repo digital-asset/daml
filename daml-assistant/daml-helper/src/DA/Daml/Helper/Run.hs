@@ -383,7 +383,16 @@ getTemplatesFolder = fmap (</> "templates") getSdkPath
 -- 4. If the target folder is inside a daml project (transitively) but
 -- is not the project root, it will do nothing and print out a warning.
 --
--- 5. If none of the above, it will create a daml.yaml from scratch.
+-- 5. If the target folder is a da project root, it will create a
+-- daml.yaml config file from the da.yaml config file, and let the
+-- user know that it did that.
+--
+-- 6. If the target folder is inside a da project (transitively) but
+-- is not the project root, it will error out with a message that lets
+-- the user know what the project root is and suggests the user run
+-- daml init on the project root.
+--
+-- 7. If none of the above, it will create a daml.yaml from scratch.
 -- It will attempt to find a Main.daml source file in the project
 -- directory tree, but if it does not it will use daml/Main.daml
 -- as the default.
@@ -428,7 +437,73 @@ runInit targetFolderM = do
                 ]
         exitSuccess
 
-    -- case 5
+    -- cases 5 or 6
+    daProjectRootM <- findDaProjectRoot targetFolderAbs
+    whenJust daProjectRootM $ \projectRoot -> do
+        when (targetFolderAbs /= projectRoot) $ do
+            let projectRootRel = makeRelative currentDir projectRoot
+            hPutStr stderr $ unlines
+                [ "ERROR: daml init target is not DA project root."
+                , "    daml init target  = " <> targetFolder
+                , "    DA project root   = " <> projectRootRel
+                , ""
+                , "To proceed with da.yaml migration, please use the project root:"
+                , "    " <> showCommandForUser "daml" ["init", projectRootRel]
+                ]
+            exitFailure
+
+        let legacyConfigPath = projectRoot </> legacyConfigName
+            legacyConfigRel = normalise (targetFolderRel </> legacyConfigName)
+              -- ^ for display purposes
+
+        daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
+            Y.decodeFileEither (projectRoot </> legacyConfigName)
+
+        putStr $ unlines
+            [ "Detected DA project."
+            , "Migrating " <> legacyConfigRel <> " to " <> projectConfigRel
+            ]
+
+        let getField :: Y.FromJSON t => T.Text -> IO t
+            getField name =
+                required ("Failed to parse project." <> name <> " from " <> T.pack legacyConfigPath) $
+                    flip Y.parseMaybe daYaml $ \y -> do
+                        p <- y Y..: "project"
+                        p Y..: name
+
+        minimumSdkVersion <- getMinimumSdkVersion
+        projSdkVersion :: SdkVersion <- getField "sdk-version"
+        let newProjSdkVersion = max projSdkVersion minimumSdkVersion
+
+        when (projSdkVersion < minimumSdkVersion) $ do
+            putStr $ unlines
+                [ ""
+                , "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
+                , "assistant, so daml.yaml will use SDK version " <> versionToString newProjSdkVersion <> " instead."
+                , ""
+                ]
+
+        projSource :: T.Text <- getField "source"
+        projParties :: [T.Text] <- getField "parties"
+        projName :: T.Text <- getField "name"
+        projScenario :: T.Text <- getField "scenario"
+
+        BS.writeFile (projectRoot </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
+            [ ("sdk-version", Y.String (versionToText newProjSdkVersion))
+            , ("name", Y.String projName)
+            , ("source", Y.String projSource)
+            , ("scenario", Y.String projScenario)
+            , ("parties", Y.array (map Y.String projParties))
+            , ("version", Y.String "1.0.0")
+            , ("exposed-modules", Y.array [Y.String "Main"])
+            , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
+            , ("sandbox-options", Y.array [Y.String "--wall-clock-time"])
+            ]
+
+        putStrLn ("Done! Please verify " <> projectConfigRel)
+        exitSuccess
+
+    -- case 7
     putStrLn ("Generating " <> projectConfigRel)
 
     currentSdkVersion <- getSdkVersion
@@ -458,6 +533,11 @@ runInit targetFolderM = do
         ]
 
     where
+
+        getMinimumSdkVersion :: IO SdkVersion
+        getMinimumSdkVersion =
+            requiredE "BUG: Expected 0.12.15 to be valid SDK version" $
+              parseVersion "0.12.15"
 
         fieldOrder :: [T.Text]
         fieldOrder =
@@ -541,6 +621,18 @@ runNew targetFolder templateNameM = do
             ]
         exitFailure
 
+    daRootM <- findDaProjectRoot targetFolderAbs
+    whenJust daRootM $ \daRoot -> do
+        hPutStr stderr $ unlines
+            [ "Target directory is inside existing DA project " <> show daRoot
+            , "Please convert DA project to DAML using 'daml init':"
+            , ""
+            , "    " <> showCommandForUser "daml" ["init", daRoot]
+            , ""
+            , "Or specify a new directory outside an existing project."
+            ]
+        exitFailure
+
     -- Copy the template over.
     copyDirectory templateFolder targetFolder
     files <- listFilesRecursive targetFolder
@@ -610,8 +702,14 @@ runCreateDamlApp targetFolder = do
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
 
+legacyConfigName :: FilePath
+legacyConfigName = "da.yaml"
+
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
 findDamlProjectRoot = findAscendantWithFile projectConfigName
+
+findDaProjectRoot :: FilePath -> IO (Maybe FilePath)
+findDaProjectRoot = findAscendantWithFile legacyConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
