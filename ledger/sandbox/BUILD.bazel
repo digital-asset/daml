@@ -367,7 +367,7 @@ server_conformance_test(
     name = "conformance-test-lots-of-parties",
     flaky = True,
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -396,7 +396,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-config-management",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -409,7 +409,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-command-deduplication",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
     ],
     servers = SERVERS,
     test_tool_args = [
@@ -422,7 +422,7 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
-        "--static-time",
+        "--wall-clock-time",
         "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,

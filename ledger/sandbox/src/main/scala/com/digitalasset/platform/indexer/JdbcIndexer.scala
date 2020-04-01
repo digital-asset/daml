@@ -38,6 +38,7 @@ final class JdbcIndexerFactory(
     jdbcUrl: String,
     readService: ReadService,
     metrics: MetricRegistry,
+    eventsPageSize: Int,
 )(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -60,7 +61,7 @@ final class JdbcIndexerFactory(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =
     for {
-      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics)
+      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics, eventsPageSize)
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
     } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
 

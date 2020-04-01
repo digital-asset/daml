@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -115,14 +115,20 @@ abstract class LedgerBackedIndexService(
       filter: domain.TransactionFilter,
       verbose: Boolean,
   ): Source[GetTransactionsResponse, NotUsed] =
-    between(startExclusive, endInclusive)(acceptedTransactions)
-      .mapConcat {
-        case (offset, transaction) =>
-          TransactionConversion
-            .ledgerEntryToFlatTransaction(offset, transaction, filter, verbose)
-            .map(tx => GetTransactionsResponse(Seq(tx)))
-            .toList
-      }
+    between(startExclusive, endInclusive)(
+      (from, to) =>
+        ledger
+          .flatTransactions(
+            startExclusive = from,
+            endInclusive = to,
+            filter = filter.filtersByParty.map {
+              case (party, filters) =>
+                party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
+            },
+            verbose = verbose
+          )
+          .map(_._2)
+    )
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
@@ -140,7 +146,7 @@ abstract class LedgerBackedIndexService(
   private def between[A](
       startExclusive: domain.LedgerOffset,
       endInclusive: Option[domain.LedgerOffset],
-  )(f: (Offset, Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] = {
+  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed]): Source[A, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { begin =>
       endInclusive
@@ -154,17 +160,17 @@ abstract class LedgerBackedIndexService(
               ErrorFactories.invalidArgument(
                 s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."))
           case endOpt: Option[Offset] =>
-            f(begin, endOpt)
+            f(Some(begin), endOpt)
         }
     }
   }
 
   private def acceptedTransactions(
-      begin: Offset,
-      endOpt: Option[Offset],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
   ): Source[(LedgerOffset.Absolute, LedgerEntry.Transaction), NotUsed] =
     ledger
-      .ledgerEntries(Some(begin), endOpt)
+      .ledgerEntries(startExclusive, endInclusive)
       .collect {
         case (offset, t: LedgerEntry.Transaction) =>
           (toAbsolute(offset), t)

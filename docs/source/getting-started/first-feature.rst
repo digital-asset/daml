@@ -192,14 +192,32 @@ First, navigate to the terminal window where the ``daml start --start-navigator=
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 
-If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yaml start`` command, which will start the UI.
-
+If you have the frontend UI up and running you're all set. In case you don't have the UI running open a new terminal window and navigate to the ``create-daml-app/ui`` folder and run the ``yarn start`` command, which will start the UI.
 Once you've done all these changes you should see the same login page as before at http://localhost:3000.
+
+   .. figure:: images/create-daml-app-login-screen.png
+      :scale: 50 %
+      :alt: Login screen for the create-daml-app
+      :class: no-scaled-link
+
 Once you've logged in, you'll see a familiar UI but with our new *Messages* panel at the bottom!
+
+   .. figure:: images/create-daml-app-messaging-feature.png
+      :alt: You can now see the messaging feature in the create-daml-app
+
 Go ahead and add follow more users, and log in as some of those users in separate browser windows to follow yourself back.
 Then, if you click on the dropdown menu in the *Messages* panel, you'll be able to see some followers to message!
+
+   .. figure:: images/create-daml-app-messaging-select-user.png
+      :scale: 50 %
+      :alt: Select a follower from a dropdown list in the create-daml-app
+
 Send some messages between users and make sure you can see each one from the other side.
 You'll notice that new messages appear in the UI as soon as they are sent (due to the *streaming* React hooks).
+
+   .. figure:: images/create-daml-app-message-received.png
+      :scale: 50 %
+      :alt: In the create-daml-app as soon as you send the message it will appear in the "Messsaging" panel
 
 Next Steps
 ==========

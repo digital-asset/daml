@@ -18,7 +18,7 @@ da_scala_library(
 
 da_scala_test(
     name = "ports-tests",
-    srcs = glob(["src/test/suite/**/*.scala"]),
+    srcs = glob(["src/test/suite/scala/**/*.scala"]),
     deps = [
         ":ports",
     ],

@@ -358,14 +358,12 @@ class WebSocketService(
       .via(allowOnlyFirstInput(
         InvalidUserInput("Multiple requests over the same WebSocket connection are not allowed.")))
       .flatMapMerge(
-        2,
-        x =>
-          x.flatMap {
-              case (offPrefix, qq: Q.Query[q]) =>
-                implicit val SQ: StreamQuery[q] = qq.alg
-                getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
-            }
-            .fold(e => Source.single(-\/(e)), s => s.map(\/-(_))): Source[Error \/ Message, NotUsed]
+        2, // 2 streams max, the 2nd is to be able to send an error back
+        _.map {
+          case (offPrefix, qq: Q.Query[q]) =>
+            implicit val SQ: StreamQuery[q] = qq.alg
+            getTransactionSourceForParty[q](jwt, jwtPayload.party, offPrefix, qq.q: q)
+        }.valueOr(e => Source.single(-\/(e))): Source[Error \/ Message, NotUsed]
       )
       .takeWhile(_.isRight, inclusive = true) // stop after emitting 1st error
       .map(_.fold(e => wsErrorMessage(e), identity): Message)
@@ -388,13 +386,13 @@ class WebSocketService(
       jwt: Jwt,
       party: domain.Party,
       offPrefix: Option[domain.StartingOffset],
-      request: A): Error \/ Source[Message, NotUsed] = {
+      request: A): Source[Error \/ Message, NotUsed] = {
     val Q = implicitly[StreamQuery[A]]
 
     val (resolved, unresolved, fn) = Q.predicate(request, resolveTemplateId, lookupType)
 
     if (resolved.nonEmpty) {
-      val source = contractsService
+      contractsService
         .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
         .filter(_.nonEmpty)
@@ -402,11 +400,12 @@ class WebSocketService(
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
-        .map(jsv => TextMessage(jsv.compactPrint))
-      \/-(source)
+        .map(jsv => \/-(wsMessage(jsv)))
     } else {
-      -\/(InvalidUserInput(
-        s"Cannot resolve any of the requested template IDs: ${unresolved: Set[domain.TemplateId.OptionalPkg]}"))
+      reportUnresolvedTemplateIds(unresolved)
+        .map(jsv => \/-(wsMessage(jsv)))
+        .concat(
+          Source.single(-\/(InvalidUserInput(s"Could not resolve any template ID from request."))))
     }
   }
 
@@ -455,9 +454,11 @@ class WebSocketService(
       .collect { case (_, Some(x)) => x }
   }
 
-  private[http] def wsErrorMessage(error: Error): TextMessage.Strict = {
-    TextMessage(errorResponse(error).toJson.compactPrint)
-  }
+  private[http] def wsErrorMessage(error: Error): TextMessage.Strict =
+    wsMessage(errorResponse(error).toJson)
+
+  private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
+    TextMessage(jsVal.compactPrint)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def convertFilterContracts[Pos](fn: domain.ActiveContract[LfV] => Option[Pos])
@@ -488,9 +489,9 @@ class WebSocketService(
   private def reportUnresolvedTemplateIds(
       unresolved: Set[domain.TemplateId.OptionalPkg]): Source[JsValue, NotUsed] =
     if (unresolved.isEmpty) Source.empty
-    else
-      Source.single {
-        import spray.json._
-        Map("warnings" -> domain.UnknownTemplateIds(unresolved.toList)).toJson
-      }
+    else {
+      import spray.json._
+      Source.single(domain.WarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
+    }
+
 }

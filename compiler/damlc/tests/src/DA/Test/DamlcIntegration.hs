@@ -169,7 +169,9 @@ testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> I
 testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
-  if any (ignoreVersion version) anns
+  if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
+    pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
+  else if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""

@@ -135,37 +135,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {
       comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
-    }
-  }
-
-  it should "return the same result regardless of the page size" in {
-    for {
-      (from, to, _) <- storeTestFixture()
-      result1 <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
-            filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            pageSize = 100,
-            verbose = true,
-          ))
-      result2 <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getFlatTransactions(
-            startExclusive = from,
-            endInclusive = to,
-            filter = Map(alice -> Set.empty, bob -> Set.empty, charlie -> Set.empty),
-            pageSize = 1,
-            verbose = true,
-          ))
-    } yield {
-      result1 should contain theSameElementsInOrderAs result2
     }
   }
 
@@ -183,7 +156,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(alice -> Set.empty),
-            pageSize = 100,
             verbose = true,
           ))
       resultForBob <- transactionsOf(
@@ -192,7 +164,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(bob -> Set.empty),
-            pageSize = 100,
             verbose = true,
           ))
       resultForCharlie <- transactionsOf(
@@ -201,7 +172,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(charlie -> Set.empty),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {
@@ -230,7 +200,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             startExclusive = from,
             endInclusive = to,
             filter = Map(alice -> Set(Identifier.assertFromString("pkg:mod:Template3"))),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {
@@ -271,7 +240,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 Identifier.assertFromString("pkg:mod:Template3"),
               )
             ),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {
@@ -322,7 +290,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 Identifier.assertFromString("pkg:mod:Template3"),
               )
             ),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {
@@ -371,7 +338,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               ),
               bob -> Set.empty
             ),
-            pageSize = 100,
             verbose = true,
           ))
     } yield {

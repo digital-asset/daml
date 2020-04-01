@@ -92,13 +92,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
     }
 
-  private val timeProviderType = config.timeProviderType.getOrElse {
-    throw new InvalidConfigException(
-      "Sandbox used to default to Static Time mode. In the next release, Wall Clock Time mode will"
-        + " become the default. In this version, you will need to explicitly specify the"
-        + " `--static-time` flag to maintain the previous behavior, or `--wall-clock-time` if you"
-        + " would like to use the new defaults.")
-  }
+  private val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
 
   private val seeding = config.seeding.getOrElse {
     throw new InvalidConfigException(
@@ -177,6 +171,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
+                  eventsPageSize = config.eventsPageSize,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -213,6 +208,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
+                  eventsPageSize = config.eventsPageSize,
                   transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,

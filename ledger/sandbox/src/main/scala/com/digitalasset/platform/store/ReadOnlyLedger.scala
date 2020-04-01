@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
@@ -22,7 +22,8 @@ import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
-  GetTransactionResponse
+  GetTransactionResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
@@ -41,6 +42,13 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def ledgerEntries(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed]
+
+  def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed]
 
   def ledgerEnd: Offset
 

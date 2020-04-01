@@ -1074,7 +1074,7 @@ Please note that Streaming API does not allow multiple requests over the same We
 Error and Warning Reporting
 ===========================
 
-Errors and warnings reported as part of the regular ``on-message`` flow.
+Errors and warnings reported as part of the regular ``on-message`` flow: ``ws.addEventListener("message", ...)``.
 
 Streaming API error messages formatted the same way as :ref:`synchronous API errors <error-format>`.
 
@@ -1084,7 +1084,8 @@ Streaming API reports only one type of warnings -- unknown template IDs, which i
 
     {"warnings":{"unknownTemplateIds":<JSON Array of template ID strings>>}}
 
-Examples:
+Error and Warning Examples:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: none
 
@@ -1097,6 +1098,11 @@ Examples:
 
     {
       "errors":["Multiple requests over the same WebSocket connection are not allowed."],
+      "status":400
+    }
+
+    {
+      "errors":["Could not resolve any template ID from request."],
       "status":400
     }
 
