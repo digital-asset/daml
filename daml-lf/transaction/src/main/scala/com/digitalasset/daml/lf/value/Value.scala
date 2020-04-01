@@ -418,9 +418,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
       CidMapper.basicMapperInstance[ContractId, AbsoluteContractId]
     implicit val relCidResolver: CidMapper.RelCidResolver[ContractId, AbsoluteContractId] =
       CidMapper.basicCidResolverInstance
-    implicit val cidSuffixer: CidMapper.CidSuffixer[ContractId, AbsoluteContractId.V1] =
-      CidMapper.basicMapperInstance[ContractId, AbsoluteContractId.V1]
-
   }
 
   /** The constructor is private so that we make sure that only this object constructs

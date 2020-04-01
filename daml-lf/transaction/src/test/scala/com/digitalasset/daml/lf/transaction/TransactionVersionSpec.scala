@@ -33,7 +33,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 2 when confronted with newer data" in {
       val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
+        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
       assignVersion(assignValueVersions(usingOptional)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("2"))
@@ -41,7 +41,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 7 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
+        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("7"))
@@ -49,7 +49,7 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 
     "pick version 2 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.ContractId])
+        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
       assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
         minOutputVersion,
         TransactionVersion("2"))
@@ -66,17 +66,15 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 }
 
 object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, mkTransaction}
-  private[this] val singleId = Value.NodeId(0)
+  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
+  private[this] val singleId = "a"
   private val dummyCreateTransaction =
-    mkTransaction(HashMap(singleId -> dummyCreateNode("cid1")), ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =
-    mkTransaction(
-      HashMap(singleId -> dummyExerciseNode("cid2", ImmArray.empty)),
-      ImmArray(singleId))
+    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
   private val dummyExerciseTransaction =
-    mkTransaction(
-      HashMap(singleId -> dummyExerciseNode("cid3", ImmArray.empty, false)),
+    StringTransaction(
+      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
       ImmArray(singleId),
     )
 
