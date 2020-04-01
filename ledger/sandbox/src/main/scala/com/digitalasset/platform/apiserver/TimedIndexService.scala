@@ -32,31 +32,31 @@ import scala.concurrent.Future
 final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, prefix: String)
     extends IndexService {
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
-    time("listLfPackages", delegate.listLfPackages())
+    time("list_lf_packages", delegate.listLfPackages())
 
   override def getLfArchive(packageId: PackageId): Future[Option[DamlLf.Archive]] =
-    time("getLfArchive", delegate.getLfArchive(packageId))
+    time("get_lf_archive", delegate.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    time("getLfPackage", delegate.getLfPackage(packageId))
+    time("get_lf_package", delegate.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: LedgerOffset.Absolute
   ): Source[domain.PackageEntry, NotUsed] =
-    time("packageEntries", delegate.packageEntries(startExclusive))
+    time("package_entries", delegate.packageEntries(startExclusive))
 
   override def getLedgerConfiguration(): Source[v2.LedgerConfiguration, NotUsed] =
-    time("getLedgerConfiguration", delegate.getLedgerConfiguration())
+    time("get_ledger_configuration", delegate.getLedgerConfiguration())
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    time("currentLedgerEnd", delegate.currentLedgerEnd())
+    time("current_ledger_end", delegate.currentLedgerEnd())
 
   override def getCompletions(
       begin: domain.LedgerOffset,
       applicationId: ApplicationId,
       parties: Set[Party]
   ): Source[CompletionStreamResponse, NotUsed] =
-    time("getCompletions", delegate.getCompletions(begin, applicationId, parties))
+    time("get_completions", delegate.getCompletions(begin, applicationId, parties))
 
   override def transactions(
       begin: domain.LedgerOffset,
@@ -72,66 +72,66 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
       filter: domain.TransactionFilter,
       verbose: Boolean
   ): Source[GetTransactionTreesResponse, NotUsed] =
-    time("transactionTrees", delegate.transactionTrees(begin, endAt, filter, verbose))
+    time("transaction_trees", delegate.transactionTrees(begin, endAt, filter, verbose))
 
   override def getTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party]
   ): Future[Option[GetFlatTransactionResponse]] =
-    time("getTransactionById", delegate.getTransactionById(transactionId, requestingParties))
+    time("get_transaction_by_id", delegate.getTransactionById(transactionId, requestingParties))
 
   override def getTransactionTreeById(
       transactionId: TransactionId,
       requestingParties: Set[Party]
   ): Future[Option[GetTransactionResponse]] =
     time(
-      "getTransactionTreeById",
+      "get_transaction_tree_by_id",
       delegate.getTransactionTreeById(transactionId, requestingParties))
 
   override def getActiveContractSetSnapshot(
       filter: domain.TransactionFilter
   ): Future[v2.ActiveContractSetSnapshot] =
-    time("getActiveContractSetSnapshot", delegate.getActiveContractSetSnapshot(filter))
+    time("get_active_contract_set_snapshot", delegate.getActiveContractSetSnapshot(filter))
 
   override def lookupActiveContract(
       submitter: Party,
       contractId: Value.AbsoluteContractId
   ): Future[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
-    time("lookupActiveContract", delegate.lookupActiveContract(submitter, contractId))
+    time("lookup_active_contract", delegate.lookupActiveContract(submitter, contractId))
 
   override def lookupContractKey(
       submitter: Party,
       key: Node.GlobalKey
   ): Future[Option[Value.AbsoluteContractId]] =
-    time("lookupContractKey", delegate.lookupContractKey(submitter, key))
+    time("lookup_contract_key", delegate.lookupContractKey(submitter, key))
 
   override def lookupMaximumLedgerTime(ids: Set[Value.AbsoluteContractId]): Future[Instant] =
-    time("lookupMaximumLedgerTime", delegate.lookupMaximumLedgerTime(ids))
+    time("lookup_maximum_ledger_time", delegate.lookupMaximumLedgerTime(ids))
 
   override def getLedgerId(): Future[LedgerId] =
-    time("getLedgerId", delegate.getLedgerId())
+    time("get_ledger_id", delegate.getLedgerId())
 
   override def getParticipantId(): Future[ParticipantId] =
-    time("getParticipantId", delegate.getParticipantId())
+    time("get_participant_id", delegate.getParticipantId())
 
   override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =
-    time("getParties", delegate.getParties(parties))
+    time("get_parties", delegate.getParties(parties))
 
   override def listKnownParties(): Future[List[domain.PartyDetails]] =
-    time("listKnownParties", delegate.listKnownParties())
+    time("list_known_parties", delegate.listKnownParties())
 
   override def partyEntries(
       startExclusive: LedgerOffset.Absolute
   ): Source[domain.PartyEntry, NotUsed] =
-    time("partyEntries", delegate.partyEntries(startExclusive))
+    time("party_entries", delegate.partyEntries(startExclusive))
 
   override def lookupConfiguration(): Future[Option[(LedgerOffset.Absolute, Configuration)]] =
-    time("lookupConfiguration", delegate.lookupConfiguration())
+    time("lookup_configuration", delegate.lookupConfiguration())
 
   override def configurationEntries(
       startExclusive: Option[LedgerOffset.Absolute]
   ): Source[domain.ConfigurationEntry, NotUsed] =
-    time("configurationEntries", delegate.configurationEntries(startExclusive))
+    time("configuration_entries", delegate.configurationEntries(startExclusive))
 
   override def deduplicateCommand(
       deduplicationKey: String,
@@ -139,7 +139,7 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
       deduplicateUntil: Instant
   ): Future[v2.CommandDeduplicationResult] =
     time(
-      "deduplicateCommand",
+      "deduplicate_command",
       delegate.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil))
 
   override def currentHealth(): HealthStatus =
