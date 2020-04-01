@@ -9,8 +9,8 @@ import com.digitalasset.daml.lf.engine.trigger.{RunnerMain => Trigger}
 import com.digitalasset.extractor.{Main => Extractor}
 import com.digitalasset.http.{Main => JsonApi}
 import com.digitalasset.navigator.{NavigatorBackend => Navigator}
-import com.digitalasset.platform.sandbox.{SandboxMain => SandboxClassic}
-import com.digitalasset.platform.sandboxnext.{Main => Sandbox}
+import com.digitalasset.platform.sandbox.{SandboxMain => Sandbox}
+import com.digitalasset.platform.sandboxnext.{Main => SandboxNext}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {
@@ -25,7 +25,7 @@ object SdkMain {
       case "json-api" => JsonApi.main(rest)
       case "navigator" => Navigator.main(rest)
       case "sandbox" => Sandbox.main(rest)
-      case "sandbox-classic" => SandboxClassic.main(rest)
+      case "sandbox-next" => SandboxNext.main(rest)
       case _ => sys.exit(1)
     }
   }
