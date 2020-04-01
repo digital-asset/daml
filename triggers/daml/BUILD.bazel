@@ -32,6 +32,10 @@ sdk-version: {sdk}
 name: daml-trigger
 source: daml
 version: 0.0.1
+exposed-modules:
+  - Daml.Trigger
+  - Daml.Trigger.Assert
+  - Daml.Trigger.LowLevel
 dependencies:
   - daml-stdlib
   - daml-prim
