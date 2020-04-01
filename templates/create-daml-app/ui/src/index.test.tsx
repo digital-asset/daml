@@ -143,7 +143,7 @@ const follow = async (page: Page, userToFollow: string) => {
   // We check this by the absence of the `loading` class.
   // (Both the `test-...` and `loading` classes appear in `div`s surrounding
   // the `input`, due to the translation of Semantic UI's `Input` element.)
-  await page.waitForSelector('.test-select-follow-input > :not(.loading)');
+  await page.waitForSelector('.test-select-follow-input > :not(.loading)', {timeout: 40_000});
 }
 
 test('log in as a new user, log out and log back in', async () => {
@@ -264,7 +264,7 @@ test('log in as three different users and start following each other', async () 
   await page1.close();
   await page2.close();
   await page3.close();
-}, 30_000);
+}, 40_000);
 
 test('error when following self', async () => {
   const party = getParty();
