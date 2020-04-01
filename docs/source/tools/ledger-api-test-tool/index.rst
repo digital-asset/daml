@@ -120,7 +120,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ daml sandbox *.dar
+     $ daml sandbox --wall-clock-time *.dar
      $ java -jar ledger-api-test-tool.jar localhost:6865
 
 This should always succeed, as the Sandbox is tested to correctly implement the
