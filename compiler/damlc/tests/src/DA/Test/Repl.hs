@@ -167,6 +167,13 @@ functionalTests damlc scriptDar testDar getSandboxPort = testGroup "functional"
           , input "debug 1"
           , matchOutput "^.*: 1"
           ]
+    , testInteraction' "server error"
+          [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
+          , input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
+          , matchOutput "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Party already exists"
+          , input "debug 1"
+          , matchOutput "^.*: 1"
+          ]
     ]
   where
     testInteraction' testName steps = testCase testName $ do
