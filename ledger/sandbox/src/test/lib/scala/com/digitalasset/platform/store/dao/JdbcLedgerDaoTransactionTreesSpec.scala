@@ -3,22 +3,12 @@
 
 package com.digitalasset.platform.store.dao
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.v1.transaction.TransactionTree
-import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionTreesResponse
 import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
 import com.digitalasset.platform.events.EventIdFormatter.split
-import com.digitalasset.platform.store.entries.LedgerEntry
 import org.scalatest._
-
-import scala.concurrent.Future
 
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     extends OptionValues
@@ -194,99 +184,5 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       }
     }
   }
-
-  behavior of "JdbcLedgerDao (getTransactionTrees)"
-
-  it should "match the results of lookupTransactionTreeById" in {
-    for {
-      (from, to, transactions) <- storeTestFixture()
-      lookups <- lookupIndividually(transactions, Set(alice, bob, charlie))
-      result <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
-            requestingParties = Set(alice, bob, charlie),
-            verbose = true,
-          ))
-    } yield {
-      comparable(result) should contain theSameElementsInOrderAs comparable(lookups)
-    }
-  }
-
-  it should "filter correctly by party" in {
-    for {
-      from <- ledgerDao.lookupLedgerEnd()
-      (_, tx) <- store(withChildren)
-      to <- ledgerDao.lookupLedgerEnd()
-      individualLookupForAlice <- lookupIndividually(Seq(tx), as = Set(alice))
-      individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))
-      individualLookupForCharlie <- lookupIndividually(Seq(tx), as = Set(charlie))
-      resultForAlice <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
-            requestingParties = Set(alice),
-            verbose = true,
-          ))
-      resultForBob <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
-            requestingParties = Set(bob),
-            verbose = true,
-          ))
-      resultForCharlie <- transactionsOf(
-        ledgerDao.transactionsReader
-          .getTransactionTrees(
-            startExclusive = from,
-            endInclusive = to,
-            requestingParties = Set(charlie),
-            verbose = true,
-          ))
-    } yield {
-      individualLookupForAlice should contain theSameElementsInOrderAs resultForAlice
-      individualLookupForBob should contain theSameElementsInOrderAs resultForBob
-      individualLookupForCharlie should contain theSameElementsInOrderAs resultForCharlie
-    }
-  }
-
-  private def storeTestFixture(): Future[(Offset, Offset, Seq[LedgerEntry.Transaction])] =
-    for {
-      from <- ledgerDao.lookupLedgerEnd()
-      (_, t1) <- store(singleCreate)
-      (_, t2) <- store(singleCreate)
-      (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
-      (_, t4) <- store(fullyTransient)
-      (_, t5) <- store(fullyTransientWithChildren)
-      (_, t6) <- store(withChildren)
-      to <- ledgerDao.lookupLedgerEnd()
-    } yield (from, to, Seq(t1, t2, t3, t4, t5, t6))
-
-  private def lookupIndividually(
-      transactions: Seq[LedgerEntry.Transaction],
-      as: Set[Party],
-  ): Future[Seq[TransactionTree]] =
-    Future
-      .sequence(
-        transactions.map(tx =>
-          ledgerDao.transactionsReader
-            .lookupTransactionTreeById(tx.transactionId, as)))
-      .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
-
-  private def transactionsOf(
-      source: Source[(Offset, GetTransactionTreesResponse), NotUsed],
-  ): Future[Seq[TransactionTree]] =
-    source
-      .map(_._2)
-      .runWith(Sink.seq)
-      .map(_.flatMap(_.transactions))
-
-  // Ensure two sequences of transaction trees are comparable:
-  // - witnesses do not have to appear in a specific order
-  private def comparable(txs: Seq[TransactionTree]): Seq[TransactionTree] =
-    txs.map(tx => tx.copy(eventsById = tx.eventsById.mapValues(_.modifyWitnessParties(_.sorted))))
 
 }
