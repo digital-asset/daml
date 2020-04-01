@@ -27,7 +27,7 @@ import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
 import System.Process
-import Test.Main hiding (withEnv)
+import Test.Main
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
@@ -41,6 +41,9 @@ import SdkVersion
 
 main :: IO ()
 main = do
+    -- We manipulate global state via the working directory and
+    -- the environment so running tests in parallel will cause trouble.
+    setEnv "TASTY_NUM_THREADS" "1" True
     yarn : damlTypesPath : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
@@ -58,7 +61,6 @@ main = do
     let mbCmdDir = takeDirectory <$> mbComSpec
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
-        , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMain (tests tmpDir damlTypesDir))
 
 tests :: FilePath -> FilePath -> TestTree
