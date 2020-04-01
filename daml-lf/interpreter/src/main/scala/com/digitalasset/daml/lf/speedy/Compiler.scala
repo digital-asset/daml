@@ -514,7 +514,32 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             //    let mbContractId = $lookupKey keyWithMaintainers
             //        _ = $insertLookup Foo keyWithMaintainers
             //    in mbContractId
-            compileLookupByKey(retrieveByKey.templateId, translate(retrieveByKey.key))
+            val template = lookupTemplate(retrieveByKey.templateId)
+            withEnv { _ =>
+              val key = translate(retrieveByKey.key)
+              val templateKey = template.key.getOrElse(
+                throw CompileError(
+                  s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't",
+                ),
+              )
+              SELet(encodeKeyWithMaintainers(key, templateKey)) in {
+                env = env.incrPos // keyWithM
+                SEAbs(1) {
+                  env = env.incrPos // token
+                  SELet(
+                    SBULookupKey(retrieveByKey.templateId)(
+                      SEVar(2), // key with maintainers
+                      SEVar(1) // token
+                    ),
+                    SBUInsertLookupNode(retrieveByKey.templateId)(
+                      SEVar(3), // key with maintainers
+                      SEVar(1), // mb contract id
+                      SEVar(2) // token
+                    ),
+                  ) in SEVar(2) // mb contract id
+                }
+              }
+            }
 
           case UpdateFetchByKey(retrieveByKey) =>
             // Translates 'fetchByKey Foo <key>' into:
@@ -1273,34 +1298,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   }
 
-  private def compileLookupByKey(templateId: Identifier, key: SExpr): SExpr = {
-    val template = lookupTemplate(templateId)
-    withEnv { _ =>
-      val templateKey = template.key.getOrElse(
-        throw CompileError(
-          s"Expecting to find key for template ${templateId}, but couldn't",
-        ),
-      )
-      SELet(encodeKeyWithMaintainers(key, templateKey)) in {
-        env = env.incrPos // keyWithM
-        SEAbs(1) {
-          env = env.incrPos // token
-          SELet(
-            SBULookupKey(templateId)(
-              SEVar(2), // key with maintainers
-              SEVar(1) // token
-            ),
-            SBUInsertLookupNode(templateId)(
-              SEVar(3), // key with maintainers
-              SEVar(1), // mb contract id
-              SEVar(2) // token
-            ),
-          ) in SEVar(2) // mb contract id
-        }
-      }
-    }
-  }
-
   private def translateCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, SEValue(argument))
@@ -1317,8 +1314,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         choice,
         choiceArg,
       )
-    case Command.LookupByKey(templateId, contractKey) =>
-      compileLookupByKey(templateId, SEValue(contractKey))
   }
 
   private val SEUpdatePureUnit = translate(EUpdate(UpdatePure(TUnit, EUnit)))
