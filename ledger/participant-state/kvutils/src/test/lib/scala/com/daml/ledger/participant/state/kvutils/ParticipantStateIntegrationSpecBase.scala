@@ -512,6 +512,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
+                  Duration.ofSeconds(123),
                 ).get,
               ),
             )

@@ -15,9 +15,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
       for {
         config <- ledger.configuration()
       } yield {
-        assert(
-          config.maxDeduplicationTime.isDefined,
-          "The maxDeduplicationTime field of the configuration is empty")
+        assert(config.minTtl.isDefined, "The minTTL field of the configuration is empty")
+        assert(config.maxTtl.isDefined, "The maxTTL field of the configuration is empty")
       }
   }
 
@@ -32,39 +31,20 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   }
 
   test(
-    "CSLSuccessIfMaxDedplicationTimeRight",
-    "Submission returns OK if deduplication time is within the accepted interval",
+    "CSLSuccessIfLetRight",
+    "Submission returns OK if LET is within the accepted interval",
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
-      // Submission using the maximum allowed deduplication time
+      // The maximum accepted clock skew depends on the ledger and is not exposed through the LedgerConfigurationService,
+      // and there might be an actual clock skew between the devices running the test and the ledger.
+      // This test therefore does not attempt to simulate any clock skew
+      // but simply checks whether basic command submission with an unmodified LET works.
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
-        config <- ledger.configuration()
-        maxDedupTime = config.maxDeduplicationTime.get
-        _ <- ledger.submit(request.update(_.commands.deduplicationTime := maxDedupTime))
+        _ <- ledger.submit(request)
       } yield {
         // No assertions to make, since the command went through as expected
-      }
-  }
-
-  test(
-    "CSLSuccessIfMaxDeduplicationTimeExceeded",
-    "Submission returns OK if deduplication time is too high",
-    allocate(SingleParty),
-  ) {
-    case Participants(Participant(ledger, party)) =>
-      val request = ledger.submitRequest(party, Dummy(party).create.command)
-      for {
-        config <- ledger.configuration()
-        maxDedupTime = config.maxDeduplicationTime.get
-        failure <- ledger
-          .submit(
-            request.update(_.commands.deduplicationTime := maxDedupTime.update(
-              _.seconds := maxDedupTime.seconds + 1)))
-          .failed
-      } yield {
-        assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "")
       }
   }
 }

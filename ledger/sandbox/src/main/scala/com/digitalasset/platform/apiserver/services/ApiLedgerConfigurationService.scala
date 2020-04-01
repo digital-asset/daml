@@ -35,9 +35,11 @@ final class ApiLedgerConfigurationService private (configurationService: IndexCo
       .map(
         configuration =>
           GetLedgerConfigurationResponse(
-            Some(LedgerConfiguration(
-              Some(toProto(configuration.maxDeduplicationTime)),
-            ))))
+            Some(
+              LedgerConfiguration(
+                Some(toProto(configuration.minTTL)),
+                Some(toProto(configuration.maxTTL))
+              ))))
       .via(logger.logErrorsOnStream)
 
   override def bindService(): ServerServiceDefinition =

@@ -60,6 +60,9 @@ object Configuration {
 
     def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
       TimeModel(
+        maxClockSkew = parseDuration(tm.getMaxClockSkew),
+        minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
+        maxTtl = parseDuration(tm.getMaxTtl),
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),
@@ -88,6 +91,9 @@ object Configuration {
 
     def decodeTimeModel(tm: protobuf.LedgerTimeModel): Either[String, TimeModel] =
       TimeModel(
+        maxClockSkew = parseDuration(tm.getMaxClockSkew),
+        minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
+        maxTtl = parseDuration(tm.getMaxTtl),
         avgTransactionLatency = parseDuration(tm.getAvgTransactionLatency),
         minSkew = parseDuration(tm.getMinSkew),
         maxSkew = parseDuration(tm.getMaxSkew),
@@ -101,6 +107,9 @@ object Configuration {
       .setGeneration(config.generation)
       .setTimeModel(
         protobuf.LedgerTimeModel.newBuilder
+          .setMaxClockSkew(buildDuration(tm.maxClockSkew))
+          .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
+          .setMaxTtl(buildDuration(tm.maxTtl))
           .setAvgTransactionLatency(buildDuration(tm.avgTransactionLatency))
           .setMinSkew(buildDuration(tm.minSkew))
           .setMaxSkew(buildDuration(tm.maxSkew))
