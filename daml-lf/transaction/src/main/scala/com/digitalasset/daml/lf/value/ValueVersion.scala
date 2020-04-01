@@ -29,11 +29,6 @@ object ValueVersions
   private[value] val minGenMap = ValueVersion("7")
   private[value] val minContractIdV1 = ValueVersion("7")
 
-  // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
-  // We force output of recent version, but keep reading older version as long as
-  // Sandbox is alive.
-  private[value] val minOutputVersion = ValueVersion("6")
-
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
     import VersionTimeline.{maxVersion => maxVV}
 
@@ -80,7 +75,7 @@ object ValueVersions
       }
     }
 
-    go(minOutputVersion, FrontStack(v0))
+    go(minVersion, FrontStack(v0))
   }
 
   @throws[IllegalArgumentException]
