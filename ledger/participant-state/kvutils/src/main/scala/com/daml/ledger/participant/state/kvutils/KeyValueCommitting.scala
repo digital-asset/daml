@@ -321,29 +321,33 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
   }
 
   private object Metrics {
-    private val prefix = MetricPrefix :+ "committer"
-    private val lastPrefix = prefix :+ "last"
+    private val prefix = MetricRegistry.name("daml", "kvutils", "committer")
 
     // Timer (and count) of how fast submissions have been processed.
-    val runTimer: metrics.Timer = metricRegistry.timer(prefix :+ "run_timer")
+    val runTimer: metrics.Timer =
+      metricRegistry.timer(MetricRegistry.name(prefix, "run_timer"))
 
     // Number of exceptions seen.
-    val exceptions: metrics.Counter = metricRegistry.counter(prefix :+ "exceptions")
+    val exceptions: metrics.Counter =
+      metricRegistry.counter(MetricRegistry.name(prefix, "exceptions"))
 
     // Counter to monitor how many at a time and when kvutils is processing a submission.
-    val processing: metrics.Counter = metricRegistry.counter(prefix :+ "processing")
+    val processing: metrics.Counter =
+      metricRegistry.counter(MetricRegistry.name(prefix, "processing"))
 
     val lastRecordTimeGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(lastPrefix :+ "record_time", lastRecordTimeGauge)
+    metricRegistry.register(MetricRegistry.name(prefix, "last", "record_time"), lastRecordTimeGauge)
 
     val lastEntryIdGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(lastPrefix :+ "entry_id", lastEntryIdGauge)
+    metricRegistry.register(MetricRegistry.name(prefix, "last", "entry_id"), lastEntryIdGauge)
 
     val lastParticipantIdGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(lastPrefix :+ "participant_id", lastParticipantIdGauge)
+    metricRegistry.register(
+      MetricRegistry.name(prefix, "last", "participant_id"),
+      lastParticipantIdGauge)
 
     val lastExceptionGauge = new VarGauge[String]("<none>")
-    metricRegistry.register(lastPrefix :+ "exception", lastExceptionGauge)
+    metricRegistry.register(MetricRegistry.name(prefix, "last", "exception"), lastExceptionGauge)
   }
 
 }

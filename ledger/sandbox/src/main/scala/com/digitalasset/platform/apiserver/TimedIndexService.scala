@@ -10,7 +10,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
+import com.daml.ledger.participant.state.metrics.Metrics
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -29,7 +29,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 
 import scala.concurrent.Future
 
-final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, prefix: MetricName)
+final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, prefix: String)
     extends IndexService {
   override def listLfPackages(): Future[Map[PackageId, v2.PackageDetails]] =
     time("listLfPackages", delegate.listLfPackages())
@@ -146,8 +146,8 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
     delegate.currentHealth()
 
   private def time[T](name: String, future: => Future[T]): Future[T] =
-    Metrics.timedFuture(metrics.timer(prefix :+ name), future)
+    Metrics.timedFuture(metrics.timer(s"$prefix.$name"), future)
 
   private def time[Out, Mat](name: String, source: => Source[Out, Mat]): Source[Out, Mat] =
-    Metrics.timedSource(metrics.timer(prefix :+ name), source)
+    Metrics.timedSource(metrics.timer(s"$prefix.$name"), source)
 }
