@@ -669,9 +669,9 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "data X = X {}"
+                , "data X = Y {}"
                 , "foo : X"
-                , "foo = X"
+                , "foo = Y"
                 ]
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,3,[6]) (At (foo,2,0))
@@ -680,9 +680,9 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "data X = X {}"
+                , "data X = Y {}"
                 , "foo : X"
-                , "foo = X : X"
+                , "foo = Y : X"
                 ]
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,4,[10]) (At (foo,2,0))

@@ -473,7 +473,7 @@ scenarioTests run = testGroup "scenarios"
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
     [ testCase "execute commands" $ run $ do
-        main' <- openDoc' "Coin.daml" damlId $ T.unlines
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Coin where"
             , "template Coin"
@@ -492,7 +492,7 @@ executeCommandTests run _ = testGroup "execute command"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
-        main' <- openDoc' "Empty.daml" damlId $ T.unlines
+        main' <- openDoc' "Main.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Empty where"
             ]
