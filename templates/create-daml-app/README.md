@@ -38,28 +38,28 @@ First, we need to generate TypeScript code bindings for the compiled DAML model.
 At the root of the repository, run
 ```
 daml build
-daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
 ```
-The latter command generates TypeScript packages in the `daml-ts` directory and
-updates the `package.json` with the new dependencies.
+The latter command generates TypeScript packages in the `daml-ts` directory.
 
-Next, install all dependencies and build the app by running
+Next, navigate to the `ui` directory and install the dependencies and build the app by running
 ```
+cd ui
 yarn install
-yarn workspaces run build
+yarn build
 ```
+The last step is not absolutely necessary but useful to check that the app compiles.
 
 To start the application, there are again two steps.
-First start a DAML ledger using
+In one terminal in the root directory, start a DAML ledger using
 ```
 daml start --start-navigator=no
 ```
-(We're not using DAML Navigator here, hence we don't start it.)
+(We don't need the DAML Navigator here.)
 This must continue running to serve ledger requests.
 
-Then in another terminal window, start the UI server via
+Then in a second terminal window in the `ui` directory, start the UI server via
 ```
-cd ui/
 yarn start
 ```
 This should open a browser window with a login screen.
