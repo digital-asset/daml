@@ -29,26 +29,7 @@
     "build": "tsc --build",
     "build:watch": "tsc --build --watch",
     "test": "jest",
-    "lint": "eslint --ext .ts ./ --max-warnings 0"
-  },
-  "eslintConfig": {
-    "extends": [
-      "eslint:recommended",
-      "plugin:@typescript-eslint/eslint-recommended",
-      "plugin:@typescript-eslint/recommended",
-      "plugin:@typescript-eslint/recommended-requiring-type-checking"
-    ],
-    "parser": "@typescript-eslint/parser",
-    "parserOptions": {
-      "project": "./tsconfig.json"
-    },
-    "plugins": [
-      "@typescript-eslint"
-    ],
-    "rules": {
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-inferrable-types": "off"
-    }
+    "lint": "eslint --ext .ts --ignore-pattern lib/ --max-warnings 0 ./"
   },
   "devDependencies": {
     "@types/jest": "^24.0.23",
