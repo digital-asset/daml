@@ -10,9 +10,6 @@ module DA.Test.Util (
     withTempDirResource,
     withEnv,
     nullDevice,
-    ShouldSucceed(..),
-    callProcessSilent,
-    callProcessSilentError,
 ) where
 
 import Control.Monad
@@ -22,8 +19,6 @@ import qualified Data.Text as T
 import System.IO.Extra
 import System.Info.Extra
 import System.Environment.Blank
-import System.Exit
-import System.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -74,18 +69,3 @@ withEnv vs m = bracket pushEnv popEnv (const m)
                     Nothing -> unsetEnv key
                     Just val -> setEnv key val True
                 pure (key, oldVal)
-
-newtype ShouldSucceed = ShouldSucceed Bool
-
-callProcessSilent, callProcessSilentError :: FilePath -> [String] -> IO ()
-callProcessSilent = callProcessSilent' (ShouldSucceed True)
-callProcessSilentError = callProcessSilent' (ShouldSucceed False)
-
-callProcessSilent' :: ShouldSucceed -> FilePath -> [String] -> IO ()
-callProcessSilent' (ShouldSucceed shouldSucceed) cmd args = do
-    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-    unless (shouldSucceed == (exitCode == ExitSuccess)) $ do
-      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-      hPutStrLn stderr $ unlines ["stdout: ", out]
-      hPutStrLn stderr $ unlines ["stderr: ", err]
-      exitFailure
