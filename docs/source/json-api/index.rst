@@ -287,7 +287,7 @@ Examples
 
     {"status": 200, "result": {...}}
 
-**Result with JSON Array Warnings:**
+**Result with JSON Array and Warnings:**
 
 .. code-block:: none
 
