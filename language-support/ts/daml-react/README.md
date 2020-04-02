@@ -69,6 +69,8 @@ visible contracts of the given template are returned.
 ```typescript
 const {contracts, isLoading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useReload`
@@ -87,6 +89,8 @@ const onClick = reload;
 ```typescript
 const {contracts, isLoading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useStreamQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useFetchByKey`
