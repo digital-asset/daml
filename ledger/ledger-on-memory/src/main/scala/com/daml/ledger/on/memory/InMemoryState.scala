@@ -7,8 +7,7 @@ import java.util.concurrent.Semaphore
 
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Bytes
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord
+import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
 import com.google.protobuf.ByteString
 
@@ -33,10 +32,10 @@ private[memory] class InMemoryState private (log: MutableLog, state: MutableStat
 }
 
 object InMemoryState {
-  type ImmutableLog = IndexedSeq[LedgerEntry]
+  type ImmutableLog = IndexedSeq[LedgerRecord]
   type ImmutableState = collection.Map[StateKey, StateValue]
 
-  type MutableLog = mutable.Buffer[LedgerEntry] with ImmutableLog
+  type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
   type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
 
   type StateKey = Bytes
