@@ -134,7 +134,7 @@ Here is what each field means:
     with the scenario service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
   - ``jvm-options``: A list of options passed to the JVM when starting the scenario
-    service. This can be used to limit maximum heap size via ``-Xmx500M``.
+    service. This can be used to limit maximum heap size via the ``-Xmx`` flag.
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 - ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
