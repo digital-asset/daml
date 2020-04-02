@@ -3,8 +3,8 @@
 
 .. _quickstart:
 
-Quickstart guide
-################
+IOU Quickstart Tutorial
+#######################
 
 In this guide, you will learn about the SDK tools and DAML applications by:
 
