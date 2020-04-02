@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
@@ -54,10 +54,8 @@ EOF
 
 da_scala_binary(
     name = "test_client",
-    srcs = glob(
-        ["src/**/*.scala"],
-        exclude = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TriggerIt.scala"],
-    ),
+    srcs =
+        ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TestMain.scala"],
     main_class = "com.digitalasset.daml.lf.engine.trigger.test.TestMain",
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
@@ -108,16 +106,23 @@ client_server_test(
     server_files = ["$(rootpath :acs.dar)"],
 )
 
-da_scala_test_suite(
+da_scala_test(
     name = "trigger-integration-tests",
-    srcs = glob(
-        ["src/**/*.scala"],
-        exclude = ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TestMain.scala"],
-    ),
-    data = [":acs.dar"],
+    srcs =
+        [
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+        ],
+    data = [
+        ":acs.dar",
+        "//ledger/test-common/test-certificates",
+    ],
     resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
-        ":test_client",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -129,101 +134,17 @@ da_scala_test_suite(
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
+        "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
         "//ledger/sandbox",
         "//ledger/sandbox:sandbox-scala-tests-lib",
         "//ledger/test-common",
-        "//libs-scala/auth-utils",
-        "//libs-scala/direct-execution-context",
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//triggers/runner:trigger-runner-lib",
-        "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
-    ],
-)
-
-client_server_test(
-    name = "test_wallclock_time_tls",
-    timeout = "long",
-    client = ":test_client",
-    client_args = [
-        "-w",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
-    ],
-    client_files = [
-        "$(rootpath :acs.dar)",
-    ],
-    data = [
-        ":acs.dar",
-        "//ledger/test-common/test-certificates:ca.crt",
-        "//ledger/test-common/test-certificates:server.crt",
-        "//ledger/test-common/test-certificates:server.pem",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--wall-clock-time",
-        "--port=0",
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
-        "--client-auth=none",
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-AUTH_TOKEN = "I_CAN_HAZ_AUTH"
-
-# This is a genrule so we can replace it by something nicer that actually generates the token
-# from some readable input so we can change it more easily.
-# For now, this corresponds to a token that has admin set to false
-# and actAs to Alice1, …, Alice100
-genrule(
-    name = "test-auth-token",
-    outs = ["test-auth-token.jwt"],
-    cmd = """
-      cat <<EOF > $(location test-auth-token.jwt)
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY3RBcyI6WyJBbGljZTEiLCJBbGljZTIiLCJBbGljZTMiLCJBbGljZTQiLCJBbGljZTUiLCJBbGljZTYiLCJBbGljZTciLCJBbGljZTgiLCJBbGljZTkiLCJBbGljZTEwIiwiQWxpY2UxMSIsIkFsaWNlMTIiLCJBbGljZTEzIiwiQWxpY2UxNCIsIkFsaWNlMTUiLCJBbGljZTE2IiwiQWxpY2UxNyIsIkFsaWNlMTgiLCJBbGljZTE5IiwiQWxpY2UyMCIsIkFsaWNlMjEiLCJBbGljZTIyIiwiQWxpY2UyMyIsIkFsaWNlMjQiLCJBbGljZTI1IiwiQWxpY2UyNiIsIkFsaWNlMjciLCJBbGljZTI4IiwiQWxpY2UyOSIsIkFsaWNlMzAiLCJBbGljZTMxIiwiQWxpY2UzMiIsIkFsaWNlMzMiLCJBbGljZTM0IiwiQWxpY2UzNSIsIkFsaWNlMzYiLCJBbGljZTM3IiwiQWxpY2UzOCIsIkFsaWNlMzkiLCJBbGljZTQwIiwiQWxpY2U0MSIsIkFsaWNlNDIiLCJBbGljZTQzIiwiQWxpY2U0NCIsIkFsaWNlNDUiLCJBbGljZTQ2IiwiQWxpY2U0NyIsIkFsaWNlNDgiLCJBbGljZTQ5IiwiQWxpY2U1MCIsIkFsaWNlNTEiLCJBbGljZTUyIiwiQWxpY2U1MyIsIkFsaWNlNTQiLCJBbGljZTU1IiwiQWxpY2U1NiIsIkFsaWNlNTciLCJBbGljZTU4IiwiQWxpY2U1OSIsIkFsaWNlNjAiLCJBbGljZTYxIiwiQWxpY2U2MiIsIkFsaWNlNjMiLCJBbGljZTY0IiwiQWxpY2U2NSIsIkFsaWNlNjYiLCJBbGljZTY3IiwiQWxpY2U2OCIsIkFsaWNlNjkiLCJBbGljZTcwIiwiQWxpY2U3MSIsIkFsaWNlNzIiLCJBbGljZTczIiwiQWxpY2U3NCIsIkFsaWNlNzUiLCJBbGljZTc2IiwiQWxpY2U3NyIsIkFsaWNlNzgiLCJBbGljZTc5IiwiQWxpY2U4MCIsIkFsaWNlODEiLCJBbGljZTgyIiwiQWxpY2U4MyIsIkFsaWNlODQiLCJBbGljZTg1IiwiQWxpY2U4NiIsIkFsaWNlODciLCJBbGljZTg4IiwiQWxpY2U4OSIsIkFsaWNlOTAiLCJBbGljZTkxIiwiQWxpY2U5MiIsIkFsaWNlOTMiLCJBbGljZTk0IiwiQWxpY2U5NSIsIkFsaWNlOTYiLCJBbGljZTk3IiwiQWxpY2U5OCIsIkFsaWNlOTkiLCJBbGljZTEwMCJdfQ.p78Bgrx0kX2tPwXoc2p5Uz22HifzfELjnmf7XwmCI4k
-EOF
-    """,
-)
-
-client_server_test(
-    name = "test_static_time_authenticated",
-    timeout = "long",
-    client = ":test_client",
-    client_args = ["--access-token-file"],
-    client_files = [
-        "$(rootpath :test-auth-token.jwt)",
-        "$(rootpath :acs.dar)",
-    ],
-    data = [
-        ":acs.dar",
-        ":test-auth-token.jwt",
-    ],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--static-time",
-        "--port=0",
-        "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-sh_test(
-    name = "list-triggers",
-    srcs = ["list-triggers.sh"],
-    args = [
-        "$(location //triggers/runner:trigger-runner)",
-        "$(location :acs.dar)",
-    ],
-    data = [
-        ":acs.dar",
-        "//triggers/runner:trigger-runner",
-    ],
-    deps = [
-        "@bazel_tools//tools/bash/runfiles",
     ],
 )
