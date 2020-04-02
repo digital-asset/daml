@@ -9,6 +9,7 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
+import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.ContractsService.SearchResult
 import com.digitalasset.http.EndpointsCompanion._
@@ -156,14 +157,13 @@ class Endpoints(
       _.map {
         case (jwt, jwtPayload, _) =>
           val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
-            contractsService
-              .retrieveAll(jwt, jwtPayload)
+            contractsService.retrieveAll(jwt, jwtPayload)
 
-          val jsValSource = result.source
-            .via(handleSourceFailure)
-            .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
-
-          result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
+          domain.SyncResponse.covariant.map(result) { source =>
+            source
+              .via(handleSourceFailure)
+              .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
+          }
       }
     }
 
@@ -176,14 +176,13 @@ class Endpoints(
             .liftErr(InvalidUserInput)
             .map { cmd =>
               val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[JsValue]] =
-                contractsService
-                  .search(jwt, jwtPayload, cmd)
+                contractsService.search(jwt, jwtPayload, cmd)
 
-              val jsValSource: Source[Error \/ JsValue, NotUsed] = result.source
-                .via(handleSourceFailure)
-                .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
-
-              result.copy(source = jsValSource): SearchResult[Error \/ JsValue]
+              domain.SyncResponse.covariant.map(result) { source =>
+                source
+                  .via(handleSourceFailure)
+                  .map(_.flatMap(toJsValue[domain.ActiveContract[JsValue]](_)))
+              }
             }
       }
     }
@@ -277,21 +276,20 @@ class Endpoints(
       }
 
   private def httpResponse(searchResult: SearchResult[Error \/ JsValue]): HttpResponse = {
-    val jsValSource: Source[Error \/ JsValue, NotUsed] = searchResult.source
+    import json.JsonProtocol._
 
-    val warnings: Option[domain.UnknownTemplateIds] =
-      if (searchResult.unresolvedTemplateIds.nonEmpty)
-        Some(domain.UnknownTemplateIds(searchResult.unresolvedTemplateIds.toList))
-      else None
-
-    val jsValWarnings: Option[JsValue] = warnings.map(_.toJson)
+    val response: Source[ByteString, NotUsed] = searchResult match {
+      case domain.OkResponse(result, warnings, _) =>
+        val warningsJsVal: Option[JsValue] = warnings.map(SprayJson.encodeUnsafe(_))
+        ResponseFormats.resultJsObject(result, warningsJsVal)
+      case error: domain.ErrorResponse =>
+        val jsVal: JsValue = SprayJson.encodeUnsafe(error)
+        Source.single(ByteString(jsVal.compactPrint))
+    }
 
     HttpResponse(
       status = StatusCodes.OK,
-      entity = HttpEntity
-        .CloseDelimited(
-          ContentTypes.`application/json`,
-          ResponseFormats.resultJsObject(jsValSource, jsValWarnings))
+      entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, response)
     )
   }
 

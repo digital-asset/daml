@@ -360,7 +360,7 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
     jsonFormat3(domain.ErrorResponse)
 
-  implicit def SyncResponse[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
+  implicit def SyncResponseFormat[R: JsonFormat]: RootJsonFormat[domain.SyncResponse[R]] =
     new RootJsonFormat[domain.SyncResponse[R]] {
       private val resultKey = "result"
       private val errorsKey = "errors"

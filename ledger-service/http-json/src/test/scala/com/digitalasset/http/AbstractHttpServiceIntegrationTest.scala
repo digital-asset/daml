@@ -493,8 +493,12 @@ abstract class AbstractHttpServiceIntegrationTest
           case domain.ErrorResponse(errors, warnings, status) =>
             status shouldBe StatusCodes.BadRequest
             errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
-            warnings shouldBe Some(domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(
-              List(domain.TemplateId(None, "AAA", "BBB"), domain.TemplateId(None, "XXX", "YYY")))))
+            inside(warnings) {
+              case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"))
+            }
         }
       }
   }
