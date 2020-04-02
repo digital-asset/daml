@@ -174,7 +174,7 @@ Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
-  
+
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
@@ -326,9 +326,9 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -431,7 +431,7 @@ Exercise by Contract ID
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 

@@ -10,7 +10,7 @@ daml/anti-patterns.html
 daml/models-versus-application.html
 daml/stdlib/base.html -> daml/reference/base.html
 concepts.html -> /concepts/ledger-model/index.html
-getting-started.html -> /getting-started/quickstart.html
+getting-started.html -> /app-dev/bindings-java/quickstart.html
 packages/da-docs-example-upgrade/index.html -> /examples/upgrade/index.html
 packages/sdk-docs-installation/index.html -> /getting-started/installation.html
 packages/da-docs-example-bond-trading/daml-implementation.html -> /examples/bond-trading/daml-implementation.html
@@ -52,7 +52,7 @@ packages/navigator-docs/database.html -> /tools/navigator/database.html
 packages/navigator-docs/backend-licenses.html -> /
 packages/navigator-docs/console.html -> /tools/navigator/console.html
 packages/navigator-docs/frontend-licenses.html -> /
-packages/quickstart/index.html -> /getting-started/quickstart.html
+packages/quickstart/index.html -> /app-dev/bindings-java/quickstart.html
 packages/da-docs-ledger-model/ledger-integrity.html -> /concepts/ledger-model/ledger-integrity.html
 packages/da-docs-ledger-model/index.html -> /concepts/ledger-model/index.html
 packages/da-docs-ledger-model/ledger-structure.html -> /concepts/ledger-model/ledger-structure.html

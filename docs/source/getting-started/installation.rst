@@ -39,7 +39,7 @@ We support running the SDK on Windows 10. To install the SDK on Windows, downloa
 Next steps
 **********
 
-- Follow the :doc:`quickstart guide <quickstart>`.
+- Follow the :doc:`getting started guide </getting-started/index>`.
 - Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
 - If you run into any problems, :doc:`use the support page </support/support>` to get in touch with us.
 
