@@ -147,4 +147,53 @@ private[events] object EventsTableFlatEventsRangeQueries {
 
   }
 
+  final class GetActiveContracts(
+      selectColumns: String,
+      flatEventsTable: String,
+      groupByColumns: String,
+      orderByColumns: String,
+  ) extends EventsTableFlatEventsRangeQueries[Offset] {
+
+    def onlyWildcardParties(
+        activeAt: Offset,
+        parties: Set[Party],
+        pageSize: Int,
+        rowOffset: Long,
+    ): SimpleSql[Row] =
+      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and event_offset <= $activeAt and (create_consumed_at is null or create_consumed_at > $activeAt) and event_witness in ($parties) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+
+    def sameTemplates(
+        activeAt: Offset,
+        parties: Set[Party],
+        templateIds: Set[Identifier],
+        pageSize: Int,
+        rowOffset: Long,
+    ): SimpleSql[Row] =
+      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and event_offset <= $activeAt and (create_consumed_at is null or create_consumed_at > $activeAt) and event_witness in ($parties) and concat(template_package_id, ':', template_name) in ($templateIds) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+
+    def mixedTemplates(
+        activeAt: Offset,
+        partiesAndTemplateIds: Set[(Party, Identifier)],
+        pageSize: Int,
+        rowOffset: Long,
+    ): SimpleSql[Row] = {
+      val parties = partiesAndTemplateIds.map(_._1)
+      val partiesAndTemplateIdsAsString = partiesAndTemplateIds.map { case (p, i) => s"$p&$i" }
+      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and event_offset <= $activeAt and (create_consumed_at is null or create_consumed_at > $activeAt) and concat(event_witness, '&', template_package_id, ':', template_name) in ($partiesAndTemplateIdsAsString) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+    }
+
+    def mixedTemplatesWithWildcardParties(
+        activeAt: Offset,
+        wildcardParties: Set[Party],
+        partiesAndTemplateIds: Set[(Party, Identifier)],
+        pageSize: Int,
+        rowOffset: Long,
+    ): SimpleSql[Row] = {
+      val parties = wildcardParties ++ partiesAndTemplateIds.map(_._1)
+      val partiesAndTemplateIdsAsString = partiesAndTemplateIds.map { case (p, i) => s"$p&$i" }
+      SQL"select #$selectColumns, case when submitter in ($parties) then command_id else '' end as command_id from #$flatEventsTable where create_argument is not null and event_offset <= $activeAt and (create_consumed_at is null or create_consumed_at > $activeAt) and (event_witness in ($wildcardParties) or concat(event_witness, '&', template_package_id, ':', template_name) in ($partiesAndTemplateIdsAsString)) group by (#$groupByColumns) order by (#$orderByColumns) limit $pageSize offset $rowOffset"
+    }
+
+  }
+
 }

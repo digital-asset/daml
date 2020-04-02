@@ -10,6 +10,7 @@ import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.digitalasset.ledger.api.v1.transaction.{
   TreeEvent,
@@ -20,11 +21,11 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse,
+  GetTransactionsResponse
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
+import com.digitalasset.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.store.Conversions.{instant, offset}
@@ -88,6 +89,23 @@ private[events] trait EventsTable {
         events: List[Entry[Event]],
     ): Option[GetFlatTransactionResponse] =
       flatTransaction(events).map(tx => GetFlatTransactionResponse(Some(tx)))
+
+    def toGetActiveContractsResponse(
+        events: Vector[Entry[Event]],
+    ): Vector[GetActiveContractsResponse] =
+      events.map {
+        case entry if entry.event.isCreated =>
+          GetActiveContractsResponse(
+            offset = ApiOffset.toApiString(entry.eventOffset),
+            workflowId = entry.workflowId,
+            activeContracts = Seq(entry.event.getCreated),
+            traceContext = None,
+          )
+        case entry =>
+          throw new IllegalStateException(
+            s"Non-create event ${entry.event.eventId} fetched as part of the active contracts"
+          )
+      }
 
     private def treeOf(events: Seq[Entry[TreeEvent]]): (Map[String, TreeEvent], Seq[String]) = {
 

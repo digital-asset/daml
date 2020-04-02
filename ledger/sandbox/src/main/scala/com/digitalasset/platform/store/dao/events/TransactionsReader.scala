@@ -6,6 +6,7 @@ package com.digitalasset.platform.store.dao.events
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -35,6 +36,9 @@ private[dao] final class TransactionsReader(
 
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
+
+  private def offsetFor(response: GetActiveContractsResponse): Offset =
+    ApiOffset.assertFromString(response.offset)
 
   def getFlatTransactions(
       startExclusive: Offset,
@@ -124,6 +128,34 @@ private[dao] final class TransactionsReader(
         query.as(EventsTable.treeEventParser(verbose = true).*)
       }
       .map(EventsTable.Entry.toGetTransactionResponse)(executionContext)
+  }
+
+  def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  ): Source[(Offset, GetActiveContractsResponse), NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetActiveContracts(
+              activeAt: Offset,
+              filter = filter,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        dispatcher.executeSql("get_active_contracts") { implicit connection =>
+          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
+        }
+      }
+
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        val response = EventsTable.Entry.toGetActiveContractsResponse(events)
+        Source(response.map(r => offsetFor(r) -> r))
+      }
   }
 
 }

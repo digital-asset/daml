@@ -137,4 +137,20 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
   ): SimpleSql[Row] =
     getFlatTransactionsQueries((startExclusive, endInclusive), filter, pageSize, rowOffset)
 
+  private val getActiveContractsQueries =
+    new EventsTableFlatEventsRangeQueries.GetActiveContracts(
+      selectColumns = selectColumns,
+      flatEventsTable = flatEventsTable,
+      groupByColumns = groupByColumns,
+      orderByColumns = orderByColumns,
+    )
+
+  def preparePagedGetActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      pageSize: Int,
+      rowOffset: Long,
+  ): SimpleSql[Row] =
+    getActiveContractsQueries(activeAt, filter, pageSize, rowOffset)
+
 }
