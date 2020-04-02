@@ -95,8 +95,14 @@ function promisifyStream<T extends object, K, I extends string, State>(
 test('create + fetch & exercise', async () => {
   const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
   const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const aliceStream = promisifyStream(aliceLedger.streamQuery(buildAndLint.Main.Person, {party: ALICE_PARTY}));
-  expect(await aliceStream.next()).toEqual([[], []]);
+  const aliceRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person, {party: ALICE_PARTY});
+  const aliceStream = promisifyStream(aliceRawStream);
+  // TODO(MH): Move this live marker into `promisifyStream`. Unfortunately,
+  // it didn't work the straightforward way and we need to spend more time
+  // figuring out what's going wrong before we can do it. There are two more
+  // instances of this pattern below.
+  const aliceStreamLive = pEvent(aliceRawStream, 'live');
+  expect(await aliceStreamLive).toEqual([]);
 
   const alice5: buildAndLint.Main.Person = {
     name: 'Alice from Wonderland',
@@ -157,15 +163,19 @@ test('create + fetch & exercise', async () => {
   expect(personContracts).toEqual([alice6Contract]);
 
   const alice6Key = {...alice5Key, _2: '6'};
-  const alice6KeyStream = promisifyStream(aliceLedger.streamFetchByKey(buildAndLint.Main.Person, alice6Key));
+  const alice6KeyRawStream = aliceLedger.streamFetchByKey(buildAndLint.Main.Person, alice6Key)
+  const alice6KeyStream = promisifyStream(alice6KeyRawStream);
+  const alice6KeyStreamLive = pEvent(alice6KeyRawStream, 'live');
   expect(await alice6KeyStream.next()).toEqual([alice6Contract, [{created: alice6Contract}]]);
 
-  const personStream = promisifyStream(aliceLedger.streamQuery(buildAndLint.Main.Person));
+  const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
+  const personStream = promisifyStream(personRawStream);
+  const personStreamLive = pEvent(personRawStream, 'live');
   expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
 
   // end of non-live data, first offset
-  expect(await personStream.next()).toEqual([[alice6Contract], []]);
-  expect(await alice6KeyStream.next()).toEqual([alice6Contract, []]);
+  expect(await personStreamLive).toEqual([alice6Contract]);
+  expect(await alice6KeyStreamLive).toEqual(alice6Contract);
 
   // Bob enters the scene.
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);

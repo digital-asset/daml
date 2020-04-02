@@ -101,7 +101,6 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    flaky = True,
     tags = [
         "exclusive",  # Due to the use of hardcoded ports in 'build-and-lint.sh'.
     ],

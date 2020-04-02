@@ -167,8 +167,7 @@ describe("streamQuery", () => {
     const stream = ledger.streamQuery(Foo);
     stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [] });
-    expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenLastCalledWith([]);
+    expect(mockChange).toHaveBeenCalledTimes(0);
   });
 
   test("receive one event", () => {
@@ -209,8 +208,7 @@ describe("streamFetchByKey", () => {
     const stream = ledger.streamFetchByKey(Foo, 'badKey');
     stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [] });
-    expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenCalledWith(null);
+    expect(mockChange).toHaveBeenCalledTimes(0);
   });
 
   test("receive one event", () => {
