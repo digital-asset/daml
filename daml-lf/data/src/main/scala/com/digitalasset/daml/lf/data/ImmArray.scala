@@ -268,22 +268,36 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def foreach(f: A => Unit): Unit = {
-    for (i <- indices) {
-      f(uncheckedGet(i))
-    }
+    @tailrec
+    def go(cursor: Int): Unit =
+      if (cursor < length) {
+        f(uncheckedGet(cursor))
+        go(cursor + 1)
+      }
+    go(0)
   }
 
   /** O(n) */
   def foldLeft[B](z: B)(f: (B, A) => B): B = {
     @tailrec
     def go(cursor: Int, acc: B): B = {
-      if (cursor >= length) {
-        acc
-      } else {
+      if (cursor < length)
         go(cursor + 1, f(acc, uncheckedGet(cursor)))
-      }
+      else
+        acc
     }
     go(0, z)
+  }
+
+  /** O(n) */
+  def foldRight[B](z: B)(f: (A, B) => B): B = {
+    @tailrec
+    def go(cursor: Int, acc: B): B =
+      if (cursor >= 0)
+        go(cursor - 1, f(uncheckedGet(cursor), acc))
+      else
+        acc
+    go(length - 1, z)
   }
 
   /** O(n) */
