@@ -245,7 +245,7 @@ object JsonProtocol extends DefaultJsonProtocol {
     */
   implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
     case class GACR(
-        templateIds: Vector[domain.TemplateId.OptionalPkg],
+        templateIds: Set[domain.TemplateId.OptionalPkg],
         query: Option[Map[String, JsValue]])
     val validKeys = Set("templateIds", "query")
     implicit val primitive: JsonReader[GACR] = jsonFormat2(GACR.apply)
@@ -256,12 +256,10 @@ object JsonProtocol extends DefaultJsonProtocol {
         if (extras.nonEmpty)
           deserializationError(
             s"unsupported query fields ${extras}; likely should be within 'query' subobject")
-        tids match {
-          case Vector() =>
-            deserializationError("search requires at least one item in 'templateIds'")
-          case h +: t =>
-            domain.GetActiveContractsRequest(OneAnd(h, t.toSet), q getOrElse Map.empty)
-        }
+        tids.headOption.cata(
+          h => domain.GetActiveContractsRequest(OneAnd(h, tids - h), q getOrElse Map.empty),
+          deserializationError("search requires at least one item in 'templateIds'")
+        )
       }
   }
 
