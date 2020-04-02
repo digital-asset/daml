@@ -1,0 +1,186 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module PingPong where
+
+import DA.Text
+
+template Ping
+  with
+    id : Text
+    initiator : Party
+    responders : [Party]
+    maxLevel : Int
+  where
+
+    signatory initiator
+    observer responders
+
+    choice Respond : Either (ContractId Pong) (ContractId Explode)
+        with
+        winner : Party
+      controller winner
+        do
+        if maxLevel == 0 then do
+            png <- create Pong with id, initiator, responder = winner, observers = responders
+            return (Left png)
+        else do
+            expl <- create Explode with id, initiator, responders, path = "", maxLevel
+            return (Right expl)
+
+template Pong
+  with
+    id : Text
+    initiator : Party
+    responder : Party
+    observers : [Party] -- ensures that "losing" responders are notified too
+
+  where
+      signatory initiator, responder
+      observer observers
+
+      controller initiator can
+        Ack : ()
+          do return ()
+
+template Explode
+  with
+    id : Text
+    initiator : Party
+    responders : [Party]
+    path : Text
+    maxLevel : Int
+  where
+
+    signatory initiator
+    observer responders
+
+    choice ProcessExplode : (ContractId Merge, Either (ContractId Explode, ContractId Explode) (ContractId Collapse, ContractId Collapse))
+        with
+        winner : Party
+      controller winner
+        do
+          cnt <- if (DA.Text.length path) + 1 < maxLevel then do
+            lft <- create Explode with id, initiator, responders, path = path <> "L", maxLevel
+            rght <- create Explode with id, initiator, responders, path = path <> "R", maxLevel
+            return (Left (lft,rght))
+          else do
+            lft <- create Collapse with id, initiator, responders, path = path
+            rght <- create Collapse with id, initiator, responders, path = path
+            return (Right (lft, rght))
+          mrg <- create Merge with id, initiator, responders, path
+          return (mrg, cnt)
+
+    controller initiator can
+      ExpireExplode :
+          ()
+        do
+          return ()
+
+
+template Merge
+  with
+    id : Text
+    initiator : Party
+    responders : [Party]
+    path : Text
+  where
+    signatory initiator
+    observer responders
+
+    choice ProcessMerge : Either (ContractId Pong) (ContractId Collapse)
+        with
+          winner : Party
+          leftId : ContractId Collapse
+          rightId : ContractId Collapse
+      controller winner
+        do
+        -- ensure we've got the right contracts
+          leftC <- fetch leftId
+          assert (leftC.path == path && id == leftC.id)
+          rightC <- fetch rightId
+          assert (rightC.path == path && id == rightC.id)
+          -- delete contracts
+          exercise leftId ProcessCollapse with winner = winner
+          exercise rightId ProcessCollapse with winner = winner
+          -- respond with Pong if we are done, otherwise continue collapsing
+          if path == "" then do
+            png <- create Pong with id, initiator, responder = winner, observers = responders
+            return (Left png)
+          else let
+              newPath = DA.Text.take (DA.Text.length path - 1) path
+            in do
+            clps <- create Collapse with id, initiator, responders, path = newPath
+            return (Right clps)
+
+    controller initiator can
+      ExpireMerge :
+          ()
+        do
+          return ()
+
+template Collapse
+  with
+    id : Text
+    initiator : Party
+    responders : [Party]
+    path : Text
+  where
+    signatory initiator
+    observer responders
+
+    choice ProcessCollapse : ()
+        with
+        winner : Party
+      controller winner
+        do
+          return ()
+
+    controller initiator can
+      ExpireCollapse :
+          ()
+        do
+          return ()
+
+
+template Cycle
+  with
+    id : Text
+    owner: Party
+  where
+    signatory owner
+
+    controller owner can
+      Repeat : ContractId Cycle
+        do
+          create Cycle with id, owner
+      Void : ()
+        do
+          return ()
+
+main = scenario do
+    [alice, bob] <- mapA getParty ["Alice", "Bob"]
+    pingId <- submit alice $ create Ping with id = "1", initiator = alice, responders = [bob], maxLevel = 0
+    pongId <- submit bob $ exercise pingId Respond with winner = bob
+    case pongId of
+      Left png -> submit alice $ exercise png Ack
+      Right res -> assert False
+
+explodeScenario = scenario do
+    [alice, bob] <- mapA getParty ["Alice", "Bob"]
+    pingId <- submit alice $ create Ping with id = "1", initiator = alice, responders = [bob], maxLevel = 1
+    explId <- submit alice $ exercise pingId Respond with winner = alice  
+    case explId of 
+      Left png -> do 
+        assert False 
+      Right expl -> do
+        coll <- submit bob $ exercise expl ProcessExplode with winner = bob
+        case coll of 
+          (mrg, Left explI) -> do
+            assert False
+          (mrg, Right (leftId, rightId)) -> do
+            vs <- submit bob $ exercise mrg ProcessMerge with winner = bob, leftId, rightId
+            assert True
+        assert True
+

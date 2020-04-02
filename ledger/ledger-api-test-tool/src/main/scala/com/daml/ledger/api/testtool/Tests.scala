@@ -3,8 +3,14 @@
 
 package com.daml.ledger.api.testtool
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool
+import com.daml.ledger.api.testtool.infrastructure.{
+  BenchmarkReporter,
+  LedgerSession,
+  LedgerTestSuite
+}
 import com.daml.ledger.api.testtool.tests._
+import org.slf4j.LoggerFactory
 
 object Tests {
   type Tests = Map[String, LedgerSession => LedgerTestSuite]
@@ -45,6 +51,16 @@ object Tests {
     "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
     "LotsOfPartiesIT" -> (new LotsOfParties(_)),
     "TransactionScaleIT" -> (new TransactionScale(_)),
+    "PerformanceEnvelope.Throughput" -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+      logger = LoggerFactory.getLogger("PerformanceEnvelope.Throughput"),
+      envelope = Envelope.Alpha,
+      reporter = BenchmarkReporter.toFile.addReport,
+    )(_)),
+    "PerformanceEnvelope.Latency" -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+      logger = LoggerFactory.getLogger("PerformanceEnvelope.Latency"),
+      envelope = Envelope.Alpha,
+      reporter = BenchmarkReporter.toFile.addReport,
+    )(_)),
   )
 
   val all: Tests = default ++ optional

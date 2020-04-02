@@ -95,6 +95,9 @@ da_scala_library_suite(
         "@maven//:ai_x_diff_2_12",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:org_cvogt_scala_extensions_2_12",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_context",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
