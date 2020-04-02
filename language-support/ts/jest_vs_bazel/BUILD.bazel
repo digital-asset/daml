@@ -1,0 +1,13 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+load("//language-support/ts:jest.bzl", "jest_test")
+
+jest_test(
+    name = "test",
+    srcs = ["index.test.js"],
+    jest_config = ":jest.config.js",
+    deps = [
+        "@language_support_ts_deps//jest-websocket-mock",
+        "@language_support_ts_deps//mock-socket",
+    ],
+)

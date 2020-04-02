@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "jest_vs_bazel",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^24.9.0",
+    "jest-websocket-mock": "^2.0.2",
+    "mock-socket": "^9.0.3"
+  }
+}
