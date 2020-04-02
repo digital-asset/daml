@@ -5,7 +5,7 @@ import { Template, Choice, ContractId } from "@daml/types";
 import Ledger, {CreateEvent} from "./index";
 import { Event } from "./index";
 import * as jtv from "@mojotech/json-type-validation";
-import { EventEmitter } from 'events';
+import type { EventEmitter } from 'events';
 import mockConsole from "jest-mock-console";
 
 const mockLive = jest.fn();

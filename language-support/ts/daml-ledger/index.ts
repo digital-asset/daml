@@ -502,8 +502,10 @@ class Ledger {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
-        state = change(state, events);
-        emitter.emit('change', state, events);
+        if (events.length > 0) {
+          state = change(state, events);
+          emitter.emit('change', state, events);
+        }
         if (isRecordWith('offset', json) && !isLive) {
           isLive = true;
           emitter.emit('live', state);
