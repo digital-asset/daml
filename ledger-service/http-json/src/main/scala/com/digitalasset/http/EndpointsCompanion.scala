@@ -6,12 +6,13 @@ package com.digitalasset.http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
 import com.digitalasset.http.domain.JwtPayload
+import com.digitalasset.http.json.SprayJson
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.auth.AuthServiceJWTCodec
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, Show, \/}
-import spray.json.{JsArray, JsString, JsValue}
+import spray.json.JsValue
 
 import scala.concurrent.Future
 
@@ -46,17 +47,17 @@ object EndpointsCompanion {
   private[http] def httpResponseError(error: Error): HttpResponse = {
     import com.digitalasset.http.json.JsonProtocol._
     val resp = errorResponse(error)
-    httpResponse(resp.status, resp.toJson)
+    httpResponse(resp.status, SprayJson.encodeUnsafe(resp))
   }
 
-  private[http] def errorResponse(error: Error): domain.ErrorResponse[JsValue] = {
+  private[http] def errorResponse(error: Error): domain.ErrorResponse = {
     val (status, errorMsg): (StatusCode, String) = error match {
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
       case NotFound(e) => StatusCodes.NotFound -> e
     }
-    domain.ErrorResponse(errors = JsArray(JsString(errorMsg)), status = status)
+    domain.ErrorResponse(errors = List(errorMsg), warnings = None, status = status)
   }
 
   private[http] def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {

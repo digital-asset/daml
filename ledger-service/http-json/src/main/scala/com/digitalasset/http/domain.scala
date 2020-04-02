@@ -24,6 +24,7 @@ import scalaz.{
   Applicative,
   Bitraverse,
   NonEmptyList,
+  OneAnd,
   Semigroup,
   Show,
   Tag,
@@ -92,7 +93,7 @@ object domain {
   )
 
   case class GetActiveContractsRequest(
-      templateIds: Set[TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, TemplateId.OptionalPkg],
       query: Map[String, JsValue],
   )
 
@@ -553,32 +554,39 @@ object domain {
     }
   }
 
-  sealed abstract class ServiceResponse extends Product with Serializable
+  sealed abstract class SyncResponse[+R] extends Product with Serializable
 
-  final case class OkResponse[R, W](
+  final case class OkResponse[+R](
       result: R,
-      warnings: Option[W] = Option.empty[W],
+      warnings: Option[ServiceWarning] = None,
       status: StatusCode = StatusCodes.OK,
-  ) extends ServiceResponse
+  ) extends SyncResponse[R]
 
-  final case class ErrorResponse[E](errors: E, status: StatusCode) extends ServiceResponse
+  final case class ErrorResponse(
+      errors: List[String],
+      warnings: Option[ServiceWarning],
+      status: StatusCode,
+  ) extends SyncResponse[Nothing]
 
   object OkResponse {
-    implicit val covariant: Bitraverse[OkResponse] = new Bitraverse[OkResponse] {
-      override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
-          fab: OkResponse[A, B],
-      )(f: A => G[C], g: B => G[D]): G[OkResponse[C, D]] = {
-        import scalaz.syntax.applicative._
-        ^(f(fab.result), fab.warnings.traverse(g))((c, d) => fab.copy(result = c, warnings = d))
-      }
+    implicit val covariant: Traverse[OkResponse] = new Traverse[OkResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: OkResponse[A])(
+          f: A => G[B]): G[OkResponse[B]] =
+        f(fa.result).map(b => fa.copy(result = b))
     }
   }
 
-  object ErrorResponse {
-    implicit val traverseInstance: Traverse[ErrorResponse] = new Traverse[ErrorResponse] {
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ErrorResponse[A])(
-          f: A => G[B],
-      ): G[ErrorResponse[B]] = f(fa.errors).map(b => fa.copy(errors = b))
+  object SyncResponse {
+    implicit val covariant: Traverse[SyncResponse] = new Traverse[SyncResponse] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: SyncResponse[A])(
+          f: A => G[B]): G[SyncResponse[B]] = {
+        import scalaz.syntax.functor._
+        val G = implicitly[Applicative[G]]
+        fa match {
+          case err: ErrorResponse => G.point[SyncResponse[B]](err)
+          case ok: OkResponse[A] => OkResponse.covariant.traverse(ok)(f).widen
+        }
+      }
     }
   }
 
@@ -589,5 +597,6 @@ object domain {
 
   final case class UnknownParties(unknownParties: List[domain.Party]) extends ServiceWarning
 
-  final case class WarningsWrapper(warnings: ServiceWarning)
+  // It wraps warnings in the streaming API.. TODO(Leo): define AsyncResponse ADT
+  final case class AsyncWarningsWrapper(warnings: ServiceWarning)
 }

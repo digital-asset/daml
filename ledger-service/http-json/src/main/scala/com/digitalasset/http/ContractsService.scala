@@ -4,6 +4,7 @@
 package com.digitalasset.http
 
 import akka.NotUsed
+import akka.http.scaladsl.model.StatusCodes
 import akka.stream.scaladsl._
 import akka.stream.Materializer
 import com.digitalasset.daml.lf
@@ -24,7 +25,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, Tag, \/, \/-}
+import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
 import scala.collection.breakOut
@@ -155,9 +156,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
-    SearchResult(
-      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty)),
-      Set.empty,
+    domain.OkResponse(
+      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty))
     )
 
   def search(
@@ -170,19 +170,30 @@ class ContractsService(
   def search(
       jwt: Jwt,
       party: domain.Party,
-      templateIds: Set[domain.TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
     val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
 
-    val source = daoAndFetch.cata(
-      x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
-      searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
-        .map(_.flatMap(lfAcToJsAc)),
-    )
+    val warnings: Option[domain.UnknownTemplateIds] =
+      if (unresolvedTemplateIds.isEmpty) None
+      else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
 
-    SearchResult(source, unresolvedTemplateIds)
+    if (resolvedTemplateIds.isEmpty) {
+      domain.ErrorResponse(
+        errors = List(ErrorMessages.cannotResolveAnyTemplateId),
+        warnings = warnings,
+        status = StatusCodes.BadRequest
+      )
+    } else {
+      val source = daoAndFetch.cata(
+        x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
+        searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
+          .map(_.flatMap(lfAcToJsAc)),
+      )
+      domain.OkResponse(source, warnings)
+    }
   }
 
   // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
@@ -326,10 +337,14 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
-      xs: Set[Tid],
+      xs: OneAnd[Set, Tid]
   ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {
-    xs.partitionMap { x =>
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
+
+    xs.toSet.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }
   }
@@ -348,8 +363,5 @@ object ContractsService {
     }
   }
 
-  final case class SearchResult[A](
-      source: Source[A, NotUsed],
-      unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg],
-  )
+  type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
 }
