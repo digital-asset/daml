@@ -85,7 +85,9 @@ mainAll :: IO ()
 mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+mainWithVersions versions = do
+ let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
+ SS.withScenarioService Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty

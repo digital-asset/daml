@@ -3,7 +3,7 @@
 
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
-  , ScenarioServiceConfig
+  , ScenarioServiceConfig(..)
   , defaultScenarioServiceConfig
   , readScenarioServiceConfig
   , LowLevel.TimeoutSeconds
@@ -58,6 +58,7 @@ toLowLevelOpts Options{..} =
     where
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
+        optJvmOptions = cnfJvmOptions optScenarioServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -94,12 +95,14 @@ withScenarioService hOptions f = do
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    , cnfJvmOptions :: [String]
     } deriving Show
 
 defaultScenarioServiceConfig :: ScenarioServiceConfig
 defaultScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
+    , cnfJvmOptions = []
     }
 
 readScenarioServiceConfig :: IO ScenarioServiceConfig
@@ -115,6 +118,7 @@ parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServic
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
     cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
+    cnfJvmOptions <- fromMaybe [] <$> queryProjectConfig ["scenario-service", "jvm-options"] conf
     pure ScenarioServiceConfig {..}
 
 data Context = Context

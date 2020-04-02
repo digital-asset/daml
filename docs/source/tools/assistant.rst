@@ -102,6 +102,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     scenario-service:
       grpc-max-message-size: 134217728
       grpc-timeout: 60
+      jvm-options: []
     build-options: ["--ghc-option", "-Werror",
                     "--ghc-option", "-v"]
 
@@ -132,6 +133,8 @@ Here is what each field means:
   - ``grpc-timeout``: This option controls the timeout used for communicating
     with the scenario service. If unspecified this defaults to 60s. Unless you get
     errors, there should be no reason to modify this.
+  - ``jvm-options``: A list of options passed to the JVM when starting the scenario
+    service. This can be used to limit maximum heap size via ``-Xmx500M``.
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 - ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
