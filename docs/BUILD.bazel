@@ -350,6 +350,7 @@ genrule(
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
+        "//templates:templates-tarball",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -363,6 +364,10 @@ genrule(
         # Copy in theme
         mkdir -p build/docs/theme
         tar -zxf $(location :theme) -C build/docs/theme
+
+        # Copy templates for code snippets in getting started guide
+        mkdir -p build/docs/source/getting-started/code
+        tar -zxf $(location //templates:templates-tarball) -C build/docs/source/getting-started/code/
 
         # Build with Sphinx
         cd build

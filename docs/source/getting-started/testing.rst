@@ -49,7 +49,7 @@ This means we use Puppeteer to type text into input forms, click buttons and sea
 In order to find those elements, we do need to make some adjustments in our React components, which we'll show later.
 Let's start at a higher level with a ``test``.
 
-.. literalinclude:: code/ui-before/index.test.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/index.test.tsx
   :language: tsx
   :start-after: // LOGIN_TEST_BEGIN
   :end-before: // LOGIN_TEST_END
@@ -75,7 +75,7 @@ We showed how to write a simple test at a high level, but haven't shown how to m
 This was hidden in the ``login()`` and ``logout()`` functions.
 Let's see how ``login()`` is implemented.
 
-.. literalinclude:: code/ui-before/index.test.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/index.test.tsx
   :language: tsx
   :start-after: // LOGIN_FUNCTION_BEGIN
   :end-before: // LOGIN_FUNCTION_END
@@ -93,10 +93,10 @@ In this case we use *class selectors*, which look for CSS classes we've given to
 This means we must manually add classes to the components we want to test.
 For example, here is a snippet of the ``LoginScreen`` React component with classes added to the ``Form`` elements.
 
-.. literalinclude:: code/ui-before/LoginScreen.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/LoginScreen.tsx
   :language: tsx
-  :start-after: // FORM_BEGIN
-  :end-before: // FORM_END
+  :start-after: {/* FORM_BEGIN */}
+  :end-before: {/* FORM_END */}
 
 You can see the ``className`` attributes in the ``Input`` and ``Button``, which we select in the ``login()`` function.
 Note that you can use other features of an element in your selector, such as its type and attributes.

@@ -32,7 +32,7 @@ The DAML code defines the *data* and *workflow* of the application.
 Both are described in the ``User`` contract *template*.
 Let's look at the data portion first.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/templates-tarball/create-daml-app/daml/User.daml
   :language: daml
   :start-after: -- MAIN_TEMPLATE_BEGIN
   :end-before: -- MAIN_TEMPLATE_END
@@ -59,7 +59,7 @@ In DAML we must answer these questions upfront, as they fundamentally change the
 
 The last part of the DAML model is the operation to follow users, called a *choice* in DAML.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/templates-tarball/create-daml-app/daml/User.daml
   :language: daml
   :start-after: -- FOLLOW_BEGIN
   :end-before: -- FOLLOW_END
@@ -108,7 +108,7 @@ All components are in the ``ui/src/components`` folder.
 You can navigate there within Visual Studio Code using the file explorer on the left sidebar.
 We'll first look at ``App.tsx``, which is the entry point to our application.
 
-.. literalinclude:: code/ui-before/App.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/App.tsx
   :language: tsx
   :start-after: // APP_BEGIN
   :end-before: // APP_END
@@ -127,7 +127,7 @@ Let's move on to more advanced uses of our DAML React library.
 The ``MainScreen`` is a simple frame around the ``MainView`` component, which houses the main functionality of our app.
 It uses DAML React hooks to query and update ledger state.
 
-.. literalinclude:: code/ui-before/MainView.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
   :start-after: // USERS_BEGIN
   :end-before: // USERS_END
@@ -144,7 +144,7 @@ This means that results are updated as they come in - there is no need for perio
 
 Another example, showing how to *update* ledger state, is how we exercise the ``Follow`` choice of the ``User`` template.
 
-.. literalinclude:: code/ui-before/MainView.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
   :start-after: // FOLLOW_BEGIN
   :end-before: // FOLLOW_END
@@ -156,10 +156,10 @@ The wrapper function ``follow`` is then passed to the subcomponents of ``MainVie
 For example, ``follow`` is passed to the ``UserList`` component as an argument (a `prop <https://reactjs.org/docs/components-and-props.html>`_ in React terms).
 This gets triggered when you click the icon next to a user's name in the *Network* panel.
 
-.. literalinclude:: code/ui-before/MainView.tsx
+.. literalinclude:: code/templates-tarball/create-daml-app/ui/src/components/MainView.tsx
   :language: tsx
-  :start-after: // USERLIST_BEGIN
-  :end-before: // USERLIST_END
+  :start-after: {/* USERLIST_BEGIN */}
+  :end-before: {/* USERLIST_END */}
 
 This should give you a taste of how the UI works alongside a DAML ledger.
 You'll see this more as you develop :doc:`your first feature <first-feature>` for our social network.
