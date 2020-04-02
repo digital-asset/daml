@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DerivingStrategies #-}
-module DA.Test.Daml2Ts (main) where
+module DA.Test.Daml2js (main) where
 
 import System.FilePath
 import System.IO.Extra
@@ -12,7 +12,7 @@ import System.Exit
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Directory
-import DA.Test.Daml2TsUtils
+import DA.Test.Daml2jsUtils
 import Data.List.Extra
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
@@ -34,7 +34,7 @@ main :: IO ()
 main = do
     yarnPath : damlTypesPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-    daml2ts <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2ts")
+    daml2js <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2js")
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
     damlTypes <- locateRunfiles (mainWorkspace </> damlTypesPath)
     davl <- locateRunfiles ("davl" </> "released")
@@ -42,7 +42,7 @@ main = do
     withArgs args $ withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath)
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain (tests damlTypes yarn damlc daml2ts davl)
+        ] $ defaultMain (tests damlTypes yarn damlc daml2js davl)
 
 -- It may help to keep in mind for the following tests, this quick
 -- refresher on the layout of a simple project:
@@ -52,7 +52,7 @@ main = do
 --     daml/
 --       Grover.daml
 --     package.json
---     daml2ts/
+--     daml2js/
 --       grover-1.0/
 --         package.json
 --         tsconfig.json
@@ -70,12 +70,12 @@ main = do
 --     daml-types  <-- referred to by the "resolutions" field in package.json
 
 tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
+tests damlTypes yarn damlc daml2js davl = testGroup "daml2js tests"
   [
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
-          daml2tsDir = here </> "daml2ts"
+          daml2jsDir = here </> "daml2js"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
@@ -93,14 +93,14 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         writeDamlYaml "grover" ["Elmo"] ["daml-prim", "daml-stdlib"] Nothing
         step "daml build..."
         buildProject ["-o", ".daml" </> "dist" </> "elmo-1.0.dar"]
-        step "daml2ts..."
+        step "daml2js..."
         setupYarnEnvironment
-        (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, elmoDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        (exitCode, _, err) <- readProcessWithExitCode daml2js ([groverDar, elmoDar] ++ ["-o", daml2jsDir]) ""
+        assertBool "daml2js is expected to fail but succeeded" (exitCode /= ExitSuccess)
         assertInfixOf "Duplicate name 'grover-1.0' for different packages detected" err
 
   , testCaseSteps "Different name, same package test" $ \step -> withTempDir $ \here -> do
-      let daml2tsDir = here </> "daml2ts"
+      let daml2jsDir = here </> "daml2js"
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
@@ -124,17 +124,17 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
-        step "daml2ts..."
+        step "daml2js..."
         setupYarnEnvironment
-        (exitCode, _, err) <- readProcessWithExitCode daml2ts ([groverDar, superGroverDar] ++ ["-o", daml2tsDir]) ""
-        assertBool "daml2ts is expected to fail but succeeded" (exitCode /= ExitSuccess)
+        (exitCode, _, err) <- readProcessWithExitCode daml2js ([groverDar, superGroverDar] ++ ["-o", daml2jsDir]) ""
+        assertBool "daml2js is expected to fail but succeeded" (exitCode /= ExitSuccess)
         assertInfixOf "Different names ('grover-1.0' and 'super-grover-1.0') for the same package detected" err
 
   , testCaseSteps "Same package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
           groverDaml = grover </> "daml"
-          daml2tsDir = here </> "daml2ts"
-          groverTs =  daml2tsDir </> "grover-1.0"
+          daml2jsDir = here </> "daml2js"
+          groverTs =  daml2jsDir </> "grover-1.0"
           groverDar = grover </> ".daml" </> "dist" </> "grover-1.0.dar"
       createDirectoryIfMissing True groverDaml
       withCurrentDirectory grover $ do
@@ -144,15 +144,15 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
-        step "daml2ts..."
+        step "daml2js..."
         setupYarnEnvironment
-        daml2tsProject [groverDar, groverDar] daml2tsDir
+        daml2jsProject [groverDar, groverDar] daml2jsDir
         mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "index", "Grover" </> "module" ]
 
   , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
       let projectRoot = here </> "project"
-          daml2tsDir = here </> "daml2ts"
-          projectTs =  daml2tsDir </> "project-1.0"
+          daml2jsDir = here </> "daml2js"
+          projectTs =  daml2jsDir </> "project-1.0"
           projectDar = projectRoot </> ".daml" </> "dist" </> "project-1.0.dar"
       createDirectoryIfMissing True projectRoot
       withCurrentDirectory projectRoot $ do
@@ -164,9 +164,9 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
         step "daml build..."
         buildProject []
       withCurrentDirectory here $ do
-        step "daml2ts..."
+        step "daml2js..."
         setupYarnEnvironment
-        daml2tsProject [projectDar] daml2tsDir
+        daml2jsProject [projectDar] daml2jsDir
         mapM_ (assertTsFileExists projectTs)
           [ "index"
           , "A" </> "index"
@@ -193,34 +193,34 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
           assertFileLines ("A" </> "B" </> "D" </> "index.ts") reexportModule
 
   , testCaseSteps "DAVL test" $ \step -> withTempDir $ \here -> do
-      let daml2tsDir = here </> "daml2ts"
+      let daml2jsDir = here </> "daml2js"
       withCurrentDirectory here $ do
-        step "daml2ts..."
+        step "daml2js..."
         setupYarnEnvironment
-        callProcessSilent daml2ts $
+        callProcessSilent daml2js $
           [ davl </> "davl-v4.dar"
           , davl </> "davl-v5.dar"
           , davl </> "davl-upgrade-v4-v5.dar" ] ++
-          ["-o", daml2tsDir]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.4"))
+          ["-o", daml2jsDir]
+        mapM_ (assertTsFileExists (daml2jsDir </> "davl-0.0.4"))
           [ "index"
           , "DAVL" </> "index"
           , "DAVL" </> "module"
           ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-0.0.5"))
+        mapM_ (assertTsFileExists (daml2jsDir </> "davl-0.0.5"))
           [ "index"
           , "DAVL" </> "index"
           , "DAVL" </> "V5" </> "index"
           , "DAVL" </> "V5" </> "module"
           ]
-        mapM_ (assertTsFileExists (daml2tsDir </> "davl-upgrade-v4-v5-0.0.5"))
+        mapM_ (assertTsFileExists (daml2jsDir </> "davl-upgrade-v4-v5-0.0.5"))
           [ "index"
           , "Upgrade" </> "index"
           , "Upgrade" </> "module"
           ]
       step "eslint..."
-      withCurrentDirectory daml2tsDir $ do
-        pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2tsDir
+      withCurrentDirectory daml2jsDir $ do
+        pkgs <- (\\ ["package.json", "node_modules"]) <$> listDirectory daml2jsDir
         BSL.writeFile "package.json" $ encode $
           object
             [ "private" .= True
@@ -230,7 +230,7 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
                 , "@typescript-eslint/parser" .= typescriptEslintVersion
                 ]
             , "workspaces" .= pkgs
-            , "name" .= ("daml2ts" :: T.Text)
+            , "name" .= ("daml2js" :: T.Text)
             , "version" .= ("0.0.0" :: T.Text)
             ]
         BSL.writeFile ".eslintrc.json" $ encode $
@@ -256,13 +256,13 @@ tests damlTypes yarn damlc daml2ts davl = testGroup "daml2ts tests"
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
       copyDirectory damlTypes "daml-types"
-      writeRootPackageJson Nothing ["daml2ts"]
+      writeRootPackageJson Nothing ["daml2js"]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
 
-    daml2tsProject :: [FilePath] -> FilePath -> IO ()
-    daml2tsProject dars outDir = callProcessSilent daml2ts $ dars ++ ["-o", outDir]
+    daml2jsProject :: [FilePath] -> FilePath -> IO ()
+    daml2jsProject dars outDir = callProcessSilent daml2js $ dars ++ ["-o", outDir]
 
     writeDamlYaml :: String -> [String] -> [String] -> Maybe LF.Version -> IO ()
     writeDamlYaml mainPackageName exposedModules dependencies mbLfVersion =

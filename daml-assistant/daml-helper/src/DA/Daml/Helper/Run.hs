@@ -6,7 +6,7 @@ module DA.Daml.Helper.Run
     , runInit
     , runNew
     , runJar
-    , runDaml2ts
+    , runDaml2js
     , runListTemplates
     , runStart
 
@@ -325,11 +325,11 @@ runJar jarPath mbLogbackPath remainingArgs = do
     mbLogbackArg <- traverse getLogbackArg mbLogbackPath
     withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
 
-runDaml2ts :: [String] -> IO ()
-runDaml2ts remainingArgs = do
-    daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-    withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
-      (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
+runDaml2js :: [String] -> IO ()
+runDaml2js remainingArgs = do
+    daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
+    withProcessWait_' (proc daml2js remainingArgs) (const $ pure ()) `catchIO`
+      (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do

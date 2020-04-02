@@ -101,7 +101,7 @@ Experimental features
    triggers/index
    daml-repl/index
    tools/visual
-   daml2ts/index
+   daml2js/index
    getting-started/index
    getting-started/testing
 

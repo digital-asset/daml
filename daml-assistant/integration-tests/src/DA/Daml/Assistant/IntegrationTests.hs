@@ -38,7 +38,7 @@ import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
-import DA.Test.Daml2TsUtils (writeRootPackageJson)
+import DA.Test.Daml2jsUtils (writeRootPackageJson)
 import DA.Test.Process (callCommandSilent,callProcessSilent)
 import DA.Test.Util
 import SdkVersion
@@ -524,7 +524,7 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
     -- The 'daml-types' NPM package is not available on Windows which
-    -- is required by 'daml2ts'.
+    -- is required by 'daml2js'.
     [ codegenTestFor "ts" Nothing | not isWindows ]
     )
     where
