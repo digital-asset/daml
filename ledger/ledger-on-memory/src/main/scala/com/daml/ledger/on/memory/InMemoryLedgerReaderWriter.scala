@@ -20,7 +20,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,15 +60,14 @@ final class InMemoryLedgerReaderWriter(
         startExclusive
           .map(KVOffset.highestIndex(_).toInt)
           .getOrElse(StartIndex),
-        OneAfterAnother[Index, List[LedgerEntry]](
-          (index: Index) => index + 1,
-          (index: Index) => Future.successful(List(retrieveLogEntry(index))),
-        ),
+        RangeSource((startExclusive, endInclusive) =>
+          Source.fromIterator(() => {
+            val entries = state.withReadLock((log, _) =>
+              log.zipWithIndex.slice(startExclusive + 1, endInclusive + 1))
+            entries.iterator.map { case (entry, index) => index -> entry }
+          }))
       )
-      .mapConcat { case (_, updates) => updates }
-
-  private def retrieveLogEntry(index: Int): LedgerEntry =
-    state.withReadLock((log, _) => log(index))
+      .map { case (_, updates) => updates }
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
