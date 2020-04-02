@@ -11,7 +11,7 @@ import Data.Traversable
 import System.Directory.Extra
 import System.FilePath
 import System.IO.Extra
-import DA.Test.Util
+import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 

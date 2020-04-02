@@ -17,25 +17,27 @@ import qualified Data.Map as Map
 import Data.Maybe (maybeToList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Typeable
+import Data.Typeable (Typeable)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
 import System.Directory.Extra
 import System.Environment.Blank
+import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Info.Extra
 import System.Process
-import Test.Main hiding (withEnv)
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
 
 import DA.Directory
 import DA.Bazel.Runfiles
-import DA.Daml.Helper.Run
-import DA.Test.Daml2TsUtils
+import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
+import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
+import DA.Test.Daml2TsUtils (writeRootPackageJson)
+import DA.Test.Process (callCommandQuiet,callProcessSilent)
 import DA.Test.Util
 import SdkVersion
 
@@ -70,14 +72,11 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , templateTests
-    , deployTest deployDir
-    , fetchTest tmpDir
     , codegenTests codegenDir damlTypesDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
-          deployDir = tmpDir </> "deploy"
           codegenDir = tmpDir </> "codegen"
 
 -- | Install the SDK in a temporary directory and provide the path to the SDK directory.
@@ -97,7 +96,7 @@ withSdkResource f =
                     .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
                 setEnv "DAML_HOME" targetDir True
                 if isWindows
-                    then callProcessQuiet
+                    then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
                         ["install", "--install-assistant=yes", "--set-path=no", extractDir]
                     else callCommandQuiet $ extractDir </> "install.sh"
@@ -552,179 +551,18 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
 
--- | Start a sandbox on any free port
-withSandboxOnFreePort :: (Int -> IO ()) -> IO ()
-withSandboxOnFreePort f = do
-  port :: Int <- fromIntegral <$> getFreePort
-  withDevNull $ \devNull -> do
-    let sandboxProc =
-          (shell $ unwords
-           ["daml"
-           , "sandbox"
-           , "--wall-clock-time"
-           , "--port", show port
-           ]) { std_out = UseHandle devNull, std_in = CreatePipe }
-    withCreateProcess sandboxProc  $ \_ _ _ ph -> do
-      race_ (waitForProcess' sandboxProc ph) $ do
-        waitForConnectionOnPort (threadDelay 100000) port
-        f port
-        -- waitForProcess' will block on Windows so we explicitly kill the process.
-        terminateProcess ph
-
--- | Using `daml inspect-dar`, discover the main package-identifier of a dar.
-getMainPidByInspecingDar :: FilePath -> String -> IO String
-getMainPidByInspecingDar dar projName = do
-  stdout <- callCommandForStdout $ unwords ["daml damlc inspect-dar", dar ]
-  [grepped] <- pure $
-        [ line
-        | line <- lines stdout
-        -- expect a single line containing double quotes and the projName
-        , "\"" `isInfixOf` line
-        , projName `isInfixOf` line
-        ]
-  -- and the main pid is found between the 1st and 2nd double-quotes
-  [_,pid,_] <- pure $ splitOn "\"" grepped
-  return pid
-
--- | Tests for the `daml ledger fetch-dar` command
-fetchTest :: FilePath -> TestTree
-fetchTest tmpDir = testCaseSteps "daml ledger fetch-dar" $ \step -> do
-  let fetchDir = tmpDir </> "fetchTest"
-  withSandboxOnFreePort $ \port -> do
-    createDirectoryIfMissing True fetchDir
-    withCurrentDirectory fetchDir $ do
-      callCommandQuiet $ unwords ["daml new", "proj1"]
-      withCurrentDirectory "proj1" $ do
-        let origDar = ".daml/dist/proj1-0.0.1.dar"
-        step "build/upload"
-        callCommandQuiet $ unwords ["daml ledger upload-dar --port", show port]
-        pid <- getMainPidByInspecingDar origDar "proj1"
-        step "fetch/validate"
-        let fetchedDar = "fetched.dar"
-        callCommandQuiet $ unwords [ "daml ledger fetch-dar"
-                                   , "--port", show port
-                                   , "--main-package-id", pid
-                                   , "-o", fetchedDar
-                                   ]
-        callCommandQuiet $ unwords ["daml damlc validate-dar", fetchedDar]
-
-deployTest :: FilePath -> TestTree
-deployTest deployDir = testCase "daml deploy" $ do
-    createDirectoryIfMissing True deployDir
-    withCurrentDirectory deployDir $ do
-        callCommandQuiet $ unwords ["daml new", deployDir </> "proj1"]
-        callCommandQuiet $ unwords ["daml new", deployDir </> "proj2", "quickstart-java"]
-        withCurrentDirectory (deployDir </> "proj1") $ do
-            callCommandQuiet "daml build"
-            withDevNull $ \devNull -> do
-                port :: Int <- fromIntegral <$> getFreePort
-                let sharedSecret = "TheSharedSecret"
-                let sandboxProc =
-                        (shell $ unwords
-                            ["daml"
-                            , "sandbox"
-                            , "--wall-clock-time"
-                            , "--auth-jwt-hs256-unsafe=" <> sharedSecret
-                            , "--port", show port
-                            , ".daml/dist/proj1-0.0.1.dar"
-                            ]) { std_out = UseHandle devNull, std_in = CreatePipe }
-                let tokenFile = deployDir </> "secretToken.jwt"
-                -- The trailing newline is not required but we want to test that it is supported.
-                writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
-                withCreateProcess sandboxProc  $ \_ _ _ ph ->
-                    race_ (waitForProcess' sandboxProc ph) $ do
-                        waitForConnectionOnPort (threadDelay 100000) port
-                        withCurrentDirectory (deployDir </> "proj2") $ do
-                            callCommandQuiet $ unwords
-                                [ "daml deploy"
-                                , "--access-token-file " <> tokenFile
-                                , "--port", show port
-                                , "--host localhost"
-                                ]
-                        -- waitForProcess' will block on Windows so we explicitly kill the process.
-                        terminateProcess ph
-
-makeSignedJwt :: String -> String
-makeSignedJwt sharedSecret = do
-  let urc = JWT.ClaimsMap $ Map.fromList [ ("admin", Aeson.Bool True)]
-  let cs = mempty { JWT.unregisteredClaims = urc }
-  let key = JWT.hmacSecret $ T.pack sharedSecret
-  let text = JWT.encodeSigned key mempty cs
-  T.unpack text
-
-
 damlInstallerName :: String
 damlInstallerName
     | isWindows = "daml.exe"
     | otherwise = "daml"
 
--- | Like call process but returning stdout.
-runCreateProcessForStdout :: CreateProcess -> IO String
-runCreateProcessForStdout createProcess = do
-    -- We use `repeat ' '` to keep stdin open. Really we would just
-    -- like to inherit stdin but readCreateProcessWithExitCode does
-    -- not allow us to overwrite just that and I don’t want to
-    -- reimplement everything.
-    (exit, out, err) <- readCreateProcessWithExitCode createProcess (repeat ' ')
-    hPutStr stderr err
-    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
-    return out
-
-callCommandForStdout :: String -> IO String
-callCommandForStdout cmd =
-    runCreateProcessForStdout (shell cmd)
-
--- | Like call process but hiding stdout.
-runCreateProcessQuiet :: CreateProcess -> IO ()
-runCreateProcessQuiet createProcess = do
-  _ <- runCreateProcessForStdout createProcess
-  return ()
-
--- | Like callProcess but hides stdout.
-callProcessQuiet :: FilePath -> [String] -> IO ()
-callProcessQuiet cmd args =
-    runCreateProcessQuiet (proc cmd args)
-
--- | Like callCommand but hides stdout.
-callCommandQuiet :: String -> IO ()
-callCommandQuiet cmd =
-    runCreateProcessQuiet (shell cmd)
-
-data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
-    deriving (Show, Typeable)
-
-instance Exception ProcessExitFailure
-
--- This is slightly hacky: we need to find a free port but pass it to an
--- external process. Technically this port could be reused between us
--- getting it from the kernel and the external process listening
--- on that port but ports are usually not reused aggressively so this should
--- be fine and is certainly better than hardcoding the port.
-getFreePort :: IO PortNumber
-getFreePort = do
-    addr : _ <- getAddrInfo
-        (Just socketHints)
-        (Just "127.0.0.1")
-        (Just "0")
-    bracket
-        (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
-        close
-        (\s -> do bind s (addrAddress addr)
-                  name <- getSocketName s
-                  case name of
-                      SockAddrInet p _ -> pure p
-                      _ -> fail $ "Expected a SockAddrInet but got " <> show name)
-
-socketHints :: AddrInfo
-socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
-
--- | Like waitForProcess' but throws ProcessExitFailure if the process fails to start.
+-- | Like `waitForProcess` but throws ProcessExitFailure if the process fails to start.
 waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
 waitForProcess' cp ph = do
     e <- waitForProcess ph
     unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
 
--- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
--- use a temporary file.
-withDevNull :: (Handle -> IO a) -> IO a
-withDevNull a = withTempFile $ \f -> withFile f WriteMode a
+data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
+    deriving (Show, Typeable)
+
+instance Exception ProcessExitFailure
