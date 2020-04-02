@@ -214,7 +214,7 @@ runRepl opts mainDar replClient ideState = do
         :: DynFlags
         -> String
         -> Stmt GhcPs (LHsExpr GhcPs)
-        -> ExceptT Error ReplM (LPat GhcPs, Type)
+        -> ExceptT Error ReplM ()
     handleStmt dflags line stmt = do
         ReplState {moduleNames, bindings, lineNumber} <- State.get
         (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
@@ -231,13 +231,19 @@ runRepl opts mainDar replClient ideState = do
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
-        scriptRes <- liftIO $ ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
-        case scriptRes of
-            Right _ -> pure (bind, stmtTy)
-            Left err -> throwError (ScriptError err)
+        -- If we get an error we don’t increment lineNumber and we
+        -- do not get a new binding
+        withExceptT ScriptError $ ExceptT $ liftIO $
+            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
+        let boundVars = mkOccSet (map occName (collectPatBinders bind))
+        State.put $! ReplState
+          { moduleNames = moduleNames
+          , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
+          , lineNumber = lineNumber + 1
+          }
     replLine :: String -> ReplM ()
     replLine line = do
-        ReplState {moduleNames, bindings, lineNumber} <- State.get
+        ReplState {lineNumber} <- State.get
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
             runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
@@ -247,17 +253,8 @@ runRepl opts mainDar replClient ideState = do
                 ReplStatement stmt -> handleStmt dflags line stmt
                 ReplImport _ -> throwError (ParseError "IMPORT NOT IMPLEMENTED")
         case r of
-            Left err -> do
-                liftIO $ renderError dflags err
-                -- If we get an error we don’t increment i and we
-                -- do not get a new binding
-            Right (pat, ty) -> do
-                let boundVars = mkOccSet (map occName (collectPatBinders pat))
-                State.put $! ReplState
-                  { moduleNames = moduleNames
-                  , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat pat, ty)]
-                  , lineNumber = lineNumber + 1
-                  }
+            Left err -> liftIO $ renderError dflags err
+            Right () -> pure ()
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
