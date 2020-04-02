@@ -6,7 +6,7 @@ module DA.Test.Process
   , callProcessSilent
   , callProcessSilentError
   , callProcessForStdout
-  , callCommandQuiet
+  , callCommandSilent
   ) where
 
 import Control.Monad (unless,void)
@@ -28,8 +28,8 @@ callProcessForStdout :: FilePath -> [String] -> IO String
 callProcessForStdout cmd args =
   run (ShouldSucceed True) (proc cmd args)
 
-callCommandQuiet :: String -> IO ()
-callCommandQuiet cmd =
+callCommandSilent :: String -> IO ()
+callCommandSilent cmd =
   void $ run (ShouldSucceed True) (shell cmd)
 
 run :: ShouldSucceed -> CreateProcess -> IO String

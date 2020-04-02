@@ -37,7 +37,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
 import DA.Test.Daml2TsUtils (writeRootPackageJson)
-import DA.Test.Process (callCommandQuiet,callProcessSilent)
+import DA.Test.Process (callCommandSilent,callProcessSilent)
 import DA.Test.Util
 import SdkVersion
 
@@ -65,9 +65,9 @@ main = do
 
 tests :: FilePath -> FilePath -> TestTree
 tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests"
-    [ testCase "daml version" $ callCommandQuiet "daml version"
-    , testCase "daml --help" $ callCommandQuiet "daml --help"
-    , testCase "daml new --list" $ callCommandQuiet "daml new --list"
+    [ testCase "daml version" $ callCommandSilent "daml version"
+    , testCase "daml --help" $ callCommandSilent "daml --help"
+    , testCase "daml new --list" $ callCommandSilent "daml new --list"
     , packagingTests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
@@ -99,7 +99,7 @@ withSdkResource f =
                     then callProcessSilent
                         (extractDir </> "daml" </> damlInstallerName)
                         ["install", "--install-assistant=yes", "--set-path=no", extractDir]
-                    else callCommandQuiet $ extractDir </> "install.sh"
+                    else callCommandSilent $ extractDir </> "install.sh"
             setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
             pure oldPath
         restoreEnv oldPath = do
@@ -117,14 +117,14 @@ packagingTests :: TestTree
 packagingTests = testGroup "packaging"
      [ testCase "Build copy trigger" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
      , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "copy-trigger"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
         assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
      , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
@@ -143,7 +143,7 @@ packagingTests = testGroup "packaging"
           [ "daml 1.2"
           , "module MyDep where"
           ]
-        withCurrentDirectory myDepDir $ callCommandQuiet "daml build -o mydep.dar"
+        withCurrentDirectory myDepDir $ callCommandSilent "daml build -o mydep.dar"
         let myTriggerDir = tmpDir </> "mytrigger"
         createDirectoryIfMissing True (myTriggerDir </> "daml")
         writeFileUTF8 (myTriggerDir </> "daml.yaml") $ unlines
@@ -163,24 +163,24 @@ packagingTests = testGroup "packaging"
             , "import MyDep ()"
             , "import Daml.Trigger ()"
             ]
-        withCurrentDirectory myTriggerDir $ callCommandQuiet "daml build -o mytrigger.dar"
+        withCurrentDirectory myTriggerDir $ callCommandSilent "daml build -o mytrigger.dar"
         let dar = myTriggerDir </> "mytrigger.dar"
         assertBool "mytrigger.dar was not created." =<< doesFileExist dar
      , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
      , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
-        callCommandQuiet $ unwords ["daml", "new", projDir, "script-example"]
-        withCurrentDirectory projDir $ callCommandQuiet "daml build --target 1.dev"
+        callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
+        withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
         assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
      , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ withTempDir $ \tmpDir -> do
-        callCommandQuiet $ unwords ["daml", "new", tmpDir </> "data-dependency"]
-        withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandQuiet "daml build -o data-dependency.dar"
+        callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
+        withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandSilent "daml build -o data-dependency.dar"
         createDirectoryIfMissing True (tmpDir </> "proj")
         writeFileUTF8 (tmpDir </> "proj" </> "daml.yaml") $ unlines
           [ "sdk-version: " <> sdkVersion
@@ -195,7 +195,7 @@ packagingTests = testGroup "packaging"
           , "import Main (setup)"
           , "setup' = setup"
           ]
-        withCurrentDirectory (tmpDir </> "proj") $ callCommandQuiet "daml build"
+        withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -327,15 +327,15 @@ packagingTests = testGroup "packaging"
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
+          callCommandSilent $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
     , testCase "daml build" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml build"
+          callCommandSilent "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml test"
+          callCommandSilent "daml test"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet "daml damlc test --files daml/Main.daml"
+          callCommandSilent "daml damlc test --files daml/Main.daml"
     , testCase "daml damlc visual-web" $ withCurrentDirectory quickstartDir $
-          callCommandQuiet $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
+          callCommandSilent $ unwords ["daml damlc visual-web .daml/dist/quickstart-0.0.1.dar -o visual.html -b"]
     , testCase "Sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
@@ -431,7 +431,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
-              callCommandQuiet $ unwords
+              callCommandSilent $ unwords
                     [ "daml script"
                     , "--dar .daml/dist/quickstart-0.0.1.dar"
                     , "--script-name Setup:initialize"
@@ -474,11 +474,11 @@ cleanTests baseDir = testGroup "daml clean"
                 createDirectoryIfMissing True baseDir
                 withCurrentDirectory baseDir $ do
                     let projectDir = baseDir </> ("proj-" <> templateName)
-                    callCommandQuiet $ unwords ["daml", "new", projectDir, templateName]
+                    callCommandSilent $ unwords ["daml", "new", projectDir, templateName]
                     withCurrentDirectory projectDir $ do
                         filesAtStart <- sort <$> listFilesRecursive "."
-                        callCommandQuiet "daml build"
-                        callCommandQuiet "daml clean"
+                        callCommandSilent "daml build"
+                        callCommandSilent "daml clean"
                         filesAtEnd <- sort <$> listFilesRecursive "."
                         when (filesAtStart /= filesAtEnd) $
                             fail $ unlines
@@ -494,8 +494,8 @@ templateTests :: TestTree
 templateTests = testGroup "templates"
     [ testCase name $ do
           withTempDir $ \dir -> withCurrentDirectory dir $ do
-              callCommandQuiet $ unwords ["daml", "new", "foobar", name]
-              withCurrentDirectory (dir </> "foobar") $ callCommandQuiet "daml build"
+              callCommandSilent $ unwords ["daml", "new", "foobar", name]
+              withCurrentDirectory (dir </> "foobar") $ callCommandSilent "daml build"
     | name <- templateNames
     ]
 
@@ -531,9 +531,9 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                 createDirectoryIfMissing True codegenDir
                 withCurrentDirectory codegenDir $ do
                     let projectDir = codegenDir </> ("proj-" ++ lang)
-                    callCommandQuiet $ unwords ["daml new", projectDir, "skeleton"]
+                    callCommandSilent $ unwords ["daml new", projectDir, "skeleton"]
                     withCurrentDirectory projectDir $ do
-                        callCommandQuiet "daml build"
+                        callCommandSilent "daml build"
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "ts") $ do
@@ -544,7 +544,7 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                           withCurrentDirectory "generated" $ do
                             copyDirectory damlTypes "daml-types"
                             writeRootPackageJson Nothing [lang]
-                        callCommandQuiet $
+                        callCommandSilent $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
                                   , "-o", outDir]
