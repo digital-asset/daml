@@ -7,4 +7,4 @@
 -- create_consumed_at is stored as byte array
 ---------------------------------------------------------------------------------------------------
 
-ALTER TABLE participant_events ALTER COLUMN create_consumed_at TYPE bytea using decode(create_consumed_at, 'hex');
+ALTER TABLE participant_events ALTER COLUMN create_consumed_at TYPE bytea USING create_consumed_at::bytea;
