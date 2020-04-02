@@ -1004,9 +1004,7 @@ HTTP Response OK(200) with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
     }
