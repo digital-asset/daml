@@ -51,7 +51,7 @@ main = do
 damlStdlibTypes :: LF.Version -> [(LF.ModuleName, LF.TypeConName)]
 damlStdlibTypes ver
     | ver == LF.version1_6 = anyTypes <> damlStdlibTypes LF.version1_7
-    | otherwise = map (bimap LF.ModuleName LF.TypeConName) types
+    | otherwise = types
   where
     anyTypes = map (bimap LF.ModuleName LF.TypeConName)
         [ (["DA", "Internal", "Any"], ["AnyChoice"])
@@ -59,7 +59,7 @@ damlStdlibTypes ver
         , (["DA", "Internal", "Any"], ["AnyTemplate"])
         , (["DA", "Internal", "Any"], ["TemplateTypeRep"])
         ]
-    types =
+    types = map (bimap LF.ModuleName LF.TypeConName)
         [ (["DA", "Random"], ["Minstd"])
         , (["DA", "Next", "Set"], ["Set"])
         , (["DA", "Next", "Map"], ["Map"])
