@@ -6,7 +6,7 @@
 ## Documentation
 
 Comprehensive documentation for `@daml/ledger` can be found
-[here](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/index.html).
+[here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-ledger/index.html).
 
 ## Usage
 

@@ -62,7 +62,7 @@ export type QueryResult<T extends object, K, I extends string> = {
  * @typeparam I The template id type.
  *
  * @param template The contract template to filter for.
- * @param queryFactory A function returning a query.
+ * @param queryFactory A function returning a query. If the query is omitted, all visible contracts of the given template are returned.
  * @param queryDeps The dependencies of the query (which trigger a reload when changed).
  *
  * @return The result of the query.
@@ -138,14 +138,14 @@ export function useFetchByKey<T extends object, K, I extends string>(template: T
  * @typeparam I The template id type.
  *
  * @param template The template of the contracts to match.
- * @param queryFactory A function returning a query.
+ * @param queryFactory A function returning a query. If the query is omitted, all visible contracts of the given template are returned.
  * @param queryDeps The dependencies of the query (for which a change triggers an update of the result)
  *
  * @return The matching contracts.
  *
  */
-export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory: () => Query<T>, queryDeps: readonly unknown[]): QueryResult<T, K, I>
+export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>): QueryResult<T, K, I>
 export function useStreamQuery<T extends object, K, I extends string>(template: Template<T, K, I>, queryFactory?: () => Query<T>, queryDeps?: readonly unknown[]): QueryResult<T, K, I> {
   const [result, setResult] = useState<QueryResult<T, K, I>>({contracts: [], loading: false});
   const state = useDamlState();

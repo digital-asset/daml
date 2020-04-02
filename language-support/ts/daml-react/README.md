@@ -4,7 +4,7 @@
 
 ## Documentation
 
-Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/app-dev/bindings-ts/daml-react/index.html).
+Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-react/index.html).
 
 ## Usage
 
@@ -63,11 +63,14 @@ const [choiceReturnValue, events] = await ledger.exercise(ContractChoice, contra
 `useQuery`
 ----------
 `useQuery` returns the contracts matching a given query. The query matches for a given contract
-template and specified field values of the contracts of that template.
+template and specified field values of the contracts of that template. If the query is omitted, all
+visible contracts of the given template are returned.
 
 ```typescript
 const {contracts, loading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useReload`
@@ -86,6 +89,8 @@ const onClick = reload;
 ```typescript
 const {contracts, loading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useStreamQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useFetchByKey`
