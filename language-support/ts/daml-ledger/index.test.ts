@@ -8,16 +8,17 @@ import * as jtv from "@mojotech/json-type-validation";
 import type { EventEmitter } from 'events';
 import mockConsole from "jest-mock-console";
 
+const mockLive = jest.fn();
 const mockChange = jest.fn();
 const mockConstructor = jest.fn();
 const mockSend = jest.fn();
-const mockFunctions = [mockChange, mockConstructor, mockSend];
+const mockFunctions = [mockLive, mockChange, mockConstructor, mockSend];
 
 type Foo = {key: string};
 const fooKey = 'fooKey';
 
 type Message =
-  | { events: Event<Foo>[] }
+  | { events: Event<Foo>[]; offset?: string }
   | { warnings: string[] }
   | { errors: string[] }
   | string //for unexpected messages
@@ -149,13 +150,24 @@ describe("streamQuery", () => {
     restoreConsole();
   });
 
+  test("receive live event", () => {
+    const ledger = new Ledger(mockOptions);
+    const stream = ledger.streamQuery(Foo);
+    stream.on("live", mockLive);
+    stream.on("change", state => mockChange(state));
+    mockInstance.serverSend({ events: [fooEvent(1)], offset: '3' });
+    expect(mockLive).toHaveBeenCalledTimes(1);
+    expect(mockLive).toHaveBeenLastCalledWith([fooCreateEvent(1)]);
+    expect(mockChange).toHaveBeenCalledTimes(1);
+    expect(mockChange).toHaveBeenLastCalledWith([fooCreateEvent(1)])
+  });
+
   test("receive empty events", () => {
     const ledger = new Ledger(mockOptions);
     const stream = ledger.streamQuery(Foo);
     stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [] });
-    expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenLastCalledWith([]);
+    expect(mockChange).toHaveBeenCalledTimes(0);
   });
 
   test("receive one event", () => {
@@ -196,8 +208,7 @@ describe("streamFetchByKey", () => {
     const stream = ledger.streamFetchByKey(Foo, 'badKey');
     stream.on("change", state => mockChange(state));
     mockInstance.serverSend({ events: [] });
-    expect(mockChange).toHaveBeenCalledTimes(1);
-    expect(mockChange).toHaveBeenCalledWith(null);
+    expect(mockChange).toHaveBeenCalledTimes(0);
   });
 
   test("receive one event", () => {
