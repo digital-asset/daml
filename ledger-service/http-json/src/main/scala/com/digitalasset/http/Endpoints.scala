@@ -376,6 +376,7 @@ object Endpoints {
     } yield c
   }
 
+  // TODO(Leo) return error if all parties are unknown
   private def okResponse(
       parties: List[domain.PartyDetails],
       unknownParties: List[domain.Party]): domain.OkResponse[List[domain.PartyDetails]] = {
