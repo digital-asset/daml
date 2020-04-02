@@ -20,7 +20,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -60,15 +60,13 @@ final class InMemoryLedgerReaderWriter(
         startExclusive
           .map(KVOffset.highestIndex(_).toInt)
           .getOrElse(StartIndex),
-        OneAfterAnother[Index, List[LedgerEntry]](
-          (index: Index) => index + 1,
-          (index: Index) => Future.successful(List(retrieveLogEntry(index))),
-        ),
+        RangeSource((startExclusive, endInclusive) =>
+          Source.fromIterator(() => {
+            val entries = state.readLog(_.zipWithIndex.slice(startExclusive + 1, endInclusive + 1))
+            entries.iterator.map { case (entry, index) => index -> entry }
+          }))
       )
-      .mapConcat { case (_, updates) => updates }
-
-  private def retrieveLogEntry(index: Int): LedgerEntry =
-    state.withReadLock((log, _) => log(index))
+      .map { case (_, updates) => updates }
 }
 
 class InMemoryLedgerStateAccess(currentState: InMemoryState)(
@@ -76,7 +74,7 @@ class InMemoryLedgerStateAccess(currentState: InMemoryState)(
 ) extends LedgerStateAccess[Index] {
 
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-    currentState.withFutureWriteLock { (log, state) =>
+    currentState.write { (log, state) =>
       body(new InMemoryLedgerStateOperations(log, state))
     }
 }
@@ -87,21 +85,15 @@ private class InMemoryLedgerStateOperations(
 )(implicit executionContext: ExecutionContext)
     extends BatchingLedgerStateOperations[Index] {
   override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-    Future.successful {
-      keys.map(keyBytes => state.get(keyBytes))
-    }
+    Future.successful(keys.map(state.get))
 
-  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
-    Future.successful {
-      state ++= keyValuePairs.map {
-        case (keyBytes, valueBytes) => keyBytes -> valueBytes
-      }
-    }
+  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
+    state ++= keyValuePairs
+    Future.unit
+  }
 
   override def appendToLog(key: Key, value: Value): Future[Index] =
-    Future.successful {
-      appendEntry(log, LedgerEntry.LedgerRecord(_, key, value))
-    }
+    Future.successful(appendEntry(log, LedgerEntry.LedgerRecord(_, key, value)))
 }
 
 object InMemoryLedgerReaderWriter {
@@ -125,7 +117,7 @@ object InMemoryLedgerReaderWriter {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[InMemoryLedgerReaderWriter] = {
-      val state = new InMemoryState
+      val state = InMemoryState.empty
       for {
         dispatcher <- dispatcher.acquire()
         readerWriter <- new Owner(

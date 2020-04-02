@@ -22,7 +22,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     val resource = for {
       dispatcher <- InMemoryLedgerReaderWriter.dispatcher
-      sharedState = new InMemoryState()
+      sharedState = InMemoryState.empty
       factory = new InMemoryLedgerFactory(dispatcher, sharedState)
       runner <- new Runner("In-Memory Ledger", factory).owner(args)
     } yield runner
