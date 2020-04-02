@@ -412,27 +412,28 @@ sh_test(
     ],
 )
 
-sh_test(
+da_haskell_test(
     name = "unstable-types",
-    srcs = ["src/unstable-types.sh"],
-    args = [
-        "$(location @jq_dev_env//:jq)",
-        "$(location :src/query-lf-interned.jq)",
-        "$(location //compiler/damlc/pkg-db)",
-        "$(location //compiler/damlc)",
-        "$(POSIX_DIFF)",
-    ],
+    srcs = ["src/DA/Test/UnstableTypes.hs"],
     data = [
-        ":src/query-lf-interned.jq",
-        "//compiler/damlc",
         "//compiler/damlc/pkg-db",
-        "@jq_dev_env//:jq",
     ],
-    toolchains = [
-        "@rules_sh//sh/posix:make_variables",
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
     ],
+    main_function = "DA.Test.UnstableTypes.main",
     deps = [
-        "@bazel_tools//tools/bash/runfiles",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
