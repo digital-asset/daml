@@ -23,20 +23,10 @@ private[memory] class InMemoryState(
 ) {
   private val lockCurrentState = new Semaphore(1, true)
 
-  // This only differs in the interface; it uses the same lock and provides the same objects.
-  def withReadLock[A](action: (ImmutableLog, ImmutableState) => A): A =
-    withWriteLock(action)
+  def readLog[A](action: ImmutableLog => A): A =
+    action(log) // `log` is mutable, but the interface is immutable
 
-  def withWriteLock[A](action: (MutableLog, MutableState) => A): A = {
-    lockCurrentState.acquire()
-    try {
-      action(log, state)
-    } finally {
-      lockCurrentState.release()
-    }
-  }
-
-  def withFutureWriteLock[A](action: (MutableLog, MutableState) => Future[A])(
+  def write[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
   ): Future[A] = {
     lockCurrentState.acquire()

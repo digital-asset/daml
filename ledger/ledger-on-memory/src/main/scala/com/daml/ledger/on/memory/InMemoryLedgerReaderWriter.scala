@@ -62,8 +62,7 @@ final class InMemoryLedgerReaderWriter(
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
-            val entries = state.withReadLock((log, _) =>
-              log.zipWithIndex.slice(startExclusive + 1, endInclusive + 1))
+            val entries = state.readLog(_.zipWithIndex.slice(startExclusive + 1, endInclusive + 1))
             entries.iterator.map { case (entry, index) => index -> entry }
           }))
       )
@@ -75,7 +74,7 @@ class InMemoryLedgerStateAccess(currentState: InMemoryState)(
 ) extends LedgerStateAccess[Index] {
 
   override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-    currentState.withFutureWriteLock { (log, state) =>
+    currentState.write { (log, state) =>
       body(new InMemoryLedgerStateOperations(log, state))
     }
 }
