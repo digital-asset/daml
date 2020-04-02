@@ -13,16 +13,4 @@ import com.daml.ledger.participant.state.v1.Offset
   * @param entryId  opaque ID of log entry
   * @param envelope opaque contents of log entry
   */
-final class LedgerRecord(
-    val offset: Offset,
-    val entryId: Bytes,
-    val envelope: Bytes
-)
-
-object LedgerRecord {
-  def apply(offset: Offset, entryId: Bytes, envelope: Bytes): LedgerRecord =
-    new LedgerRecord(offset, entryId, envelope)
-
-  def unapply(record: LedgerRecord): Option[(Offset, Bytes, Bytes)] =
-    Some((record.offset, record.entryId, record.envelope))
-}
+final case class LedgerRecord(offset: Offset, entryId: Bytes, envelope: Bytes)
