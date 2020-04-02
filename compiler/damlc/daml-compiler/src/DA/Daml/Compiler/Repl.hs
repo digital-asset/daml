@@ -242,12 +242,27 @@ runRepl opts mainDar replClient ideState = do
           , lineNumber = lineNumber + 1
           }
     handleImport
-        :: ImportDecl GhcPs
+        :: DynFlags
+        -> ImportDecl GhcPs
         -> ExceptT Error ReplM ()
-    handleImport imp = do
-        -- TODO[AH] Verify that the module exists.
+    handleImport dflags imp = do
+        ReplState {imports, lineNumber} <- State.get
         -- TODO[AH] Deduplicate imports.
-        State.modify $ \s -> s { imports = imp : imports s }
+        let newImports = imp : imports
+        -- TODO[AH] Factor out the module render and typecheck step.
+        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+            (renderModule dflags newImports lineNumber [] (WildPat noExt)
+                (noLoc $ HsApp noExt
+                    (noLoc $ HsVar noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "return")
+                    (noLoc $ ExplicitTuple noExt [] Boxed)))
+        -- Useful for debugging, probably best to put it behind a --debug flag
+        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+        -- liftIO $ for_ (lines rendered) $ \line ->
+        --      hPutStrLn stderr ("> " <> line)
+        _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
+            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
+                <*> useE TypeCheck (lineFilePath lineNumber))
+        State.modify $ \s -> s { imports = newImports }
     replLine :: String -> ReplM ()
     replLine line = do
         ReplState {lineNumber} <- State.get
@@ -258,7 +273,7 @@ runRepl opts mainDar replClient ideState = do
             input <- ExceptT $ pure $ parseReplInput line dflags
             case input of
                 ReplStatement stmt -> handleStmt dflags line stmt
-                ReplImport imp -> handleImport imp
+                ReplImport imp -> handleImport dflags imp
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
