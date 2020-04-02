@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app-0.1.0/lib/User';
 import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';

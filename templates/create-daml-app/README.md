@@ -31,9 +31,9 @@ First, we need to generate TypeScript code bindings for the compiled DAML model.
 At the root of the repository, run
 ```
 daml build
-daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
+daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 ```
-The latter command generates TypeScript packages in the `daml-ts` directory.
+The latter command generates TypeScript packages in the `daml.js` directory.
 
 Next, navigate to the `ui` directory and install the dependencies and build the app by running
 ```
@@ -87,9 +87,8 @@ DAR `create-daml-app.dar` you have just created.
 To upload the UI, create a ZIP file containing all your UI assets by executing
 ```
 daml build
-daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts/src
-yarn workspaces run build
-(cd ui && zip -r ../create-daml-app-ui.zip build)
+daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+(cd ui && yarn build && zip -r ../create-daml-app-ui.zip build)
 ```
 at the root of the repository. Afterwards, select the "UI Assets" tab of your
 chosen ledger on the DABL website, upload the ZIP file
@@ -106,7 +105,7 @@ Regardless of which direction you pick, the following files will be the most
 interesting ones to familiarize yourself with:
 
 - [`daml/User.daml`](daml/User.daml): the DAML model of the social network
-- [`daml-ts/src/create-daml-app-0.1.0/User.ts`](src/daml/User.ts) (once you've generated it):
+- [`daml.js/src/create-daml-app-0.1.0/User.ts`](src/daml/User.ts) (once you've generated it):
   a reflection of the types contained in the DAML model in TypeScript
 - [`ui/src/components/MainView.tsx`](ui/src/components/MainView.tsx):
   a React component using the HTTP Ledger API and rendering the main features
