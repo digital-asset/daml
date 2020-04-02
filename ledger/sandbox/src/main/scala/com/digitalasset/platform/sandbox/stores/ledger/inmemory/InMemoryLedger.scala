@@ -334,6 +334,7 @@ class InMemoryLedger(
 
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.submitter)
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
