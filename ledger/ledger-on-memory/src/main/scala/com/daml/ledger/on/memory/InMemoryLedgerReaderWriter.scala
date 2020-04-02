@@ -117,7 +117,7 @@ object InMemoryLedgerReaderWriter {
     override def acquire()(
         implicit executionContext: ExecutionContext
     ): Resource[InMemoryLedgerReaderWriter] = {
-      val state = new InMemoryState
+      val state = InMemoryState.empty
       for {
         dispatcher <- dispatcher.acquire()
         readerWriter <- new Owner(

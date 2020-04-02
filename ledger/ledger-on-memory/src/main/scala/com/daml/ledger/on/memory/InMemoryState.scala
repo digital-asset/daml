@@ -15,12 +15,7 @@ import com.google.protobuf.ByteString
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] class InMemoryState(
-    // the first element will never be read because begin offsets are exclusive
-    log: MutableLog =
-      mutable.ArrayBuffer(LedgerRecord(Offset.begin, ByteString.EMPTY, ByteString.EMPTY)),
-    state: MutableState = mutable.Map.empty,
-) {
+private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new Semaphore(1, true)
 
   def readLog[A](action: ImmutableLog => A): A =
@@ -46,4 +41,13 @@ object InMemoryState {
 
   type StateKey = Bytes
   type StateValue = Bytes
+
+  // The first element will never be read because begin offsets are exclusive.
+  private val Beginning = LedgerRecord(Offset.begin, ByteString.EMPTY, ByteString.EMPTY)
+
+  def empty =
+    new InMemoryState(
+      log = mutable.ArrayBuffer(Beginning),
+      state = mutable.Map.empty,
+    )
 }
