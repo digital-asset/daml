@@ -39,7 +39,7 @@ package.json:
     },
     "private": true,
     "workspaces": [
-        "daml-ts",
+        "daml.js",
         "ui"
     ]
 }
@@ -49,7 +49,7 @@ using `daml-head` instead of `daml`.
 Specifically, you should run the following in the root directory:
 ```
 daml-head build
-daml-head codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
+daml-head codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 daml-head start
 ```
 

@@ -93,7 +93,7 @@ The ``daml codegen ts`` command then takes this file as argument to produce a nu
 ::
 
     daml build
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts
+    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
 Now we have a TypeScript interface (types and companion objects) to our DAML model, which we'll use in our UI code next.
 

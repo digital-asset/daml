@@ -565,7 +565,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           copyDirectory srcDir (tmpDir </> tsLib)
         BSL.writeFile (tmpDir </> "package.json") $ Aeson.encode $ object
           [ "private" .= True
-          , "workspaces" .= ["create-daml-app/daml-ts", "create-daml-app/ui" :: String]
+          , "workspaces" .= ["create-daml-app/daml.js", "create-daml-app/ui" :: String]
           , "resolutions" .= object
               [ pkgName .= ("file:" ++ tsLib)
               | tsLib <- tsLibs, let pkgName = "@" <> T.replace "-" "/"  (T.pack tsLib)
@@ -576,7 +576,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         let cdaDir = tmpDir </> "create-daml-app"
         withCurrentDirectory cdaDir $ do
           callCommandSilent "daml build"
-          callCommandSilent "daml codegen ts -o daml-ts .daml/dist/create-daml-app-0.1.0.dar"
+          callCommandSilent "daml codegen ts -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
           assertBool "ui/build/index.html does not yet exist" . not
         withCurrentDirectory (cdaDir </> "ui") $ do
