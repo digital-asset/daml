@@ -154,7 +154,7 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
 data ReplState = ReplState
-  { moduleNames :: [LF.ModuleName]
+  { imports :: [ImportDecl GhcPs]
   , bindings :: [(LPat GhcPs, Type)]
   , lineNumber :: Int
   }
@@ -195,7 +195,7 @@ runRepl opts mainDar replClient ideState = do
                 exitFailure
             Right _ -> pure ()
     let initReplState = ReplState
-          { moduleNames = moduleNames
+          { imports = map (simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString) moduleNames
           , bindings = []
           , lineNumber = 0
           }
@@ -216,10 +216,10 @@ runRepl opts mainDar replClient ideState = do
         -> Stmt GhcPs (LHsExpr GhcPs)
         -> ExceptT Error ReplM ()
     handleStmt dflags line stmt = do
-        ReplState {moduleNames, bindings, lineNumber} <- State.get
+        ReplState {imports, bindings, lineNumber} <- State.get
         (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
         liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
-            (renderModule dflags moduleNames lineNumber bindings bind expr)
+            (renderModule dflags imports lineNumber bindings bind expr)
         -- Useful for debugging, probably best to put it behind a --debug flag
         -- rendered <- liftIO  $readFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
         -- liftIO $ for_ (lines rendered) $ \line ->
@@ -237,7 +237,7 @@ runRepl opts mainDar replClient ideState = do
             ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
         let boundVars = mkOccSet (map occName (collectPatBinders bind))
         State.put $! ReplState
-          { moduleNames = moduleNames
+          { imports = imports
           , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
           , lineNumber = lineNumber + 1
           }
@@ -274,7 +274,7 @@ lineFilePath i = toNormalizedFilePath' $ "Line" <> show i <> ".daml"
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i
 
-renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
+renderModule :: DynFlags -> [ImportDecl GhcPs] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
 renderModule dflags imports line binds pat expr = unlines $
      [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
      , "{-# LANGUAGE PartialTypeSignatures #-}"
@@ -282,7 +282,7 @@ renderModule dflags imports line binds pat expr = unlines $
      , "module " <> lineModuleName line <> " where"
      , "import Daml.Script"
      ] <>
-     map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>
+     map renderImport imports <>
      [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
      , "expr " <> unwords (map (renderPat . fst) binds) <> " = "
      ] <>
@@ -296,5 +296,6 @@ renderModule dflags imports line binds pat expr = unlines $
         -- we might just want to construct the whole function using the Haskell AST
         -- so the Haskell pretty printer takes care of this stuff.
         map ("  " <> ) $ lines $ prettyPrint stmt
-  where renderPat pat = showSDoc dflags (ppr pat)
+  where renderImport imp = showSDoc dflags (ppr imp)
+        renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = showSDoc dflags (ppr ty) <> " -> "
