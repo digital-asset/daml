@@ -222,9 +222,9 @@ If client's HTTP GET or POST request reaches an API endpoint, the corresponding 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>
-        ,"errors": <JSON array of strings> | ,"result": <JSON object>
-        [ ,"warnings": <JSON object> ]
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>, | "result": <JSON object or array>,
+        ["warnings": <JSON object> ]
     }
 
 Where:
@@ -281,21 +281,43 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 Examples
 ========
 
+**Result with JSON Object without Warnings:**
+
 .. code-block:: none
 
     {"status": 200, "result": {...}}
+
+**Result with JSON Array Warnings:**
 
 .. code-block:: none
 
     {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
-.. code-block:: json
-
-    {"status": 401, "errors": ["Authentication Required"]}
+**Bad Request Error:**
 
 .. code-block:: json
 
     {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+**Bad Request Error with Warnings:**
+
+.. code-block:: json
+
+    {"status":400, "errors":["Cannot not resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+
+**Authentication Error:**
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+**Not Found Error:**
+
+.. code-block:: json
+
+    {"status": 404, "errors": ["HttpMethod(POST), uri: http://localhost:7575/v1/query1"]}
+
+**Internal Server Error:**
 
 .. code-block:: json
 
