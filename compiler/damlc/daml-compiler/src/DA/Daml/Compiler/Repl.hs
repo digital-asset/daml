@@ -159,7 +159,7 @@ data ReplState = ReplState
   , lineNumber :: Int
   }
 
-type ReplM a = Repl.HaskelineT (State.StateT ReplState IO) a
+type ReplM = Repl.HaskelineT (State.StateT ReplState IO)
 
 data ReplInput
   = ReplStatement (Stmt GhcPs (LHsExpr GhcPs))
@@ -210,29 +210,24 @@ runRepl opts mainDar replClient ideState = do
             initialiser = pure ()
     State.evalStateT replM initReplState
   where
-    handleLine
-        :: [LF.ModuleName]
-        -> [(LPat GhcPs, Type)]
-        -> DynFlags
+    handleStmt
+        :: DynFlags
         -> String
-        -> Int
-        -> IO (Either Error (LPat GhcPs, Type))
-    handleLine moduleNames binds dflags l i = runExceptT $ do
-        input <- ExceptT $ pure $ parseReplInput l dflags
-        stmt <- case input of
-            ReplStatement stmt -> pure stmt
-            ReplImport _ -> throwError (ParseError "IMPORT NOT IMPLEMENTED")
-        (bind, expr) <- maybe (throwError (UnsupportedStatement l)) pure (splitStmt stmt)
-        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
-            (renderModule dflags moduleNames i binds bind expr)
+        -> Stmt GhcPs (LHsExpr GhcPs)
+        -> ExceptT Error ReplM (LPat GhcPs, Type)
+    handleStmt dflags line stmt = do
+        ReplState {moduleNames, bindings, lineNumber} <- State.get
+        (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
+        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+            (renderModule dflags moduleNames lineNumber bindings bind expr)
         -- Useful for debugging, probably best to put it behind a --debug flag
         -- rendered <- liftIO  $readFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
         -- liftIO $ for_ (lines rendered) $ \line ->
         --      hPutStrLn stderr ("> " <> line)
         (lfMod, tmrModule -> tcMod) <-
             maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath i)
-                <*> useE TypeCheck (lineFilePath i))
+            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
+                <*> useE TypeCheck (lineFilePath lineNumber))
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
@@ -246,7 +241,11 @@ runRepl opts mainDar replClient ideState = do
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
             runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
-        r <- liftIO $ handleLine moduleNames bindings dflags line lineNumber
+        r <- runExceptT $ do
+            input <- ExceptT $ pure $ parseReplInput line dflags
+            case input of
+                ReplStatement stmt -> handleStmt dflags line stmt
+                ReplImport _ -> throwError (ParseError "IMPORT NOT IMPLEMENTED")
         case r of
             Left err -> do
                 liftIO $ renderError dflags err
