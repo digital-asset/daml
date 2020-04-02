@@ -951,8 +951,8 @@ If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) err
       ]
     }
 
-HTTP Response
-=============
+HTTP Response OK(200)
+=====================
 
 - Content-Type: ``application/json``
 - Content:
@@ -987,8 +987,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+HTTP Response OK(200) with Unknown Parties Warning
+==================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -1009,6 +1009,24 @@ HTTP Response with Unknown Parties Warning
         ]
       },
       "status": 200
+    }
+
+BadRequest(400) Response with Unknown Parties Warning
+=====================================================
+
+When all party identifiers specified in the request are unknown to the server, it returns BadRequest(400) error with a warnings that lists all party identifiers.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "errors": ["Cannot find any requested party"],
+      "warnings": {
+        "unknownParties": ["Bob", "Dave", "Alice"]
+      },
+      "status": 400
     }
 
 Fetch All Known Parties

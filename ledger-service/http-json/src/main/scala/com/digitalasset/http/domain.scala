@@ -554,7 +554,9 @@ object domain {
     }
   }
 
-  sealed abstract class SyncResponse[+R] extends Product with Serializable
+  sealed abstract class SyncResponse[+R] extends Product with Serializable {
+    def status: StatusCode
+  }
 
   final case class OkResponse[+R](
       result: R,

@@ -941,6 +941,28 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
+  "parties endpoint should return error if all parties are unknown" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] =
+        domain.Party.subst(Vector("Alice", "Bob", "Dave"))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.ErrorResponse(errors, Some(warnings), StatusCodes.BadRequest)) =>
+              errors shouldBe List(ErrorMessages.cannotFindAnyParty)
+              inside(warnings) {
+                case domain.UnknownParties(unknownParties) =>
+                  unknownParties.toSet shouldBe requestedPartyIds.toSet
+              }
+          }
+      }: Future[Assertion]
+  }
+
   "parties/allocate should allocate a new party" in withHttpServiceAndClient { (uri, _, _, _) =>
     val request = domain.AllocatePartyRequest(
       Some(domain.Party(s"Carol${uniqueId()}")),
