@@ -4,17 +4,17 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
-import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
+import { User } from '@daml.js/create-daml-app-0.1.0';
+import { useParty, useLedger, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
 
 // USERS_BEGIN
 const MainView: React.FC = () => {
   const username = useParty();
-  const myUserResult = useStreamFetchByKey(User, () => username, [username]);
+  const myUserResult = useStreamFetchByKey(User.User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
-  const allUsers = useStreamQuery(User).contracts;
+  const allUsers = useStreamQuery(User.User).contracts;
 // USERS_END
 
   // Sorted list of users that are following the current user
@@ -25,19 +25,19 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-// FOLLOW_BEGIN
-  const exerciseFollow = useExerciseByKey(User.Follow);
+  // FOLLOW_BEGIN
+  const ledger = useLedger();
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {
-      await exerciseFollow(username, {userToFollow});
+      await ledger.exerciseByKey(User.User.Follow, username, {userToFollow});
       return true;
     } catch (error) {
       alert("Unknown error:\n" + JSON.stringify(error));
       return false;
     }
   }
-// FOLLOW_END
+  // FOLLOW_END
 
   return (
     <Container>
@@ -71,12 +71,12 @@ const MainView: React.FC = () => {
                 </Header.Content>
               </Header>
               <Divider />
-// USERLIST_BEGIN
+              // USERLIST_BEGIN
               <UserList
                 users={followers}
                 onFollow={follow}
               />
-// USERLIST_END
+              // USERLIST_END
             </Segment>
           </Grid.Column>
         </Grid.Row>

@@ -329,7 +329,7 @@ quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
-    , testCase "daml build " $ withCurrentDirectory quickstartDir $
+    , testCase "daml build" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callCommandQuiet "daml test"
@@ -512,6 +512,7 @@ templateTests = testGroup "templates"
             , "quickstart-scala"
             , "script-example"
             , "skeleton"
+            , "create-daml-app"
             ]
 
 -- | Check we can generate language bindings.
