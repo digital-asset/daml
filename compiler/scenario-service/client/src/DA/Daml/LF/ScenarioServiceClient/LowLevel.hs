@@ -65,6 +65,7 @@ import qualified ScenarioService as SS
 
 data Options = Options
   { optServerJar :: FilePath
+  , optJvmOptions :: [String]
   , optRequestTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
@@ -199,7 +200,7 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
-  cp <- javaProc (["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   exitExpected <- newIORef False
   let closeStdin hdl = do
           atomicWriteIORef exitExpected True

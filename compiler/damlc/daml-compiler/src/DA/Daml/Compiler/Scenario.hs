@@ -9,7 +9,7 @@ module DA.Daml.Compiler.Scenario (
   , EnableScenarioService(..)
   , withScenarioService
   , withScenarioService'
-  , SS.ScenarioServiceConfig
+  , SS.ScenarioServiceConfig(..)
   , SS.readScenarioServiceConfig
   , SS.defaultScenarioServiceConfig
   ) where

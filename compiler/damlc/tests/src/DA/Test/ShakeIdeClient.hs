@@ -28,12 +28,13 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
-main = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+main = SS.withScenarioService Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate
   -- service for each test, we launch a single service that is shared across all tests.
   Tasty.deterministicMain (ideTests (Just scenarioService))
+  where scenarioConfig = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
 
 ideTests :: Maybe SS.Handle -> Tasty.TestTree
 ideTests mbScenarioService =
