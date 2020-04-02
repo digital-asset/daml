@@ -11,6 +11,7 @@ import io.grpc.Channel
 import org.scalatest.Suite
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxServer, Channel)] {
   self: Suite =>
@@ -30,7 +31,9 @@ trait SandboxFixture extends AbstractSandboxFixture with SuiteResource[(SandboxS
             Some(info.jdbcUrl)))
         server <- SandboxServer.owner(config.copy(jdbcUrl = jdbcUrl))
         channel <- GrpcClientResource.owner(server.port)
-      } yield (server, channel)
+      } yield (server, channel),
+      acquisitionTimeout = 1.minute,
+      releaseTimeout = 1.minute,
     )
   }
 }
