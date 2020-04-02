@@ -66,7 +66,7 @@ const [choiceReturnValue, events] = await ledger.exercise(ContractChoice, contra
 template and specified field values of the contracts of that template.
 
 ```typescript
-const {contracts, isLoading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
+const {contracts, loading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
 ```
 
@@ -84,7 +84,7 @@ const onClick = reload;
 `useStreamQuery` has the same signature as `useQuery`, but it constantly refreshes the results.
 
 ```typescript
-const {contracts, isLoading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
+const {contracts, loading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
 ```
 
@@ -93,7 +93,7 @@ dependency2, ...]);
 `useFetchByKey` returns the unique contract of a given template and a given contract key.
 
 ```typescript
-const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
+const {contract, loading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 `useStreamFetchByKey`
@@ -102,7 +102,7 @@ const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [depend
 the result.
 
 ```typescript
-const {contract, isLoading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
+const {contract, loading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 
