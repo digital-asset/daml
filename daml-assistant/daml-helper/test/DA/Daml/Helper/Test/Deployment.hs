@@ -3,22 +3,26 @@
 
 module DA.Daml.Helper.Test.Deployment (main) where
 
-import Data.List.Extra (isInfixOf,splitOn)
 import System.Directory.Extra (withCurrentDirectory)
 import System.Environment.Blank (setEnv)
 import System.FilePath ((</>))
 import System.IO.Extra (withTempDir,writeFileUTF8)
 import Test.Tasty (TestTree,defaultMain,testGroup)
 import Test.Tasty.HUnit (testCaseSteps)
+import qualified "zip-archive" Codec.Archive.Zip as Zip
 import qualified Data.Aeson as Aeson
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
+import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
+import DA.Test.Process (callProcessSilent)
 import DA.Test.Sandbox (mbSharedSecret,withSandbox,defaultSandboxConf)
-import DA.Test.Process (callProcessSilent,callProcessForStdout)
 import SdkVersion (sdkVersion)
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LF.Proto3.Archive as LFArchive
 
 data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
 
@@ -69,7 +73,7 @@ makeSignedJwt sharedSecret = do
 
 -- | Test `daml ledger fetch-dar`
 fetchTest :: Tools -> TestTree
-fetchTest tools@Tools{..} = do
+fetchTest Tools{..} = do
   withSandbox defaultSandboxConf $ \getSandboxPort ->
     testCaseSteps "fetchTest" $ \step -> do
     port <- getSandboxPort
@@ -84,7 +88,7 @@ fetchTest tools@Tools{..} = do
           , "--host", "localhost" , "--port" , show port
           , origDar
           ]
-        pid <- getMainPidByInspecingDar tools origDar "proj1"
+        pid <- getMainPidOfDar origDar
         step "fetch/validate"
         let fetchedDar = "fetched.dar"
         callProcessSilent damlHelper
@@ -95,20 +99,13 @@ fetchTest tools@Tools{..} = do
           ]
         callProcessSilent damlc ["validate-dar", fetchedDar]
 
--- | Using `daml inspect-dar`, discover the main package-identifier of a dar.
-getMainPidByInspecingDar :: Tools -> FilePath -> String -> IO String
-getMainPidByInspecingDar Tools{damlc} dar projName = do
-  stdout <- callProcessForStdout damlc ["inspect-dar", dar]
-  [grepped] <- pure $
-        [ line
-        | line <- lines stdout
-        -- expect a single line containing double quotes and the projName
-        , "\"" `isInfixOf` line
-        , projName `isInfixOf` line
-        ]
-  -- and the main pid is found between the 1st and 2nd double-quotes
-  [_,pid,_] <- pure $ splitOn "\"" grepped
-  return pid
+-- | Discover the main package-identifier of a dar.
+getMainPidOfDar :: FilePath -> IO String
+getMainPidOfDar fp = do
+  archive <- Zip.toArchive <$> BSL.readFile fp
+  Dalfs mainDalf _ <- either fail pure $ readDalfs archive
+  Right pkgId <- pure $ LFArchive.decodeArchivePackageId $ BSL.toStrict mainDalf
+  return $ T.unpack $ LF.unPackageId pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
 writeMinimalProject :: IO ()
