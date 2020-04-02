@@ -708,7 +708,7 @@ Then we can define our kinds, types, and expressions::
        |  'sembed_expr' @τ e                        -- ScenarioEmbedExpr
 
 .. note:: The explicit syntax for maps (cases ``ExpTextMap`` and
-  ``ExpGenMap``) is forbidden in serialized programs. It is specifies
+  ``ExpGenMap``) is forbidden in serialized programs. It is specified
   here to ease the definition of `values`_, `operational semantics`_
   and `value comparison <Generic comparison functions_>`_. In practice,
   `text map functions`_ and `generic map functions`_ are the only way
@@ -3633,7 +3633,7 @@ validation phases can be distinguished.
   `well-formedness <Well-formed packages_>`_ of the package.
 
 An engine compliant with the present specification must accept loading a
-package if and only if the latter these two validation passes.
+package if and only if the latter of these two validation passes.
 
 
 SHA-256 Hashing
