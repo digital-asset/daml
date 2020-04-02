@@ -44,6 +44,7 @@ DAML SDK documentation
    app-dev/authentication
    app-dev/ledger-api
    app-dev/bindings-ts/index
+   json-api/index
    app-dev/bindings-java/index
    app-dev/bindings-scala/index
    app-dev/bindings-js
@@ -100,7 +101,6 @@ DAML SDK documentation
    experimental/warning
    daml-integration-kit/index
    tools/ledger-api-test-tool/index
-   json-api/index
    DAML Triggers <triggers/index>
    DAML Repl <daml-repl/index>
    tools/visual
