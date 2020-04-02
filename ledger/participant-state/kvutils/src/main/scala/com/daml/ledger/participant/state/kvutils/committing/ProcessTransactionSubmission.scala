@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.committing
 
+import java.time.Instant
+
 import com.codahale.metrics.{Counter, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
@@ -26,10 +28,22 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
 
+// The parameter inStaticTimeMode indicates that the ledger is running in static time mode.
+//
+// Command deduplication is always based on wall clock time and not ledger time. In static time mode,
+// record time cannot be used for command deduplication. This flag indicates that the system clock should
+// be used as submission time for commands instead of record time.
+//
+// Other possible solutions that we discarded:
+// * Pass in an additional time provider, but this hides the intent
+// * Adding and additional submission field commandDedupSubmissionTime field. While having participants
+//   provide this field *could* lead to possible exploits, they are not exploits that could do any harm.
+//   The bigger concern is adding a public API for the specific use case of Sandbox with static time.
 private[kvutils] class ProcessTransactionSubmission(
     defaultConfig: Configuration,
     engine: Engine,
     metricRegistry: MetricRegistry,
+    inStaticTimeMode: Boolean
 ) {
 
   private implicit val logger: Logger = LoggerFactory.getLogger(this.getClass)
@@ -87,13 +101,8 @@ private[kvutils] class ProcessTransactionSubmission(
   ): Commit[Unit] = {
     val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
     get(dedupKey).flatMap { dedupEntry =>
-      def isAfterDeduplicationTime(stateValue: DamlStateValue): Boolean = {
-        lazy val cmdDedup = stateValue.getCommandDedup
-        lazy val dedupTime = parseTimestamp(cmdDedup.getDeduplicatedUntil).toInstant
-        !stateValue.hasCommandDedup || !cmdDedup.hasDeduplicatedUntil || dedupTime.isBefore(
-          recordTime.toInstant)
-      }
-      if (dedupEntry.forall(isAfterDeduplicationTime)) {
+      val submissionTime = if (inStaticTimeMode) Instant.now() else recordTime.toInstant
+      if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
         Commit.set(
           dedupKey ->
             DamlStateValue.newBuilder
@@ -113,6 +122,20 @@ private[kvutils] class ProcessTransactionSubmission(
             .setDuplicateCommand(Duplicate.newBuilder.setDetails(""))
         )
       }
+    }
+  }
+
+  // Checks that the submission time of the command is after the
+  // deduplicationTime represented by stateValue
+  private def isAfterDeduplicationTime(
+      submissionTime: Instant,
+      stateValue: DamlStateValue): Boolean = {
+    val cmdDedup = stateValue.getCommandDedup
+    if (stateValue.hasCommandDedup && cmdDedup.hasDeduplicatedUntil) {
+      val dedupTime = parseTimestamp(cmdDedup.getDeduplicatedUntil).toInstant
+      dedupTime.isBefore(submissionTime)
+    } else {
+      false
     }
   }
 

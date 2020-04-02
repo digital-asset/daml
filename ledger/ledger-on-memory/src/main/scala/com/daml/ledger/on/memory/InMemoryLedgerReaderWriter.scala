@@ -40,10 +40,11 @@ final class InMemoryLedgerReaderWriter(
   private val committer = new ValidatingCommitter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(
+      .createForTimeMode(
         new InMemoryLedgerStateAccess(state),
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         metricRegistry = metricRegistry,
+        inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
     dispatcher.signalNewHead,
   )
