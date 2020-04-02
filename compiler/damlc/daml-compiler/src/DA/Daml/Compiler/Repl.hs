@@ -221,7 +221,7 @@ runRepl opts mainDar replClient ideState = do
         liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
             (renderModule dflags imports lineNumber bindings bind expr)
         -- Useful for debugging, probably best to put it behind a --debug flag
-        -- rendered <- liftIO  $readFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
+        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
         -- liftIO $ for_ (lines rendered) $ \line ->
         --      hPutStrLn stderr ("> " <> line)
         (lfMod, tmrModule -> tcMod) <-
@@ -241,6 +241,13 @@ runRepl opts mainDar replClient ideState = do
           , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
           , lineNumber = lineNumber + 1
           }
+    handleImport
+        :: ImportDecl GhcPs
+        -> ExceptT Error ReplM ()
+    handleImport imp = do
+        -- TODO[AH] Verify that the module exists.
+        -- TODO[AH] Deduplicate imports.
+        State.modify $ \s -> s { imports = imp : imports s }
     replLine :: String -> ReplM ()
     replLine line = do
         ReplState {lineNumber} <- State.get
@@ -251,7 +258,7 @@ runRepl opts mainDar replClient ideState = do
             input <- ExceptT $ pure $ parseReplInput line dflags
             case input of
                 ReplStatement stmt -> handleStmt dflags line stmt
-                ReplImport _ -> throwError (ParseError "IMPORT NOT IMPLEMENTED")
+                ReplImport imp -> handleImport imp
         case r of
             Left err -> liftIO $ renderError dflags err
             Right () -> pure ()
