@@ -362,6 +362,8 @@ object JsonProtocol extends DefaultJsonProtocol {
     new RootJsonFormat[domain.SyncResponse[R]] {
       private val resultKey = "result"
       private val errorsKey = "errors"
+      private val errorMsg =
+        s"Invalid ${domain.SyncResponse.getClass.getSimpleName} format, expected a JSON object with either $resultKey or $errorsKey field"
 
       override def write(obj: domain.SyncResponse[R]): JsValue = obj match {
         case a: domain.OkResponse[_] => OkResponseFormat[R].write(a)
@@ -369,11 +371,13 @@ object JsonProtocol extends DefaultJsonProtocol {
       }
 
       override def read(json: JsValue): domain.SyncResponse[R] = json match {
-        case JsObject(fields) if fields.contains(resultKey) => OkResponseFormat[R].read(json)
-        case JsObject(fields) if fields.contains(errorsKey) => ErrorResponseFormat.read(json)
-        case _ =>
-          deserializationError(
-            s"Invalid response format, expected a JSON object with either $resultKey or $errorsKey field")
+        case JsObject(fields) =>
+          (fields get resultKey, fields get errorsKey) match {
+            case (Some(_), None) => OkResponseFormat[R].read(json)
+            case (None, Some(_)) => ErrorResponseFormat.read(json)
+            case _ => deserializationError(errorMsg)
+          }
+        case _ => deserializationError(errorMsg)
       }
     }
 }
