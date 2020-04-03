@@ -10,8 +10,8 @@ import java.time.Duration
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.configuration.MetricsReporter
 import com.digitalasset.platform.configuration.Readers._
+import com.digitalasset.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.digitalasset.ports.Port
 import com.digitalasset.resources.ProgramResource.SuppressedStartupException
 import com.digitalasset.resources.ResourceOwner
@@ -51,8 +51,6 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultEventsPageSize = 1000
-
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
@@ -62,7 +60,7 @@ object Config {
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      eventsPageSize = DefaultEventsPageSize,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       extra = extra,
     )
 
@@ -140,7 +138,7 @@ object Config {
       opt[Int]("events-page-size")
         .optional()
         .text(
-          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${Config.DefaultEventsPageSize}.")
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
 
       private val seedingMap =

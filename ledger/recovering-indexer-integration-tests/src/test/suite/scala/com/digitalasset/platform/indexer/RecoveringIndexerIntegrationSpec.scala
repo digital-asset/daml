@@ -192,7 +192,6 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           restartDelay = restartDelay,
         ),
         metrics = new MetricRegistry,
-        eventsPageSize = 100,
       )(materializer, logCtx)
     } yield participantState
   }
@@ -200,7 +199,12 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
   private def index(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
-    JdbcLedgerDao.writeOwner(ServerRole.Testing(getClass), jdbcUrl, new MetricRegistry, 100)
+    JdbcLedgerDao.writeOwner(
+      serverRole = ServerRole.Testing(getClass),
+      jdbcUrl = jdbcUrl,
+      eventsPageSize = 100,
+      metrics = new MetricRegistry,
+    )
   }
 }
 

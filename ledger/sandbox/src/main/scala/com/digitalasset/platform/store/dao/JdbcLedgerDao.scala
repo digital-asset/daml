@@ -1626,24 +1626,24 @@ object JdbcLedgerDao {
   def readOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
-      metrics: MetricRegistry,
       eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
     val maxConnections = DefaultNumberOfShortLivedConnections
-    owner(serverRole, jdbcUrl, maxConnections, metrics, eventsPageSize)
+    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, metrics)
       .map(new MeteredLedgerReadDao(_, metrics))
   }
 
   def writeOwner(
       serverRole: ServerRole,
       jdbcUrl: String,
-      metrics: MetricRegistry,
       eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
       if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
-    owner(serverRole, jdbcUrl, maxConnections, metrics, eventsPageSize)
+    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, metrics)
       .map(new MeteredLedgerDao(_, metrics))
   }
 
@@ -1651,8 +1651,8 @@ object JdbcLedgerDao {
       serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
-      metrics: MetricRegistry,
       eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
     for {
       dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)

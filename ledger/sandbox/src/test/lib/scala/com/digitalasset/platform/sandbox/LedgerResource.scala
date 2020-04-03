@@ -73,8 +73,8 @@ object LedgerResource {
           initialConfig = initialConfig,
           queueDepth = 128,
           startMode = SqlStartMode.AlwaysReset,
-          metrics = metrics,
           eventsPageSize = 100,
+          metrics = metrics,
         )
       } yield ledger
     )
