@@ -89,22 +89,24 @@ def _protos_zip_impl(ctx):
     zipper_args_file = ctx.actions.declare_file(
         ctx.label.name + ".zipper_args",
     )
+    tools = [ctx.executable._tar, ctx.executable._gzip]
     ctx.actions.run_shell(
         inputs = [ctx.file._ledger_api_tarball] + ctx.files._daml_lf_tarballs,
         outputs = [tmp_dir],
-        tools = [ctx.executable._tar],
+        tools = tools,
         command = """
           set -eou pipefail
-          {tar} xf {ledger_api_tarball} -C {tmp_dir}
+          export PATH=$PATH:{path}
+          tar xf {ledger_api_tarball} -C {tmp_dir}
           for file in {lf_tarballs}
           do
-              {tar} xf $file -C {tmp_dir}
+              tar xf $file -C {tmp_dir}
           done
         """.format(
-            tar = ctx.executable._tar.path,
             ledger_api_tarball = ctx.file._ledger_api_tarball.path,
             tmp_dir = tmp_dir.path,
             lf_tarballs = " ".join([f.path for f in ctx.files._daml_lf_tarballs]),
+            path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
         ),
     )
 
@@ -149,6 +151,12 @@ protos_zip = rule(
         ),
         "_tar": attr.label(
             default = Label("@tar_dev_env//:tar"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "_gzip": attr.label(
+            default = Label("@gzip_dev_env//:gzip"),
             cfg = "host",
             executable = True,
             allow_files = True,
