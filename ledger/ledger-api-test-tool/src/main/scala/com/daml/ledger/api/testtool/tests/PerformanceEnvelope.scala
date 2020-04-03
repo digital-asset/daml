@@ -12,7 +12,6 @@ import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestCo
 import com.daml.ledger.api.testtool.infrastructure.{
   Allocation,
   Assertions,
-  LedgerApiServer,
   LedgerSession,
   LedgerTestSuite
 }
@@ -143,9 +142,8 @@ trait PerformanceEnvelope {
       queued,
       inflight,
       timings)
-    val (completionService, _) = LedgerApiServer.getServices(participantAlice)
     for {
-      end <- completionService.completionEnd(CompletionEndRequest(participantAlice.ledgerId))
+      end <- participantAlice.completionEnd(CompletionEndRequest(participantAlice.ledgerId))
       _ = listenCompletions(tracker, participantAlice, alice, end.offset)
       started = Instant.now
       _ <- Future.traverse(workflowIds)(sendPing)
@@ -191,7 +189,6 @@ trait PerformanceEnvelope {
       timings: TrieMap[String, Either[Instant, Duration]]): Future[Either[String, Unit]] = {
 
     val observed = new AtomicInteger(0)
-    val (_, transactionService) = LedgerApiServer.getServices(participant)
     val context = Context.ROOT.withCancellation()
 
     for {
@@ -199,7 +196,7 @@ trait PerformanceEnvelope {
     } yield {
       context.run(
         () =>
-          transactionService.getTransactions(
+          participant.transactionStream(
             GetTransactionsRequest(
               ledgerId = participant.ledgerId,
               begin = Some(offset),
@@ -272,12 +269,11 @@ trait PerformanceEnvelope {
       sender: ParticipantTestContext,
       party: P.Party,
       offset: Option[LedgerOffset]): Unit = {
-    val (completionService, _) = LedgerApiServer.getServices(sender)
     val context = Context.ROOT.withCancellation()
 
     context.run(
       () =>
-        completionService.completionStream(
+        sender.completionStream(
           CompletionStreamRequest(
             ledgerId = sender.ledgerId,
             applicationId = sender.applicationId,
