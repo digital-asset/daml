@@ -30,6 +30,7 @@ da_haskell_library(
         "resourcet",
         "safe",
         "safe-exceptions",
+        "semigroupoids",
         "shake",
         "text",
         "time",

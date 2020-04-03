@@ -19,6 +19,7 @@ import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
 import Data.Bifunctor (first)
 import qualified Data.ByteString.Lazy as BSL
+import Data.Functor.Alt
 import Data.Foldable
 import Data.Graph
 import Data.Maybe
@@ -154,12 +155,29 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
 data ReplState = ReplState
-  { moduleNames :: [LF.ModuleName]
-  , bindings :: [(LPat GhcPs, Type)]
-  , lineNumber :: Int
+  { imports :: ![ImportDecl GhcPs]
+  , bindings :: ![(LPat GhcPs, Type)]
+  , lineNumber :: !Int
   }
 
-type ReplM a = Repl.HaskelineT (State.StateT ReplState IO) a
+type ReplM = Repl.HaskelineT (State.StateT ReplState IO)
+
+data ReplInput
+  = ReplStatement (Stmt GhcPs (LHsExpr GhcPs))
+  | ReplImport (ImportDecl GhcPs)
+
+parseReplInput :: String -> DynFlags -> Either Error ReplInput
+parseReplInput input dflags =
+    -- Short-circuit on the first successful parse.
+    -- The most common input will be statements. So, we attempt parsing
+    -- statements last to always emit statement parse errors on failure.
+        (ReplImport . unLoc <$> tryParse (parseImport input dflags))
+    <!> (ReplStatement . unLoc <$> tryParse (parseStatement input dflags))
+  where
+    tryParse :: ParseResult a -> Either Error a
+    tryParse (POk _ result) = Right result
+    tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
+
 
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
 runRepl opts mainDar replClient ideState = do
@@ -176,7 +194,7 @@ runRepl opts mainDar replClient ideState = do
                 exitFailure
             Right _ -> pure ()
     let initReplState = ReplState
-          { moduleNames = moduleNames
+          { imports = map (simpleImportDecl . mkModuleName . T.unpack . LF.moduleNameString) moduleNames
           , bindings = []
           , lineNumber = 0
           }
@@ -191,54 +209,73 @@ runRepl opts mainDar replClient ideState = do
             initialiser = pure ()
     State.evalStateT replM initReplState
   where
-    handleLine
-        :: [LF.ModuleName]
-        -> [(LPat GhcPs, Type)]
-        -> DynFlags
+    handleStmt
+        :: DynFlags
         -> String
-        -> Int
-        -> IO (Either Error (LPat GhcPs, Type))
-    handleLine moduleNames binds dflags l i = runExceptT $ do
-        stmt <- case parseStatement l dflags of
-            POk _ lStmt -> pure (unLoc lStmt)
-            PFailed _ _ errMsg -> throwError (ParseError errMsg)
-        (bind, expr) <- maybe (throwError (UnsupportedStatement l)) pure (splitStmt stmt)
-        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
-            (renderModule dflags moduleNames i binds bind expr)
+        -> Stmt GhcPs (LHsExpr GhcPs)
+        -> ExceptT Error ReplM ()
+    handleStmt dflags line stmt = do
+        ReplState {imports, bindings, lineNumber} <- State.get
+        (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
+        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+            (renderModule dflags imports lineNumber bindings bind expr)
         -- Useful for debugging, probably best to put it behind a --debug flag
-        -- rendered <- liftIO  $readFileUTF8 (fromNormalizedFilePath $ lineFilePath i)
+        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
         -- liftIO $ for_ (lines rendered) $ \line ->
         --      hPutStrLn stderr ("> " <> line)
         (lfMod, tmrModule -> tcMod) <-
             maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
-            (,) <$> useE GenerateDalf (lineFilePath i)
-                <*> useE TypeCheck (lineFilePath i))
+            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
+                <*> useE TypeCheck (lineFilePath lineNumber))
         -- Type of the statement so we can give it a type annotation
         -- and avoid incurring a typeclass constraint.
         stmtTy <- maybe (throwError TypeError) pure (exprTy $ tm_typechecked_source tcMod)
-        scriptRes <- liftIO $ ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
-        case scriptRes of
-            Right _ -> pure (bind, stmtTy)
-            Left err -> throwError (ScriptError err)
+        -- If we get an error we don’t increment lineNumber and we
+        -- do not get a new binding
+        withExceptT ScriptError $ ExceptT $ liftIO $
+            ReplClient.runScript replClient (optDamlLfVersion opts) lfMod
+        let boundVars = mkOccSet (map occName (collectPatBinders bind))
+        State.put $! ReplState
+          { imports = imports
+          , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat bind, stmtTy)]
+          , lineNumber = lineNumber + 1
+          }
+    handleImport
+        :: DynFlags
+        -> ImportDecl GhcPs
+        -> ExceptT Error ReplM ()
+    handleImport dflags imp = do
+        ReplState {imports, lineNumber} <- State.get
+        -- TODO[AH] Deduplicate imports.
+        let newImports = imp : imports
+        -- TODO[AH] Factor out the module render and typecheck step.
+        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+            (renderModule dflags newImports lineNumber [] (WildPat noExt)
+                (noLoc $ HsApp noExt
+                    (noLoc $ HsVar noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "return")
+                    (noLoc $ ExplicitTuple noExt [] Boxed)))
+        -- Useful for debugging, probably best to put it behind a --debug flag
+        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
+        -- liftIO $ for_ (lines rendered) $ \line ->
+        --      hPutStrLn stderr ("> " <> line)
+        _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
+            (,) <$> useE GenerateDalf (lineFilePath lineNumber)
+                <*> useE TypeCheck (lineFilePath lineNumber))
+        State.modify $ \s -> s { imports = newImports }
     replLine :: String -> ReplM ()
     replLine line = do
-        ReplState {moduleNames, bindings, lineNumber} <- State.get
+        ReplState {lineNumber} <- State.get
         dflags <- liftIO $
             hsc_dflags . hscEnv <$>
             runAction ideState (use_ GhcSession $ lineFilePath lineNumber)
-        r <- liftIO $ handleLine moduleNames bindings dflags line lineNumber
+        r <- runExceptT $ do
+            input <- ExceptT $ pure $ parseReplInput line dflags
+            case input of
+                ReplStatement stmt -> handleStmt dflags line stmt
+                ReplImport imp -> handleImport dflags imp
         case r of
-            Left err -> do
-                liftIO $ renderError dflags err
-                -- If we get an error we don’t increment i and we
-                -- do not get a new binding
-            Right (pat, ty) -> do
-                let boundVars = mkOccSet (map occName (collectPatBinders pat))
-                State.put $! ReplState
-                  { moduleNames = moduleNames
-                  , bindings = map (first (shadowPat boundVars)) bindings <> [(toTuplePat pat, ty)]
-                  , lineNumber = lineNumber + 1
-                  }
+            Left err -> liftIO $ renderError dflags err
+            Right () -> pure ()
 
 exprTy :: LHsBinds GhcTc -> Maybe Type
 exprTy binds = listToMaybe
@@ -258,7 +295,7 @@ lineFilePath i = toNormalizedFilePath' $ "Line" <> show i <> ".daml"
 lineModuleName :: Int -> String
 lineModuleName i = "Line" <> show i
 
-renderModule :: DynFlags -> [LF.ModuleName] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
+renderModule :: DynFlags -> [ImportDecl GhcPs] -> Int -> [(LPat GhcPs, Type)] -> LPat GhcPs -> LHsExpr GhcPs -> String
 renderModule dflags imports line binds pat expr = unlines $
      [ "{-# OPTIONS_GHC -Wno-unused-imports -Wno-partial-type-signatures #-}"
      , "{-# LANGUAGE PartialTypeSignatures #-}"
@@ -266,7 +303,7 @@ renderModule dflags imports line binds pat expr = unlines $
      , "module " <> lineModuleName line <> " where"
      , "import Daml.Script"
      ] <>
-     map (\moduleName -> T.unpack $ "import " <> LF.moduleNameString moduleName) imports <>
+     map renderImport imports <>
      [ "expr : " <> concatMap (renderTy . snd) binds <> "Script _"
      , "expr " <> unwords (map (renderPat . fst) binds) <> " = "
      ] <>
@@ -280,5 +317,6 @@ renderModule dflags imports line binds pat expr = unlines $
         -- we might just want to construct the whole function using the Haskell AST
         -- so the Haskell pretty printer takes care of this stuff.
         map ("  " <> ) $ lines $ prettyPrint stmt
-  where renderPat pat = showSDoc dflags (ppr pat)
+  where renderImport imp = showSDoc dflags (ppr imp)
+        renderPat pat = showSDoc dflags (ppr pat)
         renderTy ty = showSDoc dflags (ppr ty) <> " -> "

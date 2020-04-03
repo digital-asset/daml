@@ -175,6 +175,42 @@ functionalTests damlc scriptDar testDar getSandboxPort = testGroup "functional"
           , input "debug 1"
           , matchOutput "^.*: 1"
           ]
+    , testInteraction' "module imports"
+          [ input "debug (days 1)"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*error: Variable not in scope: days.*$"
+          , input "import DA.Time.Misspelled"
+          , matchOutput "^File:.*$"
+          , matchOutput "^Hidden:.*$"
+          , matchOutput "^Range:.*$"
+          , matchOutput "^Source:.*$"
+          , matchOutput "^Severity:.*$"
+          , matchOutput "^Message:.*$"
+          , matchOutput "^.*Could not find module.*$"
+          -- TODO[AH]: We get "diagnostics echo", presumably because we don't
+          -- increment the line number and therefore don't change module name
+          -- as long as there are errors.
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , input "import DA.Time"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , matchOutput "^.*$"
+          , input "debug (days 1)"
+          , matchOutput "^.*: RelTime {microseconds = 86400000000}$"
+          ]
     ]
   where
     testInteraction' testName steps = testCase testName $ do
