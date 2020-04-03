@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
+    "da_scala_library",
     "da_scala_test",
 )
 load(
@@ -106,22 +107,12 @@ client_server_test(
     server_files = ["$(rootpath :acs.dar)"],
 )
 
-da_scala_test(
-    name = "trigger-integration-tests",
-    srcs =
-        [
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
-            "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
-        ],
-    data = [
-        ":acs.dar",
-        "//ledger/test-common/test-certificates",
+da_scala_library(
+    name = "test-utils",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractFuncTests.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/AbstractTriggerTest.scala",
     ],
-    resources = ["//triggers/runner:src/main/resources/logback.xml"],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -130,6 +121,47 @@ da_scala_test(
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "//triggers/runner:trigger-runner-lib",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:org_scalactic_scalactic_2_12",
+        "@maven//:org_scalatest_scalatest_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
+)
+
+# For now turning this into a scala_test_suite has too much overhead and ends up making
+# things slower rather than faster. Once we have more tests, we might want to reconsider.
+da_scala_test(
+    name = "trigger-integration-tests",
+    srcs = [
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsStaticTime.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/FuncTestsWallClock.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Jwt.scala",
+        "src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/Tls.scala",
+    ],
+    data = [
+        ":acs.dar",
+        "//ledger/test-common/test-certificates",
+    ],
+    resources = ["//triggers/runner:src/main/resources/logback.xml"],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
         "//language-support/scala/bindings",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
