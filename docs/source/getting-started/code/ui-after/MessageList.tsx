@@ -4,7 +4,7 @@
 // MESSAGELIST_BEGIN
 import React from 'react'
 import { List, ListItem } from 'semantic-ui-react';
-import { Message } from '@daml.js/create-daml-app-0.1.0';
+import { User } from '@daml.js/create-daml-app';
 import { useStreamQuery } from '@daml/react';
 
 /**

@@ -89,7 +89,7 @@ corresponding typescript data definitions for the data types declared in the dep
 
 This command will generate a typescript library for each DALF in you DAR.
 In ``create-daml-app``, ``ui/package.json`` refers to these libraries via the
-``"create-daml-app-0.1.0": "file:../daml.js/create-daml-app-0.1.0"`` entry in
+``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in
 the ``dependencies`` field.
 
 .. TODO (drsk) this process is changing right now, make sure it is documented up to date here.
