@@ -63,6 +63,33 @@ da_scala_library(
     ],
 )
 
+daml_compile(
+    name = "PerformanceTests",
+    srcs = ["src/main/daml/performance/PingPong.daml"],
+    target = lf_stable_version,
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "PerformanceTests.scala-codegen",
+    srcs = [
+        ":PerformanceTests.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test.performance",
+    srcjar_out = "PerformanceTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "PerformanceTests.scala",
+    srcs = [":PerformanceTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
 lf_test_versions = [
     (lf_stable_version, "stable"),
     (lf_latest_version, "latest"),
@@ -77,7 +104,6 @@ lf_test_versions = [
                 "src/main/daml/Iou.daml",
                 "src/main/daml/IouTrade.daml",
                 "src/main/daml/Test.daml",
-                "src/main/daml/PingPong.daml",
             ],
             target = target,
             visibility = ["//visibility:public"],
@@ -105,6 +131,7 @@ lf_test_versions = [
 filegroup(
     name = "dar-files",
     srcs = [
+        ":PerformanceTests.dar",
         ":SemanticTests.dar",
         ":Test-dev.dar",
         ":Test-stable.dar",
