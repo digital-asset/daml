@@ -10,12 +10,11 @@ load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 load("//language-support/ts:jest.bzl", "jest_test")
 
+sources = ["index.test.ts", "index.ts"]
+
 da_ts_library(
     name = "daml-ledger",
-    srcs = [
-        "index.test.ts",
-        "index.ts",
-    ],
+    srcs = sources,
     module_name = "@daml/ledger",
     visibility = ["//visibility:public"],
     deps = [
@@ -44,13 +43,7 @@ ts_docs("daml-ledger")
 
 eslint_test(
     name = "lint",
-    srcs = glob(
-        ["**/*.ts"],
-        exclude = [
-            "lib/**/*",
-            "node_modules/**/*",
-        ],
-    ),
+    srcs = sources,
 )
 
 pkg_npm(
