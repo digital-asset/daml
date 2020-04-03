@@ -5,7 +5,7 @@ import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import waitOn from 'wait-on';
 
 import Ledger from '@daml/ledger';
-import { User } from '@daml.js/create-daml-app-0.1.0';
+import { User } from '@daml.js/create-daml-app';
 import { computeCredentials } from './Credentials';
 
 import puppeteer, { Browser, Page } from 'puppeteer';
