@@ -132,7 +132,7 @@ getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
 
     pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
 
--- | Get the list of available versions afresh. This will fetch.
+-- | Get the list of available snapshot versions. This will fetch.
 -- https://docs.daml.com/snapshots.json and parse the obtained list
 -- of versions.
 getAvailableSdkSnapshotVersions :: IO [SdkVersion]
