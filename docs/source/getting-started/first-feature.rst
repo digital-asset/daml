@@ -39,7 +39,7 @@ To implement this workflow, let's start by adding the new *data* for messages.
 Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
 Indentation is important: it should be at the top level like the original ``User`` template.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/daml-after/User.daml
   :language: daml
   :start-after: -- MESSAGE_BEGIN
   :end-before: -- MESSAGE_END
@@ -51,7 +51,7 @@ This enforces the fact that creation and archival of ``Message`` contracts must 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
 Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``User`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/daml-after/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
