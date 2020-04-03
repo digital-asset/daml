@@ -31,7 +31,7 @@ First, we need to generate TypeScript code bindings for the compiled DAML model.
 At the root of the repository, run
 ```
 daml build
-daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 ```
 The latter command generates TypeScript packages in the `daml.js` directory.
 
@@ -87,7 +87,7 @@ DAR `create-daml-app.dar` you have just created.
 To upload the UI, create a ZIP file containing all your UI assets by executing
 ```
 daml build
-daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 (cd ui && yarn build && zip -r ../create-daml-app-ui.zip build)
 ```
 at the root of the repository. Afterwards, select the "UI Assets" tab of your
