@@ -7,7 +7,6 @@ import java.util.UUID
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v1.Offset
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
@@ -261,11 +260,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
   }
 
   private def activeContractsOf(
-      source: Source[(Offset, GetActiveContractsResponse), NotUsed],
+      source: Source[GetActiveContractsResponse, NotUsed],
   ): Future[Seq[CreatedEvent]] =
-    source
-      .map(_._2)
-      .runWith(Sink.seq)
-      .map(_.flatMap(_.activeContracts))
+    source.runWith(Sink.seq).map(_.flatMap(_.activeContracts))
 
 }

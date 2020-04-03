@@ -31,6 +31,7 @@ import com.digitalasset.ledger.api.domain.{
   TransactionId
 }
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -39,9 +40,8 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsResponse
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.entries.PartyLedgerEntry
-import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.store.ReadOnlyLedger
 import com.digitalasset.platform.ApiOffset
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import scalaz.syntax.tag.ToTagOps
@@ -57,39 +57,15 @@ abstract class LedgerBackedIndexService(
 
   override def currentHealth(): HealthStatus = ledger.currentHealth()
 
-  override def getActiveContractSetSnapshot(
-      filter: TransactionFilter): Future[ActiveContractSetSnapshot] = {
+  override def getActiveContracts(
+      filter: TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] = {
+    val ledgerEnd = ledger.ledgerEnd
     ledger
-      .snapshot(filter)
-      .map {
-        case LedgerSnapshot(offset, acsStream) =>
-          ActiveContractSetSnapshot(
-            toAbsolute(offset),
-            acsStream
-              .mapConcat { ac =>
-                EventFilter(ac)(filter)
-                  .map(create =>
-                    create.workflowId.map(domain.WorkflowId(_)) -> toUpdateEvent(create))
-                  .toList
-              }
-          )
-      }(mat.executionContext)
+      .activeContracts(ledgerEnd, convertFilter(filter), verbose)
+      .concat(Source.single(GetActiveContractsResponse(offset = ApiOffset.toApiString(ledgerEnd))))
   }
-
-  private def toUpdateEvent(ac: ActiveContract): AcsUpdateEvent.Create =
-    AcsUpdateEvent.Create(
-      // we use absolute contract ids as event ids throughout the sandbox
-      domain.TransactionId(ac.transactionId),
-      domain.EventId(ac.eventId),
-      ac.id,
-      ac.contract.template,
-      ac.contract.arg,
-      ac.witnesses,
-      ac.key.map(_.key),
-      ac.signatories,
-      ac.observers,
-      ac.agreementText
-    )
 
   override def transactionTrees(
       startExclusive: LedgerOffset,
@@ -121,10 +97,7 @@ abstract class LedgerBackedIndexService(
           .flatTransactions(
             startExclusive = from,
             endInclusive = to,
-            filter = filter.filtersByParty.map {
-              case (party, filters) =>
-                party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
-            },
+            filter = convertFilter(filter),
             verbose = verbose,
           )
           .map(_._2)
@@ -164,6 +137,12 @@ abstract class LedgerBackedIndexService(
         }
     }
   }
+
+  private def convertFilter(filter: TransactionFilter): Map[Party, Set[Identifier]] =
+    filter.filtersByParty.map {
+      case (party, filters) =>
+        party -> filters.inclusive.fold(Set.empty[Identifier])(_.templateIds)
+    }
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
     Future.successful(toAbsolute(ledger.ledgerEnd))

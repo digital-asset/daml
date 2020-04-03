@@ -23,10 +23,10 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
@@ -46,7 +46,7 @@ import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.platform.configuration.ServerRole
 import com.digitalasset.platform.events.EventIdFormatter.split
-import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
+import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.Conversions._
 import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.digitalasset.platform.store._
@@ -1155,16 +1155,6 @@ private class JdbcLedgerDao(
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
   }
 
-  private val ContractDataParser = (contractId("id")
-    ~ ledgerString("transaction_id").?
-    ~ ledgerString("create_event_id").?
-    ~ ledgerString("workflow_id").?
-    ~ date("effective_at").?
-    ~ binaryStream("contract")
-    ~ binaryStream("key").?
-    ~ str("signatories").?
-    ~ str("observers").? map flatten)
-
   private val SQL_SELECT_CONTRACT =
     SQL("""select cd.contract
         |from contract_data cd
@@ -1259,81 +1249,6 @@ private class JdbcLedgerDao(
           .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
       })(executionContext)
 
-  private def mapContractDetails(
-      contractResult: (
-          Value.AbsoluteContractId,
-          Option[LedgerString],
-          Option[EventId],
-          Option[WorkflowId],
-          Option[Date],
-          InputStream,
-          Option[InputStream],
-          Option[String],
-          Option[String]))(implicit conn: Connection): Contract =
-    contractResult match {
-      case (coid, None, None, None, None, contractStream, None, None, None) =>
-        val divulgences = lookupDivulgences(coid.coid)
-
-        DivulgedContract(
-          coid,
-          contractSerializer
-            .deserializeContractInstance(contractStream)
-            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
-          divulgences
-        )
-
-      case (
-          coid,
-          Some(transactionId),
-          Some(eventId),
-          workflowId,
-          Some(ledgerEffectiveTime),
-          contractStream,
-          keyStreamO,
-          Some(signatoriesRaw),
-          observersRaw) =>
-        val witnesses = lookupWitnesses(coid.coid)
-        val divulgences = lookupDivulgences(coid.coid)
-        val contractInstance = contractSerializer
-          .deserializeContractInstance(contractStream)
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:${coid.coid}"))
-
-        val signatories =
-          signatoriesRaw.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString)
-        val observers = observersRaw
-          .map(_.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString))
-          .getOrElse(Set.empty)
-
-        ActiveContract(
-          coid,
-          ledgerEffectiveTime.toInstant,
-          transactionId,
-          eventId,
-          workflowId,
-          contractInstance,
-          witnesses,
-          divulgences,
-          keyStreamO.map(keyStream => {
-            val keyMaintainers = lookupKeyMaintainers(coid.coid)
-            val keyValue = ValueSerializer
-              .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
-              .ensureNoCid
-              .fold(
-                coid => sys.error(s"Found contract ID $coid in a contract key"),
-                identity,
-              )
-            KeyWithMaintainers(keyValue, keyMaintainers)
-          }),
-          signatories,
-          observers,
-          contractInstance.agreementText
-        )
-
-      case (_, _, _, _, _, _, _, _, _) =>
-        sys.error(
-          "mapContractDetails called with partial data, cannot map to either active or divulged contract")
-    }
-
   private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
     SQL_SELECT_WITNESS
       .on("contract_id" -> coid)
@@ -1392,9 +1307,6 @@ private class JdbcLedgerDao(
     }
   }
 
-  // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
-  private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
-
   private def orEmptyStringList(xs: Iterable[String]): List[String] =
     if (xs.nonEmpty) xs.toList else List("")
 
@@ -1413,42 +1325,6 @@ private class JdbcLedgerDao(
             templateIds.map(t => s"${t.qualifiedName.qualifiedName}&$party")
           case _ => Seq.empty
         })
-
-  override def getActiveContractSnapshot(
-      endInclusive: Offset,
-      filter: TransactionFilter): Future[LedgerSnapshot] = {
-
-    val contractStream =
-      PaginatingAsyncStream(PageSize) { queryOffset =>
-        dbDispatcher.executeSql(
-          "load_active_contracts",
-          Some(s"bounds: ]0, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
-          implicit conn =>
-            SQL_SELECT_ACTIVE_CONTRACTS
-              .on(
-                "endInclusive" -> endInclusive,
-                "queryOffset" -> queryOffset,
-                "pageSize" -> PageSize,
-                "template_parties" -> byPartyAndTemplate(filter),
-                "wildcard_parties" -> justByParty(filter),
-              )
-              .asVectorOf(ContractDataParser)
-        }
-      }.mapAsync(1) { contractResult =>
-        dbDispatcher
-          .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
-            implicit conn =>
-              mapContractDetails(contractResult) match {
-                case ac: ActiveContract => ac
-                case _: DivulgedContract =>
-                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-              }
-          }
-
-      }
-
-    Future.successful(LedgerSnapshot(endInclusive, contractStream))
-  }
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
@@ -1807,8 +1683,6 @@ object JdbcLedgerDao {
 
     protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
-    protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
-
     // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
     // more than once through BlindingInfo.globalDivulgence.
     // The ledger offsets for the same (contract, party) tuple should always be increasing, and the database
@@ -1861,43 +1735,6 @@ object JdbcLedgerDao {
         |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
-
-    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
-      // the distinct keyword is required, because a single contract can be visible by 2 parties,
-      // thus resulting in multiple output rows
-      s"""
-         |with stakeholders as (
-         |select signatory as party, contract_id from contract_signatories
-         |  union
-         |  select observer as party, contract_id from contract_observers
-         |)
-         |select distinct
-         |  c.create_offset,
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  string_agg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
-         |from contracts c
-         |inner join contract_data cd on c.id = cd.id
-         |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join stakeholders s on c.id = s.contract_id
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset <= {endInclusive} and (archive_offset is null or archive_offset > {endInclusive})
-         |and
-         |   (
-         |     concat(c.name,'&',s.party) in ({template_parties})
-         |     OR s.party in ({wildcard_parties})
-         |    )
-         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
-         |order by c.create_offset
-         |limit {pageSize} offset {queryOffset}
-         |""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
       """
@@ -1964,43 +1801,6 @@ object JdbcLedgerDao {
 
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
       "Unique index or primary key violation"
-
-    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
-      // the distinct keyword is required, because a single contract can be visible by 2 parties,
-      // thus resulting in multiple output rows
-      s"""
-         |with stakeholders as (
-         |select signatory as party, contract_id from contract_signatories
-         |  union
-         |  select observer as party, contract_id from contract_observers
-         |)
-         |select distinct
-         |  c.create_offset,
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  listagg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
-         |from contracts c
-         |inner join contract_data cd on c.id = cd.id
-         |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join stakeholders s on c.id = s.contract_id
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |where c.create_offset <= {endInclusive} and (archive_offset is null or archive_offset > {endInclusive})
-         |and
-         |   (
-         |     concat(c.name,'&',s.party) in ({template_parties})
-         |     OR s.party in ({wildcard_parties})
-         |    )
-         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
-         |order by c.create_offset
-         |limit {pageSize} offset {queryOffset}
-         |""".stripMargin
 
     override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
       """

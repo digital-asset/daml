@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
@@ -26,7 +26,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
+import com.digitalasset.platform.store.PersistenceEntry
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -100,15 +100,6 @@ trait LedgerReadDao extends ReportsHealth {
   def getLedgerEntries(
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed]
-
-  /**
-    * Returns a snapshot of the ledger.
-    * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
-    */
-  def getActiveContractSnapshot(
-      endInclusive: Offset,
-      filter: TransactionFilter
-  ): Future[LedgerSnapshot]
 
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
