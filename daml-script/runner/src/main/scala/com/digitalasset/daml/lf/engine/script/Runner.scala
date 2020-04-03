@@ -43,15 +43,12 @@ import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import com.google.protobuf.duration.Duration
 
-object LfValueCodec extends ApiCodecCompressed[AbsoluteContractId](false, false) {
-  override final def apiContractIdToJsValue(obj: AbsoluteContractId) =
-    JsString(obj.coid)
-  override final def jsValueToApiContractId(json: JsValue) = json match {
-    case JsString(s) =>
-      AbsoluteContractId.fromString(s).fold(deserializationError(_), identity)
-    case _ => deserializationError("ContractId must be a string")
-  }
-}
+import ParticipantsJsonProtocol.AbsoluteContractIdFormat
+
+object LfValueCodec
+    extends ApiCodecCompressed[AbsoluteContractId](false, false)(
+      AbsoluteContractIdFormat,
+      AbsoluteContractIdFormat)
 
 case class Participant(participant: String)
 case class Party(party: String)
@@ -96,6 +93,15 @@ object ParticipantsJsonProtocol extends DefaultJsonProtocol {
       case _ => deserializationError("Expected Party string")
     }
     def write(p: Party) = JsString(p.party)
+  }
+  implicit object AbsoluteContractIdFormat extends JsonFormat[AbsoluteContractId] {
+    override def write(obj: AbsoluteContractId) =
+      JsString(obj.coid)
+    override def read(json: JsValue) = json match {
+      case JsString(s) =>
+        AbsoluteContractId fromString s fold (deserializationError(_), identity)
+      case _ => deserializationError("ContractId must be a string")
+    }
   }
   implicit val apiParametersFormat = jsonFormat2(ApiParameters)
   implicit val participantsFormat = jsonFormat3(Participants[ApiParameters])

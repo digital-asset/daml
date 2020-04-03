@@ -35,9 +35,9 @@ import scalaz.syntax.std.string._
   * @param encodeDecimalAsString Not used yet.
   * @param encodeInt64AsString Not used yet.
   */
-abstract class ApiCodecCompressed[Cid](
-    val encodeDecimalAsString: Boolean,
-    val encodeInt64AsString: Boolean) { self =>
+class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt64AsString: Boolean)(
+    implicit readCid: JsonReader[Cid],
+    writeCid: JsonWriter[Cid]) { self =>
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -72,7 +72,7 @@ abstract class ApiCodecCompressed[Cid](
   }
 
   @throws[SerializationException]
-  protected[this] def apiContractIdToJsValue(v: Cid): JsValue
+  private[this] final def apiContractIdToJsValue(v: Cid): JsValue = v.toJson
 
   private[this] def apiListToJsValue(value: V.ValueList[Cid]): JsValue =
     JsArray(value.values.map(apiValueToJsValue(_)).toImmArray.toSeq: _*)
@@ -116,7 +116,7 @@ abstract class ApiCodecCompressed[Cid](
   // ------------------------------------------------------------------------------------------------------------------
 
   @throws[DeserializationException]
-  protected[this] def jsValueToApiContractId(value: JsValue): Cid
+  private[this] final def jsValueToApiContractId(value: JsValue): Cid = value.convertTo[Cid]
 
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
@@ -337,25 +337,13 @@ abstract class ApiCodecCompressed[Cid](
       encodeInt64AsString: Boolean = this.encodeInt64AsString): ApiCodecCompressed[Cid] =
     new ApiCodecCompressed[Cid](
       encodeDecimalAsString = encodeDecimalAsString,
-      encodeInt64AsString = encodeInt64AsString) {
-      override protected[this] def apiContractIdToJsValue(v: Cid): JsValue =
-        self.apiContractIdToJsValue(v)
-
-      override protected[this] def jsValueToApiContractId(value: JsValue): Cid =
-        self.jsValueToApiContractId(value)
-    }
+      encodeInt64AsString = encodeInt64AsString)
 }
+
+import DefaultJsonProtocol.StringJsonFormat
 
 object ApiCodecCompressed
     extends ApiCodecCompressed[String](encodeDecimalAsString = true, encodeInt64AsString = true) {
-
-  override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
-
-  override protected[this] def jsValueToApiContractId(value: JsValue): String = {
-    import JsonImplicits.StringJsonFormat
-    value.convertTo[String]
-  }
-
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON
   // ------------------------------------------------------------------------------------------------------------------

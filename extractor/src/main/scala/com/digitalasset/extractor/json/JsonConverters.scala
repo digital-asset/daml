@@ -15,16 +15,12 @@ import io.circe.generic.semiauto._
 import io.circe.syntax._
 
 object JsonConverters {
+  import ApiCodecCompressed.JsonImplicits.StringJsonFormat
   private[this] object LfValueSprayEnc
       extends ApiCodecCompressed[String](
         encodeDecimalAsString = true,
         encodeInt64AsString = false
-      ) {
-    import spray.json._, ApiCodecCompressed.JsonImplicits.StringJsonFormat
-    override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
-    override protected[this] def jsValueToApiContractId(value: JsValue): String =
-      value.convertTo[String]
-  }
+      )
 
   private[this] def sprayToCirce(s: spray.json.JsValue): Json = {
     import spray.{json => sj}
