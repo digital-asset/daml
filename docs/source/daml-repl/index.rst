@@ -4,7 +4,7 @@
 DAML REPL
 ###########
 
-**WARNING:** DAML REPL is an experimental feature that is actively
+**WARNING:** DAML REPL is an early access feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about the DAML REPL on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
@@ -120,7 +120,12 @@ In the prompt, all modules from the main dalf of the DAR passed to
 ``daml repl`` are imported. In addition to that the ``Daml.Script``
 module is imported and gives you access to the DAML Script API.
 
-At this point, it is not possible to import more modules.
+You can use import declarations at the prompt to import additional modules.
+
+.. code-block:: none
+
+   daml> import DA.Time
+   daml> debug (days 1)
 
 Connecting via TLS
 ==================

@@ -8,7 +8,15 @@ The Ledger API
    :hidden:
 
    services
+   grpc/index
+   grpc/proto-docs
+   grpc/daml-to-ledger-api
    daml-lf-translation
+   bindings-java/index
+   bindings-scala/index
+   bindings-js
+   bindings-x-lang/index
+
 
 To write an application around a DAML ledger, you'll need to interact with the **Ledger API** from
 another language. Every ledger that DAML can run on exposes this same API.

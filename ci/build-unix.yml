@@ -77,6 +77,9 @@ steps:
       TARBALL=daml-sdk-${{parameters.release_tag}}-${{parameters.name}}.tar.gz
       cp bazel-bin/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$TARBALL
       echo "##vso[task.setvariable variable=tarball;isOutput=true]$TARBALL"
+      PROTOS_ZIP=protobufs-{{parameters.release_tag}}.tar.gz
+      cp bazel-bin/release/protobufs.zip $(Build.StagingDirectory)/$PROTOS_ZIP
+      echo "##vso[task.setvariable variable=protos-zip;isOutput=true]$PROTOS_ZIP"
     name: publish
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
@@ -85,6 +88,13 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)
+    condition: and(succeeded(),
+                   eq(${{parameters.is_release}}, 'true'),
+                   eq(variables['Build.SourceBranchName'], 'master'))
+  - task: PublishPipelineArtifact@0
+    inputs:
+      targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
+      artifactName: $(publish.protos-zip)
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    eq(variables['Build.SourceBranchName'], 'master'))

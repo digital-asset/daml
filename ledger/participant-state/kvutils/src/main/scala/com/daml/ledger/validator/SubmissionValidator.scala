@@ -309,9 +309,26 @@ object SubmissionValidator {
       checkForMissingInputs: Boolean = false,
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
+    createForTimeMode(
+      ledgerStateAccess,
+      allocateNextLogEntryId,
+      checkForMissingInputs,
+      metricRegistry,
+      inStaticTimeMode = false,
+    )
+  }
+
+  // Internal method to enable proper command dedup in sandbox with static time mode
+  private[daml] def createForTimeMode[LogResult](
+      ledgerStateAccess: LedgerStateAccess[LogResult],
+      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      checkForMissingInputs: Boolean = false,
+      metricRegistry: MetricRegistry,
+      inStaticTimeMode: Boolean,
+  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(metricRegistry)),
+      processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
       metricRegistry,

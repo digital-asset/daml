@@ -105,15 +105,14 @@ final class Engine {
                 // all commands are actions on a contract template, with a fully typed
                 // argument, we only need to consider the templates mentioned in the command
                 // to compute the full dependencies.
-                val deps = processedCmds.foldLeft(Set.empty[PackageId]) {
-                  case (pkgIds, (_, cmd)) =>
-                    val pkgId = cmd.templateId.packageId
-                    val transitiveDeps =
-                      _compiledPackages
-                        .getPackageDependencies(pkgId)
-                        .getOrElse(
-                          sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-                    (pkgIds + pkgId) union transitiveDeps
+                val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
+                  val pkgId = cmd.templateId.packageId
+                  val transitiveDeps =
+                    _compiledPackages
+                      .getPackageDependencies(pkgId)
+                      .getOrElse(
+                        sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                  (pkgIds + pkgId) union transitiveDeps
                 }
                 tx -> Transaction.Metadata(
                   submissionTime = submissionTime,
@@ -164,7 +163,7 @@ final class Engine {
       commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
-        commands.map(_._2.templateId))
+        commands.map(_.templateId))
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
@@ -232,7 +231,7 @@ final class Engine {
       commands <- translateTransactionRoots(commandTranslation, tx)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
-        commands.map(_._2._2.templateId))
+        commands.map(_._2.templateId))
       result <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
@@ -280,7 +279,8 @@ final class Engine {
   // Translate a GenNode into an expression re-interpretable by the interpreter
   private[this] def translateNode[Cid <: Value.ContractId](
       commandPreprocessor: CommandPreprocessor)(
-      node: GenNode.WithTxValue[Transaction.NodeId, Cid]): Result[(Type, SpeedyCommand)] = {
+      node: GenNode.WithTxValue[Transaction.NodeId, Cid],
+  ): Result[SpeedyCommand] = {
 
     node match {
       case NodeCreate(nodeSeed @ _, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
@@ -324,8 +324,8 @@ final class Engine {
 
   private[this] def translateTransactionRoots[Cid <: Value.ContractId](
       commandPreprocessor: CommandPreprocessor,
-      tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid]
-  ): Result[ImmArray[(Transaction.NodeId, (Type, SpeedyCommand))]] = {
+      tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
+  ): Result[ImmArray[(Transaction.NodeId, SpeedyCommand)]] = {
     Result.sequence(tx.roots.map(id =>
       tx.nodes.get(id) match {
         case None =>
@@ -357,14 +357,14 @@ final class Engine {
       /* See documentation for `Speedy.Machine` for the meaning of this field */
       checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
-      commands: ImmArray[(Type, SpeedyCommand)],
+      commands: ImmArray[SpeedyCommand],
       ledgerTime: Time.Timestamp,
       transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)]
   ): Result[(Transaction.Transaction, Boolean)] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-        sexpr = Compiler(compiledPackages.packages).compile(commands.map(_._2)),
+        sexpr = Compiler(compiledPackages.packages).compile(commands),
         compiledPackages = _compiledPackages,
         transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime,
       )

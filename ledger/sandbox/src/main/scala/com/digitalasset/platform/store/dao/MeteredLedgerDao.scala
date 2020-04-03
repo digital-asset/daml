@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.Contract.ActiveContract
@@ -26,9 +26,9 @@ import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
 }
-import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
+import com.digitalasset.platform.store.PersistenceEntry
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -92,12 +92,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       key: Node.GlobalKey,
       forParty: Party): Future[Option[Value.AbsoluteContractId]] =
     timedFuture(Metrics.lookupKey, ledgerDao.lookupKey(key, forParty))
-
-  override def getActiveContractSnapshot(
-      endInclusive: Offset,
-      filter: TransactionFilter
-  ): Future[LedgerSnapshot] =
-    ledgerDao.getActiveContractSnapshot(endInclusive, filter)
 
   override def getLedgerEntries(
       startExclusive: Offset,

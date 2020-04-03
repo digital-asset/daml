@@ -346,7 +346,7 @@ runCommand = \case
     Codegen {..} ->
         case lang of
             TypeScript ->
-                runDaml2ts remainingArguments
+                runDaml2js remainingArguments
             Java ->
                 runJar
                     "daml-sdk/daml-sdk.jar"

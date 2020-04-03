@@ -9,6 +9,8 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
 import qualified Data.Aeson as Aeson
+import Data.Aeson ((.=), object)
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
@@ -36,7 +38,7 @@ import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
-import DA.Test.Daml2TsUtils (writeRootPackageJson)
+import DA.Test.Daml2jsUtils (writeRootPackageJson)
 import DA.Test.Process (callCommandSilent,callProcessSilent)
 import DA.Test.Util
 import SdkVersion
@@ -73,6 +75,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , cleanTests cleanDir
     , templateTests
     , codegenTests codegenDir damlTypesDir
+    , createDamlAppTests
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
@@ -521,7 +524,7 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
     -- The 'daml-types' NPM package is not available on Windows which
-    -- is required by 'daml2ts'.
+    -- is required by 'daml2js'.
     [ codegenTestFor "ts" Nothing | not isWindows ]
     )
     where
@@ -550,6 +553,38 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                                   , "-o", outDir]
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
+
+createDamlAppTests :: TestTree
+createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not isWindows]
+  where
+    gettingStartedGuideTest = testCase "Getting Started Guide" $
+      withTempDir $ \tmpDir -> do
+        let tsLibs = ["daml-types", "daml-ledger", "daml-react"]
+        forM_  tsLibs $ \tsLib -> do
+          srcDir <- locateRunfiles $ mainWorkspace </> "language-support" </> "ts" </> tsLib </> "npm_package"
+          copyDirectory srcDir (tmpDir </> tsLib)
+        BSL.writeFile (tmpDir </> "package.json") $ Aeson.encode $ object
+          [ "private" .= True
+          , "workspaces" .= ["create-daml-app/daml.js", "create-daml-app/ui" :: String]
+          , "resolutions" .= object
+              [ pkgName .= ("file:" ++ tsLib)
+              | tsLib <- tsLibs, let pkgName = "@" <> T.replace "-" "/"  (T.pack tsLib)
+              ]
+          ]
+        withCurrentDirectory tmpDir $ do
+          callCommandSilent "daml new create-daml-app create-daml-app"
+        let cdaDir = tmpDir </> "create-daml-app"
+        withCurrentDirectory cdaDir $ do
+          callCommandSilent "daml build"
+          callCommandSilent "daml codegen ts -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
+          assertBool "ui/build/index.html does not yet exist" . not
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          callCommandSilent "yarn install"
+          callCommandSilent "yarn lint --max-warnings 0"
+          callCommandSilent "yarn build"
+        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
+          assertBool "ui/build/index.html has been produced"
 
 damlInstallerName :: String
 damlInstallerName

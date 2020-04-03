@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
-import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -40,10 +40,11 @@ final class InMemoryLedgerReaderWriter(
   private val committer = new ValidatingCommitter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(
+      .createForTimeMode(
         new InMemoryLedgerStateAccess(state),
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         metricRegistry = metricRegistry,
+        inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
     dispatcher.signalNewHead,
   )
@@ -54,7 +55,7 @@ final class InMemoryLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
-  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
         startExclusive
@@ -93,7 +94,7 @@ private class InMemoryLedgerStateOperations(
   }
 
   override def appendToLog(key: Key, value: Value): Future[Index] =
-    Future.successful(appendEntry(log, LedgerEntry.LedgerRecord(_, key, value)))
+    Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
 }
 
 object InMemoryLedgerReaderWriter {
@@ -168,7 +169,7 @@ object InMemoryLedgerReaderWriter {
           headAtInitialization = StartIndex,
       ))
 
-  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerEntry): Int = {
+  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Int = {
     val entryAtIndex = log.size
     val offset = KVOffset.fromLong(entryAtIndex.toLong)
     val entry = createEntry(offset)

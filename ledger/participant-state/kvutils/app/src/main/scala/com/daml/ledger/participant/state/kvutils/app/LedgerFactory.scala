@@ -34,6 +34,7 @@ trait ConfigProvider[ExtraConfig] {
       participantConfig.participantId,
       jdbcUrl = participantConfig.serverJdbcUrl,
       startupMode = IndexerStartupMode.MigrateAndStart,
+      eventsPageSize = config.eventsPageSize,
       allowExistingSchema = participantConfig.allowExistingSchemaForIndex,
     )
 
@@ -48,7 +49,9 @@ trait ConfigProvider[ExtraConfig] {
       jdbcUrl = participantConfig.serverJdbcUrl,
       tlsConfig = config.tlsConfig,
       maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
+      eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
+      seeding = config.seeding,
     )
 
   def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =

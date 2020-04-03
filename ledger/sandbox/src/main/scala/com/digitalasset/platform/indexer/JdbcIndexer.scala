@@ -34,11 +34,9 @@ import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
     serverRole: ServerRole,
-    participantId: ParticipantId,
-    jdbcUrl: String,
+    config: IndexerConfig,
     readService: ReadService,
     metrics: MetricRegistry,
-    eventsPageSize: Int,
 )(implicit materializer: Materializer, logCtx: LoggingContext) {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -46,14 +44,14 @@ final class JdbcIndexerFactory(
   def validateSchema()(
       implicit executionContext: ExecutionContext
   ): Future[ResourceOwner[JdbcIndexer]] =
-    new FlywayMigrations(jdbcUrl)
+    new FlywayMigrations(config.jdbcUrl)
       .validate()
       .map(_ => initialized())
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
   ): Future[ResourceOwner[JdbcIndexer]] =
-    new FlywayMigrations(jdbcUrl)
+    new FlywayMigrations(config.jdbcUrl)
       .migrate(allowExistingSchema)
       .map(_ => initialized())
 
@@ -61,9 +59,14 @@ final class JdbcIndexerFactory(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =
     for {
-      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics, eventsPageSize)
+      ledgerDao <- JdbcLedgerDao.writeOwner(
+        serverRole,
+        config.jdbcUrl,
+        config.eventsPageSize,
+        metrics,
+      )
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, participantId, ledgerDao, metrics)
+    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
 
   private def initializeLedger(dao: LedgerDao)(
       implicit executionContext: ExecutionContext,

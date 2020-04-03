@@ -63,7 +63,7 @@ JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`
 
 .. TODO (drsk) add and point to javascript bindings.
 .. If you choose a different Javascript based frontend framework, the packages ``@daml/ledger``,
-.. ``@daml/types`` and the generated ``@daml2ts`` package provide you with the necessary interface code
+.. ``@daml/types`` and the generated ``@daml2js`` package provide you with the necessary interface code
 .. to connect and issue commands against your ledger.
 
 We provide two libraries to build your React frontend for a DAML application.
@@ -85,11 +85,12 @@ corresponding typescript data definitions for the data types declared in the dep
 
 .. code-block:: bash
 
-  daml codegen ts .daml/dist/<your-project-name.dar> -o daml-ts
+  daml codegen ts .daml/dist/<your-project-name.dar> -o daml.js
 
-This command will generate a typescript project in the ``daml-ts`` folder that needs to be connected
-with your frontend code in ``ui``. To do so, navigate to ``daml-ts`` and run ``yarn install`` and
-then ``yarn workspaces run build``.
+This command will generate a typescript library for each DALF in you DAR.
+In ``create-daml-app``, ``ui/package.json`` refers to these libraries via the
+``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in
+the ``dependencies`` field.
 
 .. TODO (drsk) this process is changing right now, make sure it is documented up to date here.
 

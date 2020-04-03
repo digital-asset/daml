@@ -99,6 +99,7 @@ class WebsocketServiceIntegrationTest
                 val error = decodeErrorResponse(errorMsg)
                 error shouldBe domain.ErrorResponse(
                   List("Multiple requests over the same WebSocket connection are not allowed."),
+                  None,
                   StatusCodes.BadRequest
                 )
             }
@@ -136,7 +137,8 @@ class WebsocketServiceIntegrationTest
                 }
                 val error = decodeErrorResponse(errorMsg)
                 error shouldBe domain.ErrorResponse(
-                  List("Could not resolve any template ID from request."),
+                  List(ErrorMessages.cannotResolveAnyTemplateId),
+                  None,
                   StatusCodes.BadRequest
                 )
             }
@@ -520,7 +522,7 @@ class WebsocketServiceIntegrationTest
               errorResponse.status shouldBe StatusCodes.BadRequest
               inside(errorResponse.errors) {
                 case List(error) =>
-                  error should include("must be a list with at least 1 element")
+                  error should include("must be a JSON array with at least 1 element")
               }
           }
         }: Future[Assertion]
@@ -626,16 +628,16 @@ class WebsocketServiceIntegrationTest
       }
       .valueOr(_ => false)
 
-  private def decodeErrorResponse(str: String): domain.ErrorResponse[List[String]] = {
+  private def decodeErrorResponse(str: String): domain.ErrorResponse = {
     import json.JsonProtocol._
-    inside(SprayJson.decode1[domain.ErrorResponse, List[String]](str)) {
+    inside(SprayJson.decode[domain.ErrorResponse](str)) {
       case \/-(e) => e
     }
   }
 
   private def decodeServiceWarning(str: String): domain.ServiceWarning = {
     import json.JsonProtocol._
-    inside(SprayJson.decode[domain.WarningsWrapper](str)) {
+    inside(SprayJson.decode[domain.AsyncWarningsWrapper](str)) {
       case \/-(w) => w.warnings
     }
   }

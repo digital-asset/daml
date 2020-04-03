@@ -157,10 +157,10 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
                     startupMode = IndexerStartupMode.MigrateAndStart,
+                    eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),
                   metrics = metrics,
-                  eventsPageSize = config.eventsPageSize,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -189,7 +189,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     jdbcUrl = indexJdbcUrl,
                     tlsConfig = config.tlsConfig,
                     maxInboundMessageSize = config.maxInboundMessageSize,
+                    eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
+                    seeding = seeding,
                   ),
                   commandConfig = config.commandConfig,
                   partyConfig = config.partyConfig,
@@ -197,11 +199,9 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   readService = readService,
                   writeService = writeService,
                   authService = authService,
-                  eventsPageSize = config.eventsPageSize,
                   transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
-                  seeding = Some(seeding),
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )

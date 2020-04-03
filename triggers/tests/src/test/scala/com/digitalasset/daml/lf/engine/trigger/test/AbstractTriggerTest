@@ -45,7 +45,7 @@ import scalaz.syntax.traverse._
 import com.digitalasset.daml.lf.engine.trigger.{Runner, Trigger, TriggerMsg}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-final class TriggerIt
+final class AbstractTriggerTest
     extends AsyncWordSpec
     with TestCommands
     with SandboxFixture

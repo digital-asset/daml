@@ -10,7 +10,7 @@ import anorm._
 import com.daml.ledger.on.sql.Index
 import com.daml.ledger.on.sql.queries.Queries._
 import com.daml.ledger.participant.state.kvutils.KVOffset
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
+import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 
 import scala.collection.{breakOut, immutable}
@@ -28,14 +28,14 @@ trait CommonQueries extends Queries {
   override final def selectFromLog(
       start: Index,
       end: Index,
-  ): Try[immutable.Seq[(Index, LedgerEntry)]] = Try {
+  ): Try[immutable.Seq[(Index, LedgerRecord)]] = Try {
     SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $start AND sequence_no <= $end ORDER BY sequence_no"
       .as(
         (long("sequence_no")
           ~ getBytes("entry_id")
           ~ getBytes("envelope")).map {
           case index ~ entryId ~ envelope =>
-            index -> LedgerEntry.LedgerRecord(
+            index -> LedgerRecord(
               KVOffset.fromLong(index),
               entryId,
               envelope,

@@ -213,8 +213,8 @@ class SqlLedgerSpec
           initialConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1)),
           queueDepth = queueDepth,
           startMode = SqlStartMode.ContinueIfExists,
-          metrics = metrics,
           eventsPageSize = 100,
+          metrics = metrics,
         )
         .acquire()(system.dispatcher)
     }

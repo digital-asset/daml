@@ -6,6 +6,7 @@ package com.digitalasset.platform.store.dao.events
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.{Offset, TransactionId}
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -124,6 +125,33 @@ private[dao] final class TransactionsReader(
         query.as(EventsTable.treeEventParser(verbose = true).*)
       }
       .map(EventsTable.Entry.toGetTransactionResponse)(executionContext)
+  }
+
+  def getActiveContracts(
+      activeAt: Offset,
+      filter: FilterRelation,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] = {
+    val events =
+      PaginatingAsyncStream(pageSize) { offset =>
+        val query =
+          EventsTable
+            .preparePagedGetActiveContracts(
+              activeAt = activeAt,
+              filter = filter,
+              pageSize = pageSize,
+              rowOffset = offset,
+            )
+            .withFetchSize(Some(pageSize))
+        dispatcher.executeSql("get_active_contracts") { implicit connection =>
+          query.asVectorOf(EventsTable.flatEventParser(verbose = verbose))
+        }
+      }
+
+    groupContiguous(events)(by = _.transactionId)
+      .flatMapConcat { events =>
+        Source(EventsTable.Entry.toGetActiveContractsResponse(events))
+      }
   }
 
 }

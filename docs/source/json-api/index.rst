@@ -212,9 +212,9 @@ If client's HTTP GET or POST request reaches an API endpoint, the corresponding 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>
-        ,"errors": <JSON array of strings> | ,"result": <JSON object>
-        [ ,"warnings": <JSON object> ]
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>, | "result": <JSON object or array>,
+        ["warnings": <JSON object> ]
     }
 
 Where:
@@ -271,21 +271,43 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 Examples
 ========
 
+**Result with JSON Object without Warnings:**
+
 .. code-block:: none
 
     {"status": 200, "result": {...}}
+
+**Result with JSON Array and Warnings:**
 
 .. code-block:: none
 
     {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
-.. code-block:: json
-
-    {"status": 401, "errors": ["Authentication Required"]}
+**Bad Request Error:**
 
 .. code-block:: json
 
     {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+**Bad Request Error with Warnings:**
+
+.. code-block:: json
+
+    {"status":400, "errors":["Cannot not resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+
+**Authentication Error:**
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+**Not Found Error:**
+
+.. code-block:: json
+
+    {"status": 404, "errors": ["HttpMethod(POST), uri: http://localhost:7575/v1/query1"]}
+
+**Internal Server Error:**
 
 .. code-block:: json
 
@@ -919,8 +941,8 @@ If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) err
       ]
     }
 
-HTTP Response
-=============
+HTTP Response OK(200)
+=====================
 
 - Content-Type: ``application/json``
 - Content:
@@ -955,8 +977,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+HTTP Response OK(200) with Unknown Parties Warning
+==================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -972,11 +994,27 @@ HTTP Response with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
+    }
+
+BadRequest(400) Response with Unknown Parties Warning
+=====================================================
+
+When all party identifiers specified in the request are unknown to the server, it returns BadRequest(400) error with a warnings that lists all party identifiers.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "errors": ["Cannot find any requested party"],
+      "warnings": {
+        "unknownParties": ["Bob", "Dave", "Alice"]
+      },
+      "status": 400
     }
 
 Fetch All Known Parties

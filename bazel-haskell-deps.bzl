@@ -596,6 +596,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "safe",
             "safe-exceptions",
             "scientific",
+            "semigroupoids",
             "semigroups",
             "semver",
             "sorted-list",

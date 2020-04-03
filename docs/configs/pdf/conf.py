@@ -36,7 +36,8 @@ sys.path.extend(map(os.path.abspath, glob.glob('packages/*')))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-  'sphinx.ext.autodoc'
+    'sphinx.ext.autodoc',
+    'sphinx.ext.extlinks'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -325,6 +326,15 @@ texinfo_documents = [
      author, 'DigitalAssetSDK', 'One line description of project.',
      'Miscellaneous'),
 ]
+
+
+extlinks = {
+    'github-asset': ('https://github.com/https://github.com/digital-asset/daml/releases/download/v{}/%s-{}.zip'.format(version, version), None),
+    # For some reason extlinks insists that you can use %s only once.
+    # We need it twice in the URL so we need one URL per Maven artifact.
+    # Using it zero times also doesn’t work so you still have to supply an argument.
+    'ledger-api-test-tool-maven': ('https://repo1.maven.org/maven2/com/daml/ledger-api-test-tool/{}/%s-{}.jar'.format(version, version), None)
+}
 
 # Import the DAML lexer
 def setup(sphinx):

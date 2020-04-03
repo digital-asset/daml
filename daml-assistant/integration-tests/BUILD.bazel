@@ -68,6 +68,12 @@ genrule(
     """.format(mvn = mvn_version),
 )
 
+ts_libraries = [
+    "//language-support/ts/daml-types:npm_package",
+    "//language-support/ts/daml-ledger:npm_package",
+    "//language-support/ts/daml-react:npm_package",
+]
+
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
@@ -89,7 +95,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-    ] + ([] if is_windows else ["//language-support/ts/daml-types:npm_package"]),
+    ] + ([] if is_windows else ts_libraries),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
@@ -124,7 +130,7 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//daml-assistant/daml-helper:daml-helper-lib",
-        "//language-support/ts/codegen/tests:daml2ts-test-helpers",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

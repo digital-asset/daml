@@ -12,7 +12,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
-import com.daml.ledger.participant.state.kvutils.api.{LedgerEntry, LedgerReader, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
@@ -56,17 +56,18 @@ final class SqlLedgerReaderWriter(
   private val committer = new ValidatingCommitter[Index](
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(
+      .createForTimeMode(
         SqlLedgerStateAccess,
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
         metricRegistry = metricRegistry,
+        inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
 
   override def currentHealth(): HealthStatus = Healthy
 
-  override def events(startExclusive: Option[Offset]): Source[LedgerEntry, NotUsed] =
+  override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
         KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
