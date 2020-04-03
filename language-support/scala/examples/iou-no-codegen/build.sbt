@@ -33,6 +33,7 @@ lazy val commonSettings = Seq(
     "-Xfuture",
     "-Xlint:_,-unused"
   ),
+  resolvers += Resolver.mavenLocal,
   classpathTypes += "maven-plugin"
 )
 
