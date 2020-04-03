@@ -92,7 +92,7 @@ While we currently don’t provide direct integration with Maven, Groovy, SBT, e
 
 The following snippet is an excerpt from the ``pom.xml`` that is part of the :ref:`quickstart` guide.
 
-  .. literalinclude:: ../../getting-started/quickstart/template-root/pom.xml
+  .. literalinclude:: quickstart/template-root/pom.xml
     :language: xml
     :lines: 47-78,94-95
     :dedent: 12

@@ -118,7 +118,7 @@ Before you can decide on an appropriate architecture and implement your own
 server and validator, you need a significant amount of context about DAML.
 To acquire this context, you should:
 
-1. Complete the :doc:`/getting-started/quickstart`.
+1. Complete the :doc:`/app-dev/bindings-java/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
 3. Build a mental model of how the :doc:`Ledger API </app-dev/ledger-api>`
    is used to :doc:`build DAML Applications </app-dev/app-arch>`.

@@ -3197,7 +3197,7 @@ No user-facing changes.
 -------------------
 
 - **Documentation**: :doc:`DAML documentation </daml/reference/index>` and :doc:`examples </examples/examples>` now use DAML 1.2.
-- **Documentation**: Added a comprehensive :doc:`quickstart guide </getting-started/quickstart>` that replaces the old "My first project" example.
+- **Documentation**: Added a comprehensive :doc:`quickstart guide </app-dev/bindings-java/quickstart>` that replaces the old "My first project" example.
 
 	As part of this, removed the My first project, IOU and PvP examples.
 - **Documentation**: Added a :doc:`guide to building applications against a DAML ledger </app-dev/app-arch>`.

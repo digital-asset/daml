@@ -32,9 +32,9 @@ No matter what approach you take, either manually building commands or writing a
 Create Command
 --------------
 
-Let's recall an **IOU** example from the :doc:`Quickstart guide </getting-started/quickstart>`, where `Iou` template is defined like this:
+Let's recall an **IOU** example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`, where `Iou` template is defined like this:
 
-.. literalinclude:: ./code-snippets/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -58,7 +58,7 @@ Exercise Command
 
 To build :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
 
-.. literalinclude:: ./code-snippets/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 
