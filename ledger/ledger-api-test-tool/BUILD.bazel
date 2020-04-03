@@ -154,6 +154,5 @@ conformance_test(
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:client.pem))",
-        "--exclude=CommandDeduplicationIT",
     ],
 )

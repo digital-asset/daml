@@ -82,7 +82,6 @@ private[state] object Conversions {
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
-          .setApplicationId(subInfo.getApplicationId)
           .setCommandId(subInfo.getCommandId)
           .setSubmitter(subInfo.getSubmitter)
           .build
@@ -131,6 +130,8 @@ private[state] object Conversions {
       .setSubmitter(subInfo.submitter)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
+      .setDeduplicateUntil(
+        buildTimestamp(Time.Timestamp.assertFromInstant(subInfo.deduplicateUntil)))
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =

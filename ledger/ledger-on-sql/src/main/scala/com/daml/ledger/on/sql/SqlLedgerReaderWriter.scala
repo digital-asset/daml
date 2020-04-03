@@ -56,10 +56,11 @@ final class SqlLedgerReaderWriter(
   private val committer = new ValidatingCommitter[Index](
     () => timeProvider.getCurrentTime,
     SubmissionValidator
-      .create(
+      .createForTimeMode(
         SqlLedgerStateAccess,
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
         metricRegistry = metricRegistry,
+        inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
