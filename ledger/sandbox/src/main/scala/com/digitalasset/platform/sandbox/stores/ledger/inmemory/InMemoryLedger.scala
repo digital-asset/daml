@@ -42,7 +42,9 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
@@ -51,6 +53,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.platform.index.TransactionConversion
 import com.digitalasset.platform.packages.InMemoryPackageStore
+import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
@@ -61,7 +64,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{CompletionFromTransaction, LedgerSnapshot}
+import com.digitalasset.platform.store.CompletionFromTransaction
 import com.digitalasset.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag.ToTagOps
@@ -199,16 +202,46 @@ class InMemoryLedger(
 
   override def ledgerEnd: Offset = entries.ledgerEnd
 
-  // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    Future.successful(this.synchronized {
-      LedgerSnapshot(
-        entries.ledgerEnd,
-        Source
-          .fromIterator[ActiveContract](() =>
-            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList))
-      )
-    })
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    Source
+      .fromIterator[ActiveContract](() =>
+        acs.activeContracts.valuesIterator.flatMap(index
+          .EventFilter(_)(TransactionFilter(filter.map {
+            case (party, templates) =>
+              party -> Filters(if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+          }))
+          .toList))
+      .map { contract =>
+        GetActiveContractsResponse(
+          workflowId = contract.workflowId.getOrElse(""),
+          activeContracts = List(
+            CreatedEvent(
+              contract.eventId,
+              contract.id.coid,
+              Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+              contractKey = contract.key.map(
+                ck =>
+                  LfEngineToApi.assertOrRuntimeEx(
+                    "converting stored contract",
+                    LfEngineToApi
+                      .lfContractKeyToApiValue(verbose = verbose, ck))),
+              createArguments = Some(
+                LfEngineToApi.assertOrRuntimeEx(
+                  "converting stored contract",
+                  LfEngineToApi
+                    .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+              contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
+              signatories = contract.signatories.toSeq,
+              observers = contract.observers.toSeq,
+              agreementText = Some(contract.agreementText)
+            )
+          )
+        )
+      }
 
   override def lookupContract(
       contractId: AbsoluteContractId,

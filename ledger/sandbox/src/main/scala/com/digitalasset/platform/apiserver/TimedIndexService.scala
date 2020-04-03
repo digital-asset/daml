@@ -26,6 +26,7 @@ import com.digitalasset.ledger.api.domain.{
   TransactionId
 }
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -95,10 +96,11 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
       "get_transaction_tree_by_id",
       delegate.getTransactionTreeById(transactionId, requestingParties))
 
-  override def getActiveContractSetSnapshot(
-      filter: domain.TransactionFilter
-  ): Future[v2.ActiveContractSetSnapshot] =
-    time("get_active_contract_set_snapshot", delegate.getActiveContractSetSnapshot(filter))
+  override def getActiveContracts(
+      filter: domain.TransactionFilter,
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    time("get_active_contracts", delegate.getActiveContracts(filter, verbose))
 
   override def lookupActiveContract(
       submitter: Party,

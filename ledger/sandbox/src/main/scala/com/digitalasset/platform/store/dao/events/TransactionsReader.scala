@@ -37,9 +37,6 @@ private[dao] final class TransactionsReader(
   private def offsetFor(response: GetTransactionTreesResponse): Offset =
     ApiOffset.assertFromString(response.transactions.head.offset)
 
-  private def offsetFor(response: GetActiveContractsResponse): Offset =
-    ApiOffset.assertFromString(response.offset)
-
   def getFlatTransactions(
       startExclusive: Offset,
       endInclusive: Offset,
@@ -134,13 +131,13 @@ private[dao] final class TransactionsReader(
       activeAt: Offset,
       filter: FilterRelation,
       verbose: Boolean,
-  ): Source[(Offset, GetActiveContractsResponse), NotUsed] = {
+  ): Source[GetActiveContractsResponse, NotUsed] = {
     val events =
       PaginatingAsyncStream(pageSize) { offset =>
         val query =
           EventsTable
             .preparePagedGetActiveContracts(
-              activeAt: Offset,
+              activeAt = activeAt,
               filter = filter,
               pageSize = pageSize,
               rowOffset = offset,
@@ -153,8 +150,7 @@ private[dao] final class TransactionsReader(
 
     groupContiguous(events)(by = _.transactionId)
       .flatMapConcat { events =>
-        val response = EventsTable.Entry.toGetActiveContractsResponse(events)
-        Source(response.map(r => offsetFor(r) -> r))
+        Source(EventsTable.Entry.toGetActiveContractsResponse(events))
       }
   }
 

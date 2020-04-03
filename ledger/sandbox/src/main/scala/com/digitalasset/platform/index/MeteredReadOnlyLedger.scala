@@ -19,29 +19,24 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  LedgerId,
-  PartyDetails,
-  TransactionFilter
-}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse
+  GetTransactionsResponse,
 }
 import com.digitalasset.platform.metrics.timedFuture
 import com.digitalasset.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
-  PartyLedgerEntry
+  PartyLedgerEntry,
 }
-import com.digitalasset.platform.store.{LedgerSnapshot, ReadOnlyLedger}
+import com.digitalasset.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 
@@ -103,8 +98,12 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     ledger.completions(startExclusive, endInclusive, applicationId, parties)
 
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    ledger.snapshot(filter)
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    ledger.activeContracts(activeAt, filter, verbose)
 
   override def lookupContract(
       contractId: Value.AbsoluteContractId,
