@@ -16,7 +16,7 @@ import com.daml.ledger.api.testtool.infrastructure.{
 }
 import org.slf4j.LoggerFactory
 
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object LedgerApiTestTool {
 
@@ -72,6 +72,7 @@ object LedgerApiTestTool {
         "/ledger/test-common/SemanticTests.dar",
         "/ledger/test-common/Test-stable.dar",
         "/ledger/test-common/Test-dev.dar",
+        "/ledger/test-common/Performance.dar",
       )
       sys.exit(0)
     }
@@ -110,7 +111,20 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val summaryProcessor: Try[Vector[LedgerTestSummary]] => Unit = {
+    val runner =
+      if (performanceTestsToRun.nonEmpty)
+        newLedgerSuiteRunner(
+          config,
+          performanceTestsToRun.values,
+          1
+        )
+      else
+        newLedgerSuiteRunner(
+          config,
+          testsToRun.values
+        )
+
+    runner.verifyRequirementsAndRun {
       case Success(summaries) =>
         new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
@@ -118,18 +132,11 @@ object LedgerApiTestTool {
         logger.error(e.getMessage, e)
         sys.exit(1)
     }
-
-    val testsRunner = newLedgerSuiteRunner(config, testsToRun.values.toVector)
-    testsRunner.verifyRequirementsAndRun(summaryProcessor)
-
-    val performanceTestsRunner =
-      newLedgerSuiteRunner(config, performanceTestsToRun.values.toVector, concurrencyOverride = 1)
-    performanceTestsRunner.verifyRequirementsAndRun(summaryProcessor)
   }
 
   private[this] def newLedgerSuiteRunner(
       config: Config,
-      suites: Vector[LedgerSession => LedgerTestSuite],
+      suites: Iterable[LedgerSession => LedgerTestSuite],
       concurrencyOverride: Int = -1): LedgerTestSuiteRunner =
     new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(
@@ -139,7 +146,7 @@ object LedgerApiTestTool {
         config.loadScaleFactor,
         config.partyAllocation,
       ),
-      suites,
+      suites.toVector,
       identifierSuffix,
       config.timeoutScaleFactor,
       if (concurrencyOverride >= 0) concurrencyOverride else config.concurrentTestRuns,

@@ -261,8 +261,8 @@ da_scala_test_suite(
             tags = db.get("benchmark_performance_envelope_tags", []),
             test_tool_args = db.get("benchmark_performance_envelope_tags", []) + [
                 "--verbose",
-                "--include=PerformanceEnvelope.Throughput",
-                "--include=PerformanceEnvelope.Latency",
+                "--perf-tests=PerformanceEnvelope.Throughput",
+                "--perf-tests=PerformanceEnvelope.Latency",
             ],
         ),
     )

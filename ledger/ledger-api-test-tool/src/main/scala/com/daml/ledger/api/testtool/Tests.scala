@@ -57,15 +57,16 @@ object Tests {
 
   /**
     * These are performance envelope tests that also provide benchmarks and are always run
-    * sequentially; they also must be enabled explicitly with --perf-tests.
+    * sequentially; they also must be specified explicitly with --perf-tests and will exclude
+    * all other tests.
     */
   val performanceTests: Tests = Map(
-    "PerformanceEnvelope.Public.Throughput" -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+    "PerformanceEnvelope.Throughput" -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
       logger = LoggerFactory.getLogger("PerformanceEnvelope.Throughput"),
       envelope = Envelope.Public,
       reporter = BenchmarkReporter.toFile.addReport,
     )(_)),
-    "PerformanceEnvelope.Public.Latency" -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+    "PerformanceEnvelope.Latency" -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
       logger = LoggerFactory.getLogger("PerformanceEnvelope.Latency"),
       envelope = Envelope.Public,
       reporter = BenchmarkReporter.toFile.addReport,
