@@ -85,7 +85,7 @@ corresponding typescript data definitions for the data types declared in the dep
 
 .. code-block:: bash
 
-  daml codegen ts .daml/dist/<your-project-name.dar> -o daml.js
+  daml codegen js .daml/dist/<your-project-name.dar> -o daml.js
 
 This command will generate a typescript library for each DALF in you DAR.
 In ``create-daml-app``, ``ui/package.json`` refers to these libraries via the
