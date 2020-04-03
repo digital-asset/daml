@@ -49,7 +49,6 @@ jtvVersion = "^3.1.0"
 data Options = Options
     { optInputDars :: [FilePath]
     , optOutputDir :: FilePath
-    , optInputPackageJson :: Maybe FilePath -- Deprecated.
     , optScope :: Scope -- Defaults to 'daml.js'.
     }
 
@@ -64,11 +63,6 @@ optionsParser = Options
         <> metavar "DIR"
         <> help "Output directory for the generated packages"
         )
-    <*> optional (strOption
-        (  short 'p'
-        <> metavar "PACKAGE-JSON"
-        <> help "This flag is deprecated and ignored"
-        ))
     <*> (Scope . ("@" <>) <$> strOption
         (  short 's'
         <> metavar "SCOPE"
@@ -127,8 +121,6 @@ mergePackageMap ps = foldM merge Map.empty ps
 main :: IO ()
 main = do
     opts@Options{..} <- execParser optionsParserInfo
-    when (isJust optInputPackageJson) $
-      putStrLn "WARNING: Use of the flag '-p' is deprecated. This flag is ignored."
     sdkVersionOrErr <- DATypes.parseVersion . T.pack . fromMaybe "0.0.0" <$> getSdkVersionMaybe
     sdkVersion <- case sdkVersionOrErr of
           Left _ -> fail "Invalid SDK version"
