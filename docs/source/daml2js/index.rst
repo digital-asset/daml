@@ -231,7 +231,7 @@ Here is a DAML template of a basic 'IOU' contract.
          do
            create this with owner = newOwner
 
-The ``daml codgen js`` command generates types for each of the choices defined on the template as well as the template itself.
+The ``daml codegen js`` command generates types for each of the choices defined on the template as well as the template itself.
 
 .. code-block:: typescript
    :linenos:
