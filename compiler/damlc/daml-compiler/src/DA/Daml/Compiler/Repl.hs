@@ -19,6 +19,7 @@ import DA.Daml.LFConversion.UtilGHC
 import DA.Daml.Options.Types
 import Data.Bifunctor (first)
 import qualified Data.ByteString.Lazy as BSL
+import Data.Functor.Alt
 import Data.Foldable
 import Data.Graph
 import Data.Maybe
@@ -166,18 +167,16 @@ data ReplInput
   | ReplImport (ImportDecl GhcPs)
 
 parseReplInput :: String -> DynFlags -> Either Error ReplInput
-parseReplInput input dflags = swapEither $ do
-    -- We use @Either ReplInput Error@ to short-circuit on success.
-    -- The most common input will be statements. So, we try parsing statements
-    -- first and emit statement parse errors on failure.
-    e <- tryParse (parseStatement input dflags) (ReplStatement . unLoc)
-    _ <- tryParse (parseImport input dflags) (ReplImport . unLoc)
-    pure e
+parseReplInput input dflags =
+    -- Short-circuit on the first successful parse.
+    -- The most common input will be statements. So, we attempt parsing
+    -- statements last to always emit statement parse errors on failure.
+        (ReplImport . unLoc <$> tryParse (parseImport input dflags))
+    <!> (ReplStatement . unLoc <$> tryParse (parseStatement input dflags))
   where
-    swapEither = either Right Left
-    tryParse :: ParseResult a -> (a -> ReplInput) -> Either ReplInput Error
-    tryParse (POk _ result) f = Left (f result)
-    tryParse (PFailed _ _ errMsg) _ = Right (ParseError errMsg)
+    tryParse :: ParseResult a -> Either Error a
+    tryParse (POk _ result) = Right result
+    tryParse (PFailed _ _ errMsg) = Left (ParseError errMsg)
 
 
 runRepl :: Options -> FilePath -> ReplClient.Handle -> IdeState -> IO ()
