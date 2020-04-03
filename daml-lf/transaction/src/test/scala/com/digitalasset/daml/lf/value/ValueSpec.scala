@@ -10,7 +10,7 @@ import Ref.{Identifier, Name}
 import ValueGenerators.{idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
 
-import org.scalacheck.{Arbitrary, Gen}
+import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalatest.{FreeSpec, Inside, Matchers}
 import scalaz.{Order, Tag}
@@ -127,6 +127,16 @@ class ValueSpec
       check(p, minSuccessful(20))
     }
 
+  private def checkOrderPreserved[Cid: Arbitrary: Shrink: Order](
+      va: VA,
+      scope: Value.LookupVariantEnum) = {
+    import va.{injord, injarb, injshrink}
+    implicit val targetOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance(scope)
+    forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      (a ?|? b) should ===(va.inj(a) ?|? va.inj(b))
+    }
+  }
+
   "Order" - {
     type Cid = Int
     type T = Value[Cid]
@@ -144,6 +154,10 @@ class ValueSpec
         implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
         checkLaws(SzP.order.laws[T])
       }
+
+      "preserves base order" in forAll(genAddend, minSuccessful(100)) { va =>
+        checkOrderPreserved[Cid](va, EmptyScope)
+      }
     }
 
     "for record and variant types" - {
@@ -158,6 +172,10 @@ class ValueSpec
         val quux = fooCp('quux ->> 42L)
         val baz = fooCp('baz ->> 42L)
         (fooVariant.inj(quux) ?|? fooVariant.inj(baz)) shouldBe scalaz.Ordering.LT
+      }
+
+      "preserves base order" in forEvery(Table("va", fooRecord, fooVariant)) { va =>
+        checkOrderPreserved[Cid](va, FooScope)
       }
     }
 
@@ -182,6 +200,13 @@ class ValueSpec
                   (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
               }
             }
+          }
+      }
+
+      "preserves base order" in forAll(enumDetailsAndScopeGen, minSuccessful(20)) {
+        case (details, scope) =>
+          forEvery(Table("va", details.values.toSeq: _*)) { ea =>
+            checkOrderPreserved[Cid](ea, scope)
           }
       }
     }
