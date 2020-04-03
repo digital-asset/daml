@@ -154,9 +154,9 @@ topologicalSort lfPkgs = map toPkg $ topSort $ transposeG graph
     toPkg = (\(pkg, _, _) -> pkg) . fromVertex
 
 data ReplState = ReplState
-  { imports :: [ImportDecl GhcPs]
-  , bindings :: [(LPat GhcPs, Type)]
-  , lineNumber :: Int
+  { imports :: ![ImportDecl GhcPs]
+  , bindings :: ![(LPat GhcPs, Type)]
+  , lineNumber :: !Int
   }
 
 type ReplM = Repl.HaskelineT (State.StateT ReplState IO)
