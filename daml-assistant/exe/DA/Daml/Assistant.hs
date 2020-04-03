@@ -99,9 +99,11 @@ versionChecks Env{..} =
         -- Project SDK version is outdated.
         when (not isHead && projectSdkVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "WARNING: Using an outdated version of the DAML SDK in project."
-                , "To migrate to the latest DAML SDK, please set the sdk-version"
-                , "field in daml.yaml to " <> versionToString latestVersion
+                [ "DAML SDK " <> versionToString latestVersion <> " has been released!"
+                , "See https://github.com/digital-asset/daml/releases/tag/v"
+                  <> versionToString latestVersion <> " for details."
+                -- Carefully crafted wording to make sure it’s < 80 characters so
+                -- we do not get a line break.
                 , ""
                 ]
 
