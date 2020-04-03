@@ -63,7 +63,7 @@ JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`
 
 .. TODO (drsk) add and point to javascript bindings.
 .. If you choose a different Javascript based frontend framework, the packages ``@daml/ledger``,
-.. ``@daml/types`` and the generated ``@daml2ts`` package provide you with the necessary interface code
+.. ``@daml/types`` and the generated ``@daml2js`` package provide you with the necessary interface code
 .. to connect and issue commands against your ledger.
 
 We provide two libraries to build your React frontend for a DAML application.

@@ -8,4 +8,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 DAR=$DIR/daml/.daml/dist/daml-1.0.0.dar
 GEN=$DIR/ts/generated/src/daml
 
-ghcid --command "da-ghci //:daml2ts" --reload $DAR --test ":main -o $GEN $DAR"
+ghcid --command "da-ghci //:daml2js" --reload $DAR --test ":main -o $GEN $DAR"

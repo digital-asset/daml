@@ -199,13 +199,13 @@ alias(
 )
 
 alias(
-    name = "daml2ts",
-    actual = "//language-support/ts/codegen:daml2ts",
+    name = "daml2js",
+    actual = "//language-support/ts/codegen:daml2js",
 )
 
 alias(
-    name = "daml2ts@ghci",
-    actual = "//language-support/ts/codegen:daml2ts@ghci",
+    name = "daml2js@ghci",
+    actual = "//language-support/ts/codegen:daml2js@ghci",
 )
 
 alias(
@@ -282,6 +282,6 @@ da_haskell_repl(
         "//daml-assistant/integration-tests",
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/hs/bindings:test",
-        "//language-support/ts/codegen:daml2ts",
+        "//language-support/ts/codegen:daml2js",
     ],
 )

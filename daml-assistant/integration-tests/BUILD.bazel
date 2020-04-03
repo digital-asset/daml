@@ -130,7 +130,7 @@ da_haskell_test(
         "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//daml-assistant/daml-helper:daml-helper-lib",
-        "//language-support/ts/codegen/tests:daml2ts-test-helpers",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",

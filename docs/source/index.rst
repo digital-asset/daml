@@ -104,7 +104,7 @@ DAML SDK documentation
    DAML Triggers <triggers/index>
    DAML Repl <daml-repl/index>
    tools/visual
-   daml2ts/index
+   daml2js/index
    getting-started/index
    getting-started/testing
 

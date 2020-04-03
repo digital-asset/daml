@@ -1,6 +1,6 @@
 {
   "private": true,
-  "workspaces": ["daml2ts"],
+  "workspaces": ["daml2js"],
   "resolutions": {
     "@daml/types": "file:daml-types"
   }
