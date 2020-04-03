@@ -10,7 +10,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KVOffset}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
@@ -108,7 +107,7 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry)
       )
 
-      def getInstance(offset: Option[Offset], items: LedgerEntry*) =
+      def getInstance(offset: Option[Offset], items: LedgerRecord*) =
         new KeyValueParticipantStateReader(readerStreamingFrom(offset = offset, items: _*))
 
       val instances = records.tails.flatMap {
@@ -182,14 +181,14 @@ object KeyValueParticipantStateReaderSpec {
       .build
       .toByteString
 
-  private def readerStreamingFrom(offset: Option[Offset], items: LedgerEntry*): LedgerReader = {
+  private def readerStreamingFrom(offset: Option[Offset], items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.iterator)
     when(reader.events(offset)).thenReturn(stream)
     reader
   }
 
-  private def readerStreamingFromAnyOffset(items: LedgerEntry*): LedgerReader = {
+  private def readerStreamingFromAnyOffset(items: LedgerRecord*): LedgerReader = {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.iterator)
     when(reader.events(any[Option[Offset]]())).thenReturn(stream)

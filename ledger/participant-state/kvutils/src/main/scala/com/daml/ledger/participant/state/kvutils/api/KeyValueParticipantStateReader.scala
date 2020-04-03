@@ -22,7 +22,7 @@ class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer
       .single(beginAfter.map(KVOffset.onlyKeepHighestIndex))
       .flatMapConcat(reader.events)
       .flatMapConcat {
-        case LedgerEntry.LedgerRecord(offset, entryId, envelope) =>
+        case LedgerRecord(offset, entryId, envelope) =>
           Envelope
             .open(envelope)
             .flatMap {
