@@ -5,7 +5,6 @@ package com.digitalasset.platform.store.dao.events
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import org.scalacheck.Gen
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{AsyncFlatSpec, Matchers}
@@ -18,7 +17,6 @@ final class GroupContiguousSpec
     with AkkaBeforeAndAfterAll {
 
   behavior of "groupContiguous"
-  import GroupContiguousSpec.contiguous
 
   it should "be equivalent to grouping on inputs with an ordered key" in forAll {
     pairs: List[(Int, String)] =>
@@ -29,12 +27,12 @@ final class GroupContiguousSpec
       }
   }
 
-  it should "be equivalent to grouping on inputs with a contiguous key" in forAll(contiguous) {
-    pairsWithContiguousKeys =>
-      val grouped = groupContiguous(Source(pairsWithContiguousKeys))(by = _._1)
-      whenReady(grouped.runWith(Sink.seq[Vector[(Int, String)]])) {
-        _ should contain theSameElementsAs pairsWithContiguousKeys.groupBy(_._1).values
-      }
+  it should "be equivalent to grouping on inputs with a contiguous key" in {
+    val pairsWithContiguousKeys = List(1 -> "baz", 0 -> "foo", 0 -> "bar", 0 -> "quux")
+    val grouped = groupContiguous(Source(pairsWithContiguousKeys))(by = _._1)
+    whenReady(grouped.runWith(Sink.seq[Vector[(Int, String)]])) {
+      _ should contain theSameElementsAs pairsWithContiguousKeys.groupBy(_._1).values
+    }
   }
 
   it should "behave as expected when grouping inputs without a contiguous key" in {
@@ -48,17 +46,5 @@ final class GroupContiguousSpec
       )
     }
   }
-
-}
-
-object GroupContiguousSpec {
-
-  private val contiguous =
-    for {
-      n <- Gen.oneOf(Gen.const(0), Gen.posNum[Int], Gen.negNum[Int])
-      l <- Gen.size
-      s <- Gen.asciiPrintableStr
-      ss <- Gen.listOfN(l, s)
-    } yield List.fill(l)(n).zip(ss)
 
 }
