@@ -24,11 +24,9 @@ final class StandaloneIndexerServer(
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Unit] = {
     val indexerFactory = new JdbcIndexerFactory(
       ServerRole.Indexer,
-      config.participantId,
-      config.jdbcUrl,
+      config,
       readService,
       metrics,
-      config.eventsPageSize,
     )
     val indexer = new RecoveringIndexer(materializer.system.scheduler, config.restartDelay)
     config.startupMode match {
