@@ -83,7 +83,7 @@ TypeScript Code Generation
 ==========================
 
 The user interface for our app is written in `TypeScript <https://www.typescriptlang.org/>`_.
-TypeScript is a variant of Javascript that provides more support during development through its type system.
+TypeScript is a variant of JavaScript that provides more support during development through its type system.
 
 In order to build an application on top of DAML, we need a way to refer to our DAML templates and choices in TypeScript.
 We do this using a DAML to TypeScript code generation tool in the DAML SDK.
