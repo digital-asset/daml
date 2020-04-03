@@ -210,6 +210,7 @@ jobs:
       macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
       windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
       windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
+      protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
     steps:
@@ -242,6 +243,11 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(windows-installer)
+          targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(protos-zip)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
