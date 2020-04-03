@@ -34,10 +34,10 @@ private[dao] trait JdbcLedgerDaoBackend extends AkkaBeforeAndAfterAll { this: Su
         _ <- Resource.fromFuture(new FlywayMigrations(jdbcUrl).migrate())
         dao <- JdbcLedgerDao
           .writeOwner(
-            ServerRole.Testing(getClass),
-            jdbcUrl,
+            serverRole = ServerRole.Testing(getClass),
+            jdbcUrl = jdbcUrl,
             eventsPageSize = 100,
-            new MetricRegistry,
+            metrics = new MetricRegistry,
           )
           .acquire()
         _ <- Resource.fromFuture(dao.initializeLedger(LedgerId("test-ledger"), Offset.begin))

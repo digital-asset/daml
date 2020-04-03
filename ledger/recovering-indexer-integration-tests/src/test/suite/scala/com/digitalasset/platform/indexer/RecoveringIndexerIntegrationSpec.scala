@@ -200,10 +200,10 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
     val jdbcUrl =
       s"jdbc:h2:mem:${getClass.getSimpleName.toLowerCase}-$testId;db_close_delay=-1;db_close_on_exit=false"
     JdbcLedgerDao.writeOwner(
-      ServerRole.Testing(getClass),
-      jdbcUrl,
+      serverRole = ServerRole.Testing(getClass),
+      jdbcUrl = jdbcUrl,
       eventsPageSize = 100,
-      new MetricRegistry,
+      metrics = new MetricRegistry,
     )
   }
 }
