@@ -61,6 +61,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      portFile: Option[Path],
       wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
@@ -166,6 +167,8 @@ object HttpService extends StrictLogging {
       binding <- liftET[Error](
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
       )
+
+//      _ <- updatePortFile(portFile, bindings)
 
     } yield binding
 
@@ -284,4 +287,10 @@ object HttpService extends StrictLogging {
         case NonFatal(e) =>
           \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
+
+  private def updatePortFile(
+      file: Path,
+      binding: akka.http.scaladsl.Http.ServerBinding): scalaz.effect.IO[Unit] = {
+    ???
+  }
 }

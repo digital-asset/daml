@@ -3,7 +3,8 @@
 
 package com.daml.http
 
-import java.nio.file.Paths
+import java.io.File
+import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
@@ -44,6 +45,7 @@ object Main extends StrictLogging {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
+        s", portFile=${config.portFile: Option[Path]}" +
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
@@ -85,6 +87,7 @@ object Main extends StrictLogging {
         applicationId = config.applicationId,
         address = config.address,
         httpPort = config.httpPort,
+        portFile = config.portFile,
         wsConfig = config.wsConfig,
         accessTokenFile = config.accessTokenFile,
         contractDao = contractDao,
@@ -156,6 +159,14 @@ object Main extends StrictLogging {
         .action((x, c) => c.copy(httpPort = x))
         .required()
         .text("HTTP JSON API service port number")
+
+      opt[File]("port-file")
+        .action((x, c) => c.copy(portFile = Some(x.toPath)))
+        .optional()
+        .text(
+          "Optional file where to write the allocated HTTP port number. " +
+            "Used to inform clients in CI about which port HTTP JSON API listens on. " +
+            "Defaults to none -- file does not get created/updated")
 
       opt[String]("application-id")
         .action((x, c) => c.copy(applicationId = ApplicationId(x)))
