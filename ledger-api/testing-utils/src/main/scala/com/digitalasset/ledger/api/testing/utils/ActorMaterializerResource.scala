@@ -9,7 +9,7 @@ import akka.stream.Materializer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class ActorMaterializerResource(actorSystemName: String = "")
+final class ActorMaterializerResource(actorSystemName: String = "")
     extends ManagedResource[Materializer] {
   override protected def construct(): Materializer = {
     implicit val system: ActorSystem =
