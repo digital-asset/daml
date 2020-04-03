@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.configuration.IndexConfiguration
 import com.digitalasset.ports.Port
@@ -21,4 +22,5 @@ case class ApiServerConfig(
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     portFile: Option[Path],
+    seeding: Seeding,
 )

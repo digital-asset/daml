@@ -86,7 +86,6 @@ final class Runner[T <: ReadWriteService, Extra](
                   service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
                 metrics = metricRegistry,
                 timeServiceBackend = factory.timeServiceBackend(config),
-                seeding = Some(config.seeding),
               ).acquire()
             } yield ()
           })

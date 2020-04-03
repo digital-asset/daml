@@ -191,6 +191,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     maxInboundMessageSize = config.maxInboundMessageSize,
                     eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
+                    seeding = seeding,
                   ),
                   commandConfig = config.commandConfig,
                   partyConfig = config.partyConfig,
@@ -201,7 +202,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
                   metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
-                  seeding = Some(seeding),
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )

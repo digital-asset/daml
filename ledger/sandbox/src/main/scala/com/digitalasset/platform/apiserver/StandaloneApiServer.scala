@@ -12,7 +12,6 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.buildinfo.BuildInfo
@@ -53,7 +52,6 @@ final class StandaloneApiServer(
     transformIndexService: IndexService => IndexService = identity,
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
-    seeding: Option[Seeding],
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
@@ -109,7 +107,7 @@ final class StandaloneApiServer(
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
-              seedService = seeding.map(SeedService(_)),
+              seedService = Some(SeedService(config.seeding)),
             )(mat, esf, logCtx)
             .map(_.withServices(otherServices))
         },
