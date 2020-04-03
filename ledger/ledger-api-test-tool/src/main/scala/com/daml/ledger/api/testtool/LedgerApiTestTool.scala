@@ -8,13 +8,15 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
+  LedgerSession,
   LedgerSessionConfiguration,
+  LedgerTestSuite,
   LedgerTestSuiteRunner,
   LedgerTestSummary
 }
 import org.slf4j.LoggerFactory
 
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object LedgerApiTestTool {
 
@@ -41,6 +43,7 @@ object LedgerApiTestTool {
     println("Tests marked with * are run by default.\n")
     Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
     Tests.optional.keySet.toSeq.sorted.foreach(println(_))
+    Tests.performanceTests.keySet.toSeq.sorted.foreach(println(_))
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -93,6 +96,7 @@ object LedgerApiTestTool {
       else config.included
 
     val testsToRun = Tests.all.filterKeys(included -- config.excluded)
+    val performanceTestsToRun = Tests.performanceTests.filterKeys(config.performanceTests)
 
     if (testsToRun.isEmpty) {
       println("No tests to run.")
@@ -106,21 +110,7 @@ object LedgerApiTestTool {
         sys.exit(1)
       })
 
-    val runner = new LedgerTestSuiteRunner(
-      LedgerSessionConfiguration(
-        config.participants,
-        config.shuffleParticipants,
-        config.tlsConfig,
-        config.loadScaleFactor,
-        config.partyAllocation,
-      ),
-      testsToRun.values.toVector,
-      identifierSuffix,
-      config.timeoutScaleFactor,
-      config.concurrentTestRuns,
-    )
-
-    runner.verifyRequirementsAndRun {
+    val summaryProcessor: Try[Vector[LedgerTestSummary]] => Unit = {
       case Success(summaries) =>
         new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
@@ -128,6 +118,30 @@ object LedgerApiTestTool {
         logger.error(e.getMessage, e)
         sys.exit(1)
     }
+
+    val testsRunner = newLedgerSuiteRunner(config, testsToRun.values.toVector)
+    testsRunner.verifyRequirementsAndRun(summaryProcessor)
+
+    val performanceTestsRunner =
+      newLedgerSuiteRunner(config, performanceTestsToRun.values.toVector, concurrencyOverride = 1)
+    performanceTestsRunner.verifyRequirementsAndRun(summaryProcessor)
   }
 
+  private[this] def newLedgerSuiteRunner(
+      config: Config,
+      suites: Vector[LedgerSession => LedgerTestSuite],
+      concurrencyOverride: Int = -1): LedgerTestSuiteRunner =
+    new LedgerTestSuiteRunner(
+      LedgerSessionConfiguration(
+        config.participants,
+        config.shuffleParticipants,
+        config.tlsConfig,
+        config.loadScaleFactor,
+        config.partyAllocation,
+      ),
+      suites,
+      identifierSuffix,
+      config.timeoutScaleFactor,
+      if (concurrencyOverride >= 0) concurrencyOverride else config.concurrentTestRuns,
+    )
 }

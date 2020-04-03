@@ -135,6 +135,11 @@ object Cli {
       .unbounded()
       .text("""A comma-separated list of tests that should be run.""")
 
+    opt[Seq[String]]("perf-tests")
+      .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
+      .unbounded()
+      .text("""A comma-separated list of performance tests that should be run.""")
+
     opt[Unit]("all-tests")
       .action((_, c) => c.copy(allTests = true))
       .text("""Run all default and optional tests. Respects the --exclude flag.""")
