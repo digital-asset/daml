@@ -44,14 +44,13 @@ main = do
       $logInfo "Reading metadata from pom files"
       mvnArtifacts <- liftIO $ mapM (resolvePomData bazelLocations mvnVersion) mvnArtifacts
 
-      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) mvnArtifacts
       -- all known targets uploaded to maven, that are not deploy Jars
       -- we don't check dependencies for deploy jars as they are single-executable-jars
-      let nonDeployJars = filter (not . isDeployJar . artReleaseType) mavenUploadArtifacts
-      let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mavenUploadArtifacts
+      let nonDeployJars = filter (not . isDeployJar . artReleaseType) mvnArtifacts
+      let allMavenTargets = Set.fromList $ fmap (T.unpack . getBazelTarget . artTarget) mvnArtifacts
 
       -- check that all maven artifacts use com.daml as groupId
-      let nonComDamlGroupId = filter (\a -> "com.daml" /= (groupIdString $ pomGroupId $ artMetadata a)) mavenUploadArtifacts
+      let nonComDamlGroupId = filter (\a -> "com.daml" /= (groupIdString $ pomGroupId $ artMetadata a)) mvnArtifacts
       when (not (null nonComDamlGroupId)) $ do
           $logError "Some artifacts don't use com.daml as groupId!"
           forM_ nonComDamlGroupId $ \artifact -> do
@@ -59,7 +58,7 @@ main = do
           liftIO exitFailure
 
       -- check that no artifact id is used more than once
-      let groupedArtifacts = List.groupOn (pomArtifactId . artMetadata) mavenUploadArtifacts
+      let groupedArtifacts = List.groupOn (pomArtifactId . artMetadata) mvnArtifacts
       let duplicateArtifactIds = filter (\artifacts -> length artifacts > 1) groupedArtifacts
       when (not (null duplicateArtifactIds)) $ do
           $logError "Some artifacts use the same artifactId!"
@@ -99,7 +98,7 @@ main = do
           pure $ map (a,) fs
       mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) mvnFiles
 
-      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mavenUploadArtifacts
+      mvnUploadArtifacts <- concatMapM mavenArtifactCoords mvnArtifacts
       validateMavenArtifacts releaseDir mvnUploadArtifacts
 
       -- npm packages we want to publish.
@@ -113,9 +112,6 @@ main = do
       forM_ npmPackages $ \rule -> liftIO $ callCommand $ "bazel build " <> rule
 
       if | getPerformUpload optsPerformUpload -> do
-              $logInfo "Uploading to Bintray"
-              releaseToBintray releaseDir (map (\(a, (_, outp)) -> (a, outp)) mvnFiles)
-
               $logInfo "Uploading to Maven Central"
               mavenUploadConfig <- mavenConfigFromEnv
               if not (null mvnUploadArtifacts)

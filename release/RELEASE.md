@@ -80,7 +80,7 @@ latest commit on master.
    lead of the Language, Runtime or Product team.
 
 1. Once the CI checks have passed for the corresponding master build, the release
-   should be available on Bintray, Maven Central and GitHub, and have a Git tag.
+   should be available on Maven Central and GitHub, and have a Git tag.
    The release should be visible on GitHub with _prerelease_ status, meaning it's
    not yet ready for users to consume. The release notes should not be defined yet
    and will be adjusted later on. Maven central has a delay of around 20 minutes

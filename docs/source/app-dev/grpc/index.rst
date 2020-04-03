@@ -19,7 +19,7 @@ If you're not familiar with gRPC and protobuf, we strongly recommend following t
 Getting started
 ***************
 
-You can either get the protobufs `from Bintray here <https://bintray.com/digitalassetsdk/DigitalAssetSDK/sdk-components#files/com%2Fdigitalasset%2Fledger-api-protos>`__, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
+You can get the protobufs from a :github-asset:`GitHub release<protobufs>`, or from the ``daml`` repository `here <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`__.
 
 Protobuf reference documentation
 ********************************

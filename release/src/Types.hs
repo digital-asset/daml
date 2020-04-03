@@ -11,7 +11,6 @@ module Types (
     GroupId,
     MavenAllowUnsecureTls(..),
     MavenCoords(..),
-    MavenUpload(..),
     MavenUploadConfig(..),
     MonadCI,
     OS(..),
@@ -59,9 +58,6 @@ data MavenCoords = MavenCoords
 
 groupIdString :: GroupId -> String
 groupIdString gid = List.intercalate "." (map T.unpack gid)
-
-newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
-    deriving (Eq, Show, FromJSON)
 
 -- execution
 type MonadCI m = (MonadIO m, MonadMask m, MonadLogger m,

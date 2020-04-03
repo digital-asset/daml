@@ -23,6 +23,6 @@ data Options = Options
 
 optsParser :: Parser Options
 optsParser = Options
-  <$> (PerformUpload <$> switch (long "upload" <> help "upload java/scala artifacts to bintray and Maven Central and typescript artifacts to the npm registry."))
+  <$> (PerformUpload <$> switch (long "upload" <> help "upload java/scala artifacts to Maven Central and typescript artifacts to the npm registry."))
   <*> option str (long "release-dir" <> help "specify full path to release directory")
   <*> switch (long "install-head-jars" <> help "install jars to ~/.m2")
