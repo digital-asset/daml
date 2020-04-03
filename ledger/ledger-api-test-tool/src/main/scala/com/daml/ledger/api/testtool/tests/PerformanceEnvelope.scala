@@ -37,7 +37,7 @@ import scalaz.syntax.tag._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success, Try}
-import com.digitalasset.ledger.test_dev.{PingPong => M}
+import com.digitalasset.ledger.test.performance.{PingPong => PingPongModule}
 import org.slf4j.Logger
 
 case class Envelope(name: String, transactionSizeKb: Int, throughput: Int, latencyMs: Int)
@@ -107,7 +107,7 @@ trait PerformanceEnvelope {
     val timings = TrieMap[String, Either[Instant, Duration]]()
     val tracker = Promise[Either[String, Unit]]()
 
-    def sendPing(workflowId: String) = {
+    def sendPing(workflowId: String): Future[Unit] = {
 
       val promise = Promise[Unit]()
       queued.add(promise)
@@ -123,7 +123,7 @@ trait PerformanceEnvelope {
         request = submitRequest(
           participantAlice,
           alice,
-          M.Ping(payload, alice, List(bob), 0).create.command,
+          PingPongModule.Ping(payload, alice, List(bob), 0).create.command,
           workflowId)
         _ = {
           logger.info(s"Submitting ping with workflowId=$workflowId")
