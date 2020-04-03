@@ -20,18 +20,7 @@ load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 load(":archive.bzl", "mangle_for_java")
-
-LF_MAJOR_VERSIONS = [
-    "0",
-    "1",
-]
-
-LF_VERSIONS = [
-    "1.6",
-    "1.7",
-    "1.8",
-    "dev",
-]
+load("//daml-lf/language:daml-lf.bzl", "LF_MAJOR_VERSIONS", "LF_VERSIONS")
 
 [
     [

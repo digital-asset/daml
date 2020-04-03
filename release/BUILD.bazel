@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("util.bzl", "sdk_tarball")
+load("util.bzl", "protos_zip", "sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 da_haskell_binary(
@@ -55,6 +55,10 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [],
+)
+
+protos_zip(
+    name = "protobufs",
 )
 
 sdk_tarball("sdk-release-tarball", sdk_version)

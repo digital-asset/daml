@@ -1,6 +1,9 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//daml-lf/language:daml-lf.bzl", "LF_VERSIONS")
+load("@build_environment//:configuration.bzl", "sdk_version")
+
 def sdk_tarball(name, version):
     native.genrule(
         name = name,
@@ -79,3 +82,80 @@ def sdk_tarball(name, version):
         """.format(version = version),
         visibility = ["//visibility:public"],
     )
+
+def _protos_zip_impl(ctx):
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
+    tmp_dir = ctx.actions.declare_directory("tmp_dir")
+    zipper_args_file = ctx.actions.declare_file(
+        ctx.label.name + ".zipper_args",
+    )
+    ctx.actions.run_shell(
+        inputs = [ctx.file._ledger_api_tarball] + ctx.files._daml_lf_tarballs,
+        outputs = [tmp_dir],
+        tools = [ctx.executable._tar],
+        command = """
+          set -eou pipefail
+          {tar} xf {ledger_api_tarball} -C {tmp_dir}
+          for file in {lf_tarballs}
+          do
+              {tar} xf $file -C {tmp_dir}
+          done
+        """.format(
+            tar = ctx.executable._tar.path,
+            ledger_api_tarball = ctx.file._ledger_api_tarball.path,
+            tmp_dir = tmp_dir.path,
+            lf_tarballs = " ".join([f.path for f in ctx.files._daml_lf_tarballs]),
+        ),
+    )
+
+    # zipper does not have an option to recursively zip files so we
+    # use find to list the files.
+    ctx.actions.run_shell(
+        outputs = [zipper_args_file],
+        inputs = [tmp_dir],
+        command = """
+        {find} -L {tmp_dir} -type f | {sed} -E 's#^{tmp_dir}/(.*)$#protos-{version}/\\1={tmp_dir}/\\1#' > {args_file}
+        """.format(
+            version = sdk_version,
+            find = posix.commands["find"],
+            sed = posix.commands["sed"],
+            tmp_dir = tmp_dir.path,
+            args_file = zipper_args_file.path,
+        ),
+    )
+    ctx.actions.run(
+        outputs = [ctx.outputs.out],
+        inputs = [zipper_args_file, tmp_dir],
+        executable = ctx.executable._zipper,
+        arguments = ["cC", ctx.outputs.out.path, "@" + zipper_args_file.path],
+    )
+
+protos_zip = rule(
+    implementation = _protos_zip_impl,
+    attrs = {
+        "_daml_lf_tarballs": attr.label_list(
+            allow_files = True,
+            default = [
+                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tarball.tar.gz".format(version))
+                for version in LF_VERSIONS
+            ],
+        ),
+        "_ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
+        "_zipper": attr.label(
+            default = Label("@bazel_tools//tools/zip:zipper"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "_tar": attr.label(
+            default = Label("@tar_dev_env//:tar"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+    },
+    outputs = {
+        "out": "%{name}.zip",
+    },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
+)
