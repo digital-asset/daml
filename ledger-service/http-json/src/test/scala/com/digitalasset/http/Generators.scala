@@ -167,6 +167,6 @@ object Generators {
   def genServiceWarning: Gen[domain.ServiceWarning] =
     Gen.oneOf(genUnknownTemplateIds, genUnknownParties)
 
-  def genWarningsWrapper: Gen[domain.WarningsWrapper] =
-    genServiceWarning.map(domain.WarningsWrapper)
+  def genWarningsWrapper: Gen[domain.AsyncWarningsWrapper] =
+    genServiceWarning.map(domain.AsyncWarningsWrapper)
 }

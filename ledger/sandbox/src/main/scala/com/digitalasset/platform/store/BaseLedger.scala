@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.CommandDeduplicationResult
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
@@ -20,8 +21,9 @@ import com.digitalasset.daml_lf_dev.DamlLf
 import com.digitalasset.dec.DirectExecutionContext
 import com.digitalasset.ledger.TransactionId
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
 import com.digitalasset.ledger.api.health.HealthStatus
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
@@ -109,18 +111,12 @@ abstract class BaseLedger(
       endInclusive
     )
 
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    // instead of looking up the latest ledger end, we can only take the latest known ledgerEnd in the scope of SqlLedger.
-    // If we don't do that, we can miss contracts from a partially inserted batch insert of ledger entries
-    // scenario:
-    // 1. batch insert transactions A and B at offsets 5 and 6 respectively; A is a huge transaction, B is a small transaction
-    // 2. B is inserted earlier than A and the ledger_end column in the parameters table is updated
-    // 3. A GetActiveContractsRequest comes in and we look at the latest ledger_end offset in the database. We will see 6 (from transaction B).
-    // 4. If we finish streaming the active contracts up to offset 6 before transaction A is properly inserted into the DB, the client will not see the contracts from transaction A
-    // The fix to that is to use the latest known headRef, which is updated AFTER a batch has been inserted completely.
-    ledgerDao
-      .getActiveContractSnapshot(ledgerEnd, filter)
-      .map(s => LedgerSnapshot(s.offset, s.acs))(DEC)
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    ledgerDao.transactionsReader.getActiveContracts(activeAt, filter, verbose)
 
   override def lookupContract(
       contractId: AbsoluteContractId,
@@ -178,13 +174,17 @@ abstract class BaseLedger(
       RangeSource(ledgerDao.getConfigurationEntries))
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    ledgerDao.deduplicateCommand(deduplicationKey, submittedAt, deduplicateUntil)
+    ledgerDao.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
     ledgerDao.removeExpiredDeduplicationData(currentTime)
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    ledgerDao.stopDeduplicatingCommand(commandId, submitter)
 
   override def close(): Unit = {
     dispatcher.close()

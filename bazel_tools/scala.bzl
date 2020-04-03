@@ -124,8 +124,8 @@ default_compile_arguments = {
     "unused_dependency_checker_mode": "error",
 }
 
-default_initial_heap_size = "512m"
-default_max_heap_size = "2g"
+default_initial_heap_size = "128m"
+default_max_heap_size = "1g"
 default_scalac_stack_size = "2m"
 
 def _jvm_flags(initial_heap_size, max_heap_size):

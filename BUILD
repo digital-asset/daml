@@ -199,13 +199,13 @@ alias(
 )
 
 alias(
-    name = "daml2ts",
-    actual = "//language-support/ts/codegen:daml2ts",
+    name = "daml2js",
+    actual = "//language-support/ts/codegen:daml2js",
 )
 
 alias(
-    name = "daml2ts@ghci",
-    actual = "//language-support/ts/codegen:daml2ts@ghci",
+    name = "daml2js@ghci",
+    actual = "//language-support/ts/codegen:daml2js@ghci",
 )
 
 alias(
@@ -271,13 +271,17 @@ da_haskell_repl(
         "//compiler/damlc/tests:daml-doctest",
         "//compiler/damlc/tests:damlc-test",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:incremental",
         "//compiler/damlc/tests:integration-dev",
         "//compiler/damlc/tests:packaging",
         "//daml-assistant:daml",
+        "//daml-assistant:test",
         "//daml-assistant/daml-helper",
+        "//daml-assistant/daml-helper:test-deployment",
+        "//daml-assistant/daml-helper:test-tls",
         "//daml-assistant/integration-tests",
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/hs/bindings:test",
-        "//language-support/ts/codegen:daml2ts",
+        "//language-support/ts/codegen:daml2js",
     ],
 )

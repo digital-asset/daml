@@ -350,6 +350,7 @@ genrule(
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
+        "//templates:templates-tarball",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -363,6 +364,10 @@ genrule(
         # Copy in theme
         mkdir -p build/docs/theme
         tar -zxf $(location :theme) -C build/docs/theme
+
+        # Copy templates for code snippets in getting started guide
+        mkdir -p build/docs/source/getting-started/code
+        tar -zxf $(location //templates:templates-tarball) -C build/docs/source/getting-started/code/
 
         # Build with Sphinx
         cd build
@@ -475,11 +480,11 @@ genrule(
 filegroup(
     name = "daml-assistant-iou-setup",
     srcs = glob(
-        ["source/getting-started/quickstart/template-root/*"],
+        ["source/app-dev/bindings-java/quickstart/template-root/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/getting-started/quickstart/template-root/src",
-            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),
@@ -488,11 +493,11 @@ filegroup(
 
 genrule(
     name = "quickstart-java",
-    srcs = glob(["source/getting-started/quickstart/template-root/**"]),
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/**"]),
     outs = ["quickstart-java.tar.gz"],
     cmd = """
         mkdir -p quickstart-java
-        cp -rL docs/source/getting-started/quickstart/template-root/* quickstart-java/
+        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* quickstart-java/
         sed -i "s/__VERSION__/{mvn}/" quickstart-java/pom.xml
         tar c quickstart-java \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
@@ -506,10 +511,10 @@ load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 genrule(
     name = "quickstart-model",
     srcs = [
-        "//docs:source/getting-started/quickstart/template-root/daml/Main.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/Iou.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/Setup.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml",
         "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
@@ -517,10 +522,10 @@ genrule(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -548,7 +553,7 @@ dar_to_java(
 
 java_binary(
     name = "quickstart-java-lib",
-    srcs = glob(["source/getting-started/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
     main_class = "com.digitalasset.quickstart.iou.IouMain",
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
@@ -605,10 +610,10 @@ daml_test(
 daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
-        include = ["source/getting-started/quickstart/template-root/daml/**/*.daml"],
+        include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
         # excluding Setup.daml, because it doesn't contain any scenarios,
         # and we cannot conveniently add daml-script as a dependency for daml_test
-        exclude = ["source/getting-started/quickstart/template-root/daml/Setup.daml"],
+        exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
 )
 
@@ -652,8 +657,8 @@ filegroup(
         ["source/daml/intro/daml/1_Token/**/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/getting-started/quickstart/template-root/src",
-            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),

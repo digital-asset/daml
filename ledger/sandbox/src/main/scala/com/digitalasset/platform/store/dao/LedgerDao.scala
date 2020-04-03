@@ -9,13 +9,14 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf_dev.DamlLf.Archive
 import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.digitalasset.ledger.api.health.ReportsHealth
 import com.digitalasset.platform.store.Contract.ActiveContract
 import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
@@ -25,7 +26,7 @@ import com.digitalasset.platform.store.entries.{
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{LedgerSnapshot, PersistenceEntry}
+import com.digitalasset.platform.store.PersistenceEntry
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -100,15 +101,6 @@ trait LedgerReadDao extends ReportsHealth {
       startExclusive: Offset,
       endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed]
 
-  /**
-    * Returns a snapshot of the ledger.
-    * The snapshot consists of an offset, and a stream of contracts that were active at that offset.
-    */
-  def getActiveContractSnapshot(
-      endInclusive: Offset,
-      filter: TransactionFilter
-  ): Future[LedgerSnapshot]
-
   /** Returns a list of party details for the parties specified. */
   def getParties(parties: Seq[Party]): Future[List[PartyDetails]]
 
@@ -137,13 +129,15 @@ trait LedgerReadDao extends ReportsHealth {
 
   /** Deduplicates commands.
     *
-    * @param deduplicationKey The key used to deduplicate commands
+    * @param commandId The command Id
+    * @param submitter The submitting party
     * @param submittedAt The time when the command was submitted
     * @param deduplicateUntil The time until which the command should be deduplicated
     * @return whether the command is a duplicate or not
     */
   def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult]
 
@@ -160,6 +154,22 @@ trait LedgerReadDao extends ReportsHealth {
     */
   def removeExpiredDeduplicationData(
       currentTime: Instant,
+  ): Future[Unit]
+
+  /**
+    * Stops deduplicating the given command. This method should be called after
+    * a command is rejected by the submission service, or after a transaction is
+    * rejected by the ledger. Without removing deduplication entries for failed
+    * commands, applications would have to wait for the end of the (long) deduplication
+    * window before they could send a retry.
+    *
+    * @param commandId The command Id
+    * @param submitter The submitting party
+    * @return
+    */
+  def stopDeduplicatingCommand(
+      commandId: CommandId,
+      submitter: Ref.Party,
   ): Future[Unit]
 }
 

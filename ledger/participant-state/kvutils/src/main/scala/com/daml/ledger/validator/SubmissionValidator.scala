@@ -137,6 +137,7 @@ class SubmissionValidator[LogResult](
     } yield logResult
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any")) // required to make `.view` work
   @tailrec
   private def runValidation[T](
       envelope: Bytes,
@@ -183,15 +184,11 @@ class SubmissionValidator[LogResult](
                 Metrics.validateSubmission,
                 for {
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
-                  readStateInputs = readStateValues.zip(declaredInputs).map {
-                    case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue))
-                  }
-                  readInputs: Map[DamlStateKey, Option[DamlStateValue]] = readStateInputs.toMap
-                  missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
-                  _ <- if (checkForMissingInputs && missingInputs.nonEmpty)
-                    Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
-                  else
-                    Future.unit
+                  readInputs = readStateValues.view
+                    .zip(declaredInputs)
+                    .map { case (valueBytes, key) => (key, valueBytes.map(bytesToStateValue)) }
+                    .toMap
+                  _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs
               )
               logEntryAndState <- timedFuture(
@@ -228,6 +225,22 @@ class SubmissionValidator[LogResult](
         Future.successful(
           Left(ValidationError(s"Failed to parse submission, correlationId=$correlationId")))
     }
+
+  private def verifyAllInputsArePresent[T](
+      declaredInputs: Seq[DamlStateKey],
+      readInputs: Map[DamlStateKey, Option[DamlStateValue]],
+  ): Future[Unit] = {
+    if (checkForMissingInputs) {
+      val missingInputs = declaredInputs.toSet -- readInputs.filter(_._2.isDefined).keySet
+      if (missingInputs.nonEmpty) {
+        Future.failed(MissingInputState(missingInputs.map(keyToBytes).toSeq))
+      } else {
+        Future.unit
+      }
+    } else {
+      Future.unit
+    }
+  }
 
   private def flattenInputStates(
       inputs: Map[DamlStateKey, Option[DamlStateValue]]
@@ -296,9 +309,26 @@ object SubmissionValidator {
       checkForMissingInputs: Boolean = false,
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
+    createForTimeMode(
+      ledgerStateAccess,
+      allocateNextLogEntryId,
+      checkForMissingInputs,
+      metricRegistry,
+      inStaticTimeMode = false,
+    )
+  }
+
+  // Internal method to enable proper command dedup in sandbox with static time mode
+  private[daml] def createForTimeMode[LogResult](
+      ledgerStateAccess: LedgerStateAccess[LogResult],
+      allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
+      checkForMissingInputs: Boolean = false,
+      metricRegistry: MetricRegistry,
+      inStaticTimeMode: Boolean,
+  )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(metricRegistry)),
+      processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
       metricRegistry,

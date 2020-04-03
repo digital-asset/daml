@@ -57,12 +57,12 @@ object SqlLedger {
       initialConfig: Configuration,
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists,
-      metrics: MetricRegistry,
       eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[Ledger] =
     for {
       _ <- ResourceOwner.forFuture(() => new FlywayMigrations(jdbcUrl).migrate()(DEC))
-      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, metrics, eventsPageSize)
+      ledgerDao <- JdbcLedgerDao.writeOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
       ledger <- ResourceOwner.forFutureCloseable(
         () =>
           new SqlLedgerFactory(ledgerDao).createSqlLedger(

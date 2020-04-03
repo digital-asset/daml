@@ -19,6 +19,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
+import DA.Test.Process
 import DA.Test.Util
 import SdkVersion
 

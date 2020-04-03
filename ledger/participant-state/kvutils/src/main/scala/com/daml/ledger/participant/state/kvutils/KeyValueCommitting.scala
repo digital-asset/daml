@@ -26,8 +26,16 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-class KeyValueCommitting(metricRegistry: MetricRegistry) {
+// Added inStaticTimeMode to indicate whether the ledger uses static time mode or not.
+// This has an impact on command deduplication and needs to be threaded through ProcessTransactionSubmission.
+// See that class for more comments.
+//
+// The primary constructor is private to the daml package, because we don't expect any ledger other
+// than sandbox to actually support static time.
+class KeyValueCommitting private[daml] (metricRegistry: MetricRegistry, inStaticTimeMode: Boolean) {
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  def this(metricRegistry: MetricRegistry) = this(metricRegistry, false)
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
 
@@ -169,13 +177,14 @@ class KeyValueCommitting(metricRegistry: MetricRegistry) {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        new ProcessTransactionSubmission(defaultConfig, engine, metricRegistry).run(
-          entryId,
-          recordTime,
-          participantId,
-          submission.getTransactionEntry,
-          inputState,
-        )
+        new ProcessTransactionSubmission(defaultConfig, engine, metricRegistry, inStaticTimeMode)
+          .run(
+            entryId,
+            recordTime,
+            participantId,
+            submission.getTransactionEntry,
+            inputState,
+          )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")

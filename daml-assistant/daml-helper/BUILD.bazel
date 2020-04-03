@@ -69,7 +69,7 @@ package_app(
 )
 
 da_haskell_test(
-    name = "ledger-tls",
+    name = "test-tls",
     srcs = ["test/DA/Daml/Helper/Test/Tls.hs"],
     data = [
         "daml-helper",
@@ -93,27 +93,40 @@ da_haskell_test(
     ],
 )
 
-# Misc tests for daml-helper that do not deserve their own test suite.
 da_haskell_test(
-    name = "tests",
-    srcs = ["test/DA/Daml/Helper/Test.hs"],
+    name = "test-deployment",
+    srcs = glob(["test/DA/Daml/Helper/Test/Deployment.hs"]),
     data = [
-        "daml-helper",
+        "//compiler/damlc",
+        "//daml-assistant/daml-helper",
+        "//ledger/sandbox:sandbox-binary",
     ],
     hackage_deps = [
+        "aeson",
+        "async",
         "base",
-        "directory",
+        "bytestring",
+        "containers",
         "extra",
         "filepath",
+        "jwt",
+        "main-tester",
+        "network",
         "process",
         "tasty",
         "tasty-hunit",
+        "text",
+        "zip-archive",
     ],
-    main_function = "DA.Daml.Helper.Test.main",
+    main_function = "DA.Daml.Helper.Test.Deployment.main",
+    src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
 )

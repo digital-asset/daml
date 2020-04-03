@@ -6,16 +6,6 @@
 HTTP JSON API Service
 #####################
 
-**WARNING:** the HTTP JSON API described in this document is actively
-being designed and is *subject to breaking changes*, including all
-request and response elements demonstrated below or otherwise
-implemented by the API.  We welcome feedback about the API on `our issue
-tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
-Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
-
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
 
@@ -174,7 +164,7 @@ Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
-  
+
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
@@ -222,9 +212,9 @@ If client's HTTP GET or POST request reaches an API endpoint, the corresponding 
 .. code-block:: none
 
     {
-        "status": <400 | 401 | 404 | 500>
-        ,"errors": <JSON array of strings> | ,"result": <JSON object>
-        [ ,"warnings": <JSON object> ]
+        "status": <400 | 401 | 404 | 500>,
+        "errors": <JSON array of strings>, | "result": <JSON object or array>,
+        ["warnings": <JSON object> ]
     }
 
 Where:
@@ -281,21 +271,43 @@ Failure, HTTP status: 400 | 401 | 404 | 500
 Examples
 ========
 
+**Result with JSON Object without Warnings:**
+
 .. code-block:: none
 
     {"status": 200, "result": {...}}
+
+**Result with JSON Array and Warnings:**
 
 .. code-block:: none
 
     {"status": 200, "result": [...], "warnings": {"unknownTemplateIds": ["UnknownModule:UnknownEntity"]}}
 
-.. code-block:: json
-
-    {"status": 401, "errors": ["Authentication Required"]}
+**Bad Request Error:**
 
 .. code-block:: json
 
     {"status": 400, "errors": ["JSON parser error: Unexpected character 'f' at input index 27 (line 1, position 28)"]}
+
+**Bad Request Error with Warnings:**
+
+.. code-block:: json
+
+    {"status":400, "errors":["Cannot not resolve any template ID from request"], "warnings":{"unknownTemplateIds":["XXX:YYY","AAA:BBB"]}}
+
+**Authentication Error:**
+
+.. code-block:: json
+
+    {"status": 401, "errors": ["Authentication Required"]}
+
+**Not Found Error:**
+
+.. code-block:: json
+
+    {"status": 404, "errors": ["HttpMethod(POST), uri: http://localhost:7575/v1/query1"]}
+
+**Internal Server Error:**
 
 .. code-block:: json
 
@@ -304,9 +316,9 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -409,7 +421,7 @@ Exercise by Contract ID
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 
@@ -929,8 +941,8 @@ If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) err
       ]
     }
 
-HTTP Response
-=============
+HTTP Response OK(200)
+=====================
 
 - Content-Type: ``application/json``
 - Content:
@@ -965,8 +977,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+HTTP Response OK(200) with Unknown Parties Warning
+==================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -982,11 +994,27 @@ HTTP Response with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
+    }
+
+BadRequest(400) Response with Unknown Parties Warning
+=====================================================
+
+When all party identifiers specified in the request are unknown to the server, it returns BadRequest(400) error with a warnings that lists all party identifiers.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "errors": ["Cannot find any requested party"],
+      "warnings": {
+        "unknownParties": ["Bob", "Dave", "Alice"]
+      },
+      "status": 400
     }
 
 Fetch All Known Parties
@@ -1045,6 +1073,18 @@ HTTP Response
 
 Streaming API
 *************
+
+**WARNING:** the WebSocket endpoints described below are in alpha,
+so are *subject to breaking changes*, including all
+request and response elements demonstrated below or otherwise
+implemented by the API.  We welcome feedback about the API on `our issue
+tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+or `on Slack <https://hub.daml.com/slack/>`_.
+
+Please keep in mind that the presence of **/v1** prefix in the the
+WebSocket URLs does not mean that the endpoint interfaces are
+stabilized.
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
@@ -1112,6 +1152,8 @@ Contracts Query Stream
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -1276,6 +1318,8 @@ Fetch by Key Contracts Stream
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 

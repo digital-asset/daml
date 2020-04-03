@@ -18,11 +18,11 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
 import com.digitalasset.http.domain.ContractId
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.{decode1, decode2, objectField}
+import com.digitalasset.http.json.SprayJson.{decode, decode1, objectField}
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.ClientUtil.{boxedRecord, uniqueId}
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.TestUtil
+import com.digitalasset.http.util.{FutureUtil, TestUtil}
 import com.digitalasset.jwt.JwtSigner
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -443,7 +443,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query POST with empty query" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"]}"""),
       uri,
@@ -454,7 +454,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, one field" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,
@@ -465,19 +465,40 @@ abstract class AbstractHttpServiceIntegrationTest
     }
   }
 
-  "query returns unknown Template IDs as warnings" in withHttpService { (uri, _, _) =>
+  "query returns unknown Template IDs as warnings" in withHttpService { (uri, encoder, _) =>
     val query =
       jsObject(
         """{"templateIds": ["Iou:Iou", "UnknownModule:UnknownEntity"], "query": {"currency": "EUR"}}""")
 
-    postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query)
-      .map {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          getResult(output) shouldBe JsArray.empty
-          getWarnings(output) shouldBe JsObject(
-            "unknownTemplateIds" -> JsArray(Vector(JsString("UnknownModule:UnknownEntity"))))
+    search(List(), query, uri, encoder).map { response =>
+      inside(response) {
+        case domain.OkResponse(acl, warnings, StatusCodes.OK) =>
+          acl.size shouldBe 0
+          warnings shouldBe Some(
+            domain.UnknownTemplateIds(
+              List(domain.TemplateId(None, "UnknownModule", "UnknownEntity"))))
+      }
+    }
+  }
+
+  "query returns unknown Template IDs as warnings and error" in withHttpService {
+    (uri, encoder, _) =>
+      search(
+        searchDataSet,
+        jsObject("""{"templateIds": ["AAA:BBB", "XXX:YYY"]}"""),
+        uri,
+        encoder
+      ).map { response =>
+        inside(response) {
+          case domain.ErrorResponse(errors, warnings, StatusCodes.BadRequest) =>
+            errors shouldBe List(ErrorMessages.cannotResolveAnyTemplateId)
+            inside(warnings) {
+              case Some(domain.UnknownTemplateIds(unknownTemplateIds)) =>
+                unknownTemplateIds.toSet shouldBe Set(
+                  domain.TemplateId(None, "AAA", "BBB"),
+                  domain.TemplateId(None, "XXX", "YYY"))
+            }
+        }
       }
   }
 
@@ -515,7 +536,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, two fields" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject(
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR", "amount": "111.11"}}"""),
@@ -528,7 +549,7 @@ abstract class AbstractHttpServiceIntegrationTest
   }
 
   "query with query, no results" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject(
         """{"templateIds": ["Iou:Iou"], "query": {"currency": "RUB", "amount": "666.66"}}"""),
@@ -556,19 +577,34 @@ abstract class AbstractHttpServiceIntegrationTest
     r.valueOr(e => fail(e.shows))
   }
 
-  protected def searchWithQuery(
+  protected def searchExpectOk(
       commands: List[domain.CreateCommand[v.Record]],
       query: JsObject,
       uri: Uri,
       encoder: DomainJsonEncoder): Future[List[domain.ActiveContract[JsValue]]] = {
+    search(commands, query, uri, encoder).map {
+      case ok: domain.OkResponse[_] =>
+        ok.status shouldBe StatusCodes.OK
+        ok.warnings shouldBe 'empty
+        ok.result
+      case err: domain.ErrorResponse =>
+        fail(s"Expected OK response, got: $err")
+    }
+  }
+
+  protected def search(
+      commands: List[domain.CreateCommand[v.Record]],
+      query: JsObject,
+      uri: Uri,
+      encoder: DomainJsonEncoder): Future[
+    domain.SyncResponse[List[domain.ActiveContract[JsValue]]]
+  ] = {
     commands.traverse(c => postCreateCommand(c, encoder, uri)).flatMap { rs =>
       rs.map(_._1) shouldBe List.fill(commands.size)(StatusCodes.OK)
-      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).map {
-        case (status, output) =>
-          status shouldBe StatusCodes.OK
-          assertStatus(output, StatusCodes.OK)
-          output.asJsObject.fields.get("warnings") shouldBe None
-          activeContractList(output)
+      postJsonRequest(uri.withPath(Uri.Path("/v1/query")), query).flatMap {
+        case (_, output) =>
+          FutureUtil.toFuture(
+            decode1[domain.SyncResponse, List[domain.ActiveContract[JsValue]]](output))
       }
     }
   }
@@ -662,11 +698,11 @@ abstract class AbstractHttpServiceIntegrationTest
         case (status, output) =>
           status shouldBe StatusCodes.OK
           inside(
-            decode2[domain.OkResponse, domain.ExerciseResponse[JsValue], Unit](output)
+            decode1[domain.OkResponse, domain.ExerciseResponse[JsValue]](output)
           ) {
             case \/-(response) =>
               response.status shouldBe StatusCodes.OK
-              (response.warnings: Option[Unit]) shouldBe Option.empty[Unit]
+              response.warnings shouldBe 'empty
               inside(response.result.events) {
                 case List(
                     domain.Contract(\/-(created0)),
@@ -837,11 +873,11 @@ abstract class AbstractHttpServiceIntegrationTest
             case (status, output) =>
               status shouldBe StatusCodes.OK
               inside(
-                decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
               ) {
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
-                  response.warnings shouldBe None
+                  response.warnings shouldBe 'empty
                   val actualIds: Set[domain.Party] = response.result.map(_.identifier)(breakOut)
                   actualIds shouldBe domain.Party.subst(partyIds.toSet)
                   response.result.toSet shouldBe
@@ -874,7 +910,7 @@ abstract class AbstractHttpServiceIntegrationTest
             case (status, output) =>
               status shouldBe StatusCodes.OK
               inside(
-                decode2[domain.OkResponse, List[domain.PartyDetails], domain.UnknownParties](output)
+                decode1[domain.OkResponse, List[domain.PartyDetails]](output)
               ) {
                 case \/-(response) =>
                   response.status shouldBe StatusCodes.OK
@@ -901,7 +937,29 @@ abstract class AbstractHttpServiceIntegrationTest
           assertStatus(output, StatusCodes.BadRequest)
           val errorMsg = expectedOneErrorMessage(output)
           errorMsg should include("Cannot read JSON: <[]>")
-          errorMsg should include("must be a list with at least 1 element")
+          errorMsg should include("must be a JSON array with at least 1 element")
+      }: Future[Assertion]
+  }
+
+  "parties endpoint should return error if all parties are unknown" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] =
+        domain.Party.subst(Vector("Alice", "Bob", "Dave"))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.ErrorResponse(errors, Some(warnings), StatusCodes.BadRequest)) =>
+              errors shouldBe List(ErrorMessages.cannotFindAnyParty)
+              inside(warnings) {
+                case domain.UnknownParties(unknownParties) =>
+                  unknownParties.toSet shouldBe requestedPartyIds.toSet
+              }
+          }
       }: Future[Assertion]
   }
 
@@ -916,7 +974,7 @@ abstract class AbstractHttpServiceIntegrationTest
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
-          inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
+          inside(decode1[domain.OkResponse, domain.PartyDetails](output)) {
             case \/-(response) =>
               response.status shouldBe StatusCodes.OK
               val newParty = response.result
@@ -927,7 +985,7 @@ abstract class AbstractHttpServiceIntegrationTest
               getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
                 case (status, output) =>
                   status shouldBe StatusCodes.OK
-                  inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                  inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
                     case \/-(response) =>
                       response.status shouldBe StatusCodes.OK
                       response.result should contain(newParty)
@@ -943,7 +1001,7 @@ abstract class AbstractHttpServiceIntegrationTest
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.OK
-            inside(decode2[domain.OkResponse, domain.PartyDetails, Unit](output)) {
+            inside(decode1[domain.OkResponse, domain.PartyDetails](output)) {
               case \/-(response) =>
                 response.status shouldBe StatusCodes.OK
                 val newParty = response.result
@@ -954,7 +1012,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 getRequest(uri = uri.withPath(Uri.Path("/v1/parties"))).flatMap {
                   case (status, output) =>
                     status shouldBe StatusCodes.OK
-                    inside(decode2[domain.OkResponse, List[domain.PartyDetails], Unit](output)) {
+                    inside(decode1[domain.OkResponse, List[domain.PartyDetails]](output)) {
                       case \/-(response) =>
                         response.status shouldBe StatusCodes.OK
                         response.result should contain(newParty)
@@ -976,11 +1034,10 @@ abstract class AbstractHttpServiceIntegrationTest
         .flatMap {
           case (status, output) =>
             status shouldBe StatusCodes.BadRequest
-            inside(
-              decode1[domain.ErrorResponse, Vector[String]](output)
-            ) {
+            inside(decode[domain.ErrorResponse](output)) {
               case \/-(response) =>
                 response.status shouldBe StatusCodes.BadRequest
+                response.warnings shouldBe 'empty
                 response.errors.length shouldBe 1
             }
         }

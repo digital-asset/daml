@@ -1,6 +1,9 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("//daml-lf/language:daml-lf.bzl", "LF_VERSIONS")
+load("@build_environment//:configuration.bzl", "sdk_version")
+
 def sdk_tarball(name, version):
     native.genrule(
         name = name,
@@ -20,7 +23,7 @@ def sdk_tarball(name, version):
             "//compiler/damlc:damlc-dist",
             "//compiler/daml-extension:vsix",
             "//daml-assistant/daml-helper:daml-helper-dist",
-            "//language-support/ts/codegen:daml2ts-dist",
+            "//language-support/ts/codegen:daml2js-dist",
             "//templates:templates-tarball.tar.gz",
             "//triggers/daml:daml-trigger-dars",
             "//daml-script/daml:daml-script-dars",
@@ -54,8 +57,8 @@ def sdk_tarball(name, version):
           mkdir -p $$OUT/daml-helper
           tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
 
-          mkdir -p $$OUT/daml2ts
-          tar xf $(location //language-support/ts/codegen:daml2ts-dist) --strip-components=1 -C $$OUT/daml2ts
+          mkdir -p $$OUT/daml2js
+          tar xf $(location //language-support/ts/codegen:daml2js-dist) --strip-components=1 -C $$OUT/daml2js
 
           mkdir -p $$OUT/studio
           cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
@@ -79,3 +82,88 @@ def sdk_tarball(name, version):
         """.format(version = version),
         visibility = ["//visibility:public"],
     )
+
+def _protos_zip_impl(ctx):
+    posix = ctx.toolchains["@rules_sh//sh/posix:toolchain_type"]
+    tmp_dir = ctx.actions.declare_directory("tmp_dir")
+    zipper_args_file = ctx.actions.declare_file(
+        ctx.label.name + ".zipper_args",
+    )
+    tools = [ctx.executable.tar, ctx.executable.gzip]
+    ctx.actions.run_shell(
+        inputs = [ctx.file.ledger_api_tarball] + ctx.files.daml_lf_tarballs,
+        outputs = [tmp_dir],
+        tools = tools,
+        command = """
+          set -eou pipefail
+          export PATH=$PATH:{path}
+          tar xf {ledger_api_tarball} -C {tmp_dir}
+          for file in {lf_tarballs}
+          do
+              tar xf $file -C {tmp_dir}
+          done
+        """.format(
+            ledger_api_tarball = ctx.file.ledger_api_tarball.path,
+            tmp_dir = tmp_dir.path,
+            lf_tarballs = " ".join([f.path for f in ctx.files.daml_lf_tarballs]),
+            path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
+        ),
+    )
+
+    # zipper does not have an option to recursively zip files so we
+    # use find to list the files.
+    ctx.actions.run_shell(
+        outputs = [zipper_args_file],
+        inputs = [tmp_dir],
+        command = """
+        {find} -L {tmp_dir} -type f -printf "protos-{version}/%P=%p\n" > {args_file}
+        """.format(
+            version = sdk_version,
+            find = posix.commands["find"],
+            sed = posix.commands["sed"],
+            tmp_dir = tmp_dir.path,
+            args_file = zipper_args_file.path,
+        ),
+    )
+    ctx.actions.run(
+        outputs = [ctx.outputs.out],
+        inputs = [zipper_args_file, tmp_dir],
+        executable = ctx.executable.zipper,
+        arguments = ["cC", ctx.outputs.out.path, "@" + zipper_args_file.path],
+    )
+
+protos_zip = rule(
+    implementation = _protos_zip_impl,
+    attrs = {
+        "daml_lf_tarballs": attr.label_list(
+            allow_files = True,
+            default = [
+                Label("//daml-lf/archive:daml_lf_{}_archive_proto_tarball.tar.gz".format(version))
+                for version in LF_VERSIONS
+            ],
+        ),
+        "ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
+        "zipper": attr.label(
+            default = Label("@bazel_tools//tools/zip:zipper"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "tar": attr.label(
+            default = Label("@tar_dev_env//:tar"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+        "gzip": attr.label(
+            default = Label("@gzip_dev_env//:gzip"),
+            cfg = "host",
+            executable = True,
+            allow_files = True,
+        ),
+    },
+    outputs = {
+        "out": "%{name}.zip",
+    },
+    toolchains = ["@rules_sh//sh/posix:toolchain_type"],
+)

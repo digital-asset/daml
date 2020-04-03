@@ -170,18 +170,20 @@ object WebSocketService {
 
       override def removePhantomArchives(request: SearchForeverRequest) = None
 
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def predicate(
           request: SearchForeverRequest,
           resolveTemplateId: PackageService.ResolveTemplateId,
           lookupType: ValuePredicate.TypeLookup): StreamPredicate[Positive] = {
 
+        import scalaz.syntax.foldable._
         import util.Collections._
 
         val (resolved, unresolved, q) = request.queries.zipWithIndex
           .foldMap {
             case (gacr, ix) =>
               val (resolved, unresolved) =
-                gacr.templateIds.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
+                gacr.templateIds.toSet.partitionMap(x => resolveTemplateId(x) toLeftDisjunction x)
               val q: CompiledQueries = prepareFilters(resolved, gacr.query, lookupType)
               (resolved, unresolved, q transform ((_, p) => NonEmptyList((p, ix))))
           }
@@ -404,8 +406,7 @@ class WebSocketService(
     } else {
       reportUnresolvedTemplateIds(unresolved)
         .map(jsv => \/-(wsMessage(jsv)))
-        .concat(
-          Source.single(-\/(InvalidUserInput(s"Could not resolve any template ID from request."))))
+        .concat(Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId))))
     }
   }
 
@@ -455,7 +456,7 @@ class WebSocketService(
   }
 
   private[http] def wsErrorMessage(error: Error): TextMessage.Strict =
-    wsMessage(errorResponse(error).toJson)
+    wsMessage(SprayJson.encodeUnsafe(errorResponse(error)))
 
   private[http] def wsMessage(jsVal: JsValue): TextMessage.Strict =
     TextMessage(jsVal.compactPrint)
@@ -491,7 +492,7 @@ class WebSocketService(
     if (unresolved.isEmpty) Source.empty
     else {
       import spray.json._
-      Source.single(domain.WarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
+      Source.single(
+        domain.AsyncWarningsWrapper(domain.UnknownTemplateIds(unresolved.toList)).toJson)
     }
-
 }

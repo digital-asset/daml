@@ -7,36 +7,20 @@ import java.util.concurrent.Semaphore
 
 import com.daml.ledger.on.memory.InMemoryState._
 import com.daml.ledger.participant.state.kvutils.Bytes
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry
-import com.daml.ledger.participant.state.kvutils.api.LedgerEntry.LedgerRecord
+import com.daml.ledger.participant.state.kvutils.api.LedgerRecord
 import com.daml.ledger.participant.state.v1.Offset
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-private[memory] class InMemoryState(
-    // the first element will never be read because begin offsets are exclusive
-    log: MutableLog =
-      mutable.ArrayBuffer(LedgerRecord(Offset.begin, ByteString.EMPTY, ByteString.EMPTY)),
-    state: MutableState = mutable.Map.empty,
-) {
+private[memory] class InMemoryState private (log: MutableLog, state: MutableState) {
   private val lockCurrentState = new Semaphore(1, true)
 
-  // This only differs in the interface; it uses the same lock and provides the same objects.
-  def withReadLock[A](action: (ImmutableLog, ImmutableState) => A): A =
-    withWriteLock(action)
+  def readLog[A](action: ImmutableLog => A): A =
+    action(log) // `log` is mutable, but the interface is immutable
 
-  def withWriteLock[A](action: (MutableLog, MutableState) => A): A = {
-    lockCurrentState.acquire()
-    try {
-      action(log, state)
-    } finally {
-      lockCurrentState.release()
-    }
-  }
-
-  def withFutureWriteLock[A](action: (MutableLog, MutableState) => Future[A])(
+  def write[A](action: (MutableLog, MutableState) => Future[A])(
       implicit executionContext: ExecutionContext
   ): Future[A] = {
     lockCurrentState.acquire()
@@ -48,12 +32,21 @@ private[memory] class InMemoryState(
 }
 
 object InMemoryState {
-  type ImmutableLog = IndexedSeq[LedgerEntry]
+  type ImmutableLog = IndexedSeq[LedgerRecord]
   type ImmutableState = collection.Map[StateKey, StateValue]
 
-  type MutableLog = mutable.Buffer[LedgerEntry] with ImmutableLog
+  type MutableLog = mutable.Buffer[LedgerRecord] with ImmutableLog
   type MutableState = mutable.Map[StateKey, StateValue] with ImmutableState
 
   type StateKey = Bytes
   type StateValue = Bytes
+
+  // The first element will never be read because begin offsets are exclusive.
+  private val Beginning = LedgerRecord(Offset.begin, ByteString.EMPTY, ByteString.EMPTY)
+
+  def empty =
+    new InMemoryState(
+      log = mutable.ArrayBuffer(Beginning),
+      state = mutable.Map.empty,
+    )
 }

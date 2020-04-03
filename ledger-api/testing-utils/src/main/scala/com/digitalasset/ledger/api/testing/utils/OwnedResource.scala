@@ -9,7 +9,7 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext}
 import scala.reflect.ClassTag
 
-class OwnedResource[T: ClassTag](
+final class OwnedResource[T: ClassTag](
     owner: resources.ResourceOwner[T],
     acquisitionTimeout: FiniteDuration = 30.seconds,
     releaseTimeout: FiniteDuration = 30.seconds,

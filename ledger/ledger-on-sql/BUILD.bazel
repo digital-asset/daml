@@ -234,7 +234,6 @@ da_scala_test_suite(
                 "--verbose",
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
-                "--exclude=CommandDeduplicationIT",
             ],
         ),
         conformance_test(

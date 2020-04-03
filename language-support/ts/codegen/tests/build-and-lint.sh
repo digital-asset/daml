@@ -58,10 +58,10 @@ cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 
-# Call daml2ts.
-PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2ts $DAR
+# Call daml2js.
+PATH=`dirname $YARN`:$PATH $DAML2TS -o daml2js $DAR
 # We only needed this package.json in order to provide resolution of
-# daml-types to daml2ts and that's done with now.
+# daml-types to daml2js and that's done with now.
 rm package.json
 # Since we eschew using workspaces and resolutions in this test, patch
 # up the daml-ledger dependency on daml-types.

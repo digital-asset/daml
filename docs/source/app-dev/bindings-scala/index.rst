@@ -91,7 +91,7 @@ Example code
 
 In this section we will demonstrate how to use the Scala bindings library.
 
-This section refers to the IOU DAML example from the :doc:`Quickstart guide </getting-started/quickstart>` and
+This section refers to the IOU DAML example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>` and
 `quickstart-scala example <https://github.com/digital-asset/daml/tree/master/language-support/scala/examples/quickstart-scala>`_ that we already mentioned above.
 
 Please keep in mind that **quickstart-scala example** compiles with ``-Xsource:2.13`` **scalac** option, this is to activate the fix for a Scala bug that forced users to add extra imports for implicits that should not be needed.

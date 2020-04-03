@@ -30,10 +30,6 @@ da_haskell_library(
     name = "daml-lib",
     srcs = glob(
         ["src/**/*.hs"],
-        exclude = [
-            "src/DA/Daml/Assistant.hs",
-            "src/DA/Daml/Assistant/Tests.hs",
-        ],
     ),
     hackage_deps = [
         "aeson",

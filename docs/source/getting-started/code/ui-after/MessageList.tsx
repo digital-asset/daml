@@ -4,14 +4,14 @@
 // MESSAGELIST_BEGIN
 import React from 'react'
 import { List, ListItem } from 'semantic-ui-react';
-import { Message } from '@daml-ts/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app';
 import { useStreamQuery } from '@daml/react';
 
 /**
  * React component displaying the list of messages for the current user.
  */
 const MessageList: React.FC = () => {
-  const messagesResult = useStreamQuery(Message);
+  const messagesResult = useStreamQuery(User.Message);
 
   return (
     <List relaxed>

@@ -126,7 +126,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
       )
 
       setHandler(resultOut, new OutHandler {
-        override def onPull(): Unit = pull(commandResultIn)
+        override def onPull(): Unit = if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
       })
 
       setHandler(
@@ -147,7 +147,7 @@ private[commands] class CommandTracker[Context](maxDeduplicationTime: () => JDur
                 pushResultOrPullCommandResultIn(getOutputForCompletion(completion))
 
               case Right(CompletionStreamElement.CheckpointElement(checkpoint)) =>
-                pull(commandResultIn)
+                if (!hasBeenPulled(commandResultIn)) pull(commandResultIn)
                 checkpoint.offset.foreach(emit(offsetOut, _))
             }
 

@@ -4,7 +4,7 @@
 
 ## Documentation
 
-Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/app-dev/bindings-ts/daml-react/index.html).
+Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-react/index.html).
 
 ## Usage
 
@@ -63,11 +63,14 @@ const [choiceReturnValue, events] = await ledger.exercise(ContractChoice, contra
 `useQuery`
 ----------
 `useQuery` returns the contracts matching a given query. The query matches for a given contract
-template and specified field values of the contracts of that template.
+template and specified field values of the contracts of that template. If the query is omitted, all
+visible contracts of the given template are returned.
 
 ```typescript
-const {contracts, isLoading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
+const {contracts, loading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useReload`
@@ -84,8 +87,10 @@ const onClick = reload;
 `useStreamQuery` has the same signature as `useQuery`, but it constantly refreshes the results.
 
 ```typescript
-const {contracts, isLoading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
+const {contracts, loading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
 dependency2, ...]);
+
+const {allContracts, isLoading} = useStreamQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useFetchByKey`
@@ -93,7 +98,7 @@ dependency2, ...]);
 `useFetchByKey` returns the unique contract of a given template and a given contract key.
 
 ```typescript
-const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
+const {contract, loading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 `useStreamFetchByKey`
@@ -102,7 +107,7 @@ const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [depend
 the result.
 
 ```typescript
-const {contract, isLoading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
+const {contract, loading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 

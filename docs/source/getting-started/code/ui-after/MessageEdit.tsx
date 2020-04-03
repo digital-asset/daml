@@ -5,8 +5,8 @@
 import React from 'react'
 import { Form, Button } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml-ts/create-daml-app-0.1.0/lib/User';
-import { useParty, useExerciseByKey } from '@daml/react';
+import { User } from '@daml.js/create-daml-app';
+import { useParty, useLedger } from '@daml/react';
 
 type Props = {
   followers: Party[];
@@ -20,7 +20,7 @@ const MessageEdit: React.FC<Props> = ({followers}) => {
   const [receiver, setReceiver] = React.useState<string | undefined>();
   const [content, setContent] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const exerciseSendMessage = useExerciseByKey(User.SendMessage);
+  const ledger = useLedger();
 
   const submitMessage = async (event: React.FormEvent) => {
     try {
@@ -29,7 +29,7 @@ const MessageEdit: React.FC<Props> = ({followers}) => {
         return;
       }
       setIsSubmitting(true);
-      await exerciseSendMessage(receiver, {sender, content});
+      await ledger.exerciseByKey(User.User.SendMessage, receiver, {sender, content});
       setContent("");
     } catch (error) {
       alert(`Error sending message:\n${JSON.stringify(error)}`);

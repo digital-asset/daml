@@ -33,7 +33,7 @@ class HttpServiceWithPostgresIntTest
   )
 
   "query persists all active contracts" in withHttpService { (uri, encoder, _) =>
-    searchWithQuery(
+    searchExpectOk(
       searchDataSet,
       jsObject("""{"templateIds": ["Iou:Iou"], "query": {"currency": "EUR"}}"""),
       uri,

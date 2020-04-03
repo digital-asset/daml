@@ -161,7 +161,7 @@ object Arguments {
         .children(hostname, port)
 
       cmd("console")
-        .text("start the console")
+        .text("start the console (early access)")
         .action(
           (_, arguments) =>
             arguments.copy(

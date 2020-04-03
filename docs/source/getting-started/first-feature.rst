@@ -21,7 +21,7 @@ There are three parts to building and running the messaging feature:
 
     1. Adding the necessary changes to the DAML model
     2. Making the corresponding changes in the UI
-    3. Running the new feature. In order to do that we need to terminate the previous ``daml start --start-navigator=no`` process and run it again.
+    3. Running the app with the new feature.
 
 As usual, we must start with the DAML model and base our UI changes on top of that.
 
@@ -39,7 +39,7 @@ To implement this workflow, let's start by adding the new *data* for messages.
 Navigate to the ``daml/User.daml`` file and copy the following ``Message`` template to the bottom.
 Indentation is important: it should be at the top level like the original ``User`` template.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/daml-after/User.daml
   :language: daml
   :start-after: -- MESSAGE_BEGIN
   :end-before: -- MESSAGE_END
@@ -51,7 +51,7 @@ This enforces the fact that creation and archival of ``Message`` contracts must 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
 Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``User`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
-.. literalinclude:: code/daml/User.daml
+.. literalinclude:: code/daml-after/User.daml
   :language: daml
   :start-after: -- SENDMESSAGE_BEGIN
   :end-before: -- SENDMESSAGE_END
@@ -74,14 +74,8 @@ Since we have changed our DAML code, we also need to rerun the TypeScript code g
 Open a new terminal and run the following commands::
 
   daml build
-  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml-ts -p package.json
+  daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
-Since we've generated new TypeScript packages in the ``daml-ts`` folder, we need to rebuild our project using these dependencies.
-From the root ``create-daml-app`` folder, run::
-
-  yarn workspaces run build
-
-This may take a couple of minutes.
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 
 We can now implement our messaging feature in the UI!
@@ -142,8 +136,8 @@ The prop will be passed down from the ``MainView`` component, reusing the work r
 You can see this ``following`` field bound at the start of the ``MessageEdit`` component.
 
 We use the React ``useState`` hook to get and set the current choices of message ``receiver`` and ``content``.
-The DAML-specific ``useExerciseByKey`` hook gives us a function to both look up a ``User`` contract and exercise the ``SendMessage`` choice on it.
-The call to ``exerciseSendMessage`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
+The DAML-specific ``useLedger`` hook gives us an object we can use to perform ledger operations.
+The call to ``ledger.exerciseByKey`` in ``sendMessage`` looks up the ``User`` contract with the receiver's username and exercises ``SendMessage`` with the appropriate arguments.
 The ``sendMessage`` wrapper reports potential errors to the user, and ``submitMessage`` additionally uses the ``isSubmitting`` state to ensure message requests are processed one at a time.
 The result of a successful call to ``submitMessage`` is a new ``Message`` contract created on the ledger.
 
@@ -182,13 +176,15 @@ Let's give the new functionality a spin.
 Running the New Feature
 =======================
 
-We need to terminate the previous ``daml start --start-navigator=no`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start --start-navigator=no`` again we will
+We need to terminate the previous ``daml start`` process and run it again, as we need to have a Sandbox instance with a DAR file containing the new feature. As a reminder, by running ``daml start`` again we will
 
   - Compile our DAML code into a *DAR file containing the new feature*
   - Run a fresh instance of the *Sandbox with the new DAR file*
   - Start the HTTP JSON API
 
-First, navigate to the terminal window where the ``daml start --start-navigator=no`` process is running and terminate the active process by hitting ``Ctrl-C``. This shuts down the previous instances of the sandbox. Next in the root ``create-daml-app`` folder run ``daml start --start-navigator=no``.
+First, navigate to the terminal window where the ``daml start`` process is running and terminate the active process by hitting ``Ctrl-C``.
+This shuts down the previous instances of the sandbox.
+Then in the root ``create-daml-app`` folder run ``daml start``.
 
 As mentioned at the beginning of this *Getting Started with DAML* guide, DAML Sandbox uses an in-memory store, which means it loses its state when stopped or restarted. That means that all user data and follower relationships are lost.
 

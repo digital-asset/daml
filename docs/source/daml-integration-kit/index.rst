@@ -118,7 +118,7 @@ Before you can decide on an appropriate architecture and implement your own
 server and validator, you need a significant amount of context about DAML.
 To acquire this context, you should:
 
-1. Complete the :doc:`/getting-started/quickstart`.
+1. Complete the :doc:`/app-dev/bindings-java/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
 3. Build a mental model of how the :doc:`Ledger API </app-dev/ledger-api>`
    is used to :doc:`build DAML Applications </app-dev/app-arch>`.
@@ -372,9 +372,8 @@ there are consistency or conformance problem with your implementation.
 
 Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:
 
-#. Obtain the tool:
-
-   ``curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar``
+#. Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+   and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 #. Obtain the DAML archives required to run the tests:
 
