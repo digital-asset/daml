@@ -89,9 +89,9 @@ def _protos_zip_impl(ctx):
     zipper_args_file = ctx.actions.declare_file(
         ctx.label.name + ".zipper_args",
     )
-    tools = [ctx.executable._tar, ctx.executable._gzip]
+    tools = [ctx.executable.tar, ctx.executable.gzip]
     ctx.actions.run_shell(
-        inputs = [ctx.file._ledger_api_tarball] + ctx.files._daml_lf_tarballs,
+        inputs = [ctx.file.ledger_api_tarball] + ctx.files.daml_lf_tarballs,
         outputs = [tmp_dir],
         tools = tools,
         command = """
@@ -103,9 +103,9 @@ def _protos_zip_impl(ctx):
               tar xf $file -C {tmp_dir}
           done
         """.format(
-            ledger_api_tarball = ctx.file._ledger_api_tarball.path,
+            ledger_api_tarball = ctx.file.ledger_api_tarball.path,
             tmp_dir = tmp_dir.path,
-            lf_tarballs = " ".join([f.path for f in ctx.files._daml_lf_tarballs]),
+            lf_tarballs = " ".join([f.path for f in ctx.files.daml_lf_tarballs]),
             path = ":".join(["$PWD/`dirname {tool}`".format(tool = tool.path) for tool in tools]),
         ),
     )
@@ -116,7 +116,7 @@ def _protos_zip_impl(ctx):
         outputs = [zipper_args_file],
         inputs = [tmp_dir],
         command = """
-        {find} -L {tmp_dir} -type f | {sed} -E 's#^{tmp_dir}/(.*)$#protos-{version}/\\1={tmp_dir}/\\1#' > {args_file}
+        {find} -L {tmp_dir} -type f -printf "protos-{version}/%P=%p\n" > {args_file}
         """.format(
             version = sdk_version,
             find = posix.commands["find"],
@@ -128,34 +128,34 @@ def _protos_zip_impl(ctx):
     ctx.actions.run(
         outputs = [ctx.outputs.out],
         inputs = [zipper_args_file, tmp_dir],
-        executable = ctx.executable._zipper,
+        executable = ctx.executable.zipper,
         arguments = ["cC", ctx.outputs.out.path, "@" + zipper_args_file.path],
     )
 
 protos_zip = rule(
     implementation = _protos_zip_impl,
     attrs = {
-        "_daml_lf_tarballs": attr.label_list(
+        "daml_lf_tarballs": attr.label_list(
             allow_files = True,
             default = [
                 Label("//daml-lf/archive:daml_lf_{}_archive_proto_tarball.tar.gz".format(version))
                 for version in LF_VERSIONS
             ],
         ),
-        "_ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
-        "_zipper": attr.label(
+        "ledger_api_tarball": attr.label(allow_single_file = True, default = Label("//ledger-api/grpc-definitions:ledger-api-protos.tar.gz")),
+        "zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
             executable = True,
             allow_files = True,
         ),
-        "_tar": attr.label(
+        "tar": attr.label(
             default = Label("@tar_dev_env//:tar"),
             cfg = "host",
             executable = True,
             allow_files = True,
         ),
-        "_gzip": attr.label(
+        "gzip": attr.label(
             default = Label("@gzip_dev_env//:gzip"),
             cfg = "host",
             executable = True,
