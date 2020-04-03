@@ -164,6 +164,14 @@ functionalTests damlc scriptDar testDar getSandboxPort = testGroup "functional"
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
           , matchOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
+          , matchOutput "^.*$"
+          , input "debug 1"
+          , matchOutput "^.*: 1"
+          ]
+    , testInteraction' "server error"
+          [ input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
+          , input "alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"alice_doubly_allocated\")"
+          , matchOutput "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Party already exists"
           , input "debug 1"
           , matchOutput "^.*: 1"
           ]
@@ -220,6 +228,7 @@ testInteraction damlc scriptDar testDar steps ledgerPort mbTokenFile mbCaCrt = w
                 hPutStrLn hIn s
             MatchOutput regex regexStr -> do
                 line <- hGetLine hOut
+                putStrLn $ "match output " ++ regexStr ++ " ~= " ++ line
                 assertBool
                     (show line <> " did not match " <> show regexStr)
                     (matchTest regex line)

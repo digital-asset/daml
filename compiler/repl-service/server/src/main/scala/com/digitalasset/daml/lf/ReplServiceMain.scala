@@ -217,7 +217,7 @@ class ReplService(
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
       case Failure(e) =>
-        System.err.println(s"$e")
+        println(s"$e")
         respObs.onError(e)
       case Success(v) =>
         results = results ++ Seq(v)
