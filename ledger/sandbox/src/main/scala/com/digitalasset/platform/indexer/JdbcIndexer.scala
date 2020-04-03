@@ -62,8 +62,8 @@ final class JdbcIndexerFactory(
       ledgerDao <- JdbcLedgerDao.writeOwner(
         serverRole,
         config.jdbcUrl,
-        metrics,
         config.eventsPageSize,
+        metrics,
       )
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
     } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
