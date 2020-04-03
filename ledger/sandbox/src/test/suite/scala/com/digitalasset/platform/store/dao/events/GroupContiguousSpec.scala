@@ -39,10 +39,10 @@ final class GroupContiguousSpec
     val pairs = List(0 -> "foo", 0 -> "bar", 1 -> "baz", 0 -> "quux")
     val grouped = groupContiguous(Source(pairs))(by = _._1)
     whenReady(grouped.runWith(Sink.seq[Vector[(Int, String)]])) {
-      _ should contain theSameElementsAs Vector(
-        Vector(0 -> "foo", 0 -> "bar"),
-        Vector(1 -> "baz"),
-        Vector(0 -> "quux"),
+      _.map(_.toSet) should contain theSameElementsAs Vector(
+        Set(0 -> "foo", 0 -> "bar"),
+        Set(1 -> "baz"),
+        Set(0 -> "quux"),
       )
     }
   }
