@@ -17,6 +17,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion)
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -355,10 +356,14 @@ versionInstall env@InstallEnv{..} version = do
             "Activating assistant version " <> versionToString version
         activateDaml env (SdkPath path)
 
--- | Install the latest stable version of the SDK.
+-- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
-latestInstall env = do
-    version <- getLatestVersion
+latestInstall env@InstallEnv{..} = do
+    version1 <- getLatestVersion
+    version2M <- if iSnapshots options
+        then getLatestSdkSnapshotVersion
+        else pure Nothing
+    let version = maybe version1 (max version1) version2M
     versionInstall env version
 
 -- | Get the latest stable version.

@@ -129,6 +129,7 @@ autoInstall env@Env{..} = do
         let sdkVersion = fromJust envSdkVersion
             options = InstallOptions
                 { iTargetM = Nothing
+                , iSnapshots = False
                 , iQuiet = QuietInstall False
                 , iAssistant = InstallAssistant Auto
                 , iActivate = ActivateInstall False
@@ -172,12 +173,16 @@ handleCommand env@Env{..} logger command = do
         ]
 
 runCommand :: Env -> Command -> IO ()
-runCommand env@Env{..}  = \case
+runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        snapshotVersionsE <- tryAssistant $
+            if vAll || vSnapshots
+                then getAvailableSdkSnapshotVersions
+                else pure []
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
@@ -220,7 +225,8 @@ runCommand env@Env{..}  = \case
             versions = nubSort . concat $
                 [ envVersions
                 , fromRight [] installedVersionsE
-                , if vAll then fromRight [] availableVersionsE else []
+                , if vAll || vStable then fromRight [] availableVersionsE else []
+                , fromRight [] snapshotVersionsE
                 ]
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
