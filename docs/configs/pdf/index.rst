@@ -37,9 +37,9 @@ Building applications
    :maxdepth: 2
 
    app-dev/app-arch
-   json-api/index
    daml2js/index
    app-dev/bindings-ts/index
+   json-api/index
    DAML Script <daml-script/index>
    upgrade/index
    app-dev/authentication
