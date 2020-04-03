@@ -73,7 +73,6 @@ final class Runner[T <: ReadWriteService, Extra](
                 readService = readService,
                 config = factory.indexerConfig(participantConfig, config),
                 metrics = metricRegistry,
-                eventsPageSize = config.eventsPageSize,
               ).acquire()
               _ <- new StandaloneApiServer(
                 config = factory.apiServerConfig(participantConfig, config),
@@ -82,10 +81,9 @@ final class Runner[T <: ReadWriteService, Extra](
                 submissionConfig = factory.submissionConfig(config),
                 readService = readService,
                 writeService = writeService,
-                eventsPageSize = config.eventsPageSize,
+                authService = factory.authService(config),
                 transformIndexService =
                   service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
-                authService = factory.authService(config),
                 metrics = metricRegistry,
                 timeServiceBackend = factory.timeServiceBackend(config),
                 seeding = Some(config.seeding),

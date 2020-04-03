@@ -192,7 +192,6 @@ class RecoveringIndexerIntegrationSpec extends AsyncWordSpec with Matchers with 
           restartDelay = restartDelay,
         ),
         metrics = new MetricRegistry,
-        eventsPageSize = 100,
       )(materializer, logCtx)
     } yield participantState
   }

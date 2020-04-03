@@ -50,7 +50,6 @@ final class StandaloneApiServer(
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
-    eventsPageSize: Int,
     transformIndexService: IndexService => IndexService = identity,
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -84,8 +83,8 @@ final class StandaloneApiServer(
           domain.LedgerId(initialConditions.ledgerId),
           participantId,
           config.jdbcUrl,
+          config.eventsPageSize,
           metrics,
-          eventsPageSize,
         )
         .map(transformIndexService)
       healthChecks = new HealthChecks(

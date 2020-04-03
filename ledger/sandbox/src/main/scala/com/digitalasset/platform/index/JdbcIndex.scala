@@ -22,8 +22,8 @@ object JdbcIndex {
       ledgerId: LedgerId,
       participantId: ParticipantId,
       jdbcUrl: String,
-      metrics: MetricRegistry,
       eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[IndexService] =
     ReadOnlySqlLedger
       .owner(serverRole, jdbcUrl, ledgerId, metrics, eventsPageSize)
