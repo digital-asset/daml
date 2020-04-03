@@ -18,7 +18,8 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   Quickstart Guide <getting-started/quickstart>
+   getting-started/index
+   getting-started/testing
 
 .. toctree::
    :titlesonly:
@@ -41,16 +42,13 @@ DAML SDK documentation
    :caption: Building applications
 
    app-dev/app-arch
-   app-dev/authentication
-   app-dev/ledger-api
+   json-api/index
+   daml2js/index
    app-dev/bindings-ts/index
-   app-dev/bindings-java/index
-   app-dev/bindings-scala/index
-   app-dev/bindings-js
-   app-dev/grpc/index
-   app-dev/bindings-x-lang/index
    DAML Script <daml-script/index>
    upgrade/index
+   app-dev/authentication
+   app-dev/ledger-api
 
 .. toctree::
    :titlesonly:
@@ -95,18 +93,14 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
-   :caption: Experimental features
+   :caption: Early Access Features
 
-   experimental/warning
+   tools/navigator/console
+   tools/extractor
    daml-integration-kit/index
-   tools/ledger-api-test-tool/index
-   json-api/index
-   DAML Triggers <triggers/index>
-   DAML Repl <daml-repl/index>
+   triggers/index
+   daml-repl/index
    tools/visual
-   daml2js/index
-   getting-started/index
-   getting-started/testing
 
 .. toctree::
    :titlesonly:

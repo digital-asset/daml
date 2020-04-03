@@ -12,4 +12,4 @@ We have plenty of example code, both of DAML and of applications around DAML, on
 - `Repurchase agreement example <https://github.com/digital-asset/ex-repo-market>`_: DAML code and automation using the Java bindings
 - `Upgrading DAML templates example <https://github.com/digital-asset/ex-upgrade>`_: DAML code
 - `Java bindings tutorial <https://github.com/digital-asset/ex-java-bindings>`_: Three examples using the Java bindings with a very simple DAML model
-- `Node.js tutorial <https://github.com/digital-asset/ex-tutorial-nodejs>`_: Step-by-step running through using the experimental Node.js bindings
+- `Node.js tutorial <https://github.com/digital-asset/ex-tutorial-nodejs>`_: Step-by-step running through using the Node.js bindings

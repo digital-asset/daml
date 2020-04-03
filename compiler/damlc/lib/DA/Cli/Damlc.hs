@@ -219,14 +219,14 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar (early access)" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
       vis a b = Command Visual Nothing $ execVisual a b
 
 cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
-    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar" <> fullDesc
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar (early access)" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
       vis a b browser = Command Visual Nothing $ execVisualHtml a b browser

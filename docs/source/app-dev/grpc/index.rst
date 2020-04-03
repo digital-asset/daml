@@ -6,12 +6,6 @@
 gRPC
 ####
 
-.. toctree::
-   :hidden:
-
-   proto-docs
-   daml-to-ledger-api
-
 If you want to write an application for the ledger API in other languages, you'll need to use `gRPC <https://grpc.io>`__ directly.
 
 If you're not familiar with gRPC and protobuf, we strongly recommend following the `gRPC quickstart <https://grpc.io/docs/quickstart/>`__ and `gRPC tutorials <https://grpc.io/docs/tutorials/>`__. This documentation is written assuming you already have an understanding of gRPC.
