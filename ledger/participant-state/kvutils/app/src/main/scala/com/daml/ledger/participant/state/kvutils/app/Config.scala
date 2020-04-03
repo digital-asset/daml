@@ -9,6 +9,7 @@ import java.time.Duration
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.validator.SubmissionValidator
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.configuration.Readers._
 import com.digitalasset.platform.configuration.{IndexConfiguration, MetricsReporter}
@@ -22,10 +23,11 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    eventsPageSize: Int,
+    maximumStateValueCacheSize: Long,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    eventsPageSize: Int,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -57,10 +59,11 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      maximumStateValueCacheSize = SubmissionValidator.DefaultMaximumStateValueCacheSize,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       extra = extra,
     )
 
@@ -140,6 +143,13 @@ object Config {
         .text(
           s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+      opt[Long]("max-state-value-cache-size")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize state values. The default is ${SubmissionValidator.DefaultMaximumStateValueCacheSize / 1024 / 1024} MB.")
+        .action((maximumStateValueCacheSize, config) =>
+          config.copy(maximumStateValueCacheSize = maximumStateValueCacheSize))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

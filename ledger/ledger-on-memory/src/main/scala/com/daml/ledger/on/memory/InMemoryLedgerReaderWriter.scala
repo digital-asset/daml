@@ -26,11 +26,12 @@ import com.digitalasset.resources.{Resource, ResourceOwner}
 import scala.concurrent.{ExecutionContext, Future}
 
 // Dispatcher and InMemoryState are passed in to allow for a multi-participant setup.
-final class InMemoryLedgerReaderWriter(
+final class InMemoryLedgerReaderWriter private (
     override val ledgerId: LedgerId,
     override val participantId: ParticipantId,
     metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
+    maximumStateValueCacheSize: Long,
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
 )(implicit executionContext: ExecutionContext)
@@ -43,6 +44,7 @@ final class InMemoryLedgerReaderWriter(
       .createForTimeMode(
         new InMemoryLedgerStateAccess(state),
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
+        maximumStateValueCacheSize = maximumStateValueCacheSize,
         metricRegistry = metricRegistry,
         inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
@@ -111,8 +113,9 @@ object InMemoryLedgerReaderWriter {
   class SingleParticipantOwner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
-      metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      maximumStateValueCacheSize: Long = SubmissionValidator.DefaultMaximumStateValueCacheSize,
+      metricRegistry: MetricRegistry,
   )(implicit materializer: Materializer)
       extends ResourceOwner[InMemoryLedgerReaderWriter] {
     override def acquire()(
@@ -126,6 +129,7 @@ object InMemoryLedgerReaderWriter {
           participantId,
           metricRegistry,
           timeProvider,
+          maximumStateValueCacheSize,
           dispatcher,
           state,
         ).acquire()
@@ -140,6 +144,7 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
+      maximumStateValueCacheSize: Long = SubmissionValidator.DefaultMaximumStateValueCacheSize,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
   ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
@@ -154,6 +159,7 @@ object InMemoryLedgerReaderWriter {
           participantId,
           metricRegistry,
           timeProvider,
+          maximumStateValueCacheSize,
           dispatcher,
           state,
         ))
@@ -169,7 +175,7 @@ object InMemoryLedgerReaderWriter {
           headAtInitialization = StartIndex,
       ))
 
-  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Int = {
+  private[memory] def appendEntry(log: MutableLog, createEntry: Offset => LedgerRecord): Index = {
     val entryAtIndex = log.size
     val offset = KVOffset.fromLong(entryAtIndex.toLong)
     val entry = createEntry(offset)

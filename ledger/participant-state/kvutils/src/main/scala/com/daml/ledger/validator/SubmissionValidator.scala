@@ -313,7 +313,7 @@ object SubmissionValidator {
 
   private lazy val engine = Engine()
 
-  private val DefaultMaximumStateValueCacheSize: Long = 64 * 1024 * 1024
+  val DefaultMaximumStateValueCacheSize: Long = 64 * 1024 * 1024
 
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
