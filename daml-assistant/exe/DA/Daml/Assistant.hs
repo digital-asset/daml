@@ -353,7 +353,7 @@ argWhitelist = S.fromList
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
     , "extractor", "prettyprint", "postgresql"
     , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
-    , "codegen", "java", "scala", "ts"
+    , "codegen", "java", "scala", "js"
     , "deploy"
     , "json-api"
     , "trigger", "list"

@@ -21,7 +21,7 @@ Usage
 
 ``daml2js`` is invoked via the DAML SDK assistant.
 
-In outline, the command to generate JavaScript and TypeScript typings from DAML is ``daml codegen ts DAR -o OUTDIR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the JavaScript to be written.
+In outline, the command to generate JavaScript and TypeScript typings from DAML is ``daml codegen js DAR -o OUTDIR`` where ``DAR`` is the path to a DAR file (generated via ``daml build``) and ``OUTDIR`` is a directory where you want the JavaScript to be written.
 
 Here's a complete example that generates TypeScript from a project produced from the standard "skeleton" template.
 
@@ -31,7 +31,7 @@ Here's a complete example that generates TypeScript from a project produced from
    daml new my-proj skeleton # Create a new project based off the skeleton template
    cd my-proj # Enter the newly created project directory
    daml build  # Compile the project's DAML files into a DAR
-   daml codegen ts .daml/dist/my-proj-0.0.1.dar -o daml2js # Generate script bindings from the DAR
+   daml codegen js .daml/dist/my-proj-0.0.1.dar -o daml2js # Generate script bindings from the DAR
 
 - On execution of these commands:
 

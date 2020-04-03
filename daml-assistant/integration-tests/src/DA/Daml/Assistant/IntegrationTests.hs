@@ -523,9 +523,9 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
     [ codegenTestFor "java" Nothing
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
-    -- The 'daml-types' NPM package is not available on Windows which
+    -- The '@daml/types' NPM package is not available on Windows which
     -- is required by 'daml2js'.
-    [ codegenTestFor "ts" Nothing | not isWindows ]
+    [ codegenTestFor "js" Nothing | not isWindows ]
     )
     where
         codegenTestFor :: String -> Maybe String -> TestTree
@@ -539,7 +539,7 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         callCommandSilent "daml build"
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
-                        when (lang == "ts") $ do
+                        when (lang == "js") $ do
                           -- This section makes
                           -- 'daml-types@0.0.0-SDKVERSION' available
                           -- to yarn.
@@ -576,7 +576,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         let cdaDir = tmpDir </> "create-daml-app"
         withCurrentDirectory cdaDir $ do
           callCommandSilent "daml build"
-          callCommandSilent "daml codegen ts -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
           assertBool "ui/build/index.html does not yet exist" . not
         withCurrentDirectory (cdaDir </> "ui") $ do
