@@ -264,7 +264,6 @@ testInteraction damlc scriptDar testDar steps ledgerPort mbTokenFile mbCaCrt = w
                 hPutStrLn hIn s
             MatchOutput regex regexStr -> do
                 line <- hGetLine hOut
-                putStrLn $ "match output " ++ regexStr ++ " ~= " ++ line
                 assertBool
                     (show line <> " did not match " <> show regexStr)
                     (matchTest regex line)

@@ -3,8 +3,8 @@
 
 .. _quickstart:
 
-Quickstart guide
-################
+IOU Quickstart Tutorial
+#######################
 
 In this guide, you will learn about the SDK tools and DAML applications by:
 
@@ -14,7 +14,7 @@ In this guide, you will learn about the SDK tools and DAML applications by:
 Prerequisites:
 
 - You understand what an IOU is. If you are not sure, read the :ref:`IOU tutorial overview<tutorials-iou-overview>`.
-- You have installed the DAML SDK. See :doc:`installation`.
+- You have installed the DAML SDK. See :doc:`installation </getting-started/installation>`.
 
 On this page:
 
