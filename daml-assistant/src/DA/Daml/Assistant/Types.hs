@@ -77,7 +77,6 @@ newtype UserCommandArgs = UserCommandArgs
 -- | Command-line options for daml version command.
 data VersionOptions = VersionOptions
     { vAll :: Bool -- ^ show all versions (stable + snapshot)
-    , vStable  :: Bool -- ^ show all stable versions
     , vSnapshots :: Bool -- ^ show all snapshot versions
     , vAssistant :: Bool -- ^ show assistant version
     } deriving (Eq, Show)

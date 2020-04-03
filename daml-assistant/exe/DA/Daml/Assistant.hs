@@ -180,7 +180,7 @@ runCommand env@Env{..} = \case
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
         snapshotVersionsE <- tryAssistant $
-            if vAll || vSnapshots
+            if vSnapshots
                 then getAvailableSdkSnapshotVersions
                 else pure []
 
@@ -225,7 +225,7 @@ runCommand env@Env{..} = \case
             versions = nubSort . concat $
                 [ envVersions
                 , fromRight [] installedVersionsE
-                , if vAll || vStable then fromRight [] availableVersionsE else []
+                , if vAll then fromRight [] availableVersionsE else []
                 , fromRight [] snapshotVersionsE
                 ]
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]

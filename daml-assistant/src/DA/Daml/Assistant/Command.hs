@@ -104,7 +104,6 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 versionParser :: Parser VersionOptions
 versionParser = VersionOptions
     <$> flagYesNoAuto "all" False "Display all available versions." idm
-    <*> flagYesNoAuto "stable" False "Display all available stable versions." idm
     <*> flagYesNoAuto "snapshots" False "Display all available snapshot versions." idm
     <*> flagYesNoAuto "assistant" False "Display DAML assistant version." idm
 
