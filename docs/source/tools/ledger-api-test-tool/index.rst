@@ -20,13 +20,8 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Run the following command to fetch the tool:
-
-.. code-block:: shell
-
-     curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool/$latest/ledger-api-test-tool-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
-
-This will create a file ``ledger-api-test-tool.jar`` in your current directory.
+Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 Extracting ``.dar`` files required to run the tests
 ======================================================
