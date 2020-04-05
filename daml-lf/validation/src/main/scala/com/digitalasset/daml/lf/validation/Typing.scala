@@ -343,7 +343,8 @@ private[validation] object Typing {
           if (supportsFlexibleControllers) {
             introExprVar(param, paramType).checkExpr(controllers, TParties)
           } else {
-            param.filter(eVars.isDefinedAt).foreach(x => throw EIllegalShadowingExprVar(ctx, x))
+            if (eVars.isDefinedAt(param))
+              throw EIllegalShadowingExprVar(ctx, param)
             checkExpr(controllers, TParties)
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))

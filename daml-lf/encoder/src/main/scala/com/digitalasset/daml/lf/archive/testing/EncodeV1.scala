@@ -662,7 +662,7 @@ private[daml] class EncodeV1(val minor: LV.Minor) {
       setString(name, b.setNameStr, b.setNameInternedStr)
       b.setConsuming(choice.consuming)
       b.setControllers(choice.controllers)
-      b.setArgBinder(choice.argBinder._1.getOrElse("") -> choice.argBinder._2)
+      b.setArgBinder(choice.argBinder._1 -> choice.argBinder._2)
       b.setRetType(choice.returnType)
       b.setUpdate(choice.update)
       setString(choice.selfBinder, b.setSelfBinderStr, b.setSelfBinderInternedStr)

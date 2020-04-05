@@ -731,7 +731,7 @@ available for usage::
        |  'key' τ eₖ eₘ
 
   Template choice definition
-    ChDef ::= 'choice' ChKind Ch (y : τ) (z: 'ContractId' Mod:T) : σ 'by' eₚ ↦ e
+    ChDef ::= 'choice' ChKind Ch (y : τ) (z) : σ 'by' eₚ ↦ e
                                                     -- ChDef
   Definitions
     Def
@@ -1201,7 +1201,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'create' @Mod:T e  : 'Update' ('ContractId' Mod:T)
 
       'tpl' (x : T)
-          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : τ) (z : 'ContractId' Mod:T) : σ 'by' … ↦ …, … } }
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : τ) (z) : σ 'by' … ↦ …, … } }
         ∈ 〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
       Γ  ⊢  e₂  :  'List' 'Party'
@@ -1210,7 +1210,7 @@ Then we define *well-formed expressions*. ::
       Γ  ⊢  'exercise' @Mod:T Ch e₁ e₂ e₃  : 'Update' σ
 
       'tpl' (x : T)
-          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : τ) (z : 'ContractId' Mod:T) : σ 'by' … ↦ …, … } }
+          ↦ { …, 'choices' { …, 'choice' ChKind Ch (y : τ) (z) : σ 'by' … ↦ …, … } }
         ∈ 〚Ξ〛Mod
       Γ  ⊢  e₁  :  'ContractId' Mod:T
       Γ  ⊢  e₂  :  τ
@@ -1401,7 +1401,7 @@ for the ``DefTemplate`` rule). ::
     y : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'                          [DAML-LF ≥ 1.2]
     z : 'ContractId' Mod:T · y : τ · x : Mod:T  ⊢  e  :  'Update' σ
   ——————————————————————————————————————————————————————————————— ChDef
-    x : Mod:T  ⊢  'choice' ChKind Ch (y : τ) (z : 'ContractId' Mod:T) : σ 'by' eₚ ↦ e
+    x : Mod:T  ⊢  'choice' ChKind Ch (y : τ) (z) : σ 'by' eₚ ↦ e
 
             ┌────────────┐
   Valid key │ ⊢ₖ e  :  τ │
@@ -2282,7 +2282,7 @@ as described by the ledger model::
      Ok (vₐ, 'exercise' v₁ (cid, Mod:T, vₜ) 'non-consuming' trₐ) ‖ E₃ ; (st₁, keys₁)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : τ) (z) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'inactive')
    —————————————————————————————————————————————————————————————————————— EvUpdExercInactive
@@ -2291,7 +2291,7 @@ as described by the ledger model::
      Err "Exercise on inactive contract" ‖ E₀ ; (st₀; keys₀)
 
      'tpl' (x : T)
-         ↦ { 'choices' { …, 'choice' ChKind Ch (y : τ) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
+         ↦ { 'choices' { …, 'choice' ChKind Ch (y : τ) (z) : σ  'by' eₚ ↦ eₐ, … }, … }  ∈  〚Ξ〛Mod
      cid ∈ dom(st₀)
      st₀(cid) = (Mod:T, vₜ, 'active')
      eₚ[x ↦ vₜ] ‖ E₀  ⇓  Ok vₚ ‖ E₁

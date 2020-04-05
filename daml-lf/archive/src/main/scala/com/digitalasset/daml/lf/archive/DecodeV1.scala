@@ -552,7 +552,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
         selfBinder = selfBinder,
-        argBinder = Some(v) -> t,
+        argBinder = v -> t,
         returnType = decodeType(lfChoice.getRetType),
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )

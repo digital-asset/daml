@@ -126,27 +126,27 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
             agreement ~
             choices ~
             key =>
-        TemplDef(
-          tycon,
-          Template(x, precon, signatories, agreement, choices.map(_(x)), observers, key))
+        TemplDef(tycon, Template(x, precon, signatories, agreement, choices, observers, key))
     }
 
-  private lazy val choiceParam: Parser[(Option[Name], Type)] =
-    `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => Some(name) -> typ } |
-      success(None -> TUnit)
+  private lazy val choiceParam: Parser[(Name, Type)] =
+    `(` ~> id ~ `:` ~ typ <~ `)` ^^ { case name ~ _ ~ typ => name -> typ }
 
-  private lazy val templateChoice: Parser[ExprVarName => (ChoiceName, TemplateChoice)] =
-    Id("choice") ~> tags(templateChoiceTags) ~ id ~ choiceParam ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {
-      case choiceTags ~ name ~ param ~ _ ~ retTyp ~ _ ~ controllers ~ _ ~ update =>
-        self =>
-          name -> TemplateChoice(
-            name,
-            !choiceTags(nonConsumingTag),
-            controllers,
-            self,
-            param,
-            retTyp,
-            update)
+  private lazy val selfBinder: Parser[Name] =
+    `(` ~> id <~ `)`
+
+  private lazy val templateChoice: Parser[(ChoiceName, TemplateChoice)] =
+    Id("choice") ~> tags(templateChoiceTags) ~ id ~ choiceParam ~ selfBinder ~ `:` ~ typ ~ `by` ~ expr ~ `to` ~ expr ^^ {
+      case choiceTags ~ name ~ param ~ self ~ _ ~ retTyp ~ _ ~ controllers ~ _ ~ update =>
+        name -> TemplateChoice(
+          name,
+          !choiceTags(nonConsumingTag),
+          controllers,
+          self,
+          param,
+          retTyp,
+          update,
+        )
     }
 
   private val serializableTag = "serializable"

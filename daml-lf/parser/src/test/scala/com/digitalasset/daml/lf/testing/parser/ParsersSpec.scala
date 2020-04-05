@@ -8,6 +8,7 @@ import java.math.BigDecimal
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Numeric, Time}
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -458,8 +459,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Sleep : Unit by Cons @Party [person] (Nil @Party) to upure @Unit (),
-              choice @nonConsuming Nap (i : Int64) : Int64 by Cons @Party [person] (Nil @Party) to upure @Int64 i
+              choice Sleep (u:Unit) (self) : ContractId Mod:Person by Cons @Party [person] (Nil @Party) to upure @(ContractId Mod:Person) self,
+              choice @nonConsuming Nap (i : Int64) (self): Int64 by Cons @Party [person] (Nil @Party) to upure @Int64 i
             },
             key @Party (Mod:Person {name} this) (\ (p: Party) -> p)
           } ;
@@ -477,17 +478,17 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
               name = n"Sleep",
               consuming = true,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = n"this",
-              argBinder = None -> TBuiltin(BTUnit),
-              returnType = t"Unit",
-              update = e"upure @Unit ()"
+              selfBinder = n"self",
+              argBinder = n"u" -> TUnit,
+              returnType = t"ContractId Mod:Person",
+              update = e"upure @(ContractId Mod:Person) self"
             ),
             n"Nap" -> TemplateChoice(
               name = n"Nap",
               consuming = false,
               controllers = e"Cons @Party [person] (Nil @Party)",
-              selfBinder = n"this",
-              argBinder = Some(n"i") -> TBuiltin(BTInt64),
+              selfBinder = n"self",
+              argBinder = n"i" -> TInt64,
               returnType = t"Int64",
               update = e"upure @Int64 i"
             )
