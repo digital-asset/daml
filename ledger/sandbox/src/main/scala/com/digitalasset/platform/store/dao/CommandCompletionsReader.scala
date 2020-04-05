@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.ApplicationId
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.platform.ApiOffset
+import com.daml.lf.data.Ref
+import com.daml.ledger.ApplicationId
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.platform.ApiOffset
 
 private[dao] object CommandCompletionsReader {
 

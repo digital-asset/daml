@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.io.File
 import java.time.{Duration, Instant}
@@ -10,13 +10,13 @@ import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
-import com.digitalasset.daml.lf.value.Value.{
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.Ref.{Identifier, Party}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{GenTransaction, Node}
+import com.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
   NodeId,
@@ -25,13 +25,13 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueUnit,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.ledger.{EventId, TransactionId}
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.PersistenceEntry
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.value.ValueVersions
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.{EventId, TransactionId}
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.PersistenceEntry
+import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
 
 import scala.collection.immutable.HashMap

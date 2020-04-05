@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.http.ErrorMessages.cannotResolveTemplateId
-import com.digitalasset.http.domain.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.http.ErrorMessages.cannotResolveTemplateId
+import com.daml.http.domain.{
   ActiveContract,
   Contract,
   CreateAndExerciseCommand,
@@ -15,13 +15,13 @@ import com.digitalasset.http.domain.{
   ExerciseResponse,
   JwtPayload
 }
-import com.digitalasset.http.util.ClientUtil.uniqueCommandId
-import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
-import com.digitalasset.http.util.{Commands, Transactions}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.util.ClientUtil.uniqueCommandId
+import com.daml.http.util.FutureUtil._
+import com.daml.http.util.IdentifierConverters.refApiIdentifier
+import com.daml.http.util.{Commands, Transactions}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._

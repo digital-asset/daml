@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import java.sql.Connection
 import java.util.Date
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
-import com.digitalasset.platform.index.Disclosure
+import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
+import com.daml.platform.index.Disclosure
 
 private[dao] object TransactionsWriter extends TransactionsWriter {
 

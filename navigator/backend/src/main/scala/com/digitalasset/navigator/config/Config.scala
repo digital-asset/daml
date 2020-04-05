@@ -1,19 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.nio.file.{Files, Path}
 import java.nio.file.StandardOpenOption._
 
-import com.digitalasset.assistant.config.{
+import com.daml.assistant.config.{
   ConfigMissing => SdkConfigMissing,
   ConfigLoadError => SdkConfigLoadError,
   ConfigParseError => SdkConfigParseError,
   ProjectConfig
 }
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.PartyState
+import com.daml.ledger.api.refinements.ApiTypes
 import com.typesafe.config.{ConfigFactory, ConfigRenderOptions}
 import org.slf4j.LoggerFactory
 import pureconfig.{ConfigConvert, ConfigWriter}

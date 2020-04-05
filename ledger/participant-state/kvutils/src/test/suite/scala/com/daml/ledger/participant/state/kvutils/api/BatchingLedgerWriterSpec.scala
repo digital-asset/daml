@@ -8,9 +8,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.kvutils.{Envelope, MockitoHelpers}
 import com.daml.ledger.participant.state.v1.SubmissionResult
 import com.daml.ledger.participant.state.{kvutils, v1}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}

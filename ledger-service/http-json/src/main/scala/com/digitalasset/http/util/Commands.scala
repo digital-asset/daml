@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.syntax.tag._
 
 object Commands {

@@ -9,12 +9,12 @@ import java.time.Duration
 
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.configuration.Readers._
-import com.digitalasset.platform.configuration.{IndexConfiguration, MetricsReporter}
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ProgramResource.SuppressedStartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.configuration.Readers._
+import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.ports.Port
+import com.daml.resources.ProgramResource.SuppressedStartupException
+import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 final case class Config[Extra](

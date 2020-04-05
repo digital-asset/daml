@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import akka.NotUsed
 import akka.stream.Materializer
@@ -10,10 +10,10 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.logging.LoggingContext
+import com.daml.platform.configuration.ServerRole
+import com.daml.resources.ResourceOwner
 
 object JdbcIndex {
   def owner(

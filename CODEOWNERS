@@ -31,8 +31,8 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/data-scalacheck/  @S11001001
 /daml-lf/transaction-scalacheck/  @S11001001
 /daml-lf/validation/    @remyhaemmerle-da
-/daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ @S11001001
-/daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/value/       @S11001001
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
 
 /ledger-service/    @leo-da @S11001001
 

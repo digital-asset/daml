@@ -12,11 +12,11 @@
         <appender-ref ref="STDOUT" />
     </appender>
 
-    <!--<logger name="com.digitalasset.grpc" level="WARN"/>-->
-    <!--<logger name="com.digitalasset.grpc.adapter.server.rs" level="TRACE"/>-->
-    <!--<logger name="com.digitalasset.grpc.adapter.client.rs" level="TRACE"/>-->
-    <!--<logger name="com.digitalasset" level="TRACE"/>-->
-    <!--<logger name="com.digitalasset.ledger.client.services.commands.tracker.CommandTracker" level="WARN"/>-->
+    <!--<logger name="com.daml.grpc" level="WARN"/>-->
+    <!--<logger name="com.daml.grpc.adapter.server.rs" level="TRACE"/>-->
+    <!--<logger name="com.daml.grpc.adapter.client.rs" level="TRACE"/>-->
+    <!--<logger name="com.daml" level="TRACE"/>-->
+    <!--<logger name="com.daml.ledger.client.services.commands.tracker.CommandTracker" level="WARN"/>-->
     <!--<logger name="akka.stream.Materializer" level="DEBUG"/>-->
 
 

@@ -1032,7 +1032,7 @@ The response is the same as for the POST method above.
 Allocate a New Party
 ********************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.daml.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
 HTTP Request
 ============
@@ -1049,7 +1049,7 @@ HTTP Request
       "displayName": "Carol & Co. LLC"
     }
 
-Please refer to :ref:`AllocateParty <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
 
 All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
 

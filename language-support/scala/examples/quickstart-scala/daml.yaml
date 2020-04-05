@@ -20,7 +20,7 @@ dependencies:
 # <doc-ref:codegen-scala>
 codegen:
   scala:
-    package-prefix: com.digitalasset.quickstart.iou.model
+    package-prefix: com.daml.quickstart.iou.model
     output-directory: scala-codegen/src/main/scala
     verbosity: 2
 # </doc-ref:codegen-scala>

@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{AsyncFlatSpec, Matchers}

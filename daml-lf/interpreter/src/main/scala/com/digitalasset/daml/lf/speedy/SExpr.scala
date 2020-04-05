@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 /**
   * The simplified AST for the speedy interpreter.
@@ -9,12 +9,12 @@ package com.digitalasset.daml.lf.speedy
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
   */
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.Speedy._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
+import com.daml.lf.language.Ast._
+import com.daml.lf.data.Ref._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SBuiltin._
 import java.util.ArrayList
 
 /** The speedy expression:

@@ -1,21 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value.json
+package com.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{
-  FrontStack,
-  ImmArray,
-  Ref,
-  SortedLookupList,
-  Time,
-  Numeric => LfNumeric
-}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual._
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time, Numeric => LfNumeric}
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.iface
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._

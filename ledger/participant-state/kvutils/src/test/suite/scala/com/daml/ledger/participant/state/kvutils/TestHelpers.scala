@@ -8,15 +8,15 @@ import java.util.UUID
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.archive.testing.Encode
-import com.digitalasset.daml.lf.data.Ref.{IdString, QualifiedName}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.testing.Encode
+import com.daml.lf.data.Ref.{IdString, QualifiedName}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.value.Value
+import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.ByteString
 
 object TestHelpers {

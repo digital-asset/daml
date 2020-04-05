@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.store.{DbType, FlywayMigrations}
-import com.digitalasset.resources.Resource
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.{DbType, FlywayMigrations}
+import com.daml.resources.Resource
 import org.scalatest.Suite
 
 import scala.concurrent.duration.DurationInt

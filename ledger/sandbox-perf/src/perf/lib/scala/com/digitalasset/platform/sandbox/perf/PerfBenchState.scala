@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
 import java.io.File
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.testing.utils.Resource
 import org.openjdk.jmh.annotations._
 
 import scala.concurrent.Await

@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.{Executors, TimeUnit}
 
-import com.digitalasset.logging.ContextualizedLogger
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.resources.ProgramResource._
+import com.daml.logging.ContextualizedLogger
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.resources.ProgramResource._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, Future}

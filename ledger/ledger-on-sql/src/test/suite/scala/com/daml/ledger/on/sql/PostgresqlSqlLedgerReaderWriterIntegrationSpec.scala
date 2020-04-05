@@ -3,7 +3,7 @@
 
 package com.daml.ledger.on.sql
 
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 
 import scala.collection.mutable
 

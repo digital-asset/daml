@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.time.Instant
 
@@ -12,23 +12,17 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
 import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{
-  ApplicationId,
-  CommandId,
-  LedgerId,
-  LedgerOffset,
-  TransactionId
-}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, LedgerOffset, TransactionId}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,

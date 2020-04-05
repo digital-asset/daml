@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 import java.time.Duration
 import scala.util.Try
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: Path,

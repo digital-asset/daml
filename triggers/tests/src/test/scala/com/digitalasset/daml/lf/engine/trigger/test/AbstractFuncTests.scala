@@ -1,23 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger.test
+package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.{Flow}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.speedy.SExpr
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.{value => LedgerApi}
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.lf.data.Ref._
+import com.daml.lf.speedy.SExpr
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.{value => LedgerApi}
+import com.daml.platform.services.time.TimeProviderType
 import org.scalatest._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.TriggerMsg
 
 abstract class AbstractFuncTests
     extends AsyncWordSpec

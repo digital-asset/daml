@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.StatusCodes
 import akka.stream.scaladsl._
 import akka.stream.Materializer
-import com.digitalasset.daml.lf
-import com.digitalasset.http.LedgerClientJwt.Terminates
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
-import com.digitalasset.http.json.JsonProtocol.LfValueCodec
-import com.digitalasset.http.query.ValuePredicate
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.FutureUtil.toFuture
+import com.daml.lf
+import com.daml.http.LedgerClientJwt.Terminates
+import com.daml.http.dbbackend.ContractDao
+import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
+import com.daml.http.json.JsonProtocol.LfValueCodec
+import com.daml.http.query.ValuePredicate
+import com.daml.http.util.ApiValueToLfValueConverter
+import com.daml.http.util.FutureUtil.toFuture
 import util.Collections._
 import util.{ContractStreamStep, InsertDeleteStep}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.util.ExceptionOps._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => api}
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._

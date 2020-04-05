@@ -17,9 +17,9 @@ import com.daml.ledger.participant.state.v1.{
   TransactionMeta,
   WriteService
 }
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.daml.lf.data.Time
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.HealthStatus
 
 final class TimedWriteService(delegate: WriteService, metrics: MetricRegistry, prefix: MetricName)
     extends WriteService {

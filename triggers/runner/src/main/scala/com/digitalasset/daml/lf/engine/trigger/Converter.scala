@@ -1,33 +1,33 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
-import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
+import com.daml.lf.engine.{ResultDone, ValueTranslator}
 import java.util
 
 import scala.collection.JavaConverters._
 import scalaz.std.either._
 import scalaz.syntax.traverse._
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.FrontStack
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.v1.commands.{
+import com.daml.lf.CompiledPackages
+import com.daml.lf.data.FrontStack
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.v1.commands.{
   Command,
   CreateCommand,
   ExerciseByKeyCommand,
   ExerciseCommand
 }
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.validation.ValueValidator
+import com.daml.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue,
   toApiIdentifier

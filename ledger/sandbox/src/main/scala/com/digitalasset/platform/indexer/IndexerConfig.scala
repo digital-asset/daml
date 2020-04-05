@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.platform.configuration.IndexConfiguration
-import com.digitalasset.platform.indexer.IndexerConfig._
+import com.daml.platform.configuration.IndexConfiguration
+import com.daml.platform.indexer.IndexerConfig._
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 

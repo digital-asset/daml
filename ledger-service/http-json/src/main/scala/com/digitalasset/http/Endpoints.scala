@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
@@ -10,18 +10,18 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
-import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsService.SearchResult
-import com.digitalasset.http.EndpointsCompanion._
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json._
-import com.digitalasset.http.util.Collections.toNonEmptySet
-import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.util.ExceptionOps._
+import com.daml.lf
+import com.daml.http.ContractsService.SearchResult
+import com.daml.http.EndpointsCompanion._
+import com.daml.http.Statement.discard
+import com.daml.http.domain.JwtPayload
+import com.daml.http.json._
+import com.daml.http.util.Collections.toNonEmptySet
+import com.daml.http.util.FutureUtil.{either, eitherT, rightT}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._

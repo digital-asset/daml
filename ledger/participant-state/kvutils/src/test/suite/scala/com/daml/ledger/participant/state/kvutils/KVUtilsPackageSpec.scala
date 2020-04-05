@@ -9,9 +9,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPackageUploadRejectionEntry
 }
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.DarReader
+import com.daml.daml_lf_dev.DamlLf
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Try

@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 
 import java.io._
 import java.util.zip.ZipInputStream
 
-import com.digitalasset.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
-import com.digitalasset.daml.lf.data.TryOps.sequence
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.TryOps.Bracket.bracket
+import com.daml.lf.data.TryOps.sequence
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.daml_lf_dev.DamlLf
 
 import scala.annotation.tailrec
 import scala.util.control.NonFatal

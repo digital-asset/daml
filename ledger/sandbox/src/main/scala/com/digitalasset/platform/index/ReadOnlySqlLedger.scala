@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import java.time.Instant
 
@@ -11,16 +11,16 @@ import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
-import com.digitalasset.platform.store.{BaseLedger, ReadOnlyLedger}
-import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}

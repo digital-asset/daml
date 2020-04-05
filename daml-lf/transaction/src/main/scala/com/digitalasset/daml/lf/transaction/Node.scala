@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, ScalazEqual}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal

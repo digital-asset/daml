@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.security.SecureRandom
 
-import com.digitalasset.daml.lf.crypto
+import com.daml.lf.crypto
 
 trait SeedService {
   def nextSeed: () => crypto.Hash

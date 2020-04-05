@@ -10,8 +10,8 @@ import com.daml.ledger.javaapi.data.LedgerOffset
 import com.daml.ledger.javaapi.data.LedgerOffset.LedgerBegin
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.completion.Completion
 import com.google.rpc.status.Status
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 

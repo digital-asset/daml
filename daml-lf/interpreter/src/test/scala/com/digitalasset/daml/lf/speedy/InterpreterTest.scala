@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Numeric, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 import org.slf4j.LoggerFactory

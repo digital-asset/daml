@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.metrics
+package com.daml.platform.sandbox.metrics
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit
@@ -10,8 +10,8 @@ import com.codahale.metrics.Slf4jReporter.LoggingLevel
 import com.codahale.metrics.jmx.JmxReporter
 import com.codahale.metrics.{MetricRegistry, Reporter, Slf4jReporter}
 import com.daml.ledger.participant.state.metrics.JvmMetricSet
-import com.digitalasset.platform.configuration.MetricsReporter
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.platform.configuration.MetricsReporter
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 

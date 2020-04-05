@@ -5,7 +5,7 @@ package com.daml.ledger.javaapi.data
 
 import java.time.{Instant, LocalDate}
 
-import com.digitalasset.ledger.api.v1._
+import com.daml.ledger.api.v1._
 import com.google.protobuf.Empty
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -53,7 +53,7 @@ object Generators {
   def recordValueGen: Gen[ValueOuterClass.Value] = recordGen.map(valueFromRecord)
 
   def valueFromRecord(
-      record: ValueOuterClass.Record): com.digitalasset.ledger.api.v1.ValueOuterClass.Value = {
+      record: ValueOuterClass.Record): com.daml.ledger.api.v1.ValueOuterClass.Value = {
     ValueOuterClass.Value.newBuilder().setRecord(record).build()
   }
 

@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ContractId, Party}
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.refinements.ApiTypes.{ContractId, Party}
+import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.{Primitive => P}
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -94,7 +94,7 @@ object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
   }
 
   implicit override val valueTimestamp: Value[P.Timestamp] = P.Timestamp.subst {
-    import com.digitalasset.api.util.TimestampConversion.{microsToInstant, instantToMicros}
+    import com.daml.api.util.TimestampConversion.{microsToInstant, instantToMicros}
     fromArgumentValueFuns({
       case ts @ VSum.Timestamp(_) => Some(microsToInstant(ts))
       case _ => None

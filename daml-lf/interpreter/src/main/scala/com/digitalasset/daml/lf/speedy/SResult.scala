@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.CompiledPackages
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Transaction._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.transaction.Node.GlobalKey
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine

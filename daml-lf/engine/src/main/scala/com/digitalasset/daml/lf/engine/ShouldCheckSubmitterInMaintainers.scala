@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.transaction.VersionTimeline
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data.{ImmArray, ImmArrayCons}
-import com.digitalasset.daml.lf.language.Ast.Package
+import com.daml.lf.transaction.VersionTimeline
+import com.daml.lf.data.Ref._
+import com.daml.lf.command._
+import com.daml.lf.data.{ImmArray, ImmArrayCons}
+import com.daml.lf.language.Ast.Package
 
 import scala.annotation.tailrec
 

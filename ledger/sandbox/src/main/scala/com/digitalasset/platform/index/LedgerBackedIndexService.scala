@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import java.time.Instant
 
@@ -10,16 +10,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{
   ApplicationId,
   CommandId,
   LedgerId,
@@ -30,20 +30,20 @@ import com.digitalasset.ledger.api.domain.{
   TransactionFilter,
   TransactionId
 }
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.store.entries.PartyLedgerEntry
-import com.digitalasset.platform.store.ReadOnlyLedger
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.entries.PartyLedgerEntry
+import com.daml.platform.store.ReadOnlyLedger
+import com.daml.platform.ApiOffset
+import com.daml.platform.ApiOffset.ApiOffsetConverter
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future

@@ -1,19 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.util
 
-import com.digitalasset.daml.lf.archive.Decode.ParseError
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
+import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.collection.JavaConverters._

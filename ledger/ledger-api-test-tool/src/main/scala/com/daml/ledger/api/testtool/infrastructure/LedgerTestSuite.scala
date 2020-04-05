@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation.{ParticipantAllocation, Participants}
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite._
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future}

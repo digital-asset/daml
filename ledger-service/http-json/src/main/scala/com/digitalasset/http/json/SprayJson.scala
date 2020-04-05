@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.util.ExceptionOps._
+import com.daml.util.ExceptionOps._
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}

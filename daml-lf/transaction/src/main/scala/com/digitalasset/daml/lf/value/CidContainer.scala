@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.{Bytes, Ref}
 
 import scala.language.higherKinds
 import scala.util.control.NoStackTrace

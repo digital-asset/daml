@@ -1,23 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
 import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.stream.Materializer
-import com.digitalasset.http.EndpointsCompanion._
-import com.digitalasset.http.domain.{JwtPayload, SearchForeverRequest}
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
-import com.digitalasset.http.LedgerClientJwt.Terminates
+import com.daml.http.EndpointsCompanion._
+import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
+import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
+import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{ContractStreamStep, InsertDeleteStep}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
-import com.digitalasset.jwt.domain.Jwt
+import com.daml.jwt.domain.Jwt
 import com.typesafe.scalalogging.LazyLogging
-import com.digitalasset.http.query.ValuePredicate
+import com.daml.http.query.ValuePredicate
 import scalaz.syntax.bifunctor._
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
@@ -28,7 +28,7 @@ import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
-import com.digitalasset.http.util.FlowUtil.allowOnlyFirstInput
+import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -239,7 +239,7 @@ object WebSocketService {
           a: domain.ContractKeyStreamRequest[Hint, JsValue]) =
         decoder
           .decodeUnderlyingValuesToLf(a)
-          .valueOr(_ => a.map(_ => com.digitalasset.daml.lf.value.Value.ValueUnit)) // unit will not match any key
+          .valueOr(_ => a.map(_ => com.daml.lf.value.Value.ValueUnit)) // unit will not match any key
 
     }
 
@@ -302,7 +302,7 @@ class WebSocketService(
   import WebSocketService._
   import Statement.discard
   import util.ErrorOps._
-  import com.digitalasset.http.json.JsonProtocol._
+  import com.daml.http.json.JsonProtocol._
 
   private val config = wsConfig.getOrElse(Config.DefaultWsConfig)
 

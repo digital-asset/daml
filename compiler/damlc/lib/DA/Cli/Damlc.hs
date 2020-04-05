@@ -43,7 +43,7 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
-import qualified Com.Digitalasset.DamlLfDev.DamlLf as PLF
+import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC

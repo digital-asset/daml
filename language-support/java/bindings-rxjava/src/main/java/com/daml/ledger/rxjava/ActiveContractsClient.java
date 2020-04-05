@@ -9,7 +9,7 @@ import io.reactivex.Flowable;
 
 
 /**
- * An RxJava version of {@link com.digitalasset.ledger.api.v1.ActiveContractsServiceGrpc}
+ * An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc}
  */
 public interface ActiveContractsClient {
 

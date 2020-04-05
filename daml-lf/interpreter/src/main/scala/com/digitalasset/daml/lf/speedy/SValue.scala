@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 import java.util
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.value.{Value => V}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.{HashMap, TreeMap}

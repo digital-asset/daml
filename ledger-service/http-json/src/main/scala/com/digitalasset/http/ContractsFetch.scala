@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.{
@@ -17,22 +17,22 @@ import akka.stream.scaladsl.{
   Source,
 }
 import akka.stream.{ClosedShape, FanOutShape2, FlowShape, Graph, Materializer}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao.StaleOffsetException
-import com.digitalasset.http.dbbackend.{ContractDao, Queries}
-import com.digitalasset.http.dbbackend.Queries.{DBContract, SurrogateTpId}
-import com.digitalasset.http.domain.TemplateId
-import com.digitalasset.http.LedgerClientJwt.Terminates
-import com.digitalasset.http.util.ApiValueToLfValueConverter.apiValueToLfValue
-import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec.{
+import com.daml.http.Statement.discard
+import com.daml.http.dbbackend.ContractDao.StaleOffsetException
+import com.daml.http.dbbackend.{ContractDao, Queries}
+import com.daml.http.dbbackend.Queries.{DBContract, SurrogateTpId}
+import com.daml.http.domain.TemplateId
+import com.daml.http.LedgerClientJwt.Terminates
+import com.daml.http.util.ApiValueToLfValueConverter.apiValueToLfValue
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec.{
   apiValueToJsValue => lfValueToDbJsValue,
 }
-import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
+import com.daml.http.util.IdentifierConverters.apiIdentifier
 import util.{AbsoluteBookmark, BeginBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.util.ExceptionOps._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.{v1 => lav1}
 import doobie.free.connection
 import doobie.free.connection.ConnectionIO
 import doobie.postgres.sqlstate.{class23 => postgres_class23}

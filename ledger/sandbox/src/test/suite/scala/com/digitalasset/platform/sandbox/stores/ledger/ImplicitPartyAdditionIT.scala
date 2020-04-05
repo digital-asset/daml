@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.{Duration, Instant}
 
@@ -14,21 +14,21 @@ import com.daml.ledger.participant.state.v1.{
   TimeModel,
   TransactionMeta
 }
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.{Value, ValueVersions}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.value.{Value, ValueVersions}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MultiResourceBase,
   Resource,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.sandbox.stores.ledger.ImplicitPartyAdditionIT._
-import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.sandbox.stores.ledger.ImplicitPartyAdditionIT._
+import com.daml.platform.sandbox.{LedgerResource, MetricsAround}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}

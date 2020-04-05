@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast.Package
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast.Package
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
@@ -22,17 +22,13 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.command_service._
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  TransactionFilter,
-  InclusiveFilters
-}
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, InclusiveFilters}
+import com.daml.ledger.client.LedgerClient
 
 class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.nio.file.{Files, Paths}
 import java.util.UUID
@@ -9,7 +9,7 @@ import java.util.UUID
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import com.digitalasset.buildinfo.BuildInfo
+import com.daml.buildinfo.BuildInfo
 
 object NavigatorBackend extends UIBackend {
 

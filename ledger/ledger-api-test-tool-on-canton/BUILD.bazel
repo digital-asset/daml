@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
-    main_class = "com.digitalasset.canton.CantonApp",
+    main_class = "com.daml.canton.CantonApp",
     runtime_deps = ["@canton//:lib"],
 )
 

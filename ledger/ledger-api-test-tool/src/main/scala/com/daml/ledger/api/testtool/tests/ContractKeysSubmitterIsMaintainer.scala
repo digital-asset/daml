@@ -10,12 +10,12 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_dev.DA.Types.{Tuple2 => DamlTuple2}
-import com.digitalasset.ledger.test_dev.Test.Delegation._
-import com.digitalasset.ledger.test_dev.Test.ShowDelegated._
-import com.digitalasset.ledger.test_dev.Test.TextKey._
-import com.digitalasset.ledger.test_dev.Test.TextKeyOperations._
-import com.digitalasset.ledger.test_dev.Test._
+import com.daml.ledger.test_dev.DA.Types.{Tuple2 => DamlTuple2}
+import com.daml.ledger.test_dev.Test.Delegation._
+import com.daml.ledger.test_dev.Test.ShowDelegated._
+import com.daml.ledger.test_dev.Test.TextKey._
+import com.daml.ledger.test_dev.Test.TextKeyOperations._
+import com.daml.ledger.test_dev.Test._
 import io.grpc.Status
 
 final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)

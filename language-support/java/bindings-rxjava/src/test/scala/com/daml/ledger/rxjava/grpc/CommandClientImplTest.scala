@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse

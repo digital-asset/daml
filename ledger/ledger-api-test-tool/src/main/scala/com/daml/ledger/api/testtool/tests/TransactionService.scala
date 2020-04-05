@@ -13,25 +13,25 @@ import com.daml.ledger.api.testtool.tests.TransactionService.{
   comparableTransactionTrees,
   comparableTransactions
 }
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.client.binding.Value.encode
-import com.digitalasset.ledger.test_stable.Iou.Iou
-import com.digitalasset.ledger.test_stable.Iou.Iou._
-import com.digitalasset.ledger.test_stable.Iou.IouTransfer._
-import com.digitalasset.ledger.test_stable.IouTrade.IouTrade
-import com.digitalasset.ledger.test_stable.IouTrade.IouTrade._
-import com.digitalasset.ledger.test_stable.Test.Agreement._
-import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
-import com.digitalasset.ledger.test_stable.Test.Choice1._
-import com.digitalasset.ledger.test_stable.Test.CreateAndFetch._
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.DummyFactory._
-import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
-import com.digitalasset.ledger.test_stable.Test.TriProposal._
-import com.digitalasset.ledger.test_stable.Test._
-import com.digitalasset.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.client.binding.Value.encode
+import com.daml.ledger.test_stable.Iou.Iou
+import com.daml.ledger.test_stable.Iou.Iou._
+import com.daml.ledger.test_stable.Iou.IouTransfer._
+import com.daml.ledger.test_stable.IouTrade.IouTrade
+import com.daml.ledger.test_stable.IouTrade.IouTrade._
+import com.daml.ledger.test_stable.Test.Agreement._
+import com.daml.ledger.test_stable.Test.AgreementFactory._
+import com.daml.ledger.test_stable.Test.Choice1._
+import com.daml.ledger.test_stable.Test.CreateAndFetch._
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test_stable.Test.DummyFactory._
+import com.daml.ledger.test_stable.Test.ParameterShowcase._
+import com.daml.ledger.test_stable.Test.TriProposal._
+import com.daml.ledger.test_stable.Test._
+import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import io.grpc.Status
 import scalaz.Tag
 

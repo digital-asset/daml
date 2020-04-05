@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.participant.state.v1.{ParticipantId, SubmissionResult}
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 import scala.concurrent.Future
 

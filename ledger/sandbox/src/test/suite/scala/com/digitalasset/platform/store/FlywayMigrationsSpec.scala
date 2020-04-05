@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.math.BigInteger
 import java.nio.charset.Charset
 import java.security.MessageDigest
 
-import com.digitalasset.platform.store.FlywayMigrationsSpec._
+import com.daml.platform.store.FlywayMigrationsSpec._
 import org.apache.commons.io.IOUtils
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration

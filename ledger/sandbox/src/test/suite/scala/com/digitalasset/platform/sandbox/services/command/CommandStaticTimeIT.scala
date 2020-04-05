@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.command
+package com.daml.platform.sandbox.services.command
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest
 }
-import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.commands.CommandClient
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.CommandClient
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}

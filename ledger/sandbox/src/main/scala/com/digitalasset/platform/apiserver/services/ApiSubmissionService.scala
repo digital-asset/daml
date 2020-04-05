@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import java.time.{Duration, Instant}
 import java.util.UUID
@@ -23,30 +23,30 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded
 }
 import com.daml.ledger.participant.state.v1.{SeedService, SubmissionResult, TimeModel, WriteService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.engine.{Error => LfError}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.apiserver.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.crypto
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.engine.{Error => LfError}
+import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.apiserver.{
   CommandExecutionResult,
   CommandExecutor,
   LedgerTimeHelper,
   MetricsNaming
 }
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
-import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.store.ErrorCause
+import com.daml.platform.metrics.timedFuture
+import com.daml.platform.server.api.services.domain.CommandSubmissionService
+import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
+import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.store.ErrorCause
 import io.grpc.Status
 
 import scala.collection.breakOut

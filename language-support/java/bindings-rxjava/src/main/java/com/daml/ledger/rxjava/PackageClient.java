@@ -9,7 +9,7 @@ import io.reactivex.Flowable;
 import io.reactivex.Single;
 
 /**
- * An RxJava version of {@link com.digitalasset.ledger.api.v1.PackageServiceGrpc}
+ * An RxJava version of {@link com.daml.ledger.api.v1.PackageServiceGrpc}
  */
 public interface PackageClient {
     Flowable<String> listPackages();

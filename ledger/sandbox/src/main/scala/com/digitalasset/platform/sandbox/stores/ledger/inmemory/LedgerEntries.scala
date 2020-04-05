@@ -1,19 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.inmemory
+package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.lf.data.Ref
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import org.slf4j.LoggerFactory
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
-import com.digitalasset.platform.sandbox.stores.ledger.SandboxOffset
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.sandbox.stores.ledger.SandboxOffset
 
 import scala.collection.immutable.TreeMap
 

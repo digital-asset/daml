@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package query
 
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue, jsValueToApiValue}
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
+import com.daml.lf.iface
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.TypedValueGenerators.{genAddendNoListMap, ValueAddend => VA}
 
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source

@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package util
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.value.TypedValueGenerators.genAddend
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.platform.participant.util.LfEngineToApi.lfValueToApiValue
+import com.daml.lf.data.ImmArray
+import com.daml.lf.value.TypedValueGenerators.genAddend
+import com.daml.lf.value.{Value => V}
+import com.daml.platform.participant.util.LfEngineToApi.lfValueToApiValue
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}

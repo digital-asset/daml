@@ -8,8 +8,8 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.Dummy
-import com.digitalasset.timer.Delayed
+import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 

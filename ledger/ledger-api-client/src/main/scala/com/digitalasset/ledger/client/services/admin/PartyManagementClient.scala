@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.admin
+package com.daml.ledger.client.services.admin
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.domain.{ParticipantId, PartyDetails}
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
-import com.digitalasset.ledger.api.v1.admin.party_management_service.{
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.domain.{ParticipantId, PartyDetails}
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
+import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
   GetPartiesRequest,
   ListKnownPartiesRequest,
   PartyDetails => ApiPartyDetails
 }
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.ledger.client.LedgerClient
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}

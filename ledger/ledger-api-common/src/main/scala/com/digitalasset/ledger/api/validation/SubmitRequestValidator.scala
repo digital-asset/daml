@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
 import java.time.{Duration, Instant}
 
-import com.digitalasset.ledger.api.messages.command.submission
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.platform.server.api.validation.FieldValidations.requirePresence
-import com.digitalasset.platform.server.util.context.TraceContextConversions.toBrave
+import com.daml.ledger.api.messages.command.submission
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.platform.server.api.validation.FieldValidations.requirePresence
+import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
 
 class SubmitRequestValidator(commandsValidator: CommandsValidator) {

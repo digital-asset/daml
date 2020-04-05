@@ -820,7 +820,7 @@ are:
 - `data`:
     Files that are needed at runtime. In order to access such files at runtime
     you should use the utility library in
-    `com.digitalasset.testing.BuildSystemSupport`.
+    `com.daml.testing.BuildSystemSupport`.
 
 ### Scala Test Cases
 
@@ -873,13 +873,13 @@ daml(
   # The directory prefix under which to create the DAR tree.
   target_dir = "target/scala-2.12/resource_managed/it/dars",
   # The group ID.
-  group = "com.digitalasset.sample",
+  group = "com.daml.sample",
   # The artifact ID.
   artifact = "test-all",
   # The package version.
   version = "0.1",
   # The package name.
-  package = "com.digitalasset.sample",
+  package = "com.daml.sample",
 )
 ```
 

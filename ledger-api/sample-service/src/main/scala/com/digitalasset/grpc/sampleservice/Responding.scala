@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.sampleservice
+package com.daml.grpc.sampleservice
 
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloService
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse}
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse}
 
 import scala.concurrent.Future
 

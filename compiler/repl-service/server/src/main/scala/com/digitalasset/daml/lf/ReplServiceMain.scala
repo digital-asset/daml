@@ -1,24 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.repl
+package com.daml.lf.repl
 
 import akka.actor.ActorSystem
 import akka.stream._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.script._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.{Compiler, SValue, SExpr}
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.auth.TokenHolder
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.script._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.{Compiler, SValue, SExpr}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement

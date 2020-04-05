@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.store.ErrorCause
+import com.daml.lf.crypto
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 

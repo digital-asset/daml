@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.UUID
@@ -20,14 +20,14 @@ import akka.http.scaladsl.settings.RoutingSettings
 import akka.pattern.ask
 import akka.stream.Materializer
 import akka.util.Timeout
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.navigator.SessionJsonProtocol._
-import com.digitalasset.navigator.config._
-import com.digitalasset.navigator.graphql.GraphQLContext
-import com.digitalasset.navigator.graphqless.GraphQLObject
-import com.digitalasset.navigator.model.{Ledger, PackageRegistry}
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.store.platform.PlatformStore
+import com.daml.grpc.GrpcException
+import com.daml.navigator.SessionJsonProtocol._
+import com.daml.navigator.config._
+import com.daml.navigator.graphql.GraphQLContext
+import com.daml.navigator.graphqless.GraphQLObject
+import com.daml.navigator.model.{Ledger, PackageRegistry}
+import com.daml.navigator.store.Store._
+import com.daml.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
 import sangria.schema._

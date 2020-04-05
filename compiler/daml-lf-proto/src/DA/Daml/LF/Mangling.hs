@@ -44,7 +44,7 @@ import Data.Word
 -- in the proto encoding/decoding code.
 --
 -- IMPORTANT: keep in sync with
--- `com.digitalasset.daml.lf.data.Ref.DottedName.fromSegments`
+-- `com.daml.lf.data.Ref.DottedName.fromSegments`
 
 isAsciiLetter :: Char -> Bool
 isAsciiLetter c = isAsciiLower c || isAsciiUpper c

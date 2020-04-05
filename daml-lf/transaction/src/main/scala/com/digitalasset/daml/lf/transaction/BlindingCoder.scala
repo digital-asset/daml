@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.daml.lf.{blinding => proto}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.ValueCoder.DecodeError
+import com.daml.lf.{blinding => proto}
 import com.google.protobuf.ProtocolStringList
 
 import scala.collection.JavaConverters._

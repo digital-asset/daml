@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
-import com.digitalasset.platform.sandbox.services.DbInfo
-import com.digitalasset.platform.store.DbType
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
+package com.daml.platform.sandbox
+import com.daml.platform.sandbox.services.DbInfo
+import com.daml.platform.store.DbType
+import com.daml.resources.ResourceOwner
+import com.daml.testing.postgresql.PostgresResource
 
 object SandboxBackend {
 

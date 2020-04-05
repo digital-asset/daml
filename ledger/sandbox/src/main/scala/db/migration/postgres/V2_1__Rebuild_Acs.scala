@@ -14,27 +14,27 @@ import akka.stream.scaladsl.Source
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, TransactionId}
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.RejectionReason
-import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.{ApplicationId, CommandId, WorkflowId}
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.entries.LedgerEntry
-import com.digitalasset.platform.store.serialization.{
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.ledger.{ApplicationId, CommandId, WorkflowId}
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
+import com.daml.platform.store.serialization.{
   ContractSerializer,
   KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
+import com.daml.platform.store.{ActiveLedgerState, ActiveLedgerStateManager, Let, LetLookup}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 import org.slf4j.LoggerFactory
 

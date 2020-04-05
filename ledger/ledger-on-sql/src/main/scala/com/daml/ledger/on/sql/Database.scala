@@ -12,9 +12,9 @@ import com.daml.ledger.on.sql.queries.{
   ReadQueries,
   SqliteQueries
 }
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway

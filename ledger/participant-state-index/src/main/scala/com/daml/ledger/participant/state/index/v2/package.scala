@@ -7,9 +7,9 @@ import java.time.{Duration, Instant}
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.ledger.api.domain._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value
+import com.daml.ledger.api.domain._
 
 package object v2 {
 

@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.speedy
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy
 import scala.collection.JavaConverters._
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of

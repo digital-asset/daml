@@ -1,24 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model.converter
+package com.daml.navigator.model.converter
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.LawlessTraversals._
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.ledger.api.{v1 => V1}
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
-import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
-  lfValueToApiRecord,
-  lfValueToApiValue
-}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.LawlessTraversals._
+import com.daml.lf.iface
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.{Value => V}
+import com.daml.ledger.api.{v1 => V1}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
+import com.daml.navigator.{model => Model}
+import com.daml.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
+import com.daml.platform.participant.util.LfEngineToApi.{lfValueToApiRecord, lfValueToApiValue}
 
 import com.google.rpc.code.Code
 import scalaz.Tag

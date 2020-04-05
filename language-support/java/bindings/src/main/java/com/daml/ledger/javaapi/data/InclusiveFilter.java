@@ -3,8 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.TransactionFilterOuterClass;
-import com.digitalasset.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v1.TransactionFilterOuterClass;
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.ArrayList;

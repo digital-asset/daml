@@ -54,7 +54,7 @@ da_scala_binary(
     srcs = [
         "src/main/scala/com/digitalasset/codegen/Main.scala",
     ],
-    main_class = "com.digitalasset.codegen.Main",
+    main_class = "com.daml.codegen.Main",
     tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
     visibility = [
         "//visibility:public",

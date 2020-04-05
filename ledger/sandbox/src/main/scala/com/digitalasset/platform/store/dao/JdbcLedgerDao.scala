@@ -1,6 +1,6 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.io.InputStream
 import java.sql.Connection
@@ -21,18 +21,18 @@ import com.daml.ledger.participant.state.index.v2.{
   PackageDetails
 }
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain.{
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.ledger.api.domain.{
   Filters,
   InclusiveFilters,
   LedgerId,
@@ -40,32 +40,32 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason,
   TransactionFilter
 }
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.events.EventIdFormatter.split
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
-import com.digitalasset.platform.store._
-import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
-import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
-import com.digitalasset.platform.store.entries.{
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store._
+import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.entries.LedgerEntry.Transaction
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.serialization.{
+import com.daml.platform.store.serialization.{
   ContractSerializer,
   KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.resources.ResourceOwner
+import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scalaz.syntax.tag._
 
