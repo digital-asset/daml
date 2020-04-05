@@ -37,7 +37,8 @@ class DamlLfEncoderTest
         "PartyMod",
         "RecordMod",
         "VariantMod",
-        "BuiltinMod"
+        "BuiltinMod",
+        "TemplateMod",
       )
 
       val modules_1_1 = modules_1_0 + "OptionMod"
