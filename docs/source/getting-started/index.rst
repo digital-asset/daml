@@ -40,7 +40,7 @@ Please make sure that you have the DAML SDK, Java 8 or higher, and Visual Studio
 You will also need some common software tools to build and interact with the template project.
 
 - `Git <https://git-scm.com/downloads>`_ version control system
-- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for Javascript. You have to have yarn version 1.10.0 or higher.
+- `Yarn <https://classic.yarnpkg.com/en/docs/install/>`_ package manager for JavaScript. You have to have yarn version 1.10.0 or higher.
 
   Note: Ubuntu 17.04 and higher come with ``cmdtest`` package installed by default. If you are getting errors when installing yarn, you may want to run ``sudo apt remove cmdtest`` first and then install yarn. More information can be found `here <https://github.com/yarnpkg/yarn/issues/2821>`_ as well as in the official `yarn installation docs for Debian / Ubuntu <https://classic.yarnpkg.com/en/docs/install/#debian-stable>`_
 - A terminal application for command line interaction
