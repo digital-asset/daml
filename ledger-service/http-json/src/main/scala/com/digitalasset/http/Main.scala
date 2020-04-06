@@ -158,7 +158,7 @@ object Main extends StrictLogging {
       opt[Int]("http-port")
         .action((x, c) => c.copy(httpPort = x))
         .required()
-        .text("HTTP JSON API service port number")
+        .text("HTTP JSON API service port number. A port number of 0 will let the system pick up an ephemeral port. Consider specifying port-file option with port number 0.")
 
       opt[File]("port-file")
         .action((x, c) => c.copy(portFile = Some(x.toPath)))

@@ -44,7 +44,6 @@ import scalaz._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.Try
 import scala.util.control.NonFatal
 
 object HttpService extends StrictLogging {
@@ -169,14 +168,12 @@ object HttpService extends StrictLogging {
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
       )
 
-      _ <- rightT(toFuture(portFile.cata(f => updatePortFile(f, binding), tryUnit))): ET[Unit]
+      _ <- either(portFile.cata(f => updatePortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield binding
 
     bindingEt.run: Future[Error \/ ServerBinding]
   }
-
-  private val tryUnit: Try[Unit] = scala.util.Success(())
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def refreshToken(
@@ -293,9 +290,11 @@ object HttpService extends StrictLogging {
 
   private def updatePortFile(
       file: Path,
-      binding: akka.http.scaladsl.Http.ServerBinding): Try[Unit] = {
+      binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
     import scala.collection.JavaConverters._
     val lines: java.lang.Iterable[String] = List(binding.localAddress.getPort.toString).asJava
-    Try(Files.write(file, lines)).map(_ => ())
+    \/.fromTryCatchNonFatal(Files.write(file, lines))
+      .leftMap(e => Error(s"Cannot update port file: ${file: Path}, error: ${e.getMessage}"))
+      .map(_ => ())
   }
 }
