@@ -178,25 +178,33 @@ The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default.
 Managing SDK releases
 *********************
 
-In general the ``daml`` assistant will install versions and guide you when you need to update SDK versions or project settings. If you disable ``auto-install`` and ``update-check`` in the global config file, you will have to manage SDK releases manually.
+You can manage SDK releases manually by using ``daml install``.
 
-To download and install the latest stable SDK release and update the assistant, run::
+To download and install the latest stable SDK release::
 
-  daml install latest --activate
+  daml install latest
 
-Remove the ``--activate`` flag if you only want to install the latest release without updating the ``daml`` assistant in the process. If it is already installed, you can force reinstallation by passing the ``--force`` flag. See ``daml install --help`` for a full list of options.
+To download and install the latest snapshot release::
+
+  daml install latest --snapshots=yes
+
+Please note that snapshot releases are not intended for production usage.
 
 To install the SDK release specified in the project config, run::
 
   daml install project
 
-To install a specific SDK version, for example version ``0.12.17``, run::
+To install a specific SDK version, for example version ``0.13.55``, run::
 
-  daml install 0.12.17
+  daml install 0.13.55
 
 Rarely, you might need to install an SDK release from a downloaded SDK release tarball. **This is an advanced feature**: you should only ever perform this on an SDK release tarball that is released through the official ``digital-asset/daml`` github repository. Otherwise your ``daml`` installation may become inconsistent with everyone else's. To do this, run::
 
   daml install path-to-tarball.tar.gz
+
+By default, ``daml install`` will update the assistant if the version being installed is newer. You can force the assistant to be updated with ``--install-assistant=yes`` and prevent the assistant from being updated with ``--install-assistant=no``.
+
+See ``daml install --help`` for a full list of options.
 
 Terminal Command Completion
 ***************************
