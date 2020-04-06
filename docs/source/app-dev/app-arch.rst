@@ -77,7 +77,7 @@ your project, e.g. ``yarn add @daml/react``. Please explore the ``create-daml-ap
 to see the usage of these libraries.
 
 To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
-libraries from the data types declared in the deployed DAR.
+libraries with TypeScript typings from the data types declared in the deployed DAR.
 
 .. code-block:: bash
 
@@ -169,5 +169,4 @@ How is this used in practice?
 - Be aware that ``getTime`` is only reasonably close to real time. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
 - Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
 - In some corner cases, the participant node may be unable to determine a suitable ledger time by itself. If you get an error that no ledger time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
-
 
