@@ -9,19 +9,20 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter._
 import com.daml.ledger.on.sql.queries.Queries
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlLogEntryId, DamlStateValue}
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
-import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.domain
-import com.daml.ledger.api.health.{HealthStatus, Healthy}
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.LedgerIdMismatchException
@@ -36,6 +37,7 @@ final class SqlLedgerReaderWriter(
     val participantId: ParticipantId,
     metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
+    stateValueCache: Cache[Bytes, DamlStateValue],
     database: Database,
     dispatcher: Dispatcher[Index],
     seedService: SeedService
@@ -59,8 +61,9 @@ final class SqlLedgerReaderWriter(
       .createForTimeMode(
         SqlLedgerStateAccess,
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
+        stateValueCache = stateValueCache,
         metricRegistry = metricRegistry,
-        inStaticTimeMode = timeProvider != TimeProvider.UTC
+        inStaticTimeMode = timeProvider != TimeProvider.UTC,
       ),
     latestSequenceNo => dispatcher.signalNewHead(latestSequenceNo),
   )
@@ -106,8 +109,6 @@ final class SqlLedgerReaderWriter(
 }
 
 object SqlLedgerReaderWriter {
-  private val logger = ContextualizedLogger.get(classOf[SqlLedgerReaderWriter])
-
   private val StartOffset: Offset = KVOffset.fromLong(StartIndex)
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
@@ -117,6 +118,7 @@ object SqlLedgerReaderWriter {
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
       jdbcUrl: String,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
       seedService: SeedService,
   )(implicit materializer: Materializer, logCtx: LoggingContext)
@@ -135,6 +137,7 @@ object SqlLedgerReaderWriter {
           participantId,
           metricRegistry,
           timeProvider,
+          stateValueCache,
           database,
           dispatcher,
           seedService,

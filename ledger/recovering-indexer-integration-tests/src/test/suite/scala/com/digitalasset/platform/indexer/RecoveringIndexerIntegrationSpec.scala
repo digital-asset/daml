@@ -230,9 +230,12 @@ object RecoveringIndexerIntegrationSpec {
         logCtx: LoggingContext
     ): ResourceOwner[ParticipantState] = {
       val metricRegistry = new MetricRegistry
-      new InMemoryLedgerReaderWriter.SingleParticipantOwner(ledgerId, participantId, metricRegistry)
-        .map(readerWriter =>
-          new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
+      new InMemoryLedgerReaderWriter.SingleParticipantOwner(
+        ledgerId,
+        participantId,
+        metricRegistry = metricRegistry,
+      ).map(readerWriter =>
+        new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
     }
   }
 

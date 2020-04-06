@@ -23,7 +23,7 @@ def install_java_deps():
             "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9",
             "com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.9",
             "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
-            "com.github.blemale:scaffeine_2.12:2.5.0",
+            "com.github.ben-manes.caffeine:caffeine:2.8.0",
             "com.github.ghik:silencer-lib_2.12:1.3.1",
             "com.github.ghik:silencer-plugin_2.12:1.3.1",
             "com.github.mpilquist:simulacrum_2.12:0.10.0",

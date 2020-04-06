@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   Runner
 }
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver.ApiServerConfig
@@ -56,6 +57,7 @@ object Main {
         initialLedgerId = config.ledgerId,
         participantId = participantConfig.participantId,
         metricRegistry = metricRegistry(participantConfig, config),
+        stateValueCache = caching.Cache.from(config.stateValueCache),
         dispatcher = dispatcher,
         state = state,
       )
