@@ -12,10 +12,10 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   Runner
 }
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.apiserver.ApiServerConfig
-import com.digitalasset.resources.{ProgramResource, ResourceOwner}
+import com.daml.logging.LoggingContext
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.apiserver.ApiServerConfig
+import com.daml.resources.{ProgramResource, ResourceOwner}
 import scopt.OptionParser
 
 object Main {

@@ -8,8 +8,8 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.LoggingContext
+import com.daml.resources.ResourceOwner
 
 class InMemoryLedgerReaderWriterIntegrationSpec
     extends ParticipantStateIntegrationSpecBase("In-memory ledger/participant") {

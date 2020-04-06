@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.digitalasset.daml.lf.data.{BackStack, Bytes, ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.daml.lf.data.{BackStack, Bytes, ImmArray, Time}
+import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
+import com.daml.lf.value.Value
 
 import scala.collection.breakOut
 import scala.collection.immutable.HashMap

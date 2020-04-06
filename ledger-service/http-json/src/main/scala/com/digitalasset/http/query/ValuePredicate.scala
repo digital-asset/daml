@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package query
 
 import util.IdentifierConverters.lfIdentifier
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, Time, Utf8}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Time, Utf8}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual._
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.json.JsonVariant
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.iface
+import com.daml.lf.value.json.JsonVariant
+import com.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import dbbackend.Queries.{concatFragment, contractColumnName}
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}

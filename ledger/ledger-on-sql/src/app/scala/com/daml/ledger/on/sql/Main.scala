@@ -4,7 +4,7 @@
 package com.daml.ledger.on.sql
 
 import com.daml.ledger.participant.state.kvutils.app.Runner
-import com.digitalasset.resources.ProgramResource
+import com.daml.resources.ProgramResource
 
 object Main {
   def main(args: Array[String]): Unit = {

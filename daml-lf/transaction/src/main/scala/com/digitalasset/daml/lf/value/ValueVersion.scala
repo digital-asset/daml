@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.daml.lf.value
 
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.LfVersions
-import com.digitalasset.daml.lf.data.{Decimal, FrontStack, FrontStackCons, ImmArray}
-import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.daml.lf.value.Value._
+import com.daml.lf.LfVersions
+import com.daml.lf.data.{Decimal, FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.transaction.VersionTimeline
 
 import scala.annotation.tailrec
 

@@ -17,7 +17,7 @@ genrule(
 da_scala_binary(
     name = "repl-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.repl.ReplServiceMain",
+    main_class = "com.daml.lf.repl.ReplServiceMain",
     resources = ["src/main/resources/logback.xml"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

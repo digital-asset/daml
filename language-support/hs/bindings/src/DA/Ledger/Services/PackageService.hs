@@ -9,7 +9,7 @@ module DA.Ledger.Services.PackageService (
     getPackageStatus, PackageStatus(..),
     ) where
 
-import Com.Digitalasset.Ledger.Api.V1.PackageService
+import Com.Daml.Ledger.Api.V1.PackageService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types

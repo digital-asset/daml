@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
 import akka.NotUsed
 import akka.stream._
@@ -18,35 +18,31 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.duration._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.{CompiledPackages, PureCompiledPackages}
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml.lf.speedy.Pretty
-import com.digitalasset.daml.lf.speedy.{SExpr, SValue, Speedy}
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElement._
-import com.digitalasset.platform.participant.util.LfEngineToApi.toApiIdentifier
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.api.util.TimeProvider
+import com.daml.lf.{CompiledPackages, PureCompiledPackages}
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.Compiler
+import com.daml.lf.speedy.Pretty
+import com.daml.lf.speedy.{SExpr, SValue, Speedy}
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.services.commands.CompletionStreamElement._
+import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
+import com.daml.platform.services.time.TimeProviderType
 
 sealed trait TriggerMsg
 final case class CompletionMsg(c: Completion) extends TriggerMsg

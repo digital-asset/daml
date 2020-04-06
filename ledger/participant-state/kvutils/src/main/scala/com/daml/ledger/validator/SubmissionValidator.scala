@@ -16,10 +16,10 @@ import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.google.common.cache.{Cache, CacheBuilder, CacheLoader}
 import com.google.protobuf.ByteString
 

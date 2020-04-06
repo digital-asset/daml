@@ -9,8 +9,8 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlLogEntryId
 import com.daml.ledger.participant.state.kvutils.{Envelope, KVOffset, KeyValueConsumption}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.daml.lf.data.Time
+import com.daml.ledger.api.health.HealthStatus
 
 class KeyValueParticipantStateReader(reader: LedgerReader)(implicit materializer: Materializer)
     extends ReadService {

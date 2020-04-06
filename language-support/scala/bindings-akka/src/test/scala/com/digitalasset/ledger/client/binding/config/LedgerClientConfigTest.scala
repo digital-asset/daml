@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.config
+package com.daml.ledger.client.binding.config
 
 import java.io.File
 
-import com.digitalasset.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
+import com.daml.ledger.client.binding.LedgerClientConfigurationError.MalformedTypesafeConfig
 import com.typesafe.config.ConfigFactory
 import org.scalatest.{Matchers, WordSpec}
 

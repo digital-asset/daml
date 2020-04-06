@@ -74,7 +74,7 @@ Since we have changed our DAML code, we also need to rerun the TypeScript code g
 Open a new terminal and run the following commands::
 
   daml build
-  daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+  daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
 

@@ -1,23 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import java.time.{Duration, Instant}
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.{
   CommandSubmissionService => ApiCommandSubmissionService
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.{
+import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest => ApiSubmitRequest
 }
-import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.platform.server.api.ProxyCloseable
-import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
+import com.daml.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.dec.DirectExecutionContext
+import com.daml.platform.server.api.ProxyCloseable
+import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}

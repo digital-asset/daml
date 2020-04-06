@@ -4,7 +4,7 @@
 package com.daml.ledger.api.testtool.infrastructure.participant
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.TlsConfiguration
 
 private[testtool] final case class ParticipantSessionConfiguration(
     host: String,

@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package crypto
 
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicLong
 
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.{Bytes, ImmArray, Ref, Time, Utf8}
+import com.daml.lf.value.Value
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 

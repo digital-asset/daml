@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.sampleservice.implementations
+package com.daml.grpc.sampleservice.implementations
 
-import com.digitalasset.grpc.sampleservice.Responding
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloService
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.grpc.sampleservice.Responding
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 

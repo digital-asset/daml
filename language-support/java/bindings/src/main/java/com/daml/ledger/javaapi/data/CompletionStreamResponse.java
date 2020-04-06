@@ -3,8 +3,8 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.CommandCompletionServiceOuterClass;
-import com.digitalasset.ledger.api.v1.CompletionOuterClass;
+import com.daml.ledger.api.v1.CommandCompletionServiceOuterClass;
+import com.daml.ledger.api.v1.CompletionOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.List;

@@ -32,7 +32,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
-    main_class = "com.digitalasset.daml.lf.codegen.StandaloneMain",
+    main_class = "com.daml.lf.codegen.StandaloneMain",
     visibility = ["//visibility:public"],
     deps = [":lib"],
 )
@@ -146,7 +146,7 @@ test_daml_lf_target_versions = [
                 "src/test/java/**/*ForAll*.java",
                 "src/test/java/**/*For%s*.java" % mangle_for_java(target),
             ]),
-            test_class = "com.digitalasset.testing.AllTestsFor%s" % mangle_for_java(target),
+            test_class = "com.daml.testing.AllTestsFor%s" % mangle_for_java(target),
             deps = [
                 ":test-model-%s.jar" % target,
                 "//language-support/java/bindings:bindings-java",
@@ -222,7 +222,7 @@ daml_compile(
                 "src/it/java-%s/**/*.java" % target,
                 "src/it/java/**/*.java",
             ]),
-            test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
+            test_class = "com.daml.lf_%s.AllTests" % mangle_for_java(target),
             deps = [
                 ":integration-tests-model-%s.jar" % target,
                 ":integration-tests-model-noprefix-%s.jar" % target,

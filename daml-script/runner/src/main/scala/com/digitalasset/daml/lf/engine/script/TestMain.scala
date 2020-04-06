@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import java.io.FileInputStream
 import java.time.Instant
@@ -9,24 +9,24 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy.Compiler
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.traverse._

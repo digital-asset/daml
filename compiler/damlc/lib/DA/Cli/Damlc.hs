@@ -43,7 +43,7 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
-import qualified Com.Digitalasset.DamlLfDev.DamlLf as PLF
+import qualified Com.Daml.DamlLfDev.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
@@ -219,14 +219,14 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar (early access)" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> dotFileOpt
       vis a b = Command Visual Nothing $ execVisual a b
 
 cmdVisualWeb :: Mod CommandFields Command
 cmdVisualWeb =
-    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar" <> fullDesc
+    command "visual-web" $ info (helper <*> cmd) $ progDesc "Generate D3-Web Visual from dar (early access)" <> fullDesc
     where
       cmd = vis <$> inputDarOpt <*> htmlOutFile <*> openBrowser
       vis a b browser = Command Visual Nothing $ execVisualHtml a b browser

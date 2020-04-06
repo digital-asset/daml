@@ -10,16 +10,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.daml.lf.data.Time
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.HealthStatus
 
 /**
   * Implements read and write operations required for running a participant server.
   *
   * Adapts [[LedgerReader]] and [[LedgerWriter]] interfaces to [[com.daml.ledger.participant.state.v1.ReadService]] and
   * [[com.daml.ledger.participant.state.v1.WriteService]], respectively.
-  * Will report [[com.digitalasset.ledger.api.health.Healthy]] as health status only if both
+  * Will report [[com.daml.ledger.api.health.Healthy]] as health status only if both
   * `reader` and `writer` are healthy.
   *
   * @param reader       [[LedgerReader]] instance to adapt

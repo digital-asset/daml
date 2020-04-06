@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.configuration.ServerRole
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.ExecutionContext
 

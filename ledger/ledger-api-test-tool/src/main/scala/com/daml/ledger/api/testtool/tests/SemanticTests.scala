@@ -10,17 +10,17 @@ import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.test.SemanticTests.Delegation._
-import com.digitalasset.ledger.test.SemanticTests.FetchIou._
-import com.digitalasset.ledger.test.SemanticTests.FetchPaintAgree._
-import com.digitalasset.ledger.test.SemanticTests.FetchPaintOffer._
-import com.digitalasset.ledger.test.SemanticTests.Iou._
-import com.digitalasset.ledger.test.SemanticTests.PaintCounterOffer._
-import com.digitalasset.ledger.test.SemanticTests.PaintOffer._
-import com.digitalasset.ledger.test.SemanticTests.SharedContract._
-import com.digitalasset.ledger.test.SemanticTests._
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.test.SemanticTests.Delegation._
+import com.daml.ledger.test.SemanticTests.FetchIou._
+import com.daml.ledger.test.SemanticTests.FetchPaintAgree._
+import com.daml.ledger.test.SemanticTests.FetchPaintOffer._
+import com.daml.ledger.test.SemanticTests.Iou._
+import com.daml.ledger.test.SemanticTests.PaintCounterOffer._
+import com.daml.ledger.test.SemanticTests.PaintOffer._
+import com.daml.ledger.test.SemanticTests.SharedContract._
+import com.daml.ledger.test.SemanticTests._
 import io.grpc.Status
 import scalaz.Tag
 

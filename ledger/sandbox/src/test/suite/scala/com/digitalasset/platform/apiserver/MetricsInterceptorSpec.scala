@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.net.{InetAddress, InetSocketAddress}
 
@@ -9,18 +9,18 @@ import akka.pattern.after
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.server.akka.ServerAdapter
-import com.digitalasset.grpc.adapter.utils.implementations.AkkaImplementation
-import com.digitalasset.grpc.sampleservice.Responding
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.apiserver.MetricsInterceptorSpec._
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloService
-import com.digitalasset.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
-import com.digitalasset.platform.sandbox.services.GrpcClientResource
-import com.digitalasset.platform.testing.StreamConsumer
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.ServerAdapter
+import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
+import com.daml.grpc.sampleservice.Responding
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.platform.apiserver.MetricsInterceptorSpec._
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.sandbox.services.GrpcClientResource
+import com.daml.platform.testing.StreamConsumer
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{BindableService, Server, ServerInterceptor, ServerServiceDefinition}

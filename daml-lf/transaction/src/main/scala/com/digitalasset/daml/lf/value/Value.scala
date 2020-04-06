@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name}
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.daml.lf.data.Ref.{Identifier, Name}
+import com.daml.lf.data._
+import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
 import scalaz.Equal
@@ -187,7 +187,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
     /** Increase the `version` if appropriate for `languageVersions`. */
     def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
-      import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
+      import com.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
       copy(version =
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }

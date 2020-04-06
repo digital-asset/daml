@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
@@ -10,18 +10,18 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
-import com.digitalasset.daml.lf
-import com.digitalasset.http.ContractsService.SearchResult
-import com.digitalasset.http.EndpointsCompanion._
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.domain.JwtPayload
-import com.digitalasset.http.json._
-import com.digitalasset.http.util.Collections.toNonEmptySet
-import com.digitalasset.http.util.FutureUtil.{either, eitherT, rightT}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.util.ExceptionOps._
+import com.daml.lf
+import com.daml.http.ContractsService.SearchResult
+import com.daml.http.EndpointsCompanion._
+import com.daml.http.Statement.discard
+import com.daml.http.domain.JwtPayload
+import com.daml.http.json._
+import com.daml.http.util.Collections.toNonEmptySet
+import com.daml.http.util.FutureUtil.{either, eitherT, rightT}
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._
@@ -66,7 +66,7 @@ class Endpoints(
       httpResponse(allocateParty(req))
   }
 
-  def create(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -84,7 +84,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def exercise(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def exercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -110,7 +110,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def createAndExercise(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def createAndExercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -128,7 +128,7 @@ class Endpoints(
 
     } yield domain.OkResponse(jsVal)
 
-  def fetch(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def fetch(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       input <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -187,7 +187,7 @@ class Endpoints(
       }
     }
 
-  def allParties(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def allParties(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
       ps <- rightT(partiesService.allParties(t3._1)): ET[List[domain.PartyDetails]]
@@ -195,7 +195,7 @@ class Endpoints(
       result <- either(resp.traverse(toJsValue(_)))
     } yield result
 
-  def parties(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def parties(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
 
@@ -210,13 +210,15 @@ class Endpoints(
           partiesService.parties(jwt, toNonEmptySet(cmd))
         )): ET[(Set[domain.PartyDetails], Set[domain.Party])]
 
-      resp: domain.OkResponse[List[domain.PartyDetails]] = okResponse(ps._1.toList, ps._2.toList)
+      resp: domain.SyncResponse[List[domain.PartyDetails]] = partiesResonse(
+        parties = ps._1.toList,
+        unknownParties = ps._2.toList)
 
       result <- either(resp.traverse(toJsValue(_)))
 
     } yield result
 
-  def allocateParty(req: HttpRequest): ET[domain.OkResponse[JsValue]] =
+  def allocateParty(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
       t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
 
@@ -294,15 +296,19 @@ class Endpoints(
   }
 
   private def httpResponse[A: JsonWriter](
-      result: ET[domain.OkResponse[A]]
+      result: ET[domain.SyncResponse[A]]
   ): Future[HttpResponse] = {
-    val fa: Future[Error \/ JsValue] =
-      result.flatMap(x => either(SprayJson.encode1(x).liftErr(ServerError))).run
+    val fa: Future[Error \/ (JsValue, StatusCode)] =
+      result.flatMap { x =>
+        either(SprayJson.encode1(x).map(y => (y, x.status)).liftErr(ServerError))
+      }.run
     fa.map {
         case -\/(e) =>
           httpResponseError(e)
-        case \/-(r) =>
-          HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, format(r)))
+        case \/-((jsVal, status)) =>
+          HttpResponse(
+            entity = HttpEntity.Strict(ContentTypes.`application/json`, format(jsVal)),
+            status = status)
       }
       .recover {
         case NonFatal(e) => httpResponseError(ServerError(e.description))
@@ -376,12 +382,19 @@ object Endpoints {
     } yield c
   }
 
-  // TODO(Leo) return error if all parties are unknown
-  private def okResponse(
+  private def partiesResonse(
       parties: List[domain.PartyDetails],
-      unknownParties: List[domain.Party]): domain.OkResponse[List[domain.PartyDetails]] = {
-    if (unknownParties.isEmpty) domain.OkResponse(parties, None)
-    else domain.OkResponse(parties, Some(domain.UnknownParties(unknownParties)))
+      unknownParties: List[domain.Party]
+  ): domain.SyncResponse[List[domain.PartyDetails]] = {
+
+    val warnings: Option[domain.UnknownParties] =
+      if (unknownParties.isEmpty) None
+      else Some(domain.UnknownParties(unknownParties))
+
+    if (parties.isEmpty)
+      domain.ErrorResponse(List(ErrorMessages.cannotFindAnyParty), warnings, StatusCodes.BadRequest)
+    else
+      domain.OkResponse(parties, warnings)
   }
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {

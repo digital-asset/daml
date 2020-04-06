@@ -8,7 +8,7 @@ import java.util.concurrent.CompletionStage
 import akka.Done
 import akka.stream.scaladsl.{Keep, Source}
 import com.codahale.metrics.Timer
-import com.digitalasset.dec.DirectExecutionContext
+import com.daml.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 

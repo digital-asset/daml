@@ -7,16 +7,16 @@ import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
-import com.digitalasset.platform.configuration.{
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.logging.LoggingContext
+import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
+import com.daml.platform.configuration.{
   CommandConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.indexer.{IndexerConfig, IndexerStartupMode}
-import com.digitalasset.resources.ResourceOwner
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode}
+import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
 trait ConfigProvider[ExtraConfig] {

@@ -6,16 +6,6 @@
 HTTP JSON API Service
 #####################
 
-**WARNING:** the HTTP JSON API described in this document is actively
-being designed and is *subject to breaking changes*, including all
-request and response elements demonstrated below or otherwise
-implemented by the API.  We welcome feedback about the API on `our issue
-tracker
-<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
-or `on Slack <https://hub.daml.com/slack/>`_.
-
-Please keep in mind that the presence of **/v1** prefix in the the URLs below does not mean that the endpoint interfaces are stabilized.
-
 The **JSON API** provides a significantly simpler way than :doc:`the Ledger
 API </app-dev/ledger-api>` to interact with a ledger by providing *basic active contract set functionality*:
 
@@ -174,7 +164,7 @@ Alternatively, here are two tokens you can use for testing:
 
 - ``{"https://daml.com/ledger-api": {"ledgerId": "MyLedger", "applicationId": "foobar", "actAs": ["Bob"]}}``
   ``eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsibGVkZ2VySWQiOiJNeUxlZGdlciIsImFwcGxpY2F0aW9uSWQiOiJmb29iYXIiLCJhY3RBcyI6WyJCb2IiXX19.zU-iMSFG90na8IHacrS25xho3u6AKnSlTKbvpkaSyYw``
-  
+
 For production use, we have a tool in development for generating proper
 RSA-encrypted tokens locally, which will arrive when the service also
 supports such tokens.
@@ -326,9 +316,9 @@ Examples
 Create a new Contract
 *********************
 
-See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </getting-started/quickstart>`:
+See the request documentation below on how to create an instance of ``Iou`` contract from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
@@ -431,7 +421,7 @@ Exercise by Contract ID
 
 The JSON command below, demonstrates how to exercise ``Iou_Transfer`` choice on ``Iou`` contract:
 
-.. literalinclude:: ../getting-started/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ../app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 
@@ -951,8 +941,8 @@ If empty JSON array is passed: ``[]``, this endpoint returns BadRequest(400) err
       ]
     }
 
-HTTP Response
-=============
+HTTP Response OK(200)
+=====================
 
 - Content-Type: ``application/json``
 - Content:
@@ -987,8 +977,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-HTTP Response with Unknown Parties Warning
-============================================
+HTTP Response OK(200) with Unknown Parties Warning
+==================================================
 
 - Content-Type: ``application/json``
 - Content:
@@ -1004,11 +994,27 @@ HTTP Response with Unknown Parties Warning
         }
       ],
       "warnings": {
-        "unknownParties": [
-          "Erin"
-        ]
+        "unknownParties": ["Erin"]
       },
       "status": 200
+    }
+
+BadRequest(400) Response with Unknown Parties Warning
+=====================================================
+
+When all party identifiers specified in the request are unknown to the server, it returns BadRequest(400) error with a warnings that lists all party identifiers.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+      "errors": ["Cannot find any requested party"],
+      "warnings": {
+        "unknownParties": ["Bob", "Dave", "Alice"]
+      },
+      "status": 400
     }
 
 Fetch All Known Parties
@@ -1026,7 +1032,7 @@ The response is the same as for the POST method above.
 Allocate a New Party
 ********************
 
-This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
+This endpoint is a JSON API proxy for the Ledger API's :ref:`AllocatePartyRequest <com.daml.ledger.api.v1.admin.AllocatePartyRequest>`. For more information about party management, please refer to :ref:`Provisioning Identifiers <provisioning-ledger-identifiers>` part of the Ledger API documentation.
 
 HTTP Request
 ============
@@ -1043,7 +1049,7 @@ HTTP Request
       "displayName": "Carol & Co. LLC"
     }
 
-Please refer to :ref:`AllocateParty <com.digitalasset.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
+Please refer to :ref:`AllocateParty <com.daml.ledger.api.v1.admin.AllocatePartyRequest>` documentation for information about meaning of the fields.
 
 All fields in the request are optional, this means that empty JSON object is a valid request to allocate a new party:
 
@@ -1067,6 +1073,18 @@ HTTP Response
 
 Streaming API
 *************
+
+**WARNING:** the WebSocket endpoints described below are in alpha,
+so are *subject to breaking changes*, including all
+request and response elements demonstrated below or otherwise
+implemented by the API.  We welcome feedback about the API on `our issue
+tracker
+<https://github.com/digital-asset/daml/issues/new?milestone=HTTP+JSON+API+Maintenance>`_
+or `on Slack <https://hub.daml.com/slack/>`_.
+
+Please keep in mind that the presence of **/v1** prefix in the the
+WebSocket URLs does not mean that the endpoint interfaces are
+stabilized.
 
 Two subprotocols must be passed with every request, as described in
 `Passing token with WebSockets <#passing-token-with-websockets>`__.
@@ -1134,6 +1152,8 @@ Contracts Query Stream
 - URL: ``/v1/stream/query``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match a given query, with
 continuous updates.
@@ -1298,6 +1318,8 @@ Fetch by Key Contracts Stream
 - URL: ``/v1/stream/fetch``
 - Scheme: ``ws``
 - Protocol: ``WebSocket``
+
+*Endpoint is in alpha as described above.*
 
 List currently active contracts that match one of the given ``{templateId, key}`` pairs, with continuous updates.
 

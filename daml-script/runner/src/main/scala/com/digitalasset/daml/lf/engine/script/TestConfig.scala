@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import java.io.File
 import java.time.Duration
 
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.platform.services.time.TimeProviderType
 
 case class TestConfig(
     darPath: File,

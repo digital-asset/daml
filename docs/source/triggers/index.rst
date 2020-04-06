@@ -9,7 +9,7 @@ DAML Triggers - Off-Ledger Automation in DAML
 
    trigger-docs
 
-**WARNING:** DAML Triggers are an experimental feature that is actively
+**WARNING:** DAML Triggers are an early access feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML triggers on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_

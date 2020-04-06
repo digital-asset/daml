@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.quickstart.iou
+package com.daml.quickstart.iou
 
 import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.quickstart.iou.FutureUtil.toFuture
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.client.LedgerClient
+import com.daml.quickstart.iou.FutureUtil.toFuture
 import com.google.protobuf.empty.Empty
 
 import scala.concurrent.{ExecutionContext, Future}

@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.scenario
+package com.daml.lf.scenario
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
 
-import com.digitalasset.daml.lf.archive.Decode.ParseError
-import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
+import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.netty.NettyServerBuilder

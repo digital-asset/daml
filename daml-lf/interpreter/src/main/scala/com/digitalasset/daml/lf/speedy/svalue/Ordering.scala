@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 package svalue
 
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
-import com.digitalasset.daml.lf.data.ScalazEqual._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
+import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._

@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.store.PersistenceEntry
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.data.ImmArray
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.platform.ApiOffset
+import com.daml.platform.store.PersistenceEntry
+import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 import scala.collection.immutable.HashMap

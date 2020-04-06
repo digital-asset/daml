@@ -3,7 +3,7 @@
 
 module DA.Ledger.Services.ResetService (reset) where
 
-import Com.Digitalasset.Ledger.Api.V1.Testing.ResetService
+import Com.Daml.Ledger.Api.V1.Testing.ResetService
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types

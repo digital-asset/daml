@@ -12,7 +12,7 @@ Bindings for a language consist of two main components:
     Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :doc:`/app-dev/grpc/index`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".
 
 - Codegen
-     A code generator is a program that generates classes representing DAML contract templates in the language. These classes incorporate all boilerplate code for constructing: :ref:`com.digitalasset.ledger.api.v1.CreateCommand` and :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand` corresponding for each DAML contract template.
+     A code generator is a program that generates classes representing DAML contract templates in the language. These classes incorporate all boilerplate code for constructing: :ref:`com.daml.ledger.api.v1.CreateCommand` and :ref:`com.daml.ledger.api.v1.ExerciseCommand` corresponding for each DAML contract template.
 
 Technically codegen is optional. You can construct the commands manually from the auto-generated **Ledger API** classes. However, it is very tedious and error-prone. If you are creating *ad hoc* bindings for a project with a few contract templates, writing a proper codegen may be overkill. On the other hand, if you have hundreds of contract templates in your project or are planning to build language bindings that you will share across multiple projects, we recommend including a codegen in your bindings. It will save you and your users time in the long run.
 
@@ -32,13 +32,13 @@ No matter what approach you take, either manually building commands or writing a
 Create Command
 --------------
 
-Let's recall an **IOU** example from the :doc:`Quickstart guide </getting-started/quickstart>`, where `Iou` template is defined like this:
+Let's recall an **IOU** example from the :doc:`Quickstart guide </app-dev/bindings-java/quickstart>`, where `Iou` template is defined like this:
 
-.. literalinclude:: ./code-snippets/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 9-15
 
-Here is how to manually build a :ref:`com.digitalasset.ledger.api.v1.CreateCommand` for the above contract template in Scala:
+Here is how to manually build a :ref:`com.daml.ledger.api.v1.CreateCommand` for the above contract template in Scala:
 
 .. literalinclude:: ./code-snippets/iou-no-codegen/application/src/main/scala/com/digitalasset/quickstart/iou/IouCommands.scala
    :start-after: // <doc-ref:iou-no-codegen-create-command>
@@ -56,9 +56,9 @@ Codegen should simplify the command construction by providing auto-generated uti
 Exercise Command
 ----------------
 
-To build :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
+To build :ref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
 
-.. literalinclude:: ./code-snippets/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: /app-dev/bindings-java/quickstart/template-root/daml/Iou.daml
   :language: daml
   :lines: 23, 52-55
 

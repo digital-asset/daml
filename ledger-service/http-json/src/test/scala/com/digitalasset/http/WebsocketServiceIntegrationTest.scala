@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
@@ -9,8 +9,8 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.digitalasset.http.json.{DomainJsonEncoder, SprayJson}
-import com.digitalasset.http.util.TestUtil
+import com.daml.http.json.{DomainJsonEncoder, SprayJson}
+import com.daml.http.util.TestUtil
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.{-\/, \/, \/-}

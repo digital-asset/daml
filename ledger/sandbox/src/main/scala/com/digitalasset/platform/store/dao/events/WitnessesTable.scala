@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.TransactionId
-import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
+import com.daml.ledger.TransactionId
+import com.daml.platform.events.EventIdFormatter.fromTransactionId
 
 /**
   * A table storing a flattened representation of a [[DisclosureRelation]],

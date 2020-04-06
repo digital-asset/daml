@@ -12,8 +12,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService
 }
 import com.daml.ledger.participant.state.v1.SeedService
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.logging.LoggingContext
+import com.daml.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext

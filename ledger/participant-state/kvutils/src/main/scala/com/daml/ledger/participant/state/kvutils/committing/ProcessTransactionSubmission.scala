@@ -14,16 +14,16 @@ import com.daml.ledger.participant.state.kvutils.committing.Common._
 import com.daml.ledger.participant.state.kvutils.committing.ProcessTransactionSubmission._
 import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Transaction.AbsTransaction
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref.{IdString, PackageId, Party}
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.{Blinding, Engine}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Transaction.AbsTransaction
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
+import com.daml.lf.value.Value
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._

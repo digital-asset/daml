@@ -9,15 +9,15 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.javaapi.data.LedgerOffset.Absolute
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
 import com.daml.ledger.rxjava.grpc.helpers.{CommandServiceImpl, _}
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard}
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
-import com.digitalasset.ledger.api.v1.package_service._
+import com.daml.ledger.api.v1.ledger_configuration_service.GetLedgerConfigurationResponse
+import com.daml.ledger.api.v1.package_service._
 import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import io.grpc.Server

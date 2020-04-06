@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.io.File
 import java.net.InetAddress
@@ -9,8 +9,8 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.util.ExceptionOps._
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}

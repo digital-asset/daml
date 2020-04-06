@@ -70,7 +70,7 @@ Once the DAR file is created you will see this message in terminal ``Created .da
 Any commands starting with ``daml`` are using the :doc:`DAML Assistant </tools/assistant>`, a command line tool in the DAML SDK for building and running DAML apps.
 In order to connect the UI code to this DAML, we need to run a code generation step::
 
-    daml codegen ts .daml/dist/create-daml-app-0.1.0.dar -o daml.js
+    daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
 Now, changing to the ``ui`` folder, use Yarn to install the project dependencies and build the app::
 
@@ -89,7 +89,7 @@ In one terminal, at the root of the ``create-daml-app`` directory, run the comma
 
     daml start
 
-You will know that the command has started successfully when you see the ``INFO  com.digitalasset.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
+You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
     1. Compiles the DAML code to a DAR file as in the previous ``daml build`` step.
     2. Starts an instance of the :doc:`Sandbox </tools/sandbox>`, an in-memory ledger useful for development, loaded with our DAR.

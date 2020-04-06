@@ -8,15 +8,15 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.commands.Command
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.client.binding.Value.encode
-import com.digitalasset.ledger.test_stable.Test.CallablePayout._
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.DummyFactory._
-import com.digitalasset.ledger.test_stable.Test.WithObservers._
-import com.digitalasset.ledger.test_stable.Test.{Dummy, _}
+import com.daml.ledger.api.v1.commands.Command
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.client.binding.Value.encode
+import com.daml.ledger.test_stable.Test.CallablePayout._
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test_stable.Test.DummyFactory._
+import com.daml.ledger.test_stable.Test.WithObservers._
+import com.daml.ledger.test_stable.Test.{Dummy, _}
 import io.grpc.Status
 import scalaz.syntax.tag._
 

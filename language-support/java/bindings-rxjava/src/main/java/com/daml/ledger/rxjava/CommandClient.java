@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * An RxJava version of {@link com.digitalasset.ledger.api.v1.CommandServiceGrpc}
+ * An RxJava version of {@link com.daml.ledger.api.v1.CommandServiceGrpc}
  */
 public interface CommandClient {
 

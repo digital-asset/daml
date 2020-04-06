@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.nio.file.Path
 
@@ -10,33 +10,33 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{
+import com.daml.api.util.TimeProvider
+import com.daml.auth.TokenHolder
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.http.Statement.discard
+import com.daml.http.dbbackend.ContractDao
+import com.daml.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
-import com.digitalasset.jwt.JwtDecoder
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.http.util.ApiValueToLfValueConverter
+import com.daml.util.ExceptionOps._
+import com.daml.http.util.FutureUtil._
+import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.jwt.JwtDecoder
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._

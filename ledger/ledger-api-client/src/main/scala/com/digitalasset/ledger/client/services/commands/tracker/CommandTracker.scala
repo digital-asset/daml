@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.commands.tracker
+package com.daml.ledger.client.services.commands.tracker
 
 import java.time.{Instant, Duration => JDuration}
 
 import akka.stream.stage._
 import akka.stream.{Attributes, Inlet, Outlet}
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.v1.command_submission_service._
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElement
-import com.digitalasset.util.Ctx
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.v1.command_submission_service._
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.CompletionStreamElement
+import com.daml.util.Ctx
 import com.google.protobuf.duration.{Duration => ProtoDuration}
 import com.google.protobuf.empty.Empty
 import com.google.rpc.code._

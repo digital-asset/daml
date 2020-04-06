@@ -4,7 +4,7 @@
 package com.daml.ledger.on.sql
 
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
-import com.digitalasset.logging.LoggingContext.newLoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 class DatabaseSpec extends AsyncWordSpec with Matchers {

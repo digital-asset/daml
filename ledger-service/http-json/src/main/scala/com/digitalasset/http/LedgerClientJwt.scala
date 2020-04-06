@@ -1,23 +1,23 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.lf.data.Ref
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest
 }
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.client.LedgerClient
 import scalaz.OneAnd
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -102,7 +102,7 @@ object LedgerClientJwt {
     }
 
   private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
-    import com.digitalasset.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
+    import com.daml.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
     (start.value, end.map(_.value)) match {
       case (s: LedgerOffset.Value.Absolute, Some(e: LedgerOffset.Value.Absolute)) =>
         AbsoluteOffsetOrdering.gteq(s, e)

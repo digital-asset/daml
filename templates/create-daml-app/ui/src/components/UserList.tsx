@@ -4,7 +4,7 @@
 import React from 'react'
 import { Icon, List } from 'semantic-ui-react'
 import { Party } from '@daml/types';
-import { User } from '@daml.js/create-daml-app-0.1.0';
+import { User } from '@daml.js/create-daml-app';
 
 type Props = {
   users: User.User[];

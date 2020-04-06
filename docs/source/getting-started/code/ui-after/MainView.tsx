@@ -4,7 +4,7 @@
 import React, { useMemo } from 'react';
 import { Container, Grid, Header, Icon, Segment, Divider } from 'semantic-ui-react';
 import { Party } from '@daml/types';
-import { User } from '@daml.js/create-daml-app-0.1.0/lib/User';
+import { User } from '@daml.js/create-daml-app';
 import { useParty, useExerciseByKey, useStreamFetchByKey, useStreamQuery } from '@daml/react';
 import UserList from './UserList';
 import PartyListEdit from './PartyListEdit';
@@ -15,9 +15,9 @@ import MessageList from './MessageList';
 
 const MainView: React.FC = () => {
   const username = useParty();
-  const myUserResult = useStreamFetchByKey(User, () => username, [username]);
+  const myUserResult = useStreamFetchByKey(User.User, () => username, [username]);
   const myUser = myUserResult.contract?.payload;
-  const allUsers = useStreamQuery(User).contracts;
+  const allUsers = useStreamQuery(User.User).contracts;
 
   // Sorted list of users that are following the current user
   const followers = useMemo(() =>
@@ -27,7 +27,7 @@ const MainView: React.FC = () => {
     .sort((x, y) => x.username.localeCompare(y.username)),
     [allUsers, username]);
 
-  const exerciseFollow = useExerciseByKey(User.Follow);
+  const exerciseFollow = useExerciseByKey(User.User.Follow);
 
   const follow = async (userToFollow: Party): Promise<boolean> => {
     try {

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
@@ -11,10 +11,10 @@ import java.util.concurrent.TimeUnit.SECONDS
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, ServerInterceptor}
 import io.netty.channel.socket.nio.NioServerSocketChannel

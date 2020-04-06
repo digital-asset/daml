@@ -64,7 +64,7 @@ data Command
     | LedgerNavigator { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
 
-data Lang = Java | Scala | TypeScript
+data Lang = Java | Scala | JavaScript
 
 commandParser :: Parser Command
 commandParser = subparser $ fold
@@ -187,13 +187,13 @@ commandParser = subparser $ fold
         [ subparser $ fold
             [  command "java" $ info codegenJavaCmd forwardOptions
             ,  command "scala" $ info codegenScalaCmd forwardOptions
-            ,  command "ts" $ info codegenTypeScriptCmd forwardOptions
+            ,  command "js" $ info codegenJavaScriptCmd forwardOptions
             ]
         ]
 
     codegenJavaCmd = Codegen Java <$> many (argument str (metavar "ARG"))
     codegenScalaCmd = Codegen Scala <$> many (argument str (metavar "ARG"))
-    codegenTypeScriptCmd = Codegen TypeScript <$> many (argument str (metavar "ARG"))
+    codegenJavaScriptCmd = Codegen JavaScript <$> many (argument str (metavar "ARG"))
 
     ledgerCmdInfo = mconcat
         [ forwardOptions
@@ -345,7 +345,7 @@ runCommand = \case
     LedgerNavigator {..} -> runLedgerNavigator flags remainingArguments
     Codegen {..} ->
         case lang of
-            TypeScript ->
+            JavaScript ->
                 runDaml2js remainingArguments
             Java ->
                 runJar

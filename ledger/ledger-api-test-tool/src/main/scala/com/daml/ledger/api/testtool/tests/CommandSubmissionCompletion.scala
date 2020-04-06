@@ -8,9 +8,9 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.Dummy
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
+import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt

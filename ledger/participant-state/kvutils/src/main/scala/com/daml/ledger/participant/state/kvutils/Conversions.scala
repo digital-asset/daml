@@ -7,21 +7,16 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractId,
-  RelativeContractId,
-  VersionedValue
-}
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.crypto
+import com.daml.lf.data
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction._
+import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId, VersionedValue}
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.Empty
 

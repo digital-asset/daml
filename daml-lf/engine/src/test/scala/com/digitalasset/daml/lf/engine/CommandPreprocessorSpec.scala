@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml
+package com.daml
 package lf
 package engine
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast.{TNat, TTyCon}
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data._
+import com.daml.lf.language.Ast.{TNat, TTyCon}
+import com.daml.lf.language.Util._
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.value.Value._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 

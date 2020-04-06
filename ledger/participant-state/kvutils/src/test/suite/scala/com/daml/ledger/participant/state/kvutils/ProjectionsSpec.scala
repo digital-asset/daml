@@ -3,12 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
-import com.digitalasset.daml.lf.value.Value.{
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{BackStack, ImmArray}
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.transaction.{GenTransaction, Node}
+import com.daml.lf.value.Value.{
   ContractId,
   ContractInst,
   NodeId,
@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueText,
   VersionedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.daml.lf.value.ValueVersions
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable.HashMap

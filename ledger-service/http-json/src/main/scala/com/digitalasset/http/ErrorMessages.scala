@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import scalaz.syntax.tag._
 
@@ -11,6 +11,9 @@ object ErrorMessages {
 
   def cannotResolveAnyTemplateId: String =
     "Cannot not resolve any template ID from request"
+
+  def cannotFindAnyParty: String =
+    "Cannot find any requested party"
 
   def cannotResolveTemplateId(a: domain.ContractLocator[_]): String =
     s"Cannot resolve templateId, given: $a"

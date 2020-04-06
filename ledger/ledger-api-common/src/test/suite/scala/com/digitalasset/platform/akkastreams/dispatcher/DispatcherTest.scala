@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Keep, Sink}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Milliseconds, Seconds, Span}
 import org.scalatest.{Matchers, WordSpec}

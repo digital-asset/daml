@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.platform.index.MeteredReadOnlyLedger
-import com.digitalasset.platform.metrics.timedFuture
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.platform.index.MeteredReadOnlyLedger
+import com.daml.platform.metrics.timedFuture
 
 import scala.concurrent.Future
 

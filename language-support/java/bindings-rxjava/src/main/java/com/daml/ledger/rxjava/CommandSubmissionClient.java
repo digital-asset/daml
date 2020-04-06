@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * An RxJava version of {@link com.digitalasset.ledger.api.v1.CommandSubmissionServiceGrpc}
+ * An RxJava version of {@link com.daml.ledger.api.v1.CommandSubmissionServiceGrpc}
  */
 public interface CommandSubmissionClient {
 

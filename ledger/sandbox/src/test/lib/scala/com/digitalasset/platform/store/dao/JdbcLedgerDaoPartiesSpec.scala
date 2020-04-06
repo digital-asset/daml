@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.time.Instant
 import java.util.UUID
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.platform.store.entries.PartyLedgerEntry
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.PartyDetails
+import com.daml.platform.store.entries.PartyLedgerEntry
 import org.scalatest.{AsyncFlatSpec, Matchers}
 
 private[dao] trait JdbcLedgerDaoPartiesSpec {

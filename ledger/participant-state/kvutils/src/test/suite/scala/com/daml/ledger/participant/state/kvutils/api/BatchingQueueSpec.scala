@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.api
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmissionBatch
 import com.daml.ledger.participant.state.v1.SubmissionResult
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.google.protobuf.ByteString
 import org.mockito.Mockito
 import org.mockito.Mockito._

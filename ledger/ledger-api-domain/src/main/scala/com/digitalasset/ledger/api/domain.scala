@@ -1,18 +1,18 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api
+package com.daml.ledger.api
 
 import java.time.Instant
 
 import brave.propagation.TraceContext
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.command.{Commands => LfCommands}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString.ordering
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
+import com.daml.lf.command.{Commands => LfCommands}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString.ordering
+import com.daml.lf.value.Value.{AbsoluteContractId, ValueRecord}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.syntax.tag._
 import scalaz.{@@, Tag}
 

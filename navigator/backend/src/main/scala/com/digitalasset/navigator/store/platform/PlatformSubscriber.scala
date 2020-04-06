@@ -1,24 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store.platform
+package com.daml.navigator.store.platform
 
 import akka.NotUsed
 import akka.actor.{Actor, ActorLogging, ActorRef, Props, Stash}
 import akka.stream._
 import akka.stream.scaladsl.{Sink, Source, SourceQueueWithComplete}
-import com.digitalasset.daml.lf.archive.Reader
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
-import com.digitalasset.ledger.api.{v1 => V1}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.model.converter.TypeNotFoundError
-import com.digitalasset.navigator.store.Store.{StoreException, _}
-import com.digitalasset.util.Ctx
+import com.daml.lf.archive.Reader
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.package_service.GetPackageResponse
+import com.daml.ledger.api.{v1 => V1}
+import com.daml.ledger.client.LedgerClient
+import com.daml.navigator.model._
+import com.daml.navigator.model.converter.TypeNotFoundError
+import com.daml.navigator.store.Store.{StoreException, _}
+import com.daml.util.Ctx
 import scalaz.Tag
 import scalaz.syntax.tag._
 

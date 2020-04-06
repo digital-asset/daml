@@ -1,31 +1,31 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.time.Duration
 import java.util.concurrent.TimeUnit.MINUTES
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
-import com.digitalasset.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, LedgerId, Party}
+import com.daml.ledger.api.refinements.{CompositeCommand, CompositeCommandAdapter}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.binding.DomainTransactionMapper.DecoderType
-import com.digitalasset.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
-import com.digitalasset.ledger.client.binding.util.Slf4JLogger
-import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
-import com.digitalasset.util.Ctx
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
+import com.daml.ledger.client.binding.retrying.{CommandRetryFlow, RetryInfo}
+import com.daml.ledger.client.binding.util.Slf4JLogger
+import com.daml.ledger.client.configuration.LedgerClientConfiguration
+import com.daml.util.Ctx
 import io.grpc.ManagedChannel
 import io.grpc.netty.NegotiationType.TLS
 import io.grpc.netty.NettyChannelBuilder

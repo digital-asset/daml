@@ -16,14 +16,14 @@ import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, Created
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.auth.AuthServiceWildcard
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.auth.AuthServiceWildcard
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
-import com.digitalasset.ledger.api.{v1 => scalaAPI}
+import com.daml.ledger.api.{v1 => scalaAPI}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status

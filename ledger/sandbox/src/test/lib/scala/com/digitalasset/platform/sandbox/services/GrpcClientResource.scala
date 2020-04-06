@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.platform.apiserver.EventLoopGroupOwner
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.platform.apiserver.EventLoopGroupOwner
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.Channel
 import io.grpc.netty.NettyChannelBuilder
 import io.netty.channel.EventLoopGroup

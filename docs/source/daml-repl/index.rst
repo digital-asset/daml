@@ -4,7 +4,7 @@
 DAML REPL
 ###########
 
-**WARNING:** DAML REPL is an experimental feature that is actively
+**WARNING:** DAML REPL is an early access feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about the DAML REPL on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_

@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.cli
+package com.daml.platform.sandbox.cli
 
 import java.io.File
 import java.time.Duration
@@ -9,18 +9,18 @@ import java.time.Duration
 import ch.qos.logback.classic.Level
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.digitalasset.buildinfo.BuildInfo
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
-import com.digitalasset.ledger.api.auth.AuthServiceJWT
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.MetricsReporter
-import com.digitalasset.platform.configuration.Readers._
-import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.buildinfo.BuildInfo
+import com.daml.lf.data.Ref
+import com.daml.jwt.{ECDSAVerifier, HMAC256Verifier, JwksVerifier, RSA256Verifier}
+import com.daml.ledger.api.auth.AuthServiceJWT
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.MetricsReporter
+import com.daml.platform.configuration.Readers._
+import com.daml.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import io.netty.handler.ssl.ClientAuth
 import scopt.{OptionParser, Read}
 

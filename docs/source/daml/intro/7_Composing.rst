@@ -4,7 +4,7 @@
 7 Composing choices
 ===================
 
-It's time to put everything you've learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/getting-started/quickstart`. In the process you will learn about a few more concepts:
+It's time to put everything you've learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
 - DAML projects, packages and modules
 - Composition of transactions

@@ -75,7 +75,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "test_client_single_participant",
-    main_class = "com.digitalasset.daml.lf.engine.script.test.SingleParticipant",
+    main_class = "com.daml.lf.engine.script.test.SingleParticipant",
     deps = [
         ":test-lib",
         "//libs-scala/auth-utils",
@@ -84,7 +84,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "test_client_multi_participant",
-    main_class = "com.digitalasset.daml.lf.engine.script.test.MultiParticipant",
+    main_class = "com.daml.lf.engine.script.test.MultiParticipant",
     deps = [":test-lib"],
 )
 

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data
+import com.daml.lf.data
 import org.scalatest.{Matchers, WordSpec}
 
 class KVOffsetSpec extends WordSpec with Matchers {

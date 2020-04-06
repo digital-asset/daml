@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.daml.lf.testing.archive
 
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.archive.testing.Encode
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.testing.Encode
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion.V1
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
+import com.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 

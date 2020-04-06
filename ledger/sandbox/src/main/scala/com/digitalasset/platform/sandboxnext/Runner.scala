@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandboxnext
+package com.daml.platform.sandboxnext
 
 import java.io.File
 import java.time.{Clock, Instant}
@@ -17,32 +17,28 @@ import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.buildinfo.BuildInfo
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.logging.ContextualizedLogger
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver._
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  StandaloneIndexerServer
-}
-import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
-import com.digitalasset.platform.sandbox.metrics.MetricsReporting
-import com.digitalasset.platform.sandbox.services.SandboxResetService
-import com.digitalasset.platform.sandboxnext.Runner._
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.store.FlywayMigrations
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{ResettableResourceOwner, Resource, ResourceOwner}
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.Ref
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.domain
+import com.daml.logging.ContextualizedLogger
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.apiserver._
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
+import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.daml.platform.sandbox.metrics.MetricsReporting
+import com.daml.platform.sandbox.services.SandboxResetService
+import com.daml.platform.sandboxnext.Runner._
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.FlywayMigrations
+import com.daml.ports.Port
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps

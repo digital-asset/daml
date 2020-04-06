@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import java.io.{ByteArrayOutputStream, PrintWriter}
 
-import com.digitalasset.navigator.console.AsciiTable._
-import com.digitalasset.navigator.console.Maths._
+import com.daml.navigator.console.AsciiTable._
+import com.daml.navigator.console.Maths._
 
 import scala.collection.immutable.Stream.StreamBuilder
 import scala.language.postfixOps

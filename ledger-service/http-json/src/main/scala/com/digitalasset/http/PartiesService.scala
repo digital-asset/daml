@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.http.EndpointsCompanion.{Error, InvalidUserInput}
-import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api
+import com.daml.lf.data.Ref
+import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput}
+import com.daml.http.util.FutureUtil._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api
 import scalaz.std.option._
 import scalaz.std.scalaFuture._
 import scalaz.std.string._
@@ -88,7 +88,7 @@ class PartiesService(
 }
 
 object PartiesService {
-  import com.digitalasset.http.util.ErrorOps._
+  import com.daml.http.util.ErrorOps._
 
   private type ET[A] = EitherT[Future, Error, A]
 

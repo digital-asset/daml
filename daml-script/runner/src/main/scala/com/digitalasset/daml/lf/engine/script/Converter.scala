@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import io.grpc.StatusRuntimeException
 import java.util
@@ -10,24 +10,24 @@ import scala.collection.JavaConverters._
 import scalaz.{\/-, -\/}
 import spray.json._
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.{ResultDone, ValueTranslator}
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.EnvironmentInterface
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.Speedy
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.{SValue, SExpr}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.daml.lf.speedy.Pretty
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.{ResultDone, ValueTranslator}
+import com.daml.lf.iface
+import com.daml.lf.iface.EnvironmentInterface
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SBuiltin._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.Speedy
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.{SValue, SExpr}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.CompiledPackages
+import com.daml.ledger.api.v1.value
+import com.daml.lf.speedy.Pretty
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {

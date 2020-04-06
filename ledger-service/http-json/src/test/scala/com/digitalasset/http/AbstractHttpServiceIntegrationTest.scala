@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.time.Instant
 
@@ -11,25 +11,25 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.HttpServiceTestFixture.jsonCodecs
-import com.digitalasset.http.domain.ContractId
-import com.digitalasset.http.domain.TemplateId.OptionalPkg
-import com.digitalasset.http.json.SprayJson.{decode, decode1, objectField}
-import com.digitalasset.http.json._
-import com.digitalasset.http.util.ClientUtil.{boxedRecord, uniqueId}
-import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.{FutureUtil, TestUtil}
-import com.digitalasset.jwt.JwtSigner
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.{value => v}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.service.MetadataReader
-import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.daml.api.util.TimestampConversion
+import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.lf.data.Ref
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.HttpServiceTestFixture.jsonCodecs
+import com.daml.http.domain.ContractId
+import com.daml.http.domain.TemplateId.OptionalPkg
+import com.daml.http.json.SprayJson.{decode, decode1, objectField}
+import com.daml.http.json._
+import com.daml.http.util.ClientUtil.{boxedRecord, uniqueId}
+import com.daml.http.util.FutureUtil.toFuture
+import com.daml.http.util.{FutureUtil, TestUtil}
+import com.daml.jwt.JwtSigner
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.v1.{value => v}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.service.MetadataReader
+import com.daml.platform.participant.util.LfEngineToApi
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.std.list._
@@ -938,6 +938,28 @@ abstract class AbstractHttpServiceIntegrationTest
           val errorMsg = expectedOneErrorMessage(output)
           errorMsg should include("Cannot read JSON: <[]>")
           errorMsg should include("must be a JSON array with at least 1 element")
+      }: Future[Assertion]
+  }
+
+  "parties endpoint should return error if all parties are unknown" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      val requestedPartyIds: Vector[domain.Party] =
+        domain.Party.subst(Vector("Alice", "Bob", "Dave"))
+
+      postJsonRequest(
+        uri = uri.withPath(Uri.Path("/v1/parties")),
+        JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
+      ).flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.BadRequest
+          inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
+            case \/-(domain.ErrorResponse(errors, Some(warnings), StatusCodes.BadRequest)) =>
+              errors shouldBe List(ErrorMessages.cannotFindAnyParty)
+              inside(warnings) {
+                case domain.UnknownParties(unknownParties) =>
+                  unknownParties.toSet shouldBe requestedPartyIds.toSet
+              }
+          }
       }: Future[Assertion]
   }
 

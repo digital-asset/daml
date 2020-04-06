@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.transaction
+package com.daml.platform.apiserver.services.transaction
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -9,25 +9,25 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain._
-import com.digitalasset.ledger.api.messages.transaction._
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.lf.data.Ref.Party
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain._
+import com.daml.ledger.api.messages.transaction._
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.services.logging
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.events.EventIdFormatter.TransactionIdWithIndex
-import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.services.logging
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.EventIdFormatter.TransactionIdWithIndex
+import com.daml.platform.server.api.services.domain.TransactionService
+import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 

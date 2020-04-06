@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.daml.lf.value
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.SpecifiedVersion
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.transaction.VersionTimeline.SpecifiedVersion
+import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.value.Value._
+import com.daml.lf.value.{ValueOuterClass => proto}
 import com.google.protobuf
 
 import scala.collection.JavaConverters._
@@ -233,7 +233,7 @@ object ValueCoder {
     * @param protoValue0 the value to be read
     * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
+    *             see [[com.daml.lf.value.Value]] and [[com.daml.daml.lf.value.Value.ContractId]]
     * @return either error or [VersionedValue]
     */
   def decodeVersionedValue[Cid](
@@ -258,7 +258,7 @@ object ValueCoder {
     * @param value value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
+    *             see [[com.daml.lf.value.Value]] and [[com.daml.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
   def encodeVersionedValue[Cid](
@@ -278,7 +278,7 @@ object ValueCoder {
     * @param versionedValue value to be written
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
+    *             see [[com.daml.lf.value.Value]] and [[com.daml.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
   def encodeVersionedValueWithCustomVersion[Cid](
@@ -299,7 +299,7 @@ object ValueCoder {
     * @param protoValue0 the value to be read
     * @param decodeCid a function to decode stringified contract ids
     * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
+    *             see [[com.daml.lf.value.Value]] and [[com.daml.daml.lf.value.Value.ContractId]]
     * @return either error or Value
     */
   def decodeValue[Cid](
@@ -468,7 +468,7 @@ object ValueCoder {
     * @param encodeCid a function to stringify contractIds (it's better to be invertible)
     * @param valueVersion version of value specification to encode to, or fail
     * @tparam Cid ContractId type as ContractId (allowing RelativeContractIds) or AbsoluteContractId
-    *             see [[com.digitalasset.daml.lf.value.Value]] and [[com.digitalasset.daml.lf.value.Value.ContractId]]
+    *             see [[com.daml.lf.value.Value]] and [[com.daml.daml.lf.value.Value.ContractId]]
     * @return protocol buffer serialized values
     */
   def encodeValue[Cid](

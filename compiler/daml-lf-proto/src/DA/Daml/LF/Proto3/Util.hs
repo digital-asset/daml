@@ -16,7 +16,7 @@ import           Data.Int
 import qualified Data.Text.Lazy as TL
 import           GHC.Generics
 
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 class EitherLike a b e where
     toEither :: e -> Either a b

@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.server.api.ApiException
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.platform.server.api.ApiException
 import io.grpc.{Status, StatusRuntimeException}
 
 import scalaz.syntax.tag._

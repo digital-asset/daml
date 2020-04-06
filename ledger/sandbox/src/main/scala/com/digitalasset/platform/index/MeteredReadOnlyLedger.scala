@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
 import java.time.Instant
 
@@ -11,32 +11,32 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.TransactionId
+import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.store.entries.{
+import com.daml.platform.metrics.timedFuture
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry,
 }
-import com.digitalasset.platform.store.ReadOnlyLedger
+import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 

@@ -10,7 +10,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Err, DamlStateMap}
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
 
 import scala.collection.mutable
 

@@ -48,7 +48,7 @@ dar_to_scala(
     srcs = [
         ":SemanticTests.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.test",
+    package_prefix = "com.daml.ledger.test",
     srcjar_out = "SemanticTests.scala.srcjar",
     verbosity = 2,
     visibility = ["//visibility:public"],
@@ -84,7 +84,7 @@ lf_test_versions = [
         dar_to_scala(
             name = "Test-%s.scala-codegen" % target_name,
             srcs = [":Test-%s.dar" % target_name],
-            package_prefix = "com.digitalasset.ledger.test_%s" % target_name,
+            package_prefix = "com.daml.ledger.test_%s" % target_name,
             srcjar_out = "Test-%s.scala.srcjar" % target_name,
             verbosity = 2,
             visibility = ["//visibility:public"],

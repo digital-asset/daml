@@ -14,13 +14,13 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
-import com.digitalasset.daml.lf.value.ValueOuterClass
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.platform.common.metrics.VarGauge
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.ValueOuterClass
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 

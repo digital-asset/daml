@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.navigator.time.TimeProviderType
 import scopt.{OptionDef, OptionParser}
 
 import scala.util.Try
@@ -161,7 +161,7 @@ object Arguments {
         .children(hostname, port)
 
       cmd("console")
-        .text("start the console")
+        .text("start the console (early access)")
         .action(
           (_, arguments) =>
             arguments.copy(

@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value.AbsoluteContractId
 
 sealed trait SequencingError extends Product with Serializable {
 

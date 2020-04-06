@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.http.util.ClientUtil.boxedRecord
-import com.digitalasset.http.util.LedgerOffsetUtil
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.lf
+import com.daml.lf.data.Ref
+import com.daml.lf.iface
+import com.daml.http.util.ClientUtil.boxedRecord
+import com.daml.http.util.LedgerOffsetUtil
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list._
 import scalaz.std.option._
@@ -137,7 +137,7 @@ object domain {
   )
 
   object PartyDetails {
-    def fromLedgerApi(p: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
+    def fromLedgerApi(p: com.daml.ledger.api.domain.PartyDetails): PartyDetails =
       PartyDetails(Party(p.party), p.displayName, p.isLocal)
   }
 
@@ -554,7 +554,9 @@ object domain {
     }
   }
 
-  sealed abstract class SyncResponse[+R] extends Product with Serializable
+  sealed abstract class SyncResponse[+R] extends Product with Serializable {
+    def status: StatusCode
+  }
 
   final case class OkResponse[+R](
       result: R,

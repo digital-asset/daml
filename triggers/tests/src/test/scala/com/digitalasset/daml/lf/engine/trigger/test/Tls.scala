@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger.test
+package com.daml.lf.engine.trigger.test
 
 import akka.stream.scaladsl.{Flow}
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.{value => LedgerApi}
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.data.Ref._
+import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.{value => LedgerApi}
 import java.io.File
 import org.scalatest._
 
-import com.digitalasset.daml.lf.engine.trigger.TriggerMsg
+import com.daml.lf.engine.trigger.TriggerMsg
 
 class Tls
     extends AsyncWordSpec

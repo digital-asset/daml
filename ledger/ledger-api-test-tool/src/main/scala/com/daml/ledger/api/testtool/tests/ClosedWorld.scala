@@ -11,8 +11,8 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.client.binding
-import com.digitalasset.ledger.test.SemanticTests.{Amount, Iou}
+import com.daml.ledger.client.binding
+import com.daml.ledger.test.SemanticTests.{Amount, Iou}
 import io.grpc.Status
 
 class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {

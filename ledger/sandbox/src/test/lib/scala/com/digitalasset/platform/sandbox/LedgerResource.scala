@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.{OwnedResource, Resource}
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
-import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.ImmArray
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.{OwnedResource, Resource}
+import com.daml.logging.LoggingContext
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
+import com.daml.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
+import com.daml.resources.ResourceOwner
+import com.daml.testing.postgresql.PostgresResource
 
 import scala.concurrent.ExecutionContext
 

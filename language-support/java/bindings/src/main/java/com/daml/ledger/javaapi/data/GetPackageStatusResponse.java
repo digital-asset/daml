@@ -41,7 +41,7 @@ public class GetPackageStatusResponse {
         return packageStatus;
     }
 
-    public static GetPackageStatusResponse fromProto(com.digitalasset.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
+    public static GetPackageStatusResponse fromProto(com.daml.ledger.api.v1.PackageServiceOuterClass.GetPackageStatusResponse p) {
         return new GetPackageStatusResponse(PackageStatus.valueOf(p.getPackageStatusValue()));
     }
 

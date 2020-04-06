@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.conf
+package com.daml.lf.codegen.conf
 
 import java.nio.file.{Path, Paths}
 
 import ch.qos.logback.classic.Level
-import com.digitalasset.buildinfo.BuildInfo
+import com.daml.buildinfo.BuildInfo
 import scopt.{OptionParser, Read}
 
 /**

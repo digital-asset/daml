@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset
+package com.daml
 
 import java.io.File
 import java.time.{Duration, Instant}
@@ -12,20 +12,20 @@ import java.util.stream.{Collectors, StreamSupport}
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.participant.state.v1.TimeModel
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
   GetTransactionsResponse
 }
-import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.GrpcClientResource
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.SandboxServer
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.GrpcClientResource
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.Assertion

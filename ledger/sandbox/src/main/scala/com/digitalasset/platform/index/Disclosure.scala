@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, Transaction}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, NodeInfo}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.Transaction.{NodeId, Transaction}
+import com.daml.lf.transaction.{GenTransaction, NodeInfo}
 
 object Disclosure {
 

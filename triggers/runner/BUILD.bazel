@@ -34,7 +34,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "trigger-runner",
-    main_class = "com.digitalasset.daml.lf.engine.trigger.RunnerMain",
+    main_class = "com.daml.lf.engine.trigger.RunnerMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [":trigger-runner-lib"],

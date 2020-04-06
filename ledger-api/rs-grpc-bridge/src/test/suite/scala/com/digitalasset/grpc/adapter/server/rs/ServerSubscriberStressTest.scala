@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.server.rs
+package com.daml.grpc.adapter.server.rs
 
-import com.digitalasset.grpc.adapter.TestExecutionSequencerFactory
+import com.daml.grpc.adapter.TestExecutionSequencerFactory
 import org.reactivestreams.tck.flow.support.HelperPublisher
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span

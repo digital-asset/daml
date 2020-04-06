@@ -1,15 +1,15 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy.svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, Numeric, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
+import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
+import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz._
