@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.caching
 
+import com.google.common.cache.CacheBuilder
 import com.google.common.{cache => google}
 
 import scala.collection.JavaConverters._
@@ -16,9 +17,17 @@ trait Cache[Key, Value] {
 }
 
 object Cache {
-  def none[Key, Value]: Cache[Key, Value] = new None
+  def none[Key, Value]: Cache[Key, Value] = new NoCache
 
-  class None[Key, Value] extends Cache[Key, Value] {
+  def maxWeight[Key <: AnyRef: Weight, Value <: AnyRef: Weight](weight: Size): Cache[Key, Value] =
+    new GoogleCache(
+      CacheBuilder
+        .newBuilder()
+        .maximumWeight(weight)
+        .weigher[Key, Value](Weight.weigher)
+        .build[Key, Value]())
+
+  class NoCache[Key, Value] extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value = acquire(key)
 
     override def size: Size = 0
@@ -26,8 +35,7 @@ object Cache {
     override private[caching] def entries: Iterable[(Key, Value)] = Iterable.empty
   }
 
-  implicit class `Google Cache to Cache`[Key, Value](val cache: google.Cache[Key, Value])
-      extends Cache[Key, Value] {
+  class GoogleCache[Key, Value](val cache: google.Cache[Key, Value]) extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value =
       cache.get(key, () => acquire(key))
 

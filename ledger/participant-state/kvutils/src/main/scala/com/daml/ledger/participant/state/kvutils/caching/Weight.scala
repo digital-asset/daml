@@ -41,5 +41,4 @@ object Weight {
     override def weigh(key: Key, value: Value): Int =
       (Weight.weigh(key) + Weight.weigh(value)).toInt
   }
-
 }

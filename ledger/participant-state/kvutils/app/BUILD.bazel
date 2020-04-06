@@ -41,7 +41,6 @@ da_scala_library(
         "//libs-scala/resources",
         "//libs-scala/resources-akka",
         "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",

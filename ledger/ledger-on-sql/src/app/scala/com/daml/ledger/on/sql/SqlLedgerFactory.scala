@@ -58,7 +58,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         participantConfig.participantId,
         metrics,
         jdbcUrl,
-        stateValueCache = config.stateValueCache,
+        stateValueCache = config.stateValueCache.build,
         seedService = SeedService(config.seeding),
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))

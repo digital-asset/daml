@@ -56,7 +56,7 @@ object Main {
         initialLedgerId = config.ledgerId,
         participantId = participantConfig.participantId,
         metricRegistry = metricRegistry(participantConfig, config),
-        stateValueCache = config.stateValueCache,
+        stateValueCache = config.stateValueCache.build,
         dispatcher = dispatcher,
         state = state,
       )
