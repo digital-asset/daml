@@ -45,7 +45,8 @@ lazy val commonSettings = Seq(
     "-Xfuture",
     "-Xlint:_,-unused"
   ),
-  resolvers += Resolver.mavenLocal,
+  // uncomment next line, if you have to build against local maven repository
+  // resolvers += Resolver.mavenLocal,
   classpathTypes += "maven-plugin"
 )
 
