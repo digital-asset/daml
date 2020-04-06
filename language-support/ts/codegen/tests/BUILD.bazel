@@ -124,6 +124,7 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -141,7 +142,6 @@ da_haskell_test(
     srcs = ["src/DA/Test/Daml2js.hs"],
     args = [
         "$(location //:yarn)",
-        "$(location //language-support/ts/daml-types:npm_package)",
     ],
     data = [
         "//:yarn",
