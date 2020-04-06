@@ -38,6 +38,8 @@ import com.daml.ledger.api.v1.admin.party_management_service.{
 }
 import com.daml.ledger.api.v1.command_completion_service.{
   Checkpoint,
+  CompletionEndRequest,
+  CompletionEndResponse,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
@@ -61,7 +63,8 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
-  GetTransactionsRequest
+  GetTransactionsRequest,
+  GetTransactionsResponse
 }
 import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.daml.ledger.client.binding.Primitive.Party
@@ -287,6 +290,11 @@ private[testtool] final class ParticipantTestContext private[participant] (
       service: (GetTransactionsRequest, StreamObserver[Res]) => Unit,
   ): Future[Vector[Res]] =
     new StreamConsumer[Res](service(request, _)).all()
+
+  def transactionStream(
+      request: GetTransactionsRequest,
+      responseObserver: StreamObserver[GetTransactionsResponse]): Unit =
+    services.transaction.getTransactions(request, responseObserver)
 
   def flatTransactionsByTemplateId(
       templateId: TemplateId,
@@ -540,6 +548,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
 
   def completionStreamRequest(from: LedgerOffset = referenceOffset)(parties: Party*) =
     new CompletionStreamRequest(ledgerId, applicationId, parties.map(_.unwrap), Some(from))
+
+  def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
+    services.commandCompletion.completionEnd(request)
+
+  def completionStream(
+      request: CompletionStreamRequest,
+      streamObserver: StreamObserver[CompletionStreamResponse]): Unit =
+    services.commandCompletion.completionStream(request, streamObserver)
 
   def firstCompletions(request: CompletionStreamRequest): Future[Vector[Completion]] =
     new StreamConsumer[CompletionStreamResponse](

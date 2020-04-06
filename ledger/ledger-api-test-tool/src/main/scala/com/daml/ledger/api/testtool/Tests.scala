@@ -3,8 +3,16 @@
 
 package com.daml.ledger.api.testtool
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import java.nio.file.Path
+
+import com.daml.ledger.api.testtool
+import com.daml.ledger.api.testtool.infrastructure.{
+  BenchmarkReporter,
+  LedgerSession,
+  LedgerTestSuite
+}
 import com.daml.ledger.api.testtool.tests._
+import org.slf4j.LoggerFactory
 
 object Tests {
   type Tests = Map[String, LedgerSession => LedgerTestSuite]
@@ -48,4 +56,38 @@ object Tests {
   )
 
   val all: Tests = default ++ optional
+
+  /**
+    * These are performance envelope tests that also provide benchmarks and are always run
+    * sequentially; they also must be specified explicitly with --perf-tests and will exclude
+    * all other tests.
+    */
+  def performanceTests(path: Option[Path]): Tests = {
+    val reporter =
+      (key: String, value: Double) =>
+        path
+          .map(BenchmarkReporter.toFile)
+          .getOrElse(BenchmarkReporter.toStream(System.out))
+          .addReport(key, value)
+    Map(
+      PerformanceEnvelopeThroughputTestKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+        logger = LoggerFactory.getLogger(PerformanceEnvelopeThroughputTestKey),
+        envelope = PerformanceEnvelope,
+        reporter = reporter,
+      )(_)),
+      PerformanceEnvelopeLatencyTestKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+        logger = LoggerFactory.getLogger(PerformanceEnvelopeLatencyTestKey),
+        envelope = PerformanceEnvelope,
+        reporter = reporter,
+      )(_)),
+    )
+  }
+
+  private[this] val PerformanceEnvelope = Envelope.Beta // Should be adequate for most CIs
+
+  private[this] val PerformanceEnvelopeThroughputTestKey = "PerformanceEnvelope.Throughput"
+  private[this] val PerformanceEnvelopeLatencyTestKey = "PerformanceEnvelope.Latency"
+
+  private[testtool] val PerformanceTestsKeys =
+    Seq(PerformanceEnvelopeLatencyTestKey, PerformanceEnvelopeThroughputTestKey)
 }
