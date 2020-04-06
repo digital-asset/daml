@@ -4,10 +4,13 @@
 -- | Tasty resource for starting sandbox
 module DA.Test.Sandbox
     ( SandboxConfig(..)
+    , SandboxResource(..)
     , ClientAuth(..)
     , TimeMode(..)
     , defaultSandboxConf
     , withSandbox
+    , createSandbox
+    , destroySandbox
     ) where
 
 import Control.Exception
@@ -76,20 +79,24 @@ getSandboxProc SandboxConfig{..} portFile = do
             Optional -> "optional"
             Require -> "require"
 
+createSandbox :: FilePath -> Handle -> SandboxConfig -> IO SandboxResource
+createSandbox portFile sandboxOutput conf = do
+    sandboxProc <- getSandboxProc conf portFile
+    mask $ \unmask -> do
+        ph <- createProcess sandboxProc { std_out = UseHandle sandboxOutput }
+        let waitForStart = do
+                port <- readPortFile maxRetries portFile
+                pure (SandboxResource ph port)
+        unmask (waitForStart `onException` cleanupProcess ph)
+
 withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
 withSandbox conf f =
     withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
     withResource newTempFile snd $ \getPortFile ->
         let createSandbox' = do
-                devNull <- getDevNull
                 (portFile, _) <- getPortFile
-                sandboxProc <- getSandboxProc conf portFile
-                mask $ \unmask -> do
-                    ph <- createProcess sandboxProc { std_out = UseHandle devNull }
-                    let waitForStart = do
-                            port <- readPortFile maxRetries portFile
-                            pure (SandboxResource ph port)
-                    unmask (waitForStart `onException` cleanupProcess ph)
+                devNull <- getDevNull
+                createSandbox portFile devNull conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
 
@@ -97,5 +104,6 @@ data SandboxResource = SandboxResource
     { sandboxProcess :: (Maybe Handle, Maybe Handle, Maybe Handle, ProcessHandle)
     , sandboxPort :: Int
     }
+
 destroySandbox :: SandboxResource -> IO ()
 destroySandbox = cleanupProcess . sandboxProcess

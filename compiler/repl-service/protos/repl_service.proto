@@ -12,6 +12,7 @@ package replservice;
 service ReplService {
   rpc LoadPackage (LoadPackageRequest) returns (LoadPackageResponse);
   rpc RunScript (RunScriptRequest) returns (RunScriptResponse);
+  rpc ClearResults (ClearResultsRequest) returns (ClearResultsResponse);
 }
 
 message LoadPackageRequest {
@@ -27,4 +28,10 @@ message RunScriptRequest {
 }
 
 message RunScriptResponse {
+}
+
+message ClearResultsRequest {
+}
+
+message ClearResultsResponse {
 }

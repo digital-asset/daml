@@ -217,12 +217,8 @@ runRepl opts mainDar replClient ideState = do
     handleStmt dflags line stmt = do
         ReplState {imports, bindings, lineNumber} <- State.get
         (bind, expr) <- maybe (throwError (UnsupportedStatement line)) pure (splitStmt stmt)
-        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
-            (renderModule dflags imports lineNumber bindings bind expr)
-        -- Useful for debugging, probably best to put it behind a --debug flag
-        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
-        -- liftIO $ for_ (lines rendered) $ \line ->
-        --      hPutStrLn stderr ("> " <> line)
+        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
+            $ Just $ T.pack (renderModule dflags imports lineNumber bindings bind expr)
         (lfMod, tmrModule -> tcMod) <-
             maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
             (,) <$> useE GenerateDalf (lineFilePath lineNumber)
@@ -249,15 +245,11 @@ runRepl opts mainDar replClient ideState = do
         -- TODO[AH] Deduplicate imports.
         let newImports = imp : imports
         -- TODO[AH] Factor out the module render and typecheck step.
-        liftIO $ writeFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
-            (renderModule dflags newImports lineNumber [] (WildPat noExt)
+        liftIO $ setBufferModified ideState (lineFilePath lineNumber)
+            $ Just $ T.pack (renderModule dflags newImports lineNumber [] (WildPat noExt)
                 (noLoc $ HsApp noExt
                     (noLoc $ HsVar noExt $ noLoc $ mkRdrUnqual $ mkVarOcc "return")
                     (noLoc $ ExplicitTuple noExt [] Boxed)))
-        -- Useful for debugging, probably best to put it behind a --debug flag
-        -- rendered <- liftIO $ readFileUTF8 (fromNormalizedFilePath $ lineFilePath lineNumber)
-        -- liftIO $ for_ (lines rendered) $ \line ->
-        --      hPutStrLn stderr ("> " <> line)
         _ <- maybe (throwError TypeError) pure =<< liftIO (runAction ideState $ runMaybeT $
             (,) <$> useE GenerateDalf (lineFilePath lineNumber)
                 <*> useE TypeCheck (lineFilePath lineNumber))

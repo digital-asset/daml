@@ -6,6 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -280,7 +281,6 @@ EOF
 
 da_haskell_test(
     name = "repl",
-    timeout = "long",
     srcs = ["src/DA/Test/Repl.hs"],
     data = [
         ":repl-test.dar",
@@ -310,6 +310,52 @@ da_haskell_test(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "repl-functests",
+    srcs = ["src/DA/Test/Repl/FuncTests.hs"],
+    data = [
+        ":repl-test.dar",
+        ghc_pkg,
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/repl-service/server:repl_service_jar",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "async",
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "ghcide",
+        "hspec",
+        "process",
+        "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "silently",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.Repl.FuncTests.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/repl-service/client",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
