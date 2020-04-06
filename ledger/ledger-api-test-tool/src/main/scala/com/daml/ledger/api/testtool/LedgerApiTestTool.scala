@@ -108,9 +108,9 @@ object LedgerApiTestTool {
     if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
       sys.exit(0)
-    } else if (testsToRun.nonEmpty && performanceTestsToRun.nonEmpty) {
-      println("""Both regular tests and performance tests have been specified but either
-          |one or the other can be configured for a given run, not both.""".stripMargin)
+    } else if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
+      println(
+        "Both regular tests and performance tests have been specified but only one type is allowed.")
       sys.exit(-1)
     }
 
