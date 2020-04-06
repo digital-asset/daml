@@ -116,7 +116,7 @@ object LedgerApiTestTool {
         newLedgerSuiteRunner(
           config,
           performanceTestsToRun.values,
-          1
+          Some(1)
         )
       else
         newLedgerSuiteRunner(
@@ -137,7 +137,7 @@ object LedgerApiTestTool {
   private[this] def newLedgerSuiteRunner(
       config: Config,
       suites: Iterable[LedgerSession => LedgerTestSuite],
-      concurrencyOverride: Int = -1): LedgerTestSuiteRunner =
+      concurrencyOverride: Option[Int] = None): LedgerTestSuiteRunner =
     new LedgerTestSuiteRunner(
       LedgerSessionConfiguration(
         config.participants,
@@ -149,6 +149,6 @@ object LedgerApiTestTool {
       suites.toVector,
       identifierSuffix,
       config.timeoutScaleFactor,
-      if (concurrencyOverride >= 0) concurrencyOverride else config.concurrentTestRuns,
+      concurrencyOverride.getOrElse(config.concurrentTestRuns),
     )
 }
