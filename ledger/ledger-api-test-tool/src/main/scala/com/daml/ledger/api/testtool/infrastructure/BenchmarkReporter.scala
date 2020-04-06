@@ -3,7 +3,9 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.concurrent.atomic.AtomicReference
+import java.nio.file.{Files, Path, Paths, StandardOpenOption}
+
+import collection.JavaConverters._
 
 trait BenchmarkReporter {
 
@@ -15,27 +17,12 @@ trait BenchmarkReporter {
 }
 
 object BenchmarkReporter {
-  val toFile = new FileOutputBenchmarkReporter("benchmark.dat")
+  val toFile = new FileOutputBenchmarkReporter(Paths.get("benchmark.dat"))
 }
 
-class FileOutputBenchmarkReporter(filename: String) extends BenchmarkReporter {
-
-  import java.io._
-
-  private val outfile = new AtomicReference[Option[PrintWriter]](None)
+class FileOutputBenchmarkReporter(path: Path) extends BenchmarkReporter {
 
   override def addReport(key: String, value: Double): Unit = synchronized {
-    val pw = outfile.get() match {
-      case None =>
-        val pw = new PrintWriter(new File(filename))
-        outfile.set(Some(pw))
-        pw
-      case Some(pw) => pw
-    }
-    pw.write(key)
-    pw.write("=")
-    pw.write(value.toString)
-    pw.write("\n")
-    pw.flush()
+    val _ = Files.write(path, Seq(s"$key=$value").asJava, StandardOpenOption.APPEND)
   }
 }
