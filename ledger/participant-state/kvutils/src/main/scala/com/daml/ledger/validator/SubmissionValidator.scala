@@ -14,13 +14,14 @@ import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommi
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
+import com.daml.ledger.validator.Cache._
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.google.common.cache.{Cache, CacheBuilder, CacheLoader}
+import com.google.common.cache.{CacheBuilder, CacheLoader}
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -57,13 +58,14 @@ class SubmissionValidator[LogResult] private[validator] (
 
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
 
-  private val stateValueCache = CacheBuilder
-    .newBuilder()
-    .maximumWeight(maximumStateValueCacheSize)
-    .weigher[Bytes, DamlStateValue](weighCacheEntry)
-    .build(new CacheLoader[Bytes, DamlStateValue] {
-      override def load(bytes: Bytes): DamlStateValue = bytesToStateValue(bytes)
-    })
+  private val stateValueCache: Cache[Bytes, DamlStateValue] =
+    CacheBuilder
+      .newBuilder()
+      .maximumWeight(maximumStateValueCacheSize)
+      .weigher[Bytes, DamlStateValue](Weight.weigher)
+      .build(new CacheLoader[Bytes, DamlStateValue] {
+        override def load(bytes: Bytes): DamlStateValue = bytesToStateValue(bytes)
+      })
 
   def validate(
       envelope: Bytes,
@@ -305,8 +307,10 @@ class SubmissionValidator[LogResult] private[validator] (
     val transformSubmission: Timer = metricRegistry.timer(prefix :+ "transform_submission")
 
     private val stateValueCachePrefix: MetricName = prefix :+ "state_value_cache"
-    metricRegistry.gauge(stateValueCachePrefix :+ "size", () => () => stateValueCache.size())
-    metricRegistry.gauge(stateValueCachePrefix :+ "weight", () => () => weighCache(stateValueCache))
+    metricRegistry.gauge(stateValueCachePrefix :+ "size", () => () => stateValueCache.size)
+    metricRegistry.gauge(
+      stateValueCachePrefix :+ "weight",
+      () => () => Weight.ofCache(stateValueCache))
   }
 }
 
@@ -400,10 +404,4 @@ object SubmissionValidator {
     Envelope
       .openStateValue(value)
       .fold(message => throw new IllegalStateException(message), identity)
-
-  private def weighCache(cache: Cache[Bytes, DamlStateValue]): Long =
-    cache.asMap().asScala.map { case (key, value) => weighCacheEntry(key, value).toLong }.sum
-
-  private def weighCacheEntry(key: Bytes, value: DamlStateValue): Int =
-    key.size() + value.getSerializedSize
 }
