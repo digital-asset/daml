@@ -63,12 +63,12 @@ object Tests {
   val performanceTests: Tests = Map(
     "PerformanceEnvelope.Throughput" -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
       logger = LoggerFactory.getLogger("PerformanceEnvelope.Throughput"),
-      envelope = Envelope.Public,
+      envelope = Envelope.Beta,
       reporter = BenchmarkReporter.toFile.addReport,
     )(_)),
     "PerformanceEnvelope.Latency" -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
       logger = LoggerFactory.getLogger("PerformanceEnvelope.Latency"),
-      envelope = Envelope.Public,
+      envelope = Envelope.Beta,
       reporter = BenchmarkReporter.toFile.addReport,
     )(_)),
   )
