@@ -61,10 +61,6 @@ JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`
 <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the :ref:`gRPC API
 <grpc>` directly.
 
-.. TODO (drsk) add and point to javascript bindings.
-.. If you choose a different Javascript based frontend framework, the packages ``@daml/ledger``,
-.. ``@daml/types`` and the generated ``@daml2js`` package provide you with the necessary interface code
-.. to connect and issue commands against your ledger.
 
 We provide two libraries to build your React frontend for a DAML application.
 
@@ -81,18 +77,20 @@ your project, e.g. ``yarn add @daml/react``. Please explore the ``create-daml-ap
 to see the usage of these libraries.
 
 To make your life easy when interacting with the ledger, the DAML assistant can generate
-corresponding typescript data definitions for the data types declared in the deployed DAR.
+corresponding JavaScript data definitions for the data types declared in the deployed DAR.
 
 .. code-block:: bash
 
   daml codegen js .daml/dist/<your-project-name.dar> -o daml.js
 
-This command will generate a typescript library for each DALF in you DAR.
+This command will generate a JavaScript library for each DALF in you DAR.
 In ``create-daml-app``, ``ui/package.json`` refers to these libraries via the
 ``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in
 the ``dependencies`` field.
 
-.. TODO (drsk) this process is changing right now, make sure it is documented up to date here.
+If you choose a different JavaScript based frontend framework, the packages ``@daml/ledger``,
+``@daml/types`` and the generated ``daml.js`` libraries provide you with the necessary code to
+connect and issue commands against your ledger.
 
 Authentication
 ~~~~~~~~~~~~~~
