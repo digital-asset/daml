@@ -159,7 +159,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       consuming = true,
       controllers = eParties,
       selfBinder = Name.assertFromString("self"),
-      argBinder = (None, TUnit),
+      argBinder = Name.assertFromString("arg") -> TUnit,
       returnType = TUnit,
       update = EUpdate(UpdatePure(typ, expr)),
     )

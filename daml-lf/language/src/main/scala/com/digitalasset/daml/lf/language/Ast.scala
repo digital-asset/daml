@@ -570,7 +570,7 @@ object Ast {
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: Expr, // Parties that can exercise the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
-      argBinder: (Option[ExprVarName], Type), // Choice argument binder.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
       update: Expr // The choice follow-up.
   )
