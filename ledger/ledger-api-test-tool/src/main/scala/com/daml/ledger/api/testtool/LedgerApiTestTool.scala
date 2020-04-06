@@ -126,12 +126,12 @@ object LedgerApiTestTool {
         newLedgerSuiteRunner(
           config,
           performanceTestsToRun.values,
-          Some(1)
+          concurrencyOverride = Some(1),
         )
       else
         newLedgerSuiteRunner(
           config,
-          testsToRun.values
+          testsToRun.values,
         )
 
     runner.verifyRequirementsAndRun {
