@@ -69,6 +69,7 @@ da_scala_test(
     data = [
         "//daml-lf/tests:LargeTransaction.dar",
     ],
+    # We setup a large heap size to reduce as much as possible GC overheads.
     initial_heap_size = "2g",
     max_heap_size = "2g",
     scalacopts = lf_scalacopts,
