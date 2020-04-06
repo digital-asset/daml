@@ -6,10 +6,9 @@ package com.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.CreatedEvent
-import com.daml.ledger.javaapi.data.codegen.{ContractId => CodegenContractId}
 import com.daml.lf.codegen.TypeWithContext
 import com.daml.lf.codegen.backend.java.ObjectMethods
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
 import com.daml.lf.iface._
 import com.squareup.javapoet._
@@ -255,7 +254,7 @@ private[inner] object TemplateClass extends StrictLogging {
         .methodBuilder("fromCreatedEvent")
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(className)
-        .addParameter(classOf[CreatedEvent], "event")
+        .addParameter(classOf[javaapi.data.CreatedEvent], "event")
 
     val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
       .map(getContractKey(_, packagePrefixes))
@@ -304,7 +303,7 @@ private[inner] object TemplateClass extends StrictLogging {
       TypeSpec
         .classBuilder("ContractId")
         .superclass(ParameterizedTypeName
-          .get(ClassName.get(classOf[CodegenContractId[_]]), templateClassName))
+          .get(ClassName.get(classOf[javaapi.data.codegen.ContractId[_]]), templateClassName))
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC, Modifier.STATIC)
     val constructor =
       MethodSpec
@@ -471,16 +470,33 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(classOf[javaapi.data.CreateAndExerciseCommand])
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     createAndExerciseChoiceBuilder.addParameter(javaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
+    choice.param match {
+      case TypeCon(_, _) =>
+        createAndExerciseChoiceBuilder.addStatement(
+          "$T argValue = arg.toValue()",
+          classOf[javaapi.data.Value],
+        )
+      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
+        createAndExerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = $T.getInstance()",
+            classOf[javaapi.data.Value],
+            classOf[javaapi.data.Unit],
+          )
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
+        createAndExerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = new $T(arg)",
+            classOf[javaapi.data.Value],
+            toAPITypeName(choice.param),
+          )
     }
     createAndExerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, $L)",
+      "return new $T($T.TEMPLATE_ID, this.toValue(), $S, argValue)",
       classOf[javaapi.data.CreateAndExerciseCommand],
       templateClassName,
       choiceName,
-      choiceArgument)
+    )
     createAndExerciseChoiceBuilder.build()
   }
 
@@ -518,16 +534,33 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(classOf[javaapi.data.ExerciseCommand])
     val javaType = toJavaTypeName(choice.param, packagePrefixes)
     exerciseChoiceBuilder.addParameter(javaType, "arg")
-    val choiceArgument = choice.param match {
-      case TypeCon(_, _) => "arg.toValue()"
-      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) => "arg"
+    choice.param match {
+      case TypeCon(_, _) =>
+        exerciseChoiceBuilder.addStatement(
+          "$T argValue = arg.toValue()",
+          classOf[javaapi.data.Value],
+        )
+      case TypePrim(PrimType.Unit, ImmArraySeq()) =>
+        exerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = $T.getInstance()",
+            classOf[javaapi.data.Value],
+            classOf[javaapi.data.Unit],
+          )
+      case TypePrim(_, _) | TypeVar(_) | TypeNumeric(_) =>
+        exerciseChoiceBuilder
+          .addStatement(
+            "$T argValue = new $T(arg)",
+            classOf[javaapi.data.Value],
+            toAPITypeName(choice.param),
+          )
     }
     exerciseChoiceBuilder.addStatement(
-      "return new $T($T.TEMPLATE_ID, this.contractId, $S, $L)",
+      "return new $T($T.TEMPLATE_ID, this.contractId, $S, argValue)",
       classOf[javaapi.data.ExerciseCommand],
       templateClassName,
       choiceName,
-      choiceArgument)
+    )
     exerciseChoiceBuilder.build()
   }
 
