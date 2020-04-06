@@ -94,7 +94,7 @@ object LedgerApiTestTool {
       missingTests.foreach { testName =>
         println(s"  - $testName")
       }
-      sys.exit(2)
+      sys.exit(64)
     }
 
     val included =
@@ -111,7 +111,7 @@ object LedgerApiTestTool {
       sys.exit(0)
     } else if ((config.allTests || config.included.nonEmpty) && performanceTestsToRun.nonEmpty) {
       println("Either regular or performance tests can be run, but not both.")
-      sys.exit(-1)
+      sys.exit(64)
     }
 
     Thread
