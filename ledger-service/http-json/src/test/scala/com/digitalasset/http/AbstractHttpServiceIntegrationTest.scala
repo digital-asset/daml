@@ -941,7 +941,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "parties endpoint should return error if all parties are unknown" in withHttpServiceAndClient {
+  "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpServiceAndClient {
     (uri, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] =
         domain.Party.subst(Vector("Alice", "Bob", "Dave"))
