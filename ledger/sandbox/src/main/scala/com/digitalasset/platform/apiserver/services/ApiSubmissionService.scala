@@ -152,7 +152,12 @@ final class ApiSubmissionService private (
         case CommandDeduplicationNew =>
           recordOnLedger(seed, commands)
             .transform(mapSubmissionResult)
-            .transformWith(stopDeduplicatingOnFailure(_, commands))
+            .recoverWith {
+              case error =>
+                submissionService
+                  .stopDeduplicatingCommand(commands.commandId, commands.submitter)
+                  .transform(_ => Failure(error))
+            }
         case CommandDeduplicationDuplicate(until) =>
           Metrics.deduplicatedCommandsMeter.mark()
           val reason =
@@ -173,15 +178,6 @@ final class ApiSubmissionService private (
       deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }
-
-  private[this] def stopDeduplicatingOnFailure(result: Try[Unit], commands: ApiCommands)(
-      implicit logCtx: LoggingContext): Future[Unit] = result match {
-    case Success(()) => Future.successful(Success(()))
-    case Failure(error) =>
-      submissionService
-        .stopDeduplicatingCommand(commands.commandId, commands.submitter)
-        .map(_ => Failure(error))
-  }
 
   private def mapSubmissionResult(result: Try[SubmissionResult])(
       implicit logCtx: LoggingContext): Try[Unit] = result match {
