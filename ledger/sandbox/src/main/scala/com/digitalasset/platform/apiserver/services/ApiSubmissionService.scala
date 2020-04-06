@@ -152,9 +152,11 @@ final class ApiSubmissionService private (
         case CommandDeduplicationNew =>
           recordOnLedger(seed, commands)
             .transform(mapSubmissionResult)
-            .andThen {
-              case Failure(_) =>
-                submissionService.stopDeduplicatingCommand(commands.commandId, commands.submitter)
+            .recoverWith {
+              case error =>
+                submissionService
+                  .stopDeduplicatingCommand(commands.commandId, commands.submitter)
+                  .transform(_ => Failure(error))
             }
         case CommandDeduplicationDuplicate(until) =>
           Metrics.deduplicatedCommandsMeter.mark()
