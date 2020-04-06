@@ -144,17 +144,7 @@ object Generators {
   )
 
   def absoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    Gen.oneOf(IntAbsoluteLedgerOffsetVal, CompositeAbsoluteLedgerOffsetVal)
-
-  def IntAbsoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    Gen.posNum[Int].map(n => lav1.ledger_offset.LedgerOffset.Value.Absolute(n.toString))
-
-  def CompositeAbsoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    for {
-      a1 <- Gen.identifier
-      a2 <- Gen.posNum[Int]
-      a3 <- Gen.posNum[Int]
-    } yield lav1.ledger_offset.LedgerOffset.Value.Absolute(s"${a1: String}-${a2: Int}-${a3: Int}")
+    Gen.posNum[Long].map(n => lav1.ledger_offset.LedgerOffset.Value.Absolute(n.toString))
 
   def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
     Gen
