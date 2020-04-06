@@ -144,9 +144,9 @@ object Cli {
       .text("""A comma-separated list of performance tests that should be run.""")
 
     opt[Path]("perf-tests-report")
-      .action((inc, c) => c.copy(performanceTestsReportFile = Some(inc)))
+      .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
       .optional()
-      .text("""The benchmark report file path that will be written by performance tests (default: stdout).""")
+      .text("""The path of the the benchmark report file produced by performance tests (default: stdout).""")
 
     opt[Unit]("all-tests")
       .action((_, c) => c.copy(allTests = true))

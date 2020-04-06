@@ -104,14 +104,13 @@ object LedgerApiTestTool {
 
     val testsToRun = Tests.all.filterKeys(included -- config.excluded)
     val performanceTestsToRun =
-      Tests.performanceTests(config.performanceTestsReportFile).filterKeys(config.performanceTests)
+      Tests.performanceTests(config.performanceTestsReport).filterKeys(config.performanceTests)
 
     if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
       sys.exit(0)
-    } else if (config.included.nonEmpty && performanceTestsToRun.nonEmpty) {
-      println(
-        "Both regular tests and performance tests have been specified but only one type is allowed.")
+    } else if ((config.allTests || config.included.nonEmpty) && performanceTestsToRun.nonEmpty) {
+      println("Either regular or performance tests can be run, but not both.")
       sys.exit(-1)
     }
 
