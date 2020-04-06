@@ -40,9 +40,15 @@ object LedgerApiTestTool {
     if (summaries.exists(_.result.isLeft) == expectFailure) 0 else 1
 
   private def printAvailableTests(): Unit = {
-    println("Tests marked with * are run by default.\n")
+    println("Tests marked with * are run by default.")
+    println(
+      "You can include extra tests with `--include=TEST-NAME`, or run all tests with `--all-tests`.\n")
     Tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
     Tests.optional.keySet.toSeq.sorted.foreach(println(_))
+
+    println("\nAlternatively, you can run performance tests.")
+    println(
+      "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`.\n")
     Tests.performanceTests.keySet.toSeq.sorted.foreach(println(_))
   }
 
@@ -99,9 +105,13 @@ object LedgerApiTestTool {
     val testsToRun = Tests.all.filterKeys(included -- config.excluded)
     val performanceTestsToRun = Tests.performanceTests.filterKeys(config.performanceTests)
 
-    if (testsToRun.isEmpty) {
+    if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
       sys.exit(0)
+    } else if (testsToRun.nonEmpty && performanceTestsToRun.nonEmpty) {
+      println("""Both regular tests and performance tests have been specified but either
+          |one or the other can be configured for a given run, not both.""".stripMargin)
+      sys.exit(-1)
     }
 
     Thread
