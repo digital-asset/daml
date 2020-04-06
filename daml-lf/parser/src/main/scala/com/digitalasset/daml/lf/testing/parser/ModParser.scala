@@ -7,7 +7,6 @@ package testing.parser
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.testing.parser.Parsers._
 import com.daml.lf.testing.parser.Token._
 
