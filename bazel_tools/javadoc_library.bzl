@@ -29,7 +29,8 @@ def _javadoc_library(ctx):
 
     javadoc_command = [
         java_home + "/bin/javadoc",
-        "-sourcepath .",
+        # this is an ugly hack to provide all directories ending with `java` as a "source root"
+        '-sourcepath $(find * -type d -name "*java" -print0 | tr "\\0" :):.',
         " ".join(ctx.attr.root_packages),
         "-use",
         "-subpackages",
@@ -57,9 +58,20 @@ def _javadoc_library(ctx):
 
     jar_command = "%s/bin/jar cf %s -C tmp ." % (java_home, ctx.outputs.jar.path)
 
-    unjar_command = "%s/bin/jar xf %s" % (java_home, " ".join([jar.path for f in ctx.attr.srcs for jar in f[JavaInfo].source_jars]))
+    unjar_params = []
+    srcs = []
+    for src in ctx.attr.srcs:
+        # this is for when the provided src is a java_library target
+        if JavaInfo in src:
+            for jar in src[JavaInfo].source_jars:
+                unjar_params.append(jar.path)
+                srcs.append(jar)
 
-    srcs = [jar for f in ctx.attr.srcs for jar in f[JavaInfo].source_jars]
+        elif DefaultInfo in src:
+            # I don't know how to assert that the target is a filegroup, but this works well enough
+            srcs.extend(src[DefaultInfo].files.to_list())
+    unjar_command = "%s/bin/jar xf %s" % (java_home, " ".join(unjar_params))
+
     ctx.actions.run_shell(
         inputs = srcs + classpath + ctx.files._jdk,
         command = "%s && %s && %s" % (unjar_command, " ".join(javadoc_command), jar_command),
