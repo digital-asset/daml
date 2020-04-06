@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.Path
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -21,6 +22,7 @@ final case class Config(
     excluded: Set[String],
     included: Set[String],
     performanceTests: Set[String],
+    performanceTestsReportFile: Option[Path],
     listTests: Boolean,
     allTests: Boolean,
     shuffleParticipants: Boolean,
@@ -41,6 +43,7 @@ object Config {
     excluded = Set.empty,
     included = Set.empty,
     performanceTests = Set.empty,
+    performanceTestsReportFile = None,
     listTests = false,
     allTests = false,
     shuffleParticipants = false,

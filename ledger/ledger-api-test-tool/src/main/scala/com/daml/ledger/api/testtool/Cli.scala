@@ -4,6 +4,7 @@
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.{Path, Paths}
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
 import com.daml.buildinfo.BuildInfo
@@ -49,6 +50,8 @@ object Cli {
         Some(TlsConfiguration(enabled = true, None, None, Some(new File(path)))),
       )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path))))),
   )
+
+  private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
 
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
@@ -139,6 +142,11 @@ object Cli {
       .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
       .unbounded()
       .text("""A comma-separated list of performance tests that should be run.""")
+
+    opt[Path]("perf-tests-report")
+      .action((inc, c) => c.copy(performanceTestsReportFile = Some(inc)))
+      .optional()
+      .text("""The benchmark report file path that will be written by performance tests (default: stdout).""")
 
     opt[Unit]("all-tests")
       .action((_, c) => c.copy(allTests = true))

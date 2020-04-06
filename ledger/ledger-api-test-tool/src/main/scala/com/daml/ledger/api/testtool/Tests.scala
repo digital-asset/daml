@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool
 
+import java.nio.file.Path
+
 import com.daml.ledger.api.testtool
 import com.daml.ledger.api.testtool.infrastructure.{
   BenchmarkReporter,
@@ -60,16 +62,32 @@ object Tests {
     * sequentially; they also must be specified explicitly with --perf-tests and will exclude
     * all other tests.
     */
-  val performanceTests: Tests = Map(
-    "PerformanceEnvelope.Throughput" -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
-      logger = LoggerFactory.getLogger("PerformanceEnvelope.Throughput"),
-      envelope = Envelope.Beta,
-      reporter = BenchmarkReporter.toFile.addReport,
-    )(_)),
-    "PerformanceEnvelope.Latency" -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
-      logger = LoggerFactory.getLogger("PerformanceEnvelope.Latency"),
-      envelope = Envelope.Beta,
-      reporter = BenchmarkReporter.toFile.addReport,
-    )(_)),
-  )
+  def performanceTests(path: Option[Path]): Tests = {
+    val reporter =
+      (key: String, value: Double) =>
+        path
+          .map(BenchmarkReporter.toFile)
+          .getOrElse(BenchmarkReporter.toStream(System.out))
+          .addReport(key, value)
+    Map(
+      PerformanceEnvelopeThroughputTestKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+        logger = LoggerFactory.getLogger(PerformanceEnvelopeThroughputTestKey),
+        envelope = PerformanceEnvelope,
+        reporter = reporter,
+      )(_)),
+      PerformanceEnvelopeLatencyTestKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+        logger = LoggerFactory.getLogger(PerformanceEnvelopeLatencyTestKey),
+        envelope = PerformanceEnvelope,
+        reporter = reporter,
+      )(_)),
+    )
+  }
+
+  private[this] val PerformanceEnvelope = Envelope.Beta // Should be adequate for most CIs
+
+  private[this] val PerformanceEnvelopeThroughputTestKey = "PerformanceEnvelope.Throughput"
+  private[this] val PerformanceEnvelopeLatencyTestKey = "PerformanceEnvelope.Latency"
+
+  private[testtool] val PerformanceTestsKeys =
+    Seq(PerformanceEnvelopeLatencyTestKey, PerformanceEnvelopeThroughputTestKey)
 }

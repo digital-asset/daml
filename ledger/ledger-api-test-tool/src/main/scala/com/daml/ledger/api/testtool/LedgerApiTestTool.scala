@@ -49,7 +49,7 @@ object LedgerApiTestTool {
     println("\nAlternatively, you can run performance tests.")
     println(
       "Performance tests are not run by default, but can be run with `--perf-tests=TEST-NAME`.\n")
-    Tests.performanceTests.keySet.toSeq.sorted.foreach(println(_))
+    Tests.PerformanceTestsKeys.sorted.foreach(println(_))
   }
 
   private def extractResources(resources: String*): Unit = {
@@ -103,7 +103,8 @@ object LedgerApiTestTool {
       else config.included
 
     val testsToRun = Tests.all.filterKeys(included -- config.excluded)
-    val performanceTestsToRun = Tests.performanceTests.filterKeys(config.performanceTests)
+    val performanceTestsToRun =
+      Tests.performanceTests(config.performanceTestsReportFile).filterKeys(config.performanceTests)
 
     if (testsToRun.isEmpty && performanceTestsToRun.isEmpty) {
       println("No tests to run.")
