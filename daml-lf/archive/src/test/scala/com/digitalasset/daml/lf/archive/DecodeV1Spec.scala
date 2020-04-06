@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 
 import java.math.BigDecimal
 import java.nio.file.{Files, Paths}
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.{Decimal, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.data.{Decimal, Numeric, Ref}
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
 import LanguageMinorVersion.Implicits._
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml_lf_dev.DamlLf1
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.DottedName
+import com.daml.daml_lf_dev.DamlLf1
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 

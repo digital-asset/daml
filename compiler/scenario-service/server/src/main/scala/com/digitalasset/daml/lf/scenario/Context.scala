@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package scenario
 
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.archive.Decode.ParseError
-import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
-import com.digitalasset.daml.lf.speedy.Compiler
-import com.digitalasset.daml.lf.speedy.ScenarioRunner
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.Speedy
-import com.digitalasset.daml.lf.speedy.SExpr
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.types.Ledger.Ledger
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.archive.Decode
+import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.scenario.api.v1.{ScenarioModule => ProtoScenarioModule}
+import com.daml.lf.speedy.Compiler
+import com.daml.lf.speedy.ScenarioRunner
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.Speedy
+import com.daml.lf.speedy.SExpr
+import com.daml.lf.speedy.SValue
+import com.daml.lf.types.Ledger.Ledger
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
-import com.digitalasset.daml.lf.transaction.VersionTimeline
+import com.daml.lf.transaction.VersionTimeline
 
 /**
   * Scenario interpretation context: maintains a set of modules and external packages, with which

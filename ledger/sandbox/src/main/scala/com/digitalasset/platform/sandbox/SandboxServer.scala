@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import java.io.File
 import java.nio.file.Files
@@ -14,36 +14,33 @@ import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.buildinfo.BuildInfo
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.digitalasset.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver._
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.SandboxServer._
-import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.metrics.MetricsReporting
-import com.digitalasset.platform.sandbox.services.SandboxResetService
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
-import com.digitalasset.platform.sandbox.stores.{
-  InMemoryActiveLedgerState,
-  SandboxIndexAndWriteService
-}
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
+import com.daml.dec.DirectExecutionContext
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver._
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.SandboxServer._
+import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.metrics.MetricsReporting
+import com.daml.platform.sandbox.services.SandboxResetService
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger._
+import com.daml.platform.sandbox.stores.ledger.sql.SqlStartMode
+import com.daml.platform.sandbox.stores.{InMemoryActiveLedgerState, SandboxIndexAndWriteService}
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.DurationInt

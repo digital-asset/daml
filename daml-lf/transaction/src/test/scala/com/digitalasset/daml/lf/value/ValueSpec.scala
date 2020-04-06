@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package value
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
-import com.digitalasset.daml.lf.value.Value._
+import data.{FrontStack, ImmArray, Ref, Unnatural}
+import Value._
 import Ref.{Identifier, Name}
 import ValueGenerators.{idGen, nameGen}
 import TypedValueGenerators.{RNil, genAddend, ValueAddend => VA}
@@ -108,7 +108,7 @@ class ValueSpec
   }
 
   "Equal" - {
-    import com.digitalasset.daml.lf.value.ValueGenerators._
+    import com.daml.lf.value.ValueGenerators._
     import org.scalacheck.Arbitrary
     type T = VersionedValue[Unnatural[ContractId]]
     implicit val arbT: Arbitrary[T] =

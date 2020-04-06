@@ -82,7 +82,7 @@ da_scala_test_suite(
 da_scala_binary(
     name = "rs-grpc-akka-perf",
     srcs = glob(["src/perf/**/*.scala"]),
-    main_class = "com.digitalasset.grpc.adapter.ServerStreamingBenchmark",
+    main_class = "com.daml.grpc.adapter.ServerStreamingBenchmark",
     deps = [
         ":rs-grpc-akka",
         ":rs-grpc-akka-tests-lib",

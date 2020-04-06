@@ -1,20 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
 import scala.language.higherKinds
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.GenTransaction.{
+import com.daml.lf.data.{Bytes, ImmArray, Ref}
+import com.daml.lf.transaction.GenTransaction.{
   AliasedNode,
   DanglingNodeId,
   NotWellFormedError,
   OrphanedNode
 }
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.ValueGenerators.danglingRefGenNode
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}

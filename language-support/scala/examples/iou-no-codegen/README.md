@@ -24,7 +24,7 @@ $ daml start
 ## To run the iou-no-codegen example:
 - Run sbt command from `iou-no-codegen` folder:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
+$ sbt "application/runMain com.daml.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
 ```
 
 Default sandbox port is 6865.
@@ -39,5 +39,5 @@ Package ID is the part of the template ID after `@` character. In the above exam
 
 To connect to the sandbox running on localhost, listening to the default port and with the above package ID:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
+$ sbt "application/runMain com.daml.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
 ```

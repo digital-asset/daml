@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import scalaz.{@@, Equal, Order, Tag}
 import scalaz.syntax.order._
 
-private[digitalasset] object ScalazEqual {
+private[daml] object ScalazEqual {
   def withNatural[A](isNatural: Boolean)(c: (A, A) => Boolean): Equal[A] =
     if (isNatural) Equal.equalA else Equal.equal(c)
 

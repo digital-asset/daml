@@ -1,29 +1,24 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 
 import java.util
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Numeric.Scale
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.Speedy.{
-  CtrlValue,
-  CtrlWronglyTypeContractId,
-  Machine,
-  SpeedyHungry
-}
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.data.Numeric.Scale
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.Speedy.{CtrlValue, CtrlWronglyTypeContractId, Machine, SpeedyHungry}
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.transaction.{Transaction => Tx}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.ValueVersions.asVersionedValue
+import com.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.TreeSet

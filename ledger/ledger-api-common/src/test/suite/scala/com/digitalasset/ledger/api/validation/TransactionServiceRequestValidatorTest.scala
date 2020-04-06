@@ -1,24 +1,20 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.transaction_filter.{Filters, InclusiveFilters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.daml.ledger.api.v1.value.Identifier
 import io.grpc.Status.Code._
 import org.scalatest.WordSpec
 

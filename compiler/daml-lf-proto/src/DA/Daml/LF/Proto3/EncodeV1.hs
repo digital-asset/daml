@@ -28,7 +28,7 @@ import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.Util as Util
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 

@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.value.ValueVersion
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.value.ValueVersion
 import scalaz.std.map._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.order._

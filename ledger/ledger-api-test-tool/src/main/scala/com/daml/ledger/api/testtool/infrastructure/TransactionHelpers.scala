@@ -3,8 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 
 object TransactionHelpers {
   def archivedEvents(transaction: Transaction): Vector[ArchivedEvent] =

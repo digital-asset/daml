@@ -1,0 +1,43 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module PingPong where
+
+template Ping
+  with
+    id : Text
+    initiator : Party
+    responders : [Party]
+  where
+
+    signatory initiator
+    observer responders
+
+    choice Respond : ContractId Pong
+        with
+        winner : Party
+      controller winner
+        do
+          create Pong with id, initiator, responder = winner, observers = responders
+
+template Pong
+  with
+    id : Text
+    initiator : Party
+    responder : Party
+    observers : [Party] -- ensures that "losing" responders are notified too
+
+  where
+      signatory initiator, responder
+      observer observers
+
+      controller initiator can
+        Ack : ()
+          do return ()
+
+main = scenario do
+    [alice, bob] <- mapA getParty ["Alice", "Bob"]
+    pingId <- submit alice $ create Ping with id = "1", initiator = alice, responders = [bob]
+    pongId <- submit bob $ exercise pingId Respond with winner = bob
+    submit alice $ exercise pongId Ack

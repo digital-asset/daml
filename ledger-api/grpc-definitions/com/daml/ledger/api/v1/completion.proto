@@ -1,0 +1,39 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1;
+
+import "com/daml/ledger/api/v1/trace_context.proto";
+import "google/rpc/status.proto";
+
+
+option java_outer_classname = "CompletionOuterClass";
+option java_package = "com.daml.ledger.api.v1";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1";
+
+// A completion represents the status of a submitted command on the ledger: it can be successful or failed.
+message Completion {
+  // The ID of the succeeded or failed command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string command_id = 1;
+
+  // Identifies the exact type of the error.
+  // For example, malformed or double spend transactions will result in a ``INVALID_ARGUMENT`` status.
+  // Transactions with invalid time time windows (which may be valid at a later date) will result in an ``ABORTED`` error.
+  // Optional
+  google.rpc.Status status = 2;
+
+  // The transaction_id of the transaction that resulted from the command with command_id.
+  // Only set for successfully executed commands.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string transaction_id = 3;
+
+  // The trace context submitted with the command.
+  // This field is a future extension point and is currently not supported.
+  // Optional
+  TraceContext trace_context = 1000;
+}

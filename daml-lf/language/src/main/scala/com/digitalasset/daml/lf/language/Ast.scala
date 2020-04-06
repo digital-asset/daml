@@ -1,10 +1,10 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
 
 object Ast {
   //
@@ -570,7 +570,7 @@ object Ast {
       consuming: Boolean, // Flag indicating whether exercising the choice consumes the contract.
       controllers: Expr, // Parties that can exercise the choice.
       selfBinder: ExprVarName, // Self ContractId binder.
-      argBinder: (Option[ExprVarName], Type), // Choice argument binder.
+      argBinder: (ExprVarName, Type), // Choice argument binder.
       returnType: Type, // Return type of the choice follow-up.
       update: Expr // The choice follow-up.
   )

@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.v1.transaction.TransactionTree
-import com.digitalasset.ledger.api.v1.transaction_service.GetTransactionTreesResponse
-import com.digitalasset.platform.ApiOffset
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
-import com.digitalasset.platform.events.EventIdFormatter.split
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.EventId
+import com.daml.ledger.api.v1.transaction.TransactionTree
+import com.daml.ledger.api.v1.transaction_service.GetTransactionTreesResponse
+import com.daml.platform.ApiOffset
+import com.daml.platform.api.v1.event.EventOps.TreeEventOps
+import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest._
 
 import scala.concurrent.Future

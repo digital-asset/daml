@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.platform.store.entries.LedgerEntry
 
 /**
   * Every time the ledger persists a transactions, the active contract set (ACS) is updated.

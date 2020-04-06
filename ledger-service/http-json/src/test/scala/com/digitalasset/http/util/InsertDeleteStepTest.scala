@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
+import com.daml.lf.data.FlatSpecCheckLaws
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}

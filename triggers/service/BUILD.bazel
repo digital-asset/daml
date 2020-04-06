@@ -47,7 +47,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "trigger-service",
-    main_class = "com.digitalasset.daml.lf.engine.trigger.ServiceMain",
+    main_class = "com.daml.lf.engine.trigger.ServiceMain",
     visibility = ["//visibility:public"],
     deps = [
         ":trigger-service-lib",

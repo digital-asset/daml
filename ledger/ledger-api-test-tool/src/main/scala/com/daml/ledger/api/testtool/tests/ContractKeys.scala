@@ -11,14 +11,14 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
-import com.digitalasset.ledger.test_stable.Test.Delegated._
-import com.digitalasset.ledger.test_stable.Test.Delegation._
-import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
-import com.digitalasset.ledger.test_stable.Test.TextKey._
-import com.digitalasset.ledger.test_stable.Test.TextKeyOperations._
-import com.digitalasset.ledger.test_stable.Test._
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.test_stable.DA.Types.Tuple2
+import com.daml.ledger.test_stable.Test.Delegated._
+import com.daml.ledger.test_stable.Test.Delegation._
+import com.daml.ledger.test_stable.Test.ShowDelegated._
+import com.daml.ledger.test_stable.Test.TextKey._
+import com.daml.ledger.test_stable.Test.TextKeyOperations._
+import com.daml.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
@@ -196,7 +196,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           .submitAndWaitForTransactionTree(
             ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
           )
-        delegated1Id = com.digitalasset.ledger.client.binding.Primitive
+        delegated1Id = com.daml.ledger.client.binding.Primitive
           .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
 
         delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)

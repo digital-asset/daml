@@ -1,27 +1,22 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
 import java.time.Instant
 
-import com.digitalasset.api.util.DurationConversion
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value.ValueRecord
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.api.DomainMocks
-import com.digitalasset.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
-import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand}
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{
-  List => ApiList,
-  Map => ApiMap,
-  Optional => ApiOptional,
-  _
-}
+import com.daml.api.util.DurationConversion
+import com.daml.api.util.TimestampConversion
+import com.daml.lf.command.{Commands => LfCommands, CreateCommand => LfCreateCommand}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.api.DomainMocks
+import com.daml.ledger.api.DomainMocks.{applicationId, commandId, workflowId}
+import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.v1.commands.{Command, Commands, CreateCommand}
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT

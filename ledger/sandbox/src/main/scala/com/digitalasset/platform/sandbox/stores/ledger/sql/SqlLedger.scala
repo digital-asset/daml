@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.sql
+package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
 import java.util.UUID
@@ -14,27 +14,27 @@ import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult}
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.ApiOffset.ApiOffsetConverter
-import com.digitalasset.platform.common.{LedgerIdMismatchException, LedgerIdMode}
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.LedgerIdGenerator
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.store.{BaseLedger, FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.{ImmArray, Time}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.common.{LedgerIdMismatchException, LedgerIdMode}
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.LedgerIdGenerator
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.sandbox.stores.ledger.{Ledger, SandboxOffset}
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.{BaseLedger, FlywayMigrations, PersistenceEntry}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}

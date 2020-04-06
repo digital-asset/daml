@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 

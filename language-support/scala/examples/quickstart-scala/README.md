@@ -41,7 +41,7 @@ This should generate scala classes in the `./scala-codegen/src/main/scala` direc
 ...
 codegen:
   scala:
-    package-prefix: com.digitalasset.quickstart.iou.model
+    package-prefix: com.daml.quickstart.iou.model
     output-directory: scala-codegen/src/main/scala
     verbosity: 2
 ```
@@ -56,7 +56,7 @@ where `./.daml/dist/quickstart-0.0.1.dar` is the DAR file created in the previou
 ## Compile and run Scala example
 Run the following command from the `quickstart-scala` folder:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"
+$ sbt "application/runMain com.daml.quickstart.iou.IouMain localhost 6865"
 ```
 If example completes successfully, the above process should terminate and the output should look like this:
 ```
@@ -67,7 +67,7 @@ If example completes successfully, the above process should terminate and the ou
 [success] Total time: 7 s, completed Sep 12, 2019, 11:54:04 AM
 ```
 
-To run the quickstart-scala as a standalone project (not part of the DAML project), or to override the default SDK version configured in the `./SDK_VERSION` file, you have to specify `da.sdk.version` JVM system properties:
+To run the quickstart-scala as a standalone project (not part of the DAML project), you can specify `da.sdk.version` JVM system properties:
 ```
-$ sbt -Dda.sdk.version=<DA_SDK_VERSION> "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865"
+$ sbt -Dda.sdk.version=<DA_SDK_VERSION> "application/runMain com.daml.quickstart.iou.IouMain localhost 6865"
 ```

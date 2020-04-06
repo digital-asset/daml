@@ -14,10 +14,13 @@ export const deploymentMode: DeploymentMode =
   ? DeploymentMode.PROD_DABL
   : DeploymentMode.PROD_OTHER;
 
-export const ledgerId =
+// Decide the ledger ID based on the deployment mode first,
+// then an environment variable, falling back on the sandbox ledger ID.
+export const ledgerId: string =
   deploymentMode === DeploymentMode.PROD_DABL
   ? window.location.hostname.split('.')[0]
-  : 'create-daml-app-sandbox';
+  : process.env.REACT_APP_LEDGER_ID
+  ?? 'create-daml-app-sandbox';
 
 export const httpBaseUrl =
   deploymentMode === DeploymentMode.PROD_DABL

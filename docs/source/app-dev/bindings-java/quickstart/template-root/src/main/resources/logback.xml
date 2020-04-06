@@ -12,6 +12,6 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger level="INFO" name="com.digitalasset" />
+    <logger level="INFO" name="com.daml" />
 
 </configuration>

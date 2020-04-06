@@ -48,7 +48,7 @@ dar_to_scala(
     srcs = [
         ":SemanticTests.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.test",
+    package_prefix = "com.daml.ledger.test",
     srcjar_out = "SemanticTests.scala.srcjar",
     verbosity = 2,
     visibility = ["//visibility:public"],
@@ -57,6 +57,37 @@ dar_to_scala(
 da_scala_library(
     name = "SemanticTests.scala",
     srcs = [":SemanticTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
+daml_compile(
+    name = "PerformanceTests",
+    srcs = [
+        "src/main/daml/performance/Cycle.daml",
+        "src/main/daml/performance/PingPong.daml",
+        "src/main/daml/performance/PingPongExplode.daml",
+    ],
+    target = lf_stable_version,
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "PerformanceTests.scala-codegen",
+    srcs = [
+        ":PerformanceTests.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test.performance",
+    srcjar_out = "PerformanceTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "PerformanceTests.scala",
+    srcs = [":PerformanceTests.scala-codegen"],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/scala/bindings",
@@ -84,7 +115,7 @@ lf_test_versions = [
         dar_to_scala(
             name = "Test-%s.scala-codegen" % target_name,
             srcs = [":Test-%s.dar" % target_name],
-            package_prefix = "com.digitalasset.ledger.test_%s" % target_name,
+            package_prefix = "com.daml.ledger.test_%s" % target_name,
             srcjar_out = "Test-%s.scala.srcjar" % target_name,
             verbosity = 2,
             visibility = ["//visibility:public"],
@@ -104,6 +135,7 @@ lf_test_versions = [
 filegroup(
     name = "dar-files",
     srcs = [
+        ":PerformanceTests.dar",
         ":SemanticTests.dar",
         ":Test-dev.dar",
         ":Test-stable.dar",

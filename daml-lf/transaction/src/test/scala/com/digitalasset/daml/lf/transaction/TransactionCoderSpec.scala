@@ -1,19 +1,19 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
-import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
-import com.digitalasset.daml.lf.transaction.TransactionVersions._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.EitherAssertions
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
+import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
+import com.daml.lf.transaction.TransactionVersions._
+import com.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
@@ -29,7 +29,7 @@ class TransactionCoderSpec
     with EitherAssertions
     with PropertyChecks {
 
-  import com.digitalasset.daml.lf.value.ValueGenerators._
+  import com.daml.lf.value.ValueGenerators._
 
   private[this] val defaultTransactionVersion = TransactionVersions.acceptedVersions.lastOption getOrElse sys
     .error("there are no allowed versions! impossible! but could it be?")

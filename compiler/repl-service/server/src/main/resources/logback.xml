@@ -10,5 +10,5 @@
         <appender-ref ref="STDERR"/>
     </root>
     <logger name="daml.tracelog" level="DEBUG" />
-    <logger name="com.digitalasset.auth" level="WARN" />
+    <logger name="com.daml.auth" level="WARN" />
 </configuration>

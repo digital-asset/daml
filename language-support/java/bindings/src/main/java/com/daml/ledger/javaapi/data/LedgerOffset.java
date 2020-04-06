@@ -3,7 +3,7 @@
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.LedgerOffsetOuterClass;
+import com.daml.ledger.api.v1.LedgerOffsetOuterClass;
 
 import java.util.Objects;
 

@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.{value => api}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
-import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.{value => api}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
 
 import scalaz.syntax.bifunctor._

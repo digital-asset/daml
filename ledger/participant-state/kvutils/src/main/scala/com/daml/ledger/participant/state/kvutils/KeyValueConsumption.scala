@@ -6,8 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 

@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.v1
 
 import java.io.InputStream
 
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.daml.lf.data.{Bytes, Ref}
 
 /** Offsets into streams with hierarchical addressing.
   *

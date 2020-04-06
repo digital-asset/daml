@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.configuration
+package com.daml.platform.configuration
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.nio.file.{Path, Paths}
 
 import com.codahale.metrics
 import com.codahale.metrics.{MetricRegistry, ScheduledReporter}
-import com.digitalasset.platform.sandbox.config.InvalidConfigException
+import com.daml.platform.sandbox.config.InvalidConfigException
 import com.google.common.net.HostAndPort
 import scopt.Read
 

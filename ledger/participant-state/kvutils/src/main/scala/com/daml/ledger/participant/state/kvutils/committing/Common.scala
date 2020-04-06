@@ -15,7 +15,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
 }
 import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.InsertOrdMap
+import com.daml.lf.data.InsertOrdMap
 import org.slf4j.Logger
 
 import scala.annotation.tailrec

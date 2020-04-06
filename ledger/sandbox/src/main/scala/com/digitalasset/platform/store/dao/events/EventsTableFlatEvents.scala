@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import anorm.{Row, RowParser, SimpleSql, SqlStringInterpolation, ~}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger.TransactionId
-import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.platform.store.Conversions._
+import com.daml.ledger.TransactionId
+import com.daml.ledger.api.v1.event.Event
+import com.daml.platform.store.Conversions._
 
 private[events] trait EventsTableFlatEvents { this: EventsTable =>
 

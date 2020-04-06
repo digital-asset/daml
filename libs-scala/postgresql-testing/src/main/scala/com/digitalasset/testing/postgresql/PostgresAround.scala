@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
 import java.io.StringWriter
 import java.net.InetAddress
@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.testing.postgresql.PostgresAround._
+import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 

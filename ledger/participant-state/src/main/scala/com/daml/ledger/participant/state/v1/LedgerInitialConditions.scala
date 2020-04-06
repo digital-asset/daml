@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v1
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Time.Timestamp
 
 /** The initial conditions of the ledger before anything has been committed.
   *

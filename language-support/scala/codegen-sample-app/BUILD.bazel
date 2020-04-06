@@ -38,7 +38,7 @@ dar_to_scala(
         ":MySecondMain.dar",
         "//daml-lf/encoder:testing-dar-latest",
     ],
-    package_prefix = "com.digitalasset.sample",
+    package_prefix = "com.daml.sample",
     srcjar_out = "MyMain.srcjar",
     verbosity = 2,
 )
@@ -118,7 +118,7 @@ da_scala_test(
         "//ledger/sandbox:sandbox-binary_deploy.jar",
     ],
     jvm_flags = [
-        "-Dcom.digitalasset.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
+        "-Dcom.daml.sandbox.jar=ledger/sandbox/sandbox-binary_deploy.jar",
     ],
     scalacopts = ["-Xsource:2.13"],
     deps = [

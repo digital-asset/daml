@@ -5,11 +5,11 @@ package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.concurrent.Future
 

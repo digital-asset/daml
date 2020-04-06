@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.digitalasset.ledger.api.domain.LedgerOffset
+import com.daml.ledger.api.domain.LedgerOffset
 
 import scala.concurrent.Future
 

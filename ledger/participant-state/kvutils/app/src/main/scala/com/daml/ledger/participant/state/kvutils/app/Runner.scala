@@ -17,13 +17,13 @@ import com.daml.ledger.participant.state.kvutils.app.Metrics.{
 import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{StandaloneApiServer, TimedIndexService}
-import com.digitalasset.platform.indexer.StandaloneIndexerServer
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.lf.archive.DarReader
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
+import com.daml.platform.indexer.StandaloneIndexerServer
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}

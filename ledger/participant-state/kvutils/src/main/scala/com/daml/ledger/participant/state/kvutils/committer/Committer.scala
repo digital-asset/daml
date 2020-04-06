@@ -16,7 +16,7 @@ import com.daml.ledger.participant.state.kvutils.DamlStateMap
 import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.daml.lf.data.Time
+import com.daml.lf.data.Time
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.

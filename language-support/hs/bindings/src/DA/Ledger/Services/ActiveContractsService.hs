@@ -5,8 +5,8 @@
 
 module DA.Ledger.Services.ActiveContractsService (getActiveContracts) where
 
-import Com.Digitalasset.Ledger.Api.V1.ActiveContractsService
-import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
+import Com.Daml.Ledger.Api.V1.ActiveContractsService
+import Com.Daml.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService

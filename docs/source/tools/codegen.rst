@@ -7,7 +7,7 @@ DAML codegen
 Introduction
 ============
 
-You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates. These classes incorporate all boilerplate code for constructing corresponding ledger :ref:`com.digitalasset.ledger.api.v1.CreateCommand` and :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand`.
+You can use the DAML codegen to generate Java and Scala classes representing DAML contract templates. These classes incorporate all boilerplate code for constructing corresponding ledger :ref:`com.daml.ledger.api.v1.CreateCommand` and :ref:`com.daml.ledger.api.v1.ExerciseCommand`.
 
 Running the DAML codegen
 ========================
@@ -71,11 +71,11 @@ The above settings can be configured in the ``codegen`` element of the DAML proj
       - daml-stdlib
     codegen:
       java:
-        package-prefix: com.digitalasset.quickstart.iou
+        package-prefix: com.daml.quickstart.iou
         output-directory: java-codegen/src/main/java
         verbosity: 2
       scala:
-        package-prefix: com.digitalasset.quickstart.iou
+        package-prefix: com.daml.quickstart.iou
         output-directory: scala-codegen/src/main/scala
         verbosity: 2
 
@@ -89,10 +89,10 @@ and to generate **Scala** code::
 
 The equivalent **DAML to Java** command line configuration::
 
-    $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.digitalasset.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
+    $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
 and **DAML to Scala** command line configuration::
 
-    $ daml codegen scala ./.daml/dist/quickstart-0.0.1.dar=com.digitalasset.quickstart.iou --output-directory=scala-codegen/src/main/scala --verbosity=2
+    $ daml codegen scala ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=scala-codegen/src/main/scala --verbosity=2
 
 

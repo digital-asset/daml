@@ -1,26 +1,26 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
 import java.util
 import java.io.File
 
-import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.archive.{Decode, UniversalArchiveReader}
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
+import com.daml.lf.value.Value
 import Value._
-import com.digitalasset.daml.lf.speedy.{SValue, svalue}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
+import com.daml.lf.speedy.{SValue, svalue}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.command._
+import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._

@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.{BackStack, Ref}
-import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.{Name, Party}
-import com.digitalasset.daml.lf.transaction.Node._
+import com.daml.lf.data.{BackStack, Ref}
+import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
+import com.daml.lf.data.Ref.{Name, Party}
+import com.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedValue}
-import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
+import com.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
 import scala.collection.JavaConverters._

@@ -10,9 +10,9 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.daml.lf.data.{Ref, Time}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.HealthStatus
 
 import scala.compat.java8.FutureConverters
 

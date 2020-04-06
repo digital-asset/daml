@@ -115,7 +115,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "sandbox-binary",
-    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -125,7 +125,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-next-binary",
-    main_class = "com.digitalasset.platform.sandboxnext.Main",
+    main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -135,7 +135,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-ephemeral-postgresql",
-    main_class = "com.digitalasset.platform.sandbox.persistence.MainWithEphemeralPostgresql",
+    main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -146,7 +146,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-next-ephemeral-postgresql",
-    main_class = "com.digitalasset.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
+    main_class = "com.daml.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -186,7 +186,7 @@ container_image(
 java_image(
     name = "sandbox-image",
     base = ":sandbox-image-base",
-    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     runtime_deps = [":sandbox"],

@@ -1,14 +1,14 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.client.rs
+package com.daml.grpc.adapter.client.rs
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 import java.util.concurrent.{ExecutorService, Executors}
 import java.util.function.BiConsumer
 
-import com.digitalasset.grpc.adapter.TestExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.server.rs.MockClientCallStreamObserver
+import com.daml.grpc.adapter.TestExecutionSequencerFactory
+import com.daml.grpc.adapter.server.rs.MockClientCallStreamObserver
 import io.grpc.stub.{ClientResponseObserver, StreamObserver}
 import org.reactivestreams.Publisher
 import org.reactivestreams.tck.PublisherVerification

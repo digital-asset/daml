@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.graphql
+package com.daml.navigator.graphql
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -10,13 +10,13 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.CustomEndpoint
-import com.digitalasset.navigator.model._
-import com.digitalasset.navigator.query._
-import com.digitalasset.navigator.store.Store._
-import com.digitalasset.navigator.time.{TimeProviderType, TimeProviderWithType}
-import com.digitalasset.navigator.model.converter.GenericConversionError
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.CustomEndpoint
+import com.daml.navigator.model._
+import com.daml.navigator.query._
+import com.daml.navigator.store.Store._
+import com.daml.navigator.time.{TimeProviderType, TimeProviderWithType}
+import com.daml.navigator.model.converter.GenericConversionError
 import sangria.ast.StringValue
 import sangria.macros.derive.GraphQLDeprecated
 import sangria.schema.InputObjectType.DefaultInput

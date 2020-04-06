@@ -7,10 +7,10 @@ import scala.collection.mutable
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.TransactionMeta
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, VersionedValue}
+import com.daml.lf.data.Ref._
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, VersionedValue}
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
 private[kvutils] object InputsAndEffects {

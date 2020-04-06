@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandboxnext.services.reset
+package com.daml.platform.sandboxnext.services.reset
 
-import com.digitalasset.platform.sandbox.SandboxBackend
-import com.digitalasset.platform.sandbox.services.reset.ResetServiceITBase
-import com.digitalasset.platform.sandboxnext.SandboxNextFixture
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.services.reset.ResetServiceITBase
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import org.scalatest.Ignore
 
 @Ignore

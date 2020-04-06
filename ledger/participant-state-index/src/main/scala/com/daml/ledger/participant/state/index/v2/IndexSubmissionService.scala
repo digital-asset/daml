@@ -5,14 +5,14 @@ package com.daml.ledger.participant.state.index.v2
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.CommandId
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.CommandId
 
 import scala.concurrent.Future
 
 /**
   * Serves as a backend to implement
-  * [[com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc]]
+  * [[com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc]]
   **/
 trait IndexSubmissionService {
   def deduplicateCommand(

@@ -1,30 +1,30 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.sql
+package com.daml.platform.sandbox.stores.ledger.sql
 
 import java.nio.file.Paths
 import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, TimeModel}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.health.{Healthy, Unhealthy}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.MetricsAround
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
-import com.digitalasset.resources.Resource
-import com.digitalasset.testing.postgresql.PostgresAroundEach
+import com.daml.api.util.TimeProvider
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.health.{Healthy, Unhealthy}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.MetricsAround
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.stores.ledger.sql.SqlLedgerSpec._
+import com.daml.resources.Resource
+import com.daml.testing.postgresql.PostgresAroundEach
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, Eventually, ScaledTimeSpans}
 import org.scalatest.time.{Minute, Seconds, Span}
 import org.scalatest.{AsyncWordSpec, Matchers}

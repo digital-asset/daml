@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
@@ -30,31 +30,31 @@ import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
-import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.{
+import com.daml.lf.CompiledPackages
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.{
   ConcurrentCompiledPackages,
   MutableCompiledPackages,
   Result,
   ResultDone,
   ResultNeedPackage
 }
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
-import com.digitalasset.ledger.api.v1.ledger_offset.{LedgerOffset}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.lf.language.Ast._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.event.{CreatedEvent}
+import com.daml.ledger.api.v1.ledger_offset.{LedgerOffset}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
     host: String,

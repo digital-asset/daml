@@ -5,7 +5,7 @@
 
 module DA.Ledger.Services.CommandCompletionService (completionStream, completionEnd) where
 
-import Com.Digitalasset.Ledger.Api.V1.CommandCompletionService hiding (Checkpoint)
+import Com.Daml.Ledger.Api.V1.CommandCompletionService hiding (Checkpoint)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService

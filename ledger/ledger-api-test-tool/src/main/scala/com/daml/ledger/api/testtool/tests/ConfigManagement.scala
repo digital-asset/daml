@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 

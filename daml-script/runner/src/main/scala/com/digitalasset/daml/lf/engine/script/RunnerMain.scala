@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.daml.lf.engine.script
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -16,23 +16,23 @@ import scalaz.\/-
 import scalaz.syntax.traverse._
 import spray.json._
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.iface.EnvironmentInterface
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.archive.{Dar, DarReader}
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
+import com.daml.lf.iface.EnvironmentInterface
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.language.Ast.Package
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.auth.TokenHolder
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.auth.TokenHolder
 
 object RunnerMain {
 

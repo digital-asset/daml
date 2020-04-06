@@ -1,21 +1,21 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, VersionTimeline}
-import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.lf.CompiledPackages
+import com.daml.lf.data._
+import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
+import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.speedy.{ScenarioRunner, Speedy}
+import com.daml.lf.transaction.{GenTransaction, VersionTimeline}
+import com.daml.lf.types.Ledger.ScenarioTransactionId
+import com.daml.lf.types.{Ledger => L}
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.store.entries.LedgerEntry
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec

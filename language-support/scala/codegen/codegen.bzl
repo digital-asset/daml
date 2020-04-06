@@ -65,7 +65,7 @@ dar_to_scala = rule(
         ),
         "package_prefix": attr.string(
             mandatory = True,
-            doc = "Package name e.g. 'com.digitalasset.mypackage'.",
+            doc = "Package name e.g. 'com.daml.mypackage'.",
         ),
         "verbosity": attr.int(
             default = 2,

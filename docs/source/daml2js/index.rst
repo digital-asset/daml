@@ -97,7 +97,7 @@ To understand the TypeScript typings produced by the code generator, it is helpf
    The TypeScript types ``Time``, ``Decimal``, ``Numeric`` and ``Int`` all alias to ``string``. These choices relate to the avoidance of precision loss under serialization over the `json-api <../json-api/index.html>`_.
 
 .. note::
-   The Typescript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
+   The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
 
 DAML to TypeScript mappings
 ---------------------------
@@ -231,7 +231,7 @@ Here is a DAML template of a basic 'IOU' contract.
          do
            create this with owner = newOwner
 
-The ``daml codgen js`` command generates types for each of the choices defined on the template as well as the template itself.
+The ``daml codegen js`` command generates types for each of the choices defined on the template as well as the template itself.
 
 .. code-block:: typescript
    :linenos:

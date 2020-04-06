@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.config
+package com.daml.extractor.config
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.extractor.targets._
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.extractor.targets._
+import com.daml.ledger.api.tls.TlsConfiguration
 import CustomScoptReaders._
-import com.digitalasset.ports.Port
+import com.daml.ports.Port
 import scalaz.OneAnd
 
 import scala.util.Try

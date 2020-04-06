@@ -1,17 +1,17 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.metrics.MetricName
-import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.configuration.ServerRole
+import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}

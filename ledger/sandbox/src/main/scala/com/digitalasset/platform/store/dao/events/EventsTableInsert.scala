@@ -1,16 +1,16 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao.events
+package com.daml.platform.store.dao.events
 
 import java.util.Date
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
-import com.digitalasset.ledger._
-import com.digitalasset.platform.events.EventIdFormatter.fromTransactionId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
+import com.daml.ledger._
+import com.daml.platform.events.EventIdFormatter.fromTransactionId
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 private[events] trait EventsTableInsert { this: EventsTable =>
 

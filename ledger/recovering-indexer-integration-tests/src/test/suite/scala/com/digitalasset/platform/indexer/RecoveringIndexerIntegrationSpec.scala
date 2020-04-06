@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit.SECONDS
@@ -15,17 +15,17 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.configuration.ServerRole
-import com.digitalasset.platform.indexer.RecoveringIndexerIntegrationSpec._
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.testing.LogCollector
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.timer.RetryStrategy
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.indexer.RecoveringIndexerIntegrationSpec._
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.testing.LogCollector
+import com.daml.resources.ResourceOwner
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.timer.RetryStrategy
 import org.mockito.ArgumentMatchers
 import org.mockito.Mockito._
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}

@@ -1,27 +1,27 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.nio.file.Files
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.ledger.types.TransactionTree
-import com.digitalasset.extractor.targets.TextPrintTarget
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.ledger.api.auth.AuthServiceJWTPayload
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
-import com.digitalasset.timer.Delayed
+import com.daml.lf.data.Ref.Party
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.daml.extractor.ledger.types.TransactionTree
+import com.daml.extractor.targets.TextPrintTarget
+import com.daml.extractor.writers.Writer
+import com.daml.grpc.GrpcException
+import com.daml.ledger.api.auth.AuthServiceJWTPayload
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.services.commands.SynchronousCommandClient
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.platform.sandbox.services.{SandboxFixtureWithAuth, TestCommands}
+import com.daml.timer.Delayed
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.slf4j.LoggerFactory
 import scalaz.{OneAnd, \/}

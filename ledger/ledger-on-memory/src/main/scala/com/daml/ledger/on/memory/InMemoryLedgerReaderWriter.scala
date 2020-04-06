@@ -16,12 +16,12 @@ import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLog
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.platform.akkastreams.dispatcher.Dispatcher
+import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 
