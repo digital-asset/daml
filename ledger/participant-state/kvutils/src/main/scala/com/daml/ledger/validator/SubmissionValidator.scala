@@ -10,7 +10,6 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.caching.Cache._
 import com.daml.ledger.participant.state.kvutils.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.metrics.MetricName
@@ -22,7 +21,6 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.google.common.cache.CacheBuilder
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -33,12 +31,14 @@ import scala.util.{Failure, Success, Try}
 /**
   * Orchestrates validating, transforming or committing submissions for key-value ledgers.
   *
-  * @param ledgerStateAccess defines how the validator retrieves/writes back state to the ledger
-  * @param processSubmission defines how a log entry and state updates get generated from a submission
-  * @param allocateLogEntryId  defines how new log entry IDs are being generated
-  * @param checkForMissingInputs  whether all inputs declared as the required inputs in the submission must be available
-  *                               in order to pass validation
-  * @param executionContext  ExecutionContext to use when performing ledger state reads/writes
+  * @param ledgerStateAccess     defines how the validator retrieves/writes back state to the ledger
+  * @param processSubmission     defines how a log entry and state updates are generated
+  * @param allocateLogEntryId    defines how new log entry IDs are being generated
+  * @param checkForMissingInputs whether all inputs declared as the required inputs in the
+  *                              submission must be available in order to pass validation
+  * @param stateValueCache       a cache for deserializing state values from bytes
+  * @param metricRegistry        metrics are pushed to this registry
+  * @param executionContext      ExecutionContext to use when performing ledger state reads/writes
   */
 class SubmissionValidator[LogResult] private[validator] (
     ledgerStateAccess: LedgerStateAccess[LogResult],
@@ -51,20 +51,13 @@ class SubmissionValidator[LogResult] private[validator] (
     ) => LogEntryAndState,
     allocateLogEntryId: () => DamlLogEntryId,
     checkForMissingInputs: Boolean,
-    maximumStateValueCacheSize: Long,
+    stateValueCache: Cache[Bytes, DamlStateValue],
     metricRegistry: MetricRegistry,
 )(implicit executionContext: ExecutionContext) {
 
   private val logger = ContextualizedLogger.get(getClass)
 
   private val timedLedgerStateAccess = new TimedLedgerStateAccess(ledgerStateAccess)
-
-  private val stateValueCache: Cache[Bytes, DamlStateValue] =
-    CacheBuilder
-      .newBuilder()
-      .maximumWeight(maximumStateValueCacheSize)
-      .weigher[Bytes, DamlStateValue](Weight.weigher)
-      .build[Bytes, DamlStateValue]()
 
   def validate(
       envelope: Bytes,
@@ -324,20 +317,18 @@ object SubmissionValidator {
 
   private lazy val engine = Engine()
 
-  val DefaultMaximumStateValueCacheSize: Long = 64L * 1024L * 1024L
-
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      maximumStateValueCacheSize: Long = DefaultMaximumStateValueCacheSize,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(
       ledgerStateAccess,
       allocateNextLogEntryId,
       checkForMissingInputs,
-      maximumStateValueCacheSize,
+      stateValueCache,
       metricRegistry,
       inStaticTimeMode = false,
     )
@@ -348,7 +339,7 @@ object SubmissionValidator {
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
-      maximumStateValueCacheSize: Long = DefaultMaximumStateValueCacheSize,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       metricRegistry: MetricRegistry,
       inStaticTimeMode: Boolean,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =
@@ -357,7 +348,7 @@ object SubmissionValidator {
       processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
-      maximumStateValueCacheSize,
+      stateValueCache,
       metricRegistry,
     )
 

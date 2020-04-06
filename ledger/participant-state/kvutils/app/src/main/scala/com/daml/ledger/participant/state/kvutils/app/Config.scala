@@ -8,14 +8,17 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.kvutils.Bytes
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
+import com.daml.ledger.participant.state.kvutils.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.validator.SubmissionValidator
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
 import com.daml.resources.ProgramResource.SuppressedStartupException
 import com.daml.resources.ResourceOwner
+import com.google.common.cache.CacheBuilder
 import scopt.OptionParser
 
 final case class Config[Extra](
@@ -24,7 +27,7 @@ final case class Config[Extra](
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     eventsPageSize: Int,
-    maximumStateValueCacheSize: Long,
+    stateValueCache: Cache[Bytes, DamlStateValue],
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -53,6 +56,8 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
+  val DefaultMaximumStateValueCacheSize: Long = 64L * 1024L * 1024L
+
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
@@ -60,7 +65,11 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      maximumStateValueCacheSize = SubmissionValidator.DefaultMaximumStateValueCacheSize,
+      stateValueCache = CacheBuilder
+        .newBuilder()
+        .maximumWeight(DefaultMaximumStateValueCacheSize)
+        .weigher[Bytes, DamlStateValue](Weight.weigher)
+        .build[Bytes, DamlStateValue](),
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -147,9 +156,15 @@ object Config {
       opt[Long]("max-state-value-cache-size")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize state values. The default is ${SubmissionValidator.DefaultMaximumStateValueCacheSize / 1024 / 1024} MB.")
-        .action((maximumStateValueCacheSize, config) =>
-          config.copy(maximumStateValueCacheSize = maximumStateValueCacheSize))
+          s"The maximum size of the cache used to deserialize state values. The default is ${DefaultMaximumStateValueCacheSize / 1024 / 1024} MB.")
+        .action(
+          (maximumStateValueCacheSize, config) =>
+            config.copy(
+              stateValueCache = CacheBuilder
+                .newBuilder()
+                .maximumWeight(maximumStateValueCacheSize)
+                .weigher[Bytes, DamlStateValue](Weight.weigher)
+                .build[Bytes, DamlStateValue]()))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

@@ -16,6 +16,16 @@ trait Cache[Key, Value] {
 }
 
 object Cache {
+  def none[Key, Value]: Cache[Key, Value] = new None
+
+  class None[Key, Value] extends Cache[Key, Value] {
+    override def get(key: Key, acquire: Key => Value): Value = acquire(key)
+
+    override def size: Size = 0
+
+    override private[caching] def entries: Iterable[(Key, Value)] = Iterable.empty
+  }
+
   implicit class `Google Cache to Cache`[Key, Value](val cache: google.Cache[Key, Value])
       extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value =
@@ -24,7 +34,7 @@ object Cache {
     override def size: Size =
       cache.size()
 
-    private[caching] override def entries: Iterable[(Key, Value)] =
+    override private[caching] def entries: Iterable[(Key, Value)] =
       cache.asMap().asScala
   }
 }

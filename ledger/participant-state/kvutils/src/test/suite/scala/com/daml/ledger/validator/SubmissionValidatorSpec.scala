@@ -8,6 +8,7 @@ import java.time.Clock
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.MockitoHelpers.captor
+import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyValuePairs}
@@ -96,7 +97,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           failingProcessSubmission,
           allocateLogEntryId = () => aLogEntryId(),
           checkForMissingInputs = false,
-          maximumStateValueCacheSize = 0,
+          stateValueCache = Cache.none,
           metricRegistry = new MetricRegistry,
         )
       instance.validate(anEnvelope(), "aCorrelationId", newRecordTime(), aParticipantId()).map {
@@ -126,7 +127,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
           .processSubmission(new KeyValueCommitting(new MetricRegistry)),
         allocateLogEntryId = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
-        maximumStateValueCacheSize = 0,
+        stateValueCache = Cache.none,
         metricRegistry = new MetricRegistry,
       )
       instance
@@ -162,7 +163,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
-        maximumStateValueCacheSize = 0,
+        stateValueCache = Cache.none,
         metricRegistry = new MetricRegistry,
       )
       instance
@@ -197,7 +198,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
-        maximumStateValueCacheSize = 0,
+        stateValueCache = Cache.none,
         metricRegistry = new MetricRegistry,
       )
       val batchEnvelope =
@@ -231,7 +232,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
-        maximumStateValueCacheSize = 0,
+        stateValueCache = Cache.none,
         metricRegistry = new MetricRegistry,
       )
       val batchEnvelope =
@@ -268,7 +269,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
         processSubmission = (_, _, _, _, _) => logEntryAndStateResult,
         allocateLogEntryId = () => aLogEntryId(),
         checkForMissingInputs = false,
-        maximumStateValueCacheSize = 0,
+        stateValueCache = Cache.none,
         metricRegistry = new MetricRegistry,
       )
       instance

@@ -9,16 +9,18 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
 import com.daml.ledger.on.memory.InMemoryState.MutableLog
+import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
 import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord, LedgerWriter}
+import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
-import com.daml.api.util.TimeProvider
 import com.daml.lf.data.Ref
-import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
@@ -31,7 +33,7 @@ final class InMemoryLedgerReaderWriter private (
     override val participantId: ParticipantId,
     metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
-    maximumStateValueCacheSize: Long,
+    stateValueCache: Cache[Bytes, DamlStateValue],
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
 )(implicit executionContext: ExecutionContext)
@@ -44,7 +46,7 @@ final class InMemoryLedgerReaderWriter private (
       .createForTimeMode(
         new InMemoryLedgerStateAccess(state),
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
-        maximumStateValueCacheSize = maximumStateValueCacheSize,
+        stateValueCache = stateValueCache,
         metricRegistry = metricRegistry,
         inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
@@ -114,7 +116,7 @@ object InMemoryLedgerReaderWriter {
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      maximumStateValueCacheSize: Long = SubmissionValidator.DefaultMaximumStateValueCacheSize,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       metricRegistry: MetricRegistry,
   )(implicit materializer: Materializer)
       extends ResourceOwner[InMemoryLedgerReaderWriter] {
@@ -129,7 +131,7 @@ object InMemoryLedgerReaderWriter {
           participantId,
           metricRegistry,
           timeProvider,
-          maximumStateValueCacheSize,
+          stateValueCache,
           dispatcher,
           state,
         ).acquire()
@@ -144,7 +146,7 @@ object InMemoryLedgerReaderWriter {
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
       timeProvider: TimeProvider = DefaultTimeProvider,
-      maximumStateValueCacheSize: Long = SubmissionValidator.DefaultMaximumStateValueCacheSize,
+      stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
   ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
@@ -159,7 +161,7 @@ object InMemoryLedgerReaderWriter {
           participantId,
           metricRegistry,
           timeProvider,
-          maximumStateValueCacheSize,
+          stateValueCache,
           dispatcher,
           state,
         ))
