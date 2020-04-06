@@ -158,7 +158,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
               observers Nil @Party,
               agreement "Agreement",
               choices {
-                choice Ch (i : Mod:SerializableType) (self) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
+                choice Ch (self) (i : Mod:SerializableType) : Mod:SerializableType by $partiesAlice to upure @Mod:SerializableType (Mod:SerializableType {})
               }
             } ;
           }
@@ -172,7 +172,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) (self) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:SerializableType by $partiesAlice
                       to upure @Mod:SerializableType (Mod:SerializableType {})
                 }
@@ -189,7 +189,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:UnserializableType) (self) :     // disallowed unserializable type
+                  choice Ch (self) (i : Mod:UnserializableType) :     // disallowed unserializable type
                    Unit by $partiesAlice to
                        upure @Unit ()
                 }
@@ -205,7 +205,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
                 observers Nil @Party,
                 agreement "Agreement",
                 choices {
-                  choice Ch (i : Mod:SerializableType) (self) :
+                  choice Ch (self) (i : Mod:SerializableType) :
                     Mod:UnserializableType by $partiesAlice to       // disallowed unserializable type
                        upure @Mod:UnserializableType (Mod:UnserializableType {})
                 }
@@ -322,7 +322,7 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
             observers Cons @Party ['Alice'] (Nil @Party),
             agreement "Agreement",
             choices {
-              choice Ch (x: Int64) (self) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
+              choice Ch (self) (x: Int64) : Decimal by 'Bob' to upure @Int64 (DECIMAL_TO_INT64 x)
             }
           } ;
 
