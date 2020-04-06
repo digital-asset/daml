@@ -1,0 +1,17 @@
+daml 1.2
+module Cycle where
+
+template Cycle
+  with
+    id : Text
+    owner: Party
+  where
+    signatory owner
+
+    controller owner can
+      Repeat : ContractId Cycle
+        do
+          create Cycle with id, owner
+      Void : ()
+        do
+          return ()

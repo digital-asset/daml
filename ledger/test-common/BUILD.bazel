@@ -65,7 +65,11 @@ da_scala_library(
 
 daml_compile(
     name = "PerformanceTests",
-    srcs = ["src/main/daml/performance/PingPong.daml"],
+    srcs = [
+        "src/main/daml/performance/Cycle.daml",
+        "src/main/daml/performance/PingPong.daml",
+        "src/main/daml/performance/PingPongExplode.daml",
+    ],
     target = lf_stable_version,
     visibility = ["//visibility:public"],
 )

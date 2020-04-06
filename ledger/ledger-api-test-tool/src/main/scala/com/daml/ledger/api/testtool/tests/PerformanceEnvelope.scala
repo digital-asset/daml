@@ -120,7 +120,7 @@ trait PerformanceEnvelope {
         request = submitRequest(
           participantAlice,
           alice,
-          PingPongModule.Ping(payload, alice, List(bob), 0).create.command,
+          PingPongModule.Ping(payload, alice, List(bob)).create.command,
           workflowId)
         _ = {
           logger.info(s"Submitting ping with workflowId=$workflowId")
