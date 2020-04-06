@@ -102,7 +102,7 @@ private[kvutils] class ProcessTransactionSubmission(
     get(dedupKey).flatMap { dedupEntry =>
       val submissionTime = if (inStaticTimeMode) Instant.now() else recordTime.toInstant
       if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
-        pure(())
+        pass
       } else {
         logger.trace(
           s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
