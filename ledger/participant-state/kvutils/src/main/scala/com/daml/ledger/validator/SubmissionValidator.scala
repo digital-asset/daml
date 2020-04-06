@@ -10,11 +10,12 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
+import com.daml.ledger.participant.state.kvutils.caching.Cache._
+import com.daml.ledger.participant.state.kvutils.caching.{Cache, Weight}
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.daml.ledger.validator.Cache._
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
