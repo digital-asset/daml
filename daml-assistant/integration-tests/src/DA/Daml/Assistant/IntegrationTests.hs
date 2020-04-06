@@ -9,8 +9,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
 import qualified Data.Aeson as Aeson
-import Data.Aeson ((.=), object)
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
@@ -34,28 +32,23 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Web.JWT as JWT
 
-import DA.Directory
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
-import DA.Test.Daml2jsUtils (writeRootPackageJson)
+import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent,callProcessSilent)
 import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
 main = do
-    yarn : damlTypesPath : args <- getArgs
+    yarn : args <- getArgs
     withTempDir $ \tmpDir -> do
     oldPath <- getSearchPath
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
     yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
-    damlTypesDir <-
-      if isWindows
-        then pure damlTypesPath -- Not available.
-        else locateRunfiles (mainWorkspace </> damlTypesPath)
     -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
     -- on the PATH as mvn.cmd executes cmd.exe
     mbComSpec <- getEnv "COMSPEC"
@@ -63,10 +56,10 @@ main = do
     withArgs args (withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ (tarPath : javaPath : mvnPath : yarnPath : oldPath) ++ maybeToList mbCmdDir)
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain (tests tmpDir damlTypesDir))
+        ] $ defaultMain (tests tmpDir))
 
-tests :: FilePath -> FilePath -> TestTree
-tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests"
+tests :: FilePath -> TestTree
+tests tmpDir = withSdkResource $ \_ -> testGroup "Integration tests"
     [ testCase "daml version" $ callCommandSilent "daml version"
     , testCase "daml --help" $ callCommandSilent "daml --help"
     , testCase "daml new --list" $ callCommandSilent "daml new --list"
@@ -74,7 +67,7 @@ tests tmpDir damlTypesDir = withSdkResource $ \_ -> testGroup "Integration tests
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     , templateTests
-    , codegenTests codegenDir damlTypesDir
+    , codegenTests codegenDir
     , createDamlAppTests
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
@@ -518,8 +511,8 @@ templateTests = testGroup "templates"
             ]
 
 -- | Check we can generate language bindings.
-codegenTests :: FilePath -> FilePath -> TestTree
-codegenTests codegenDir damlTypes = testGroup "daml codegen" (
+codegenTests :: FilePath -> TestTree
+codegenTests codegenDir = testGroup "daml codegen" (
     [ codegenTestFor "java" Nothing
     , codegenTestFor "scala" (Just "com.cookiemonster.nomnomnom")
     ] ++
@@ -540,13 +533,8 @@ codegenTests codegenDir damlTypes = testGroup "daml codegen" (
                         let darFile = projectDir </> ".daml/dist/proj-" ++ lang ++ "-0.0.1.dar"
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "js") $ do
-                          -- This section makes
-                          -- 'daml-types@0.0.0-SDKVERSION' available
-                          -- to yarn.
-                          createDirectoryIfMissing True "generated"
-                          withCurrentDirectory "generated" $ do
-                            copyDirectory damlTypes "daml-types"
-                            writeRootPackageJson Nothing [lang]
+                            let workspaces = Workspaces [makeRelative codegenDir outDir]
+                            setupYarnEnv codegenDir workspaces [DamlTypes]
                         callCommandSilent $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
@@ -559,18 +547,8 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
   where
     gettingStartedGuideTest = testCase "Getting Started Guide" $
       withTempDir $ \tmpDir -> do
-        let tsLibs = ["daml-types", "daml-ledger", "daml-react"]
-        forM_  tsLibs $ \tsLib -> do
-          srcDir <- locateRunfiles $ mainWorkspace </> "language-support" </> "ts" </> tsLib </> "npm_package"
-          copyDirectory srcDir (tmpDir </> tsLib)
-        BSL.writeFile (tmpDir </> "package.json") $ Aeson.encode $ object
-          [ "private" .= True
-          , "workspaces" .= ["create-daml-app/daml.js", "create-daml-app/ui" :: String]
-          , "resolutions" .= object
-              [ pkgName .= ("file:" ++ tsLib)
-              | tsLib <- tsLibs, let pkgName = "@" <> T.replace "-" "/"  (T.pack tsLib)
-              ]
-          ]
+        let workspaces = Workspaces ["create-daml-app/daml.js", "create-daml-app/ui"]
+        setupYarnEnv tmpDir workspaces allTsLibraries
         withCurrentDirectory tmpDir $ do
           callCommandSilent "daml new create-daml-app create-daml-app"
         let cdaDir = tmpDir </> "create-daml-app"
