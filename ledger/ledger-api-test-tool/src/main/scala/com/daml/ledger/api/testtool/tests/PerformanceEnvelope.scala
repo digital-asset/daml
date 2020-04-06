@@ -15,21 +15,18 @@ import com.daml.ledger.api.testtool.infrastructure.{
   LedgerSession,
   LedgerTestSuite
 }
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetTransactionsRequest,
-  GetTransactionsResponse
-}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.v1.commands.{Command, Commands}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.transaction_service.{GetTransactionsRequest, GetTransactionsResponse}
 import io.grpc.{Context, Status}
 import io.grpc.stub.StreamObserver
 import scalaz.syntax.tag._
