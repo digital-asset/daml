@@ -951,10 +951,9 @@ abstract class AbstractHttpServiceIntegrationTest
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
       ).flatMap {
         case (status, output) =>
-          status shouldBe StatusCodes.BadRequest
+          status shouldBe StatusCodes.OK
           inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-            case \/-(domain.ErrorResponse(errors, Some(warnings), StatusCodes.BadRequest)) =>
-              errors shouldBe List(ErrorMessages.cannotFindAnyParty)
+            case \/-(domain.OkResponse(List(), Some(warnings), StatusCodes.OK)) =>
               inside(warnings) {
                 case domain.UnknownParties(unknownParties) =>
                   unknownParties.toSet shouldBe requestedPartyIds.toSet

@@ -391,10 +391,7 @@ object Endpoints {
       if (unknownParties.isEmpty) None
       else Some(domain.UnknownParties(unknownParties))
 
-    if (parties.isEmpty)
-      domain.ErrorResponse(List(ErrorMessages.cannotFindAnyParty), warnings, StatusCodes.BadRequest)
-    else
-      domain.OkResponse(parties, warnings)
+    domain.OkResponse(parties, warnings)
   }
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
