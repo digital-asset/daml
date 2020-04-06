@@ -21,7 +21,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.google.common.cache.{CacheBuilder, CacheLoader}
+import com.google.common.cache.CacheBuilder
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -63,9 +63,7 @@ class SubmissionValidator[LogResult] private[validator] (
       .newBuilder()
       .maximumWeight(maximumStateValueCacheSize)
       .weigher[Bytes, DamlStateValue](Weight.weigher)
-      .build(new CacheLoader[Bytes, DamlStateValue] {
-        override def load(bytes: Bytes): DamlStateValue = bytesToStateValue(bytes)
-      })
+      .build[Bytes, DamlStateValue]()
 
   def validate(
       envelope: Bytes,
@@ -199,7 +197,10 @@ class SubmissionValidator[LogResult] private[validator] (
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
                   readInputs = readStateValues.view
                     .zip(declaredInputs)
-                    .map { case (valueBytes, key) => (key, valueBytes.map(stateValueCache.get)) }
+                    .map {
+                      case (valueBytes, key) =>
+                        (key, valueBytes.map(stateValueCache.get(_, bytesToStateValue)))
+                    }
                     .toMap
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs

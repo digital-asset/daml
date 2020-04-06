@@ -5,13 +5,13 @@ package com.daml.ledger.validator
 
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.Cache._
-import com.google.common.cache.{LoadingCache, Weigher}
+import com.google.common.{cache => google}
 import com.google.protobuf.MessageLite
 
 import scala.collection.JavaConverters._
 
-trait Cache[Key, +Value] {
-  def get(key: Key): Value
+trait Cache[Key, Value] {
+  def get(key: Key, acquire: Key => Value): Value
 
   def size: Size
 
@@ -32,7 +32,7 @@ object Cache {
     def weigh[T: Weight](value: T): Size =
       Weight[T].weigh(value)
 
-    def weigher[Key: Weight, Value: Weight]: Weigher[Key, Value] =
+    def weigher[Key: Weight, Value: Weight]: google.Weigher[Key, Value] =
       new WeightWeigher[Key, Value]
 
     def ofCache[Key, Value](cache: Cache[Key, Value])(
@@ -52,20 +52,20 @@ object Cache {
       value.getSerializedSize.toLong
   }
 
-  class WeightWeigher[Key: Weight, Value: Weight] extends Weigher[Key, Value] {
+  class WeightWeigher[Key: Weight, Value: Weight] extends google.Weigher[Key, Value] {
     override def weigh(key: Key, value: Value): Int =
       (Weight.weigh(key) + Weight.weigh(value)).toInt
   }
 
-  implicit class `LoadingCache to Cache`[Key, Value](val loadingCache: LoadingCache[Key, Value])
+  implicit class `Google Cache to Cache`[Key, Value](val cache: google.Cache[Key, Value])
       extends Cache[Key, Value] {
-    override def get(key: Key): Value =
-      loadingCache.get(key)
+    override def get(key: Key, acquire: Key => Value): Value =
+      cache.get(key, () => acquire(key))
 
     override def size: Size =
-      loadingCache.size()
+      cache.size()
 
     protected override def entries: Iterable[(Key, Value)] =
-      loadingCache.asMap().asScala
+      cache.asMap().asScala
   }
 }
