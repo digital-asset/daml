@@ -150,13 +150,13 @@ object Config {
       opt[Long]("max-state-value-cache-size")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize state values, in bytes. By default, nothing is cached.")
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
         .action(
           (maximumStateValueCacheSize, config) =>
             config.copy(
               stateValueCache = CacheBuilder
                 .newBuilder()
-                .maximumWeight(maximumStateValueCacheSize)
+                .maximumWeight(maximumStateValueCacheSize * 1024 * 1024)
                 .weigher[Bytes, DamlStateValue](Weight.weigher)
                 .build[Bytes, DamlStateValue]()))
 
