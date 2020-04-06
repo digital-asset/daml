@@ -42,6 +42,7 @@ da_scala_library(
         "//ledger/participant-state-metrics",
         "//ledger/participant-state/protobuf:ledger_configuration_java_proto",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

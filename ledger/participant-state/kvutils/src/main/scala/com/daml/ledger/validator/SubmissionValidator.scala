@@ -302,7 +302,13 @@ class SubmissionValidator[LogResult] private[validator] (
     val transformSubmission: Timer = metricRegistry.timer(prefix :+ "transform_submission")
 
     private val stateValueCachePrefix: MetricName = prefix :+ "state_value_cache"
-    metricRegistry.gauge(stateValueCachePrefix :+ "size", () => () => stateValueCache.size)
+    metricRegistry.gauge(
+      stateValueCachePrefix :+ "size",
+      () =>
+        () => {
+          println(s"State value cache size = ${stateValueCache.size}")
+          stateValueCache.size
+      })
     metricRegistry.gauge(
       stateValueCachePrefix :+ "weight",
       () => () => Weight.ofCache(stateValueCache))

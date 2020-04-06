@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.caching
 
 import com.daml.ledger.participant.state.kvutils.Bytes
-import com.google.common.{cache => google}
+import com.github.benmanes.caffeine.{cache => caffeine}
 import com.google.protobuf.MessageLite
 
 trait Weight[-T] {
@@ -18,7 +18,7 @@ object Weight {
   def weigh[T](value: T)(implicit weight: Weight[T]): Size =
     weight.weigh(value)
 
-  def weigher[Key: Weight, Value: Weight]: google.Weigher[Key, Value] =
+  def weigher[Key: Weight, Value: Weight]: caffeine.Weigher[Key, Value] =
     new WeightWeigher[Key, Value]
 
   def ofCache[Key, Value](cache: Cache[Key, Value])(
@@ -37,7 +37,7 @@ object Weight {
       value.getSerializedSize.toLong
   }
 
-  class WeightWeigher[Key: Weight, Value: Weight] extends google.Weigher[Key, Value] {
+  class WeightWeigher[Key: Weight, Value: Weight] extends caffeine.Weigher[Key, Value] {
     override def weigh(key: Key, value: Value): Int =
       (Weight.weigh(key) + Weight.weigh(value)).toInt
   }
