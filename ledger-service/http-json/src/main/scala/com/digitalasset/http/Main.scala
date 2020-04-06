@@ -160,8 +160,8 @@ object Main extends StrictLogging {
         .required()
         .text(
           "HTTP JSON API service port number. " +
-            "A port number of 0 will let the system pick up an ephemeral port. " +
-            "Consider specifying port-file option with port number 0.")
+            "A port number of 0 will let the system pick an ephemeral port. " +
+            "Consider specifying `--port-file` option with port number 0.")
 
       opt[File]("port-file")
         .action((x, c) => c.copy(portFile = Some(x.toPath)))
@@ -169,7 +169,7 @@ object Main extends StrictLogging {
         .text(
           "Optional file where to write the allocated HTTP port number. " +
             "Used to inform clients in CI about which port HTTP JSON API listens on. " +
-            "Defaults to none, that is file does not get created/updated.")
+            "Defaults to none, that is, no file gets created/updated.")
 
       opt[String]("application-id")
         .action((x, c) => c.copy(applicationId = ApplicationId(x)))
