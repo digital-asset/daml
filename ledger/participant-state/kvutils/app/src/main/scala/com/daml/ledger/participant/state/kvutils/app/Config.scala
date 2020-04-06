@@ -56,8 +56,6 @@ object Config {
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
 
-  val DefaultMaximumStateValueCacheSize: Long = 64L * 1024L * 1024L
-
   def default[Extra](extra: Extra): Config[Extra] =
     Config(
       ledgerId = None,
@@ -65,11 +63,7 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      stateValueCache = CacheBuilder
-        .newBuilder()
-        .maximumWeight(DefaultMaximumStateValueCacheSize)
-        .weigher[Bytes, DamlStateValue](Weight.weigher)
-        .build[Bytes, DamlStateValue](),
+      stateValueCache = Cache.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -156,7 +150,7 @@ object Config {
       opt[Long]("max-state-value-cache-size")
         .optional()
         .text(
-          s"The maximum size of the cache used to deserialize state values. The default is ${DefaultMaximumStateValueCacheSize / 1024 / 1024} MB.")
+          s"The maximum size of the cache used to deserialize state values, in bytes. By default, nothing is cached.")
         .action(
           (maximumStateValueCacheSize, config) =>
             config.copy(
