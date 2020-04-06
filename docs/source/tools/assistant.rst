@@ -188,6 +188,8 @@ To download and install the latest snapshot release::
 
   daml install latest --snapshots=yes
 
+Please note that snapshot releases are not intended for production usage.
+
 To install the SDK release specified in the project config, run::
 
   daml install project
