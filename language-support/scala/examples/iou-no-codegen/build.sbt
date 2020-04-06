@@ -1,7 +1,6 @@
 import sbt._
 
 import Versions._
-import Artifactory._
 
 version in ThisBuild := "0.0.1"
 scalaVersion in ThisBuild := "2.12.8"
@@ -34,7 +33,7 @@ lazy val commonSettings = Seq(
     "-Xfuture",
     "-Xlint:_,-unused"
   ),
-  resolvers ++= daResolvers,
+  resolvers += Resolver.mavenLocal,
   classpathTypes += "maven-plugin"
 )
 
