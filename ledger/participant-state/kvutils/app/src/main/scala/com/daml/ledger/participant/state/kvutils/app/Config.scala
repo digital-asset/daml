@@ -8,9 +8,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 import com.daml.ledger.api.tls.TlsConfiguration
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlStateValue
-import com.daml.ledger.participant.state.kvutils.caching.Configuration
-import com.daml.ledger.participant.state.kvutils.{Bytes, caching}
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.configuration.Readers._
@@ -26,7 +24,7 @@ final case class Config[Extra](
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
     eventsPageSize: Int,
-    stateValueCache: caching.Configuration[Bytes, DamlStateValue],
+    stateValueCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
@@ -62,7 +60,7 @@ object Config {
       tlsConfig = None,
       participants = Vector.empty,
       eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
-      stateValueCache = new Configuration.NoCache,
+      stateValueCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
@@ -152,7 +150,7 @@ object Config {
           s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
         .action((maximumStateValueCacheSize, config) =>
           config.copy(stateValueCache =
-            new caching.Configuration.MaxWeight(maximumStateValueCacheSize * 1024 * 1024)))
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

@@ -18,13 +18,20 @@ trait Cache[Key, Value] {
 object Cache {
   def none[Key, Value]: Cache[Key, Value] = new NoCache
 
-  def maxWeight[Key <: AnyRef: Weight, Value <: AnyRef: Weight](weight: Size): Cache[Key, Value] =
-    new CaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        .maximumWeight(weight)
-        .weigher[Key, Value](Weight.weigher)
-        .build[Key, Value]())
+  def from[Key <: AnyRef: Weight, Value <: AnyRef: Weight](
+      configuration: Configuration
+  ): Cache[Key, Value] =
+    configuration match {
+      case Configuration(0) =>
+        none
+      case Configuration(maximumWeight) =>
+        new CaffeineCache(
+          caffeine.Caffeine
+            .newBuilder()
+            .maximumWeight(maximumWeight)
+            .weigher[Key, Value](Weight.weigher)
+            .build[Key, Value]())
+    }
 
   class NoCache[Key, Value] extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value = acquire(key)

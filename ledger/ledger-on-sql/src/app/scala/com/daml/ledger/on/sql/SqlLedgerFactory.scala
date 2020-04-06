@@ -11,6 +11,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   ReadWriteService
 }
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.SeedService
 import com.daml.logging.LoggingContext
 import com.daml.resources.{Resource, ResourceOwner}
@@ -58,11 +59,10 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         participantConfig.participantId,
         metrics,
         jdbcUrl,
-        stateValueCache = config.stateValueCache.build,
+        stateValueCache = caching.Cache.from(config.stateValueCache),
         seedService = SeedService(config.seeding),
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
   }
-
 }
