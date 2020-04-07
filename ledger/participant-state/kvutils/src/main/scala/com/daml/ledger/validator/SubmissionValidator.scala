@@ -10,7 +10,7 @@ import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
-import com.daml.ledger.participant.state.kvutils.caching.{Cache, Weight}
+import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
@@ -302,16 +302,8 @@ class SubmissionValidator[LogResult] private[validator] (
     val transformSubmission: Timer = metricRegistry.timer(prefix :+ "transform_submission")
 
     private val stateValueCachePrefix: MetricName = prefix :+ "state_value_cache"
-    metricRegistry.gauge(
-      stateValueCachePrefix :+ "size",
-      () =>
-        () => {
-          println(s"State value cache size = ${stateValueCache.size}")
-          stateValueCache.size
-      })
-    metricRegistry.gauge(
-      stateValueCachePrefix :+ "weight",
-      () => () => Weight.ofCache(stateValueCache))
+    metricRegistry.gauge(stateValueCachePrefix :+ "size", () => () => stateValueCache.size)
+    metricRegistry.gauge(stateValueCachePrefix :+ "weight", () => () => stateValueCache.weight)
   }
 }
 

@@ -5,14 +5,14 @@ package com.daml.ledger.participant.state.kvutils.caching
 
 import com.github.benmanes.caffeine.{cache => caffeine}
 
-import scala.collection.JavaConverters._
+import scala.compat.java8.OptionConverters._
 
 trait Cache[Key, Value] {
   def get(key: Key, acquire: Key => Value): Value
 
   def size: Size
 
-  private[caching] def entries: Iterable[(Key, Value)]
+  def weight: Size
 }
 
 object Cache {
@@ -29,7 +29,7 @@ object Cache {
           caffeine.Caffeine
             .newBuilder()
             .maximumWeight(maximumWeight)
-            .weigher[Key, Value](Weight.weigher)
+            .weigher(Weight.weigher[Key, Value])
             .build[Key, Value]())
     }
 
@@ -38,7 +38,7 @@ object Cache {
 
     override def size: Size = 0
 
-    override private[caching] def entries: Iterable[(Key, Value)] = Iterable.empty
+    override def weight: Size = 0
   }
 
   class CaffeineCache[Key, Value](val cache: caffeine.Cache[Key, Value]) extends Cache[Key, Value] {
@@ -48,7 +48,7 @@ object Cache {
     override def size: Size =
       cache.estimatedSize()
 
-    override private[caching] def entries: Iterable[(Key, Value)] =
-      cache.asMap().asScala
+    override def weight: Size =
+      cache.policy().eviction().asScala.flatMap(_.weightedSize().asScala).getOrElse(0)
   }
 }

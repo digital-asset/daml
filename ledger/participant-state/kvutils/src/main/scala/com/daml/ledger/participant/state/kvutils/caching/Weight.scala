@@ -21,12 +21,6 @@ object Weight {
   def weigher[Key: Weight, Value: Weight]: caffeine.Weigher[Key, Value] =
     new WeightWeigher[Key, Value]
 
-  def ofCache[Key, Value](cache: Cache[Key, Value])(
-      implicit keyWeight: Weight[Key],
-      valueWeight: Weight[Value],
-  ): Size =
-    cache.entries.map { case (key, value) => keyWeight.weigh(key) + valueWeight.weigh(value) }.sum
-
   implicit object `Bytes Weight` extends Weight[Bytes] {
     override def weigh(value: Bytes): Size =
       value.size().toLong
