@@ -37,7 +37,7 @@ import scala.util.{Failure, Success, Try}
 import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import org.slf4j.Logger
 
-case class Envelope(name: String, transactionSizeKb: Int, throughput: Int, latencyMs: Int)
+sealed case class Envelope(name: String, transactionSizeKb: Int, throughput: Int, latencyMs: Int)
 
 object Envelope {
 
@@ -57,6 +57,9 @@ object Envelope {
   object Enterprise
       extends Envelope("Enterprise", transactionSizeKb = 25000, throughput = 500, latencyMs = 500)
 
+  // [FTP] Could use macros as in https://riptutorial.com/scala/example/26215/using-sealed-trait-and-case-objects-and-allvalues-macro
+  //   or even by pulling in https://github.com/lloydmeta/enumeratum  but https://github.com/bazelbuild/rules_scala/issues/445
+  val values: List[Envelope] = List(ProofOfConcept, Alpha, Beta, Public, Enterprise)
 }
 
 trait PerformanceEnvelope {
