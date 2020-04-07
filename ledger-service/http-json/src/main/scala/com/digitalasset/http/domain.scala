@@ -8,7 +8,6 @@ import com.daml.lf
 import com.daml.lf.data.Ref
 import com.daml.lf.iface
 import com.daml.http.util.ClientUtil.boxedRecord
-import com.daml.http.util.LedgerOffsetUtil
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.{v1 => lav1}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
@@ -161,10 +160,6 @@ object domain {
 
     def toLedgerApi(o: Offset): lav1.ledger_offset.LedgerOffset =
       lav1.ledger_offset.LedgerOffset(lav1.ledger_offset.LedgerOffset.Value.Absolute(unwrap(o)))
-
-    implicit val ordering: Ordering[Offset] =
-      Ordering.by(LedgerOffsetUtil.parseOffsetString _ compose unwrap)(
-        LedgerOffsetUtil.LongEitherLongLongOrdering)
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
   }
