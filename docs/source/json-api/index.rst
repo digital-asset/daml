@@ -999,21 +999,7 @@ Response with Unknown Parties Warning
       "status": 200
     }
 
-Empty Response with Unknown Parties Warning
-===========================================
-
-- Content-Type: ``application/json``
-- Content:
-
-.. code-block:: json
-
-    {
-      "result": [],
-      "warnings": {
-        "unknownParties": ["Bob", "Dave", "Alice"]
-      },
-      "status": 200
-    }
+The ``result`` might be an empty JSON array if none of the requested parties is known.
 
 Fetch All Known Parties
 ***********************
