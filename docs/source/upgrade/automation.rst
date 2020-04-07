@@ -8,9 +8,9 @@ Automating the Upgrade Process
 
 In this section, we are going to automate the upgrade of our coin
 process using :doc:`DAML Script</daml-script/index>` and :doc:`DAML
-Triggers </triggers/index>`. Note that automation for upgrades just
-like the upgrade models is specific to an individual
-application. Nevertheless, we have found that the pattern shown here
+Triggers </triggers/index>`. Note that automation for upgrades is
+specific to an individual application, just like the upgrade models.
+Nevertheless, we have found that the pattern shown here
 occurs frequently.
 
 Structuring the Upgrade
@@ -45,12 +45,12 @@ the upgrade:
    often be exposed as part of a web UI so doing it interactively in
    Navigator resembles that workflow more closely.
 #. A long-running DAML trigger that upgrades all ``Coin`` contracts
-   for which there is a corresponding ``UpgradeCoinAgreeement``.
+   for which there is a corresponding ``UpgradeCoinAgreement``.
 
 Implementation of the DAML Script
 =================================
 
-In our DAML Script, we are first going to query the ACS to find all
+In our DAML Script, we are first going to query the ACS (Active Contract Set) to find all
 ``Coin`` contracts issued by us. Next, we are going to extract the
 owner of each of those contracts and remove any duplicates coming from
 multiple coins issued to the same owner. Finally, we iterate over the
