@@ -167,9 +167,10 @@ object Main extends StrictLogging {
         .action((x, c) => c.copy(portFile = Some(x.toPath)))
         .optional()
         .text(
-          "Optional file where to write the allocated HTTP port number. " +
+          "Optional unique file name where to write the allocated HTTP port number. " +
+            "If process terminates gracefully, this file will be deleted automatically. " +
             "Used to inform clients in CI about which port HTTP JSON API listens on. " +
-            "Defaults to none, that is, no file gets created/updated.")
+            "Defaults to none, that is, no file gets created.")
 
       opt[String]("application-id")
         .action((x, c) => c.copy(applicationId = ApplicationId(x)))
