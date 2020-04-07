@@ -8,12 +8,16 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.ledger.test_stable.DA.Types.Tuple2
+import com.daml.ledger.test_stable.Test.TextKeyOperations._
+import com.daml.ledger.test_stable.Test._
 import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
 
@@ -92,6 +96,45 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
       } yield {
         assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
         assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
+      }
+  }
+
+  test(
+    "CDStopOnCompletionFailure",
+    "Stop deduplicating commands on completion failure",
+    allocate(SingleParty),
+  ) {
+    case Participants(Participant(ledger, party)) =>
+      val key = UUID.randomUUID().toString
+      val commandId = UUID.randomUUID().toString
+
+      for {
+        // Create a helper and a text key
+        ko <- ledger.create(party, TextKeyOperations(party))
+        _ <- ledger.create(party, TextKey(party, key, List()))
+
+        // Create two competing requests
+        requestTemplate = ledger.submitAndWaitRequest(
+          party,
+          ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command)
+        requestA = requestTemplate.update(_.commands.commandId := commandId + "-A")
+        requestB = requestTemplate.update(_.commands.commandId := commandId + "-B")
+
+        // Submit both requests in parallel.
+        // Either both succeed (if one transaction is recorded faster than the other submission starts command interpretation, unlikely)
+        // Or one submission is rejected (if one transaction is recorded during the call of lookupMaximumLedgerTime() in [[LedgerTimeHelper]], unlikely)
+        // Or one transaction is rejected (this is what we want to test)
+        submissionResults <- Future.traverse(List(requestA, requestB))(request =>
+          ledger.submitAndWait(request).transform(result => Success(request -> result)))
+
+        // Resubmit a failed command.
+        // No matter what the rejection reason was (hopefully it was a rejected transaction),
+        // a resubmission of exactly the same command should succeed.
+        _ <- submissionResults
+          .collectFirst { case (request, Failure(_)) => request }
+          .fold(Future.successful(()))(request => ledger.submitAndWait(request))
+      } yield {
+        ()
       }
   }
 

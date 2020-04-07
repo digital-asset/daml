@@ -92,8 +92,7 @@ private[kvutils] class ProcessTransactionSubmission(
     isVisible && isActive
   }
 
-  /** Deduplicate the submission. If the check passes we save the command deduplication
-    * state.
+  /** Reject duplicate commands
     */
   private def deduplicateCommand(
       recordTime: Timestamp,
@@ -103,15 +102,7 @@ private[kvutils] class ProcessTransactionSubmission(
     get(dedupKey).flatMap { dedupEntry =>
       val submissionTime = if (inStaticTimeMode) Instant.now() else recordTime.toInstant
       if (dedupEntry.forall(isAfterDeduplicationTime(submissionTime, _))) {
-        Commit.set(
-          dedupKey ->
-            DamlStateValue.newBuilder
-              .setCommandDedup(
-                DamlCommandDedupValue.newBuilder
-                  .setRecordTime(buildTimestamp(recordTime))
-                  .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
-                  .build)
-              .build)
+        pass
       } else {
         logger.trace(
           s"Transaction rejected, duplicate command, correlationId=${transactionEntry.commandId}")
@@ -332,6 +323,8 @@ private[kvutils] class ProcessTransactionSubmission(
 
     val cid2nid: Value.AbsoluteContractId => Value.NodeId = transactionEntry.abs.localContracts
 
+    val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
+
     // Helper to read the _current_ contract state.
     // NOTE(JM): Important to fetch from the state that is currently being built up since
     // we mark some contracts as archived and may later change their disclosure and do not
@@ -342,6 +335,15 @@ private[kvutils] class ProcessTransactionSubmission(
       }
 
     sequence2(
+      // Set a deduplication entry
+      set(
+        dedupKey -> DamlStateValue.newBuilder
+          .setCommandDedup(
+            DamlCommandDedupValue.newBuilder
+              .setRecordTime(buildTimestamp(recordTime))
+              .setDeduplicatedUntil(transactionEntry.submitterInfo.getDeduplicateUntil)
+              .build)
+          .build),
       // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
       set(effects.createdContracts.map {
         case (key, createNode) =>
