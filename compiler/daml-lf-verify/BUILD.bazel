@@ -1,0 +1,41 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library(
+    name = "daml-lf-verify",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "aeson",
+        "base",
+        "bytestring",
+        "containers",
+        "deepseq",
+        "Decimal",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "hashable",
+        "lens",
+        "mtl",
+        "optparse-applicative",
+        "recursion-schemes",
+        "safe",
+        "scientific",
+        "template-haskell",
+        "text",
+        "time",
+        "unordered-containers",
+        "zip-archive",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-tools",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//libs-haskell/da-hs-base",
+    ],
+)
