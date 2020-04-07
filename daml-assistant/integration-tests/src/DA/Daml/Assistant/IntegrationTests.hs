@@ -5,7 +5,7 @@ module DA.Daml.Assistant.IntegrationTests (main) where
 import Conduit hiding (connect)
 import Control.Concurrent
 import Control.Concurrent.Async
-import Control.Exception
+import Control.Exception.Extra
 import Control.Monad
 import Control.Monad.Fail (MonadFail)
 import qualified Data.Aeson as Aeson
@@ -547,18 +547,22 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
   where
     gettingStartedGuideTest = testCase "Getting Started Guide" $
       withTempDir $ \tmpDir -> do
-        let workspaces = Workspaces ["create-daml-app/daml.js", "create-daml-app/ui"]
-        setupYarnEnv tmpDir workspaces allTsLibraries
         withCurrentDirectory tmpDir $ do
           callCommandSilent "daml new create-daml-app create-daml-app"
         let cdaDir = tmpDir </> "create-daml-app"
         withCurrentDirectory cdaDir $ do
           callCommandSilent "daml build"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
           assertBool "ui/build/index.html does not yet exist" . not
         withCurrentDirectory (cdaDir </> "ui") $ do
-          callCommandSilent "yarn install"
+          -- NOTE(MH): We set up the yarn env again to avoid having all the
+          -- dependencies of the UI already in scope when `daml2js` runs
+          -- `yarn install`. Some of the UI dependencies are a bit flaky to
+          -- install and might need some retries.
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
+          retry 3 (callCommandSilent "yarn install")
           callCommandSilent "yarn lint --max-warnings 0"
           callCommandSilent "yarn build"
         doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
