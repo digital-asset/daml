@@ -197,7 +197,9 @@ object TypedValueGenerators {
           ValueGenMap(
             m.iterator
               .map { case (k, v) => (key.inj(k), elt.inj(v)) }
-              .to[ImmArray]) // TODO SC sort by Value key
+              .to[ImmArraySeq]
+              .sortBy(_._1)
+              .toImmArray) // TODO SC sort by Value key
       override def prj[Cid] = {
         case ValueGenMap(kvs) =>
           kvs traverse (_ bitraverse (key.prj[Cid], elt.prj[Cid])) map (_.toSeq.toMap)
