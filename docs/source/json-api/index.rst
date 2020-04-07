@@ -977,8 +977,8 @@ Where
 - ``displayName`` -- optional human readable name associated with the party. Might not be unique,
 - ``isLocal`` -- true if party is hosted by the backing participant.
 
-Nonempty Response with Unknown Parties Warning
-==============================================
+Response with Unknown Parties Warning
+=====================================
 
 - Content-Type: ``application/json``
 - Content:
