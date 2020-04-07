@@ -33,15 +33,16 @@ object Cache {
             .build[Key, Value]())
     }
 
-  class NoCache[Key, Value] extends Cache[Key, Value] {
+  final class NoCache[Key, Value] extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value = acquire(key)
 
-    override def size: Size = 0
+    override val size: Size = 0
 
-    override def weight: Size = 0
+    override val weight: Size = 0
   }
 
-  class CaffeineCache[Key, Value](val cache: caffeine.Cache[Key, Value]) extends Cache[Key, Value] {
+  final class CaffeineCache[Key, Value](val cache: caffeine.Cache[Key, Value])
+      extends Cache[Key, Value] {
     override def get(key: Key, acquire: Key => Value): Value =
       cache.get(key, key => acquire(key))
 
@@ -51,4 +52,5 @@ object Cache {
     override def weight: Size =
       cache.policy().eviction().asScala.flatMap(_.weightedSize().asScala).getOrElse(0)
   }
+
 }
