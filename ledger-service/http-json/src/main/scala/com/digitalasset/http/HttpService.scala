@@ -294,7 +294,6 @@ object HttpService extends StrictLogging {
     import scala.collection.JavaConverters._
     val lines: java.lang.Iterable[String] = List(binding.localAddress.getPort.toString).asJava
     \/.fromTryCatchNonFatal(Files.write(file, lines))
-      .leftMap(e => Error(s"Cannot update port file: ${file: Path}, error: ${e.getMessage}"))
-      .map(_ => ())
+      .bimap(e => Error(s"Cannot update port file: ${file: Path}, error: ${e.getMessage}"), _ => ())
   }
 }
