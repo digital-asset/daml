@@ -5,7 +5,9 @@ package com.daml.ports
 
 import java.nio.file.{Files, Path}
 
-import scalaz.{-\/, Show, \/}
+import scalaz.{Show, \/}
+
+import scala.collection.JavaConverters._
 
 object PortFiles {
   sealed abstract class Error extends Serializable with Product
@@ -26,15 +28,14 @@ object PortFiles {
     * See [[java.io.File#deleteOnExit()]].
     */
   def write(path: Path, port: Port): Error \/ Unit =
-    if (path.toFile.exists())
-      -\/(FileAlreadyExists(path))
-    else
-      \/.fromTryCatchNonFatal {
-        writeUnsafe(path, port)
-      }.leftMap(e => CannotWriteIntoFile(path, e.getMessage))
+    \/.fromTryCatchNonFatal {
+      writeUnsafe(path, port)
+    }.leftMap {
+      case _: java.nio.file.FileAlreadyExistsException => FileAlreadyExists(path)
+      case e => CannotWriteIntoFile(path, e.getMessage)
+    }
 
   private def writeUnsafe(path: Path, port: Port): Unit = {
-    import scala.collection.JavaConverters._
     import java.nio.file.StandardOpenOption.CREATE_NEW
     val lines: java.lang.Iterable[String] = List(port.value.toString).asJava
     val created = Files.write(path, lines, CREATE_NEW)
