@@ -941,7 +941,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "parties endpoint should return error if all parties are unknown" in withHttpServiceAndClient {
+  "parties endpoint returns empty result with warnings and OK status if nothing found" in withHttpServiceAndClient {
     (uri, _, _, _) =>
       val requestedPartyIds: Vector[domain.Party] =
         domain.Party.subst(Vector("Alice", "Bob", "Dave"))
@@ -951,10 +951,9 @@ abstract class AbstractHttpServiceIntegrationTest
         JsArray(requestedPartyIds.map(x => JsString(x.unwrap)))
       ).flatMap {
         case (status, output) =>
-          status shouldBe StatusCodes.BadRequest
+          status shouldBe StatusCodes.OK
           inside(decode1[domain.SyncResponse, List[domain.PartyDetails]](output)) {
-            case \/-(domain.ErrorResponse(errors, Some(warnings), StatusCodes.BadRequest)) =>
-              errors shouldBe List(ErrorMessages.cannotFindAnyParty)
+            case \/-(domain.OkResponse(List(), Some(warnings), StatusCodes.OK)) =>
               inside(warnings) {
                 case domain.UnknownParties(unknownParties) =>
                   unknownParties.toSet shouldBe requestedPartyIds.toSet
