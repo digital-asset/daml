@@ -30,7 +30,7 @@ def _javadoc_library(ctx):
     javadoc_command = [
         java_home + "/bin/javadoc",
         # this is an ugly hack to provide all directories ending with `java` as a "source root"
-        '-sourcepath $(find * -type d -name "*java" -print0 | tr "\\0" :):.',
+        '-sourcepath $(find . -type d -name "*java" -printf "%P:").',
         " ".join(ctx.attr.root_packages),
         "-use",
         "-subpackages",
@@ -68,7 +68,6 @@ def _javadoc_library(ctx):
                 srcs.append(jar)
 
         elif DefaultInfo in src:
-            # I don't know how to assert that the target is a filegroup, but this works well enough
             srcs.extend(src[DefaultInfo].files.to_list())
     unjar_command = "%s/bin/jar xf %s" % (java_home, " ".join(unjar_params))
 
