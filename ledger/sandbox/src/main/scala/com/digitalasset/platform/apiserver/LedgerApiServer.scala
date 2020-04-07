@@ -138,7 +138,10 @@ final class LedgerApiServer(
         builder.channelType(channelType)
         builder.bossEventLoopGroup(bossEventLoopGroup)
         builder.workerEventLoopGroup(workerEventLoopGroup)
-        apiServices.services.foreach(addService(builder, _))
+        apiServices.services.foreach { service =>
+          builder.addService(service)
+          toLegacyService(service).foreach(builder.addService)
+        }
         val server = builder.build()
         try {
           server.start()
@@ -155,21 +158,21 @@ final class LedgerApiServer(
     // to still work.
     // The "proxy" services will not show up on the reflection service, because of the way it
     // processes service definitions via protobuf file descriptors.
-    private def addService(serverBuilder: NettyServerBuilder, service: BindableService): Unit = {
-      // First add the original com.daml service
-      serverBuilder.addService(service)
+    private def toLegacyService(service: BindableService): Option[ServerServiceDefinition] = {
+      val `com.daml` = "com.daml"
+      val `com.digitalasset` = "com.digitalasset"
 
       val damlDef = service.bindService()
       val damlDesc = damlDef.getServiceDescriptor
       // Only add "proxy" services if it actually contains com.daml in the service name.
       // There are other services registered like the reflection service, that doesn't need the special treatment.
-      if (damlDesc.getName.contains("com.daml")) {
-        val digitalassetName = damlDesc.getName.replace("com.daml", "com.digitalasset")
+      if (damlDesc.getName.contains(`com.daml`)) {
+        val digitalassetName = damlDesc.getName.replace(`com.daml`, `com.digitalasset`)
         val digitalassetDef = ServerServiceDefinition.builder(digitalassetName)
         damlDef.getMethods.forEach { methodDef =>
           val damlMethodDesc = methodDef.getMethodDescriptor
           val digitalassetMethodName =
-            damlMethodDesc.getFullMethodName.replace("com.daml", "com.digitalasset")
+            damlMethodDesc.getFullMethodName.replace(`com.daml`, `com.digitalasset`)
           val digitalassetMethodDesc =
             damlMethodDesc.toBuilder.setFullMethodName(digitalassetMethodName).build()
           val _ = digitalassetDef.addMethod(
@@ -177,8 +180,8 @@ final class LedgerApiServer(
             methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]]
           )
         }
-        val _ = serverBuilder.addService(digitalassetDef.build())
-      }
+        Option(digitalassetDef.build())
+      } else None
     }
   }
 
