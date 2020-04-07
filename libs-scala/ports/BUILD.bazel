@@ -14,6 +14,9 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
+    deps = [
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 da_scala_test(
@@ -21,5 +24,6 @@ da_scala_test(
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     deps = [
         ":ports",
+        "@maven//:org_scalaz_scalaz_core_2_12",
     ],
 )

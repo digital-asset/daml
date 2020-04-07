@@ -3,7 +3,7 @@
 
 package com.daml.http
 
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
 import akka.actor.{ActorSystem, Cancellable}
 import akka.http.scaladsl.Http
@@ -37,6 +37,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.ports.{Port, PortFiles}
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -291,9 +292,7 @@ object HttpService extends StrictLogging {
   private def updatePortFile(
       file: Path,
       binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
-    import scala.collection.JavaConverters._
-    val lines: java.lang.Iterable[String] = List(binding.localAddress.getPort.toString).asJava
-    \/.fromTryCatchNonFatal(Files.write(file, lines))
-      .bimap(e => Error(s"Cannot update port file: ${file: Path}, error: ${e.getMessage}"), _ => ())
+    import util.ErrorOps._
+    PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
   }
 }
