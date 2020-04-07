@@ -21,6 +21,10 @@ object PortFiles {
     }
   }
 
+  /**
+    * Creates a port and requests that the created file be deleted when the virtual machine terminates.
+    * See [[java.io.File#deleteOnExit()]].
+    */
   def write(path: Path, port: Port): Error \/ Unit =
     if (path.toFile.exists())
       -\/(FileAlreadyExists(path))
