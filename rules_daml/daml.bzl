@@ -128,6 +128,7 @@ _daml_build = rule(
         ),
         "dar_dict": attr.label_keyed_string_dict(
             mandatory = True,
+            allow_files = True,
             doc = "Other DAML projects referenced by this DAML project.",
         ),
         "dar": attr.output(
