@@ -6,9 +6,6 @@
 Getting Started with DAML
 #########################
 
-**Disclaimer:** This guide is being actively developed.
-Expect major changes to the tutorial text and minor changes to the template application.
-
 The goal of this tutorial is to get you up and running with full-stack DAML development.
 We do this through the example of a simple social networking application,
 showing you three things:
