@@ -3,11 +3,10 @@
 
 package com.daml.lf.data
 
-import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
-
-import scalaz.{Applicative, Equal, Traverse}
+import com.daml.lf.data.FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 import scalaz.syntax.applicative._
 import scalaz.syntax.traverse._
+import scalaz.{Applicative, Equal, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -135,7 +134,8 @@ final class FrontStack[+A] private (fq: FQ[A], len: Int) {
 
   /** O(n) */
   override def equals(that: Any) = that match {
-    case thatQueue: FrontStack[A] => this.iterator sameElements thatQueue.iterator
+    case thatQueue: FrontStack[A] =>
+      this.length == thatQueue.length && this.iterator.sameElements(thatQueue.iterator)
     case _ => false
   }
 
@@ -147,12 +147,21 @@ final class FrontStack[+A] private (fq: FQ[A], len: Int) {
 
 object FrontStack {
   private[this] val emptySingleton: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
+
   def empty[A]: FrontStack[A] = emptySingleton
 
-  def apply[A](xs: ImmArray[A]): FrontStack[A] = xs ++: empty
+  def apply[A](xs: ImmArray[A]): FrontStack[A] =
+    new FrontStack(FQPrepend(xs, FQEmpty), len = xs.length)
 
-  def apply[T](element: T, elements: T*): FrontStack[T] =
-    element +: apply(ImmArray(elements))
+  def apply[T](element: T): FrontStack[T] =
+    new FrontStack(FQCons(element, FQEmpty), len = 1)
+
+  def apply[T](a: T, b: T): FrontStack[T] =
+    new FrontStack(FQCons(a, FQCons(b, FQEmpty)), len = 2)
+
+  // Slow; only use this in tests.
+  def apply[T](a: T, b: T, c: T, elements: T*): FrontStack[T] =
+    a +: b +: c +: apply(ImmArray(elements))
 
   def apply[T](elements: Seq[T]): FrontStack[T] =
     apply(ImmArray(elements))
