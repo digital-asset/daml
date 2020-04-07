@@ -74,7 +74,7 @@ object LedgerApiTestTool {
     }
 
     if (config.extract) {
-      // [FT] This must be kept aligned manually with artifacts declared in /ledger/test-common/BUILD.bazel
+      // This must be kept aligned manually with artifacts declared in /ledger/test-common/BUILD.bazel.
       extractResources(
         "/ledger/test-common/SemanticTests.dar",
         "/ledger/test-common/Test-stable.dar",
