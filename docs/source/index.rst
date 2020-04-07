@@ -42,7 +42,6 @@ DAML SDK documentation
    :caption: Building applications
 
    app-dev/app-arch
-   daml2js/index
    app-dev/bindings-ts/index
    json-api/index
    DAML Script <daml-script/index>

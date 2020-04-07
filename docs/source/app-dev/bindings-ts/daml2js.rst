@@ -1,18 +1,12 @@
 .. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML to JavaScript code generation
-##################################
+DAML/JavaScript Code Generator
+##############################
 
-Code generation of DAML JavaScript bindings (with TypeScript typings)
-=====================================================================
+The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `DAML/JavaScript Client Libraries <../index>`_ for interacting with a DAML ledger via the `HTTP JSON API <../json-api/index.html>`_.
 
-Introduction
-------------
-
-The command ``daml codegen js`` generates JavaScript for interacting with DAML via the `json-api <../json-api/index.html>`_ .
-
-Inputs to the command are compiled DAML modules. Outputs are JavaScript packages and TypeScript typings for definitions modeling the DAML entities found in the DAML modules.
+Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all DAML packages included in the DAR files.
 
 The generated packages use the library `@daml/types <https://github.com/digital-asset/daml/tree/master/language-support/ts/daml-types>`_.
 
