@@ -10,6 +10,7 @@ module DA.Daml.LF.ReplClient
   , withReplClient
   , loadPackage
   , runScript
+  , clearResults
   , BackendError
   , ClientSSLConfig(..)
   , ClientSSLKeyCertPair(..)
@@ -29,6 +30,7 @@ import qualified Proto3.Suite as Proto
 import qualified ReplService as Grpc
 import System.Environment
 import System.FilePath
+import qualified System.IO as IO
 import System.IO.Extra (withTempFile)
 import System.Process
 
@@ -38,6 +40,8 @@ data Options = Options
   , optLedgerPort :: String
   , optMbAuthTokenFile :: Maybe FilePath
   , optMbSslConfig :: Maybe ClientSSLConfig
+  , optStdout :: StdStream
+  -- ^ This is intended for testing so we can redirect stdout there.
   }
 
 data Handle = Handle
@@ -62,7 +66,7 @@ javaProc args =
       let javaExe = javaHome </> "bin" </> "java"
       in proc javaExe args
 
-withReplClient :: Options -> (Handle -> IO a) -> IO a
+withReplClient :: Options -> (Handle -> Maybe IO.Handle -> ProcessHandle -> IO a) -> IO a
 withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
     replServer <- javaProc $ concat
         [ [ "-jar", optServerJar
@@ -81,7 +85,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
                            ]
                      ]
         ]
-    withCreateProcess replServer $ \_ _ _ _ph -> do
+    withCreateProcess replServer { std_out = optStdout } $ \_ stdout _ ph -> do
       port <- readPortFile maxRetries portFile
       let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing Nothing
       threadDelay 1000000
@@ -90,7 +94,7 @@ withReplClient opts@Options{..} f = withTempFile $ \portFile -> do
           f Handle
               { hClient = replClient
               , hOptions = opts
-              }
+              } stdout ph
 
 loadPackage :: Handle -> BS.ByteString -> IO (Either BackendError ())
 loadPackage Handle{..} package = do
@@ -106,6 +110,11 @@ runScript Handle{..} version m = do
         (Grpc.RunScriptRequest bytes (TL.pack $ LF.renderMinorVersion (LF.versionMinor version)))
     pure (() <$ r)
     where bytes = BSL.toStrict (Proto.toLazyByteString (EncodeV1.encodeScenarioModule version m))
+
+clearResults :: Handle -> IO (Either BackendError ())
+clearResults Handle{..} = do
+    r <- performRequest (Grpc.replServiceClearResults hClient) Grpc.ClearResultsRequest
+    pure (() <$ r)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))
