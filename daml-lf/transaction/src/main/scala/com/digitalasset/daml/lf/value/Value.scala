@@ -325,6 +325,8 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
         Ref.ContractIdString.fromString(s).map(V0(_))
 
       def assertFromString(s: String): V0 = assertRight(fromString(s))
+
+      implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
     final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)

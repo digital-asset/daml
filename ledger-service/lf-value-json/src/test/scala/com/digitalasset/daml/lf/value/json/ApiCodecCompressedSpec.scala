@@ -17,6 +17,8 @@ import org.scalacheck.{Arbitrary, Gen}
 import shapeless.{Coproduct => HSum}
 import shapeless.record.{Record => HRecord}
 import spray.json._
+import scalaz.Order
+import scalaz.std.string._
 import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
@@ -152,7 +154,7 @@ class ApiCodecCompressedSpec
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
         }
@@ -174,7 +176,7 @@ class ApiCodecCompressedSpec
       "handle lists of optionals" in {
         val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
         }
