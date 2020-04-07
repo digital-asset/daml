@@ -79,7 +79,7 @@ dar_to_scala(
     srcs = [
         ":PerformanceTests.dar",
     ],
-    package_prefix = "com.digitalasset.ledger.test.performance",
+    package_prefix = "com.daml.ledger.test.performance",
     srcjar_out = "PerformanceTests.scala.srcjar",
     verbosity = 2,
     visibility = ["//visibility:public"],
