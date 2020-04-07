@@ -981,6 +981,7 @@ private class JdbcLedgerDao(
           }.get
 
         case PersistenceEntry.Rejection(rejection) =>
+          stopDeduplicatingCommandSync(domain.CommandId(rejection.commandId), rejection.submitter)
           storeRejection(offset, rejection)
           Ok
       }
@@ -1585,15 +1586,20 @@ private class JdbcLedgerDao(
      |where deduplication_key = {deduplicationKey}
     """.stripMargin)
 
+  private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
+      implicit conn: Connection): Unit = {
+    val key = deduplicationKey(commandId, submitter)
+    SQL_DELETE_COMMAND
+      .on("deduplicationKey" -> key)
+      .execute()
+    ()
+  }
+
   override def stopDeduplicatingCommand(
       commandId: domain.CommandId,
       submitter: Party): Future[Unit] =
     dbDispatcher.executeSql("stop_deduplicating_command") { implicit conn =>
-      val key = deduplicationKey(commandId, submitter)
-      SQL_DELETE_COMMAND
-        .on("deduplicationKey" -> key)
-        .execute()
-      ()
+      stopDeduplicatingCommandSync(commandId, submitter)
     }
 
   override def reset(): Future[Unit] =

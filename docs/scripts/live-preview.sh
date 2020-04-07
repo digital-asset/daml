@@ -50,9 +50,9 @@ do
         cp -L ../../bazel-bin/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
         # Javadoc
-        bazel build //language-support/java:javadocs
+        bazel build //language-support/java:javadoc
         mkdir -p $BUILD_DIR/gen/app-dev/bindings-java
-        tar -zxf ../../bazel-bin/language-support/java/javadocs.tar.gz -C $BUILD_DIR/gen/app-dev/bindings-java
+        unzip ../../bazel-bin/language-support/java/javadoc.jar -d $BUILD_DIR/gen/app-dev/bindings-java/javadocs/
 
         # Proto-docs
         bazel build //ledger-api/grpc-definitions:docs

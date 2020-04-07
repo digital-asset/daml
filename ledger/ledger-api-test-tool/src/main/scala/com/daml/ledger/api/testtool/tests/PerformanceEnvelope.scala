@@ -34,7 +34,7 @@ import scalaz.syntax.tag._
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.util.{Failure, Success, Try}
-import com.digitalasset.ledger.test.performance.{PingPong => PingPongModule}
+import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import org.slf4j.Logger
 
 case class Envelope(name: String, transactionSizeKb: Int, throughput: Int, latencyMs: Int)

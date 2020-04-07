@@ -12,9 +12,6 @@ object ErrorMessages {
   def cannotResolveAnyTemplateId: String =
     "Cannot not resolve any template ID from request"
 
-  def cannotFindAnyParty: String =
-    "Cannot find any requested party"
-
   def cannotResolveTemplateId(a: domain.ContractLocator[_]): String =
     s"Cannot resolve templateId, given: $a"
 

@@ -357,23 +357,8 @@ server_conformance_test(
         "--verbose",
         "--open-world",
         "--all-tests",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-lots-of-parties",
-    flaky = True,
-    server_args = [
-        "--wall-clock-time",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--verbose",
-        "--open-world",
-        "--include=LotsOfPartiesIT",
     ],
 )
 
@@ -387,7 +372,6 @@ server_conformance_test(
         "--verbose",
         "--open-world",
         "--all-tests",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
     ],

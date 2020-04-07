@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 import com.codahale.metrics
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto, _}
+import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
@@ -38,13 +39,7 @@ object IntegrityCheck extends App {
   println(s"Verifying integrity of $filename...")
 
   val metricRegistry = new MetricRegistry
-  // Register JVM related metrics.
-  (new metrics.jvm.GarbageCollectorMetricSet).getMetrics.forEach { (k, m) =>
-    val _ = metricRegistry.register(s"jvm.gc.$k", m)
-  }
-  (new metrics.jvm.MemoryUsageGaugeSet).getMetrics.forEach { (k, m) =>
-    val _ = metricRegistry.register(s"jvm.mem.$k", m)
-  }
+  metricRegistry.registerAll(new JvmMetricSet)
 
   val ledgerDumpStream: DataInputStream =
     new DataInputStream(new FileInputStream(filename))

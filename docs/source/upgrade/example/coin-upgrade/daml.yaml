@@ -14,4 +14,3 @@ data-dependencies:
 # END
 parties: [Alice, Bob]
 source: .
-build-options: [--target=1.8]

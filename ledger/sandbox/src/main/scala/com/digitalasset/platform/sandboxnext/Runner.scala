@@ -10,20 +10,21 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.domain
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
-import com.daml.api.util.TimeProvider
-import com.daml.buildinfo.BuildInfo
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
-import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
-import com.daml.ledger.api.domain
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.apiserver._
@@ -139,6 +140,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   seedService = SeedService(seeding),
+                  stateValueCache = caching.Cache.from(
+                    caching.Configuration(maximumWeight = MaximumStateValueCacheSize)),
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
@@ -249,6 +252,8 @@ object Runner {
 
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
+
+  private val MaximumStateValueCacheSize: caching.Size = 128L * 1024 * 1024
 
   private val ServicePrefix = MetricName.DAML :+ "services"
   private val IndexServicePrefix = ServicePrefix :+ "index"

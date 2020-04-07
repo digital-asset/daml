@@ -7,9 +7,10 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.configuration.Readers._
 import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
 import com.daml.ports.Port
@@ -22,10 +23,11 @@ final case class Config[Extra](
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    eventsPageSize: Int,
+    stateValueCache: caching.Configuration,
     seeding: Seeding,
     metricsReporter: Option[MetricsReporter],
     metricsReportingInterval: Duration,
-    eventsPageSize: Int,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -57,10 +59,11 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      stateValueCache = caching.Configuration.none,
       seeding = Seeding.Strong,
       metricsReporter = None,
       metricsReportingInterval = Duration.ofSeconds(10),
-      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
       extra = extra,
     )
 
@@ -140,6 +143,14 @@ object Config {
         .text(
           s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
         .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+      opt[Long]("max-state-value-cache-size")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
+        .action((maximumStateValueCacheSize, config) =>
+          config.copy(stateValueCache =
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
 
       private val seedingMap =
         Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)

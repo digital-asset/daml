@@ -353,6 +353,15 @@ template TextKeyOperations
           mbCid2 <- lookupByKey @TextKey keyToLookup
           assertMsg "does not get contract after exercise" (mbCid2 == None)
 
+    controller tkoParty can
+      nonconsuming TKOFetchAndRecreate : ()
+        with
+          keyToFetch: (Party, Text)
+        do
+          (cid, contract) <- fetchByKey @TextKey keyToFetch
+          exercise cid TextKeyChoice
+          cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
+          return ()
 
 -- dummy contract to be divulged out-of-band
 template Divulgence1

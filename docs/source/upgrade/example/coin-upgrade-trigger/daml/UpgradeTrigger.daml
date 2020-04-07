@@ -1,0 +1,63 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module UpgradeTrigger where
+
+import DA.Assert
+import DA.Foldable
+import qualified DA.Next.Map as Map
+import DA.Next.Map (Map)
+import Daml.Trigger
+import Daml.Trigger.Assert
+
+import CoinV1
+import UpgradeFromCoinV1
+
+-- TRIGGER_BOILERPLATE_BEGIN
+upgradeTrigger : Trigger ()
+upgradeTrigger = Trigger with
+  initialize = \_acs -> ()
+  updateState = \_acs _msg () -> ()
+  registeredTemplates = AllInDar
+  heartbeat = None
+  rule = triggerRule
+-- TRIGGER_BOILERPLATE_END
+
+-- TRIGGER_RULE_BEGIN
+triggerRule : Party -> ACS -> Time -> Map CommandId [Command] -> () -> TriggerA ()
+triggerRule issuer acs _ _ _ = do
+  let agreements =
+        filter (\(_cid, agreement) -> agreement.issuer == issuer) $
+        getContracts @UpgradeCoinAgreement acs
+  let allCoins =
+        filter (\(_cid, coin) -> coin.issuer == issuer) $
+        getContracts @Coin acs
+  forA_ agreements $ \(agreementCid, agreement) -> do
+    let coinsForOwner = filter (\(_cid, coin) -> coin.owner == agreement.owner) allCoins
+    forA_ coinsForOwner $ \(coinCid, _) ->
+      emitCommands
+        [exerciseCmd agreementCid (Upgrade coinCid)]
+        [toAnyContractId coinCid]
+-- TRIGGER_RULE_END
+
+-- TODO (MK) The Bazel rule atm doesn’t run this scenario, we should fix that.
+test = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  coinProposal <- submit alice $ create (CoinProposal alice bob)
+  coin <- submit bob $ exercise coinProposal CoinProposal_Accept
+
+  upgradeProposal <- submit alice $ create (UpgradeCoinProposal alice bob)
+  upgradeAgreement <- submit bob $ exercise upgradeProposal Accept
+
+  let acs = toACS coin <> toACS upgradeAgreement
+
+  commands <- testRule upgradeTrigger alice acs Map.empty ()
+  let flatCommands = flattenCommands commands
+  assertExerciseCmd flatCommands $ \(cid, choiceArg) -> do
+    cid === upgradeAgreement
+    choiceArg === Upgrade coin
+  -- TODO (MK) It would be nice to test for the absence of certain commands as well
+  -- or ideally just assert that the list of emitted commands matches an expected
+  -- list of commands.

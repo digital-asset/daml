@@ -401,8 +401,7 @@ class WebsocketServiceIntegrationTest
         lastState <- singleClientQueryStream(uri, query) via parseResp runWith resp(iouCid)
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 2, lastSeen) =>
-            import domain.Offset.ordering
-            lastSeen should be > liveStart
+            lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
         rescan <- (singleClientQueryStream(uri, query, Some(liveOffset))
@@ -491,8 +490,7 @@ class WebsocketServiceIntegrationTest
 
         liveOffset = inside(lastState) {
           case ShouldHaveEnded(liveStart, 0, lastSeen) =>
-            import domain.Offset.ordering
-            lastSeen should be > liveStart
+            lastSeen.unwrap should be > liveStart.unwrap
             liveStart
         }
 

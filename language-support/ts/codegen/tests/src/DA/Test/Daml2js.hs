@@ -11,7 +11,6 @@ import System.Process
 import System.Exit
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast.Version as LF
-import DA.Directory
 import DA.Test.Daml2jsUtils
 import Data.List.Extra
 import qualified Data.Text.Extended as T
@@ -32,17 +31,16 @@ typescriptEslintVersion = "^2.16.0"
 
 main :: IO ()
 main = do
-    yarnPath : damlTypesPath : args <- getArgs
+    yarnPath : args <- getArgs
     damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
     daml2js <- locateRunfiles (mainWorkspace </> "language-support" </> "ts" </> "codegen" </> exe "daml2js")
     yarn <- locateRunfiles (mainWorkspace </> yarnPath)
-    damlTypes <- locateRunfiles (mainWorkspace </> damlTypesPath)
     davl <- locateRunfiles ("davl" </> "released")
     oldPath <- getSearchPath
     withArgs args $ withEnv
         [ ("PATH", Just $ intercalate [searchPathSeparator] $ takeDirectory yarn : oldPath)
         , ("TASTY_NUM_THREADS", Just "1")
-        ] $ defaultMain (tests damlTypes yarn damlc daml2js davl)
+        ] $ defaultMain (tests yarn damlc daml2js davl)
 
 -- It may help to keep in mind for the following tests, this quick
 -- refresher on the layout of a simple project:
@@ -69,8 +67,8 @@ main = do
 --       ...
 --     daml-types  <-- referred to by the "resolutions" field in package.json
 
-tests :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> TestTree
-tests damlTypes yarn damlc daml2js davl = testGroup "daml2js tests"
+tests :: FilePath -> FilePath -> FilePath -> FilePath -> TestTree
+tests yarn damlc daml2js davl = testGroup "daml2js tests"
   [
     testCaseSteps "Different package, same name test" $ \step -> withTempDir $ \here -> do
       let grover = here </> "grover"
@@ -255,8 +253,7 @@ tests damlTypes yarn damlc daml2js davl = testGroup "daml2js tests"
   where
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
-      copyDirectory damlTypes "daml-types"
-      writeRootPackageJson Nothing ["daml2js"]
+      setupYarnEnv "." (Workspaces ["daml2js"]) [DamlTypes]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)

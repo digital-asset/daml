@@ -651,6 +651,28 @@ daml_build_test(
     project_dir = "source/upgrade/example/coin-upgrade",
 )
 
+daml_build_test(
+    name = "daml-upgrade-example-upgrade-script",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+    },
+    project_dir = "source/upgrade/example/coin-initiate-upgrade",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-upgrade-trigger",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
+    },
+    project_dir = "source/upgrade/example/coin-upgrade-trigger",
+)
+
 filegroup(
     name = "daml-intro-1",
     srcs = glob(

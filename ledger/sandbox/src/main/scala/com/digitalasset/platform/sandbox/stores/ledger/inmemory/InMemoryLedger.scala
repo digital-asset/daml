@@ -70,6 +70,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
+import scala.util.Try
 
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
@@ -260,14 +261,14 @@ class InMemoryLedger(
     })
 
   override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
-    Future.successful(this.synchronized {
+    Future.fromTry(Try(this.synchronized {
       contractIds.foldLeft[Instant](Instant.EPOCH)((acc, id) => {
         val let = acs.activeContracts
           .getOrElse(id, sys.error(s"Contract $id not found while looking for maximum ledger time"))
           .let
         if (let.isAfter(acc)) let else acc
       })
-    })
+    }))
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -334,6 +335,7 @@ class InMemoryLedger(
 
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.submitter)
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(

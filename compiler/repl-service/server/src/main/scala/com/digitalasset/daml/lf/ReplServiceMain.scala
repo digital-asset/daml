@@ -225,4 +225,12 @@ class ReplService(
         respObs.onCompleted
     }
   }
+
+  override def clearResults(
+      req: ClearResultsRequest,
+      respObs: StreamObserver[ClearResultsResponse]): Unit = {
+    results = Seq()
+    respObs.onNext(ClearResultsResponse.newBuilder.build)
+    respObs.onCompleted
+  }
 }

@@ -6,6 +6,11 @@
 Upgrading and extending DAML applications
 #########################################
 
+.. toctree::
+   :hidden:
+
+   automation
+
 **Note:** Cross-SDK upgrades require DAML-LF 1.8 or newer.
 This is the default starting from SDK 1.0. For older releases add
 ``build-options: ["--target=1.8"]`` to your ``daml.yaml`` to select
@@ -225,8 +230,17 @@ Finally, we point a browser to http://localhost:4000 and can effect the coin upg
 
 #. Login as Alice
     #. Select Templates tab.
-    #. Create an `UpgradeCoinProposal` with Alice as issuer and Bob as owner.
+    #. Create an ``UpgradeCoinProposal`` with Alice as issuer and Bob as owner.
 #. Login as Bob
-    #. Exercise the `Accept` choice of the upgrade proposal, creating an `UpgradeCoinAgreement`.
+    #. Exercise the ``Accept`` choice of the upgrade proposal, creating an ``UpgradeCoinAgreement``.
 #. Login again as Alice
-    #. Use the `UpgradeCoinAgreement` repeatedly to upgrade any coin for which Alice is issuer and Bob is owner.
+    #. Use the ``UpgradeCoinAgreement`` repeatedly to upgrade any coin for which Alice is issuer and Bob is owner.
+
+Further Steps
+=============
+
+For the upgrade of our coin model above, we performed all steps
+manually via Navigator. However, if Alice had issued millions of
+coins, performing all upgrading steps manually becomes infeasible.  It
+thus becomes necessary to automate these steps. We will go through a
+potential implementation of an automated upgrade in the :ref:`next section <upgrade-automation>`.
