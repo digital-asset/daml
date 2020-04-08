@@ -169,7 +169,7 @@ object HttpService extends StrictLogging {
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
       )
 
-      _ <- either(portFile.cata(f => updatePortFile(f, binding), \/-(()))): ET[Unit]
+      _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield binding
 
@@ -289,7 +289,7 @@ object HttpService extends StrictLogging {
           \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
 
-  private def updatePortFile(
+  private def createPortFile(
       file: Path,
       binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
     import util.ErrorOps._
