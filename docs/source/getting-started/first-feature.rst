@@ -49,7 +49,7 @@ The interesting part is the ``signatory`` clause: both the ``sender`` and ``rece
 This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
-Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``User`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
+Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``SendMessage`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
 .. literalinclude:: code/daml-after/User.daml
   :language: daml
