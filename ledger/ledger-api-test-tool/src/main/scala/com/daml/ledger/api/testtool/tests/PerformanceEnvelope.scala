@@ -37,29 +37,44 @@ import scala.util.{Failure, Success, Try}
 import com.daml.ledger.test.performance.{PingPong => PingPongModule}
 import org.slf4j.Logger
 
-sealed case class Envelope(name: String, transactionSizeKb: Int, throughput: Int, latencyMs: Int)
+sealed trait Envelope {
+  val name: String
+  val transactionSizeKb: Int
+  val throughput: Int
+  val latencyMs: Int
+}
 
 object Envelope {
 
   /** test will unlikely fail */
-  object ProofOfConcept
-      extends Envelope("PoC", transactionSizeKb = 1, throughput = 0, latencyMs = 60000)
+  case object ProofOfConcept extends Envelope {
+    val name = "PoC"; val transactionSizeKb = 1; val throughput = 0; val latencyMs = 60000
+  }
 
   /** test will fail if performance is lower than alpha envelope */
-  object Alpha extends Envelope("Alpha", transactionSizeKb = 100, throughput = 5, latencyMs = 3000)
+  case object Alpha extends Envelope {
+    val name = "Alpha"; val transactionSizeKb = 100; val throughput = 5; val latencyMs = 3000
+  }
 
   /** test will fail if performance is lower then beta envelope */
-  object Beta extends Envelope("Beta", transactionSizeKb = 1000, throughput = 20, latencyMs = 1000)
+  case object Beta extends Envelope {
+    val name = "Beta"; val transactionSizeKb = 1000; val throughput = 20; val latencyMs = 1000
+  }
 
-  object Public
-      extends Envelope("Public", transactionSizeKb = 5000, throughput = 50, latencyMs = 1000)
+  case object Public extends Envelope {
+    val name = "Public"; val transactionSizeKb = 5000; val throughput = 50; val latencyMs = 1000
+  }
 
-  object Enterprise
-      extends Envelope("Enterprise", transactionSizeKb = 25000, throughput = 500, latencyMs = 500)
+  case object Enterprise extends Envelope {
+    val name = "Enterprise"
+    val transactionSizeKb = 25000
+    val throughput = 500
+    val latencyMs = 500
+  }
 
-  // [FTP] Could use macros as in https://riptutorial.com/scala/example/26215/using-sealed-trait-and-case-objects-and-allvalues-macro
+  // [FT] Could use macros as in https://riptutorial.com/scala/example/26215/using-sealed-trait-and-case-objects-and-allvalues-macro
   //   or even by pulling in https://github.com/lloydmeta/enumeratum  but https://github.com/bazelbuild/rules_scala/issues/445
-  val values: List[Envelope] = List(ProofOfConcept, Alpha, Beta, Public, Enterprise)
+  val values: List[Envelope] = List[Envelope](ProofOfConcept, Alpha, Beta, Public, Enterprise)
 }
 
 trait PerformanceEnvelope {
