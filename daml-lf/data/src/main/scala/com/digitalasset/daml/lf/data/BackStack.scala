@@ -3,7 +3,7 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.BackStack.{BQ, BQAppend, BQEmpty, BQSnoc}
+import BackStack.{BQ, BQAppend, BQEmpty, BQSnoc}
 
 import scala.annotation.tailrec
 import scala.collection.mutable

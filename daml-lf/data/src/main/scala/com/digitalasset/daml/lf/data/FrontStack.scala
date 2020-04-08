@@ -3,7 +3,7 @@
 
 package com.daml.lf.data
 
-import com.daml.lf.data.FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
+import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 import scalaz.syntax.applicative._
 import scalaz.syntax.traverse._
 import scalaz.{Applicative, Equal, Traverse}
