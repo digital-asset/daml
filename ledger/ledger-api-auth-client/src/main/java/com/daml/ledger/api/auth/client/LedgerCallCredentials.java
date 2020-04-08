@@ -28,7 +28,7 @@ public final class LedgerCallCredentials extends CallCredentials {
     @Override
     public void applyRequestMetadata(RequestInfo requestInfo, Executor appExecutor, MetadataApplier applier) {
         Metadata metadata = new Metadata();
-        metadata.put(LedgerCallCredentials.header, token);
+        metadata.put(LedgerCallCredentials.header, "Bearer " + token);
         applier.apply(metadata);
     }
 

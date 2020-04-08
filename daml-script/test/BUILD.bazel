@@ -167,7 +167,7 @@ genrule(
     outs = ["test-auth-token.jwt"],
     cmd = """
       cat <<EOF > $(location test-auth-token.jwt)
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
 EOF
     """,
 )
