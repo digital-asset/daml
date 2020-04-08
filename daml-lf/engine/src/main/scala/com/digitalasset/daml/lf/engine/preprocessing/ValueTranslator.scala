@@ -33,11 +33,10 @@ private[engine] final class ValueTranslator(compiledPackages: CompiledPackages) 
       def go(typ: Type): Type =
         typ match {
           case TVar(v) =>
-            paramsMap.get(v) match {
-              case None =>
-                fail(s"Got out of bounds type variable $v when replacing parameters")
-              case Some(ty) => ty
-            }
+            paramsMap.getOrElse(
+              v,
+              fail(s"Got out of bounds type variable $v when replacing parameters"),
+            )
           case TTyCon(_) | TBuiltin(_) | TNat(_) => typ
           case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
           case forall: TForall =>

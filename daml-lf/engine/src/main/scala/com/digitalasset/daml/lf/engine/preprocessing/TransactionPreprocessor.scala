@@ -100,6 +100,8 @@ private[preprocessing] final class TransactionPreprocessor(
           node match {
             case Node.NodeFetch(_, _, _, _, _, _, _) =>
               fail(s"Transaction contains a fetch root node $id")
+            case Node.NodeLookupByKey(_, _, _, _) =>
+              fail(s"Transaction contains a lookup by key root node $id")
             case _ =>
               id -> unsafeTranslateNode(node)
           }

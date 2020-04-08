@@ -96,7 +96,7 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   }
 
   @throws[PreprocessorException]
-  private[preprocessing] def unsafePreprocessCreateAndExercise(
+  def unsafePreprocessCreateAndExercise(
       templateId: Ref.ValueRef,
       createArgument: Value[Value.AbsoluteContractId],
       choiceId: Ref.ChoiceName,
@@ -127,16 +127,6 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   def unsafePreprocessCommands(
       cmds: ImmArray[command.Command],
   ): ImmArray[speedy.Command] = {
-    // before, we had
-    //
-    // ```
-    // Result.sequence(ImmArray(cmds.commands).map(preprocessCommand))
-    // ```
-    //
-    // however that is bad, because it'll generate a `NeedPackage` for each command,
-    // if the same package is needed for every command. If we go step by step,
-    // on the other hand, we will cache the package and go through with execution
-    // after the first command which demands it.
     @tailrec
     def go(
         toProcess: FrontStack[command.Command],
