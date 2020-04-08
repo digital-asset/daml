@@ -22,6 +22,7 @@ import scalaz.std.string._
 import scalaz.syntax.show._
 
 import scala.util.{Success, Try}
+import scala.util.Random.shuffle
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class ApiCodecCompressedSpec
@@ -179,6 +180,19 @@ class ApiCodecCompressedSpec
         implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid), Order[Cid])
         forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
           roundtrip(va)(v) should ===(Some(v))
+        }
+      }
+
+      "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        import mapVa.injshrink
+        implicit val mapArb: Arbitrary[mapVa.Inj[Cid]] = mapVa.injarb(Arbitrary(genCid), Order[Cid])
+        forAll(minSuccessful(50)) { map: mapVa.Inj[Cid] =>
+          val canonical = mapVa.inj(map)
+          val jsEnc = inside(apiValueToJsValue(canonical)) {
+            case JsArray(elements) => elements
+          }
+          jsValueToApiValue(JsArray(shuffle(jsEnc)), mapVa.t, typeLookup) should ===(canonical)
         }
       }
 
