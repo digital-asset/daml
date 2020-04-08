@@ -8,13 +8,13 @@
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
   ( Delta
-  , MonadDelta, devars, devals
+  , MonadDelta, devars, _devals
   , UpdateSet(..)
   , UpdCreate(..), usCre, usArc, usCho
   , UpdArchive(..)
   , UpdChoice(..)
   , runDelta
-  , emptyDelta
+  , emptyDelta, setDelta
   , introDelta, extVarDelta
   , lookupDExprVar, lookupDVal, lookupDChoice
   , concatDelta
@@ -74,7 +74,7 @@ data Delta = Delta
     -- ^ The skolemised term variables.
   , _devals :: !(HashMap (Qualified ExprValName) (Expr, UpdateSet))
     -- ^ The bound values.
-  , _dchs :: !(HashMap ((Qualified TypeConName), ChoiceName) UpdateSet)
+  , _dchs :: !(HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
     -- ^ The set of relevant choices.
   -- TODO: split this off into data types for readability?
   }
@@ -86,7 +86,7 @@ emptyDelta = Delta [] empty empty
 
 concatDelta :: Delta -> Delta -> Delta
 concatDelta (Delta vars1 vals1 chs1) (Delta vars2 vals2 chs2) =
-  Delta (vars1 ++ vars2) (union vals1 vals2) (union chs1 chs2)
+  Delta (vars1 ++ vars2) (vals1 `union` vals2) (chs1 `union` chs2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first)
 
@@ -102,15 +102,20 @@ runDelta act = runReaderT act emptyDelta
 introDelta :: MonadDelta m => Delta -> m a -> m a
 introDelta delta = local (concatDelta delta)
 
+-- TODO: This is a bit strange in a reader monad.
+-- Figure out a way to extend, instead of overwrite every time.
+setDelta :: MonadDelta m => Delta -> m a -> m a
+setDelta delta = local (const delta)
+
 extVarDelta :: MonadDelta m => ExprVarName -> m a -> m a
 extVarDelta x = local (over devars ((:) x))
 
 lookupDExprVar :: MonadDelta m => ExprVarName -> m ()
-lookupDExprVar x = ask >>= \ del -> unless (elem x $ del ^. devars)
+lookupDExprVar x = ask >>= \ del -> unless (elem x $ _devars del)
                                           $ throwError $ EUnknownExprVar x
 
-lookupDVal :: MonadDelta m => (Qualified ExprValName) -> m (Expr, UpdateSet)
-lookupDVal w = view (devals . at w) >>= match _Just (EEmptyCase)
+lookupDVal :: MonadDelta m => Qualified ExprValName -> m (Expr, UpdateSet)
+lookupDVal w = view (devals . at w) >>= match _Just EEmptyCase
 -- TODO: This is a random error. The thing we really want to write is:
 -- lookupDVal w = view (devals . at w) >>= match _Just (EUnknownDefinition $ LEValue w)
 -- The issue here is that our values are currently stored in Delta instead
@@ -125,7 +130,7 @@ lookupDVal w = view (devals . at w) >>= match _Just (EEmptyCase)
 -- Both approaches make sense, but both imply a lot of code duplication, so they
 -- don't sound that enticing...
 
-lookupDChoice :: MonadDelta m => (Qualified TypeConName) -> ChoiceName
+lookupDChoice :: MonadDelta m => Qualified TypeConName -> ChoiceName
              -> m UpdateSet
 lookupDChoice tem ch = view (dchs . at (tem, ch)) >>= match _Just EEmptyCase
 -- TODO: Random error.

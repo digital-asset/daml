@@ -2,16 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Static verification of DAML packages.
-module DA.Daml.LF.Verify
-  ( module LF
-  , main
-  ) where
+module DA.Daml.LF.Verify ( main ) where
 
 import Options.Applicative
 
-import DA.Daml.LF.Verify.Generate as LF
-import DA.Daml.LF.Verify.Read as LF
-import DA.Daml.LF.Verify.Context as LF
+import DA.Daml.LF.Verify.Generate
+import DA.Daml.LF.Verify.Read
+import DA.Daml.LF.Verify.Context
 
 main :: IO ()
 main = do
