@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.engine.script
+package com.daml.lf.engine
+package script
 
 import io.grpc.StatusRuntimeException
 import java.util
@@ -11,7 +12,6 @@ import scalaz.{\/-, -\/}
 import spray.json._
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.engine.{ResultDone, ValueTranslator}
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
@@ -272,15 +272,15 @@ object Converter {
 
   def translateExerciseResult(
       choiceType: (Identifier, Name) => Either[String, Type],
-      translator: ValueTranslator,
+      translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult) = {
     for {
       choice <- Name.fromString(result.choice)
       resultType <- choiceType(result.templateId, choice)
-      translated <- translator.translateValue(resultType, result.result) match {
-        case ResultDone(r) => Right(r)
-        case err => Left(s"Failed to translate exercise result: $err")
-      }
+      translated <- translator
+        .translateValue(resultType, result.result)
+        .left
+        .map(err => s"Failed to translate exercise result: $err")
     } yield translated
   }
 
@@ -289,7 +289,7 @@ object Converter {
   def fillCommandResults(
       compiledPackages: CompiledPackages,
       choiceType: (Identifier, Name) => Either[String, Type],
-      translator: ValueTranslator,
+      translator: preprocessing.ValueTranslator,
       freeAp: SValue,
       eventResults: Seq[ScriptLedgerClient.CommandResult]): Either[String, SExpr] =
     freeAp match {
@@ -371,16 +371,18 @@ object Converter {
 
   // Convert a Created event to a pair of (ContractId (), AnyTemplate)
   def fromCreated(
-      translator: ValueTranslator,
+      translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract): Either[String, SValue] = {
     val anyTemplateTyCon = daInternalAny("AnyTemplate")
     val pairTyCon = daTypes("Tuple2")
     val tyCon = contract.templateId
     for {
-      argSValue <- translator.translateValue(TTyCon(tyCon), contract.argument) match {
-        case ResultDone(v) => Right(v)
-        case err => Left(s"Failure to translate value in create: $err")
-      }
+      argSValue <- translator
+        .translateValue(TTyCon(tyCon), contract.argument)
+        .left
+        .map(
+          err => s"Failure to translate value in create: $err"
+        )
       anyTpl = record(anyTemplateTyCon, ("getAnyTemplate", SAny(TTyCon(tyCon), argSValue)))
     } yield record(pairTyCon, ("_1", SContractId(contract.contractId)), ("_2", anyTpl))
   }
@@ -427,10 +429,9 @@ object Converter {
       } catch {
         case e: Exception => Left(s"LF conversion failed: ${e.toString}")
       }
-      valueTranslator = new ValueTranslator(compiledPackages)
+      valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
       sValue <- valueTranslator
         .translateValue(ty, lfValue)
-        .consume(_ => None, _ => None, _ => None)
         .left
         .map(_.msg)
     } yield sValue

@@ -23,7 +23,6 @@ import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
-import com.daml.lf.engine.ValueTranslator
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
@@ -274,7 +273,7 @@ class Runner(
       override def definitions = fromLedgerValue.orElse(compiledPackages.definitions)
     }
   }
-  private val valueTranslator = new ValueTranslator(extendedCompiledPackages)
+  private val valueTranslator = new preprocessing.ValueTranslator(extendedCompiledPackages)
 
   private def toSubmitRequest(ledgerId: LedgerId, party: SParty, cmds: Seq[Command]) = {
     val commands = Commands(
