@@ -48,7 +48,7 @@ object LedgerClientJwt {
   type AllocateParty =
     (Jwt, Option[Ref.Party], Option[String]) => Future[api.domain.PartyDetails]
 
-  private def bearer(jwt: Jwt): Some[String] = Some(s"Bearer ${jwt.value: String}")
+  private def bearer(jwt: Jwt): Some[String] = Some(jwt.value: String)
 
   def submitAndWaitForTransaction(client: LedgerClient): SubmitAndWaitForTransaction =
     (jwt, req) => client.commandServiceClient.submitAndWaitForTransaction(req, bearer(jwt))

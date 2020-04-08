@@ -3,7 +3,6 @@
 
 package com.daml.platform.store
 
-import java.io.InputStream
 import java.sql.PreparedStatement
 import java.time.Instant
 import java.util.Date
@@ -152,14 +151,14 @@ object Conversions {
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
-      s.setBinaryStream(index, v.toInputStream)
+      s.setBytes(index, v.toByteArray)
   }
 
   def offset(name: String): RowParser[Offset] =
-    SqlParser.get[InputStream](name).map(Offset.fromInputStream)
+    SqlParser.get[Array[Byte]](name).map(Offset.fromByteArray)
 
-  implicit def columnToOffset(implicit c: Column[InputStream]): Column[Offset] =
-    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromInputStream))
+  implicit def columnToOffset(implicit c: Column[Array[Byte]]): Column[Offset] =
+    Column.nonNull((value: Any, meta) => c(value, meta).toEither.map(Offset.fromByteArray))
 
   // Instant
 

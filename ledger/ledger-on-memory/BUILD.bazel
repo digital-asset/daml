@@ -161,8 +161,8 @@ conformance_test(
     ],
     test_tool_args = [
         "--verbose",
-        "--perf-tests=PerformanceEnvelope.Throughput",
-        "--perf-tests=PerformanceEnvelope.Latency",
+        "--perf-tests=PerformanceEnvelope.Beta.Throughput",
+        "--perf-tests=PerformanceEnvelope.Beta.Latency",
     ],
 )
 

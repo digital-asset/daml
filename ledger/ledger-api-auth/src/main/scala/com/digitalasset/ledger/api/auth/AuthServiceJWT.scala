@@ -43,7 +43,7 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
     for {
       headerValue <- Option
-        .apply(headers.get(AuthServiceJWT.AUTHORIZATION_KEY))
+        .apply(headers.get(AUTHORIZATION_KEY))
         .toRight(Error("Authorization header not found"))
       token <- bearerTokenRegex
         .findFirstMatchIn(headerValue)
@@ -84,9 +84,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
 object AuthServiceJWT {
   final case class Error(message: String)
-
-  val AUTHORIZATION_KEY: Metadata.Key[String] =
-    Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))

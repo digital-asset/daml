@@ -228,8 +228,7 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
                 , "@typescript-eslint/parser" .= typescriptEslintVersion
                 ]
             , "workspaces" .= pkgs
-            , "name" .= ("daml2js" :: T.Text)
-            , "version" .= ("0.0.0" :: T.Text)
+            , "resolutions" .= object ["@daml/types" .= ("file:../daml-types" :: T.Text)]
             ]
         BSL.writeFile ".eslintrc.json" $ encode $
           object

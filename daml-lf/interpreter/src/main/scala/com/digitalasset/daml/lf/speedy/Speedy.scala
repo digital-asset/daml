@@ -4,21 +4,20 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import java.util
+
 import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.{Value => V}
-
-import scala.collection.JavaConverters._
-import java.util
-
 import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
+import scala.collection.JavaConverters._
 import scala.util.control.NoStackTrace
 
 object Speedy {
@@ -448,8 +447,12 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(prim, args, arity) =>
-          val args2 = args.clone.asInstanceOf[util.ArrayList[SValue]]
-          val missing = arity - args2.size
+          val missing = arity - args.size
+          val newArgsLimit = Math.min(missing, newArgs.length)
+
+          // Keep some space free, because both `KFun` and `KPushTo` will add to the list.
+          val extendedArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
+          extendedArgs.addAll(args)
 
           // Stash away over-applied arguments, if any.
           val othersLength = newArgs.length - missing
@@ -459,14 +462,13 @@ object Speedy {
             machine.kont.add(KArg(others))
           }
 
-          machine.kont.add(KFun(prim, args2, arity))
+          machine.kont.add(KFun(prim, extendedArgs, arity))
 
-          // start evaluating the arguments
-          val newArgsLimit = Math.min(missing, newArgs.length)
+          // Start evaluating the arguments.
           var i = 1
           while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
-            machine.kont.add(KPushTo(args2, arg))
+            machine.kont.add(KPushTo(extendedArgs, arg))
             i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))

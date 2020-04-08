@@ -69,25 +69,36 @@ object Tests {
           .map(BenchmarkReporter.toFile)
           .getOrElse(BenchmarkReporter.toStream(System.out))
           .addReport(key, value)
-    Map(
-      PerformanceEnvelopeThroughputTestKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
-        logger = LoggerFactory.getLogger(PerformanceEnvelopeThroughputTestKey),
-        envelope = PerformanceEnvelope,
-        reporter = reporter,
-      )(_)),
-      PerformanceEnvelopeLatencyTestKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
-        logger = LoggerFactory.getLogger(PerformanceEnvelopeLatencyTestKey),
-        envelope = PerformanceEnvelope,
-        reporter = reporter,
-      )(_)),
-    )
-  }
 
-  private[this] val PerformanceEnvelope = Envelope.Beta // Should be adequate for most CIs
+    Envelope.values.flatMap { envelope =>
+      {
+        val throughputKey: String = performanceEnvelopeThroughputTestKey(envelope)
+        val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
+        List(
+          throughputKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+            logger = LoggerFactory.getLogger(throughputKey),
+            envelope = envelope,
+            reporter = reporter,
+          )(_)),
+          latencyKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+            logger = LoggerFactory.getLogger(latencyKey),
+            envelope = envelope,
+            reporter = reporter,
+          )(_)),
+        )
+      }
+    }
+  }.toMap
 
-  private[this] val PerformanceEnvelopeThroughputTestKey = "PerformanceEnvelope.Throughput"
-  private[this] val PerformanceEnvelopeLatencyTestKey = "PerformanceEnvelope.Latency"
+  private[this] def performanceEnvelopeThroughputTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.Throughput"
+  private[this] def performanceEnvelopeLatencyTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.Latency"
 
   private[testtool] val PerformanceTestsKeys =
-    Seq(PerformanceEnvelopeLatencyTestKey, PerformanceEnvelopeThroughputTestKey)
+    Envelope.values.flatMap { envelope =>
+      List(
+        performanceEnvelopeThroughputTestKey(envelope),
+        performanceEnvelopeLatencyTestKey(envelope))
+    }
 }

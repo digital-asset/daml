@@ -49,7 +49,7 @@ The interesting part is the ``signatory`` clause: both the ``sender`` and ``rece
 This enforces the fact that creation and archival of ``Message`` contracts must be authorized by both parties.
 
 Now we can add messaging into the workflow by adding a new choice to the ``User`` template.
-Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``User`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
+Copy the following choice to the ``User`` template after the ``Follow`` choice. The indentation for the ``SendMessage`` choice must match the one of ``Follow`` . *Make sure you save the file after copying the code*.
 
 .. literalinclude:: code/daml-after/User.daml
   :language: daml
@@ -77,6 +77,15 @@ Open a new terminal and run the following commands::
   daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
 The result is an up-to-date TypeScript interface to our DAML model, in particular to the new ``Message`` template and ``SendMessage`` choice.
+
+To make sure that Yarn picks up the newly generated JavaScript code,
+we have to run the following command in the ``ui`` directory::
+
+  yarn install --force --frozen-lockfile
+
+Once that command finishes, you have to close Visual Studio Code
+and restart it by running ``daml studio`` from the root directory of
+your project.
 
 We can now implement our messaging feature in the UI!
 

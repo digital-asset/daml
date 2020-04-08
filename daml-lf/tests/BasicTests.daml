@@ -384,6 +384,29 @@ template Fetcher
         with cid : ContractId Fetched
         do fetch cid
 
+
+template Forkable
+  with
+    party: Party
+    parent: Optional (ContractId Forkable)
+  where
+    signatory party
+
+    controller party can
+      Fork: [ContractId Forkable]
+        with n: Int
+          do
+            if (n == 0) then
+               pure [self]
+            else
+              do
+                c1 <- create Forkable with party = party, parent = Some self
+                l1 <- exercise c1 Fork with n = n-1
+                c2 <- create Forkable with party = party, parent = Some self
+                l2 <- exercise c2 Fork with n = n-1
+                pure (l1 ++ l2)
+
+
 data Nesting0 = Nesting0 {x: Nesting1}
 data Nesting1 = Nesting1 {x: Nesting2}
 data Nesting2 = Nesting2 {x: Nesting3}

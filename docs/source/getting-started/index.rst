@@ -69,14 +69,13 @@ In order to connect the UI code to this DAML, we need to run a code generation s
 
     daml codegen js .daml/dist/create-daml-app-0.1.0.dar -o daml.js
 
-Now, changing to the ``ui`` folder, use Yarn to install the project dependencies and build the app::
+Now, changing to the ``ui`` folder, use Yarn to install the project dependencies::
 
     cd ui
     yarn install
-    yarn build
 
-These steps may take a couple of minutes each (it's worth it!).
-You should see ``Compiled successfully.`` in the output if everything worked as expected.
+This step may take a couple of moments (it's worth it!).
+You should see ``success Saved lockfile.`` in the output if everything worked as expected.
 
 .. TODO: Give instructions for possible failures.
 
@@ -101,6 +100,7 @@ In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the 
 
 This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.
+Once the web UI has been compiled and started, you should see ``Compiled successfully!`` in your terminal.
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.
