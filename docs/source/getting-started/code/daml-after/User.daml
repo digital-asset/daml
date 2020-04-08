@@ -18,7 +18,7 @@ template User with
       controller username
       do
         assertMsg "You cannot follow yourself" (userToFollow /= username)
-        assertMsg "You cannot follow the same user twice" (userToFollow `notElem` following)
+        assertMsg "You cannot follow the same user twice" (notElem userToFollow following)
         archive self
         create this with following = userToFollow :: following
 
