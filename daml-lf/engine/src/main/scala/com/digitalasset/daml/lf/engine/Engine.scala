@@ -146,7 +146,7 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)],
+      rootSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
@@ -166,7 +166,7 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
-        transactionSeedAndSubmissionTime,
+        rootSeedAndSubmissionTime,
       )
     } yield result
   }
