@@ -76,9 +76,9 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                         tyConAlreadySeed0,
                         tmplsAlreadySeed0))
               }
-            case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) =>
+            case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeed0, tmplsAlreadySeed0)
-            case Ast.TVar(_) | Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
+            case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
               ResultError(Error(s"unserializable type ${typ.pretty}"))
           }
         case Nil =>
