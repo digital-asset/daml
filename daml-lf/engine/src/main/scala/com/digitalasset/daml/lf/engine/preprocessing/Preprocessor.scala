@@ -28,8 +28,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
   private def getDependencies(
       typesToProcess0: List[Ast.Type],
       tmplToProcess0: List[Ref.TypeConName],
-      tyConAlreadySeed0: Set[Ref.TypeConName] = Set.empty,
-      tmplAlreadySeed0: Set[Ref.TypeConName] = Set.empty,
+      tyConAlreadySeen0: Set[Ref.TypeConName] = Set.empty,
+      tmplAlreadySeen0: Set[Ref.TypeConName] = Set.empty,
   ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
 
     @tailrec
@@ -94,7 +94,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
         case Nil =>
           tmplToProcess0 match {
             case tmplId :: tmplsToProcess if tmplsAlreadySeed0(tmplId) =>
-              getDependencies(Nil, tmplsToProcess, tyConAlreadySeed0, tmplsAlreadySeed0)
+              go(Nil, tmplsToProcess, tyConAlreadySeed0, tmplsAlreadySeed0)
             case tmplId :: tmplsToProcess =>
               val pkgId = tmplId.packageId
               compiledPackages.getPackage(pkgId) match {
