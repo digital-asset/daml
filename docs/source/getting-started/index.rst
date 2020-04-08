@@ -100,6 +100,7 @@ In a second terminal, navigate to the ``create-daml-app/ui`` folder and run the 
 
 This starts the web UI connected to the running Sandbox and JSON API server.
 The command should automatically open a window in your default browser at http://localhost:3000.
+Once the web UI has been compiled and started, you should see ``Compiled successfully!`` in your terminal.
 If it doesn't, just open that link in a web browser.
 (Depending on your firewall settings, you may be asked whether to allow the app to receive network connections. It is safe to accept.)
 You should now see the login page for the social network. For simplicity of this app, there is no password or sign-up required.
