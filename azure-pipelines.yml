@@ -100,6 +100,8 @@ jobs:
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
         condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: macOS
@@ -138,6 +140,8 @@ jobs:
       - bash: mkdir -p $(bazel-repo-cache-path)
         displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: Windows
@@ -165,6 +169,8 @@ jobs:
           release_tag: $(release_tag)
           is_release: variables.is_release
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: check_for_release
@@ -213,6 +219,7 @@ jobs:
       protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -283,6 +290,8 @@ jobs:
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
@@ -294,6 +303,7 @@ jobs:
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     steps:
       - checkout: self
       - bash: |
@@ -321,6 +331,8 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
     condition: always()
