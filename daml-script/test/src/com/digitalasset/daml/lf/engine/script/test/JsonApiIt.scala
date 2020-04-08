@@ -96,6 +96,7 @@ trait JsonApiFixture
                   "localhost",
                   0,
                   None,
+                  None,
                   None)(
                   jsonApiActorSystem,
                   jsonApiMaterializer,

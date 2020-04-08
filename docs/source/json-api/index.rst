@@ -72,7 +72,9 @@ From a DAML project directory:
       --address <value>
             IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
       --http-port <value>
-            HTTP JSON API service port number
+            HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
+      --port-file <value>
+            Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
