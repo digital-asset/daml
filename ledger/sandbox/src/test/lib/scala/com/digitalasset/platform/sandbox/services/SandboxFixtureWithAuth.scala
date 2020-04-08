@@ -63,7 +63,6 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
       .getOrElse(sys.error("Failed to generate token"))
       .value
 
-  def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret) =
-    s"Bearer ${signed(payload, secret)}"
-
+  def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
+    signed(payload, secret)
 }

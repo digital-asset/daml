@@ -56,7 +56,7 @@ withTokenFile f = withResource acquire release (f . fmap fst)
   where
     acquire = mask_ $ do
         (file, delete) <- newTempFile
-        writeFile file ("Bearer " <> jwtToken)
+        writeFile file jwtToken
         pure (file, delete)
     release = snd
 

@@ -133,7 +133,7 @@ object Main {
 
         Files.write(
           changeExtension(outputFile, "-bearer.txt").toPath,
-          s"Bearer ${signed.value}".getBytes(StandardCharsets.UTF_8))
+          signed.value.getBytes(StandardCharsets.UTF_8))
 
         Files.write(
           changeExtension(outputFile, "-payload.json").toPath,
