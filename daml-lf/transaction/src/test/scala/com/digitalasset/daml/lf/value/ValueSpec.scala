@@ -151,7 +151,7 @@ class ValueSpec
       implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
 
       "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
-        implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
         checkLaws(SzP.order.laws[T])
       }
 
@@ -163,7 +163,7 @@ class ValueSpec
     "for record and variant types" - {
       implicit val ord: Order[T] = Tag unsubst Value.orderInstance(FooScope)
       "obeys order laws" in forEvery(Table("va", fooRecord, fooVariant)) { va =>
-        implicit val arb: Arbitrary[T] = va.injarb[Cid] map va.inj
+        implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
         checkLaws(SzP.order.laws[T])
       }
 
@@ -184,7 +184,7 @@ class ValueSpec
         case (details, scope) =>
           implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
-            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map ea.inj
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
             checkLaws(SzP.order.laws[T])
           }
       }
@@ -193,7 +193,7 @@ class ValueSpec
         case (details, scope) =>
           implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
-            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map ea.inj
+            implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
             forAll(minSuccessful(20)) { (a: T, b: T) =>
               inside((a, b)) {
                 case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
