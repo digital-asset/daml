@@ -83,6 +83,10 @@ we have to run the following command in the ```ui`` directory::
 
   yarn install --force --frozen-lockfile
 
+Once that command finishes, you have to close Visual Studio Code
+and restart it by running ``daml studio`` from the root directory of
+your project.
+
 We can now implement our messaging feature in the UI!
 
 Messaging UI
