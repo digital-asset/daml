@@ -152,13 +152,10 @@ final class Engine {
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Transaction.Transaction, Boolean)] = {
 
-    remy.log(" *** ")
-
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
     val values = ImmArray(nodes).map(translateNode(commandTranslation))
     for {
       commands <- Result.sequence(values)
-      _ = commands.foreach(remy.log(_))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_.templateId))
