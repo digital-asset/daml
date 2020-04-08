@@ -146,21 +146,16 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      submissionSeedAndTime: Option[(crypto.Hash, Time.Timestamp)],
-      participantId: Ref.ParticipantId,
+      rootSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Transaction.Transaction, Boolean)] = {
 
-    val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
-      case (seed, time) =>
-        crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
-    }
-
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
+    val values = ImmArray(nodes).map(translateNode(commandTranslation))
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
+      commands <- Result.sequence(values)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_.templateId))
@@ -171,7 +166,7 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
-        transactionSeedAndSubmissionTime,
+        rootSeedAndSubmissionTime,
       )
     } yield result
   }

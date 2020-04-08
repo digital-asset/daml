@@ -453,6 +453,6 @@ case class PartialTransaction(
   }
 
   def deriveChildSeed: Option[crypto.Hash] =
-    context.contextSeed.map(crypto.Hash.deriveNodeSeed(_, nodes.size))
+    context.contextSeed.map(crypto.Hash.deriveNodeSeed(_, context.children.length))
 
 }
