@@ -38,15 +38,32 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
         tmplToProcess0: List[Ref.TypeConName],
         tyConAlreadySeed0: Set[Ref.TypeConName],
         tmplsAlreadySeed0: Set[Ref.TypeConName],
-    ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] =
+    ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
+      def pullPackageAndRestart(pkgId: Ref.PackageId) =
+        ResultNeedPackage(
+          pkgId, {
+            case Some(pkg) =>
+              for {
+                _ <- compiledPackages.addPackage(pkgId, pkg)
+                r <- getDependencies(
+                  typesToProcess0,
+                  tmplToProcess0,
+                  tyConAlreadySeed0,
+                  tmplsAlreadySeed0)
+              } yield r
+            case None =>
+              ResultError(Error(s"Couldn't find package $pkgId"))
+          }
+        )
+
       typesToProcess0 match {
         case typ :: typesToProcess =>
           typ match {
             case Ast.TApp(fun, arg) =>
               go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeed0, tmplsAlreadySeed0)
-            case Ast.TTyCon(tyCon @ Ref.Identifier(packageId, qualifiedName))
+            case Ast.TTyCon(tyCon @ Ref.Identifier(pkgId, qualifiedName))
                 if !tyConAlreadySeed0(tyCon) =>
-              compiledPackages.packages.lift(packageId) match {
+              compiledPackages.packages.lift(pkgId) match {
                 case Some(pkg) =>
                   PackageLookup.lookupDataType(pkg, qualifiedName) match {
                     case Right(Ast.DDataType(_, _, dataType)) =>
@@ -67,14 +84,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       ResultError(e)
                   }
                 case None =>
-                  ResultNeedPackage(
-                    packageId,
-                    _ =>
-                      getDependencies(
-                        typesToProcess0,
-                        tmplToProcess0,
-                        tyConAlreadySeed0,
-                        tmplsAlreadySeed0))
+                  pullPackageAndRestart(pkgId)
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
               go(typesToProcess, tmplToProcess0, tyConAlreadySeed0, tmplsAlreadySeed0)
@@ -100,26 +110,13 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       ResultError(error)
                   }
                 case None =>
-                  ResultNeedPackage(
-                    pkgId, {
-                      case Some(pkg) =>
-                        for {
-                          _ <- compiledPackages.addPackage(pkgId, pkg)
-                          r <- getDependencies(
-                            Nil,
-                            tmplToProcess0,
-                            tyConAlreadySeed0,
-                            tmplsAlreadySeed0)
-                        } yield r
-                      case None =>
-                        ResultError(Error(s"Couldn't find package $pkgId"))
-                    }
-                  )
+                  pullPackageAndRestart(pkgId)
               }
             case Nil =>
               ResultDone(tyConAlreadySeed0 -> tmplsAlreadySeed0)
           }
       }
+    }
 
     go(typesToProcess0, tmplToProcess0, tyConAlreadySeed0, tmplAlreadySeed0)
   }
