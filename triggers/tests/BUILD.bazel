@@ -53,60 +53,6 @@ EOF
     visibility = ["//visibility:public"],
 )
 
-da_scala_binary(
-    name = "test_client",
-    srcs =
-        ["src/test/scala/com/digitalasset/daml/lf/engine/trigger/test/TestMain.scala"],
-    main_class = "com.daml.lf.engine.trigger.test.TestMain",
-    resources = ["//triggers/runner:src/main/resources/logback.xml"],
-    deps = [
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
-        "//daml-lf/data",
-        "//daml-lf/interpreter",
-        "//daml-lf/language",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
-        "//ledger-api/rs-grpc-bridge",
-        "//ledger/ledger-api-common",
-        "//libs-scala/auth-utils",
-        "//triggers/runner:trigger-runner-lib",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-    ],
-)
-
-client_server_test(
-    name = "test_static_time",
-    timeout = "long",
-    client = ":test_client",
-    client_files = ["$(rootpath :acs.dar)"],
-    data = [":acs.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--static-time",
-        "--port=0",
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
-client_server_test(
-    name = "test_wallclock_time",
-    timeout = "long",
-    client = ":test_client",
-    client_args = ["-w"],
-    client_files = ["$(rootpath :acs.dar)"],
-    data = [":acs.dar"],
-    server = "//ledger/sandbox:sandbox-binary",
-    server_args = [
-        "--wall-clock-time",
-        "--port=0",
-    ],
-    server_files = ["$(rootpath :acs.dar)"],
-)
-
 da_scala_library(
     name = "test-utils",
     srcs = [
