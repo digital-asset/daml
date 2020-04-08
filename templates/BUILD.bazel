@@ -30,6 +30,16 @@ genrule(
             # use default .gitignore and .dlint.yaml if they don't exist in the template
             cp -n $$SRC/default-gitignore $$OUT/$$d/.gitignore
             cp -n $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
+            # We avoid introducing infix syntax in the GSG so we disable
+            # the lint there.
+            if [ "$$d" = "create-daml-app" ]; then
+              cat >> $$OUT/$$d/.dlint.yaml <<EOF
+
+# This rule is enabled by default but we avoid
+# infix syntax here to keep things simple.
+- ignore: {name: Use infix }
+EOF
+            fi
         done
 
         ## special cases we should work to remove
