@@ -146,21 +146,19 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      submissionSeedAndTime: Option[(crypto.Hash, Time.Timestamp)],
-      participantId: Ref.ParticipantId,
+      transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Transaction.Transaction, Boolean)] = {
 
-    val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
-      case (seed, time) =>
-        crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
-    }
+    remy.log(" *** ")
 
     val commandTranslation = new CommandPreprocessor(_compiledPackages)
+    val values = ImmArray(nodes).map(translateNode(commandTranslation))
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(translateNode(commandTranslation)))
+      commands <- Result.sequence(values)
+      _ = commands.foreach(remy.log(_))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_.templateId))
