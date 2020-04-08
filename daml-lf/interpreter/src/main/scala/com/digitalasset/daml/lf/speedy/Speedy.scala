@@ -451,8 +451,8 @@ object Speedy {
           val newArgsLimit = Math.min(missing, newArgs.length)
 
           // Keep some space free, because both `KFun` and `KPushTo` will add to the list.
-          val functionArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
-          functionArgs.addAll(args)
+          val extendedArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
+          extendedArgs.addAll(args)
 
           // Stash away over-applied arguments, if any.
           val othersLength = newArgs.length - missing
@@ -462,13 +462,13 @@ object Speedy {
             machine.kont.add(KArg(others))
           }
 
-          machine.kont.add(KFun(prim, functionArgs, arity))
+          machine.kont.add(KFun(prim, extendedArgs, arity))
 
           // Start evaluating the arguments.
           var i = 1
           while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
-            machine.kont.add(KPushTo(functionArgs, arg))
+            machine.kont.add(KPushTo(extendedArgs, arg))
             i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
