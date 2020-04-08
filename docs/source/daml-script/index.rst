@@ -279,7 +279,7 @@ To run DAML script against the JSON API you have to pass the ``--json-api`` para
 #. The JSON API requires an authentication token even when it is run
    against an unauthenticated ledger. The authentication token must be
    a JWT token so the ``--access-token-file`` passed to
-   ``daml script`` should contain the actual JWT.
+   ``daml script`` should contain the actual JWT token.
 #. The token must contain exactly one party in ``actAs`` and/or
    ``readAs``. This party will be used for ``submit`` and
    ``query``. Passing a party as the argument to ``submit`` and
