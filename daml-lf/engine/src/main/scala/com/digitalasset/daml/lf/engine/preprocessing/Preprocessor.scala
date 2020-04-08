@@ -24,7 +24,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
   import commandPreprocessor._
   import valueTranslator.unsafeTranslateValue
 
-  // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeed0`
+  // This pulls all the dependencies of in `typesToProcess0` and `tyConAlreadySeen0`
   private def getDependencies(
       typesToProcess0: List[Ast.Type],
       tmplToProcess0: List[Ref.TypeConName],
@@ -36,10 +36,10 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     def go(
         typesToProcess0: List[Ast.Type],
         tmplToProcess0: List[Ref.TypeConName],
-        tyConAlreadySeed0: Set[Ref.TypeConName],
-        tmplsAlreadySeed0: Set[Ref.TypeConName],
+        tyConAlreadySeen0: Set[Ref.TypeConName],
+        tmplsAlreadySeen0: Set[Ref.TypeConName],
     ): Result[(Set[Ref.TypeConName], Set[Ref.TypeConName])] = {
-      def pullPackageAndRestart(pkgId: Ref.PackageId) =
+      def pullPackage(pkgId: Ref.PackageId) =
         ResultNeedPackage(
           pkgId, {
             case Some(pkg) =>
@@ -48,8 +48,8 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                 r <- getDependencies(
                   typesToProcess0,
                   tmplToProcess0,
-                  tyConAlreadySeed0,
-                  tmplsAlreadySeed0)
+                  tyConAlreadySeen0,
+                  tmplsAlreadySeen0)
               } yield r
             case None =>
               ResultError(Error(s"Couldn't find package $pkgId"))
@@ -60,9 +60,9 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
         case typ :: typesToProcess =>
           typ match {
             case Ast.TApp(fun, arg) =>
-              go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeed0, tmplsAlreadySeed0)
+              go(fun :: arg :: typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TTyCon(tyCon @ Ref.Identifier(pkgId, qualifiedName))
-                if !tyConAlreadySeed0(tyCon) =>
+                if !tyConAlreadySeen0(tyCon) =>
               compiledPackages.packages.lift(pkgId) match {
                 case Some(pkg) =>
                   PackageLookup.lookupDataType(pkg, qualifiedName) match {
@@ -78,23 +78,23 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                       go(
                         typesToProcess,
                         tmplToProcess0,
-                        tyConAlreadySeed0 + tyCon,
-                        tmplsAlreadySeed0)
+                        tyConAlreadySeen0 + tyCon,
+                        tmplsAlreadySeen0)
                     case Left(e) =>
                       ResultError(e)
                   }
                 case None =>
-                  pullPackageAndRestart(pkgId)
+                  pullPackage(pkgId)
               }
             case Ast.TTyCon(_) | Ast.TNat(_) | Ast.TBuiltin(_) | Ast.TVar(_) =>
-              go(typesToProcess, tmplToProcess0, tyConAlreadySeed0, tmplsAlreadySeed0)
+              go(typesToProcess, tmplToProcess0, tyConAlreadySeen0, tmplsAlreadySeen0)
             case Ast.TSynApp(_, _) | Ast.TForall(_, _) | Ast.TStruct(_) =>
               ResultError(Error(s"unserializable type ${typ.pretty}"))
           }
         case Nil =>
           tmplToProcess0 match {
-            case tmplId :: tmplsToProcess if tmplsAlreadySeed0(tmplId) =>
-              go(Nil, tmplsToProcess, tyConAlreadySeed0, tmplsAlreadySeed0)
+            case tmplId :: tmplsToProcess if tmplsAlreadySeen0(tmplId) =>
+              go(Nil, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
             case tmplId :: tmplsToProcess =>
               val pkgId = tmplId.packageId
               compiledPackages.getPackage(pkgId) match {
@@ -103,22 +103,22 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
                     case Right(template) =>
                       val typs0 = template.choices.map(_._2.argBinder._2).toList
                       val typs1 =
-                        if (tyConAlreadySeed0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
+                        if (tyConAlreadySeen0(tmplId)) typs0 else Ast.TTyCon(tmplId) :: typs0
                       val typs2 = template.key.fold(typs1)(_.typ :: typs1)
-                      go(typs2, tmplsToProcess, tyConAlreadySeed0, tmplsAlreadySeed0)
+                      go(typs2, tmplsToProcess, tyConAlreadySeen0, tmplsAlreadySeen0)
                     case Left(error) =>
                       ResultError(error)
                   }
                 case None =>
-                  pullPackageAndRestart(pkgId)
+                  pullPackage(pkgId)
               }
             case Nil =>
-              ResultDone(tyConAlreadySeed0 -> tmplsAlreadySeed0)
+              ResultDone(tyConAlreadySeen0 -> tmplsAlreadySeen0)
           }
       }
     }
 
-    go(typesToProcess0, tmplToProcess0, tyConAlreadySeed0, tmplAlreadySeed0)
+    go(typesToProcess0, tmplToProcess0, tyConAlreadySeen0, tmplAlreadySeen0)
   }
 
   /**
