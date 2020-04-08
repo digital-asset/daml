@@ -32,7 +32,7 @@ object PortFiles {
       writeUnsafe(path, port)
     }.leftMap {
       case _: java.nio.file.FileAlreadyExistsException => FileAlreadyExists(path)
-      case e => CannotWriteIntoFile(path, e.getMessage)
+      case e => CannotWriteIntoFile(path, e.toString)
     }
 
   private def writeUnsafe(path: Path, port: Port): Unit = {
