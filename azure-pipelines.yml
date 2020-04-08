@@ -335,7 +335,7 @@ jobs:
           trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
-    condition: always()
+    condition: succeededOrFailed()
     dependsOn:
       - Linux
       - macOS
@@ -388,36 +388,8 @@ jobs:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
-      # some change in Azure configuration makes this fail recently (2020-01).
-      # Azure runs PR builds not on the PR commit, but on the GitHub-provided
-      # commit that would be the result of merging the PR. Recently, it looks
-      # like when it reaches the point of running this job (which has to run
-      # after the macOS one, which sometimes takes up to an hour), if master
-      # has changed in the meantime, Azure cannot find the commit it wants to
-      # build anymore. Therefore, we tell it not to checkout anything, and
-      # manually checkout the PR commit.
-      - checkout: none
       - bash: |
           set -euo pipefail
-          # Note: this is going to get the PR branch commit, not the
-          # result of the merge (i.e. this is not using the same commit as the
-          # other jobs in this build).
-          tell_gary() {
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
-                   $(Slack.team-daml-ci)
-          }
-          if ! git fetch origin $(branch_sha); then
-              tell_gary
-              echo "Failed to fetch commit: $(branch_sha) from origin."
-              echo "Remotes:"
-              git remote -v
-              echo "Job status: $(Agent.JobStatus)."
-              exit 1
-          fi
-          git checkout $(branch_sha)
 
           eval "$(./dev-env/bin/dade-assist)"
 
@@ -513,7 +485,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: eq(variables['Build.Reason'], 'PullRequest')
+    condition: and(succeededOrFailed(), eq(variables['Build.Reason'], 'PullRequest'))
     dependsOn:
       - git_sha
       - collect_build_data
@@ -524,27 +496,8 @@ jobs:
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       status: $[ dependencies.collect_build_data.result ]
     steps:
-      - checkout: none
       - bash: |
           set -euo pipefail
-
-          tell_gary() {
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
-                   $(Slack.team-daml-ci)
-          }
-          if ! git fetch origin $(branch_sha); then
-              tell_gary
-              echo "Failed to fetch commit: $(branch_sha) from origin."
-              echo "Remotes:"
-              git remote -v
-              echo "Job status: $(Agent.JobStatus)."
-              exit 1
-          fi
-          git checkout $(branch_sha)
-
 
           tell_slack() {
               local MESSAGE=$1
@@ -556,7 +509,7 @@ jobs:
                    $(Slack.team-daml-ci)
           }
 
-          EMAIL=$(git log -n 1 --format=%ae)
+          EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
           user_registered() {
               cat ci/slack_user_ids | grep $EMAIL
           }
