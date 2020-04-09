@@ -7,32 +7,39 @@ import java.sql.Connection
 import java.util.Date
 
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
+import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
+import com.daml.platform.events.EventIdFormatter
 
 private[dao] object TransactionsWriter extends TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
+      transactionId: TransactionId,
       transaction: Transaction,
-  ): DisclosureRelation =
+  ): WitnessRelation[EventId] =
     transaction.nodes.collect {
       case (nodeId, c: Create) =>
-        nodeId -> c.stakeholders
+        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> c.stakeholders
       case (nodeId, e: Exercise) if e.consuming =>
-        nodeId -> e.stakeholders
+        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> e.stakeholders
     }
 
   private def computeDisclosureForTransactionTree(
+      transactionId: TransactionId,
       transaction: Transaction,
       blinding: BlindingInfo,
-  ): DisclosureRelation =
-    blinding.disclosure.filterKeys(
+  ): WitnessRelation[EventId] = {
+    val disclosed =
       transaction.nodes.collect {
         case p @ (_, _: Create) => p
         case p @ (_, _: Exercise) => p
       }.keySet
-    )
+    blinding.disclosure.collect {
+      case (nodeId, party) if disclosed(nodeId) =>
+        EventIdFormatter.fromTransactionId(transactionId, nodeId) -> party
+    }
+  }
 
   def apply(
       applicationId: Option[ApplicationId],
@@ -67,30 +74,28 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
 
       val blinding = Blinding.blind(transaction)
 
-      val disclosureForFlatTransaction = computeDisclosureForFlatTransaction(transaction)
+      val disclosureForFlatTransaction =
+        computeDisclosureForFlatTransaction(transactionId, transaction)
 
-      val disclosureForTransactionTree = computeDisclosureForTransactionTree(transaction, blinding)
+      val disclosureForTransactionTree =
+        computeDisclosureForTransactionTree(transactionId, transaction, blinding)
 
       // Remove witnesses for the flat transactions from the full disclosure
       // This minimizes the data we save and allows us to use the union of the
       // witnesses for flat transactions and its complement to filter parties
       // for the transactions tree stream
       val disclosureComplement =
-        DisclosureRelation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
+        Relation.diff(disclosureForTransactionTree, disclosureForFlatTransaction)
 
       // Prepare batch inserts for flat transactions
       val flatTransactionWitnessesBatch =
         WitnessesTable.ForFlatTransactions.prepareBatchInsert(
-          offset = offset,
-          transactionId = transactionId,
           witnesses = disclosureForFlatTransaction,
         )
 
       // Prepare batch inserts for all witnesses except those for flat transactions
       val complementWitnessesBatch =
         WitnessesTable.Complement.prepareBatchInsert(
-          offset = offset,
-          transactionId = transactionId,
           witnesses = disclosureComplement,
         )
 

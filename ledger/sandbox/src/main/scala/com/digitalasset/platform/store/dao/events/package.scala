@@ -23,11 +23,13 @@ package object events {
 
   import com.daml.lf.{data => lfdata}
   private[events] type Party = lfdata.Ref.Party
-  private[events] type DisclosureRelation = lfdata.Relation.Relation[NodeId, Party]
-  private[events] val DisclosureRelation = lfdata.Relation.Relation
-
+  private[events] type Identifier = lfdata.Ref.Identifier
+  private[events] val Identifier = lfdata.Ref.Identifier
+  private[events] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
+  private[events] type DisclosureRelation = WitnessRelation[NodeId]
+  private[events] type DivulgenceRelation = WitnessRelation[ContractId]
   private[events] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
-  private[events] val FilterRelation = lfdata.Relation.Relation
+  private[events] val Relation = lfdata.Relation.Relation
 
   /**
     * Groups together items of type [[A]] that share an attribute [[K]] over a
