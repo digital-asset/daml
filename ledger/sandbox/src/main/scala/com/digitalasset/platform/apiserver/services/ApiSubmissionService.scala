@@ -262,9 +262,9 @@ final class ApiSubmissionService private (
 
   private def toStatus(errorCause: ErrorCause) =
     errorCause match {
-      case e @ ErrorCause.DamlLf(_) =>
+      case e: ErrorCause.DamlLf =>
         Status.INVALID_ARGUMENT.withDescription(e.explain)
-      case e @ ErrorCause.LedgerTime(_) =>
+      case e: ErrorCause.LedgerTime =>
         Status.ABORTED.withDescription(e.explain)
     }
 
