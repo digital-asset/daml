@@ -113,12 +113,9 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
       // Could be empty due to a transaction containing exclusively transient contracts
       if (!contractBatches.isEmpty) {
         contractBatches.foreach(_.execute())
-        WitnessesTable.ForContracts
-          .prepareBatchInsert(
-            witnesses = Relation.mapKeys(blinding.globalDivulgence)(absoluteContractId =>
-              LedgerString.assertFromString(absoluteContractId.coid))
-          )
-          .foreach(_.execute())
+        val divulgence = blinding.globalDivulgence.filterKeys(contractBatches.nonTransient)
+        val witnesses = Relation.mapKeys(divulgence)(c => LedgerString.assertFromString(c.coid))
+        WitnessesTable.ForContracts.prepareBatchInsert(witnesses).foreach(_.execute())
       }
 
     }

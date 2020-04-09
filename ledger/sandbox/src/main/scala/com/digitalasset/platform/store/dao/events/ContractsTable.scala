@@ -39,6 +39,7 @@ private[events] object ContractsTable {
   sealed abstract case class PreparedBatches(
       insertions: Option[BatchSql],
       deletions: Option[BatchSql],
+      nonTransient: Set[ContractId],
   ) {
     final def isEmpty: Boolean = insertions.isEmpty && deletions.isEmpty
     final def foreach[U](f: BatchSql => U): Unit = {
@@ -66,8 +67,9 @@ private[events] object ContractsTable {
 
     def prepare: PreparedBatches =
       new PreparedBatches(
-        prepareNonEmpty(insertQuery, insertions.valuesIterator.toVector),
-        prepareNonEmpty(deleteQuery, deletions),
+        insertions = prepareNonEmpty(insertQuery, insertions.valuesIterator.toVector),
+        deletions = prepareNonEmpty(deleteQuery, deletions),
+        nonTransient = insertions.keySet,
       ) {}
 
   }
