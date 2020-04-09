@@ -5,19 +5,22 @@ package com.daml.platform.apiserver
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
 import com.daml.api.util.TimeProvider
-import com.daml.lf.data.Ref
-import com.daml.lf.engine._
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.Authorizer
 import com.daml.ledger.api.auth.services._
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
+import com.daml.lf.data.Ref
+import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.execution.StoreBackedCommandExecutor
+import com.daml.platform.apiserver.execution.{
+  LedgerTimeAwareCommandExecutor,
+  StoreBackedCommandExecutor
+}
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
@@ -105,6 +108,11 @@ object ApiServices {
     val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
+      val commandExecutor = new LedgerTimeAwareCommandExecutor(
+        new StoreBackedCommandExecutor(engine, participantId, packagesService, contractStore),
+        contractStore,
+        maxRetries = 3,
+      )
       val apiSubmissionService =
         ApiSubmissionService.create(
           ledgerId,
@@ -115,12 +123,7 @@ object ApiServices {
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           seedService,
-          new StoreBackedCommandExecutor(
-            engine,
-            participantId,
-            packagesService,
-            contractStore,
-          ),
+          commandExecutor,
           ApiSubmissionService.Configuration(
             submissionConfig.maxDeduplicationTime,
             partyConfig.implicitPartyAllocation,
