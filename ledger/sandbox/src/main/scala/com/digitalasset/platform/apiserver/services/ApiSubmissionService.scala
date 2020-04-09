@@ -8,6 +8,11 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
+import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
@@ -23,24 +28,19 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded
 }
 import com.daml.ledger.participant.state.v1.{SeedService, SubmissionResult, TimeModel, WriteService}
-import com.daml.api.util.TimeProvider
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.apiserver.{
+import com.daml.platform.apiserver.MetricsNaming
+import com.daml.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
-  LedgerTimeHelper,
-  MetricsNaming
+  LedgerTimeHelper
 }
 import com.daml.platform.metrics.timedFuture
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
