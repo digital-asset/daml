@@ -214,7 +214,7 @@ final class SandboxServer(
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
-    val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
+    val timeProviderType = config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
       (mbLedgerTime, timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)

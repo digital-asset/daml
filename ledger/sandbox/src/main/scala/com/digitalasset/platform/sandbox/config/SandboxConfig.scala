@@ -56,6 +56,8 @@ object SandboxConfig {
 
   val DefaultEventsPageSize: Int = 1000
 
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
       address = None,

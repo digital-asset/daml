@@ -82,7 +82,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
     }
 
-  private val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.WallClock)
+  private val timeProviderType =
+    config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
   private val seeding = config.seeding.getOrElse {
     throw new InvalidConfigException(
