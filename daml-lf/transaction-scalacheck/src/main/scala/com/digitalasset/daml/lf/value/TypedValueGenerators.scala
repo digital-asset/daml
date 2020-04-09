@@ -194,12 +194,15 @@ object TypedValueGenerators {
     } = new ValueAddend {
       type Inj[Cid] = key.Inj[Cid] Map elt.Inj[Cid]
       override val t = TypePrim(PT.GenMap, ImmArraySeq(key.t, elt.t))
-      override def inj[Cid] =
-        (m: key.Inj[Cid] Map elt.Inj[Cid]) =>
-          ValueGenMap(
-            m.iterator
-              .map { case (k, v) => (key.inj(k), elt.inj(v)) }
-              .to[ImmArray])
+      override def inj[Cid: IntroCtx](m: key.Inj[Cid] Map elt.Inj[Cid]) =
+        ValueGenMap {
+          import key.{injord => keyorder}
+          implicit val skeyord: math.Ordering[key.Inj[Cid]] = Order[key.Inj[Cid]].toScalaOrdering
+          m.to[ImmArraySeq]
+            .sortBy(_._1)
+            .map { case (k, v) => (key.inj(k), elt.inj(v)) }
+            .toImmArray
+        }
       override def prj[Cid] = {
         case ValueGenMap(kvs) =>
           kvs traverse (_ bitraverse (key.prj[Cid], elt.prj[Cid])) map (_.toSeq.toMap)
