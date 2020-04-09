@@ -50,7 +50,7 @@ object TypedValueGenerators {
     def inj[Cid: IntroCtx](v: Inj[Cid]): Value[Cid]
     def prj[Cid]: Value[Cid] => Option[Inj[Cid]]
     implicit def injord[Cid: Order]: Order[Inj[Cid]]
-    implicit def injarb[Cid: Arbitrary: Order]: Arbitrary[Inj[Cid]]
+    implicit def injarb[Cid: Arbitrary: IntroCtx]: Arbitrary[Inj[Cid]]
     implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
   }
@@ -71,7 +71,7 @@ object TypedValueGenerators {
         extends ValueAddend {
       type Inj[Cid] = Inj0
       override final def injord[Cid: Order] = ord
-      override final def injarb[Cid: Arbitrary: Order] = arb
+      override final def injarb[Cid: Arbitrary: IntroCtx] = arb
       override final def injshrink[Cid: Shrink] = shr
     }
 
@@ -137,7 +137,7 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
         implicitly[Order[Vector[elt.Inj[Cid]]]]
       }
-      override def injarb[Cid: Arbitrary: Order] = {
+      override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[Vector[elt.Inj[Cid]]]]
       }
@@ -159,7 +159,7 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
         implicitly[Order[Option[elt.Inj[Cid]]]]
       }
-      override def injarb[Cid: Arbitrary: Order] = {
+      override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[Option[elt.Inj[Cid]]]]
       }
@@ -182,7 +182,7 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord[Cid]
         implicitly[Order[SortedLookupList[elt.Inj[Cid]]]]
       }
-      override def injarb[Cid: Arbitrary: Order] = {
+      override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
       }
@@ -213,7 +213,7 @@ object TypedValueGenerators {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
         implicitly[Order[key.Inj[Cid] Map elt.Inj[Cid]]]
       }
-      override def injarb[Cid: Arbitrary: Order] = {
+      override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
@@ -235,7 +235,7 @@ object TypedValueGenerators {
           case _ => None
         }
         override def injord[Cid: Order] = spec.record[Cid]
-        override def injarb[Cid: Arbitrary: Order] = spec.recarb[Cid]
+        override def injarb[Cid: Arbitrary: IntroCtx] = spec.recarb[Cid]
         override def injshrink[Cid: Shrink] = spec.recshrink
       })
 
@@ -254,7 +254,7 @@ object TypedValueGenerators {
           case _ => None
         }
         override def injord[Cid: Order] = spec.varord[Cid]
-        override def injarb[Cid: Arbitrary: Order] =
+        override def injarb[Cid: Arbitrary: IntroCtx] =
           Arbitrary(Gen.oneOf(spec.vararb[Cid].toSeq).flatMap(_._2))
         override def injshrink[Cid: Shrink] = spec.varshrink
       })
@@ -272,7 +272,7 @@ object TypedValueGenerators {
           case _ => None
         }
         override def injord[Cid: Order] = Order.orderBy(values.indexOf)
-        override def injarb[Cid: Arbitrary: Order] = Arbitrary(Gen.oneOf(values))
+        override def injarb[Cid: Arbitrary: IntroCtx] = Arbitrary(Gen.oneOf(values))
         override def injshrink[Cid: Shrink] =
           Shrink { ev =>
             if (!(values.headOption contains ev)) values.headOption.toStream
@@ -320,7 +320,7 @@ object TypedValueGenerators {
           Order.orderBy { case ah :: at => (ah: h.Inj[Cid], at) }
         }
 
-        override def recarb[Cid: Arbitrary: Order] = {
+        override def recarb[Cid: Arbitrary: IntroCtx] = {
           import self.{recarb => tailarb}, h.{injarb => headarb}
           Arbitrary(arbitrary[(h.Inj[Cid], self.HRec[Cid])] map {
             case (vh, vt) =>
@@ -357,7 +357,7 @@ object TypedValueGenerators {
               case (Inl(ah), Inl(bh)) => h.injord[Cid].order(ah, bh)
           }
 
-        override def vararb[Cid: Arbitrary: Order] =
+        override def vararb[Cid: Arbitrary: IntroCtx] =
           self.vararb[Cid] transform { (_, ta) =>
             ta map (Inr(_))
           } updated (fname, {
@@ -379,7 +379,8 @@ object TypedValueGenerators {
     private[TypedValueGenerators] def injRec[Cid: IntroCtx](v: HRec[Cid]): List[Value[Cid]]
     private[TypedValueGenerators] def prjRec[Cid](v: ImmArray[(_, Value[Cid])]): Option[HRec[Cid]]
     private[TypedValueGenerators] implicit def record[Cid: Order]: Order[HRec[Cid]]
-    private[TypedValueGenerators] implicit def recarb[Cid: Arbitrary: Order]: Arbitrary[HRec[Cid]]
+    private[TypedValueGenerators] implicit def recarb[Cid: Arbitrary: IntroCtx]
+      : Arbitrary[HRec[Cid]]
     private[TypedValueGenerators] implicit def recshrink[Cid: Shrink]: Shrink[HRec[Cid]]
 
     private[TypedValueGenerators] def injVar[Cid: IntroCtx](v: HVar[Cid]): (Ref.Name, Value[Cid])
@@ -388,7 +389,7 @@ object TypedValueGenerators {
     // but the :+: case is tricky enough as it is
     private[TypedValueGenerators] val prjVar: Map[Ref.Name, Value ~> PrjResult]
     private[TypedValueGenerators] implicit def varord[Cid: Order]: Order[HVar[Cid]]
-    private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary: Order]
+    private[TypedValueGenerators] implicit def vararb[Cid: Arbitrary: IntroCtx]
       : Map[Ref.Name, Gen[HVar[Cid]]]
     private[TypedValueGenerators] implicit def varshrink[Cid: Shrink]: Shrink[HVar[Cid]]
   }
@@ -402,7 +403,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def prjRec[Cid](v: ImmArray[(_, Value[Cid])]) =
       Some(HNil)
     private[TypedValueGenerators] override def record[Cid: Order] = (_, _) => Ordering.EQ
-    private[TypedValueGenerators] override def recarb[Cid: Arbitrary: Order] =
+    private[TypedValueGenerators] override def recarb[Cid: Arbitrary: IntroCtx] =
       Arbitrary(Gen const HNil)
     private[TypedValueGenerators] override def recshrink[Cid: Shrink] =
       Shrink.shrinkAny
@@ -410,7 +411,7 @@ object TypedValueGenerators {
     private[TypedValueGenerators] override def injVar[Cid: IntroCtx](v: CNil) = v.impossible
     private[TypedValueGenerators] override val prjVar = Map.empty
     private[TypedValueGenerators] override def varord[Cid: Order] = (v, _) => v.impossible
-    private[TypedValueGenerators] override def vararb[Cid: Arbitrary: Order] = Map.empty
+    private[TypedValueGenerators] override def vararb[Cid: Arbitrary: IntroCtx] = Map.empty
     private[TypedValueGenerators] override def varshrink[Cid: Shrink] = Shrink.shrinkAny
   }
 
