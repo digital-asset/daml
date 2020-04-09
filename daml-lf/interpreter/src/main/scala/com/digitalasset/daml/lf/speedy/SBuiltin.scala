@@ -5,6 +5,7 @@ package com.daml.lf
 package speedy
 
 import java.util
+import java.util.regex.Pattern
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.data._
@@ -1508,7 +1509,16 @@ object SBuiltin {
         case SText(pattern) =>
           args.get(1) match {
             case SText(t) =>
-              val seq: Seq[SValue] = t.split(pattern).map(SText).toSeq
+              val seq: Seq[SValue] =
+                // Java will produce a two-element list for this with the second
+                // element being the empty string.
+                if (pattern.isEmpty) {
+                  Seq(SText(t))
+                } else {
+                  // We do not want to do a regex match so we use Pattern.quote
+                  // and we want to keep empty strings, so we use -1 as the second argument.
+                  t.split(Pattern.quote(pattern), -1).map(SText).toSeq
+                }
               machine.ctrl = CtrlValue(SList(FrontStack(seq)))
             case x =>
               throw SErrorCrash(s"type mismatch SBTextSplitOn, expected Text got $x")
