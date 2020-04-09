@@ -29,7 +29,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-class StoreBackedCommandExecutor(
+final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
@@ -42,8 +42,7 @@ class StoreBackedCommandExecutor(
   )(
       implicit ec: ExecutionContext,
       logCtx: LoggingContext,
-  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
-
+  ): Future[Either[ErrorCause, CommandExecutionResult]] =
     consume(commands.submitter, engine.submit(commands.commands, participant, submissionSeed))
       .map { submission =>
         (for {
@@ -70,7 +69,6 @@ class StoreBackedCommandExecutor(
             dependsOnLedgerTime = meta.dependsOnTime,
           )).left.map(ErrorCause.DamlLf)
       }
-  }
 
   // Concurrent map of promises to request each package only once.
   private val packagePromises: ConcurrentHashMap[Ref.PackageId, Promise[Option[Package]]] =
