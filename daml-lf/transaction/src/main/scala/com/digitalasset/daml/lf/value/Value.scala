@@ -267,6 +267,10 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
   def orderInstance[Cid: Order](Scope: LookupVariantEnum): Order[Value[Cid] @@ Scope.type] =
     Tag.subst(new `Value Order instance`(Scope): Order[Value[Cid]])
 
+  // Order of GenMap entries is relevant for this equality.
+  implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
+    new `Value Equal instance`
+
   /** A contract instance is a value plus the template that originated it. */
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String)
       extends value.CidContainer[ContractInst[Val]] {
@@ -406,21 +410,16 @@ object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Val
   val ValueNone: ValueOptional[Nothing] = ValueOptional(None)
 }
 
-sealed abstract class ValueInstances {
-  // Order of GenMap entries is relevant for this equality.
-  implicit def `Value Equal instance`[Cid: Equal]: Equal[Value[Cid]] =
-    new `Value Equal instance`[Cid] {
-      override val E = Equal[Cid]
-    }
-}
-
-private final class `Value Order instance`[Cid](Scope: Value.LookupVariantEnum)(
-    implicit val E: Order[Cid])
-    extends Order[Value[Cid]]
-    with `Value Equal instance`[Cid] {
-  import Value._
-  import scalaz.std.anyVal._, scalaz.std.string._
+/** This Order is not strictly compatible with the Equal instance, so
+  * instances of it must always be local or tagged.
+  */
+private final class `Value Order instance`[Cid: Order](Scope: Value.LookupVariantEnum)
+    extends Order[Value[Cid]] {
+  import Value._, Utf8.ImplicitOrder._
+  import scalaz.std.anyVal._
   import ScalazEqual._2, _2._
+
+  implicit final def Self: this.type = this
 
   override final def order(a: Value[Cid], b: Value[Cid]) = {
     val (ixa, cmp) = ixv(a)
@@ -487,13 +486,11 @@ private final class `Value Order instance`[Cid](Scope: Value.LookupVariantEnum)(
   private[this] def k[Z](f: Value[Cid] PartialFunction Z): f.type = f
 }
 
-private sealed trait `Value Equal instance`[Cid] extends Equal[Value[Cid]] {
+private final class `Value Equal instance`[Cid: Equal] extends Equal[Value[Cid]] {
   import Value._
   import ScalazEqual._
 
-  implicit def E: Equal[Cid]
-
-  override final def equalIsNatural: Boolean = E.equalIsNatural
+  override final def equalIsNatural: Boolean = Equal[Cid].equalIsNatural
 
   implicit final def Self: this.type = this
 
