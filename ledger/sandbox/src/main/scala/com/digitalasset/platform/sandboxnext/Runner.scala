@@ -190,7 +190,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     maxInboundMessageSize = config.maxInboundMessageSize,
                     eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
-                    seeding = seeding,
+                    seeding = Some(seeding),
                   ),
                   commandConfig = config.commandConfig,
                   partyConfig = config.partyConfig,

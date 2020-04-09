@@ -51,7 +51,7 @@ trait ConfigProvider[ExtraConfig] {
       maxInboundMessageSize = Config.DefaultMaxInboundMessageSize,
       eventsPageSize = config.eventsPageSize,
       portFile = participantConfig.portFile,
-      seeding = config.seeding,
+      seeding = Some(config.seeding),
     )
 
   def commandConfig(config: Config[ExtraConfig]): CommandConfiguration =
