@@ -4,7 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import java.util.Date
+import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
@@ -48,9 +48,10 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
       commandId: Option[CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
+      divulgedContracts: Iterable[(ContractId, Contract)],
   )(implicit connection: Connection): Unit = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
@@ -103,6 +104,20 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
+      val contractBatches = ContractsTable.prepareBatchInsert(
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        transaction = transaction,
+        divulgedContracts = divulgedContracts,
+      )
+
+      // Could be empty due to a transaction containing exclusively transient contracts
+      if (!contractBatches.isEmpty) {
+        contractBatches.foreach(_.execute())
+        val divulgence = blinding.globalDivulgence.filterKeys(contractBatches.nonTransient)
+        val witnesses = Relation.mapKeys(divulgence)(c => LedgerString.assertFromString(c.coid))
+        WitnessesTable.ForContracts.prepareBatchInsert(witnesses).foreach(_.execute())
+      }
+
     }
   }
 
@@ -117,9 +132,10 @@ private[dao] trait TransactionsWriter {
       commandId: Option[CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
+      divulgedContracts: Iterable[(ContractId, Contract)],
   )(implicit connection: Connection): Unit
 
 }

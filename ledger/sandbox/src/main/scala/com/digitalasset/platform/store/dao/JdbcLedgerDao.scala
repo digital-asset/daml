@@ -938,9 +938,10 @@ private class JdbcLedgerDao(
               commandId = tx.commandId,
               submitter = tx.submittingParty,
               roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
-              ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+              ledgerEffectiveTime = tx.ledgerEffectiveTime,
               offset = offset,
               transaction = tx.transaction.mapNodeId(splitOrThrow),
+              divulgedContracts = divulgedContracts,
             )
 
             // Ensure divulged contracts are known about before they are referred to.
@@ -1030,9 +1031,10 @@ private class JdbcLedgerDao(
                     commandId = tx.commandId,
                     submitter = tx.submittingParty,
                     roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
-                    ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
                     offset = offset,
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    divulgedContracts = Nil,
                   )
                 case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
               }
@@ -1762,6 +1764,8 @@ object JdbcLedgerDao {
         |truncate table participant_events cascade;
         |truncate table participant_event_flat_transaction_witnesses cascade;
         |truncate table participant_event_witnesses_complement cascade;
+        |truncate table participant_contracts cascade;
+        |truncate table participant_contract_witnesses cascade;
         |truncate table parties cascade;
         |truncate table party_entries cascade;
       """.stripMargin
@@ -1829,6 +1833,8 @@ object JdbcLedgerDao {
         |truncate table participant_events;
         |truncate table participant_event_flat_transaction_witnesses;
         |truncate table participant_event_witnesses_complement;
+        |truncate table participant_contracts;
+        |truncate table participant_contract_witnesses;
         |truncate table parties;
         |truncate table party_entries;
         |set referential_integrity true;
