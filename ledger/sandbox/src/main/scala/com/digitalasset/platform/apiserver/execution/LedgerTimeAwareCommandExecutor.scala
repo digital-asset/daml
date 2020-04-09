@@ -5,7 +5,7 @@ package com.daml.platform.apiserver.execution
 
 import java.time.Instant
 
-import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
 import com.daml.lf.data.Time
@@ -16,11 +16,11 @@ import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final case class LedgerTimeHelper(
+final class LedgerTimeAwareCommandExecutor(
+    delegate: CommandExecutor,
     contractStore: ContractStore,
-    commandExecutor: CommandExecutor,
     maxRetries: Int,
-) {
+) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -30,32 +30,27 @@ final case class LedgerTimeHelper(
     * The command execution result is guaranteed to satisfy causal monotonicity, i.e.,
     * the resulting transaction has a ledger time greater than or equal to the ledger time of any used contract.
     */
-  def execute(
-      commands: ApiCommands,
+  override def execute(
+      commands: Commands,
       submissionSeed: Option[crypto.Hash],
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext): Future[Either[ErrorCause, CommandExecutionResult]] =
+      logCtx: LoggingContext,
+  ): Future[Either[ErrorCause, CommandExecutionResult]] =
     loop(commands, submissionSeed, maxRetries)
 
   private[this] def loop(
-      commands: ApiCommands,
+      commands: Commands,
       submissionSeed: Option[crypto.Hash],
       retriesLeft: Int,
   )(
       implicit ec: ExecutionContext,
-      logCtx: LoggingContext): Future[Either[ErrorCause, CommandExecutionResult]] = {
-    commandExecutor
-      .execute(
-        commands.submitter,
-        submissionSeed,
-        commands,
-        contractStore.lookupActiveContract(commands.submitter, _),
-        contractStore.lookupContractKey(commands.submitter, _),
-        commands.commands
-      )
+      logCtx: LoggingContext
+  ): Future[Either[ErrorCause, CommandExecutionResult]] = {
+    delegate
+      .execute(commands, submissionSeed)
       .flatMap {
-        case e @ Left(ErrorCause.DamlLf(_)) =>
+        case e @ Left(_) =>
           // Permanently failed
           Future.successful(e)
         case Right(cer) =>
@@ -104,6 +99,6 @@ final case class LedgerTimeHelper(
       transactionMeta =
         res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t)))
 
-  private[this] def advanceInputTime(cmd: ApiCommands, t: Instant): ApiCommands =
+  private[this] def advanceInputTime(cmd: Commands, t: Instant): Commands =
     cmd.copy(ledgerEffectiveTime = t)
 }

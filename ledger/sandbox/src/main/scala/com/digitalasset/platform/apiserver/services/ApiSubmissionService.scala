@@ -40,7 +40,7 @@ import com.daml.platform.apiserver.MetricsNaming
 import com.daml.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
-  LedgerTimeHelper
+  LedgerTimeAwareCommandExecutor
 }
 import com.daml.platform.metrics.timedFuture
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -125,7 +125,8 @@ final class ApiSubmissionService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private[this] val ledgerTimeHelper = LedgerTimeHelper(contractStore, commandExecutor, 3)
+  private[this] val ledgerTimeAwareCommandExecutor =
+    new LedgerTimeAwareCommandExecutor(commandExecutor, contractStore, 3)
 
   private object Metrics {
     private val servicePrefix =
@@ -207,7 +208,7 @@ final class ApiSubmissionService private (
       commands: ApiCommands,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
-      res <- ledgerTimeHelper.execute(commands, submissionSeed)
+      res <- ledgerTimeAwareCommandExecutor.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(error)))

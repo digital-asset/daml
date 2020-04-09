@@ -115,7 +115,13 @@ object ApiServices {
           defaultLedgerConfiguration.timeModel,
           timeProvider,
           seedService,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
+          new CommandExecutorImpl(
+            engine,
+            participantId,
+            packagesService.getLfPackage,
+            contractStore.lookupActiveContract,
+            contractStore.lookupContractKey,
+          ),
           ApiSubmissionService.Configuration(
             submissionConfig.maxDeduplicationTime,
             partyConfig.implicitPartyAllocation,
