@@ -89,6 +89,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
+        "//templates:messaging-patch",
     ] + ([] if is_windows else ts_libraries),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
