@@ -574,20 +574,14 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         withCurrentDirectory cdaDir $ do
           callCommandSilent $ "patch -s -p2 < " ++ messagingPatch
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
-            doesFileExist ("ui" </> "src" </> "components" </> messageComponent <.> "tsx") >>=
-              assertBool ("New " <> messageComponent <> " component was not created by patch")
-              . not
+            assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
           callCommandSilent "daml build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
-        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
-          assertBool "ui/build/index.html does not yet exist" . not
         withCurrentDirectory (cdaDir </> "ui") $ do
           retry 3 (callCommandSilent "yarn install --force --frozen-lockfile")
           callCommandSilent "yarn lint --max-warnings 0"
           callCommandSilent "yarn build"
-        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
-          assertBool "ui/build/index.html has been produced"
 
 damlInstallerName :: String
 damlInstallerName
