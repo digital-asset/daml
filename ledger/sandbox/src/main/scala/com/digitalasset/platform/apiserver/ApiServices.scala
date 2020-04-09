@@ -111,12 +111,17 @@ object ApiServices {
     identityService.getLedgerId().map { ledgerId =>
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
-          new StoreBackedCommandExecutor(engine, participantId, packagesService, contractStore),
+          new StoreBackedCommandExecutor(
+            engine,
+            participantId,
+            packagesService,
+            contractStore,
+            metrics,
+          ),
           contractStore,
           maxRetries = 3,
         ),
         metrics,
-        ApiSubmissionService.MetricPrefix :+ "execution",
       )
       val apiSubmissionService = ApiSubmissionService.create(
         ledgerId,

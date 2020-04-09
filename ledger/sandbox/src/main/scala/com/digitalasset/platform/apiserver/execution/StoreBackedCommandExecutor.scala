@@ -5,11 +5,13 @@ package com.daml.platform.apiserver.execution
 
 import java.util.concurrent.ConcurrentHashMap
 
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
+import com.daml.platform.metrics.timedFuture
 import com.daml.lf.engine.{
   Blinding,
   Engine,
@@ -34,6 +36,7 @@ final class StoreBackedCommandExecutor(
     participant: Ref.ParticipantId,
     packagesService: IndexPackagesService,
     contractStore: ContractStore,
+    metricRegistry: MetricRegistry,
 ) extends CommandExecutor {
 
   override def execute(
@@ -85,26 +88,25 @@ final class StoreBackedCommandExecutor(
 
         case ResultError(err) => Future.successful(Left(err))
 
-        case ResultNeedKey(key, resume) =>
-          contractStore
-            .lookupContractKey(submitter, key)
-            .flatMap(contractId => resolveStep(resume(contractId)))
-
         case ResultNeedContract(acoid, resume) =>
-          contractStore
-            .lookupActiveContract(submitter, acoid)
-            .flatMap(instance => resolveStep(resume(instance)))
+          timedFuture(
+            Metrics.lookupActiveContract,
+            contractStore.lookupActiveContract(submitter, acoid),
+          ).flatMap(instance => resolveStep(resume(instance)))
+
+        case ResultNeedKey(key, resume) =>
+          timedFuture(Metrics.lookupContractKey, contractStore.lookupContractKey(submitter, key))
+            .flatMap(contractId => resolveStep(resume(contractId)))
 
         case ResultNeedPackage(packageId, resume) =>
           var gettingPackage = false
-          val promise = packagePromises
-            .computeIfAbsent(packageId, { _ =>
-              gettingPackage = true
-              Promise[Option[Package]]()
-            })
+          val promise = packagePromises.computeIfAbsent(packageId, _ => {
+            gettingPackage = true
+            Promise[Option[Package]]()
+          })
 
           if (gettingPackage) {
-            val future = packagesService.getLfPackage(packageId)
+            val future = timedFuture(Metrics.getLfPackage, packagesService.getLfPackage(packageId))
             future.onComplete {
               case Success(None) | Failure(_) =>
                 // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.
@@ -115,13 +117,19 @@ final class StoreBackedCommandExecutor(
             }
             promise.completeWith(future)
           }
-          promise.future
-            .flatMap { mbPkg =>
-              resolveStep(resume(mbPkg))
-            }
+
+          promise.future.flatMap { maybePackage =>
+            resolveStep(resume(maybePackage))
+          }
       }
 
     resolveStep(result)
+  }
+
+  object Metrics {
+    val lookupActiveContract: Timer = metricRegistry.timer(MetricPrefix :+ "lookup_active_contract")
+    val lookupContractKey: Timer = metricRegistry.timer(MetricPrefix :+ "lookup_contract_key")
+    val getLfPackage: Timer = metricRegistry.timer(MetricPrefix :+ "get_lf_package")
   }
 
 }

@@ -5,7 +5,6 @@ package com.daml.platform.apiserver.execution
 
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContext
 import com.daml.platform.metrics.timedFuture
@@ -16,10 +15,9 @@ import scala.concurrent.{ExecutionContext, Future}
 class TimedCommandExecutor(
     delegate: CommandExecutor,
     metricRegistry: MetricRegistry,
-    metricPrefix: MetricName,
 ) extends CommandExecutor {
 
-  private val timer = metricRegistry.timer(metricPrefix :+ "total")
+  private val timer = metricRegistry.timer(MetricPrefix :+ "total")
 
   override def execute(
       commands: domain.Commands,
