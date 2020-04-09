@@ -8,9 +8,31 @@ import java.util.Date
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, TransactionId, WorkflowId}
-import com.daml.platform.index.Disclosure
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.BlindingInfo
 
 private[dao] object TransactionsWriter extends TransactionsWriter {
+
+  private def computeDisclosureForFlatTransaction(
+      transaction: Transaction,
+  ): DisclosureRelation =
+    transaction.nodes.collect {
+      case (nodeId, c: Create) =>
+        nodeId -> c.stakeholders
+      case (nodeId, e: Exercise) if e.consuming =>
+        nodeId -> e.stakeholders
+    }
+
+  private def computeDisclosureForTransactionTree(
+      transaction: Transaction,
+      blinding: BlindingInfo,
+  ): DisclosureRelation =
+    blinding.disclosure.filterKeys(
+      transaction.nodes.collect {
+        case p @ (_, _: Create) => p
+        case p @ (_, _: Exercise) => p
+      }.keySet
+    )
 
   def apply(
       applicationId: Option[ApplicationId],
@@ -43,9 +65,11 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
 
     } else {
 
-      // Retrieve the disclosure for flat transaction and transaction trees
-      val disclosureForFlatTransaction = Disclosure.forFlatTransaction(transaction)
-      val disclosureForTransactionTree = Disclosure.forTransactionTree(transaction)
+      val blinding = Blinding.blind(transaction)
+
+      val disclosureForFlatTransaction = computeDisclosureForFlatTransaction(transaction)
+
+      val disclosureForTransactionTree = computeDisclosureForTransactionTree(transaction, blinding)
 
       // Remove witnesses for the flat transactions from the full disclosure
       // This minimizes the data we save and allows us to use the union of the
