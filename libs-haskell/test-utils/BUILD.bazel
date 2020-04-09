@@ -11,6 +11,7 @@ da_haskell_library(
     srcs = glob(["DA/Test/**/*.hs"]),
     hackage_deps = [
         "base",
+        "directory",
         "extra",
         "filepath",
         "network",
