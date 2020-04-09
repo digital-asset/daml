@@ -134,7 +134,7 @@ sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product 
 
 }
 
-object Value extends ValueInstances with CidContainer1WithDefaultCidResolver[Value] {
+object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
   // TODO (FM) make this tail recursive
   private[lf] override def map1[Cid, Cid2](f: Cid => Cid2): Value[Cid] => Value[Cid2] = {

@@ -12,7 +12,8 @@ import com.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import ApiValueImplicits._
 import spray.json._
-import scalaz.{@@, Order, Tag}
+import scalaz.{@@, Equal, Order, Tag}
+import scalaz.syntax.equal._
 import scalaz.syntax.std.string._
 
 /**
@@ -162,15 +163,20 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
         val Seq(kType, vType) = prim.typArgs;
         {
           case JsArray(entries) =>
-            val decEntries = entries.map {
-              case JsArray(Vector(key, value)) =>
-                jsValueToApiValue(key, kType, defs) ->
-                  jsValueToApiValue(value, vType, defs)
-              case _ =>
-                deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
-            }
-            // TODO SC sort entries by key, check for dups
-            V.ValueGenMap(ImmArray(decEntries))
+            implicit val keySort: Order[V[Cid] @@ defs.type] = decodedOrder(defs)
+            implicit val keySSort: math.Ordering[V[Cid] @@ defs.type] = keySort.toScalaOrdering
+            type OK[K] = Vector[(K, V[Cid])]
+            val decEntries: Vector[(V[Cid] @@ defs.type, V[Cid])] = Tag
+              .subst[V[Cid], OK, defs.type](entries.map {
+                case JsArray(Vector(key, value)) =>
+                  jsValueToApiValue(key, kType, defs) ->
+                    jsValueToApiValue(value, vType, defs)
+                case _ =>
+                  deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
+              })
+              .sortBy(_._1)
+            checkDups(decEntries)
+            V.ValueGenMap(ImmArray(Tag.unsubst[V[Cid], OK, defs.type](decEntries)))
         }
 
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
@@ -188,9 +194,19 @@ class ApiCodecCompressed[Cid](val encodeDecimalAsString: Boolean, val encodeInt6
       case iface.Enum(ctors) => Some(ctors.toImmArray)
       case iface.Record(_) => None
     }))
-    implicit def ocid: Order[Cid] = ??? // TODO SC
+    implicit def ocid: Order[Cid] = (_, _) => ??? // TODO SC
     Tag subst (Tag unsubst V.orderInstance[Cid](scope))
   }
+
+  @throws[DeserializationException]
+  private[this] def checkDups[K: Equal, V](decEntries: Seq[(K, V)]): Unit =
+    decEntries match {
+      case (h, _) +: t =>
+        val _ = t.foldLeft(h)((p, n) =>
+          if (p /== n._1) n._1 else deserializationError(s"duplicate key: $p"))
+        ()
+      case _ => ()
+    }
 
   private[this] def jsValueToApiDataType(
       value: JsValue,
