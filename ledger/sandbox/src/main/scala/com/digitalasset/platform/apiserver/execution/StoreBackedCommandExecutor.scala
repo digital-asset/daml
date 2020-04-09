@@ -6,6 +6,7 @@ package com.daml.platform.apiserver.execution
 import java.util.concurrent.ConcurrentHashMap
 
 import com.daml.ledger.api.domain.{Commands => ApiCommands}
+import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
@@ -21,10 +22,6 @@ import com.daml.lf.engine.{
   Error => DamlLfError
 }
 import com.daml.lf.language.Ast.Package
-import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.transaction.Transaction.{Value => TxValue}
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.logging.LoggingContext
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
@@ -32,13 +29,11 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
-class CommandExecutorImpl(
+class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    getPackage: Ref.PackageId => Future[Option[Package]],
-    getContract: (Ref.Party, Value.AbsoluteContractId) => Future[
-      Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
-    lookupKey: (Ref.Party, GlobalKey) => Future[Option[AbsoluteContractId]],
+    packagesService: IndexPackagesService,
+    contractStore: ContractStore,
 ) extends CommandExecutor {
 
   override def execute(
@@ -97,7 +92,7 @@ class CommandExecutorImpl(
             })
 
           if (gettingPackage) {
-            val future = getPackage(packageId)
+            val future = packagesService.getLfPackage(packageId)
             future.onComplete {
               case Success(None) | Failure(_) =>
                 // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.
@@ -115,9 +110,13 @@ class CommandExecutorImpl(
 
         case ResultDone(r) => Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
-          lookupKey(submitter, key).flatMap(mbcoid => resolveStep(resume(mbcoid)))
+          contractStore
+            .lookupContractKey(submitter, key)
+            .flatMap(contractId => resolveStep(resume(contractId)))
         case ResultNeedContract(acoid, resume) =>
-          getContract(submitter, acoid).flatMap(o => resolveStep(resume(o)))
+          contractStore
+            .lookupActiveContract(submitter, acoid)
+            .flatMap(instance => resolveStep(resume(instance)))
         case ResultError(err) => Future.successful(Left(err))
       }
     }
