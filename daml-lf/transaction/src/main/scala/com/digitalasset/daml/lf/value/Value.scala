@@ -9,10 +9,13 @@ import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
-import scalaz.Equal
+import scalaz.{@@, Equal, Order, Tag}
+import scalaz.Ordering.EQ
 import scalaz.std.option._
 import scalaz.std.tuple._
-import scalaz.syntax.equal._
+import scalaz.syntax.order._
+import scalaz.syntax.semigroup._
+import scalaz.syntax.std.option._
 
 /** Values   */
 sealed abstract class Value[+Cid] extends CidContainer[Value[Cid]] with Product with Serializable {
@@ -171,8 +174,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  import Name.equalInstance
-
   final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid])
       extends CidContainer[VersionedValue[Cid]] {
 
@@ -192,8 +193,6 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
         latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
     }
   }
-
-  import Name.equalInstance
 
   object VersionedValue extends CidContainer1[VersionedValue] {
     implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
@@ -363,6 +362,8 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
         Ref.ContractIdString.fromString(s).map(V0(_))
 
       def assertFromString(s: String): V0 = assertRight(fromString(s))
+
+      implicit val `V0 Order`: Order[V0] = Order.fromScalaOrdering[String] contramap (_.coid)
     }
 
     final case class V1(discriminator: crypto.Hash, suffix: Bytes = Bytes.Empty)

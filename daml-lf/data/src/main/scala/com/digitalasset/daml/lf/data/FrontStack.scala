@@ -4,9 +4,11 @@
 package com.daml.lf.data
 
 import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
+import ScalazEqual.{orderBy, equalBy, toIterableForScalazInstances}
+
 import scalaz.syntax.applicative._
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Equal, Traverse}
+import scalaz.{Applicative, Equal, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -143,7 +145,7 @@ final class FrontStack[+A] private (fq: FQ[A], val length: Int) {
   override def toString: String = "FrontStack(" + iterator.map(_.toString).mkString(",") + ")"
 }
 
-object FrontStack {
+object FrontStack extends FrontStackInstances {
   private[this] val emptySingleton: FrontStack[Nothing] = new FrontStack(FQEmpty, 0)
 
   def empty[A]: FrontStack[A] = emptySingleton
@@ -186,15 +188,10 @@ object FrontStack {
       )
   }
 
-  implicit def equalInstance[A](implicit A: Equal[A]): Equal[FrontStack[A]] =
-    ScalazEqual.withNatural(Equal[A].equalIsNatural) { (as, bs) =>
-      val ai = as.iterator
-      val bi = bs.iterator
-      @tailrec def go(): Boolean =
-        if (ai.hasNext) bi.hasNext && A.equal(ai.next, bi.next) && go()
-        else !bi.hasNext
-      go()
-    }
+  implicit def `FrontStack Order`[A: Order]: Order[FrontStack[A]] = {
+    import scalaz.std.iterable._
+    orderBy(fs => toIterableForScalazInstances(fs.iterator), true)
+  }
 
   private sealed trait FQ[+A]
   private case object FQEmpty extends FQ[Nothing]
@@ -205,4 +202,11 @@ object FrontStack {
 
 object FrontStackCons {
   def unapply[A](xs: FrontStack[A]): Option[(A, FrontStack[A])] = xs.pop
+}
+
+sealed abstract class FrontStackInstances {
+  implicit def equalInstance[A: Equal]: Equal[FrontStack[A]] = {
+    import scalaz.std.iterable._
+    equalBy(fs => toIterableForScalazInstances(fs.iterator), true)
+  }
 }
