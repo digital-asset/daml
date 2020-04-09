@@ -51,7 +51,7 @@ import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Bazel.Runfiles
-import DA.Daml.Compiler.Scenario as SS
+import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Options (IdeReportProgress(..))

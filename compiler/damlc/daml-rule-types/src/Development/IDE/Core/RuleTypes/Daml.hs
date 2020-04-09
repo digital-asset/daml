@@ -19,12 +19,12 @@ import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.Map.Strict (Map)
 import Data.HashSet (HashSet)
+import qualified Data.Text as T
 import Data.Typeable (Typeable)
 import Development.Shake
 import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
-import Development.IDE.Core.Service.Daml
-
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
@@ -64,6 +64,25 @@ instance NFData GeneratePackageMapFun where rnf !_ = ()
 type instance RuleResult GeneratePackageMapIO = GeneratePackageMapFun
 type instance RuleResult GeneratePackageMap = Map UnitId LF.DalfPackage
 type instance RuleResult GenerateStablePackages = Map (UnitId, LF.ModuleName) LF.DalfPackage
+
+data DamlGhcSession = DamlGhcSession (Maybe NormalizedFilePath)
+    deriving (Show, Eq, Generic)
+instance Binary DamlGhcSession
+instance Hashable DamlGhcSession
+instance NFData DamlGhcSession
+type instance RuleResult DamlGhcSession = HscEnvEq
+
+-- | Virtual resources
+data VirtualResource = VRScenario
+    { vrScenarioFile :: !NormalizedFilePath
+    , vrScenarioName :: !T.Text
+    } deriving (Eq, Ord, Show, Generic)
+    -- ^ VRScenario identifies a scenario in a given file.
+    -- This virtual resource is associated with the HTML result of
+    -- interpreting the corresponding scenario.
+
+instance Hashable VirtualResource
+instance NFData VirtualResource
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]

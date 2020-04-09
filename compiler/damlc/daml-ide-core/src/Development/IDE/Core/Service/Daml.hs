@@ -17,9 +17,6 @@ module Development.IDE.Core.Service.Daml(
 
 import Control.Concurrent.Extra
 import Control.Monad
-import Control.DeepSeq
-import GHC.Generics
-import Data.Hashable
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
 import Data.HashSet (HashSet)
@@ -34,6 +31,7 @@ import Development.IDE.Core.Service hiding (initialise)
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service as IDE
 import Development.IDE.Core.OfInterest
+import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
@@ -44,19 +42,6 @@ import qualified Language.Haskell.LSP.Types as LSP
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
-
--- | Virtual resources
-data VirtualResource = VRScenario
-    { vrScenarioFile :: !NormalizedFilePath
-    , vrScenarioName :: !T.Text
-    } deriving (Eq, Ord, Show, Generic)
-    -- ^ VRScenario identifies a scenario in a given file.
-    -- This virtual resource is associated with the HTML result of
-    -- interpreting the corresponding scenario.
-
-instance Hashable VirtualResource
-instance NFData VirtualResource
-
 
 data DamlEnv = DamlEnv
   { envScenarioService :: Maybe SS.Handle

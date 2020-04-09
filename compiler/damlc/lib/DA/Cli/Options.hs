@@ -268,6 +268,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optHaddock = Haddock False
     let optIncrementalBuild = IncrementalBuild False
     let optInferDependantPackages = InferDependantPackages True
+    let optEnableOfInterestRule = True
     optCppPath <- optCppPath
 
     return Options{..}
