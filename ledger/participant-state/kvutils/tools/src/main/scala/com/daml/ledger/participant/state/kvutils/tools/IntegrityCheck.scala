@@ -104,6 +104,7 @@ object IntegrityCheck extends App {
     print("update...")
     val (t_update, updates) =
       Helpers.time(() => KeyValueConsumption.logEntryToUpdate(entry.getEntryId, logEntry))
+    total_t_update += t_update
 
     logEntry.getPayloadCase match {
       case Proto.DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
@@ -123,8 +124,10 @@ object IntegrityCheck extends App {
       case _ =>
         ()
     }
-    println(" ok.")
-    total_t_update += t_update
+
+    val t_total_ms =
+      TimeUnit.NANOSECONDS.toMillis(t_commit) + TimeUnit.NANOSECONDS.toMillis(t_update)
+    println(s" ok. (${t_total_ms}ms)")
 
     state = state ++ expectedOutputState
     size = Try(ledgerDumpStream.readInt()).getOrElse(-1)
