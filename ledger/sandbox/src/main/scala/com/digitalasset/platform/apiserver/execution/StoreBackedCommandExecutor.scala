@@ -81,8 +81,22 @@ class StoreBackedCommandExecutor(
   ): Future[Either[DamlLfError, A]] = {
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] = {
+    def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] =
       result match {
+        case ResultDone(r) => Future.successful(Right(r))
+
+        case ResultError(err) => Future.successful(Left(err))
+
+        case ResultNeedKey(key, resume) =>
+          contractStore
+            .lookupContractKey(submitter, key)
+            .flatMap(contractId => resolveStep(resume(contractId)))
+
+        case ResultNeedContract(acoid, resume) =>
+          contractStore
+            .lookupActiveContract(submitter, acoid)
+            .flatMap(instance => resolveStep(resume(instance)))
+
         case ResultNeedPackage(packageId, resume) =>
           var gettingPackage = false
           val promise = packagePromises
@@ -107,19 +121,7 @@ class StoreBackedCommandExecutor(
             .flatMap { mbPkg =>
               resolveStep(resume(mbPkg))
             }
-
-        case ResultDone(r) => Future.successful(Right(r))
-        case ResultNeedKey(key, resume) =>
-          contractStore
-            .lookupContractKey(submitter, key)
-            .flatMap(contractId => resolveStep(resume(contractId)))
-        case ResultNeedContract(acoid, resume) =>
-          contractStore
-            .lookupActiveContract(submitter, acoid)
-            .flatMap(instance => resolveStep(resume(instance)))
-        case ResultError(err) => Future.successful(Left(err))
       }
-    }
 
     resolveStep(result)
   }
