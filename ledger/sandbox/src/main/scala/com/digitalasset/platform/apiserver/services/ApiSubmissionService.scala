@@ -8,6 +8,11 @@ import java.util.UUID
 
 import akka.stream.Materializer
 import com.codahale.metrics.{Meter, MetricRegistry, Timer}
+import com.daml.api.util.TimeProvider
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
+import com.daml.ledger.api.messages.command.submission.SubmitRequest
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationDuplicate,
   CommandDeduplicationNew,
@@ -23,25 +28,16 @@ import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Overloaded
 }
 import com.daml.ledger.participant.state.v1.{SeedService, SubmissionResult, TimeModel, WriteService}
-import com.daml.api.util.TimeProvider
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.engine.{Error => LfError}
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.Transaction
-import com.daml.dec.DirectExecutionContext
-import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
-import com.daml.ledger.api.messages.command.submission.SubmitRequest
-import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.apiserver.{
-  CommandExecutionResult,
-  CommandExecutor,
-  LedgerTimeHelper,
-  MetricsNaming
-}
+import com.daml.platform.apiserver.MetricsNaming
+import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.metrics.timedFuture
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -125,8 +121,6 @@ final class ApiSubmissionService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private[this] val ledgerTimeHelper = LedgerTimeHelper(contractStore, commandExecutor, 3)
-
   private object Metrics {
     private val servicePrefix =
       MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
@@ -207,7 +201,7 @@ final class ApiSubmissionService private (
       commands: ApiCommands,
   )(implicit logCtx: LoggingContext): Future[SubmissionResult] =
     for {
-      res <- ledgerTimeHelper.execute(commands, submissionSeed)
+      res <- commandExecutor.execute(commands, submissionSeed)
       transactionInfo <- res.fold(error => {
         Metrics.failedInterpretationsMeter.mark()
         Future.failed(grpcError(toStatus(error)))
