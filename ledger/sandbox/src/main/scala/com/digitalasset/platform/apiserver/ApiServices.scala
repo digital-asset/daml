@@ -120,6 +120,7 @@ object ApiServices {
           ),
           contractStore,
           maxRetries = 3,
+          metrics,
         ),
         metrics,
       )
