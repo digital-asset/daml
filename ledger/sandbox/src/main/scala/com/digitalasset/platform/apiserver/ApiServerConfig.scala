@@ -16,11 +16,11 @@ case class ApiServerConfig(
     participantId: ParticipantId,
     archiveFiles: List[File],
     port: Port,
-    address: Option[String], // address for ledger-api server to bind to, defaulting to `localhost` for None
+    address: Option[String], // This defaults to "localhost" when set to `None`.
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration],
     maxInboundMessageSize: Int,
     eventsPageSize: Int = IndexConfiguration.DefaultEventsPageSize,
     portFile: Option[Path],
-    seeding: Seeding,
+    seeding: Option[Seeding] // Third-party participants may need to set this to `None`.
 )
