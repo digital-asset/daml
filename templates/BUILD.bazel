@@ -1,6 +1,12 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+filegroup(
+    name = "messaging-patch",
+    srcs = ["messaging.patch"],
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "templates-tarball",
     srcs = glob([
