@@ -30,5 +30,7 @@ create table participant_contract_witnesses
 
     foreign key (contract_id) references participant_contracts(contract_id)
 );
+
 create index on participant_contract_witnesses(contract_id);      -- join with contracts
+
 create index on participant_contract_witnesses(contract_witness); -- filter by party
