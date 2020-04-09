@@ -199,29 +199,24 @@ private[kvutils] class ProcessTransactionSubmission(
           value.getContractState.getContractKey -> Conversions.stateKeyToContractId(key)
       }
 
-    val ctx = Metrics.interpretTimer.time()
-    try {
-      engine
-        .validate(
-          transactionEntry.abs,
-          transactionEntry.ledgerEffectiveTime,
-          participantId,
-          transactionEntry.submissionSeedAndTime,
-        )
-        .consume(
-          lookupContract(transactionEntry, inputState),
-          lookupPackage(transactionEntry, inputState),
-          lookupKey(transactionEntry, inputState, knownKeys),
-        )
-        .fold(
-          err =>
-            reject(
-              recordTime,
-              buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
-          _ => pass)
-    } finally {
-      val _ = ctx.stop()
-    }
+    engine
+      .validate(
+        transactionEntry.abs,
+        transactionEntry.ledgerEffectiveTime,
+        participantId,
+        transactionEntry.submissionSeedAndTime,
+      )
+      .consume(
+        lookupContract(transactionEntry, inputState),
+        lookupPackage(transactionEntry, inputState),
+        lookupKey(transactionEntry, inputState, knownKeys),
+      )
+      .fold(
+        err =>
+          reject(
+            recordTime,
+            buildRejectionLogEntry(transactionEntry, RejectionReason.Disputed(err.msg))),
+        _ => pass)
   }
 
   /** Validate the submission's conformance to the DAML model */
