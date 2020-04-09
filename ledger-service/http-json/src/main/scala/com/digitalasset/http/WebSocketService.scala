@@ -4,15 +4,15 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
-import akka.stream.scaladsl.{Flow, Source, Sink}
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, SprayJson}
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
-import util.{ContractStreamStep, InsertDeleteStep}
+import util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
@@ -28,6 +28,7 @@ import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
+import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin, Txn}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
@@ -409,6 +410,30 @@ class WebSocketService(
         .concat(Source.single(-\/(InvalidUserInput(ErrorMessages.cannotResolveAnyTemplateId))))
     }
   }
+
+  private def emitOffsetTicksFilterOurEmptyEvents[Pos]
+    : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
+    val emptyState = StepAndErrors[Pos, JsValue](Seq(), Acs(Vector.empty))
+    val emptyTick = StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin)) // tick with LedgerBegin, offset = JsNull
+    Flow[StepAndErrors[Pos, JsValue]]
+      .keepAlive(config.heartBeatPer, () => emptyTick) // offset tick
+      .scan(emptyState) {
+        case (`emptyState`, `emptyTick`) => emptyTick
+        case (`emptyTick`, x) => x
+        case (state, `emptyTick`) =>
+          state.step match {
+            case Acs(_) => emptyTick
+            case LiveBegin(LedgerBegin) => emptyTick
+            case LiveBegin(AbsoluteBookmark(offset)) => tickWithOffset(offset)
+            case Txn(_, offset) => tickWithOffset(offset)
+          }
+        case (_, x) => x
+      }
+    // TODO(Leo): filter out empty events coming from outside of this flow, they should be treated differently from emptyTick
+  }
+
+  private def tickWithOffset[Pos](offset: domain.Offset) =
+    StepAndErrors[Pos, JsValue](Seq(), Txn(InsertDeleteStep.Empty, offset))
 
   // TODO(Leo): #4955 make sure the heartbeat contains the last seen offset,
   // including the offset from the last empty/filtered out block of events
