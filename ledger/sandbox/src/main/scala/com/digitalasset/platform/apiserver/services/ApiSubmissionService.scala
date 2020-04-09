@@ -127,10 +127,8 @@ final class ApiSubmissionService private (
 
     val failedInterpretationsMeter: Meter =
       metrics.meter(servicePrefix :+ "failed_command_interpretations")
-
     val deduplicatedCommandsMeter: Meter =
       metrics.meter(servicePrefix :+ "deduplicated_commands")
-
     val submittedTransactionsTimer: Timer =
       metrics.timer(servicePrefix :+ "submitted_transactions")
   }
