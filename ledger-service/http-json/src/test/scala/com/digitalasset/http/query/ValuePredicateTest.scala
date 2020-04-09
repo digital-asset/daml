@@ -14,19 +14,26 @@ import com.daml.lf.value.TypedValueGenerators.{genAddendNoListMap, ValueAddend =
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalactic.source
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, WordSpec}
+import scalaz.Order
 import spray.json._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
 class ValuePredicateTest
     extends WordSpec
     with Matchers
+    with Inside
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
   import ValuePredicateTest._
   type Cid = V.AbsoluteContractId
-  private[this] val genCid = Gen.alphaStr map (t =>
-    V.AbsoluteContractId.V0 assertFromString ('#' +: t))
+  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
+    Gen.alphaStr map (t => V.AbsoluteContractId.V0 assertFromString ('#' +: t)))
+  // only V0 supported in this test atm
+  private[this] implicit val ordCid: Order[Cid] = Order[V.AbsoluteContractId.V0] contramap (inside(
+    _) {
+    case a0 @ V.AbsoluteContractId.V0(_) => a0
+  })
 
   private[this] val dummyId = Ref.Identifier(
     Ref.PackageId assertFromString "dummy-package-id",
@@ -185,7 +192,7 @@ class ValuePredicateTest
       genAddendNoListMap,
       minSuccessful(100)) { va =>
       import va.injshrink
-      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb
       forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
         val expected = va.inj(v)
         val (wrappedExpected, defs) = valueAndTypeInObject(expected, va.t)

@@ -16,17 +16,17 @@ class ApiValueToLfValueConverterTest
     extends WordSpec
     with Matchers
     with GeneratorDrivenPropertyChecks {
-
-  private[this] val genCid = Gen.alphaStr map (t =>
-    V.AbsoluteContractId.V0 assertFromString ('#' +: t))
   import ApiValueToLfValueConverterTest._
+
+  private[this] implicit val arbCid: Arbitrary[Cid] = Arbitrary(
+    Gen.alphaStr map (t => V.AbsoluteContractId.V0 assertFromString ('#' +: t)))
 
   "apiValueToLfValue" should {
     import ApiValueToLfValueConverter.apiValueToLfValue
 
     "retract lfValueToApiValue" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.injshrink
-      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+      implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb
       forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
         val vv = va.inj(v)
         val roundTrip = lfValueToApiValue(true, vv).right.toOption flatMap (x =>
@@ -43,7 +43,7 @@ object ApiValueToLfValueConverterTest {
   import org.scalactic.Equality
   import org.scalactic.TripleEquals._
 
-  type Cid = V.AbsoluteContractId
+  type Cid = V.AbsoluteContractId.V0
 
   private implicit def eqOption[X](implicit eq: Equality[X]): Equality[Option[X]] = {
     case (Some(x), Some(y)) => x === y
