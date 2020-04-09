@@ -570,7 +570,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
 
         -- Now test that the messaging feature works by applying the necessary
         -- changes and testing in the same way as above.
-        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging-patch")
+        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging.patch")
         withCurrentDirectory cdaDir $ do
           callCommandSilent $ "patch -s -p2 < " ++ messagingPatch
           forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
