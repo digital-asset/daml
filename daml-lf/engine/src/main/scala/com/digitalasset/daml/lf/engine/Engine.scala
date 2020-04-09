@@ -12,7 +12,7 @@ import com.daml.lf.speedy.Compiler
 import com.daml.lf.speedy.Pretty
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.lf.transaction.Transaction
 import com.daml.lf.transaction.Node._
 import com.daml.lf.value.Value
 import com.daml.lf.speedy.{Command => SpeedyCommand}
@@ -48,9 +48,8 @@ import com.daml.lf.speedy.{Command => SpeedyCommand}
   * This class is thread safe as long `nextRandomInt` is.
   */
 final class Engine {
-  private[this] val _compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
-  private[this] val _commandTranslation: CommandPreprocessor = new CommandPreprocessor(
-    _compiledPackages)
+  private[this] val _compiledPackages = ConcurrentCompiledPackages()
+  private[this] val _preprocessor = new preprocessing.Preprocessor(_compiledPackages)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -85,8 +84,8 @@ final class Engine {
       submissionSeed: Option[crypto.Hash],
   ): Result[(Transaction.Transaction, Transaction.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
-    _commandTranslation
-      .preprocessCommands(cmds)
+    _preprocessor
+      .preprocessCommands(cmds.commands)
       .flatMap { processedCmds =>
         ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
           checkSubmitterInMaintainers =>
@@ -150,12 +149,9 @@ final class Engine {
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Transaction.Transaction, Boolean)] = {
-
-    val commandTranslation = new CommandPreprocessor(_compiledPackages)
-    val values = ImmArray(nodes).map(translateNode(commandTranslation))
+  ): Result[(Transaction.Transaction, Boolean)] =
     for {
-      commands <- Result.sequence(values)
+      commands <- Result.sequence(ImmArray(nodes).map(_preprocessor.translateNode))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_.templateId))
@@ -169,7 +165,6 @@ final class Engine {
         rootSeedAndSubmissionTime,
       )
     } yield result
-  }
 
   /**
     * Check if the given transaction is a valid result of some single-submitter command.
@@ -194,7 +189,6 @@ final class Engine {
   ): Result[Unit] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
-    val commandTranslation = new CommandPreprocessor(_compiledPackages)
     val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
       case (seed, time) =>
         crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
@@ -223,7 +217,7 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commands <- translateTransactionRoots(commandTranslation, tx)
+      commands <- _preprocessor.translateTransactionRoots(tx)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
         _compiledPackages,
         commands.map(_._2.templateId))
@@ -244,99 +238,6 @@ final class Engine {
             s"recreated and original transaction mismatch $tx expected, but $rtx is recreated"))
       }
     } yield validationResult
-  }
-
-  // A safe cast of a value to a value which uses only absolute contract IDs.
-  // In particular, the cast will succeed for all values contained in the root nodes of a Transaction produced by submit
-  private[this] def asValueWithAbsoluteContractIds(
-      v: Value[Value.ContractId]
-  ): Result[Value[Value.AbsoluteContractId]] =
-    v.ensureNoRelCid
-      .fold(
-        rcoid => ResultError(ValidationError(s"unexpected relative contract id $rcoid")),
-        ResultDone(_)
-      )
-
-  private[this] def asAbsoluteContractId(coid: Value.ContractId): Result[Value.AbsoluteContractId] =
-    coid match {
-      case rcoid: Value.RelativeContractId =>
-        ResultError(ValidationError(s"not an absolute contract ID: $rcoid"))
-      case acoid: Value.AbsoluteContractId =>
-        ResultDone(acoid)
-    }
-
-  private[this] def asValueWithNoContractIds(v: Value[Value.ContractId]): Result[Value[Nothing]] =
-    v.ensureNoCid.fold(
-      coid => ResultError(ValidationError(s"engine: found a contract ID $coid in the given value")),
-      ResultDone(_)
-    )
-
-  // Translate a GenNode into an expression re-interpretable by the interpreter
-  private[this] def translateNode[Cid <: Value.ContractId](
-      commandPreprocessor: CommandPreprocessor)(
-      node: GenNode.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[SpeedyCommand] = {
-
-    node match {
-      case NodeCreate(nodeSeed @ _, coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
-        val identifier = coinst.template
-        asValueWithAbsoluteContractIds(coinst.arg.value).flatMap(
-          absArg => commandPreprocessor.preprocessCreate(identifier, absArg)
-        )
-
-      case NodeExercises(
-          nodeSeed @ _,
-          coid,
-          template,
-          choice,
-          optLoc @ _,
-          consuming @ _,
-          actingParties @ _,
-          chosenVal,
-          stakeholders @ _,
-          signatories @ _,
-          controllers @ _,
-          children @ _,
-          exerciseResult @ _,
-          key @ _) =>
-        val templateId = template
-        asValueWithAbsoluteContractIds(chosenVal.value).flatMap(
-          absChosenVal =>
-            commandPreprocessor
-              .preprocessExercise(templateId, coid, choice, absChosenVal))
-
-      case NodeFetch(coid, templateId, _, _, _, _, _) =>
-        asAbsoluteContractId(coid)
-          .flatMap(acoid => commandPreprocessor.preprocessFetch(templateId, acoid))
-
-      case NodeLookupByKey(templateId, _, key, _) =>
-        for {
-          validatedKeyValue <- asValueWithNoContractIds(key.key.value)
-          res <- commandPreprocessor.preprocessLookupByKey(templateId, validatedKeyValue)
-        } yield res
-    }
-  }
-
-  private[this] def translateTransactionRoots[Cid <: Value.ContractId](
-      commandPreprocessor: CommandPreprocessor,
-      tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[ImmArray[(Transaction.NodeId, SpeedyCommand)]] = {
-    Result.sequence(tx.roots.map(id =>
-      tx.nodes.get(id) match {
-        case None =>
-          ResultError(ValidationError(s"invalid transaction, root refers to non-existing node $id"))
-        case Some(node) =>
-          node match {
-            case NodeFetch(_, _, _, _, _, _, _) =>
-              ResultError(ValidationError(s"Transaction contains a fetch root node $id"))
-            case _ =>
-              translateNode(commandPreprocessor)(node).map((id, _)) match {
-                case ResultError(ValidationError(msg)) =>
-                  ResultError(ValidationError(s"Transaction node $id: $msg"))
-                case x => x
-              }
-          }
-    }))
   }
 
   /** Interprets the given commands under the authority of @submitters
