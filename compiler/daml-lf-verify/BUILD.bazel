@@ -1,9 +1,10 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
-da_haskell_library(
+da_haskell_binary(
     name = "daml-lf-verify",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
@@ -29,6 +30,7 @@ da_haskell_library(
         "unordered-containers",
         "zip-archive",
     ],
+    main_function = "DA.Daml.LF.Verify.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
@@ -38,4 +40,10 @@ da_haskell_library(
         "//compiler/daml-lf-reader",
         "//libs-haskell/da-hs-base",
     ],
+)
+
+package_app(
+    name = "daml-lf-verify-dist",
+    binary = ":damlverify",
+    visibility = ["//visibility:public"],
 )

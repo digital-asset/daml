@@ -8,7 +8,7 @@
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
   ( Delta
-  , MonadDelta, devars, _devals
+  , MonadDelta, dchs, devars, _devals
   , UpdateSet(..)
   , UpdCreate(..), usCre, usArc, usCho
   , UpdArchive(..)

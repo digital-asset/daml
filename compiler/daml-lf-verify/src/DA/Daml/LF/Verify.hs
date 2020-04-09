@@ -14,6 +14,9 @@ main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
   pkgs <- readPackages optInputDars
-  let _delta = runDelta $ genPackages pkgs
+  let delta = runDelta $ genPackages pkgs
   putStrLn "Constraints generated."
+  case delta of
+    Left _ -> return ()
+    Right _ -> return ()
 

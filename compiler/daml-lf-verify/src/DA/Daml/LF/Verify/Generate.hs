@@ -6,12 +6,11 @@
 -- | Constraint generator for DAML LF static verification
 module DA.Daml.LF.Verify.Generate
   ( genPackages
-  , genChoice -- Added export to suppress the unused warning.
   ) where
 
 import Control.Lens hiding (Context)
 import Control.Monad.Error.Class (MonadError (..))
-import Data.HashMap.Strict (singleton)
+import Data.HashMap.Strict (singleton, fromList, union)
 import Control.Monad.Reader
 import qualified Data.NameMap as NM
 
@@ -85,7 +84,7 @@ genModule :: MonadDelta m => PackageRef -> Module -> m Delta
 genModule pac mod = do
   del0 <- ask
   del1 <- buildDelta del0 (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
-  buildDelta del1 genTemplate (NM.toList $ moduleTemplates mod)
+  buildDelta del1 (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
 
 genValue :: MonadDelta m => PackageRef -> ModuleName -> DefValue -> m Delta
 genValue pac mod val = do
@@ -106,8 +105,14 @@ genChoice tem cho = do
          $ over (goDel . devars) ((:) (fst $ chcArgBinder cho))
          expOut
 
-genTemplate :: MonadDelta m => Template -> m Delta
-genTemplate = undefined -- TODO
+genTemplate :: MonadDelta m => PackageRef -> ModuleName -> Template -> m Delta
+-- TODO: lookup the data type and skolemise all fieldnames
+genTemplate pac mod Template{..} = do
+  let name = Qualified pac mod tplTypeCon
+  choOuts <- mapM (genChoice name) (NM.toList tplChoices)
+  let delta = foldl concatDelta emptyDelta (map _goDel choOuts)
+      choices = fromList $ zip (zip (repeat name) (map chcName $ NM.toList tplChoices)) (map _goUpd choOuts)
+  return $ over dchs (union choices) delta
 
 genExpr :: MonadDelta m => Expr -> m GenOutput
 genExpr = \case
