@@ -103,13 +103,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
       implicit val materializer: Materializer = Materializer(actorSystem)
 
-      val timeServiceBackend = timeProviderType match {
-        case TimeProviderType.Static =>
-          Some(TimeServiceBackend.simple(Instant.EPOCH))
-        case TimeProviderType.WallClock =>
-          None
-      }
-
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
@@ -133,6 +126,12 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Resetting through Flyway removes all tables in the database schema.
                     // Therefore we don't need to "reset" the KV Ledger and Index separately.
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
+                }
+                timeServiceBackend = timeProviderType match {
+                  case TimeProviderType.Static =>
+                    Some(TimeServiceBackend.simple(Instant.EPOCH))
+                  case TimeProviderType.WallClock =>
+                    None
                 }
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
