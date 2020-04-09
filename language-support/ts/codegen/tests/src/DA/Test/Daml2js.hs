@@ -278,11 +278,6 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
       assertFileExists (proj </> "src" </> file <.> "ts")
       assertFileExists (proj </> "lib" </> file <.> "js")
       assertFileExists (proj </> "lib" </> file <.> "d.ts")
-        where
-          assertFileExists :: FilePath -> IO ()
-          assertFileExists file = doesFileExist file >>= assertBool (file ++ " was not created")
-    assertFileDoesNotExist :: FilePath -> IO ()
-    assertFileDoesNotExist file = doesFileExist file >>= assertBool (file ++ " should not exist") . not
 
     assertFileLines :: FilePath -> [T.Text] -> IO ()
     assertFileLines file expectedContent = do

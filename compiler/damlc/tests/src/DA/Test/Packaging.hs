@@ -79,7 +79,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - daml-stdlib"
             ]
         buildProject projectA
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        assertFileExists aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
@@ -106,7 +106,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             -- the last option checks that module aliases work and modules imported without aliases
             -- are still exposed.
         buildProject projectB
-        assertBool "b.dar was not created." =<< doesFileExist bDar
+        assertFileExists bDar
     , testCaseSteps "Dependency on a package with source: A.daml" $ \step -> withTempDir $ \tmpDir -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -127,7 +127,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - daml-stdlib"
             ]
         buildProject projectA
-        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        assertFileExists aDar
         step "Creating project b..."
         createDirectoryIfMissing True projectB
         writeFileUTF8 (projectB </> "B.daml") $ unlines
@@ -145,7 +145,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             , "  - " <> aDar
             ]
         buildProject projectB
-        assertBool "b.dar was not created." =<< doesFileExist bDar
+        assertFileExists bDar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile bDar
         assertBool "b.dar contains source file from package database" $
             not $ any ("A.daml" `isSuffixOf`) darFiles
@@ -171,7 +171,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
-        assertBool "proj.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
 
@@ -201,7 +201,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
             (\ _ -> buildProject projDir)
 
         let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
-        assertBool "proj.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         archive <- Zip.toArchive <$> BSL.readFile dar
         Just entry <- pure $ Zip.findEntryByPath "META-INF/MANIFEST.MF" archive
         let lines = BSL.Char8.lines (Zip.fromEntry entry)
@@ -227,7 +227,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         forM_ ["A.daml", "A.hi", "A.hie", "B.daml", "B.hi", "B.hie"] $ checkDarFile darFiles "."
     , testCase "Root source file in subdir" $ withTempDir $ \projDir -> do
@@ -251,7 +251,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         checkDarFile darFiles "A" "B.daml"
         checkDarFile darFiles "A" "B.hi"
@@ -275,7 +275,7 @@ tests tools@Tools{damlc} = testGroup "Packaging" $
           ]
         buildProject projDir
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         let allDalfFilesHavePkgId = and $ do
               fp <- darFiles
@@ -1241,7 +1241,7 @@ dataDependencyTests Tools{damlc,repl,validate,davlDar,oldProjDar} = testGroup "D
             ["--with-archive-choice" | withArchiveChoice ] <> ["simple-dalf-0.0.0.dalf"]
         withCurrentDirectory projDir $ callProcess damlc ["build", "--target=1.dev", "--generated-src"]
         let dar = projDir </> ".daml/dist/proj-0.1.0.dar"
-        assertBool "proj-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
         callProcessSilent damlc ["test", "--target=1.dev", "--project-root", projDir, "--generated-src"]
     | withArchiveChoice <- [False, True]
     ] <>

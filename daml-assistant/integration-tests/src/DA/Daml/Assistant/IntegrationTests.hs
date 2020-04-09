@@ -116,13 +116,13 @@ packagingTests = testGroup "packaging"
         callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
         withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
-        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build copy trigger with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "copy-trigger"
         callCommandSilent $ unwords ["daml", "new", projDir, "copy-trigger"]
         withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml" </> "dist" </> "copy-trigger-0.0.1.dar"
-        assertBool "copy-trigger-0.1.0.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build trigger with extra dependency" $ withTempDir $ \tmpDir -> do
         let myDepDir = tmpDir </> "mydep"
         createDirectoryIfMissing True (myDepDir </> "daml")
@@ -161,19 +161,19 @@ packagingTests = testGroup "packaging"
             ]
         withCurrentDirectory myTriggerDir $ callCommandSilent "daml build -o mytrigger.dar"
         let dar = myTriggerDir </> "mytrigger.dar"
-        assertBool "mytrigger.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build DAML script example" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
         callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
         withCurrentDirectory projDir $ callCommandSilent "daml build"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Build DAML script example with LF version 1.dev" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "script-example"
         callCommandSilent $ unwords ["daml", "new", projDir, "script-example"]
         withCurrentDirectory projDir $ callCommandSilent "daml build --target 1.dev"
         let dar = projDir </> ".daml/dist/script-example-0.0.1.dar"
-        assertBool "script-example-0.0.1.dar was not created." =<< doesFileExist dar
+        assertFileExists dar
      , testCase "Package depending on daml-script and daml-trigger can use data-dependencies" $ withTempDir $ \tmpDir -> do
         callCommandSilent $ unwords ["daml", "new", tmpDir </> "data-dependency"]
         withCurrentDirectory (tmpDir </> "data-dependency") $ callCommandSilent "daml build -o data-dependency.dar"
@@ -554,8 +554,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           callCommandSilent "daml build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
-        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
-          assertBool "ui/build/index.html does not yet exist" . not
+        assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
         withCurrentDirectory (cdaDir </> "ui") $ do
           -- NOTE(MH): We set up the yarn env again to avoid having all the
           -- dependencies of the UI already in scope when `daml2js` runs
@@ -565,8 +564,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           retry 3 (callCommandSilent "yarn install")
           callCommandSilent "yarn lint --max-warnings 0"
           callCommandSilent "yarn build"
-        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
-          assertBool "ui/build/index.html has been produced"
+        assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
 
 damlInstallerName :: String
 damlInstallerName
