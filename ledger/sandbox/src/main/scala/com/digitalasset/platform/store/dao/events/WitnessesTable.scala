@@ -4,37 +4,26 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter}
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.TransactionId
-import com.daml.platform.events.EventIdFormatter.fromTransactionId
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.platform.store.Conversions._
 
 /**
-  * A table storing a flattened representation of a [[DisclosureRelation]],
-  * which says which [[NodeId]] is visible to which [[Party]].
+  * A table storing a flattened representation of a [[WitnessRelation]]
   */
-private[events] sealed abstract class WitnessesTable(tableName: String) {
-
-  private def parameters(transactionId: TransactionId)(
-      nodeId: NodeId,
-      party: Party,
-  ): Vector[NamedParameter] =
-    Vector[NamedParameter](
-      "event_id" -> fromTransactionId(transactionId, nodeId).toString,
-      "event_witness" -> party.toString,
-    )
+private[events] sealed abstract class WitnessesTable(
+    tableName: String,
+    idColumn: String,
+    witnessColumn: String,
+) {
 
   private val insert =
-    s"insert into $tableName(event_id, event_witness) values ({event_id}, {event_witness})"
+    s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
 
-  final def prepareBatchInsert(
-      offset: Offset,
-      transactionId: TransactionId,
-      witnesses: DisclosureRelation,
-  ): Option[BatchSql] = {
-    val flattenedWitnesses = DisclosureRelation.flatten(witnesses)
+  final def prepareBatchInsert(witnesses: WitnessRelation[LedgerString]): Option[BatchSql] = {
+    val flattenedWitnesses = Relation.flatten(witnesses)
     if (flattenedWitnesses.nonEmpty) {
       val ws = flattenedWitnesses.map {
-        case (nodeId, party) => parameters(transactionId)(nodeId, party)
+        case (id, party) => Vector[NamedParameter](idColumn -> id, witnessColumn -> party)
       }.toSeq
       Some(BatchSql(insert, ws.head, ws.tail: _*))
     } else {
@@ -46,12 +35,19 @@ private[events] sealed abstract class WitnessesTable(tableName: String) {
 
 private[events] object WitnessesTable {
 
+  private[events] sealed abstract class EventWitnessesTable(tableName: String)
+      extends WitnessesTable(
+        tableName = tableName,
+        idColumn = "event_id",
+        witnessColumn = "event_witness",
+      )
+
   /**
     * Concrete [[WitnessesTable]] to store which party can see which
     * event in a flat transaction.
     */
   private[events] object ForFlatTransactions
-      extends WitnessesTable(
+      extends EventWitnessesTable(
         tableName = "participant_event_flat_transaction_witnesses",
       )
 
@@ -61,7 +57,7 @@ private[events] object WitnessesTable {
     * to be eventually stored in [[ForFlatTransactions]]
     */
   private[events] object Complement
-      extends WitnessesTable(
+      extends EventWitnessesTable(
         tableName = "participant_event_witnesses_complement",
       )
 
