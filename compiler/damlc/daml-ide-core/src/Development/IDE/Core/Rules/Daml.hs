@@ -446,8 +446,7 @@ generateDocTestModuleRule =
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
-generatePackageMap ::
-     LF.Version -> Maybe FilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
+generatePackageMap :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
 generatePackageMap version mbProjRoot userPkgDbs = do
     versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
@@ -502,7 +501,9 @@ generatePackageMapRule opts = do
         f <- liftIO $ do
             findProjectRoot <- memoIO findProjectRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
-            pure $ \file -> liftIO $ generatePackageMap =<< findProjectRoot file
+            pure $ \file -> do
+                mbProjectRoot <- liftIO (findProjectRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -515,6 +516,27 @@ generatePackageMapRule opts = do
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just res))
+
+damlGhcSessionRule :: Options -> Rules ()
+damlGhcSessionRule opts@Options{..} = do
+    -- The file path here is optional so we go for defineNoFile
+    -- (or the equivalent thereof for rules with cut off).
+    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        let base = mkBaseUnits (optUnitId opts)
+        inferredPackages <- liftIO $ case mbProjectRoot of
+            Just projectRoot | getInferDependantPackages optInferDependantPackages ->
+                dependantUnitsFromDamlYaml optDamlLfVersion projectRoot
+            _ -> pure []
+        optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
+        env <- liftIO $ runGhcFast $ do
+            setupDamlGHC opts
+            GHC.getSession
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
+        hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
+        -- In the IDE we do not care about the cache value here but for
+        -- incremental builds we need an early cutoff.
+        pure (Just "", ([], Just hscEnv))
 
 generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
@@ -1122,11 +1144,12 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
-    ofInterestRule opts
     encodeModuleRule opts
     createScenarioContextRule
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
+    damlGhcSessionRule opts
+    when (optEnableOfInterestRule opts) (ofInterestRule opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

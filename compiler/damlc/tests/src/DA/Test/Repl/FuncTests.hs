@@ -8,7 +8,6 @@ import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
-import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Output
 import DA.Daml.Compiler.Repl
@@ -19,6 +18,7 @@ import DA.Daml.Project.Types
 import Data.Either
 import DA.Test.Sandbox
 import DA.Test.Util
+import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger

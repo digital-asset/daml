@@ -8,12 +8,19 @@
 
 -- | Set up the GHC monad in a way that works for us
 module DA.Daml.Options
-    ( toCompileOpts
-    , generatePackageState
+    ( checkDFlags
+    , dependantUnitsFromDamlYaml
+    , expandSdkPackages
     , fakeDynFlags
     , findProjectRoot
+    , generatePackageState
     , memoIO
-    , expandSdkPackages
+    , mkPackageFlag
+    , mkBaseUnits
+    , runGhcFast
+    , setPackageDynFlags
+    , setupDamlGHC
+    , toCompileOpts
     , PackageDynFlags(..)
     ) where
 
@@ -34,6 +41,9 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Config (cProjectVersion)
 import Development.Shake (Action)
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Shake
+import Development.IDE.Types.Location
 import qualified Platform as P
 import qualified EnumSet
 import GHC                         hiding (convertLit)
@@ -67,7 +77,7 @@ toCompileOpts :: Options -> Ghcide.IdeReportProgress -> Ghcide.IdeOptions
 toCompileOpts options@Options{..} reportProgress =
     Ghcide.IdeOptions
       { optPreprocessor = if optIsGenerated then generatedPreprocessor else damlPreprocessor (optUnitId options)
-      , optGhcSession = liftIO (getDamlGhcSession options)
+      , optGhcSession = getDamlGhcSession options
       , optPkgLocationOpts = Ghcide.IdePkgLocationOptions
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
@@ -117,26 +127,12 @@ damlKeywords =
   , "preconsuming", "postconsuming", "with", "choice", "template", "key", "maintainer"
   ]
 
-getDamlGhcSession :: Options -> IO (FilePath -> Action HscEnvEq)
-getDamlGhcSession options@Options{..} = do
-    findProjectRoot <- memoIO findProjectRoot
-    getSession <- memoIO $ \mbProjectRoot -> do
-        let base = mkBaseUnits (optUnitId options)
-        optPackageImports <-
-          if getInferDependantPackages optInferDependantPackages
-          then do
-            let root = fromMaybe "." mbProjectRoot
-            more <- dependantUnitsFromDamlYaml optDamlLfVersion root
-            pure $ map mkPackageFlag (base ++ more) ++ optPackageImports
-          else
-            pure $ map mkPackageFlag base ++ optPackageImports
-        env <- runGhcFast $ do
-            setupDamlGHC options
-            GHC.getSession
-        pkg <- generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
-        dflags <- checkDFlags options $ setPackageDynFlags pkg $ hsc_dflags env
-        newHscEnvEq env{hsc_dflags = dflags}
-    pure $ \file -> liftIO $ getSession =<< findProjectRoot file
+getDamlGhcSession :: Options -> Action (FilePath -> Action HscEnvEq)
+getDamlGhcSession _options@Options{..} = do
+    findProjectRoot <- liftIO $ memoIO findProjectRoot
+    pure $ \file -> do
+        mbRoot <- liftIO (findProjectRoot file)
+        useNoFile_ (DamlGhcSession $ toNormalizedFilePath' <$> mbRoot)
 
 -- | Find the daml.yaml given a starting file or directory.
 findProjectRoot :: FilePath -> IO (Maybe FilePath)
@@ -190,7 +186,7 @@ getPackageDynFlags DynFlags{..} = PackageDynFlags
     }
 
 
-generatePackageState :: LF.Version -> Maybe FilePath -> [FilePath] -> [PackageFlag] -> IO PackageDynFlags
+generatePackageState :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> [PackageFlag] -> IO PackageDynFlags
 generatePackageState lfVersion mbProjRoot paths pkgImports = do
   versionedPaths <- getPackageDbs lfVersion mbProjRoot paths
   let dflags = setPackageImports pkgImports $ setPackageDbs versionedPaths fakeDynFlags
@@ -479,9 +475,9 @@ mkBaseUnits optMbPackageName
       [ stringToUnitId "daml-prim"
       , damlStdlib ]
 
-dependantUnitsFromDamlYaml :: LF.Version -> FilePath -> IO [UnitId]
+dependantUnitsFromDamlYaml :: LF.Version -> NormalizedFilePath -> IO [UnitId]
 dependantUnitsFromDamlYaml lfVersion root = do
-  (deps,dataDeps) <- depsFromDamlYaml (ProjectPath root)
+  (deps,dataDeps) <- depsFromDamlYaml (ProjectPath $ fromNormalizedFilePath root)
   deps <- expandSdkPackages lfVersion (filter (`notElem` basePackages) deps)
   calcUnitsFromDeps root (deps ++ dataDeps)
 
@@ -497,7 +493,7 @@ projectDeps project = do
   let dataDeps = fromMaybe [] $ either (error . show) id $ queryProjectConfig ["data-dependencies"] project
   (deps,dataDeps)
 
-calcUnitsFromDeps :: FilePath -> [FilePath] -> IO [UnitId]
+calcUnitsFromDeps :: NormalizedFilePath -> [FilePath] -> IO [UnitId]
 calcUnitsFromDeps root deps = do
   let (fpDars, fpDalfs) = partition ((== ".dar") . takeExtension) deps
   entries <- mapM (mainEntryOfDar root) fpDars
@@ -507,7 +503,7 @@ calcUnitsFromDeps root deps = do
         | e <- entries ]
   dalfsFromFps <-
     forM fpDalfs $ \fp -> do
-      bs <- BS.readFile (root </> fp)
+      bs <- BS.readFile (fromNormalizedFilePath root </> fp)
       pure (fp, bs)
   let mainDalfs = dalfsFromDars ++ dalfsFromFps
   flip mapMaybeM mainDalfs $ \(file, dalf) -> runMaybeT $ do
@@ -518,9 +514,9 @@ calcUnitsFromDeps root deps = do
     let (name, mbVersion) = packageMetadataFromFile file pkg pkgId
     pure (pkgNameVersion name mbVersion)
 
-mainEntryOfDar :: FilePath -> FilePath -> IO ZipArchive.Entry
+mainEntryOfDar :: NormalizedFilePath -> FilePath -> IO ZipArchive.Entry
 mainEntryOfDar root fp = do
-  bs <- BSL.readFile (root </> fp)
+  bs <- BSL.readFile (fromNormalizedFilePath root </> fp)
   let archive = ZipArchive.toArchive bs
   dalfManifest <- either fail pure $ readDalfManifest archive
   getEntry (mainDalfPath dalfManifest) archive

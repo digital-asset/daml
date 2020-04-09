@@ -1,7 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Cli.Damlc.IdeState
+module Development.IDE.Core.IdeState.Daml
     ( IdeState
     , getDamlIdeState
     , withDamlIdeState
@@ -15,10 +15,10 @@ import Control.Exception
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
-import qualified DA.Daml.Compiler.Scenario as Scenario
+import qualified DA.Daml.LF.ScenarioServiceClient as Scenario
 import Development.IDE.Core.Debouncer
-import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.API
+import Development.IDE.Core.Rules.Daml
 import Development.IDE.Plugin
 import Development.IDE.Plugin.Completions as Completions
 import Development.IDE.Plugin.CodeAction as CodeAction
