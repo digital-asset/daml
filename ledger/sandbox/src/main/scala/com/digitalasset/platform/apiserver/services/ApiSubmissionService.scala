@@ -264,9 +264,6 @@ final class ApiSubmissionService private (
     errorCause match {
       case e @ ErrorCause.DamlLf(_) =>
         Status.INVALID_ARGUMENT.withDescription(e.explain)
-      case e @ ErrorCause.Sequencer(errors) =>
-        val base = if (errors.exists(_.isFinal)) Status.INVALID_ARGUMENT else Status.ABORTED
-        base.withDescription(e.explain)
       case e @ ErrorCause.LedgerTime(_) =>
         Status.ABORTED.withDescription(e.explain)
     }

@@ -19,22 +19,6 @@ object ErrorCause {
     }
   }
 
-  final case class Sequencer(errors: Set[SequencingError]) extends ErrorCause {
-    override def explain: String =
-      errors
-        .map {
-          case SequencingError.InactiveDependencyError(cid, _) =>
-            s"Contract ${cid.coid} was not found in ACS"
-          case SequencingError.TimeBeforeError(cid, time, let, _) =>
-            s"Dependency contract ${cid.coid} has higher time ($time) than current let ($let)"
-          case SequencingError.DuplicateKey(gk) =>
-            s"Duplicate contract key ${gk.key} for template ${gk.templateId}"
-          case SequencingError.InvalidLookup(gk, cid, currentCid) =>
-            s"Lookup by key ${gk.key} uses contract $cid instead of the current $currentCid"
-        }
-        .mkString("Sequencing errors: [", ", ", "]")
-  }
-
   final case class LedgerTime(retries: Int) extends ErrorCause {
     override def explain: String = s"Could not find a suitable ledger time after $retries retries"
   }
