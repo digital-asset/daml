@@ -938,9 +938,10 @@ private class JdbcLedgerDao(
               commandId = tx.commandId,
               submitter = tx.submittingParty,
               roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
-              ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+              ledgerEffectiveTime = tx.ledgerEffectiveTime,
               offset = offset,
               transaction = tx.transaction.mapNodeId(splitOrThrow),
+              divulgedContracts = divulgedContracts,
             )
 
             // Ensure divulged contracts are known about before they are referred to.
@@ -1030,9 +1031,10 @@ private class JdbcLedgerDao(
                     commandId = tx.commandId,
                     submitter = tx.submittingParty,
                     roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
-                    ledgerEffectiveTime = Date.from(tx.ledgerEffectiveTime),
+                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
                     offset = offset,
                     transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    divulgedContracts = Nil,
                   )
                 case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
               }
