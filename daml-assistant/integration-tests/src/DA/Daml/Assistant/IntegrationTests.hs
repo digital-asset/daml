@@ -550,6 +550,8 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         withCurrentDirectory tmpDir $ do
           callCommandSilent "daml new create-daml-app create-daml-app"
         let cdaDir = tmpDir </> "create-daml-app"
+
+        -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
           callCommandSilent "daml build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
@@ -565,6 +567,27 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           callCommandSilent "yarn lint --max-warnings 0"
           callCommandSilent "yarn build"
         assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
+
+        -- Now test that the messaging feature works by applying the necessary
+        -- changes and testing in the same way as above.
+        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging-patch")
+        withCurrentDirectory cdaDir $ do
+          callCommandSilent $ "patch -s -p2 < " ++ messagingPatch
+          forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
+            doesFileExist ("ui" </> "src" </> "components" </> messageComponent <.> "tsx") >>=
+              assertBool ("New " <> messageComponent <> " component was not created by patch")
+              . not
+          callCommandSilent "daml build"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
+          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
+          assertBool "ui/build/index.html does not yet exist" . not
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          retry 3 (callCommandSilent "yarn install --force --frozen-lockfile")
+          callCommandSilent "yarn lint --max-warnings 0"
+          callCommandSilent "yarn build"
+        doesFileExist (cdaDir </> "ui" </> "build" </> "index.html") >>=
+          assertBool "ui/build/index.html has been produced"
 
 damlInstallerName :: String
 damlInstallerName
