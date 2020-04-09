@@ -48,6 +48,7 @@ testUnstableSplitOn = scenario do
   T.unstableSplitOn " " " "               === [ "", "" ]
   T.unstableSplitOn " " "foo bar baz"     === [ "foo", "bar", "baz" ]
   T.unstableSplitOn " " "  foo bar baz  " === [ "", "", "foo", "bar", "baz", "", "" ]
+  T.unstableSplitOn " " "foo  bar" === [ "foo", "", "bar" ]
   T.unstableSplitOn "." "4"               === [ "4" ]
   T.unstableSplitOn "." "4."              === [ "4", "" ]
   T.unstableSplitOn "." "4.0"             === [ "4", "0" ]
