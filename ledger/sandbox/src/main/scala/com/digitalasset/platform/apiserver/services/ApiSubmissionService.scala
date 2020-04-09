@@ -20,7 +20,6 @@ import com.daml.ledger.participant.state.index.v2.{
   IndexPartyManagementService,
   IndexSubmissionService
 }
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
@@ -39,7 +38,6 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.MetricsNaming
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
-import com.daml.platform.apiserver.services.ApiSubmissionService._
 import com.daml.platform.metrics.timedFuture
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -56,9 +54,6 @@ import scala.util.{Failure, Success, Try}
 object ApiSubmissionService {
 
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
-
-  val MetricPrefix: MetricName =
-    MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
 
   def create(
       ledgerId: LedgerId,
@@ -127,12 +122,15 @@ final class ApiSubmissionService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private object Metrics {
+    private val servicePrefix =
+      MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
+
     val failedInterpretationsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "failed_command_interpretations")
+      metrics.meter(servicePrefix :+ "failed_command_interpretations")
     val deduplicatedCommandsMeter: Meter =
-      metrics.meter(MetricPrefix :+ "deduplicated_commands")
+      metrics.meter(servicePrefix :+ "deduplicated_commands")
     val submittedTransactionsTimer: Timer =
-      metrics.timer(MetricPrefix :+ "submitted_transactions")
+      metrics.timer(servicePrefix :+ "submitted_transactions")
   }
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
