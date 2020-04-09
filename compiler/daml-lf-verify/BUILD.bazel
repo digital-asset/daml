@@ -35,9 +35,9 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
-        "//compiler/daml-lf-tools",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
         "//libs-haskell/da-hs-base",
     ],
 )
