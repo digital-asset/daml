@@ -41,7 +41,6 @@ import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Base
-import DA.Cli.Damlc.IdeState
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
@@ -51,6 +50,7 @@ import qualified DA.Daml.LF.Proto3.Archive as Archive
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import qualified DA.Pretty
+import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import SdkVersion
 

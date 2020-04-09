@@ -107,7 +107,7 @@ final class StandaloneApiServer(
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
-              seedService = Some(SeedService(config.seeding)),
+              seedService = config.seeding.map(SeedService(_)),
             )(mat, esf, logCtx)
             .map(_.withServices(otherServices))
         },

@@ -8,10 +8,8 @@ import DA.Cli.Options
 import DA.Cli.Output
 import DA.Daml.Doc.Driver
 import DA.Daml.Doc.Extract
-import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options
 import Module (unitIdString)
 
 import Options.Applicative
@@ -207,8 +205,12 @@ data CmdArgs = Damldoc
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts cOptions { optHaddock=Haddock True}
-            (IdeReportProgress False)
+        { do_compileOptions = cOptions
+            { optHaddock = Haddock True
+            , optScenarioService = EnableScenarioService False
+            , optEnableOfInterestRule = False
+            -- No need to generate core in the background, so we disable it.
+            }
         , do_diagsLogger = diagnosticsLogger
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat

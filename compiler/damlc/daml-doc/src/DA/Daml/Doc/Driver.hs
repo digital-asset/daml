@@ -16,8 +16,9 @@ import DA.Daml.Doc.Render
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Transform
 
+import DA.Daml.Options.Types
+
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import Control.Monad.Extra
@@ -37,7 +38,7 @@ import qualified Data.Text.Encoding as T
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
-    , do_ideOptions :: IdeOptions
+    , do_compileOptions :: Options
     , do_diagsLogger :: LSP.FromServerMessage -> IO ()
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
@@ -83,7 +84,7 @@ inputDocData DamldocOptions{..} = do
             concatMapM (either printAndExit pure) mbData
 
         InputDaml -> onErrorExit . runMaybeT $
-            extractDocs do_extractOptions do_diagsLogger do_ideOptions do_inputFiles
+            extractDocs do_extractOptions do_diagsLogger do_compileOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()

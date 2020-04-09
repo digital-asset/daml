@@ -67,16 +67,18 @@ object HttpServiceTestFixture {
       contractDao <- contractDaoF
       httpService <- stripLeft(
         HttpService.start(
-          "localhost",
-          ledgerPort.value,
-          applicationId,
-          "localhost",
-          0,
-          Some(Config.DefaultWsConfig),
-          None,
-          contractDao,
-          staticContentConfig,
-          doNotReloadPackages))
+          ledgerHost = "localhost",
+          ledgerPort = ledgerPort.value,
+          applicationId = applicationId,
+          address = "localhost",
+          httpPort = 0,
+          portFile = None,
+          wsConfig = Some(Config.DefaultWsConfig),
+          accessTokenFile = None,
+          contractDao = contractDao,
+          staticContentConfig = staticContentConfig,
+          packageReloadInterval = doNotReloadPackages
+        ))
     } yield httpService
 
     val clientF: Future[LedgerClient] = for {

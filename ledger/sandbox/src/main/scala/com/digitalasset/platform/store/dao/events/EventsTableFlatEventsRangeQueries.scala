@@ -5,7 +5,7 @@ package com.daml.platform.store.dao.events
 
 import anorm.{Row, SimpleSql, SqlStringInterpolation}
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.Ref.{Identifier => ApiIdentifier}
 import com.daml.platform.store.Conversions._
 
 private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
@@ -20,14 +20,14 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
   protected def sameTemplates(
       offset: Offset,
       parties: Set[Party],
-      templateIds: Set[Identifier],
+      templateIds: Set[ApiIdentifier],
       pageSize: Int,
       rowOffset: Long,
   ): SimpleSql[Row]
 
   protected def mixedTemplates(
       offset: Offset,
-      partiesAndTemplateIds: Set[(Party, Identifier)],
+      partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
       pageSize: Int,
       rowOffset: Long,
   ): SimpleSql[Row]
@@ -35,7 +35,7 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
   protected def mixedTemplatesWithWildcardParties(
       offset: Offset,
       wildcardParties: Set[Party],
-      partiesAndTemplateIds: Set[(Party, Identifier)],
+      partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
       pageSize: Int,
       rowOffset: Long,
   ): SimpleSql[Row]
@@ -71,7 +71,7 @@ private[events] sealed trait EventsTableFlatEventsRangeQueries[Offset] {
         )
       } else {
         // 3. If there are different template identifier but there are no wildcard parties
-        val partiesAndTemplateIds = FilterRelation.flatten(filter).toSet
+        val partiesAndTemplateIds = Relation.flatten(filter).toSet
         val wildcardParties = filter.filter(_._2.isEmpty).keySet
         if (wildcardParties.isEmpty) {
           mixedTemplates(
@@ -116,7 +116,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
     protected def sameTemplates(
         between: (Offset, Offset),
         parties: Set[Party],
-        templateIds: Set[Identifier],
+        templateIds: Set[ApiIdentifier],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] =
@@ -124,7 +124,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
 
     protected def mixedTemplates(
         between: (Offset, Offset),
-        partiesAndTemplateIds: Set[(Party, Identifier)],
+        partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] = {
@@ -136,7 +136,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
     protected def mixedTemplatesWithWildcardParties(
         between: (Offset, Offset),
         wildcardParties: Set[Party],
-        partiesAndTemplateIds: Set[(Party, Identifier)],
+        partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] = {
@@ -165,7 +165,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
     def sameTemplates(
         activeAt: Offset,
         parties: Set[Party],
-        templateIds: Set[Identifier],
+        templateIds: Set[ApiIdentifier],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] =
@@ -173,7 +173,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
 
     def mixedTemplates(
         activeAt: Offset,
-        partiesAndTemplateIds: Set[(Party, Identifier)],
+        partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] = {
@@ -185,7 +185,7 @@ private[events] object EventsTableFlatEventsRangeQueries {
     def mixedTemplatesWithWildcardParties(
         activeAt: Offset,
         wildcardParties: Set[Party],
-        partiesAndTemplateIds: Set[(Party, Identifier)],
+        partiesAndTemplateIds: Set[(Party, ApiIdentifier)],
         pageSize: Int,
         rowOffset: Long,
     ): SimpleSql[Row] = {

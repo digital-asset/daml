@@ -72,7 +72,9 @@ From a DAML project directory:
       --address <value>
             IP address that HTTP JSON API service listens on. Defaults to 127.0.0.1.
       --http-port <value>
-            HTTP JSON API service port number
+            HTTP JSON API service port number. A port number of 0 will let the system pick an ephemeral port. Consider specifying `--port-file` option with port number 0.
+      --port-file <value>
+            Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
       --package-reload-interval <value>
@@ -109,11 +111,11 @@ For this reason, you must provide an access token when you start the HTTP JSON A
 
 Note that this token is used exclusively for maintaining the internal list of known packages and templates, and that it will not be use to authenticate client calls to the HTTP JSON API: the user is expected to provide a valid authentication token with each call.
 
-The HTTP JSON API servers requires no access to party-specific data, only access to the ledger identity and package services: a token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
+The HTTP JSON API server requires no access to party-specific data, only access to the ledger identity and package services. A token issued for the HTTP JSON API server should contain enough claims to contact these two services but no more than that. Please refer to your ledger operator's documentation to find out how.
 
-Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file and provide the path to it using the ``--access-token-file`` command line option.
+Once you have retrieved your access token, you can provide it to the HTTP JSON API by storing it in a file. Give the path to it with the ``--access-token-file`` command line option.
 
-If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token and it will be picked up at the next attempt to send a request.
+If the token cannot be read from the provided path or the Ledger API reports an authentication error (for example due to token expiration), the HTTP JSON API will report the error via logging. The token file can be updated with a valid token, and it will be picked up at the next attempt to send a request.
 
 Example session
 ***************
@@ -147,9 +149,7 @@ token.  The default "header" is fine.  Under "Payload", fill in:
       }
     }
 
-Keep in mind:
-- the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox.
-- you can replace ``Alice`` with whatever party you want to use.
+Keep in mind that the value of ``ledgerId`` payload field has to match ``--ledgerid`` passed to the sandbox. You can replace ``Alice`` with whatever party you want to use.
 
 Under "Verify Signature", put ``secret`` as the secret (_not_ base64
 encoded); that is the hardcoded secret for testing.
@@ -350,7 +350,7 @@ Where:
 - ``templateId`` is the contract template identifier, which can be formatted as either:
 
   + ``"<package ID>:<module>:<entity>"`` or
-  + ``"<module>:<entity>"`` if contract template can be uniquely identified by it's module and entity name.
+  + ``"<module>:<entity>"`` if contract template can be uniquely identified by its module and entity name.
 
 - ``payload`` field contains contract fields as defined in the DAML template and formatted according to :doc:`lf-value-specification`.
 
@@ -835,7 +835,7 @@ HTTP Request
 Where:
 
 - ``templateIds`` --  an array of contract template identifiers to search through,
-- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`:
+- ``query`` -- search criteria to apply to the specified ``templateIds``, formatted according to the :doc:`search-query-language`.
 
 Empty HTTP Response
 ===================
@@ -883,7 +883,7 @@ Nonempty HTTP Response
 Where
 
 - ``result`` contains an array of contracts, each contract formatted according to :doc:`lf-value-specification`,
-- ``status`` matches the HTTP status code returned in the HTTP header,
+- ``status`` matches the HTTP status code returned in the HTTP header.
 
 Nonempty HTTP Response with Unknown Template IDs Warning
 ========================================================

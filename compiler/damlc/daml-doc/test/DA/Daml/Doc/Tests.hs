@@ -7,7 +7,6 @@ module DA.Daml.Doc.Tests(mkTestTree)
   where
 
 import           DA.Bazel.Runfiles
-import           DA.Daml.Options
 import           DA.Daml.Options.Types
 
 import DA.Daml.Doc.Extract
@@ -18,7 +17,6 @@ import DA.Daml.Doc.Anchor
 
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options (IdeReportProgress(..))
 import Development.IDE.LSP.Protocol
 
 import Control.Monad
@@ -255,6 +253,7 @@ runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
     let opts = (defaultOptions Nothing)
           { optHaddock = Haddock True
+          , optScenarioService = EnableScenarioService False
           , optImportPath = maybeToList importPathM
           }
 
@@ -266,7 +265,7 @@ runDamldoc testfile importPathM = do
     mbResult <- runMaybeT $ extractDocs
         defaultExtractOptions
         diagLogger
-        (toCompileOpts opts (IdeReportProgress False))
+        opts
         [toNormalizedFilePath' testfile]
 
     case mbResult of

@@ -37,6 +37,7 @@ import com.daml.ledger.client.configuration.{
 import com.daml.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.service.LedgerReader
 import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.ports.{Port, PortFiles}
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -61,6 +62,7 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      portFile: Option[Path],
       wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
@@ -166,6 +168,8 @@ object HttpService extends StrictLogging {
       binding <- liftET[Error](
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
       )
+
+      _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield binding
 
@@ -284,4 +288,11 @@ object HttpService extends StrictLogging {
         case NonFatal(e) =>
           \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
+
+  private def createPortFile(
+      file: Path,
+      binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
+    import util.ErrorOps._
+    PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
+  }
 }

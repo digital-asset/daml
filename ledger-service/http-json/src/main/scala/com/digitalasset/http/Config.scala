@@ -23,6 +23,7 @@ private[http] final case class Config(
     ledgerPort: Int,
     address: String = InetAddress.getLoopbackAddress.getHostAddress,
     httpPort: Int,
+    portFile: Option[Path] = None,
     applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,

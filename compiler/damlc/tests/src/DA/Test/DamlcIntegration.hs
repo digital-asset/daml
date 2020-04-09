@@ -28,7 +28,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.Compiler.Scenario as SS
+import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
