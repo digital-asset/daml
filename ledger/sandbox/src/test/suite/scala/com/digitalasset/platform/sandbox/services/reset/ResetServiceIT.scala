@@ -11,14 +11,16 @@ import scala.ref.WeakReference
 
 final class ResetServiceIT extends ResetServiceITBase with SandboxFixture {
   "ResetService" when {
-    "clear out all garbage" in {
-      val state = new WeakReference(Await.result(server.sandboxState, 5.seconds))
-      for {
-        lid <- fetchLedgerId()
-        _ <- reset(lid)
-      } yield {
-        System.gc()
-        state.get should be(None)
+    "state is reset" should {
+      "clear out all garbage" in {
+        val state = new WeakReference(Await.result(server.sandboxState, 5.seconds))
+        for {
+          lid <- fetchLedgerId()
+          _ <- reset(lid)
+        } yield {
+          System.gc()
+          state.get should be(None)
+        }
       }
     }
   }
