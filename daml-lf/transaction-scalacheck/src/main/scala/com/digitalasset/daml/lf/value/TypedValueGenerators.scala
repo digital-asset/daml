@@ -218,7 +218,10 @@ object TypedValueGenerators {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
         implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
       }
-      override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
+      override def injshrink[Cid: Shrink] = {
+        import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
+        implicitly[Shrink[key.Inj[Cid] Map elt.Inj[Cid]]]
+      }
     }
 
     /** See [[RecVarSpec]] companion for usage examples. */
