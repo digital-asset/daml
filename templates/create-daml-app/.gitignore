@@ -6,4 +6,4 @@ node_modules
 
 *.log
 
-daml-ts/
+daml.js/
