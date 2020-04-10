@@ -12,9 +12,9 @@ import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => 
 
 private[events] object ContractsTable {
 
-  private val insertQuery =
+  private val insertContractQuery =
     "insert into participant_contracts(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash})"
-  private def insertion(
+  private def insertContractQuery(
       contractId: ContractId,
       templateId: Identifier,
       createArgument: Value,
@@ -32,45 +32,51 @@ private[events] object ContractsTable {
       "create_key_hash" -> key.map(hash),
     )
 
-  private val deleteQuery = s"delete from participant_contracts where contract_id = {contract_id}"
-  private def deletion(contractId: ContractId): Vector[NamedParameter] =
+  private val deleteContractQuery =
+    s"delete from participant_contracts where contract_id = {contract_id}"
+  private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  sealed abstract case class PreparedBatches(
-      insertions: Option[BatchSql],
-      deletions: Option[BatchSql],
-      nonTransient: Set[ContractId],
-  ) {
-    final def isEmpty: Boolean = insertions.isEmpty && deletions.isEmpty
-    final def foreach[U](f: BatchSql => U): Unit = {
-      insertions.foreach(f)
-      deletions.foreach(f)
-    }
-  }
+  case class PreparedBatches private (
+      insertions: Option[(Set[ContractId], BatchSql)],
+      deletions: Option[(Set[ContractId], BatchSql)],
+  )
 
   private case class AccumulatingBatches(
       insertions: Map[ContractId, Vector[NamedParameter]],
-      deletions: Vector[Vector[NamedParameter]],
+      deletions: Map[ContractId, Vector[NamedParameter]],
   ) {
 
     def insert(contractId: ContractId, insertion: Vector[NamedParameter]): AccumulatingBatches =
       copy(insertions = insertions.updated(contractId, insertion))
 
-    def delete(deletion: Vector[NamedParameter]): AccumulatingBatches =
-      copy(deletions = deletions :+ deletion)
+    // If the batch contains the contractId, remove the insertion.
+    // Otherwise, add a delete. This prevents the insertion of transient contracts.
+    def delete(contractId: ContractId, deletion: => Vector[NamedParameter]): AccumulatingBatches =
+      if (insertions.contains(contractId))
+        copy(insertions = insertions - contractId)
+      else
+        copy(deletions = deletions.updated(contractId, deletion))
 
     private def prepareNonEmpty(
         query: String,
-        params: Vector[Vector[NamedParameter]],
-    ): Option[BatchSql] =
-      if (params.nonEmpty) Some(BatchSql(query, params.head, params.tail: _*)) else None
+        contractIdToParameters: Map[ContractId, Vector[NamedParameter]],
+    ): Option[(Set[ContractId], BatchSql)] = {
+      if (contractIdToParameters.nonEmpty) {
+        val contractIds = contractIdToParameters.keySet
+        val parameters = contractIdToParameters.valuesIterator.toSeq
+        val batch = BatchSql(query, parameters.head, parameters.tail: _*)
+        Some(contractIds -> batch)
+      } else {
+        None
+      }
+    }
 
     def prepare: PreparedBatches =
-      new PreparedBatches(
-        insertions = prepareNonEmpty(insertQuery, insertions.valuesIterator.toVector),
-        deletions = prepareNonEmpty(deleteQuery, deletions),
-        nonTransient = insertions.keySet,
-      ) {}
+      PreparedBatches(
+        insertions = prepareNonEmpty(insertContractQuery, insertions),
+        deletions = prepareNonEmpty(deleteContractQuery, deletions),
+      )
 
   }
 
@@ -81,7 +87,7 @@ private[events] object ContractsTable {
       AccumulatingBatches(
         insertions = divulgedContracts.iterator.map {
           case (contractId, contract) =>
-            contractId -> insertion(
+            contractId -> insertContractQuery(
               contractId = contractId,
               templateId = contract.template,
               createArgument = contract.arg,
@@ -89,7 +95,7 @@ private[events] object ContractsTable {
               key = None,
             )
         }.toMap,
-        deletions = Vector.empty,
+        deletions = Map.empty,
       )
   }
 
@@ -101,27 +107,21 @@ private[events] object ContractsTable {
     transaction
       .fold(AccumulatingBatches.withDivulgedContracts(divulgedContracts)) {
         case (batches, (_, node: Create)) =>
-          batches.copy(
-            insertions = batches.insertions.updated(
-              key = node.coid,
-              value = insertion(
-                contractId = node.coid,
-                templateId = node.coinst.template,
-                createArgument = node.coinst.arg,
-                createLedgerEffectiveTime = Some(ledgerEffectiveTime),
-                key = node.key.map(k => Key.assertBuild(node.coinst.template, k.key.value)),
-              )
+          batches.insert(
+            contractId = node.coid,
+            insertion = insertContractQuery(
+              contractId = node.coid,
+              templateId = node.coinst.template,
+              createArgument = node.coinst.arg,
+              createLedgerEffectiveTime = Some(ledgerEffectiveTime),
+              key = node.key.map(k => Key.assertBuild(node.coinst.template, k.key.value)),
             )
           )
         case (batches, (_, node: Exercise)) if node.consuming =>
-          if (batches.insertions.contains(node.targetCoid))
-            batches.copy(
-              insertions = batches.insertions - node.targetCoid,
-            )
-          else
-            batches.copy(
-              deletions = batches.deletions :+ deletion(node.targetCoid)
-            )
+          batches.delete(
+            contractId = node.targetCoid,
+            deletion = deleteContract(node.targetCoid),
+          )
         case (batches, _) =>
           batches // ignore any event which is neither a create nor a consuming exercise
       }

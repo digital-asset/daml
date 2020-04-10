@@ -18,11 +18,11 @@ object Relation {
   type Relation[A, B] = immutable.Map[A, Set[B]]
 
   object Relation {
+    def merge[A, B](r: Relation[A, B], pair: (A, Set[B])): Relation[A, B] =
+      r.updated(pair._1, r.getOrElse(pair._1, Set.empty[B]).union(pair._2))
+
     def union[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
-      r2.foldLeft(r1) {
-        case (acc, (a, bs)) =>
-          acc.updated(a, acc.getOrElse(a, Set.empty[B]).union(bs))
-      }
+      r2.foldLeft(r1)(merge)
 
     def diff[A, B](r1: Relation[A, B], r2: Relation[A, B]): Relation[A, B] =
       r1.map { case (a, bs) => a -> r2.get(a).fold(bs)(bs diff _) }

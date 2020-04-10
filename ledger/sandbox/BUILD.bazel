@@ -354,7 +354,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -369,7 +368,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -384,7 +382,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
     ],
@@ -397,7 +394,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=CommandDeduplicationIT",
     ],
@@ -411,7 +407,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -445,7 +440,6 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
@@ -460,7 +454,6 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
@@ -475,9 +468,29 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "do-not-merge-with-this-in",
+    server_args = [
+        "--wall-clock-time",
+    ],
+    servers = {
+        "h2database": {
+            "binary": ":sandbox-binary",
+            "server_args": [
+                "--port=6865",
+                "--eager-package-loading",
+                "--sql-backend-jdbcurl=jdbc:h2:mem:static_time;db_close_delay=-1",
+            ],
+        },
+    },
+    test_tool_args = [
+        "--open-world",
+        "--include=WitnessesIT",
     ],
 )
 

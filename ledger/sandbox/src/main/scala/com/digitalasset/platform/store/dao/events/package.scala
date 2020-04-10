@@ -22,6 +22,8 @@ package object events {
   private[events] type Node = lftx.Node.GenNode.WithTxValue[NodeId, ContractId]
   private[events] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
   private[events] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
+  private[events] type Fetch = lftx.Node.NodeFetch.WithTxValue[ContractId]
+  private[events] type LookupByKey = lftx.Node.NodeLookupByKey.WithTxValue[ContractId]
   private[events] type Key = lftx.Node.GlobalKey
   private[events] val Key = lftx.Node.GlobalKey
 

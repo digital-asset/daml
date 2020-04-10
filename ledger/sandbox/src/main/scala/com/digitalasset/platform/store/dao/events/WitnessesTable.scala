@@ -3,13 +3,14 @@
 
 package com.daml.platform.store.dao.events
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.{BatchSql, NamedParameter, ToStatement}
+import com.daml.ledger.EventId
 import com.daml.platform.store.Conversions._
 
 /**
   * A table storing a flattened representation of a [[WitnessRelation]]
   */
-private[events] sealed abstract class WitnessesTable(
+private[events] sealed abstract class WitnessesTable[Id: ToStatement](
     tableName: String,
     idColumn: String,
     witnessColumn: String,
@@ -18,7 +19,7 @@ private[events] sealed abstract class WitnessesTable(
   private val insert =
     s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
 
-  final def prepareBatchInsert(witnesses: WitnessRelation[LedgerString]): Option[BatchSql] = {
+  final def prepareBatchInsert(witnesses: WitnessRelation[Id]): Option[BatchSql] = {
     val flattenedWitnesses = Relation.flatten(witnesses)
     if (flattenedWitnesses.nonEmpty) {
       val ws = flattenedWitnesses.map {
@@ -30,12 +31,23 @@ private[events] sealed abstract class WitnessesTable(
     }
   }
 
+  private val delete = s"delete from $tableName where $idColumn = {$idColumn}"
+
+  final def prepareBatchDelete(ids: Seq[Id]): Option[BatchSql] = {
+    if (ids.nonEmpty) {
+      val parameters = ids.map(id => Vector[NamedParameter](idColumn -> id))
+      Some(BatchSql(delete, parameters.head, parameters.tail: _*))
+    } else {
+      None
+    }
+  }
+
 }
 
 private[events] object WitnessesTable {
 
   private[events] sealed abstract class EventWitnessesTable(tableName: String)
-      extends WitnessesTable(
+      extends WitnessesTable[EventId](
         tableName = tableName,
         idColumn = "event_id",
         witnessColumn = "event_witness",
@@ -65,7 +77,7 @@ private[events] object WitnessesTable {
     * contract, relatively to interpretation and validation.
     */
   private[events] object ForContracts
-      extends WitnessesTable(
+      extends WitnessesTable[ContractId](
         tableName = "participant_contract_witnesses",
         idColumn = "contract_id",
         witnessColumn = "contract_witness",

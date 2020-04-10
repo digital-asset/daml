@@ -222,6 +222,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
         }
 
     val divulgedContractIds = globalDivulgence -- st.archivedIds
+    println(s"divulged (addTransaction): $divulgedContractIds")
     st.mapAcs(
         _ divulgeAlreadyCommittedContracts (transactionId, divulgedContractIds, divulgedContracts))
       .mapAcs(_ addParties st.parties)

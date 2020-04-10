@@ -12,7 +12,7 @@ import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.events.EventIdFormatter
 
-private[dao] object TransactionsWriter extends TransactionsWriter {
+private[dao] final class TransactionsWriter {
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -41,7 +41,40 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
     }
   }
 
-  def apply(
+  private def divulgedContracts(
+      disclosure: DisclosureRelation,
+  ): PartialFunction[(NodeId, Node), (ContractId, Set[Party])] = {
+    case (nodeId, c: Create) =>
+      for (d <- disclosure(nodeId)) {
+        println(s"create: divulging ${c.coid} to $d")
+      }
+      c.coid -> disclosure(nodeId)
+    case (nodeId, e: Exercise) =>
+      for (d <- disclosure(nodeId)) {
+        println(s"exercise: divulging ${e.targetCoid} to $d")
+      }
+      e.targetCoid -> disclosure(nodeId)
+    case (nodeId, f: Fetch) =>
+      for (d <- disclosure(nodeId)) {
+        println(s"fetch: divulging ${f.coid} to $d")
+      }
+      f.coid -> disclosure(nodeId)
+    case (nodeId, l: LookupByKey) if l.result.isDefined =>
+      for (d <- disclosure(nodeId)) {
+        println(s"lookup-by-key: divulging ${l.result.get} to $d")
+      }
+      l.result.get -> disclosure(nodeId)
+  }
+
+  private def divulgence(
+      transaction: Transaction,
+      disclosure: DisclosureRelation,
+  ): WitnessRelation[ContractId] =
+    transaction.nodes.iterator
+      .collect(divulgedContracts(disclosure))
+      .foldLeft[WitnessRelation[ContractId]](Map.empty)(Relation.merge)
+
+  def write(
       applicationId: Option[ApplicationId],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
@@ -110,32 +143,26 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
         divulgedContracts = divulgedContracts,
       )
 
-      // Could be empty due to a transaction containing exclusively transient contracts
-      if (!contractBatches.isEmpty) {
-        contractBatches.foreach(_.execute())
-        val divulgence = blinding.globalDivulgence.filterKeys(contractBatches.nonTransient)
-        val witnesses = Relation.mapKeys(divulgence)(c => LedgerString.assertFromString(c.coid))
-        WitnessesTable.ForContracts.prepareBatchInsert(witnesses).foreach(_.execute())
+      for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
+        val deleteWitnessesBatch = WitnessesTable.ForContracts.prepareBatchDelete(deleted.toSeq)
+        require(deleteWitnessesBatch.nonEmpty, "Invalid empty batch of witnesses to delete")
+        // Delete the witnesses first to respect the foreign key constraint of the underlying storage
+        deleteWitnessesBatch.get.execute()
+        deleteContractsBatch.execute()
+      }
+
+      for ((inserted, insertContractsBatch) <- contractBatches.insertions) {
+        val localDivulgence = divulgence(transaction, blinding.disclosure).filterKeys(inserted)
+        println(s"divulged (transactionWriter): ${blinding.globalDivulgence}")
+        val fullDivulgence = Relation.union(localDivulgence, blinding.globalDivulgence)
+        val insertWitnessesBatch = WitnessesTable.ForContracts.prepareBatchInsert(fullDivulgence)
+        require(insertWitnessesBatch.nonEmpty, "Invalid empty batch of witnesses to insert")
+        // Insert the witnesses last to respect the foreign key constraint of the underlying storage
+        insertContractsBatch.execute()
+        insertWitnessesBatch.get.execute()
       }
 
     }
   }
-
-}
-
-private[dao] trait TransactionsWriter {
-
-  def apply(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Instant,
-      offset: Offset,
-      transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
-  )(implicit connection: Connection): Unit
 
 }

@@ -9,7 +9,7 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{Configuration, Offset, TimeModel}
+import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, Configuration, Offset, TimeModel}
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
@@ -193,7 +193,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some(s"commandId$id"),
       txId,
       Some("appID1"),
-      Some("Alice"),
+      Some(alice),
       Some("workflowId"),
       let,
       let,
@@ -397,14 +397,24 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
-  protected final def store(offsetAndTx: (Offset, LedgerEntry.Transaction))(
-      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
+  protected final def store(
+      divulgedContracts: Map[(AbsoluteContractId, AbsoluteContractInst), Set[Party]],
+      offsetAndTx: (Offset, LedgerEntry.Transaction))(
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] =
     ledgerDao
       .storeLedgerEntry(
-        offsetAndTx._1,
-        PersistenceEntry.Transaction(offsetAndTx._2, Map.empty, List.empty))
+        offset = offsetAndTx._1,
+        PersistenceEntry.Transaction(
+          entry = offsetAndTx._2,
+          globalDivulgence = divulgedContracts.map { case ((id, _), witnesses) => id -> witnesses },
+          divulgedContracts = divulgedContracts.keysIterator.toList,
+        )
+      )
       .map(_ => offsetAndTx)
-  }
+
+  protected final def store(offsetAndTx: (Offset, LedgerEntry.Transaction))(
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] =
+    store(divulgedContracts = Map.empty, offsetAndTx)
 
   /** A transaction that creates the given key */
   protected final def txCreateContractWithKey(
