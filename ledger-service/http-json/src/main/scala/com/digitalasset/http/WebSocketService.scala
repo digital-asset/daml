@@ -13,6 +13,7 @@ import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonProtocol, S
 import com.daml.http.LedgerClientJwt.Terminates
 import util.ApiValueToLfValueConverter.apiValueToLfValue
 import util.{AbsoluteBookmark, ContractStreamStep, InsertDeleteStep, LedgerBegin}
+import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
 import com.daml.jwt.domain.Jwt
@@ -28,7 +29,6 @@ import scalaz.std.set._
 import scalaz.std.tuple._
 import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import Liskov.<~<
-import com.daml.http.util.ContractStreamStep.{Acs, LiveBegin, Txn}
 import com.daml.http.util.FlowUtil.allowOnlyFirstInput
 import spray.json.{JsArray, JsObject, JsValue, JsonReader}
 
@@ -413,7 +413,7 @@ class WebSocketService(
     val tickTrigger: TickTriggerOrStep = -\/(())
     val zeroState: StepAndErrors[Pos, JsValue] = startFrom.cata(
       x => StepAndErrors(Seq(), LiveBegin(AbsoluteBookmark(x.offset))),
-      StepAndErrors(Seq(), Acs(Vector()))
+      StepAndErrors(Seq(), LiveBegin(LedgerBegin))
     )
     Flow[StepAndErrors[Pos, JsValue]]
       .map(a => \/-(a): TickTriggerOrStep)
