@@ -40,8 +40,6 @@ object WebSocketService {
 
   private type CompiledQueries = Map[domain.TemplateId.RequiredPkg, LfV => Boolean]
 
-  private type EventsAndOffset = (Vector[JsObject], Option[JsValue])
-
   private type StreamPredicate[+Positive] = (
       Set[domain.TemplateId.RequiredPkg],
       Set[domain.TemplateId.OptionalPkg],
@@ -61,12 +59,12 @@ object WebSocketService {
   private final case class StepAndErrors[+Pos, +LfV](
       errors: Seq[ServerError],
       step: ContractStreamStep[domain.ArchivedContract, (domain.ActiveContract[LfV], Pos)]) {
-    import json.JsonProtocol._, spray.json._
-    def render(
-        implicit lfv: LfV <~< JsValue,
-        pos: Pos <~< Map[String, JsValue]): EventsAndOffset = {
-      import ContractStreamStep._
+    import JsonProtocol._, spray.json._
+
+    def render(implicit lfv: LfV <~< JsValue, pos: Pos <~< Map[String, JsValue]): JsObject = {
+
       def inj[V: JsonWriter](ctor: String, v: V) = JsObject(ctor -> v.toJson)
+
       val InsertDeleteStep(inserts, deletes) =
         Liskov
           .lift2[StepAndErrors, Pos, Map[String, JsValue], LfV, JsValue](pos, lfv)(this)
@@ -79,13 +77,10 @@ object WebSocketService {
             val acj = inj("created", ac)
             acj copy (fields = acj.fields ++ pos)
         } ++ errors.map(e => inj("error", e.message)))
-      val offsetAfter = step match {
-        case Acs(_) => None
-        case LiveBegin(off) =>
-          Some(off.toOption.cata(o => JsString(domain.Offset.unwrap(o)), JsNull: JsValue))
-        case Txn(_, off) => Some(JsString(domain.Offset.unwrap(off)))
-      }
-      (events, offsetAfter)
+
+      val offsetAfter = step.bookmark.map(_.toJson)
+
+      renderEvents(events, offsetAfter)
     }
 
     def append[P >: Pos, A >: LfV](o: StepAndErrors[P, A]): StepAndErrors[P, A] =
@@ -112,9 +107,9 @@ object WebSocketService {
             -\/(InvalidUserInput("offset must be specified as a leading, separate object message"))
           else
             SprayJson
-              .decode[String](offJv)
+              .decode[domain.Offset](offJv)
               .liftErr(InvalidUserInput)
-              .map(offStr => domain.StartingOffset(domain.Offset(offStr)))
+              .map(offset => domain.StartingOffset(offset))
         }
       case _ => None
     }
@@ -398,10 +393,9 @@ class WebSocketService(
       contractsService
         .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
-        .filter(_.nonEmpty)
+        .via(emitOffsetTicksAndFilterOutEmptySteps)
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
-        .via(renderEventsAndEmitHeartbeats) // wrong place, see https://github.com/digital-asset/daml/issues/4955
         .prepend(reportUnresolvedTemplateIds(unresolved))
         .map(jsv => \/-(wsMessage(jsv)))
     } else {
@@ -411,44 +405,38 @@ class WebSocketService(
     }
   }
 
-  private def emitOffsetTicksFilterOurEmptyEvents[Pos]
+  private def emitOffsetTicksAndFilterOutEmptySteps[Pos]
     : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
+
+    type EmptyTickOrStep = Unit \/ StepAndErrors[Pos, JsValue]
+    val emptyTick: EmptyTickOrStep = -\/(())
     val emptyAcs = StepAndErrors[Pos, JsValue](Seq(), Acs(Vector.empty))
-    val ledgerBeginTick = StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin))
+
     Flow[StepAndErrors[Pos, JsValue]]
-      .keepAlive(config.heartBeatPer, () => ledgerBeginTick) // offset tick
-      .scan(emptyAcs) {
-        case (state, `ledgerBeginTick`) =>
+      .map(a => \/-(a): EmptyTickOrStep)
+      .keepAlive(config.heartBeatPer, () => emptyTick)
+      .scan((emptyAcs, emptyTick)) {
+        case ((state, _), -\/(())) =>
+          // convert tick trigger into a tick message, get the last seen offset from the state
           state.step match {
-            case Acs(_) => ledgerBeginTick
-            case LiveBegin(LedgerBegin) => ledgerBeginTick
-            case LiveBegin(AbsoluteBookmark(offset)) => offsetTick(offset)
-            case Txn(_, offset) => offsetTick(offset)
+            case Acs(_) => (ledgerBeginTick, \/-(ledgerBeginTick))
+            case LiveBegin(LedgerBegin) => (ledgerBeginTick, \/-(ledgerBeginTick))
+            case LiveBegin(AbsoluteBookmark(offset)) => (state, \/-(offsetTick(offset)))
+            case Txn(_, offset) => (state, \/-(offsetTick(offset)))
           }
-        case (_, x) => x
+        case ((_, _), x @ \/-(step)) =>
+          // filter out empty steps, capture the current step, so we keep the last seen offset for the next tick
+          val nonEmptyStep: EmptyTickOrStep = if (step.nonEmpty) x else emptyTick
+          (step, nonEmptyStep)
       }
-    // TODO(Leo): filter out empty events coming from outside of this flow, they should be treated differently from emptyTick
+      .collect { case (_, \/-(x)) => x }
   }
+
+  private def ledgerBeginTick[Pos] =
+    StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin))
 
   private def offsetTick[Pos](offset: domain.Offset) =
     StepAndErrors[Pos, JsValue](Seq(), Txn(InsertDeleteStep.Empty, offset))
-
-  // TODO(Leo): #4955 make sure the heartbeat contains the last seen offset,
-  // including the offset from the last empty/filtered out block of events
-  private def renderEventsAndEmitHeartbeats: Flow[EventsAndOffset, JsValue, NotUsed] =
-    Flow[EventsAndOffset]
-      .keepAlive(config.heartBeatPer, () => (Vector.empty[JsObject], Option.empty[JsValue])) // heartbeat message
-      .scan(Option.empty[(EventsAndOffset, EventsAndOffset)]) {
-        case (Some((s, _)), (Vector(), None)) =>
-          // heartbeat message, keep the previous state, report the last seen offset
-          Some((s, (Vector(), s._2)))
-        case (_, a) =>
-          // override state, capture the last seen offset
-          Some((a, a))
-      }
-      .collect {
-        case Some((_, a)) => renderEvents(a._1, a._2)
-      }
 
   private def removePhantomArchives[A, B](remove: Option[Set[domain.ContractId]]) =
     remove cata (removePhantomArchives_[A, B], Flow[StepAndErrors[A, B]])
