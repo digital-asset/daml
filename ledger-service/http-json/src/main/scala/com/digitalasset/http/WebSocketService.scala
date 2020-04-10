@@ -393,7 +393,7 @@ class WebSocketService(
       contractsService
         .insertDeleteStepSource(jwt, party, resolved.toList, offPrefix, Terminates.Never)
         .via(convertFilterContracts(fn))
-        .via(emitOffsetTicksAndFilterOutEmptySteps)
+        .via(emitOffsetTicksAndFilterOutEmptySteps(offPrefix))
         .via(removePhantomArchives(remove = Q.removePhantomArchives(request)))
         .map(_.mapPos(Q.renderCreatedMetadata).render)
         .prepend(reportUnresolvedTemplateIds(unresolved))
@@ -405,17 +405,20 @@ class WebSocketService(
     }
   }
 
-  private def emitOffsetTicksAndFilterOutEmptySteps[Pos]
+  private def emitOffsetTicksAndFilterOutEmptySteps[Pos](startFrom: Option[domain.StartingOffset])
     : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
 
-    type EmptyTickOrStep = Unit \/ StepAndErrors[Pos, JsValue]
-    val emptyTick: EmptyTickOrStep = -\/(())
-    val emptyAcs = StepAndErrors[Pos, JsValue](Seq(), Acs(Vector.empty))
+    type TickTriggerOrStep = Unit \/ StepAndErrors[Pos, JsValue]
 
+    val tickTrigger: TickTriggerOrStep = -\/(())
+    val zeroState: StepAndErrors[Pos, JsValue] = startFrom.cata(
+      x => StepAndErrors(Seq(), LiveBegin(AbsoluteBookmark(x.offset))),
+      StepAndErrors(Seq(), Acs(Vector()))
+    )
     Flow[StepAndErrors[Pos, JsValue]]
-      .map(a => \/-(a): EmptyTickOrStep)
-      .keepAlive(config.heartBeatPer, () => emptyTick)
-      .scan((emptyAcs, emptyTick)) {
+      .map(a => \/-(a): TickTriggerOrStep)
+      .keepAlive(config.heartBeatPer, () => tickTrigger)
+      .scan((zeroState, tickTrigger)) {
         case ((state, _), -\/(())) =>
           // convert tick trigger into a tick message, get the last seen offset from the state
           state.step match {
@@ -426,7 +429,7 @@ class WebSocketService(
           }
         case ((_, _), x @ \/-(step)) =>
           // filter out empty steps, capture the current step, so we keep the last seen offset for the next tick
-          val nonEmptyStep: EmptyTickOrStep = if (step.nonEmpty) x else emptyTick
+          val nonEmptyStep: TickTriggerOrStep = if (step.nonEmpty) x else tickTrigger
           (step, nonEmptyStep)
       }
       .collect { case (_, \/-(x)) => x }
