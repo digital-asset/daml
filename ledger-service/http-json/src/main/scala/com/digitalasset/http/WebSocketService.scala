@@ -4,8 +4,8 @@
 package com.daml.http
 
 import akka.NotUsed
-import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import akka.stream.scaladsl.{Flow, Sink, Source}
+import akka.http.scaladsl.model.ws.{Message, TextMessage, BinaryMessage}
+import akka.stream.scaladsl.{Flow, Source, Sink}
 import akka.stream.Materializer
 import com.daml.http.EndpointsCompanion._
 import com.daml.http.domain.{JwtPayload, SearchForeverRequest}
