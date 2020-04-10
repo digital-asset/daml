@@ -413,26 +413,24 @@ class WebSocketService(
 
   private def emitOffsetTicksFilterOurEmptyEvents[Pos]
     : Flow[StepAndErrors[Pos, JsValue], StepAndErrors[Pos, JsValue], NotUsed] = {
-    val emptyState = StepAndErrors[Pos, JsValue](Seq(), Acs(Vector.empty))
-    val emptyTick = StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin)) // tick with LedgerBegin, offset = JsNull
+    val emptyAcs = StepAndErrors[Pos, JsValue](Seq(), Acs(Vector.empty))
+    val ledgerBeginTick = StepAndErrors[Pos, JsValue](Seq(), LiveBegin(LedgerBegin))
     Flow[StepAndErrors[Pos, JsValue]]
-      .keepAlive(config.heartBeatPer, () => emptyTick) // offset tick
-      .scan(emptyState) {
-        case (`emptyState`, `emptyTick`) => emptyTick
-        case (`emptyTick`, x) => x
-        case (state, `emptyTick`) =>
+      .keepAlive(config.heartBeatPer, () => ledgerBeginTick) // offset tick
+      .scan(emptyAcs) {
+        case (state, `ledgerBeginTick`) =>
           state.step match {
-            case Acs(_) => emptyTick
-            case LiveBegin(LedgerBegin) => emptyTick
-            case LiveBegin(AbsoluteBookmark(offset)) => tickWithOffset(offset)
-            case Txn(_, offset) => tickWithOffset(offset)
+            case Acs(_) => ledgerBeginTick
+            case LiveBegin(LedgerBegin) => ledgerBeginTick
+            case LiveBegin(AbsoluteBookmark(offset)) => offsetTick(offset)
+            case Txn(_, offset) => offsetTick(offset)
           }
         case (_, x) => x
       }
     // TODO(Leo): filter out empty events coming from outside of this flow, they should be treated differently from emptyTick
   }
 
-  private def tickWithOffset[Pos](offset: domain.Offset) =
+  private def offsetTick[Pos](offset: domain.Offset) =
     StepAndErrors[Pos, JsValue](Seq(), Txn(InsertDeleteStep.Empty, offset))
 
   // TODO(Leo): #4955 make sure the heartbeat contains the last seen offset,
