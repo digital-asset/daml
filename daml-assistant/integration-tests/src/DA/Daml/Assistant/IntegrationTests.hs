@@ -580,6 +580,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         withCurrentDirectory (cdaDir </> "ui") $ do
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
           retry 3 (callCommandSilent "yarn install --force --frozen-lockfile")
           callCommandSilent "yarn lint --max-warnings 0"
           callCommandSilent "yarn build"
