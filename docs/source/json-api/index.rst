@@ -1064,6 +1064,113 @@ HTTP Response
       "status": 200
     }
 
+List All DALF Packages
+**********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``GET``
+- Content: <EMPTY>
+
+HTTP Response
+=============
+
+.. code-block:: json
+
+    {
+      "result": [
+        "c1f1f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd",
+        "733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a182a",
+        "bfcd37bd6b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f",
+        "40f452260bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7",
+        "8a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb"
+      ],
+      "status": 200
+    }
+
+Where ``result`` is the JSON array containing package IDs of all loaded DALFs.
+
+Download a DALF Package
+***********************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages/<package ID>``
+- Method: ``GET``
+- Content: <EMPTY>
+
+Note that package ID is specified in the URL.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Transfer-Encoding: ``chunked``
+- Content-Type: ``application/dalf``
+- Content: <DALF bytes>
+
+The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
+
+HTTP Response with Error, any status different from 200 OK
+==========================================================
+
+Any status different from ``200 OK`` will be in the format specified below.
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: NOT_FOUND"
+        ],
+        "status": 500
+    }
+
+Upload a DAR File
+*****************
+
+HTTP Request
+============
+
+- URL: ``/v1/packages``
+- Method: ``POST``
+- Content-Type: ``application/octet-stream``
+- Content: <DAR bytes>
+
+The content (body) of the HTTP request contains raw DAR file bytes, without any encoding.
+
+HTTP Response, status: 200 OK
+=============================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "result": 1,
+        "status": 200
+    }
+
+HTTP Response with Error
+========================
+
+- Content-Type: ``application/json``
+- Content:
+
+.. code-block:: json
+
+    {
+        "errors": [
+            "io.grpc.StatusRuntimeException: INVALID_ARGUMENT: Invalid argument: Invalid DAR: package-upload, content: [}]"
+        ],
+        "status": 500
+    }
+
 Streaming API
 *************
 
