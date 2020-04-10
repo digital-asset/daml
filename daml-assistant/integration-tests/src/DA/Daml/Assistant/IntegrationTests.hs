@@ -556,7 +556,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           callCommandSilent "daml build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
-        -- assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
+        assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
         withCurrentDirectory (cdaDir </> "ui") $ do
           -- NOTE(MH): We set up the yarn env again to avoid having all the
           -- dependencies of the UI already in scope when `daml2js` runs
