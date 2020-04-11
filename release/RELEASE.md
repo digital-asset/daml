@@ -120,6 +120,7 @@ latest commit on master.
       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time`
       1. `daml navigator server localhost 6865 --port 7500`
+      1. `daml codegen java`
       1. `mvn compile exec:java@run-quickstart`
 
       > Note: It takes some time for our artifacts to be available on Maven
