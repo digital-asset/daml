@@ -32,6 +32,7 @@
     for the usual startup info logging (which port, dar files, etc...)
     -->
     <logger name="com.daml.platform.sandboxnext" level="INFO" />
+    <logger name="com.daml.platform.sandbox" level="INFO" />
     <logger name="com.daml.platform.apiserver.LedgerApiServer" level="INFO" />
 
     <root level="INFO">
