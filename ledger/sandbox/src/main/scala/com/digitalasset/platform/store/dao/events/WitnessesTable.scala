@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import anorm.{BatchSql, NamedParameter}
+import com.daml.lf.data.Ref.LedgerString
 import com.daml.platform.store.Conversions._
 
 /**
@@ -60,14 +61,4 @@ private[events] object WitnessesTable {
         tableName = "participant_event_witnesses_complement",
       )
 
-  /**
-    * Concrete [[WitnessesTable]] to store which party can see which
-    * contract, relatively to interpretation and validation.
-    */
-  private[events] object ForContracts
-      extends WitnessesTable(
-        tableName = "participant_contract_witnesses",
-        idColumn = "contract_id",
-        witnessColumn = "contract_witness",
-      )
 }
