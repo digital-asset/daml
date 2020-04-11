@@ -4,15 +4,18 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
-import java.util.Date
+import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.DbType
 
-private[dao] object TransactionsWriter extends TransactionsWriter {
+private[dao] final class TransactionsWriter(dbType: DbType) {
+
+  private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
   private def computeDisclosureForFlatTransaction(
       transactionId: TransactionId,
@@ -41,16 +44,40 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
     }
   }
 
-  def apply(
+  private def divulgedContracts(
+      disclosure: DisclosureRelation,
+      toBeInserted: Set[ContractId],
+  ): PartialFunction[(NodeId, Node), (ContractId, Set[Party])] = {
+    case (nodeId, c: Create) if toBeInserted(c.coid) =>
+      c.coid -> disclosure(nodeId)
+    case (nodeId, e: Exercise) if toBeInserted(e.targetCoid) =>
+      e.targetCoid -> disclosure(nodeId)
+    case (nodeId, f: Fetch) if toBeInserted(f.coid) =>
+      f.coid -> disclosure(nodeId)
+    case (nodeId, l: LookupByKey) if l.result.fold(false)(toBeInserted) =>
+      l.result.get -> disclosure(nodeId)
+  }
+
+  private def divulgence(
+      transaction: Transaction,
+      disclosure: DisclosureRelation,
+      toBeInserted: Set[ContractId],
+  ): WitnessRelation[ContractId] =
+    transaction.nodes.iterator
+      .collect(divulgedContracts(disclosure, toBeInserted))
+      .foldLeft[WitnessRelation[ContractId]](Map.empty)(Relation.merge)
+
+  def write(
       applicationId: Option[ApplicationId],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
       commandId: Option[CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
+      divulgedContracts: Iterable[(ContractId, Contract)],
   )(implicit connection: Connection): Unit = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
@@ -72,6 +99,10 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
 
     } else {
 
+      // `disclosure` says which node within the current transaction are visible to which participant
+      // `globalDivulgence` includes:
+      // - contracts created on another participant
+      // - contracts created in a previous transaction that are divulged in the current transaction
       val blinding = Blinding.blind(transaction)
 
       val disclosureForFlatTransaction =
@@ -103,23 +134,46 @@ private[dao] object TransactionsWriter extends TransactionsWriter {
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
+      val contractBatches = ContractsTable.prepareBatchInsert(
+        ledgerEffectiveTime = ledgerEffectiveTime,
+        transaction = transaction,
+        divulgedContracts = divulgedContracts,
+      )
+
+      for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
+        val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
+        require(deleteWitnessesBatch.nonEmpty, "Illegal: deleting witnesses without a contract")
+        // Delete the witnesses first to respect the foreign key constraint of the underlying storage
+        deleteWitnessesBatch.get.execute()
+        deleteContractsBatch.execute()
+      }
+
+      for ((_, insertContractsBatch) <- contractBatches.insertions) {
+        insertContractsBatch.execute()
+      }
+
+      val notDeleted: ContractId => Boolean =
+        !contractBatches.deletions.fold(Set.empty[ContractId])(_._1).contains(_)
+
+      // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
+      // Compute and insert new witnesses regardless of whether the current transaction adds new
+      // contracts because it may be the case that we are only adding new witnesses to existing
+      // contracts (e.g. via a fetch).
+      val localDivulgence =
+        contractBatches.insertions.fold[WitnessRelation[ContractId]](Map.empty) {
+          case (toBeInserted, _) => divulgence(transaction, blinding.disclosure, toBeInserted)
+        }
+      val fullDivulgence = Relation.union(
+        localDivulgence,
+        blinding.globalDivulgence.filterKeys(notDeleted)
+      )
+      val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
+      if (localDivulgence.nonEmpty) {
+        require(insertWitnessesBatch.nonEmpty, "Illegal: inserting a contract without witnesses")
+      }
+      insertWitnessesBatch.foreach(_.execute())
+
     }
   }
-
-}
-
-private[dao] trait TransactionsWriter {
-
-  def apply(
-      applicationId: Option[ApplicationId],
-      workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
-      offset: Offset,
-      transaction: Transaction,
-  )(implicit connection: Connection): Unit
 
 }

@@ -13,6 +13,8 @@ package object events {
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.AbsoluteContractId
   private[events] type Value = lfval.VersionedValue[ContractId]
+  private[events] type Contract = lfval.ContractInst[Value]
+  private[events] val Contract = lfval.ContractInst
 
   import com.daml.lf.{transaction => lftx}
   private[events] type NodeId = lftx.Transaction.NodeId
@@ -20,11 +22,17 @@ package object events {
   private[events] type Node = lftx.Node.GenNode.WithTxValue[NodeId, ContractId]
   private[events] type Create = lftx.Node.NodeCreate.WithTxValue[ContractId]
   private[events] type Exercise = lftx.Node.NodeExercises.WithTxValue[NodeId, ContractId]
+  private[events] type Fetch = lftx.Node.NodeFetch.WithTxValue[ContractId]
+  private[events] type LookupByKey = lftx.Node.NodeLookupByKey.WithTxValue[ContractId]
+  private[events] type Key = lftx.Node.GlobalKey
+  private[events] val Key = lftx.Node.GlobalKey
 
   import com.daml.lf.{data => lfdata}
   private[events] type Party = lfdata.Ref.Party
   private[events] type Identifier = lfdata.Ref.Identifier
   private[events] val Identifier = lfdata.Ref.Identifier
+  private[events] type LedgerString = lfdata.Ref.LedgerString
+  private[events] val LedgerString = lfdata.Ref.LedgerString
   private[events] type WitnessRelation[A] = lfdata.Relation.Relation[A, Party]
   private[events] type DisclosureRelation = WitnessRelation[NodeId]
   private[events] type DivulgenceRelation = WitnessRelation[ContractId]

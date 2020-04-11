@@ -145,7 +145,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
   it should "filter correctly by party" in {
     for {
       from <- ledgerDao.lookupLedgerEnd()
-      (_, tx) <- store(withChildren)
+      (_, tx) <- store(multipleCreates(charlie, Seq(alice -> "foo:bar:baz", bob -> "foo:bar:baz")))
       to <- ledgerDao.lookupLedgerEnd()
       individualLookupForAlice <- lookupIndividually(Seq(tx), as = Set(alice))
       individualLookupForBob <- lookupIndividually(Seq(tx), as = Set(bob))
@@ -369,10 +369,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, t2) <- store(singleCreate)
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, t4) <- store(fullyTransient)
-      (_, t5) <- store(fullyTransientWithChildren)
-      (_, t6) <- store(withChildren)
       to <- ledgerDao.lookupLedgerEnd()
-    } yield (from, to, Seq(t1, t2, t3, t4, t5, t6))
+    } yield (from, to, Seq(t1, t2, t3, t4))
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],

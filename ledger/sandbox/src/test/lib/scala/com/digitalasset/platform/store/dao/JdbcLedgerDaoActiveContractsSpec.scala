@@ -29,8 +29,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, t2) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, _) <- store(fullyTransient)
-      (_, _) <- store(fullyTransientWithChildren)
-      (_, t6) <- store(withChildren)
+      (_, t5) <- store(singleCreate)
+      (_, t6) <- store(singleCreate)
       after <- ledgerDao.lookupLedgerEnd()
       activeContractsBefore <- activeContractsOf(
         ledgerDao.transactionsReader
@@ -51,8 +51,11 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
     } yield {
       val activeContracts = activeContractsAfter.toSet.diff(activeContractsBefore.toSet)
       activeContracts should have size 3
-      activeContracts.map(_.contractId) should contain theSameElementsAs
-        nonTransient(t6).map(_.coid) + nonTransient(t1).loneElement.coid
+      activeContracts.map(_.contractId) shouldBe Set(
+        nonTransient(t1).loneElement.coid,
+        nonTransient(t5).loneElement.coid,
+        nonTransient(t6).loneElement.coid,
+      )
     }
   }
 
@@ -71,8 +74,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
       (_, c) <- store(singleCreate)
       (_, _) <- store(singleExercise(nonTransient(c).loneElement))
       (_, _) <- store(fullyTransient)
-      (_, _) <- store(fullyTransientWithChildren)
-      (_, _) <- store(withChildren)
+      (_, _) <- store(singleCreate)
+      (_, _) <- store(singleCreate)
       activeContractsAfter <- activeContractsOf(
         ledgerDao.transactionsReader
           .getActiveContracts(

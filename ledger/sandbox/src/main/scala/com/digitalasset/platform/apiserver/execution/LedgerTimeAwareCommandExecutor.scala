@@ -70,7 +70,7 @@ final class LedgerTimeAwareCommandExecutor(
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
               .flatMap(maxUsedTime =>
-                if (!maxUsedTime.isAfter(commands.ledgerEffectiveTime)) {
+                if (!maxUsedTime.fold(true)(_.isAfter(commands.ledgerEffectiveTime))) {
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
@@ -95,16 +95,19 @@ final class LedgerTimeAwareCommandExecutor(
       }
   }
 
+  // Does nothing if `t` is empty. This can happen if the transaction only regarded divulged contracts.
   private[this] def advanceOutputTime(
       res: CommandExecutionResult,
-      t: Instant
+      newTime: Option[Instant],
   ): CommandExecutionResult =
-    res.copy(
-      transactionMeta =
-        res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t)))
+    newTime.fold(res)(
+      t =>
+        res.copy(transactionMeta =
+          res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t))))
 
-  private[this] def advanceInputTime(cmd: Commands, t: Instant): Commands =
-    cmd.copy(ledgerEffectiveTime = t)
+  // Does nothing if `t` is empty. This happens if the transaction only regarded divulged contracts.
+  private[this] def advanceInputTime(cmd: Commands, newTime: Option[Instant]): Commands =
+    newTime.fold(cmd)(t => cmd.copy(ledgerEffectiveTime = t))
 
   object Metrics {
     val retryMeter: Meter = metricRegistry.meter(MetricPrefix :+ "retry")
