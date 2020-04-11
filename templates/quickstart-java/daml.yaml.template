@@ -14,3 +14,8 @@ dependencies:
   - daml-script
 sandbox-options:
   - --wall-clock-time
+codegen:
+  java:
+    package-prefix: com.daml.quickstart.model
+    output-directory: target/generated-sources/iou
+    decoderClass: com.daml.quickstart.iou.TemplateDecoder
