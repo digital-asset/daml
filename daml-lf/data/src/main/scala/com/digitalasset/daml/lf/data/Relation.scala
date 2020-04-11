@@ -41,9 +41,6 @@ object Relation {
         kvs <- relation.iterator
         value <- kvs._2
       } yield (kvs._1, value)
-
-    def mapKeys[A, K, B](r: Relation[A, B])(f: A => K): Relation[K, B] =
-      r.map { case (a, b) => f(a) -> b }
   }
 
 }
