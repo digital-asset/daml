@@ -367,11 +367,13 @@ genrule(
         tar -zxf $(location :theme) -C build/docs/theme
 
         # Copy templates for code snippets in getting started guide
-        mkdir -p build/docs/source/getting-started/code
-        tar -zxf $(location //templates:templates-tarball) -C build/docs/source/getting-started/code/
-        cd build/docs/source/getting-started/code/templates-tarball
-        ../../../../../../$(location @patch_dev_env//:patch) -s -p1 < ../../../../../../$(location //templates:messaging.patch)
-        cd -
+        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
+        mkdir -p $$CODE_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        # Apply patch for messaging feature (we only need the "after" state)
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        MESSAGING_PATCH=$$PWD/$(location //templates:messaging.patch)
+        (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx
         cd build
