@@ -595,7 +595,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           step "Set up libraries and workspaces again for UI build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
           step "Install UI dependencies again, forcing rebuild of generated code"
-          retry 3 (callCommandSilent "yarn install --force --frozen-lockfile")
+          callCommandSilent "yarn install --force --frozen-lockfile"
           step "Run linter again"
           callCommandSilent "yarn lint --max-warnings 0"
           step "Build the new UI"
