@@ -417,6 +417,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           runConduitRes
             $ sourceFileBS mvnDbTarball
             .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
+          callCommand "daml codegen java -o target/generated-sources/iou -d com.daml.quickstart.iou.TemplateDecoder .daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.model"
           callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $

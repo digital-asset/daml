@@ -58,25 +58,6 @@
                 </dependencies>
                 <executions>
                     <execution>
-                        <id>daml-codegen-java</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>java</goal>
-                        </goals>
-                        <configuration>
-                            <includeProjectDependencies>false</includeProjectDependencies>
-                            <includePluginDependencies>true</includePluginDependencies>
-                            <mainClass>com.daml.lf.codegen.Main</mainClass>
-                            <arguments>
-                                <argument>-o</argument>
-                                <argument>${daml-codegen-java.output}</argument>
-                                <argument>-d</argument>
-                                <argument>com.daml.quickstart.iou.TemplateDecoder</argument>
-                                <argument>${project.basedir}/.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.model</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
                         <id>run-quickstart</id>
                         <goals>
                             <goal>java</goal>

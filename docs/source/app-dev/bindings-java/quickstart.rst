@@ -475,7 +475,12 @@ A distributed ledger only forms the core of a full DAML application.
 
 To build automations and integrations around the ledger, the SDK has :doc:`language bindings </app-dev/bindings-java/index>` for the Ledger API in several programming languages.
 
-To compile the Java integration for the quickstart application, run ``mvn compile``.
+
+To compile the Java integration for the quickstart application, we first need to run the Java codegen on the DAR we built before::
+
+    daml codegen java -o target/generated-sources/iou -d com.daml.quickstart.iou.TemplateDecoder .daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.model
+
+Once the code has been generated, we can now compile it using ``mvn compile``.
 
 Now start the Java integration with ``mvn exec:java@run-quickstart``. Note that
 this step requires that the sandbox started :ref:`earlier
