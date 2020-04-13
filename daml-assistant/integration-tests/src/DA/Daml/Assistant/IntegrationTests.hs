@@ -637,6 +637,12 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           step "Build the new UI"
           callCommandSilent "yarn build"
 
+        -- Run end to end testing for the app.
+        step "Install Jest, Puppeteer and other dependencies"
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          addTestDependencies (cdaDir </> "ui")
+          callCommandSilent "yarn install"
+
 damlInstallerName :: String
 damlInstallerName
     | isWindows = "daml.exe"
