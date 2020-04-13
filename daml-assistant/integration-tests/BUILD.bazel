@@ -91,6 +91,8 @@ da_haskell_test(
         "@tar_dev_env//:tar",
         "@patch_dev_env//:patch",
         "//templates:messaging.patch",
+        "//templates:testDeps.json",
+        "//templates:index.test.ts",
     ] + ([] if is_windows else ts_libraries),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
