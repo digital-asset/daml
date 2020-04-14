@@ -340,9 +340,7 @@ jobs:
       - Linux
       - macOS
       - Windows
-      - check_for_release
       - release
-      - check_standard_change_label
       - write_ledger_dump
       - git_sha
     pool:
@@ -360,18 +358,10 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      check_for_release.start: $[ dependencies.check_for_release.outputs['start.time'] ]
-      check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
-      check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
-      check_for_release.status: $[ dependencies.check_for_release.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      std_change.start: $[ dependencies.check_standard_change_label.outputs['start.time'] ]
-      std_change.machine: $[ dependencies.check_standard_change_label.outputs['start.machine'] ]
-      std_change.end: $[ dependencies.check_standard_change_label.outputs['end.time'] ]
-      std_change.status: $[ dependencies.check_standard_change_label.result ]
       dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
@@ -407,14 +397,6 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "check_for_release": {"start": "$(check_for_release.start)",
-                                          "machine": "$(check_for_release.machine)",
-                                          "end": "$(check_for_release.end)",
-                                          "status": "$(check_for_release.status)"},
-                    "check_standard_change_label": {"start": "$(std_change.start)",
-                                                    "machine": "$(std_change.machine)",
-                                                    "end": "$(std_change.end)",
-                                                    "status": "$(std_change.status)"},
                     "write_ledger_dump": {"start": "$(dump.start)",
                                           "machine": "$(dump.machine)",
                                           "end": "$(dump.end)",
@@ -462,11 +444,11 @@ jobs:
               cat $REPORT
           fi
 
-          # Linux, macOS, check_std_change_label and Windows are always
-          # required and should always succeed.
+          # Linux, macOS and Windows are always required and should always
+          # succeed.
           #
-          # windows_signing, release and write_ledger_dump only run on releases
-          # and are skipped otherwise.
+          # release and write_ledger_dump only run on releases and are skipped
+          # otherwise.
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
