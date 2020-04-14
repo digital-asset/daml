@@ -18,8 +18,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Blinding
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.MetricName
-import com.daml.metrics.Metrics.timedFuture
+import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
@@ -335,7 +334,7 @@ class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+              Timed.future(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

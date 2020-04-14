@@ -8,7 +8,7 @@ import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
-import com.daml.metrics.{MetricName, Metrics}
+import com.daml.metrics.{MetricName, Timed}
 
 final class TimedReadService(delegate: ReadService, metrics: MetricRegistry, prefix: MetricName)
     extends ReadService {
@@ -22,5 +22,5 @@ final class TimedReadService(delegate: ReadService, metrics: MetricRegistry, pre
     delegate.currentHealth()
 
   private def time[Out, Mat](name: String, source: => Source[Out, Mat]): Source[Out, Mat] =
-    Metrics.timedSource(metrics.timer(prefix :+ name), source)
+    Timed.source(metrics.timer(prefix :+ name), source)
 }

@@ -28,8 +28,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.daml.metrics.MetricName
-import com.daml.metrics.Metrics.timedFuture
+import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -109,16 +108,16 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       contractId: Value.AbsoluteContractId,
       forParty: Party
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    timedFuture(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
+    Timed.future(Metrics.lookupContract, ledger.lookupContract(contractId, forParty))
 
   override def lookupKey(key: GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    timedFuture(Metrics.lookupKey, ledger.lookupKey(key, forParty))
+    Timed.future(Metrics.lookupKey, ledger.lookupKey(key, forParty))
 
   override def lookupFlatTransactionById(
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetFlatTransactionResponse]] =
-    timedFuture(
+    Timed.future(
       Metrics.lookupFlatTransactionById,
       ledger.lookupFlatTransactionById(transactionId, requestingParties),
     )
@@ -127,31 +126,31 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       transactionId: TransactionId,
       requestingParties: Set[Party],
   ): Future[Option[GetTransactionResponse]] =
-    timedFuture(
+    Timed.future(
       Metrics.lookupTransactionTreeById,
       ledger.lookupTransactionTreeById(transactionId, requestingParties),
     )
 
   override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
-    timedFuture(Metrics.lookupMaximumLedgerTime, ledger.lookupMaximumLedgerTime(contractIds))
+    Timed.future(Metrics.lookupMaximumLedgerTime, ledger.lookupMaximumLedgerTime(contractIds))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
-    timedFuture(Metrics.getParties, ledger.getParties(parties))
+    Timed.future(Metrics.getParties, ledger.getParties(parties))
 
   override def listKnownParties(): Future[List[PartyDetails]] =
-    timedFuture(Metrics.listKnownParties, ledger.listKnownParties())
+    Timed.future(Metrics.listKnownParties, ledger.listKnownParties())
 
   override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] =
     ledger.partyEntries(startExclusive)
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    timedFuture(Metrics.listLfPackages, ledger.listLfPackages())
+    Timed.future(Metrics.listLfPackages, ledger.listLfPackages())
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    timedFuture(Metrics.getLfArchive, ledger.getLfArchive(packageId))
+    Timed.future(Metrics.getLfArchive, ledger.getLfArchive(packageId))
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    timedFuture(Metrics.getLfPackage, ledger.getLfPackage(packageId))
+    Timed.future(Metrics.getLfPackage, ledger.getLfPackage(packageId))
 
   override def packageEntries(
       startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
@@ -162,7 +161,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
   }
 
   override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
-    timedFuture(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
+    Timed.future(Metrics.lookupLedgerConfiguration, ledger.lookupLedgerConfiguration())
 
   override def configurationEntries(
       startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
@@ -173,12 +172,12 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
-    timedFuture(
+    Timed.future(
       Metrics.deduplicateCommand,
       ledger.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil))
 
   override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
-    timedFuture(
+    Timed.future(
       Metrics.removeExpiredDeduplicationData,
       ledger.removeExpiredDeduplicationData(currentTime))
 
@@ -186,7 +185,7 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       commandId: CommandId,
       submitter: Ref.Party,
   ): Future[Unit] =
-    timedFuture(
+    Timed.future(
       Metrics.stopDeduplicatingCommand,
       ledger.stopDeduplicatingCommand(commandId, submitter))
 }
