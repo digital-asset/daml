@@ -13,4 +13,6 @@ private[app] object Metrics {
   val ReadServicePrefix: MetricName = ServicePrefix :+ "read"
   val WriteServicePrefix: MetricName = ServicePrefix :+ "write"
 
+  val JVMServicePrefix: MetricName = ServicePrefix :+ "jvm"
+
 }

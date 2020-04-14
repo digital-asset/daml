@@ -12,7 +12,8 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.kvutils.app.Metrics.{
   IndexServicePrefix,
   ReadServicePrefix,
-  WriteServicePrefix
+  WriteServicePrefix,
+  JVMServicePrefix,
 }
 import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
@@ -56,7 +57,7 @@ final class Runner[T <: ReadWriteService, Extra](
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
             val metricRegistry = factory.metricRegistry(participantConfig, config)
-            metricRegistry.registerAll(new JvmMetricSet)
+            metricRegistry.registerAll(JVMServicePrefix, new JvmMetricSet)
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
                 reporter =>
