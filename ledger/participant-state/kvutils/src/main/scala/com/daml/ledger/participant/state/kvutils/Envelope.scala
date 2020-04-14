@@ -6,8 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
-import com.google.common.io.ByteStreams
 import com.google.protobuf.ByteString
+import org.apache.commons.io.IOUtils
 
 import scala.util.Try
 
@@ -130,16 +130,16 @@ object Envelope {
     }
 
   private def compress(payload: ByteString): ByteString = {
-    val out = ByteString.newOutput()
-    val gzipOut = new GZIPOutputStream(out)
-    ByteStreams.copy(payload.newInput(), gzipOut)
-    gzipOut.close()
-    out.toByteString
+    val outputStream = ByteString.newOutput()
+    val compressedOutputStream = new GZIPOutputStream(outputStream)
+    IOUtils.copy(payload.newInput(), compressedOutputStream)
+    compressedOutputStream.close()
+    outputStream.toByteString
   }
 
   private def decompress(payload: ByteString): ByteString = {
-    val gzipIn = new GZIPInputStream(payload.newInput())
-    ByteString.readFrom(gzipIn)
+    val decompressedInputStream = new GZIPInputStream(payload.newInput())
+    ByteString.readFrom(decompressedInputStream)
   }
 
   private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
