@@ -7,9 +7,9 @@ import java.sql.Connection
 import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.MetricName
 import com.daml.platform.configuration.ServerRole
 import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder

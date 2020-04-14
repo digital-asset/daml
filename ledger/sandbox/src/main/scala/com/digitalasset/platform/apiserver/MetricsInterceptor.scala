@@ -6,7 +6,7 @@ package com.daml.platform.apiserver
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.daml.metrics.MetricName
 import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 import scala.collection.concurrent.TrieMap

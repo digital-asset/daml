@@ -6,13 +6,12 @@ package com.daml.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
-import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.index.MeteredReadOnlyLedger
-import com.daml.platform.metrics.timedFuture
 
 import scala.concurrent.Future
 
@@ -33,7 +32,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
@@ -41,7 +40,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       submissionId: SubmissionId,
       party: Party,
       displayName: Option[String]): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
 
@@ -50,7 +49,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.uploadPackages,
       ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
 
@@ -58,7 +57,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishConfiguration,
       ledger.publishConfiguration(maxRecordTime, submissionId, config))
 

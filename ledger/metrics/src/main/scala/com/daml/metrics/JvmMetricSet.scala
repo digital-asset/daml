@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.metrics
+package com.daml.metrics
 
 import java.util
 
@@ -13,7 +13,7 @@ import com.codahale.metrics.jvm.{
   ThreadStatesGaugeSet
 }
 import com.codahale.metrics.{Metric, MetricSet}
-import com.daml.ledger.participant.state.metrics.JvmMetricSet._
+import com.daml.metrics.JvmMetricSet._
 
 import scala.collection.JavaConverters._
 
