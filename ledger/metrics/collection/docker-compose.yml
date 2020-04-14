@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 version: "3"
 services:
   grafana:
@@ -9,9 +12,9 @@ services:
     networks:
       - collection
     volumes:
-      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
-      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./dashboards:/var/lib/grafana/dashboards
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
 
   graphite:
     image: graphiteapp/graphite-statsd
