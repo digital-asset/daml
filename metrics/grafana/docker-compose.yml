@@ -1,0 +1,42 @@
+version: "3"
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - grafana-net
+    volumes:
+      # - grafana-volume
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./dashboards:/var/lib/grafana/dashboards
+
+  graphite:
+    image: graphiteapp/graphite-statsd
+    container_name: graphite
+    restart: always
+    ports:
+      - 2000:80
+      - 2080:8080
+      - 2003:2003
+      - 2004:2004
+      - 2023:2023
+      - 2024:2024
+      - 8125:8125/udp
+      - 8126:8126
+    networks:
+      - grafana-net
+    # volumes:
+    #   - graphite-volume
+
+networks:
+  grafana-net:
+
+# volumes:
+#   grafana-volume:
+#     external: true
+#   graphite-volume:
+#     external: true
