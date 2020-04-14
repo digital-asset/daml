@@ -78,8 +78,11 @@ object Version {
     *      * Add submissionTime in DamlTransactionEntry and use it instead of ledgerTime to derive
     *        contract ids.
     *      * Add DamlSubmissionBatch message.
+    *
     *   4: * Remove application_id from DamlCommandDedupKey. Only submitter and commandId are used for deduplication.
     *      * Add deduplicatedUntil field to DamlCommandDedupValue to restrict the deduplication window.
+    *
+    *   5: * Use LZ4 compression for envelopes instead of gzip.
     */
-  val version: Long = 4
+  val version: Long = 5
 }
