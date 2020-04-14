@@ -220,6 +220,12 @@ type LedgerOptions = {
    * as it is the case with the development server of `create-react-app`.
    */
   wsBaseUrl?: string;
+  /**
+   * Optional number of milliseconds a connection has to be live to be considered healthy. If the
+   * connection is closed after being live for at least this amount of time, the `Ledger` tries to
+   * reconnect, else not.
+   */
+  reconnectThreshold?: number;
 }
 
 /**
@@ -229,11 +235,12 @@ class Ledger {
   private readonly token: string;
   private readonly httpBaseUrl: string;
   private readonly wsBaseUrl: string;
+  private readonly reconnectThreshold: number;
 
   /**
    * Construct a new `Ledger` object. See [[LedgerOptions]] for the constructor arguments.
    */
-  constructor({token, httpBaseUrl, wsBaseUrl}: LedgerOptions) {
+  constructor({token, httpBaseUrl, wsBaseUrl, reconnectThreshold = 30000}: LedgerOptions) {
     if (!httpBaseUrl) {
       httpBaseUrl = `${window.location.protocol}//${window.location.host}/`;
     }
@@ -256,6 +263,7 @@ class Ledger {
     this.token = token;
     this.httpBaseUrl = httpBaseUrl;
     this.wsBaseUrl = wsBaseUrl;
+    this.reconnectThreshold = reconnectThreshold;
   }
 
   /**
@@ -487,18 +495,27 @@ class Ledger {
     template: Template<T, K, I>,
     endpoint: string,
     request: unknown,
+    reconnectRequest: () => unknown,
     init: State,
     change: (state: State, events: readonly Event<T, K, I>[]) => State,
   ): Stream<T, K, I, State> {
     const protocols = ['jwt.token.' + this.token, 'daml.ws.auth'];
-    const ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
-    let isLive = false;
+    let ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
+    let isLiveSince: undefined | number = undefined;
+    let lastOffset: undefined | string = undefined;
     let state = init;
+    let isReconnecting: boolean = false;
     const emitter = new EventEmitter();
-    ws.addEventListener('open', () => {
-      ws.send(JSON.stringify(request));
-    });
-    ws.addEventListener('message', event => {
+    const onOpen = (): void => {
+      if (isReconnecting) {
+          ws.send(JSON.stringify({ 'offset': lastOffset }));
+          ws.send(JSON.stringify(reconnectRequest()));
+      } else {
+        ws.send(JSON.stringify(request));
+      }
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const onMessage = (event: { data: any } ): void => {
       const json: unknown = JSON.parse(event.data.toString());
       if (isRecordWith('events', json)) {
         const events = jtv.Result.withException(jtv.array(decodeEvent(template)).run(json.events));
@@ -506,9 +523,14 @@ class Ledger {
           state = change(state, events);
           emitter.emit('change', state, events);
         }
-        if (isRecordWith('offset', json) && !isLive) {
-          isLive = true;
-          emitter.emit('live', state);
+        if (isRecordWith('offset', json)) {
+          lastOffset = jtv.Result.withException(jtv.string().run(json.offset));
+          if (isLiveSince === undefined) {
+            isLiveSince = Date.now();
+            if (!isReconnecting) {
+              emitter.emit('live', state);
+            }
+          }
         }
       } else if (isRecordWith('warnings', json)) {
         console.warn('Ledger.streamQuery warnings', json);
@@ -517,12 +539,26 @@ class Ledger {
       } else {
         console.error('Ledger.streamQuery unknown message', json);
       }
-    });
+    };
+    const onClose = ({ code, reason }: { code: number; reason: string }): void => {
+      emitter.emit('close', {code, reason});
+      const now = new Date().getTime();
+      // we try to reconnect if we could connect previously and we were live for at least
+      // 'reconnectThreshold'.
+      if (lastOffset !== undefined && isLiveSince !== undefined && now - isLiveSince >= this.reconnectThreshold) {
+        isLiveSince = undefined;
+        isReconnecting = true;
+        ws = new WebSocket(this.wsBaseUrl + endpoint, protocols);
+        ws.addEventListener('open', onOpen);
+        ws.addEventListener('message', onMessage);
+        ws.addEventListener('close', onClose);
+      }
+    };
+    ws.addEventListener('open', onOpen);
+    ws.addEventListener('message', onMessage);
     // NOTE(MH): We ignore the 'error' event since it is always followed by a
     // 'close' event, which we need to handle anyway.
-    ws.addEventListener('close', ({code, reason}) => {
-      emitter.emit('close', {code, reason});
-    });
+    ws.addEventListener('close', onClose);
     // TODO(MH): Make types stricter.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const on = (type: string, listener: any): void => void emitter.on(type, listener);
@@ -556,6 +592,7 @@ class Ledger {
     query?: Query<T>,
   ): Stream<T, K, I, readonly CreateEvent<T, K, I>[]> {
     const request = {templateIds: [template.templateId], query};
+    const reconnectRequest = (): object[] => [request];
     const change = (contracts: readonly CreateEvent<T, K, I>[], events: readonly Event<T, K, I>[]): CreateEvent<T, K, I>[] => {
       const archiveEvents: Set<ContractId<T>> = new Set();
       const createEvents: CreateEvent<T, K, I>[] = [];
@@ -570,7 +607,7 @@ class Ledger {
         .concat(createEvents)
         .filter(contract => !archiveEvents.has(contract.contractId));
     };
-    return this.streamSubmit(template, 'v1/stream/query', request, [], change);
+    return this.streamSubmit(template, 'v1/stream/query', request, reconnectRequest, [], change);
   }
 
   /**
@@ -586,7 +623,9 @@ class Ledger {
     template: Template<T, K, I>,
     key: K,
   ): Stream<T, K, I, CreateEvent<T, K, I> | null> {
+    let lastContractId: ContractId<T> | null = null;
     const request = [{templateId: template.templateId, key}];
+    const reconnectRequest = (): object[] => [{...request[0], 'contractIdAtOffset': lastContractId}]
     const change = (contract: CreateEvent<T, K, I> | null, events: readonly Event<T, K, I>[]): CreateEvent<T, K, I> | null => {
       // NOTE(MH, #4564): We're very lenient here. We should not see a create
       // event when `contract` is currently not null. We should also only see
@@ -602,9 +641,10 @@ class Ledger {
           }
         }
       }
+      lastContractId = contract ? contract.contractId : null
       return contract;
     }
-    return this.streamSubmit(template, 'v1/stream/fetch', request, null, change);
+    return this.streamSubmit(template, 'v1/stream/fetch', request, reconnectRequest, null, change);
   }
 }
 
