@@ -55,13 +55,16 @@ cat > package.json<<EOF
   "private": true,
   "workspaces": ["daml2js"],
   "resolutions": {
-    "@daml/types": "file:daml-types"
+    "@daml/types": "file:daml-types",
+    "@daml/ledger": "file:daml-ledger"
   }
 }
 EOF
 cd ~/project/daml.git
 bazel build //language-support/ts/daml-types:npm_package
+bazel build //language-support/ts/daml-ledger:npm_package
 cp -R bazel-bin/language-support/ts/daml-types/npm_package ~/tmp/davl/daml-types
+cp -R bazel-bin/language-support/ts/daml-leger/npm_package ~/tmp/davl/daml-ledger
 bazel run //language-support/ts/codegen:daml2js -- -o ~/tmp/davl/daml2js ~/project/davl.git/released/*.dar
 ```
 
