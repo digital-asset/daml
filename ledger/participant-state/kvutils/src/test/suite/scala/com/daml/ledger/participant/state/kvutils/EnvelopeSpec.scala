@@ -17,15 +17,15 @@ class EnvelopeSpec extends WordSpec with Matchers {
     "be able to enclose and open" in {
       val submission = Proto.DamlSubmission.getDefaultInstance
 
-      Envelope.open(Envelope.enclose(submission)) shouldEqual
+      Envelope.open(Envelope.enclose(submission, compression = false)) shouldEqual
         Right(Envelope.SubmissionMessage(submission))
 
       val logEntry = Proto.DamlLogEntry.getDefaultInstance
-      Envelope.open(Envelope.enclose(logEntry)) shouldEqual
+      Envelope.open(Envelope.enclose(logEntry, compression = false)) shouldEqual
         Right(Envelope.LogEntryMessage(logEntry))
 
       val stateValue = Proto.DamlStateValue.getDefaultInstance
-      Envelope.open(Envelope.enclose(stateValue)) shouldEqual
+      Envelope.open(Envelope.enclose(stateValue, compression = false)) shouldEqual
         Right(Envelope.StateValueMessage(stateValue))
     }
 
@@ -40,9 +40,12 @@ class EnvelopeSpec extends WordSpec with Matchers {
         Right(Envelope.SubmissionBatchMessage(submissionBatch))
     }
 
-    "compresses and decompresses quickly" in {
+    "compress and decompress" in {
+      val oneMegabyte = 1024 * 1024
+      val uncompressedSize = 100 * oneMegabyte
+      val maximumCompressedSize = oneMegabyte
       val stateValue = {
-        val payload = ByteString.copyFrom(Array.fill[Byte](100 * 1024 * 1024)(0))
+        val payload = ByteString.copyFrom(Array.fill[Byte](uncompressedSize)(0))
         val hash = PackageId.assertFromString(
           MessageDigest
             .getInstance("SHA-256")
@@ -60,17 +63,10 @@ class EnvelopeSpec extends WordSpec with Matchers {
           .build()
       }
 
-      val envelope = timeAndLog("enclose", Envelope.enclose(stateValue, compression = true))
-      val opened = timeAndLog("open", Envelope.open(envelope))
+      val envelope = Envelope.enclose(stateValue, compression = true)
+      envelope.size should be < maximumCompressedSize
+      val opened = Envelope.open(envelope)
       opened shouldEqual Right(Envelope.StateValueMessage(stateValue))
     }
-  }
-
-  def timeAndLog[T](name: String, f: => T): T = {
-    val start = System.nanoTime()
-    val value = f
-    val end = System.nanoTime()
-    println(s"$name: ${(end - start) / 1000000}ms")
-    value
   }
 }
