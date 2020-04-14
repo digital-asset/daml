@@ -101,9 +101,6 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    tags = [
-        "exclusive",  # Due to the use of hardcoded ports in 'build-and-lint.sh'.
-    ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
