@@ -14,30 +14,33 @@ import org.scalatest.{Matchers, WordSpec}
 class EnvelopeSpec extends WordSpec with Matchers {
   "envelope" should {
 
-    "be able to enclose and open" in {
+    "be able to enclose and open submissions" in {
       val submission = Proto.DamlSubmission.getDefaultInstance
-
-      Envelope.open(Envelope.enclose(submission, compression = false)) shouldEqual
-        Right(Envelope.SubmissionMessage(submission))
-
-      val logEntry = Proto.DamlLogEntry.getDefaultInstance
-      Envelope.open(Envelope.enclose(logEntry, compression = false)) shouldEqual
-        Right(Envelope.LogEntryMessage(logEntry))
-
-      val stateValue = Proto.DamlStateValue.getDefaultInstance
-      Envelope.open(Envelope.enclose(stateValue, compression = false)) shouldEqual
-        Right(Envelope.StateValueMessage(stateValue))
+      val compressed = Envelope.enclose(submission, compression = false)
+      Envelope.open(compressed) shouldEqual Right(Envelope.SubmissionMessage(submission))
     }
 
-    "be able to enclose and open batch submission batch message" in {
+    "be able to enclose and open log entries" in {
+      val logEntry = Proto.DamlLogEntry.getDefaultInstance
+      val compressed = Envelope.enclose(logEntry, compression = false)
+      Envelope.open(compressed) shouldEqual Right(Envelope.LogEntryMessage(logEntry))
+    }
+
+    "be able to enclose and open state values" in {
+      val stateValue = Proto.DamlStateValue.getDefaultInstance
+      val compressed = Envelope.enclose(stateValue, compression = false)
+      Envelope.open(compressed) shouldEqual Right(Envelope.StateValueMessage(stateValue))
+    }
+
+    "be able to enclose and open submission batch messages" in {
       val submissionBatch = Proto.DamlSubmissionBatch.newBuilder
         .addSubmissions(
           Proto.DamlSubmissionBatch.CorrelatedSubmission.newBuilder
             .setCorrelationId("anId")
             .setSubmission(ByteString.copyFromUtf8("a submission")))
         .build
-      Envelope.open(Envelope.enclose(submissionBatch)) shouldEqual
-        Right(Envelope.SubmissionBatchMessage(submissionBatch))
+      val compressed = Envelope.enclose(submissionBatch)
+      Envelope.open(compressed) shouldEqual Right(Envelope.SubmissionBatchMessage(submissionBatch))
     }
 
     "compress and decompress" in {
@@ -60,7 +63,7 @@ class EnvelopeSpec extends WordSpec with Matchers {
               .setHashFunction(DamlLf.HashFunction.SHA256)
               .setPayload(payload)
               .setHash(hash))
-          .build()
+          .build
       }
 
       val envelope = Envelope.enclose(stateValue, compression = true)
