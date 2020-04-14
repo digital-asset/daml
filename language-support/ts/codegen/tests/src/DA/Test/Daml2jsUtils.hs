@@ -56,23 +56,17 @@ setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
             ]
         ]
 
-testDependencies :: Value
-testDependencies = object
-    [ "devDependencies" .= object
-        [ ("@types/jest", String "^25.2.1")
-        , ("@types/node", String "^13.11.1")
-        , ("@types/puppeteer", String "^2.0.1")
-        , ("@types/wait-on", String "^4.0.0")
-        , ("puppeteer", String "^2.1.1")
-        , ("wait-on", String "^4.0.2")
-        ]
-    ]
-
-addTestDependencies :: FilePath -> IO ()
-addTestDependencies uiDir = do
-    packageJson <- BS.readFile (uiDir </> "package.json")
-    let packageJsonObj = case decode (BSL.fromStrict packageJson) of
-            Nothing -> error "Could not decode package.json"
-            Just pJ -> pJ
-        newPackageJson = lodashMerge packageJsonObj testDependencies
-    BSL.writeFile (uiDir </> "package.json") (encode newPackageJson)
+addTestDependencies :: FilePath -> FilePath -> IO ()
+addTestDependencies packageJsonFile extraDepsFile = do
+    packageJson <- readJsonFile packageJsonFile
+    extraDeps <- readJsonFile extraDepsFile
+    let newPackageJson = lodashMerge packageJson extraDeps
+    BSL.writeFile packageJsonFile (encode newPackageJson)
+  where
+    readJsonFile :: FilePath -> IO Value
+    readJsonFile path = do
+        -- Read file strictly to avoid lock being held when we subsequently write to it
+        content <- BSL.fromStrict <$> BS.readFile path
+        case decode content of
+            Nothing -> error ("Could not decode JSON object from " <> path)
+            Just val -> return val

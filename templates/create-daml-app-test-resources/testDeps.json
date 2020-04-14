@@ -1,5 +1,5 @@
 {
-  "devDependencies": {
+  "devDependencies": {
     "@types/jest": "^25.2.1",
     "@types/node": "^13.11.1",
     "@types/puppeteer": "^2.0.1",

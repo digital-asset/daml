@@ -640,7 +640,8 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         -- Run end to end testing for the app.
         withCurrentDirectory (cdaDir </> "ui") $ do
           step "Install Jest, Puppeteer and other dependencies"
-          addTestDependencies (cdaDir </> "ui")
+          extraDepsFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "testDeps.json")
+          addTestDependencies (cdaDir </> "ui" </> "package.json") extraDepsFile
           retry 3 (callCommandSilent "yarn install")
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
