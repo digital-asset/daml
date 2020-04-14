@@ -5649,26 +5649,26 @@
                 "sha256": "fa50f4de9d3331c61331b22d1e3b9fc3b005f50905c871ceb247a6e84e835953"
             },
             {
-                "coord": "org.apache.commons:commons-compress:1.12",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12.jar",
+                "coord": "org.apache.commons:commons-compress:1.20",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
                 ],
-                "sha256": "2c1542faf343185b7cab9c3d55c8ae5471d6d095d3887a4adefdbdf2984dc0b6"
+                "sha256": "0aeb625c948c697ea7b205156e112363b59ed5e2551212cd4e460bdb72c7c06e"
             },
             {
-                "coord": "org.apache.commons:commons-compress:jar:sources:1.12",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12-sources.jar",
+                "coord": "org.apache.commons:commons-compress:jar:sources:1.20",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.12/commons-compress-1.12-sources.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20-sources.jar"
                 ],
-                "sha256": "ae08ac41171c3805f5e8ff04c29a95163a1bf8fb25ccff49581f7af6c902606d"
+                "sha256": "0eb5d7f270c2fccdab31daa5f7091b038ad0099b29885040604d66e07fd46a18"
             },
             {
                 "coord": "org.apache.commons:commons-exec:1.3",
@@ -13811,6 +13811,7 @@
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
+                    "org.apache.commons:commons-compress:1.20",
                     "junit:junit:4.12",
                     "log4j:log4j:1.2.17",
                     "org.hamcrest:hamcrest-core:1.3",
@@ -13831,8 +13832,7 @@
                     "org.slf4j:slf4j-ext:1.7.25",
                     "org.slf4j:jcl-over-slf4j:1.7.21",
                     "org.jetbrains:annotations:13.0",
-                    "org.testcontainers:testcontainers:1.4.2",
-                    "org.apache.commons:commons-compress:1.12"
+                    "org.testcontainers:testcontainers:1.4.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/testcontainers/jdbc/1.4.2/jdbc-1.4.2.jar",
                 "mirror_urls": [
@@ -13850,7 +13850,6 @@
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
-                    "org.apache.commons:commons-compress:jar:sources:1.12",
                     "org.slf4j:jcl-over-slf4j:jar:sources:1.7.21",
                     "commons-lang:commons-lang:jar:sources:2.6",
                     "com.github.jnr:jffi:jar:sources:1.2.15",
@@ -13859,6 +13858,7 @@
                     "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "org.apache.commons:commons-compress:jar:sources:1.20",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -13898,6 +13898,7 @@
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
+                    "org.apache.commons:commons-compress:1.20",
                     "junit:junit:4.12",
                     "org.testcontainers:jdbc:1.4.2",
                     "log4j:log4j:1.2.17",
@@ -13919,8 +13920,7 @@
                     "org.slf4j:slf4j-ext:1.7.25",
                     "org.slf4j:jcl-over-slf4j:1.7.21",
                     "org.jetbrains:annotations:13.0",
-                    "org.testcontainers:testcontainers:1.4.2",
-                    "org.apache.commons:commons-compress:1.12"
+                    "org.testcontainers:testcontainers:1.4.2"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/testcontainers/postgresql/1.4.2/postgresql-1.4.2.jar",
                 "mirror_urls": [
@@ -13938,7 +13938,6 @@
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
-                    "org.apache.commons:commons-compress:jar:sources:1.12",
                     "org.slf4j:jcl-over-slf4j:jar:sources:1.7.21",
                     "commons-lang:commons-lang:jar:sources:2.6",
                     "com.github.jnr:jffi:jar:sources:1.2.15",
@@ -13947,6 +13946,7 @@
                     "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "org.apache.commons:commons-compress:jar:sources:1.20",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -13984,6 +13984,7 @@
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
+                    "org.apache.commons:commons-compress:1.20",
                     "junit:junit:4.12",
                     "org.hamcrest:hamcrest-core:1.3",
                     "org.zeroturnaround:zt-exec:1.8",
@@ -14002,8 +14003,7 @@
                     "com.github.jnr:jnr-ffi:2.1.4",
                     "org.slf4j:slf4j-ext:1.7.25",
                     "org.slf4j:jcl-over-slf4j:1.7.21",
-                    "org.jetbrains:annotations:13.0",
-                    "org.apache.commons:commons-compress:1.12"
+                    "org.jetbrains:annotations:13.0"
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
@@ -14014,6 +14014,7 @@
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
                     "commons-lang:commons-lang:2.6",
+                    "org.apache.commons:commons-compress:1.20",
                     "junit:junit:4.12",
                     "log4j:log4j:1.2.17",
                     "org.hamcrest:hamcrest-core:1.3",
@@ -14033,8 +14034,7 @@
                     "com.github.jnr:jnr-ffi:2.1.4",
                     "org.slf4j:slf4j-ext:1.7.25",
                     "org.slf4j:jcl-over-slf4j:1.7.21",
-                    "org.jetbrains:annotations:13.0",
-                    "org.apache.commons:commons-compress:1.12"
+                    "org.jetbrains:annotations:13.0"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/testcontainers/testcontainers/1.4.2/testcontainers-1.4.2.jar",
                 "mirror_urls": [
@@ -14049,7 +14049,6 @@
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
-                    "org.apache.commons:commons-compress:jar:sources:1.12",
                     "org.slf4j:jcl-over-slf4j:jar:sources:1.7.21",
                     "commons-lang:commons-lang:jar:sources:2.6",
                     "com.github.jnr:jffi:jar:sources:1.2.15",
@@ -14058,6 +14057,7 @@
                     "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "org.apache.commons:commons-compress:jar:sources:1.20",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -14078,7 +14078,6 @@
                     "com.github.jnr:jnr-ffi:jar:sources:2.1.4",
                     "org.slf4j:slf4j-ext:jar:sources:1.7.25",
                     "org.jetbrains:annotations:jar:sources:13.0",
-                    "org.apache.commons:commons-compress:jar:sources:1.12",
                     "org.slf4j:jcl-over-slf4j:jar:sources:1.7.21",
                     "commons-lang:commons-lang:jar:sources:2.6",
                     "com.github.jnr:jffi:jar:sources:1.2.15",
@@ -14087,6 +14086,7 @@
                     "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "org.apache.commons:commons-compress:jar:sources:1.20",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -14810,6 +14810,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -266811269
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": 874702295
     }
 }

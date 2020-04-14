@@ -93,6 +93,7 @@ def install_java_deps():
             "junit:junit-dep:4.10",
             "net.logstash.logback:logstash-logback-encoder:6.3",
             "org.apache.commons:commons-lang3:3.10",
+            "org.apache.commons:commons-compress:1.20",
             "org.apache.commons:commons-text:1.8",
             "org.awaitility:awaitility:3.1.6",
             "org.checkerframework:checker:2.5.4",

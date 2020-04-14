@@ -3,10 +3,12 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.util.zip.{GZIPInputStream, GZIPOutputStream}
-
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
+import org.apache.commons.compress.compressors.lz4.{
+  FramedLZ4CompressorInputStream,
+  FramedLZ4CompressorOutputStream
+}
 import org.apache.commons.io.IOUtils
 
 import scala.util.Try
@@ -131,14 +133,14 @@ object Envelope {
 
   private def compress(payload: ByteString): ByteString = {
     val outputStream = ByteString.newOutput()
-    val compressedOutputStream = new GZIPOutputStream(outputStream)
+    val compressedOutputStream = new FramedLZ4CompressorOutputStream(outputStream)
     IOUtils.copy(payload.newInput(), compressedOutputStream)
     compressedOutputStream.close()
     outputStream.toByteString
   }
 
   private def decompress(payload: ByteString): ByteString = {
-    val decompressedInputStream = new GZIPInputStream(payload.newInput())
+    val decompressedInputStream = new FramedLZ4CompressorInputStream(payload.newInput())
     ByteString.readFrom(decompressedInputStream)
   }
 
