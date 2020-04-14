@@ -33,6 +33,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger-service/db-backend",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
