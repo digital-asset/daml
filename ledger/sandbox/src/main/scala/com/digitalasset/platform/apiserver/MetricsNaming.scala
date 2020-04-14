@@ -3,7 +3,7 @@
 
 package com.daml.platform.apiserver
 
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.daml.metrics.MetricName
 
 private[apiserver] object MetricsNaming {
 

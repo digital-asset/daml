@@ -6,9 +6,9 @@ package com.daml.ledger.participant.state.v1.metrics
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
-import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
+import com.daml.metrics.{MetricName, Metrics}
 
 final class TimedReadService(delegate: ReadService, metrics: MetricRegistry, prefix: MetricName)
     extends ReadService {

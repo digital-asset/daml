@@ -10,7 +10,6 @@ import java.time.{Duration, Instant}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
@@ -26,6 +25,7 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._

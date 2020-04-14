@@ -19,7 +19,6 @@ import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.kvutils.caching
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
@@ -27,6 +26,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}

@@ -9,7 +9,6 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.{Configuration, Offset, ParticipantId}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
@@ -19,6 +18,7 @@ import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.api.domain.{CommandId, LedgerId, PartyDetails}
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.metrics.MetricName
 import com.daml.platform.metrics.timedFuture
 import com.daml.platform.store.Contract.ActiveContract
 import com.daml.platform.store.dao.events.{TransactionsReader, TransactionsWriter}
@@ -26,7 +26,7 @@ import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
-  PartyLedgerEntry,
+  PartyLedgerEntry
 }
 import com.daml.platform.store.PersistenceEntry
 
