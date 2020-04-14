@@ -335,7 +335,7 @@ jobs:
           trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
-    condition: succeededOrFailed()
+    condition: always()
     dependsOn:
       - Linux
       - macOS
@@ -485,7 +485,7 @@ jobs:
           PR_BRANCH: $(pr.branch)
 
   - job: notify_user
-    condition: and(succeededOrFailed(), eq(variables['Build.Reason'], 'PullRequest'))
+    condition: eq(variables['Build.Reason'], 'PullRequest')
     dependsOn:
       - git_sha
       - collect_build_data
