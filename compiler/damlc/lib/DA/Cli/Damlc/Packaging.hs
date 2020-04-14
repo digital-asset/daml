@@ -339,22 +339,13 @@ generateAndInstallIfaceFiles dalf src opts workDir dbPath projectPackageDatabase
           $ "Failed to compile interface for data-dependency: "
           <> unitIdString (pkgNameVersion pkgName mbPkgVersion)
     -- write the conf file and refresh the package cache
-    (cfPath, cfBs) <-
-            mkConfFile
-                (LF.packageLfVersion dalf)
-                PackageConfigFields
-                    { pName = pkgName
-                    , pSrc = error "src field was used for creation of pkg conf file"
-                    , pExposedModules = Nothing
-                    , pVersion = mbPkgVersion
-                    -- TODO Appending ".dalf" makes no sense but is needed to make `mkConfFile` happy.
-                    -- We should refactor this to allow us to pass unit ids verbatim.
-                    , pDependencies = map (\(unitId, _) -> unitIdString unitId <.> "dalf") deps
-                    , pDataDependencies = []
-                    , pSdkVersion = error "sdk version field was used for creation of pkg conf file"
-                    }
-                (map T.unpack $ LF.packageModuleNames dalf)
-                pkgIdStr
+    let (cfPath, cfBs) = mkConfFile
+            pkgName
+            mbPkgVersion
+            (map fst deps)
+            Nothing
+            (map (GHC.mkModuleName . T.unpack) $ LF.packageModuleNames dalf)
+            pkgIdStr
     BS.writeFile (dbPath </> "package.conf.d" </> cfPath) cfBs
     recachePkgDb dbPath
 

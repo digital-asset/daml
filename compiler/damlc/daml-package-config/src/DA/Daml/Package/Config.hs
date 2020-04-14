@@ -20,13 +20,14 @@ import Control.Exception.Safe (throwIO)
 import Control.Monad (when)
 import Data.Maybe (fromMaybe)
 import qualified Data.Yaml as Y
+import qualified Module as Ghc
 import System.IO (hPutStrLn, stderr)
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
     { pName :: LF.PackageName
     , pSrc :: String
-    , pExposedModules :: Maybe [String]
+    , pExposedModules :: Maybe [Ghc.ModuleName]
     , pVersion :: Maybe LF.PackageVersion
     -- ^ This is optional since for `damlc compile` and `damlc package`
     -- we might not have a version. In `damlc build` this is always set to `Just`.
@@ -45,7 +46,9 @@ parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
 parseProjectConfig project = do
     pName <- queryProjectConfigRequired ["name"] project
     pSrc <- queryProjectConfigRequired ["source"] project
-    pExposedModules <- queryProjectConfig ["exposed-modules"] project
+    pExposedModules <-
+        fmap (map Ghc.mkModuleName) <$>
+        queryProjectConfig ["exposed-modules"] project
     pVersion <- Just <$> queryProjectConfigRequired ["version"] project
     pDependencies <- queryProjectConfigRequired ["dependencies"] project
     pDataDependencies <- fromMaybe [] <$> queryProjectConfig ["data-dependencies"] project
