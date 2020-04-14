@@ -6,13 +6,13 @@ package com.daml.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.Party
 import com.daml.lf.data.Time
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.metrics.MetricName
+import com.daml.metrics.Metrics.timedFuture
 import com.daml.platform.index.MeteredReadOnlyLedger
-import com.daml.platform.metrics.timedFuture
 
 import scala.concurrent.Future
 

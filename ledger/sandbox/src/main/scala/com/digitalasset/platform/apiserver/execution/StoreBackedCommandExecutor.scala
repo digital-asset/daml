@@ -11,7 +11,6 @@ import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesS
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
-import com.daml.platform.metrics.timedFuture
 import com.daml.lf.engine.{
   Blinding,
   Engine,
@@ -25,6 +24,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Metrics.timedFuture
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 

@@ -7,7 +7,7 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.api.domain
 import com.daml.lf.crypto.Hash
 import com.daml.logging.LoggingContext
-import com.daml.platform.metrics.timedFuture
+import com.daml.metrics.Metrics.timedFuture
 import com.daml.platform.store.ErrorCause
 
 import scala.concurrent.{ExecutionContext, Future}

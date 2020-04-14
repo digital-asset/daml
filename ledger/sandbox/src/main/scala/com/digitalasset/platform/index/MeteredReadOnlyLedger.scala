@@ -8,14 +8,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
-import com.daml.ledger.participant.state.v1.{Configuration, Offset}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node.GlobalKey
-import com.daml.lf.value.Value
-import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.TransactionId
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, PartyDetails}
@@ -28,15 +20,23 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2.{CommandDeduplicationResult, PackageDetails}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.daml.metrics.MetricName
-import com.daml.platform.metrics.timedFuture
+import com.daml.metrics.Metrics.timedFuture
+import com.daml.platform.store.ReadOnlyLedger
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.daml.platform.store.ReadOnlyLedger
 
 import scala.concurrent.Future
 
