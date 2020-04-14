@@ -615,7 +615,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
         -- Now test that the messaging feature works by applying the necessary
         -- changes and testing in the same way as above.
         step "Patch the application code with messaging feature"
-        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging.patch")
+        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "messaging.patch")
         patchTool <- locateRunfiles "patch_dev_env/bin/patch"
         withCurrentDirectory cdaDir $ do
           callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", messagingPatch]
@@ -643,7 +643,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           addTestDependencies (cdaDir </> "ui")
           retry 3 (callCommandSilent "yarn install")
           step "Run Puppeteer end-to-end tests"
-          testFile <- locateRunfiles (mainWorkspace </> "templates" </> "index.test.ts")
+          testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
           copyFile testFile (cdaDir </> "ui" </> "src" </> "index.test.ts")
           callCommandSilent "yarn test --watchAll=false"
 

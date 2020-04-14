@@ -74,6 +74,12 @@ ts_libraries = [
     "//language-support/ts/daml-react:npm_package",
 ]
 
+create_daml_app_resources = [
+    "//templates:create-daml-app-test-resources/messaging.patch",
+    "//templates:create-daml-app-test-resources/testDeps.json",
+    "//templates:create-daml-app-test-resources/index.test.ts",
+]
+
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
@@ -90,10 +96,7 @@ da_haskell_test(
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
         "@patch_dev_env//:patch",
-        "//templates:messaging.patch",
-        "//templates:testDeps.json",
-        "//templates:index.test.ts",
-    ] + ([] if is_windows else ts_libraries),
+    ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
