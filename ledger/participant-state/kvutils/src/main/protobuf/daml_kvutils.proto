@@ -37,6 +37,7 @@ message Envelope {
   enum CompressionSchema {
     NONE = 0;
     GZIP = 1;
+    LZ4 = 2;
   }
 
   // Kvutils version number

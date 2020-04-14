@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.util.zip.{GZIPInputStream, GZIPOutputStream}
+
 import com.daml.ledger.participant.state.kvutils.{DamlKvutils => Proto}
 import com.google.protobuf.ByteString
 import org.apache.commons.compress.compressors.lz4.{
@@ -36,10 +38,10 @@ object Envelope {
     Proto.Envelope.newBuilder
       .setVersion(Version.version)
       .setKind(kind)
-      .setMessage(if (compression) compress(bytes) else bytes)
+      .setMessage(if (compression) compress(bytes, CompressionSchema.LZ4) else bytes)
       .setCompression(
         if (compression)
-          Proto.Envelope.CompressionSchema.GZIP
+          Proto.Envelope.CompressionSchema.LZ4
         else
           Proto.Envelope.CompressionSchema.NONE
       )
@@ -76,10 +78,12 @@ object Envelope {
         (),
         s"Unsupported version ${envelope.getVersion}")
       uncompressedMessage <- envelope.getCompression match {
-        case Proto.Envelope.CompressionSchema.GZIP =>
-          parseMessageSafe(() => decompress(envelope.getMessage))
         case Proto.Envelope.CompressionSchema.NONE =>
           Right(envelope.getMessage)
+        case Proto.Envelope.CompressionSchema.GZIP =>
+          parseMessageSafe(() => decompress(envelope.getMessage, CompressionSchema.Gzip))
+        case Proto.Envelope.CompressionSchema.LZ4 =>
+          parseMessageSafe(() => decompress(envelope.getMessage, CompressionSchema.LZ4))
         case Proto.Envelope.CompressionSchema.UNRECOGNIZED =>
           Left(s"Unrecognized compression schema: ${envelope.getCompressionValue}")
       }
@@ -131,21 +135,38 @@ object Envelope {
       case msg => Left(s"Expected state value, got ${msg.getClass}")
     }
 
-  private def compress(payload: ByteString): ByteString = {
+  private def compress(payload: ByteString, schema: CompressionSchema): ByteString = {
     val outputStream = ByteString.newOutput()
-    val compressedOutputStream = new FramedLZ4CompressorOutputStream(outputStream)
+    val compressedOutputStream = schema match {
+      case CompressionSchema.Gzip => new GZIPOutputStream(outputStream)
+      case CompressionSchema.LZ4 => new FramedLZ4CompressorOutputStream(outputStream)
+    }
     IOUtils.copy(payload.newInput(), compressedOutputStream)
     compressedOutputStream.close()
     outputStream.toByteString
   }
 
-  private def decompress(payload: ByteString): ByteString = {
-    val decompressedInputStream = new FramedLZ4CompressorInputStream(payload.newInput())
+  private def decompress(payload: ByteString, schema: CompressionSchema): ByteString = {
+    val inputStream = payload.newInput()
+    val decompressedInputStream = schema match {
+      case CompressionSchema.Gzip => new GZIPInputStream(inputStream)
+      case CompressionSchema.LZ4 => new FramedLZ4CompressorInputStream(payload.newInput())
+    }
     ByteString.readFrom(decompressedInputStream)
   }
 
   private def parseMessageSafe[T](callParser: () => T): Either[String, T] =
     Try(callParser()).toEither.left
       .map(_.getMessage)
+
+  private sealed trait CompressionSchema
+
+  private object CompressionSchema {
+
+    case object Gzip extends CompressionSchema
+
+    case object LZ4 extends CompressionSchema
+
+  }
 
 }
