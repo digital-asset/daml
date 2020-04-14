@@ -26,6 +26,7 @@ const BOB_TOKEN = computeToken(BOB_PARTY);
 const SANDBOX_PORT = 6865;
 const SANDBOX_PORT_FILE = 'sandbox.port';
 const JSON_API_PORT = 7575;
+const JSON_API_PORT_FILE = 'json-api.port';
 const HTTP_BASE_URL = `http://localhost:${JSON_API_PORT}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
@@ -57,8 +58,8 @@ beforeAll(async () => {
   console.log('Sandbox up');
   jsonApiProcess = await spawnJvmAndWaitOn(
     getEnv('JSON_API'),
-    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
-    `tcp:localhost:${JSON_API_PORT}`,
+    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`, '--port-file', JSON_API_PORT_FILE, '--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
+    `file:${JSON_API_PORT_FILE}`,
   )
   console.log('JSON API up');
 });
