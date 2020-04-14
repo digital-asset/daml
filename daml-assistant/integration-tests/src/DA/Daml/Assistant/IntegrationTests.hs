@@ -645,7 +645,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "index.test.ts")
           copyFile testFile (cdaDir </> "ui" </> "src" </> "index.test.ts")
-          callCommandSilent "yarn test"
+          callCommandSilent "yarn test --watchAll=false"
 
 damlInstallerName :: String
 damlInstallerName
