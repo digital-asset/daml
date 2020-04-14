@@ -273,16 +273,16 @@
                     "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
                     "com.google.guava:guava:24.0-jre",
                     "commons-codec:commons-codec:1.13",
-                    "commons-io:commons-io:2.5"
+                    "commons-io:commons-io:2.6"
                 ],
                 "dependencies": [
                     "org.checkerframework:checker-compat-qual:2.0.0",
                     "com.fasterxml.jackson.core:jackson-annotations:2.9.0",
+                    "commons-io:commons-io:2.6",
                     "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
                     "com.google.errorprone:error_prone_annotations:2.3.3",
                     "com.google.code.findbugs:jsr305:3.0.2",
                     "commons-codec:commons-codec:1.13",
-                    "commons-io:commons-io:2.5",
                     "org.codehaus.mojo:animal-sniffer-annotations:1.17",
                     "com.google.j2objc:j2objc-annotations:1.1",
                     "com.fasterxml.jackson.core:jackson-core:2.9.9",
@@ -301,7 +301,7 @@
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.9.3",
                     "com.google.guava:guava:jar:sources:24.0-jre",
                     "commons-codec:commons-codec:jar:sources:1.13",
-                    "commons-io:commons-io:jar:sources:2.5"
+                    "commons-io:commons-io:jar:sources:2.6"
                 ],
                 "dependencies": [
                     "com.google.code.findbugs:jsr305:jar:sources:3.0.2",
@@ -309,8 +309,8 @@
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.9.3",
                     "org.checkerframework:checker-compat-qual:jar:sources:2.0.0",
                     "org.codehaus.mojo:animal-sniffer-annotations:jar:sources:1.17",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "com.google.guava:guava:jar:sources:24.0-jre",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.9.0",
                     "com.google.j2objc:j2objc-annotations:jar:sources:1.1",
                     "com.google.errorprone:error_prone_annotations:jar:sources:2.3.3",
@@ -2295,18 +2295,18 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/storm-enroute/scalameter-core_2.12/0.10.1/scalameter-core_2.12-0.10.1.jar",
                 "directDependencies": [
                     "org.ow2.asm:asm:5.0.4",
+                    "org.apache.commons:commons-lang3:3.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.apache.commons:commons-math3:3.2",
-                    "org.apache.commons:commons-lang3:3.9",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
                 "dependencies": [
                     "org.ow2.asm:asm:5.0.4",
+                    "org.apache.commons:commons-lang3:3.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "org.scala-lang:scala-library:2.12.10",
                     "org.apache.commons:commons-math3:3.2",
-                    "org.apache.commons:commons-lang3:3.9",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6"
                 ],
                 "url": "https://repo1.maven.org/maven2/com/storm-enroute/scalameter-core_2.12/0.10.1/scalameter-core_2.12-0.10.1.jar",
@@ -2320,7 +2320,7 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/storm-enroute/scalameter-core_2.12/0.10.1/scalameter-core_2.12-0.10.1-sources.jar",
                 "directDependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "org.apache.commons:commons-lang3:jar:sources:3.9",
+                    "org.apache.commons:commons-lang3:jar:sources:3.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
                     "org.apache.commons:commons-math3:jar:sources:3.2",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
@@ -2328,7 +2328,7 @@
                 ],
                 "dependencies": [
                     "org.scala-lang:scala-library:jar:sources:2.12.10",
-                    "org.apache.commons:commons-lang3:jar:sources:3.9",
+                    "org.apache.commons:commons-lang3:jar:sources:3.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
                     "org.apache.commons:commons-math3:jar:sources:3.2",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
@@ -2345,8 +2345,8 @@
                 "file": "v1/https/repo1.maven.org/maven2/com/storm-enroute/scalameter_2.12/0.10.1/scalameter_2.12-0.10.1.jar",
                 "directDependencies": [
                     "org.mongodb.scala:mongo-scala-driver_2.12:2.2.0",
+                    "commons-io:commons-io:2.6",
                     "org.scala-tools.testing:test-interface:0.5",
-                    "commons-io:commons-io:2.5",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
                     "com.storm-enroute:scalameter-core_2.12:0.10.1",
                     "org.scala-lang:scala-library:2.12.10",
@@ -2360,10 +2360,11 @@
                     "org.mongodb.scala:mongo-scala-driver_2.12:2.2.0",
                     "com.fasterxml.jackson.core:jackson-annotations:2.9.0",
                     "com.thoughtworks.paranamer:paranamer:2.8",
+                    "commons-io:commons-io:2.6",
                     "com.fasterxml.jackson.core:jackson-databind:2.9.9.3",
+                    "org.apache.commons:commons-lang3:3.10",
                     "org.scala-lang:scala-reflect:2.12.8",
                     "org.scala-tools.testing:test-interface:0.5",
-                    "commons-io:commons-io:2.5",
                     "org.mongodb.scala:mongo-scala-bson_2.12:2.2.0",
                     "org.mongodb:mongodb-driver-async:3.6.4",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:1.0.4",
@@ -2374,7 +2375,6 @@
                     "org.scala-lang:scala-library:2.12.10",
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
                     "org.apache.commons:commons-math3:3.2",
-                    "org.apache.commons:commons-lang3:3.9",
                     "org.scala-lang.modules:scala-xml_2.12:1.0.6",
                     "org.mongodb:mongodb-driver-core:3.6.4",
                     "io.spray:spray-json_2.12:1.3.3"
@@ -2394,7 +2394,7 @@
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.9",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
-                    "commons-io:commons-io:jar:sources:2.5",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.apache.commons:commons-math3:jar:sources:3.2",
                     "org.mongodb.scala:mongo-scala-driver_2.12:jar:sources:2.2.0",
                     "org.scala-lang.modules:scala-xml_2.12:jar:sources:1.0.6",
@@ -2408,12 +2408,12 @@
                     "com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:sources:2.9.9",
                     "com.fasterxml.jackson.core:jackson-databind:jar:sources:2.9.9.3",
                     "org.scala-tools.testing:test-interface:jar:sources:0.5",
-                    "org.apache.commons:commons-lang3:jar:sources:3.9",
+                    "org.apache.commons:commons-lang3:jar:sources:3.10",
                     "org.scala-lang.modules:scala-parser-combinators_2.12:jar:sources:1.0.4",
                     "com.thoughtworks.paranamer:paranamer:jar:sources:2.8",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "com.fasterxml.jackson.module:jackson-module-paranamer:jar:sources:2.9.9",
                     "org.mongodb:mongodb-driver-async:jar:sources:3.6.4",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "org.mongodb:mongodb-driver-core:jar:sources:3.6.4",
                     "org.apache.commons:commons-math3:jar:sources:3.2",
                     "com.fasterxml.jackson.core:jackson-annotations:jar:sources:2.9.0",
@@ -3633,26 +3633,26 @@
                 "sha256": "4e15551f196a38ce167d8170c94f0abb2a514584ee7ac9b05151ed1600b98917"
             },
             {
-                "coord": "commons-io:commons-io:2.5",
-                "file": "v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5.jar",
+                "coord": "commons-io:commons-io:2.6",
+                "file": "v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5.jar",
+                "url": "https://repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5.jar"
+                    "https://repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6.jar"
                 ],
-                "sha256": "a10418348d234968600ccb1d988efcbbd08716e1d96936ccc1880e7d22513474"
+                "sha256": "f877d304660ac2a142f3865badfc971dec7ed73c747c7f8d5d2f5139ca736513"
             },
             {
-                "coord": "commons-io:commons-io:jar:sources:2.5",
-                "file": "v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5-sources.jar",
+                "coord": "commons-io:commons-io:jar:sources:2.6",
+                "file": "v1/https/repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5-sources.jar",
+                "url": "https://repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/commons-io/commons-io/2.5/commons-io-2.5-sources.jar"
+                    "https://repo1.maven.org/maven2/commons-io/commons-io/2.6/commons-io-2.6-sources.jar"
                 ],
-                "sha256": "3b69b518d9a844732e35509b79e499fca63a960ee4301b1c96dc32e87f3f60a1"
+                "sha256": "71bc251eb4bd011b60b5ce6adc8f473de10e4851207a40c14434604b288b31bf"
             },
             {
                 "coord": "commons-lang:commons-lang:2.6",
@@ -5693,26 +5693,26 @@
                 "sha256": "c121d8e70010092bafc56f358e7259ac484653db595aafea1e67a040f51aea66"
             },
             {
-                "coord": "org.apache.commons:commons-lang3:3.9",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9.jar",
+                "coord": "org.apache.commons:commons-lang3:3.10",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10.jar"
                 ],
-                "sha256": "de2e1dcdcf3ef917a8ce858661a06726a9a944f28e33ad7f9e08bea44dc3c230"
+                "sha256": "28968ae55fff465494083aeba856f8824c34902329882bf61e77246a91e25aa9"
             },
             {
-                "coord": "org.apache.commons:commons-lang3:jar:sources:3.9",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9-sources.jar",
+                "coord": "org.apache.commons:commons-lang3:jar:sources:3.10",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10-sources.jar",
                 "directDependencies": [],
                 "dependencies": [],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.9/commons-lang3-3.9-sources.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.10/commons-lang3-3.10-sources.jar"
                 ],
-                "sha256": "d97341ce0a7554028db3403e407bb51f4d902bf3287f64f709d7a8156eaf1910"
+                "sha256": "8809a59cd44660215183ea1de710bcaf0bec2e8d858ca7c72b3017a5063f3dac"
             },
             {
                 "coord": "org.apache.commons:commons-math3:3.2",
@@ -5737,34 +5737,34 @@
                 "sha256": "b62d60712ea06fb6259506269b3a0ed73a7da5ee11f891c0eb0399eb9bc71e3f"
             },
             {
-                "coord": "org.apache.commons:commons-text:1.4",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4.jar",
+                "coord": "org.apache.commons:commons-text:1.8",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8.jar",
                 "directDependencies": [
-                    "org.apache.commons:commons-lang3:3.9"
+                    "org.apache.commons:commons-lang3:3.10"
                 ],
                 "dependencies": [
-                    "org.apache.commons:commons-lang3:3.9"
+                    "org.apache.commons:commons-lang3:3.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8.jar"
                 ],
-                "sha256": "d624e443240a5fccc93edbfe758df1b69c07d7eaab6fc5e8f98f77d86ced8259"
+                "sha256": "6fe7ad4ad5349d6b77e7a0e1c9f6037108a1ee48c42e7e6eb4b18f56d324f7b2"
             },
             {
-                "coord": "org.apache.commons:commons-text:jar:sources:1.4",
-                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4-sources.jar",
+                "coord": "org.apache.commons:commons-text:jar:sources:1.8",
+                "file": "v1/https/repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8-sources.jar",
                 "directDependencies": [
-                    "org.apache.commons:commons-lang3:jar:sources:3.9"
+                    "org.apache.commons:commons-lang3:jar:sources:3.10"
                 ],
                 "dependencies": [
-                    "org.apache.commons:commons-lang3:jar:sources:3.9"
+                    "org.apache.commons:commons-lang3:jar:sources:3.10"
                 ],
-                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4-sources.jar",
+                "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8-sources.jar",
                 "mirror_urls": [
-                    "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.4/commons-text-1.4-sources.jar"
+                    "https://repo1.maven.org/maven2/org/apache/commons/commons-text/1.8/commons-text-1.8-sources.jar"
                 ],
-                "sha256": "00d006377bbe1667b8fdaa5bb3da35137c0d3bc28e7426276fcb1f5a50630eb2"
+                "sha256": "5ae0583a8a56fbded1c94d527ae20c9dbc03e7a0d72bc9310099739647cd2cdd"
             },
             {
                 "coord": "org.apache.httpcomponents:httpclient:4.5.3",
@@ -13806,6 +13806,7 @@
                     "org.ow2.asm:asm:5.0.4",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
+                    "commons-io:commons-io:2.6",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -13815,7 +13816,6 @@
                     "org.hamcrest:hamcrest-core:1.3",
                     "org.zeroturnaround:zt-exec:1.8",
                     "org.ow2.asm:asm-commons:5.0.3",
-                    "commons-io:commons-io:2.5",
                     "org.rnorth.visible-assertions:visible-assertions:2.0.0",
                     "org.ow2.asm:asm-analysis:5.0.3",
                     "com.kohlschutter.junixsocket:junixsocket-common:2.0.4",
@@ -13856,9 +13856,9 @@
                     "com.github.jnr:jffi:jar:sources:1.2.15",
                     "com.github.jnr:jnr-constants:jar:sources:0.9.8",
                     "com.kohlschutter.junixsocket:junixsocket-common:jar:sources:2.0.4",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -13893,6 +13893,7 @@
                     "org.ow2.asm:asm:5.0.4",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
+                    "commons-io:commons-io:2.6",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -13903,7 +13904,6 @@
                     "org.hamcrest:hamcrest-core:1.3",
                     "org.zeroturnaround:zt-exec:1.8",
                     "org.ow2.asm:asm-commons:5.0.3",
-                    "commons-io:commons-io:2.5",
                     "org.rnorth.visible-assertions:visible-assertions:2.0.0",
                     "org.ow2.asm:asm-analysis:5.0.3",
                     "com.kohlschutter.junixsocket:junixsocket-common:2.0.4",
@@ -13944,9 +13944,9 @@
                     "com.github.jnr:jffi:jar:sources:1.2.15",
                     "com.github.jnr:jnr-constants:jar:sources:0.9.8",
                     "com.kohlschutter.junixsocket:junixsocket-common:jar:sources:2.0.4",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -13979,6 +13979,7 @@
                     "org.ow2.asm:asm:5.0.4",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
+                    "commons-io:commons-io:2.6",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -13987,7 +13988,6 @@
                     "org.hamcrest:hamcrest-core:1.3",
                     "org.zeroturnaround:zt-exec:1.8",
                     "org.ow2.asm:asm-commons:5.0.3",
-                    "commons-io:commons-io:2.5",
                     "org.rnorth.visible-assertions:visible-assertions:2.0.0",
                     "org.ow2.asm:asm-analysis:5.0.3",
                     "com.kohlschutter.junixsocket:junixsocket-common:2.0.4",
@@ -14009,6 +14009,7 @@
                     "org.ow2.asm:asm:5.0.4",
                     "org.ow2.asm:asm-tree:5.0.3",
                     "com.github.jnr:jffi:1.2.15",
+                    "commons-io:commons-io:2.6",
                     "org.rnorth:tcp-unix-socket-proxy:1.0.1",
                     "commons-codec:commons-codec:1.13",
                     "org.slf4j:slf4j-api:1.7.26",
@@ -14018,7 +14019,6 @@
                     "org.hamcrest:hamcrest-core:1.3",
                     "org.zeroturnaround:zt-exec:1.8",
                     "org.ow2.asm:asm-commons:5.0.3",
-                    "commons-io:commons-io:2.5",
                     "org.rnorth.visible-assertions:visible-assertions:2.0.0",
                     "org.ow2.asm:asm-analysis:5.0.3",
                     "com.kohlschutter.junixsocket:junixsocket-common:2.0.4",
@@ -14055,9 +14055,9 @@
                     "com.github.jnr:jffi:jar:sources:1.2.15",
                     "com.github.jnr:jnr-constants:jar:sources:0.9.8",
                     "com.kohlschutter.junixsocket:junixsocket-common:jar:sources:2.0.4",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -14084,9 +14084,9 @@
                     "com.github.jnr:jffi:jar:sources:1.2.15",
                     "com.github.jnr:jnr-constants:jar:sources:0.9.8",
                     "com.kohlschutter.junixsocket:junixsocket-common:jar:sources:2.0.4",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.ow2.asm:asm-commons:jar:sources:5.0.3",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26",
-                    "commons-io:commons-io:jar:sources:2.5",
                     "org.rnorth:tcp-unix-socket-proxy:jar:sources:1.0.1",
                     "org.hamcrest:hamcrest-core:jar:sources:1.3",
                     "com.github.jnr:jnr-posix:jar:sources:3.0.41",
@@ -14718,12 +14718,12 @@
                 "coord": "org.zeroturnaround:zt-exec:1.8",
                 "file": "v1/https/repo1.maven.org/maven2/org/zeroturnaround/zt-exec/1.8/zt-exec-1.8.jar",
                 "directDependencies": [
-                    "commons-io:commons-io:2.5",
+                    "commons-io:commons-io:2.6",
                     "org.slf4j:slf4j-api:1.7.26"
                 ],
                 "dependencies": [
-                    "org.slf4j:slf4j-api:1.7.26",
-                    "commons-io:commons-io:2.5"
+                    "commons-io:commons-io:2.6",
+                    "org.slf4j:slf4j-api:1.7.26"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/zeroturnaround/zt-exec/1.8/zt-exec-1.8.jar",
                 "mirror_urls": [
@@ -14735,12 +14735,12 @@
                 "coord": "org.zeroturnaround:zt-exec:jar:sources:1.8",
                 "file": "v1/https/repo1.maven.org/maven2/org/zeroturnaround/zt-exec/1.8/zt-exec-1.8-sources.jar",
                 "directDependencies": [
-                    "commons-io:commons-io:jar:sources:2.5",
+                    "commons-io:commons-io:jar:sources:2.6",
                     "org.slf4j:slf4j-api:jar:sources:1.7.26"
                 ],
                 "dependencies": [
-                    "commons-io:commons-io:jar:sources:2.5",
-                    "org.slf4j:slf4j-api:jar:sources:1.7.26"
+                    "org.slf4j:slf4j-api:jar:sources:1.7.26",
+                    "commons-io:commons-io:jar:sources:2.6"
                 ],
                 "url": "https://repo1.maven.org/maven2/org/zeroturnaround/zt-exec/1.8/zt-exec-1.8-sources.jar",
                 "mirror_urls": [
@@ -14810,6 +14810,6 @@
             }
         ],
         "version": "0.1.0",
-        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -1616658845
+        "__AUTOGENERATED_FILE_DO_NOT_MODIFY_THIS_FILE_MANUALLY": -266811269
     }
 }
