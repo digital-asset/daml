@@ -41,22 +41,24 @@ class EnvelopeSpec extends WordSpec with Matchers {
     }
 
     "compresses and decompresses quickly" in {
-      val payload = ByteString.copyFrom(Array.fill[Byte](100 * 1024 * 1024)(0))
-      val hash = PackageId.assertFromString(
-        MessageDigest
-          .getInstance("SHA-256")
-          .digest(payload.toByteArray)
-          .map("%02x".format(_))
-          .mkString)
-      val stateValue = Proto.DamlStateValue
-        .newBuilder()
-        .setArchive(
-          DamlLf.Archive
-            .newBuilder()
-            .setHashFunction(DamlLf.HashFunction.SHA256)
-            .setPayload(payload)
-            .setHash(hash))
-        .build()
+      val stateValue = {
+        val payload = ByteString.copyFrom(Array.fill[Byte](100 * 1024 * 1024)(0))
+        val hash = PackageId.assertFromString(
+          MessageDigest
+            .getInstance("SHA-256")
+            .digest(payload.toByteArray)
+            .map("%02x".format(_))
+            .mkString)
+        Proto.DamlStateValue
+          .newBuilder()
+          .setArchive(
+            DamlLf.Archive
+              .newBuilder()
+              .setHashFunction(DamlLf.HashFunction.SHA256)
+              .setPayload(payload)
+              .setHash(hash))
+          .build()
+      }
 
       val envelope = timeAndLog("enclose", Envelope.enclose(stateValue, compression = true))
       val opened = timeAndLog("open", Envelope.open(envelope))
