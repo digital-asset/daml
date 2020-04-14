@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{DamlStateKey, DamlStateValue}
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.daml.metrics.MetricName
 import com.google.protobuf.ByteString
 
 /** The participant-state key-value utilities provide methods to succinctly implement

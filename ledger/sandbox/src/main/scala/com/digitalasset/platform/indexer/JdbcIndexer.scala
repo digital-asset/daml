@@ -9,21 +9,20 @@ import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.metrics.MetricName
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.LedgerString
 import com.daml.lf.engine.Blinding
-import com.daml.daml_lf_dev.DamlLf
-import com.daml.dec.{DirectExecutionContext => DEC}
-import com.daml.ledger.api.domain
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
 import com.daml.platform.events.EventIdFormatter
-import com.daml.platform.metrics.timedFuture
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
 import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
 import com.daml.platform.store.{FlywayMigrations, PersistenceEntry}
@@ -335,7 +334,7 @@ class JdbcIndexer private[indexer] (
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+              Timed.future(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

@@ -35,10 +35,10 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.Timed
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.MetricsNaming
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
-import com.daml.platform.metrics.timedFuture
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
@@ -245,7 +245,7 @@ final class ApiSubmissionService private (
       case None =>
         transactionInfo match {
           case CommandExecutionResult(submitterInfo, transactionMeta, transaction, _) =>
-            timedFuture(
+            Timed.future(
               Metrics.submittedTransactionsTimer,
               FutureConverters.toScala(
                 writeService.submitTransaction(submitterInfo, transactionMeta, transaction)))

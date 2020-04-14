@@ -94,6 +94,8 @@
   type: jar-deploy
 - target: //ledger/ledger-on-sql:ledger-on-sql
   type: jar-scala
+- target: //ledger/metrics:metrics
+  type: jar-scala
 - target: //ledger/participant-state:participant-state
   type: jar-scala
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto

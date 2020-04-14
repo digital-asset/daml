@@ -11,7 +11,6 @@ import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesS
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
 import com.daml.lf.data.{Ref, Time}
-import com.daml.platform.metrics.timedFuture
 import com.daml.lf.engine.{
   Blinding,
   Engine,
@@ -25,6 +24,7 @@ import com.daml.lf.engine.{
 }
 import com.daml.lf.language.Ast.Package
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Timed
 import com.daml.platform.store.ErrorCause
 import scalaz.syntax.tag._
 
@@ -89,13 +89,16 @@ final class StoreBackedCommandExecutor(
         case ResultError(err) => Future.successful(Left(err))
 
         case ResultNeedContract(acoid, resume) =>
-          timedFuture(
-            Metrics.lookupActiveContract,
-            contractStore.lookupActiveContract(submitter, acoid),
-          ).flatMap(instance => resolveStep(resume(instance)))
+          Timed
+            .future(
+              Metrics.lookupActiveContract,
+              contractStore.lookupActiveContract(submitter, acoid),
+            )
+            .flatMap(instance => resolveStep(resume(instance)))
 
         case ResultNeedKey(key, resume) =>
-          timedFuture(Metrics.lookupContractKey, contractStore.lookupContractKey(submitter, key))
+          Timed
+            .future(Metrics.lookupContractKey, contractStore.lookupContractKey(submitter, key))
             .flatMap(contractId => resolveStep(resume(contractId)))
 
         case ResultNeedPackage(packageId, resume) =>
@@ -106,7 +109,7 @@ final class StoreBackedCommandExecutor(
           })
 
           if (gettingPackage) {
-            val future = timedFuture(Metrics.getLfPackage, packagesService.getLfPackage(packageId))
+            val future = Timed.future(Metrics.getLfPackage, packagesService.getLfPackage(packageId))
             future.onComplete {
               case Success(None) | Failure(_) =>
                 // Did not find the package or got an error when looking for it. Remove the promise to allow later retries.

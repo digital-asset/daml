@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
-import com.daml.ledger.participant.state.metrics.MetricName
+import com.daml.metrics.MetricName
 
 private[app] object Metrics {
 

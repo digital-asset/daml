@@ -8,14 +8,6 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.metrics.{MetricName, Metrics}
-import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
-import com.daml.lf.data.Ref
-import com.daml.lf.language.Ast
-import com.daml.lf.transaction.Node
-import com.daml.lf.value.Value
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, LedgerOffset, TransactionId}
@@ -28,6 +20,14 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
+import com.daml.ledger.participant.state.index.v2
+import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.metrics.{MetricName, Timed}
 
 import scala.concurrent.Future
 
@@ -156,8 +156,8 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
     delegate.currentHealth()
 
   private def time[T](name: String, future: => Future[T]): Future[T] =
-    Metrics.timedFuture(metrics.timer(prefix :+ name), future)
+    Timed.future(metrics.timer(prefix :+ name), future)
 
   private def time[Out, Mat](name: String, source: => Source[Out, Mat]): Source[Out, Mat] =
-    Metrics.timedSource(metrics.timer(prefix :+ name), source)
+    Timed.source(metrics.timer(prefix :+ name), source)
 }

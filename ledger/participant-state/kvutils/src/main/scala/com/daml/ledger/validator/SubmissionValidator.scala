@@ -12,8 +12,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
-import com.daml.ledger.participant.state.metrics.MetricName
-import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -21,6 +19,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{MetricName, Timed}
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -185,7 +184,7 @@ class SubmissionValidator[LogResult] private[validator] (
         timedLedgerStateAccess
           .inTransaction { stateOperations =>
             for {
-              readInputs <- timedFuture(
+              readInputs <- Timed.future(
                 Metrics.validateSubmission,
                 for {
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
@@ -199,7 +198,7 @@ class SubmissionValidator[LogResult] private[validator] (
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs
               )
-              logEntryAndState <- timedFuture(
+              logEntryAndState <- Timed.future(
                 Metrics.processSubmission,
                 Future.fromTry(
                   Try(
@@ -217,7 +216,7 @@ class SubmissionValidator[LogResult] private[validator] (
                   stateOperations,
               )
               result <- postProcessResultTimer.fold(processResult())(
-                timedFuture(_, processResult()))
+                Timed.future(_, processResult()))
             } yield result
           }
           .transform {
