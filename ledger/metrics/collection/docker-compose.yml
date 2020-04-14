@@ -7,9 +7,8 @@ services:
     ports:
       - 3000:3000
     networks:
-      - grafana-net
+      - collection
     volumes:
-      # - grafana-volume
       - ./provisioning/datasources:/etc/grafana/provisioning/datasources
       - ./provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./dashboards:/var/lib/grafana/dashboards
@@ -20,7 +19,6 @@ services:
     restart: always
     ports:
       - 2000:80
-      - 2080:8080
       - 2003:2003
       - 2004:2004
       - 2023:2023
@@ -28,15 +26,12 @@ services:
       - 8125:8125/udp
       - 8126:8126
     networks:
-      - grafana-net
-    # volumes:
-    #   - graphite-volume
+      - collection
+    volumes:
+      - graphite-storage:/opt/graphite/storage
 
 networks:
-  grafana-net:
+  collection:
 
-# volumes:
-#   grafana-volume:
-#     external: true
-#   graphite-volume:
-#     external: true
+volumes:
+  graphite-storage:
