@@ -13,7 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.Metrics.{
   IndexServicePrefix,
   ReadServicePrefix,
   WriteServicePrefix,
-  JvmServicePrefix,
+  JvmPrefix,
 }
 import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
@@ -57,7 +57,7 @@ final class Runner[T <: ReadWriteService, Extra](
           // initialize all configured participants
           _ <- Resource.sequence(config.participants.map { participantConfig =>
             val metricRegistry = factory.metricRegistry(participantConfig, config)
-            metricRegistry.registerAll(JvmServicePrefix, new JvmMetricSet)
+            metricRegistry.registerAll(JvmPrefix, new JvmMetricSet)
             for {
               _ <- config.metricsReporter.fold(Resource.unit)(
                 reporter =>
