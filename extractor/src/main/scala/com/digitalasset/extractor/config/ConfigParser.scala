@@ -3,7 +3,6 @@
 
 package com.daml.extractor.config
 
-import java.io.File
 import java.nio.file.{Path, Paths}
 
 import com.daml.lf.data.Ref.Party
@@ -14,7 +13,6 @@ import CustomScoptReaders._
 import com.daml.ports.Port
 import scalaz.OneAnd
 
-import scala.util.Try
 import scopt.OptionParser
 
 object ConfigParser {
@@ -45,15 +43,7 @@ object ConfigParser {
       templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
-      tlsPem: Option[String] = None,
-      tlsCrt: Option[String] = None,
-      tlsCaCrt: Option[String] = None,
-      // tlsExplicit is used to handle the --tls flag
-      // which allows you to enable tls without any special certs,
-      // i.e., tls without client auth with the default root certs.
-      // If any certificates are set tls is enabled implicitly and
-      // tlsExplicit is redundant.
-      tlsExplicit: Boolean = false,
+      tlsConfiguration: TlsConfiguration = TlsConfiguration(false, None, None, None),
       accessTokenFile: Option[Path] = None,
   )
 
@@ -226,37 +216,8 @@ object ConfigParser {
 
       note("\nTLS configuration:")
 
-      opt[String]("pem")
-        .optional()
-        .text("TLS: The pem file to be used as the private key.")
-        .validate(validatePath(_, "The file specified via --pem does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsPem = Some(path))
-        }
-      opt[String]("crt")
-        .optional()
-        .text(
-          s"TLS: The crt file to be used as the cert chain.\n${colSpacer}" +
-            s"Required for client authentication."
-        )
-        .validate(validatePath(_, "The file specified via --crt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCrt = Some(path))
-        }
-      opt[String]("cacrt")
-        .optional()
-        .text("TLS: The crt file to be used as the the trusted root CA.")
-        .validate(validatePath(_, "The file specified via --cacrt does not exist"))
-        .action { (path, c) =>
-          c.copy(tlsCaCrt = Some(path))
-        }
-
-      opt[Unit]("tls")
-        .optional()
-        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
-        .action { (_, c) =>
-          c.copy(tlsExplicit = true)
-        }
+      TlsConfigurationParser.parse(this, colSpacer)((f, c) =>
+        c copy (tlsConfiguration = f(c.tlsConfiguration)))
 
       note("\nAuthentication:")
 
@@ -310,12 +271,7 @@ object ConfigParser {
         case x => SnapshotEndSetting.Until(x)
       }
 
-      val tlsConfig = TlsConfiguration(
-        enabled = cliParams.tlsPem.isDefined || cliParams.tlsCrt.isDefined || cliParams.tlsCaCrt.isDefined || cliParams.tlsExplicit,
-        keyCertChainFile = cliParams.tlsCrt.map(new File(_)),
-        keyFile = cliParams.tlsPem.map(new File(_)),
-        trustCertCollectionFile = cliParams.tlsCaCrt.map(new File(_))
-      )
+      val tlsConfig = cliParams.tlsConfiguration
 
       val config = ExtractorConfig(
         cliParams.ledgerHost,
@@ -350,11 +306,6 @@ object ConfigParser {
 
   def showUsage(): Unit =
     configParser.showUsage()
-
-  private def validatePath(path: String, message: String): Either[String, Unit] = {
-    val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (valid) Right(()) else Left(message)
-  }
 
   private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
     Either.cond(x.size == x.toSet.size, (), message)
