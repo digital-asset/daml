@@ -13,6 +13,16 @@
     "outDir": "lib/",
     "module": "commonjs",
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "rootDirs": [
+        ".",
+        "../../../bazel-out/darwin-fastbuild/bin/language-support/ts/daml-types",
+        "../../../bazel-out/k8-fastbuild/bin/language-support/ts/daml-types",
+        "../../../bazel-out/x64_windows-fastbuild/bin/language-support/ts/daml-types",
+        "../../../bazel-out/darwin-dbg/bin/language-support/ts/daml-types",
+        "../../../bazel-out/k8-dbg/bin/language-support/ts/daml-types",
+        "../../../bazel-out/k8-opt/bin/language-support/ts/daml-types",
+        "../../../bazel-out/x64_windows-dbg/bin/language-support/ts/daml-types"
+      ]
   }
 }
