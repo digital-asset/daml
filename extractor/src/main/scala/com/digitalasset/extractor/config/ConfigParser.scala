@@ -8,7 +8,7 @@ import java.nio.file.{Path, Paths}
 import com.daml.lf.data.Ref.Party
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.extractor.targets._
-import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import CustomScoptReaders._
 import com.daml.ports.Port
 import scalaz.OneAnd
@@ -216,7 +216,7 @@ object ConfigParser {
 
       note("\nTLS configuration:")
 
-      TlsConfigurationParser.parse(this, colSpacer)((f, c) =>
+      TlsConfigurationCli.parse(this, colSpacer)((f, c) =>
         c copy (tlsConfiguration = f(c.tlsConfiguration)))
 
       note("\nAuthentication:")
