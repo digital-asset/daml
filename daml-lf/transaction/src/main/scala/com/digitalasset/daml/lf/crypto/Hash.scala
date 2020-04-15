@@ -232,6 +232,7 @@ object Hash {
   private[crypto] object Purpose {
     val Testing = Purpose(1)
     val ContractKey = Purpose(2)
+    val MaintainerContractKeyUUID = Purpose(4)
     val PrivateKey = Purpose(3)
   }
 
@@ -355,4 +356,13 @@ object Hash {
       .addStringSet(parties)
       .build
 
+  // For Corda
+  def deriveMaintainerContractKeyUUID(
+      keyHash: Hash,
+      maintainer: Ref.Party,
+  ): Hash =
+    builder(Purpose.MaintainerContractKeyUUID, noCid2String)
+      .add(keyHash)
+      .add(maintainer)
+      .build
 }
