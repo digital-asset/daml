@@ -14,7 +14,7 @@ import com.daml.lf.engine.script._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Compiler, SValue, SExpr}
+import com.daml.lf.speedy.{Compiler, SValue, SExpr, SError}
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
 import com.daml.ledger.api.tls.TlsConfiguration
@@ -216,6 +216,10 @@ class ReplService(
       ApplicationId("daml repl"),
       TimeProvider.UTC)
     runner.runWithClients(clients).onComplete {
+      case Failure(e: SError.SError) =>
+        // The error here is already printed by the logger in stepToValue.
+        // No need to print anything here.
+        respObs.onError(e)
       case Failure(e) =>
         println(s"$e")
         respObs.onError(e)
