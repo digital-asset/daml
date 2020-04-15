@@ -31,6 +31,15 @@ Summary
    Immediate action needed if you use any Java dependencies with
    ``com.digitalasset`` packages or Maven coordinates.
 
+Known issues
+~~~~~~~~~~~~
+
+- The new Sandbox has a known issue where some false negative contract key lookups
+  are only correctly validated on the read path, not on the write path. The net
+  effect is that with carefully constructed DAML models, non-conformant transactions can
+  be recorded in the underlying storage, which may lead to data continuity issues when this issue is fixed.
+  Full details can be found on `GitHub issue #5563 <https://github.com/digital-asset/daml/issues/5562>`__.
+
 What’s New
 ~~~~~~~~~~
 
