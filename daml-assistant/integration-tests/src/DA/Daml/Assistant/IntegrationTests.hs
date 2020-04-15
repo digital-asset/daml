@@ -535,7 +535,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "js") $ do
                             let workspaces = Workspaces [makeRelative codegenDir outDir]
-                            setupYarnEnv codegenDir workspaces [DamlTypes]
+                            setupYarnEnv codegenDir workspaces [DamlTypes, DamlLedger]
                         callCommandSilent $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
@@ -558,7 +558,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           step "Build DAML model for base application"
           callCommandSilent "daml build"
           step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen"
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
@@ -589,7 +589,7 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           step "Build the new DAML model"
           callCommandSilent "daml build"
           step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
           step "Run JavaScript codegen for new DAML model"
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         withCurrentDirectory (cdaDir </> "ui") $ do

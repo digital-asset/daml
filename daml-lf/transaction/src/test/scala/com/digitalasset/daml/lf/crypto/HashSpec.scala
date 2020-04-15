@@ -557,6 +557,32 @@ class HashSpec extends WordSpec with Matchers {
     }
   }
 
+  "Hash.derive" should {
+
+    val k1 =
+      Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
+    val k2 =
+      Hash.assertFromString("5a97286594af94c406d9354d35bf515a12e9d46b61f6dd6d4679e85395fde5f6")
+    val p1 = Ref.Party.assertFromString("alice")
+    val p2 = Ref.Party.assertFromString("bob")
+
+    "not produce collisions" in {
+      val set = for {
+        k <- Set(k1, k2)
+        p <- Set(p1, p2)
+      } yield Hash.deriveMaintainerContractKeyUUID(k, p)
+
+      set.size shouldBe 4
+    }
+
+    "be stable" in {
+      Hash.deriveMaintainerContractKeyUUID(k1, p1) shouldBe Hash.assertFromString(
+        "6ac76f1cb2b75305a6c910641ae39463321e09104d49d9aa32638d1d3286430c")
+      Hash.deriveMaintainerContractKeyUUID(k2, p2) shouldBe Hash.assertFromString(
+        "6874798ccf6ec1577955d61a6b6d96247f823515ef3afe8b1e086b3533a4fd56")
+    }
+  }
+
   private def defRef(module: String = "Module", name: String) =
     Ref.Identifier(
       packageId0,

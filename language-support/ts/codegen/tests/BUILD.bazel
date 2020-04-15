@@ -101,13 +101,10 @@ sh_test(
             "ts/**/lib/**",
         ],
     ),
-    tags = [
-        "exclusive",  # Due to the use of hardcoded ports in 'build-and-lint.sh'.
-    ],
     deps = [
         "@bazel_tools//tools/bash/runfiles",
     ],
-) if is_linux else None
+) if not is_windows else None
 
 da_haskell_library(
     name = "daml2js-test-helpers",
@@ -147,6 +144,7 @@ da_haskell_test(
         "//:yarn",
         "//compiler/damlc",
         "//language-support/ts/codegen:daml2js",
+        "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
         "@davl//:released/davl-upgrade-v4-v5.dar",
         "@davl//:released/davl-v4.dar",

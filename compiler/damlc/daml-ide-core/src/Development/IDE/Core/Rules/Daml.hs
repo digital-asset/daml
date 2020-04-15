@@ -202,11 +202,16 @@ diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
 diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
     where r = if any ((Just DsError ==) . _severity) diags then Nothing else Just ()
 
-getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
-getDalfDependencies files = do
+-- | Dependencies on other packages excluding stable DALFs.
+getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getUnstableDalfDependencies files = do
     unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
     pkgMap <- Map.unions <$> usesE GeneratePackageMap files
-    let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+
+getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getDalfDependencies files = do
+    actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
     -- Given that they are quite small and it is pretty much impossible to not depend on them
     -- this is fine. We might want to try being more clever here in the future.

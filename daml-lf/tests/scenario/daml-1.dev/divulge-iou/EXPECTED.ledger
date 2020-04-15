@@ -16,7 +16,7 @@ TX #1 1970-01-01T00:00:00Z [Test:17]
 TX #2 1970-01-01T00:00:00Z [Test:20]
 #2:0
 │   known to (since): AlicesBank (#2), Bob (#2)
-└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on 00e857817daf7c0720e87da6fcdfef01ed1cf807de9ee7b339fad6622c41e908aa
+└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on 00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3
     with { ref = 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835 } value-version: 6
     children:
     #2:1
@@ -24,4 +24,4 @@ TX #2 1970-01-01T00:00:00Z [Test:20]
     └─> ensure active 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835
 
 active contracts:
-   00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835, 00e857817daf7c0720e87da6fcdfef01ed1cf807de9ee7b339fad6622c41e908aa
+   00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3, 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835

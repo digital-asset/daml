@@ -379,9 +379,9 @@ final class Conversions(
         ptx.context.children.toImmArray.toSeq.sortBy(_.index).map(convertTxNodeId).asJava,
       )
 
-    ptx.context match {
-      case SPartialTransaction.ContextRoot(_, _) =>
-      case SPartialTransaction.ContextExercise(ctx, _) =>
+    ptx.context.exeContext match {
+      case None =>
+      case Some(ctx) =>
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)

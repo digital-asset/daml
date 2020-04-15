@@ -483,4 +483,17 @@ server_conformance_test(
     ],
 )
 
+server_conformance_test(
+    name = "next-conformance-test-closed-world",
+    server_args = [
+        "--wall-clock-time",
+        "--implicit-party-allocation=false",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ClosedWorldIT",
+    ],
+)
+
 exports_files(["src/main/resources/logback.xml"])

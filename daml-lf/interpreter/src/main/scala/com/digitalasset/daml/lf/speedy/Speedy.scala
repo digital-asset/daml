@@ -241,7 +241,7 @@ object Speedy {
       commitLocation = None
       val seedWithTime = for {
         time <- ptx.submissionTime
-        currentSeed <- ptx.context.contextSeed
+        currentSeed <- ptx.context.nextChildrenSeed
         newSeed = crypto.Hash.deriveTransactionSeed(
           currentSeed,
           scenarioServiceParticipant,

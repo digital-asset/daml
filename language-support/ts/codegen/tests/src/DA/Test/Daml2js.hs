@@ -228,7 +228,9 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
                 , "@typescript-eslint/parser" .= typescriptEslintVersion
                 ]
             , "workspaces" .= pkgs
-            , "resolutions" .= object ["@daml/types" .= ("file:../daml-types" :: T.Text)]
+            , "resolutions" .= object
+              [ "@daml/types" .= ("file:../daml-types" :: T.Text)
+              , "@daml/ledger" .= ("file:../daml-ledger" :: T.Text)]
             ]
         BSL.writeFile ".eslintrc.json" $ encode $
           object
@@ -252,7 +254,7 @@ tests yarn damlc daml2js davl = testGroup "daml2js tests"
   where
     setupYarnEnvironment :: IO ()
     setupYarnEnvironment = do
-      setupYarnEnv "." (Workspaces ["daml2js"]) [DamlTypes]
+      setupYarnEnv "." (Workspaces ["daml2js"]) [DamlTypes, DamlLedger]
 
     buildProject :: [String] -> IO ()
     buildProject args = callProcessSilent damlc (["build"] ++ args)
