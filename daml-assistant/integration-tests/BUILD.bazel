@@ -83,7 +83,11 @@ create_daml_app_resources = [
 da_haskell_test(
     name = "integration-tests",
     timeout = "long",
-    srcs = glob(["src/**/*.hs"]),
+    srcs = [
+      "src/DA/Daml/Assistant/IntegrationTests.hs",
+      "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
+      "src/DA/Daml/Assistant/FreePort.hs",
+    ],
     args = [
         "$(location //:yarn)",
     ],
@@ -95,8 +99,7 @@ da_haskell_test(
         "//compiler/damlc/tests:generate-simple-dalf",
         "@mvn_dev_env//:mvn",
         "@tar_dev_env//:tar",
-        "@patch_dev_env//:patch",
-    ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
+    ] + ([] if is_windows else ts_libraries),
     # I’m sure the mvn stuff will be flaky.
     flaky = True,
     hackage_deps = [
@@ -127,6 +130,66 @@ da_haskell_test(
     ],
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
     visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//daml-assistant/daml-helper:daml-helper-lib",
+        "//language-support/ts/codegen/tests:daml2js-test-helpers",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "create-daml-app-tests",
+    timeout = "long",
+    srcs = [
+      "src/DA/Daml/Assistant/CreateDamlAppTests.hs",
+      "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
+    ],
+    args = [
+        "$(location //:yarn)",
+    ],
+    data = [
+        "//release:sdk-release-tarball",
+        "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
+        "//:yarn",
+        "@patch_dev_env//:patch",
+    ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
+    # I’m sure the mvn stuff will be flaky.
+    flaky = True,
+    hackage_deps = [
+        "aeson",
+        "aeson-extra",
+        "async",
+        "base",
+        "bytestring",
+        "conduit",
+        "conduit-extra",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "http-client",
+        "http-types",
+        "jwt",
+        "main-tester",
+        "network",
+        "unix-compat",
+        "unordered-containers",
+        "process",
+        "tar",
+        "tar-conduit",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "zip-archive",
+    ],
+    main_function = "DA.Daml.Assistant.CreateDamlAppTests.main",
+    visibility = ["//visibility:public"],
+    # Exclusive until we stop hardcoding port numbers in index.test.ts
+    tags = ["exclusive"],
     deps = [
         "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",

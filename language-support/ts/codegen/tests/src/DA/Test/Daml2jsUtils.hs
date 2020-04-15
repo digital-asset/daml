@@ -5,17 +5,14 @@ module DA.Test.Daml2jsUtils (
     Workspaces (..),
     allTsLibraries,
     setupYarnEnv,
-    addTestDependencies,
     ) where
 
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString as BS
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Directory
 import Data.Aeson
-import Data.Aeson.Extra.Merge
 import System.FilePath
 
 data TsLibrary
@@ -55,18 +52,3 @@ setupYarnEnv rootDir (Workspaces workspaces) tsLibs = do
             , let pkgName = "@" <> T.replace "-" "/"  (T.pack name)
             ]
         ]
-
-addTestDependencies :: FilePath -> FilePath -> IO ()
-addTestDependencies packageJsonFile extraDepsFile = do
-    packageJson <- readJsonFile packageJsonFile
-    extraDeps <- readJsonFile extraDepsFile
-    let newPackageJson = lodashMerge packageJson extraDeps
-    BSL.writeFile packageJsonFile (encode newPackageJson)
-  where
-    readJsonFile :: FilePath -> IO Value
-    readJsonFile path = do
-        -- Read file strictly to avoid lock being held when we subsequently write to it
-        content <- BSL.fromStrict <$> BS.readFile path
-        case decode content of
-            Nothing -> error ("Could not decode JSON object from " <> path)
-            Just val -> return val

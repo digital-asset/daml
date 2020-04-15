@@ -111,7 +111,6 @@ da_haskell_library(
     srcs = ["src/DA/Test/Daml2jsUtils.hs"],
     hackage_deps = [
         "aeson",
-        "aeson-extra",
         "base",
         "bytestring",
         "filepath",
@@ -153,7 +152,6 @@ da_haskell_test(
     ],
     hackage_deps = [
         "aeson",
-        "aeson-extra",
         "base",
         "bytestring",
         "extra",
