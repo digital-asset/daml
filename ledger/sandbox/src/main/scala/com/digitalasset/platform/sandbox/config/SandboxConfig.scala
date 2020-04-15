@@ -8,15 +8,14 @@ import java.nio.file.Path
 import java.time.Duration
 
 import ch.qos.logback.classic.Level
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.configuration.{
   CommandConfiguration,
   MetricsReporter,
-  PartyConfiguration,
   SubmissionConfiguration
 }
 import com.daml.platform.services.time.TimeProviderType
@@ -33,10 +32,10 @@ final case class SandboxConfig(
     timeProviderType: Option[TimeProviderType],
     timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
-    partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
+    implicitPartyAllocation: Boolean,
     ledgerIdMode: LedgerIdMode,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
@@ -67,12 +66,10 @@ object SandboxConfig {
       timeProviderType = None,
       timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
-      partyConfig = PartyConfiguration.default.copy(
-        implicitPartyAllocation = true,
-      ),
       submissionConfig = SubmissionConfiguration.default,
       tlsConfig = None,
       scenario = None,
+      implicitPartyAllocation = true,
       ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
@@ -87,11 +84,6 @@ object SandboxConfig {
 
   lazy val default: SandboxConfig =
     nextDefault.copy(
-      partyConfig = nextDefault.partyConfig.copy(
-        // In Sandbox, parties are always allocated implicitly. Enabling this would result in an
-        // extra `writeService.allocateParty` call, which is unnecessary and bad for performance.
-        implicitPartyAllocation = false,
-      ),
       seeding = None,
     )
 }

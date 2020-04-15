@@ -10,23 +10,24 @@ import java.time.{Duration, Instant}
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
-import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.lf.data.{ImmArray, Ref}
-import com.daml.lf.engine.Engine
 import com.daml.dec.DirectExecutionContext
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
+import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
+import com.daml.ledger.participant.state.{v1 => ParticipantState}
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
+import com.daml.platform.configuration.PartyConfiguration
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -288,7 +289,12 @@ final class SandboxServer(
               timeProvider = timeProvider,
               defaultLedgerConfiguration = defaultConfiguration,
               commandConfig = config.commandConfig,
-              partyConfig = config.partyConfig,
+              partyConfig = PartyConfiguration.default.copy(
+                // In this version of Sandbox, parties are always allocated implicitly. Enabling
+                // this would result in an extra `writeService.allocateParty` call, which is
+                // unnecessary and bad for performance.
+                implicitPartyAllocation = false,
+              ),
               submissionConfig = config.submissionConfig,
               optTimeServiceBackend = timeServiceBackendO,
               metrics = metrics,
