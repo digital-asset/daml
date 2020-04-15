@@ -87,7 +87,7 @@ final class InMemoryLedgerReaderWriter private (
       }
   }
 
-  private class InMemoryLedgerStateOperations(
+  private final class InMemoryLedgerStateOperations(
       log: InMemoryState.MutableLog,
       state: InMemoryState.MutableState,
   ) extends BatchingLedgerStateOperations[Index] {
@@ -127,7 +127,7 @@ object InMemoryLedgerReaderWriter {
 
   private val sequentialLogEntryId = new SequentialLogEntryId(NamespaceLogEntries)
 
-  class SingleParticipantOwner(
+  final class SingleParticipantOwner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -156,7 +156,7 @@ object InMemoryLedgerReaderWriter {
 
   // passing the `dispatcher` and `state` from the outside allows us to share
   // the backing data for the LedgerReaderWriter and therefore setup multiple participants
-  class Owner(
+  final class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,

@@ -89,14 +89,15 @@ final class SqlLedgerReaderWriter(
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
-  object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
+  private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       database.inWriteTransaction("Committing a submission") { queries =>
         body(new SqlLedgerStateOperations(queries))
       }
   }
 
-  class SqlLedgerStateOperations(queries: Queries) extends BatchingLedgerStateOperations[Index] {
+  private final class SqlLedgerStateOperations(queries: Queries)
+      extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
       Future.fromTry(queries.selectStateValuesByKeys(keys))
 
@@ -113,7 +114,7 @@ object SqlLedgerReaderWriter {
 
   val DefaultTimeProvider: TimeProvider = TimeProvider.UTC
 
-  class Owner(
+  final class Owner(
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
