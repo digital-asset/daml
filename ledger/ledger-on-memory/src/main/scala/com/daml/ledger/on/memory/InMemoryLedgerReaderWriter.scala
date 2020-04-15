@@ -60,6 +60,7 @@ final class InMemoryLedgerReaderWriter private (
   override def commit(correlationId: String, envelope: Bytes): Future[SubmissionResult] =
     committer.commit(correlationId, envelope, participantId)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any")) // so we can use `.view`
   override def events(startExclusive: Option[Offset]): Source[LedgerRecord, NotUsed] =
     dispatcher
       .startingAt(
@@ -68,10 +69,13 @@ final class InMemoryLedgerReaderWriter private (
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
-            val entries: Seq[(LedgerRecord, Index)] =
-              Metrics.readLog.time(() =>
-                state.readLog(_.zipWithIndex.slice(startExclusive + 1, endInclusive + 1)))
-            entries.iterator.map { case (entry, index) => index -> entry }
+            Metrics.readLog.time[Iterator[(Index, LedgerRecord)]](
+              () =>
+                state
+                  .readLog(_.view.zipWithIndex.slice(startExclusive + 1, endInclusive + 1).map {
+                    case (entry, index) => index -> entry
+                  })
+                  .iterator)
           }))
       )
       .map { case (_, updates) => updates }
