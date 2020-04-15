@@ -17,7 +17,7 @@ import scala.util.{Failure, Success, Try}
 class ProgramResource[T](
     owner: => ResourceOwner[T],
     startupTimeout: FiniteDuration = 1.minute,
-    tearDownDuration: FiniteDuration = 10.seconds,
+    tearDownTimeout: FiniteDuration = 10.seconds,
 ) {
   private val logger = ContextualizedLogger.get(getClass)
 
@@ -30,9 +30,9 @@ class ProgramResource[T](
       val resource = Try(owner.acquire()).fold(Resource.failed, identity)
 
       def stop(): Unit = {
-        Await.result(resource.release(), tearDownDuration)
+        Await.result(resource.release(), tearDownTimeout)
         executorService.shutdown()
-        executorService.awaitTermination(tearDownDuration.toMillis, TimeUnit.MILLISECONDS)
+        executorService.awaitTermination(tearDownTimeout.toMillis, TimeUnit.MILLISECONDS)
         ()
       }
 
