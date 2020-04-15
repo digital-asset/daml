@@ -8,7 +8,7 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter._
@@ -21,6 +21,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
+import com.daml.metrics.MetricName
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
@@ -44,7 +45,7 @@ final class InMemoryLedgerReaderWriter private (
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .createForTimeMode(
-        new InMemoryLedgerStateAccess(state),
+        InMemoryLedgerStateAccess,
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         stateValueCache = stateValueCache,
         metricRegistry = metricRegistry,
@@ -67,38 +68,48 @@ final class InMemoryLedgerReaderWriter private (
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
-            val entries = state.readLog(_.zipWithIndex.slice(startExclusive + 1, endInclusive + 1))
+            val entries: Seq[(LedgerRecord, Index)] =
+              Metrics.readLog.time(() =>
+                state.readLog(_.zipWithIndex.slice(startExclusive + 1, endInclusive + 1)))
             entries.iterator.map { case (entry, index) => index -> entry }
           }))
       )
       .map { case (_, updates) => updates }
-}
 
-class InMemoryLedgerStateAccess(currentState: InMemoryState)(
-    implicit executionContext: ExecutionContext
-) extends LedgerStateAccess[Index] {
-
-  override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
-    currentState.write { (log, state) =>
-      body(new InMemoryLedgerStateOperations(log, state))
-    }
-}
-
-private class InMemoryLedgerStateOperations(
-    log: InMemoryState.MutableLog,
-    state: InMemoryState.MutableState,
-)(implicit executionContext: ExecutionContext)
-    extends BatchingLedgerStateOperations[Index] {
-  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-    Future.successful(keys.map(state.get))
-
-  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
-    state ++= keyValuePairs
-    Future.unit
+  object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
+    override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
+      state.write { (log, state) =>
+        body(new InMemoryLedgerStateOperations(log, state))
+      }
   }
 
-  override def appendToLog(key: Key, value: Value): Future[Index] =
-    Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
+  private class InMemoryLedgerStateOperations(
+      log: InMemoryState.MutableLog,
+      state: InMemoryState.MutableState,
+  ) extends BatchingLedgerStateOperations[Index] {
+    override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+      Future.successful(Metrics.readState.time(() => keys.map(state.get)))
+
+    override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
+      Metrics.writeState.time { () =>
+        state ++= keyValuePairs
+      }
+      Future.unit
+    }
+
+    override def appendToLog(key: Key, value: Value): Future[Index] =
+      Future.successful(
+        Metrics.appendToLog.time(() => appendEntry(log, LedgerRecord(_, key, value))))
+  }
+
+  private object Metrics {
+    private val Prefix = MetricName.DAML :+ "ledger"
+
+    val readLog: Timer = metricRegistry.timer(Prefix :+ "log" :+ "read")
+    val appendToLog: Timer = metricRegistry.timer(Prefix :+ "log" :+ "append")
+    val readState: Timer = metricRegistry.timer(Prefix :+ "state" :+ "read")
+    val writeState: Timer = metricRegistry.timer(Prefix :+ "state" :+ "write")
+  }
 }
 
 object InMemoryLedgerReaderWriter {
