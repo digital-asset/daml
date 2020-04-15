@@ -11,6 +11,7 @@ import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.{DomainJsonEncoder, SprayJson}
 import com.daml.http.util.TestUtil
+import HttpServiceTestFixture.UseTls
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
 import scalaz.{-\/, \/, \/-}
@@ -38,6 +39,8 @@ class WebsocketServiceIntegrationTest
   override def jdbcConfig: Option[JdbcConfig] = None
 
   override def staticContentConfig: Option[StaticContentConfig] = None
+
+  override def useTls = UseTls.NoTls
 
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 

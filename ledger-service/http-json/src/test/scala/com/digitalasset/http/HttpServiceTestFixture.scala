@@ -9,10 +9,11 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
 import akka.stream.Materializer
+import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.http.dbbackend.ContractDao
 import com.daml.http.json.{DomainJsonDecoder, DomainJsonEncoder}
-import com.daml.http.util.FutureUtil
+import com.daml.http.util.{FutureUtil, NewBoolean}
 import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.domain.LedgerId
@@ -46,7 +47,8 @@ object HttpServiceTestFixture {
       testName: String,
       dars: List[File],
       jdbcConfig: Option[JdbcConfig],
-      staticContentConfig: Option[StaticContentConfig]
+      staticContentConfig: Option[StaticContentConfig],
+      useTls: UseTls = UseTls.NoTls
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -59,7 +61,8 @@ object HttpServiceTestFixture {
     val contractDaoF: Future[Option[ContractDao]] = jdbcConfig.map(c => initializeDb(c)).sequence
 
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
+      ledger <- Future(
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, useTls = useTls), mat))
       port <- ledger.portF
     } yield (ledger, port)
 
@@ -74,7 +77,7 @@ object HttpServiceTestFixture {
           address = "localhost",
           httpPort = 0,
           portFile = None,
-          tlsConfig = TlsConfiguration(enabled = false, None, None, None),
+          tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
           wsConfig = Some(Config.DefaultWsConfig),
           accessTokenFile = None,
           contractDao = contractDao,
@@ -85,7 +88,10 @@ object HttpServiceTestFixture {
 
     val clientF: Future[LedgerClient] = for {
       (_, ledgerPort) <- ledgerF
-      client <- LedgerClient.singleHost("localhost", ledgerPort.value, clientConfig(applicationId))
+      client <- LedgerClient.singleHost(
+        "localhost",
+        ledgerPort.value,
+        clientConfig(applicationId, useTls = useTls))
     } yield client
 
     val codecsF: Future[(DomainJsonEncoder, DomainJsonDecoder)] = for {
@@ -155,24 +161,27 @@ object HttpServiceTestFixture {
       ledgerPort: Port,
       dars: List[File],
       ledgerId: LedgerId,
-      authService: Option[AuthService] = None
+      authService: Option[AuthService] = None,
+      useTls: UseTls = UseTls.NoTls
   ): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.WallClock),
+      tlsConfig = if (useTls) Some(serverTlsConfig) else None,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
       authService = authService
     )
 
   private def clientConfig[A](
       applicationId: ApplicationId,
-      token: Option[String] = None): LedgerClientConfiguration =
+      token: Option[String] = None,
+      useTls: UseTls = UseTls.NoTls): LedgerClientConfiguration =
     LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
+      sslContext = if (useTls) clientTlsConfig.client else None,
       token = token
     )
 
@@ -201,4 +210,20 @@ object HttpServiceTestFixture {
       dao <- Future(ContractDao(c.driver, c.url, c.user, c.password))
       _ <- dao.transact(ContractDao.initialize(dao.logHandler)).unsafeToFuture(): Future[Unit]
     } yield dao
+
+  object UseTls extends NewBoolean.Named {
+    val Tls = True
+    val NoTls = False
+  }
+  type UseTls = UseTls.T
+
+  private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
+    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
+      Some(new File(rlocation("ledger/test-common/test-certificates/" + src)))
+    }
+  }
+
+  private val serverTlsConfig = TlsConfiguration(enabled = true, serverCrt, serverPem, caCrt)
+  private val clientTlsConfig = TlsConfiguration(enabled = true, clientCrt, clientPem, caCrt)
+  private val noTlsConfig = TlsConfiguration(enabled = false, None, None, None)
 }

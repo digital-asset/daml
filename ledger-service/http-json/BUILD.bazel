@@ -118,6 +118,7 @@ da_scala_test(
     data = [
         ":Account.dar",
         "//docs:quickstart-model.dar",
+        "//ledger/test-common/test-certificates",
     ],
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",

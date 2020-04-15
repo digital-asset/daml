@@ -15,7 +15,7 @@ import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
 import com.daml.lf.data.Ref
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.daml.http.HttpServiceTestFixture.jsonCodecs
+import HttpServiceTestFixture.{jsonCodecs, UseTls}
 import com.daml.http.domain.ContractId
 import com.daml.http.domain.TemplateId.OptionalPkg
 import com.daml.http.json.SprayJson.{decode, decode1, objectField}
@@ -60,6 +60,8 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
 
   def staticContentConfig: Option[StaticContentConfig]
 
+  def useTls: UseTls
+
   protected def testId: String = this.getClass.getSimpleName
 
   protected val metdata2: MetadataReader.LfMetadata =
@@ -86,7 +88,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def withHttpServiceAndClient[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
     HttpServiceTestFixture
-      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig)
+      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig, useTls)
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
@@ -399,6 +401,8 @@ abstract class AbstractHttpServiceIntegrationTest
     with StrictLogging
     with AbstractHttpServiceIntegrationTestFuns {
   import json.JsonProtocol._
+
+  override final def useTls = UseTls.NoTls
 
   "query GET empty results" in withHttpService { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/v1/query")))
