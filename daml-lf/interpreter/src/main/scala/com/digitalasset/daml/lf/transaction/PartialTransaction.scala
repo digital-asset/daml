@@ -103,6 +103,7 @@ object PartialTransaction {
     submissionTime = submissionTime,
     nextNodeIdx = 0,
     nodes = HashMap.empty,
+    nodeSeeds = BackStack.empty,
     consumedBy = Map.empty,
     context = Context(initialSeeds),
     aborted = None,
@@ -146,6 +147,7 @@ case class PartialTransaction(
     submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[Value.NodeId, Tx.Node],
+    nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
     consumedBy: Map[Value.ContractId, Value.NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
@@ -285,7 +287,6 @@ case class PartialTransaction(
         Value.RelativeContractId(Value.NodeId(nextNodeIdx))
       )(Value.AbsoluteContractId.V1(_))
       val createNode = Node.NodeCreate(
-        nodeSeed,
         cid,
         coinst,
         optLocation,
@@ -298,6 +299,7 @@ case class PartialTransaction(
         nextNodeIdx = nextNodeIdx + 1,
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
+        nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nid -> s)),
         localContracts = localContracts.updated(cid, nid)
       )
 
@@ -409,7 +411,6 @@ case class PartialTransaction(
     context.exeContext match {
       case Some(ec) =>
         val exerciseNode = Node.NodeExercises(
-          nodeSeed = ec.parent.nextChildrenSeed,
           targetCoid = ec.targetId,
           templateId = ec.templateId,
           choiceId = ec.choiceId,
@@ -425,7 +426,11 @@ case class PartialTransaction(
           key = ec.contractKey,
         )
         val nodeId = ec.nodeId
-        copy(context = ec.parent.addChild(nodeId), nodes = nodes.updated(nodeId, exerciseNode))
+        copy(
+          context = ec.parent.addChild(nodeId),
+          nodes = nodes.updated(nodeId, exerciseNode),
+          nodeSeeds = ec.parent.nextChildrenSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nodeId -> s)),
+        )
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)
     }
@@ -461,7 +466,7 @@ case class PartialTransaction(
 
 }
 
-sealed abstract class InitialSeeding
+sealed abstract class InitialSeeding extends Product with Serializable
 
 object InitialSeeding {
   def apply(transactionSeed: Option[crypto.Hash]): InitialSeeding =

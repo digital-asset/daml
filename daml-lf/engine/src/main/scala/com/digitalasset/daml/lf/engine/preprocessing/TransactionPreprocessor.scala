@@ -48,20 +48,12 @@ private[preprocessing] final class TransactionPreprocessor(
   ): speedy.Command = {
 
     node match {
-      case Node.NodeCreate(
-          nodeSeed @ _,
-          coid @ _,
-          coinst,
-          optLoc @ _,
-          sigs @ _,
-          stks @ _,
-          key @ _) =>
+      case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         val arg = unsafeAsValueWithAbsoluteContractIds(coinst.arg.value)
         commandPreprocessor.unsafePreprocessCreate(identifier, arg)
 
       case Node.NodeExercises(
-          nodeSeed @ _,
           coid,
           template,
           choice,

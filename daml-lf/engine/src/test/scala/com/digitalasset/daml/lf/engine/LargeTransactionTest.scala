@@ -92,9 +92,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionOneContract:create", txSize))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListContainerExerciseCmd(rangeOfIntsTemplateId, contractId)
@@ -121,9 +121,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create RangeOfInts",
         seed = hash("testLargeTransactionManySmallContracts:create", num))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = toListOfIntContainers(rangeOfIntsTemplateId, contractId)
@@ -150,9 +150,9 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
         cmdReference = "create ListUtil",
         seed = hash("testLargeChoiceArgument:create", size))
     val contractId: AbsoluteContractId = firstRootNode(createCmdTx) match {
-      case N.NodeCreate(_, x: RelativeContractId, _, _, _, _, _) =>
+      case N.NodeCreate(x: RelativeContractId, _, _, _, _, _) =>
         AbsoluteContractId.V0(pcs.toContractIdString(pcs.transactionCounter - 1)(x))
-      case N.NodeCreate(_, x: AbsoluteContractId, _, _, _, _, _) => x
+      case N.NodeCreate(x: AbsoluteContractId, _, _, _, _, _) => x
       case n @ _ => fail(s"Expected NodeCreate, but got: $n")
     }
     val exerciseCmd = sizeExerciseCmd(listUtilTemplateId, contractId)(size)
@@ -195,7 +195,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
       }
 
     newContracts.count {
-      case N.NodeCreate(_, _, _, _, _, _, _) => true
+      case N.NodeCreate(_, _, _, _, _, _) => true
       case n @ _ => fail(s"Unexpected match: $n")
     } shouldBe expectedNumberOfContracts
   }
@@ -320,7 +320,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
     }
 
     createNode match {
-      case N.NodeCreate(_, _, x: ContractInst[_], _, _, _, _) => x
+      case N.NodeCreate(_, x: ContractInst[_], _, _, _, _) => x
       case n @ _ => fail(s"Unexpected match: $n")
     }
   }

@@ -86,13 +86,13 @@ private[kvutils] object InputsAndEffects {
                 GlobalKey(fetch.templateId, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case create @ NodeCreate(_, _, _, _, _, _, _) =>
+          case create @ NodeCreate(_, _, _, _, _, _) =>
             create.key.foreach { keyWithMaintainers =>
               inputs += globalKeyToStateKey(
                 GlobalKey(create.coinst.template, forceNoContractIds(keyWithMaintainers.key.value)))
             }
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             addContractInput(exe.targetCoid)
 
           case lookup @ NodeLookupByKey(_, _, _, _) =>
@@ -118,7 +118,7 @@ private[kvutils] object InputsAndEffects {
         node match {
           case fetch @ NodeFetch(_, _, _, _, _, _, _) =>
             effects
-          case create @ NodeCreate(_, _, _, _, _, _, _) =>
+          case create @ NodeCreate(_, _, _, _, _, _) =>
             effects.copy(
               createdContracts = contractIdToStateKey(create.coid) -> create :: effects.createdContracts,
               updatedContractKeys = create.key
@@ -141,7 +141,7 @@ private[kvutils] object InputsAndEffects {
                 )
             )
 
-          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+          case exe @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
             if (exe.consuming) {
               effects.copy(
                 consumedContracts = contractIdToStateKey(exe.targetCoid) :: effects.consumedContracts,

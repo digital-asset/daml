@@ -145,17 +145,9 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   private def getTemplateId(node: Node.GenNode.WithTxValue[Transaction.NodeId, _]) =
     node match {
-      case Node.NodeCreate(
-          nodeSeed @ _,
-          coid @ _,
-          coinst,
-          optLoc @ _,
-          sigs @ _,
-          stks @ _,
-          key @ _) =>
+      case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         coinst.template
       case Node.NodeExercises(
-          nodeSeed @ _,
           coid @ _,
           templateId,
           choice @ _,

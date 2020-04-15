@@ -147,7 +147,7 @@ object TransactionCoder {
       minContractKeyInFetch,
     }
     node match {
-      case nc @ NodeCreate(_, _, _, _, _, _, _) =>
+      case nc @ NodeCreate(_, _, _, _, _, _) =>
         val createBuilder =
           TransactionOuterClass.NodeCreate
             .newBuilder()
@@ -211,7 +211,7 @@ object TransactionCoder {
           nodeBuilder.setFetch(fetchBuilder).build()
         }
 
-      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
         for {
           argValue <- encodeValue(encodeCid, ne.chosenValue)
           (vversion, arg) = argValue
@@ -344,7 +344,7 @@ object TransactionCoder {
           else if (txVersion precedes minKeyOrLookupByKey)
             Left(DecodeError(s"$txVersion is too old to support NodeCreate's `key` field"))
           else decodeKeyWithMaintainers(decodeCid, protoCreate.getKeyWithMaintainers).map(Some(_))
-        } yield (ni, NodeCreate(None, c, ci, None, signatories, stakeholders, key))
+        } yield (ni, NodeCreate(c, ci, None, signatories, stakeholders, key))
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {
@@ -434,7 +434,6 @@ object TransactionCoder {
           (
             ni,
             NodeExercises(
-              None,
               targetCoid = targetCoid,
               templateId = templateId,
               choiceId = choiceName,

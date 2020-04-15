@@ -5,17 +5,17 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.command._
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Pretty
+import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, Command => SpeedyCommand}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction.{NodeId, Transaction}
 import com.daml.lf.value.Value
-import com.daml.lf.speedy.{Command => SpeedyCommand}
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -82,7 +82,7 @@ final class Engine {
       cmds: Commands,
       participantId: ParticipantId,
       submissionSeed: Option[crypto.Hash],
-  ): Result[(Transaction.Transaction, Transaction.Metadata)] = {
+  ): Result[(Tx.Transaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     _preprocessor
       .preprocessCommands(cmds.commands)
@@ -96,10 +96,9 @@ final class Engine {
               commands = processedCmds,
               ledgerTime = cmds.ledgerEffectiveTime,
               submissionTime = submissionTime,
-              transactionSeed = submissionSeed.map(
-                crypto.Hash.deriveTransactionSeed(_, participantId, submissionTime)),
+              seeds = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
             ) map {
-              case (tx, dependsOnTime) =>
+              case (tx, dependsOnTime, nodeSeeds) =>
                 // Annotate the transaction with the package dependencies. Since
                 // all commands are actions on a contract template, with a fully typed
                 // argument, we only need to consider the templates mentioned in the command
@@ -113,10 +112,12 @@ final class Engine {
                         sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                   (pkgIds + pkgId) union transitiveDeps
                 }
-                tx -> Transaction.Metadata(
-                  submissionTime = submissionTime,
-                  usedPackages = deps,
-                  dependsOnTime = dependsOnTime,
+                tx -> Tx.Metadata(
+                  submissionSeed,
+                  submissionTime,
+                  deps,
+                  dependsOnTime,
+                  nodeSeeds,
                 )
             }
         }
@@ -145,12 +146,12 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      submissionTime: Time.Timestamp,
-      transactionSeed: Option[crypto.Hash],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
+      nodeSeeds: ImmArray[Option[crypto.Hash]],
+      submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Transaction.Transaction, Boolean)] =
+  ): Result[(Tx.Transaction, Boolean, ImmArray[(NodeId, Hash)])] =
     for {
       commands <- Result.sequence(ImmArray(nodes).map(_preprocessor.translateNode))
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
@@ -163,8 +164,8 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
-        submissionTime,
-        transactionSeed,
+        submissionTime = submissionTime,
+        seeds = InitialSeeding.RootNodeSeeds(nodeSeeds),
       )
     } yield result
 
@@ -184,7 +185,7 @@ final class Engine {
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
     */
   def validate(
-      tx: Transaction.Transaction,
+      tx: Tx.Transaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
@@ -227,10 +228,10 @@ final class Engine {
         submitters = submitters,
         commands = commands.map(_._2),
         ledgerTime = ledgerEffectiveTime,
-        submissionTime,
-        submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participantId, submissionTime))
+        submissionTime = submissionTime,
+        seeds = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
       )
-      (rtx, _) = result
+      (rtx, _, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -257,15 +258,15 @@ final class Engine {
       commands: ImmArray[SpeedyCommand],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
-      transactionSeed: Option[crypto.Hash],
-  ): Result[(Transaction.Transaction, Boolean)] = {
+      seeds: speedy.InitialSeeding,
+  ): Result[(Transaction, Boolean, ImmArray[(Tx.NodeId, Hash)])] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands),
         compiledPackages = _compiledPackages,
-        submissionTime,
-        speedy.InitialSeeding(transactionSeed)
+        submissionTime = submissionTime,
+        seeds = seeds,
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, ledgerTime)
@@ -276,7 +277,7 @@ final class Engine {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(Transaction.Transaction, Boolean)] = {
+  ): Result[(Tx.Transaction, Boolean, ImmArray[(Tx.NodeId, crypto.Hash)])] = {
     while (!machine.isFinal) {
       machine.step() match {
         case SResultContinue =>
@@ -345,7 +346,7 @@ final class Engine {
     machine.ptx.finish match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(t) => ResultDone(t -> machine.dependsOnTime)
+      case Right(t) => ResultDone((t, machine.dependsOnTime, machine.ptx.nodeSeeds.toImmArray))
     }
   }
 
@@ -370,4 +371,17 @@ final class Engine {
 
 object Engine {
   def apply(): Engine = new Engine()
+
+  def initialSeeding(
+      submissionSeed: Option[Hash],
+      participant: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+  ): InitialSeeding =
+    submissionSeed match {
+      case None =>
+        InitialSeeding.NoSeed
+      case Some(seed) =>
+        InitialSeeding.TransactionSeed(
+          crypto.Hash.deriveTransactionSeed(seed, participant, submissionTime))
+    }
 }
