@@ -11,6 +11,7 @@ trigger:
   branches:
     include:
       - master
+      - release/*
 
 # Enable PR triggers that target the master branch
 pr:
@@ -18,6 +19,7 @@ pr:
   branches:
     include:
       - master
+      - release/*
 
 jobs:
   - job: git_sha
@@ -38,6 +40,10 @@ jobs:
         name: out
 
   - job: check_standard_change_label
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
@@ -47,7 +53,7 @@ jobs:
           set -euo pipefail
 
           has_changed_infra_folder () {
-              git diff origin/master --name-only | grep -q '^infra/'
+              git diff $(fork_sha) --name-only | grep -q '^infra/'
           }
 
           fail_if_missing_std_change_label () {
@@ -61,12 +67,16 @@ jobs:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
       - checkout: self
-      - bash: ci/check-changelog.sh
+      - bash: ci/check-changelog.sh $(fork_sha)
 
   - job: Linux
     dependsOn:
@@ -208,7 +218,8 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranchName'], 'release/')))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -299,7 +310,8 @@ jobs:
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranchName'], 'release/')))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
