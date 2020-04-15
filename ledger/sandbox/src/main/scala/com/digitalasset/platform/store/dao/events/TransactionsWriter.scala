@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
+import anorm.BatchSql
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
@@ -63,9 +64,31 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       disclosure: DisclosureRelation,
       toBeInserted: Set[ContractId],
   ): WitnessRelation[ContractId] =
-    transaction.nodes.iterator
-      .collect(divulgedContracts(disclosure, toBeInserted))
-      .foldLeft[WitnessRelation[ContractId]](Map.empty)(Relation.merge)
+    if (toBeInserted.isEmpty) {
+      Map.empty
+    } else {
+      transaction.nodes.iterator
+        .collect(divulgedContracts(disclosure, toBeInserted))
+        .foldLeft[WitnessRelation[ContractId]](Map.empty)(Relation.merge)
+    }
+
+  private def prepareWitnessesBatch(
+      insertions: Set[ContractId],
+      deletions: Set[ContractId],
+      transaction: Transaction,
+      blinding: BlindingInfo,
+  ): Option[BatchSql] = {
+    val localDivulgence = divulgence(transaction, blinding.disclosure, insertions)
+    val fullDivulgence = Relation.union(
+      localDivulgence,
+      blinding.globalDivulgence.filterKeys(!deletions.contains(_))
+    )
+    val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
+    if (localDivulgence.nonEmpty) {
+      require(insertWitnessesBatch.nonEmpty, "Illegal: inserting a contract without witnesses")
+    }
+    insertWitnessesBatch
+  }
 
   def write(
       applicationId: Option[ApplicationId],
@@ -152,25 +175,16 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
         insertContractsBatch.execute()
       }
 
-      val notDeleted: ContractId => Boolean =
-        !contractBatches.deletions.fold(Set.empty[ContractId])(_._1).contains(_)
-
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via a fetch).
-      val localDivulgence =
-        contractBatches.insertions.fold[WitnessRelation[ContractId]](Map.empty) {
-          case (toBeInserted, _) => divulgence(transaction, blinding.disclosure, toBeInserted)
-        }
-      val fullDivulgence = Relation.union(
-        localDivulgence,
-        blinding.globalDivulgence.filterKeys(notDeleted)
+      val insertWitnessesBatch = prepareWitnessesBatch(
+        insertions = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
+        deletions = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+        transaction = transaction,
+        blinding = blinding,
       )
-      val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
-      if (localDivulgence.nonEmpty) {
-        require(insertWitnessesBatch.nonEmpty, "Illegal: inserting a contract without witnesses")
-      }
       insertWitnessesBatch.foreach(_.execute())
 
     }
