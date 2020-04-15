@@ -122,7 +122,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
 
     } else {
 
-      // `disclosure` says which node within the current transaction are visible to which participant
+      // `disclosure` says which node within the current transaction are visible to which party
       // `globalDivulgence` includes:
       // - contracts created on another participant
       // - contracts created in a previous transaction that are divulged in the current transaction
