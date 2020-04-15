@@ -114,9 +114,10 @@ private[events] object ContractsTable {
             batches // ignore any event which is neither a create nor a consuming exercise
         }
 
-    // Divulged contracts are inserted _after_ locally created contracts to make sure that the
-    // divulged ones are not skipped because they are consumed in the current transaction causing
-    // them to be erroneously not persisted because they are transient (which they are not)
+    // Divulged contracts are inserted _after_ locally created contracts to make sure they are
+    // not skipped if consumed in this transaction due to the logic that prevents the insertion
+    // of transient contracts (a divulged contract _must_ be inserted, regardless of whether it's
+    // consumed or not).
     val divulgedContractsInsertions =
       divulgedContracts.iterator.collect {
         case (contractId, contract) if !locallyCreatedContracts.insertions.contains(contractId) =>
