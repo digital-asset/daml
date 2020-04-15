@@ -8,7 +8,7 @@ import java.util.UUID
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.codahale.metrics.MetricRegistry
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.{HealthStatus, Healthy}
@@ -19,10 +19,11 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContext
+import com.daml.metrics.Timed
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.platform.common.LedgerIdMismatchException
@@ -76,10 +77,13 @@ final class SqlLedgerReaderWriter(
         KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
         RangeSource((start, end) => {
           Source
-            .future(database
-              .inReadTransaction(s"Querying events ]$start, $end] from log") { queries =>
-                Future.fromTry(queries.selectFromLog(start, end))
-              })
+            .future(
+              Timed.value(
+                Metrics.readLog,
+                database
+                  .inReadTransaction(s"Querying events ]$start, $end] from log") { queries =>
+                    Future.fromTry(queries.selectFromLog(start, end))
+                  }))
             .mapConcat(identity)
             .mapMaterializedValue(_ => NotUsed)
         }),
@@ -107,6 +111,11 @@ final class SqlLedgerReaderWriter(
     override def appendToLog(key: Key, value: Value): Future[Index] =
       Future.fromTry(queries.insertRecordIntoLog(key, value))
   }
+
+  private object Metrics {
+    val readLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "read")
+  }
+
 }
 
 object SqlLedgerReaderWriter {
