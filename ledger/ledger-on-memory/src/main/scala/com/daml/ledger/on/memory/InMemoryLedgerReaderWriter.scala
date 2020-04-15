@@ -18,10 +18,10 @@ import com.daml.ledger.participant.state.kvutils.api.{LedgerReader, LedgerRecord
 import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, KVOffset, SequentialLogEntryId}
 import com.daml.ledger.participant.state.v1._
-import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
+import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.Timed
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
@@ -92,27 +92,19 @@ final class InMemoryLedgerReaderWriter private (
       state: InMemoryState.MutableState,
   ) extends BatchingLedgerStateOperations[Index] {
     override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
-      Future.successful(Metrics.readState.time(() => keys.map(state.get)))
+      Future.successful(keys.map(state.get))
 
     override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] = {
-      Metrics.writeState.time { () =>
-        state ++= keyValuePairs
-      }
+      state ++= keyValuePairs
       Future.unit
     }
 
     override def appendToLog(key: Key, value: Value): Future[Index] =
-      Future.successful(
-        Metrics.appendToLog.time(() => appendEntry(log, LedgerRecord(_, key, value))))
+      Future.successful(appendEntry(log, LedgerRecord(_, key, value)))
   }
 
   private object Metrics {
-    private val Prefix = MetricName.DAML :+ "ledger"
-
-    val readLog: Timer = metricRegistry.timer(Prefix :+ "log" :+ "read")
-    val appendToLog: Timer = metricRegistry.timer(Prefix :+ "log" :+ "append")
-    val readState: Timer = metricRegistry.timer(Prefix :+ "state" :+ "read")
-    val writeState: Timer = metricRegistry.timer(Prefix :+ "state" :+ "write")
+    val readLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "read")
   }
 }
 
