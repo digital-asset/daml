@@ -181,7 +181,7 @@ object Main extends StrictLogging {
         .text(
           s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
 
-      TlsConfigurationCli.parse(this, colSpacer = "    ")((f, c) =>
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
         c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Duration]("package-reload-interval")
