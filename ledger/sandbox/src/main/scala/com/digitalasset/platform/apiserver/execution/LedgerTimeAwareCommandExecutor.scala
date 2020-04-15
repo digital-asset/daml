@@ -95,7 +95,7 @@ final class LedgerTimeAwareCommandExecutor(
       }
   }
 
-  // Does nothing if `t` is empty. This can happen if the transaction only regarded divulged contracts.
+  // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceOutputTime(
       res: CommandExecutionResult,
       newTime: Option[Instant],
@@ -105,7 +105,7 @@ final class LedgerTimeAwareCommandExecutor(
         res.copy(transactionMeta =
           res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t))))
 
-  // Does nothing if `t` is empty. This happens if the transaction only regarded divulged contracts.
+  // Does nothing if `newTime` is empty. This happens if the transaction only regarded divulged contracts.
   private[this] def advanceInputTime(cmd: Commands, newTime: Option[Instant]): Commands =
     newTime.fold(cmd)(t => cmd.copy(ledgerEffectiveTime = t))
 

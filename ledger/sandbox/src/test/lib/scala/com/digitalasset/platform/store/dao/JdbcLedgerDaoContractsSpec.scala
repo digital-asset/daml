@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
       result <- ledgerDao.lookupMaximumLedgerTime(contractIds)
     } yield {
       inside(result) {
-        case Some(time) => time should be <= Instant.now
+        case Some(tx.ledgerEffectiveTime) => succeed
       }
     }
   }
