@@ -44,6 +44,7 @@ import com.daml.platform.configuration.{
   SubmissionConfiguration
 }
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -81,6 +82,7 @@ object ApiServices {
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
+      timeProviderType: TimeProviderType,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
@@ -132,6 +134,7 @@ object ApiServices {
         partyManagementService,
         defaultLedgerConfiguration.timeModel,
         timeProvider,
+        timeProviderType,
         seedService,
         commandExecutor,
         ApiSubmissionService.Configuration(

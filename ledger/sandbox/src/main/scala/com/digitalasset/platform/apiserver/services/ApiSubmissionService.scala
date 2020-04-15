@@ -42,6 +42,7 @@ import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExe
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
 import io.grpc.Status
 
@@ -63,6 +64,7 @@ object ApiSubmissionService {
       partyManagementService: IndexPartyManagementService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
+      timeProviderType: TimeProviderType,
       seedService: Option[SeedService],
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
@@ -80,6 +82,7 @@ object ApiSubmissionService {
         partyManagementService,
         timeModel,
         timeProvider,
+        timeProviderType,
         seedService,
         commandExecutor,
         configuration,
@@ -110,6 +113,7 @@ final class ApiSubmissionService private (
     partyManagementService: IndexPartyManagementService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
+    timeProviderType: TimeProviderType,
     seedService: Option[SeedService],
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
