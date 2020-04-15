@@ -21,7 +21,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
-import com.daml.metrics.MetricName
+import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.daml.resources.{Resource, ResourceOwner}
@@ -69,13 +69,13 @@ final class InMemoryLedgerReaderWriter private (
           .getOrElse(StartIndex),
         RangeSource((startExclusive, endInclusive) =>
           Source.fromIterator(() => {
-            Metrics.readLog.time[Iterator[(Index, LedgerRecord)]](
-              () =>
-                state
-                  .readLog(_.view.zipWithIndex.slice(startExclusive + 1, endInclusive + 1).map {
-                    case (entry, index) => index -> entry
-                  })
-                  .iterator)
+            Timed.value(
+              Metrics.readLog,
+              state
+                .readLog(_.view.zipWithIndex.slice(startExclusive + 1, endInclusive + 1).map {
+                  case (entry, index) => index -> entry
+                })
+                .iterator)
           }))
       )
       .map { case (_, updates) => updates }

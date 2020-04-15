@@ -3,18 +3,15 @@
 
 package com.daml.ledger.participant.state.kvutils.api
 
-import java.time.ZoneOffset.UTC
-import java.time.{Instant, ZonedDateTime}
-
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantStateReaderSpec._
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KVOffset}
 import com.daml.ledger.participant.state.v1.{Offset, Update}
-import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.google.protobuf.ByteString
-import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.when
 import org.scalatest.mockito.MockitoSugar._
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -28,7 +25,6 @@ class KeyValueParticipantStateReaderSpec
 
   import KVOffset.{fromLong => toOffset}
 
-  private val start: Instant = Instant.from(ZonedDateTime.of(2020, 1, 1, 12, 0, 0, 0, UTC))
   "participant state reader" should {
     "stream offsets from the start" in {
       val reader = readerStreamingFrom(
@@ -37,7 +33,7 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry),
         LedgerRecord(toOffset(3), aLogEntryId(3), aWrappedLogEntry),
       )
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
       val stream = instance.stateUpdates(None)
 
       offsetsFrom(stream).map { actual =>
@@ -58,7 +54,7 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(toOffset(7), aLogEntryId(7), aWrappedLogEntry),
         LedgerRecord(toOffset(8), aLogEntryId(8), aWrappedLogEntry),
       )
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
       val stream = instance.stateUpdates(Some(toOffset(4)))
 
       offsetsFrom(stream).map { actual =>
@@ -76,7 +72,7 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFrom(
         offset = Some(toOffset(1)),
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry))
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
       val stream = instance.stateUpdates(Some(toOffset(1)))
 
       offsetsFrom(stream).map { actual =>
@@ -91,7 +87,7 @@ class KeyValueParticipantStateReaderSpec
         LedgerRecord(toOffset(1), aLogEntryId(1), aWrappedLogEntry),
         LedgerRecord(toOffset(2), aLogEntryId(2), aWrappedLogEntry)
       )
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
       val stream = instance.stateUpdates(None)
 
       offsetsFrom(stream).map { actual =>
@@ -108,7 +104,9 @@ class KeyValueParticipantStateReaderSpec
       )
 
       def getInstance(offset: Option[Offset], items: LedgerRecord*) =
-        new KeyValueParticipantStateReader(readerStreamingFrom(offset = offset, items: _*))
+        new KeyValueParticipantStateReader(
+          readerStreamingFrom(offset = offset, items: _*),
+          new MetricRegistry)
 
       val instances = records.tails.flatMap {
         case first :: rest =>
@@ -135,7 +133,7 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelope))
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
         succeed
@@ -153,7 +151,7 @@ class KeyValueParticipantStateReaderSpec
       val reader = readerStreamingFrom(
         offset = None,
         LedgerRecord(toOffset(0), aLogEntryId(0), anInvalidEnvelopeMessage))
-      val instance = new KeyValueParticipantStateReader(reader)
+      val instance = new KeyValueParticipantStateReader(reader, new MetricRegistry)
 
       offsetsFrom(instance.stateUpdates(None)).failed.map { _ =>
         succeed
@@ -185,13 +183,6 @@ object KeyValueParticipantStateReaderSpec {
     val reader = mock[LedgerReader]
     val stream = Source.fromIterator(() => items.iterator)
     when(reader.events(offset)).thenReturn(stream)
-    reader
-  }
-
-  private def readerStreamingFromAnyOffset(items: LedgerRecord*): LedgerReader = {
-    val reader = mock[LedgerReader]
-    val stream = Source.fromIterator(() => items.iterator)
-    when(reader.events(any[Option[Offset]]())).thenReturn(stream)
     reader
   }
 
