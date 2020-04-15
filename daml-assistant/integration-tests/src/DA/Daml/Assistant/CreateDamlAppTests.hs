@@ -30,7 +30,7 @@ main = do
     oldPath <- getSearchPath
     yarnPath <- takeDirectory <$> locateRunfiles (mainWorkspace </> yarn)
     withArgs args (withEnv
-        [ ("PATH", Just $ intercalate [searchPathSeparator] $ (javaPath : yarnPath : oldPath))
+        [ ("PATH", Just $ intercalate [searchPathSeparator] (javaPath : yarnPath : oldPath))
         , ("TASTY_NUM_THREADS", Just "1")
         ] $ defaultMain tests)
 
@@ -102,7 +102,7 @@ tests = withSdkResource $ \_ -> testGroup "Create DAML App tests" [gettingStarte
           step "Run Puppeteer end-to-end tests"
           testFile <- locateRunfiles (mainWorkspace </> "templates" </> "create-daml-app-test-resources" </> "index.test.ts")
           copyFile testFile (cdaDir </> "ui" </> "src" </> "index.test.ts")
-          callCommandSilent "yarn test --watchAll=false"
+          callCommandSilent "CI=yes yarn run test --ci --all"
 
 addTestDependencies :: FilePath -> FilePath -> IO ()
 addTestDependencies packageJsonFile extraDepsFile = do

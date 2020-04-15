@@ -84,9 +84,9 @@ da_haskell_test(
     name = "integration-tests",
     timeout = "long",
     srcs = [
-      "src/DA/Daml/Assistant/IntegrationTests.hs",
-      "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
-      "src/DA/Daml/Assistant/FreePort.hs",
+        "src/DA/Daml/Assistant/FreePort.hs",
+        "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
+        "src/DA/Daml/Assistant/IntegrationTests.hs",
     ],
     args = [
         "$(location //:yarn)",
@@ -145,8 +145,8 @@ da_haskell_test(
     name = "create-daml-app-tests",
     timeout = "long",
     srcs = [
-      "src/DA/Daml/Assistant/CreateDamlAppTests.hs",
-      "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
+        "src/DA/Daml/Assistant/CreateDamlAppTests.hs",
+        "src/DA/Daml/Assistant/IntegrationTestUtils.hs",
     ],
     args = [
         "$(location //:yarn)",
@@ -187,9 +187,9 @@ da_haskell_test(
         "zip-archive",
     ],
     main_function = "DA.Daml.Assistant.CreateDamlAppTests.main",
-    visibility = ["//visibility:public"],
     # Exclusive until we stop hardcoding port numbers in index.test.ts
     tags = ["exclusive"],
+    visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
         "//compiler/damlc/daml-opts:daml-opts-types",
