@@ -7,10 +7,10 @@
 
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
-  ( Delta
-  , MonadDelta, dchs, devars, _devals
+  ( Delta, Error(..)
+  , MonadDelta, dchs, devars, _devals, devals
   , UpdateSet(..)
-  , UpdCreate(..), usCre, usArc, usCho
+  , UpdCreate(..), usCre, usArc, usCho, usVal
   , UpdArchive(..)
   , UpdChoice(..)
   , runDelta
@@ -20,15 +20,17 @@ module DA.Daml.LF.Verify.Context
   , concatDelta
   , emptyUpdateSet
   , concatUpdateSet
+  , solveValueUpdatesDelta
+  , testPrint
   ) where
 
 import Control.Lens hiding (Context)
-import Control.Monad.Error.Class (MonadError (..))
+import Control.Monad.Error.Class (MonadError (..), throwError)
 import Control.Monad.Reader
-import Data.HashMap.Strict (HashMap, union, empty)
+import Data.Maybe (listToMaybe)
+import qualified Data.HashMap.Strict as HM
 
 import DA.Daml.LF.Ast
-import DA.Daml.LF.TypeChecker.Error
 
 data UpdCreate = UpdCreate
   { _creTemp  :: !(Qualified TypeConName)
@@ -36,18 +38,21 @@ data UpdCreate = UpdCreate
   , _creField :: ![(FieldName, Expr)]
     -- ^ The fields to be verified, together with their value.
   }
+  deriving Show
 data UpdArchive = UpdArchive
   { _arcTemp  :: !(Qualified TypeConName)
     -- ^ Qualified type constructor corresponding to the contract template.
   , _arcField :: ![(FieldName, Expr)]
     -- ^ The fields to be verified, together with their value.
   }
+  deriving Show
 data UpdChoice = UpdChoice
   { _choTemp  :: !(Qualified TypeConName)
     -- ^ Qualified type constructor corresponding to the contract template.
   , _choName  :: !ChoiceName
     -- ^ The name of the choice.
   }
+  deriving Show
 
 -- | The List of updates being performed
 data UpdateSet = UpdateSet
@@ -57,45 +62,52 @@ data UpdateSet = UpdateSet
     -- ^ The list of archive updates.
   , _usCho :: ![UpdChoice]
     -- ^ The list of choice updates.
+  , _usVal :: ![Qualified ExprValName]
+    -- ^ The list of referenced values. These will be replaced by their
+    -- respective updates after solving.
   }
+  deriving Show
 
 makeLenses ''UpdateSet
 
 emptyUpdateSet :: UpdateSet
-emptyUpdateSet = UpdateSet [] [] []
+emptyUpdateSet = UpdateSet [] [] [] []
 
 concatUpdateSet :: UpdateSet -> UpdateSet -> UpdateSet
-concatUpdateSet (UpdateSet cres1 arcs1 chos1) (UpdateSet cres2 arcs2 chos2) =
-  UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2)
+concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2 vals2) =
+  UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
 
 -- | The environment for the DAML-LF verifier
 data Delta = Delta
   { _devars :: ![ExprVarName]
     -- ^ The skolemised term variables.
-  , _devals :: !(HashMap (Qualified ExprValName) (Expr, UpdateSet))
+  , _devals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
     -- ^ The bound values.
-  , _dchs :: !(HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
+  , _dchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
     -- ^ The set of relevant choices.
   -- TODO: split this off into data types for readability?
   }
+  deriving Show
 
 makeLenses ''Delta
 
 emptyDelta :: Delta
-emptyDelta = Delta [] empty empty
+emptyDelta = Delta [] HM.empty HM.empty
 
 concatDelta :: Delta -> Delta -> Delta
 concatDelta (Delta vars1 vals1 chs1) (Delta vars2 vals2 chs2) =
-  Delta (vars1 ++ vars2) (vals1 `union` vals2) (chs1 `union` chs2)
+  Delta (vars1 ++ vars2) (vals1 `HM.union` vals2) (chs1 `HM.union` chs2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first)
 
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
+-- TODO: the more I look at this, the more convinced I am that this should be a
+-- state monad, not a reader.
 type MonadDelta m = (MonadError Error m, MonadReader Delta m)
 
-runDelta :: ReaderT Delta (Either Error) a -> Either Error a
-runDelta act = runReaderT act emptyDelta
+runDelta :: ReaderT Delta (Either Error) a -> Delta -> Either Error a
+runDelta = runReaderT
 
 -- | Run a computation in the current environment, with an additional
 -- environment extension.
@@ -112,32 +124,71 @@ extVarDelta x = local (over devars ((:) x))
 
 lookupDExprVar :: MonadDelta m => ExprVarName -> m ()
 lookupDExprVar x = ask >>= \ del -> unless (elem x $ _devars del)
-                                          $ throwError $ EUnknownExprVar x
+  (throwError $ UnboundVar x)
 
 lookupDVal :: MonadDelta m => Qualified ExprValName -> m (Expr, UpdateSet)
-lookupDVal w = view (devals . at w) >>= match _Just EEmptyCase
--- TODO: This is a random error. The thing we really want to write is:
--- lookupDVal w = view (devals . at w) >>= match _Just (EUnknownDefinition $ LEValue w)
--- The issue here is that our values are currently stored in Delta instead
--- of in the world like in the type checker.
--- This means that we can't throw the error we want to throw here.
--- 2 options:
---   + either define our own errors, as they don't correspond 100% to the type
---   checking errors anyway.
---   + or create our own world environment to store values. This also makes
---   sense as these values work similar to how they work in the type checker,
---   except that we need to store a partially evaluated definition as well.
--- Both approaches make sense, but both imply a lot of code duplication, so they
--- don't sound that enticing...
+-- lookupDVal w = view (devals . at w) >>= match _Just (UnknownValue w)
+lookupDVal val = do
+  del <- ask
+  case lookupValInHMap (_devals del) val of
+    Just res -> return res
+    Nothing -> throwError (UnknownValue val)
+
+-- TODO: There seems to be something wrong with the qualifiers. This is a
+-- temporary solution.
+lookupValInHMap :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
+  -> Qualified ExprValName -> Maybe (Expr, UpdateSet)
+lookupValInHMap hmap val = listToMaybe $ HM.elems
+  $ HM.filterWithKey (\name _ -> (qualObject name) == (qualObject val)) hmap
 
 lookupDChoice :: MonadDelta m => Qualified TypeConName -> ChoiceName
              -> m UpdateSet
-lookupDChoice tem ch = view (dchs . at (tem, ch)) >>= match _Just EEmptyCase
--- TODO: Random error.
+lookupDChoice tem ch = view (dchs . at (tem, ch)) >>= match _Just
+  (UnknownChoice ch)
 
 -- | Helper functions mirrored from Env.
--- TODO: Reduce duplication by abstracting over MonadGamma and MonadDelta?
 match :: MonadDelta m => Prism' a b -> Error -> a -> m b
-match p e x = either (const (throwError e)) pure (matching p x)
+match p err x = either (const (throwError err)) pure (matching p x)
 -- TODO: no context, like in Gamma
 
+solveValueUpdatesDelta :: Delta -> Delta
+solveValueUpdatesDelta del =
+  let hmap0 = _devals del
+      hmap1 = foldl solveValueUpdate hmap0 (HM.keys hmap0)
+  in del{_devals = hmap1}
+
+solveValueUpdate :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
+  -> (Qualified ExprValName) -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
+solveValueUpdate hmap0 val0 =
+  let (hmap1, _) = step (hmap0, emptyUpdateSet) val0
+  in hmap1
+  where
+    step :: ((HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)), UpdateSet)
+      -> (Qualified ExprValName)
+      -> ((HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)), UpdateSet)
+    step (hmap, baseupd) val = case lookupValInHMap hmap val of
+      Nothing -> error ("Impossible! Undefined value: " ++ (show $ unExprValName $ qualObject val))
+      Just (expr, valupd) ->
+        let (nhmap, nvalupd) = foldl step (hmap, valupd{_usVal = []}) (_usVal valupd)
+        in (HM.insert val (expr, nvalupd) nhmap, concatUpdateSet baseupd nvalupd)
+
+data Error
+  = UnknownValue (Qualified ExprValName)
+  | UnknownChoice ChoiceName
+  | UnboundVar ExprVarName
+  | ExpectRecord
+  | CyclicModules [ModuleName]
+
+instance Show Error where
+  show (UnknownValue qname) = ("Impossible: Unknown value definition: "
+    ++ (show $ unExprValName $ qualObject qname))
+  show (UnknownChoice ch) = ("Impossible: Unknown choice definition: " ++ (show ch))
+  show (UnboundVar name) = ("Impossible: Unbound term variable: " ++ (show name))
+  show ExpectRecord = "Impossible: Expected a record type"
+  show (CyclicModules mods) = "Cyclic modules: " ++ (show mods)
+
+-- | For testing purposes: print the stored value definitions in the environment.
+-- TODO: Remove
+testPrint :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)) -> IO ()
+testPrint hmap = putStrLn "Test print keys:"
+  >> mapM_ print (HM.keys hmap)

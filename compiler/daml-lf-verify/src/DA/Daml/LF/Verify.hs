@@ -14,9 +14,11 @@ main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
   pkgs <- readPackages optInputDars
-  let delta = runDelta $ genPackages pkgs
-  putStrLn "Constraints generated."
-  case delta of
-    Left _ -> return ()
-    Right _ -> return ()
+  putStrLn "Start value phase" >> case runDelta (genPackages ValuePhase pkgs) emptyDelta of
+    Left err-> putStrLn "Value phase finished with error: " >> print err
+    Right delta1 -> putStrLn "Start solving" >>
+                    let delta2 = solveValueUpdatesDelta delta1
+                    in putStrLn "Start template phase" >> case runDelta (genPackages TemplatePhase pkgs) delta2 of
+      Left err -> putStrLn "Template phase finished with error: " >> print err
+      Right _delta3 -> putStrLn "Success!"
 
