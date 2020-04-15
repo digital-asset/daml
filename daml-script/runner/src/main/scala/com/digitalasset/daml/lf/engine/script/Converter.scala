@@ -8,6 +8,7 @@ import io.grpc.StatusRuntimeException
 import java.util
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.concurrent.Future
 import scalaz.{\/-, -\/}
 import spray.json._
 
@@ -80,6 +81,11 @@ object Converter {
 
   private def toLedgerValue(v: SValue): Either[String, Value[AbsoluteContractId]] =
     v.toValue.ensureNoRelCid.left.map(rcoid => s"Unexpected contract id $rcoid")
+
+  def toFuture[T](s: Either[String, T]): Future[T] = s match {
+    case Left(err) => Future.failed(new ConverterException(err))
+    case Right(s) => Future.successful(s)
+  }
 
   def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {

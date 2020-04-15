@@ -184,7 +184,6 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , input "bob <- allocateParty \"Bob\""
           , input "submit alice (createCmd (T alice bob))"
           , matchServiceOutput "^.*Submit failed.*requires authorizers.*but only.*were given.*$"
-          , matchServiceOutput "^.*$"
           , input "debug 1"
           , matchServiceOutput "^.*: 1"
           ]
@@ -215,6 +214,14 @@ functionalTests replClient serviceOut testDar options ideState = describe "repl 
           , input "import DA.Time"
           , input "debug (days 1)"
           , matchServiceOutput "^.*: RelTime {microseconds = 86400000000}$"
+          ]
+    , testInteraction' "error call"
+          [ input "error \"foobar\""
+          , matchServiceOutput "^Error: User abort: foobar$"
+          ]
+    , testInteraction' "abort call"
+          [ input "abort \"foobar\""
+          , matchServiceOutput "^Error: User abort: foobar$"
           ]
     ]
   where
