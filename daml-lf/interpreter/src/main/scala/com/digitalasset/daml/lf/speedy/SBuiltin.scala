@@ -1080,10 +1080,10 @@ object SBuiltin {
       val key = extractOptionalKeyWithMaintainers(args.get(3))
 
       val stakeholders = observers union signatories
-      val contextActors = machine.ptx.context match {
-        case PartialTransaction.ContextExercise(ctx, _) =>
+      val contextActors = machine.ptx.context.exeContext match {
+        case Some(ctx) =>
           ctx.actingParties union ctx.signatories
-        case PartialTransaction.ContextRoot(_, _) =>
+        case None =>
           machine.committers
       }
 

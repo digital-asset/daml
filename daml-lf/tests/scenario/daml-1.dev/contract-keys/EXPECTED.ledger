@@ -66,7 +66,7 @@ key { _1 = 'Alice', _2 = "some-key-2" } value-version: 6
 TX #11 1970-01-01T00:00:00Z [Test:126]
 #11:0
 │   known to (since): Alice (#11), Bob (#11)
-└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on 000384ac92215445db4a2d9f1c1c641fa48d8dbc757f9b191fb20f900c26dceeae
+└─> Alice exercises TextKeyChoice:Test:TextKey@XXXXXXXX on 004f56105c00ca4026b905ed27b104471dffcaf2de15832139b93ef46b87000232
     with {  } value-version: 6
     
 
@@ -88,7 +88,7 @@ key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 6
 │   known to (since): Alice (#12)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "same-submit-key" } value-version: 6
-found 00c03269537484009ec6d8a26e95d14ed273a11b78506a7b79eedfaf1bb80f9da0
+found 00a95ea3bb21422ab003f15dc95de204110b3f7f2682b407a2ba75d36b0be9053b
 
 TX #13 1970-01-01T00:00:00Z [Test:140]
 #13:0
@@ -100,7 +100,7 @@ TX #13 1970-01-01T00:00:00Z [Test:140]
 TX #14 1970-01-01T00:00:00Z [Test:144]
 #14:0
 │   known to (since): Alice (#14)
-└─> Alice exercises Good:Test:CreateAndLookup@XXXXXXXX on 00da388d7422eb9c3b8a33337795b339eb18e9c08c65e9069ff8d8ad48271c8e73
+└─> Alice exercises Good:Test:CreateAndLookup@XXXXXXXX on 00528ef7ca096fcc1cfb640394394117e237d21236faef81c544770ec5962c462c
     with {  } value-version: 6
     children:
     #14:1
@@ -113,10 +113,10 @@ TX #14 1970-01-01T00:00:00Z [Test:144]
     │   known to (since): Alice (#14)
     └─> lookup by key Test:TextKey@XXXXXXXX
     key { _1 = 'Alice', _2 = "same-choice-key" } value-version: 6
-    found 0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667
+    found 00ce68df68a7e42ecadca4ff1e4d35ffff75f009d1f01ae130d36116e1332ff773
     #14:3
     │   known to (since): Alice (#14)
-    └─> ensure active 0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667
+    └─> ensure active 00ce68df68a7e42ecadca4ff1e4d35ffff75f009d1f01ae130d36116e1332ff773
 
 mustFailAt 'Alice' [Test:147]
 
@@ -130,7 +130,7 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
 
 #16:1
 │   known to (since): Alice (#16)
-└─> Alice exercises TextKeyNonconsumingChoice:Test:TextKey@XXXXXXXX on 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f
+└─> Alice exercises TextKeyNonconsumingChoice:Test:TextKey@XXXXXXXX on 00bcf23c0f4133f226e7051a79ab289277e1a3941dcf08c545ff477593c9b22651
     with {  } value-version: 6
     
 
@@ -138,9 +138,9 @@ key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
 │   known to (since): Alice (#16)
 └─> lookup by key Test:TextKey@XXXXXXXX
 key { _1 = 'Alice', _2 = "non-consuming-choice" } value-version: 6
-found 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f
+found 00bcf23c0f4133f226e7051a79ab289277e1a3941dcf08c545ff477593c9b22651
 
 mustFailAt 'Alice' [Test:161]
 
 active contracts:
-   0023437a679844f646adf7ade8acbaa80bf74c1472de553799802a53c3b8aee667, 00c03269537484009ec6d8a26e95d14ed273a11b78506a7b79eedfaf1bb80f9da0, 00d1855c632de73f2b41a838fa1ea5df890f30d2eb9d0316097325e9529427da8f, 00da388d7422eb9c3b8a33337795b339eb18e9c08c65e9069ff8d8ad48271c8e73
+   00528ef7ca096fcc1cfb640394394117e237d21236faef81c544770ec5962c462c, 00a95ea3bb21422ab003f15dc95de204110b3f7f2682b407a2ba75d36b0be9053b, 00bcf23c0f4133f226e7051a79ab289277e1a3941dcf08c545ff477593c9b22651, 00ce68df68a7e42ecadca4ff1e4d35ffff75f009d1f01ae130d36116e1332ff773
