@@ -353,12 +353,14 @@ reflect = \case
   LF.ELet{letBinding=bind,letBody=body} -> do
     let LF.Binding{bindingBinder=(name,ty),bindingBound=rhs} = bind
     rhs <- reflect rhs
-    if duplicatable rhs then ModEnv (Map.insert name rhs) $ reflect body else do
-      rhs <- reify rhs
-      body <- normExpr body
-      ty <- normType ty
-      let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
-      return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
+    case duplicatable rhs of
+      Nothing -> ModEnv (Map.insert name rhs) $ reflect body
+      Just _ -> do
+        rhs <- reify rhs
+        body <- normExpr body
+        ty <- normType ty
+        let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
+        return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
 
   LF.ENil{nilType=ty} -> do
     ty <- normType ty
@@ -399,9 +401,10 @@ reflect = \case
     ty <- normType ty
     return $ Syntax $ LF.ETypeRep ty
 
-  LF.ELocation loc expr -> do
-    expr <- normExpr expr
-    return $ Syntax $ LF.ELocation loc expr
+  LF.ELocation _loc expr -> do
+    --expr <- normExpr expr
+    --return $ Syntax $ LF.ELocation loc expr
+    reflect expr
 
 normUpdate :: LF.Update -> Effect LF.Update
 normUpdate = \case
@@ -445,16 +448,17 @@ termApply = \case
     return $ Syntax $ LF.ETmApp{tmappFun=func,tmappArg=arg}
   (Struct _ _, _) -> error "SemValue,termApply,struct"
   (Macro ty func, arg) -> do
-    let doInline = duplicatable arg
-    -- if doInline is True, then the beta-reduction effectively occurs...
-    if doInline then func arg else do
-      -- because we dont reconstruct any syntax
-      name <- Fresh
-      rhs <- reify arg
-      body <- func (Syntax (LF.EVar name)) >>= reify
-      let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
-      return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
-
+    case duplicatable arg of
+      Nothing ->
+        -- beta-reduction effectively occurs...
+        func arg
+      Just reason -> do
+        -- because we dont reconstruct any syntax
+        name <- Fresh reason
+        rhs <- reify arg
+        body <- func (Syntax (LF.EVar name)) >>= reify
+        let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
+        return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
 
 typeApply :: SemValue -> LF.Type -> Effect SemValue
 typeApply expr ty = case expr of -- This ty is already normalized
@@ -464,18 +468,26 @@ typeApply expr ty = case expr of -- This ty is already normalized
   Macro{} -> error "typeApply, Macro"
   TyMacro _ f -> f ty
 
--- A normalized-expression can be duplicated if it has no computation effect
-duplicatable :: SemValue -> Bool
+-- A normalized-expression can be duplicated if it has no computation effect.
+-- Indicated by return of `Nothing`
+-- If it mustn't be duplicated, the returned Maybe String indicates why.
+duplicatable :: SemValue -> Maybe String
 duplicatable = \case
-  TyMacro{} -> True
+  TyMacro{} -> Nothing
   -- TODO: we should only consider a Struct duplicatable when all its fields are.
-  Struct{} -> True
-  Macro{} -> True
-  Syntax exp -> case exp of
-    LF.EBuiltin{} -> True
-    LF.EVar{} -> True
-    LF.EVal{} -> True
-    _ -> False
+  Struct{} -> Nothing
+  Macro{} -> Nothing
+  Syntax expr -> duplicatableExpr expr
+
+duplicatableExpr :: LF.Expr -> Maybe String
+duplicatableExpr = \case
+  LF.EBuiltin{} -> Nothing
+  LF.EVar{} -> Nothing
+  LF.EVal{} -> Nothing
+  LF.ELocation _ expr -> duplicatableExpr expr
+  LF.ETmApp{} -> Just "_A"
+  LF.ELet{} -> Just "_L"
+  _ -> Just "_v"
 
 -- Note: every call to `reify` is a barrier to normalization (most come via `normExpr`)
 reify :: SemValue -> Effect LF.Expr
@@ -497,7 +509,7 @@ reify = \case
       return $ LF.EStructCon{structFields}
 
   Macro ty f -> do
-    name <- Fresh
+    name <- Fresh "_r"
     body <- f (Syntax (LF.EVar name)) >>= reify
     return $ LF.ETmLam{tmlamBinder=(name,ty),tmlamBody=body}
 
@@ -531,7 +543,7 @@ data Effect a where
   ModSubst :: (LF.Subst -> LF.Subst) -> Effect a -> Effect a
   GetEnv :: Effect Env
   ModEnv :: (Env -> Env) -> Effect a -> Effect a
-  Fresh :: Effect LF.ExprVarName
+  Fresh :: String -> Effect LF.ExprVarName
   FreshTV :: Effect LF.TypeVarName
   GetPid :: Effect (Maybe LF.PackageId)
   WithPid :: Maybe LF.PackageId -> Effect a -> Effect a
@@ -572,8 +584,8 @@ run world eff = do
       GetEnv -> return (env,state)
       ModEnv f eff -> loop pidm scope subst (f env) state eff
 
-      Fresh -> do -- take original name as a base which we can uniquify
-        let tag = "_v"
+      Fresh tag -> do -- take original name as a base which we can uniquify
+        --let tag = "_v"
         let State{unique} = state
         let state' = state { unique = unique + 1 }
         let x = LF.ExprVarName $ Text.pack (tag <> show unique)
