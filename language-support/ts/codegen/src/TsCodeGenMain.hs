@@ -222,6 +222,8 @@ genModule pkgMap (Scope scope) curPkgId mod
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
       , "import * as damlTypes from '@daml/types';"
+      , "/* eslint-disable-next-line @typescript-eslint/no-unused-vars */"
+      , "import * as damlLedger from '@daml/ledger';"
       ]
 
     -- Split the imports into those from the same package and those
@@ -386,11 +388,17 @@ genDefDataType curPkgId conName mod tpls def =
                             ] ++
                             ["};"]
                         associatedTypes =
-                          maybe [] (\key ->
-                              [ "export namespace " <> conName <> " {"
-                              , "  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""
-                              , "}"
-                              ]) (tplKey tpl)
+                          let tT = conName
+                              tK = tT <> ".Key"
+                              tI = "typeof " <> tT <> ".templateId" in
+                          [ "export namespace " <> tT <> " {"
+                          , "  export type Key = " <> maybe "unknown" (fst . genType (moduleName mod) . tplKeyType) (tplKey tpl)
+                          , "  export type CreateEvent = damlLedger.CreateEvent" <> "<" <> tparams [tT, tK, tI] <> ">"
+                          , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> "<" <>  tparams [tT, tI] <> ">"
+                          , "  export type Event = damlLedger.Event"  <> "<" <>  tparams [tT, tK, tI] <> ">"
+                          , "}"
+                          ]
+                          where tparams = T.intercalate ", "
                         registrations =
                             ["damlTypes.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
