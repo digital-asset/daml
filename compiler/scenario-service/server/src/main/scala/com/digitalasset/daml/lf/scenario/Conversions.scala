@@ -31,7 +31,7 @@ final class Conversions(
       case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
         node.coid match {
           case acoid: V.AbsoluteContractId =>
-            (node.coid.asInstanceOf[V.AbsoluteContractId], ledger.ptxNodeId(nodeId))
+            acoid -> ledger.ptxNodeId(nodeId)
           case V.RelativeContractId(_) =>
             throw new IllegalArgumentException("unexpected relative contract id")
         }
