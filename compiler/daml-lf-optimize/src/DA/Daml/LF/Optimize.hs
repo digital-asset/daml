@@ -363,6 +363,8 @@ reflect = \case
         return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
 
   LF.ENil{nilType=ty} -> do
+    -- If we forget to normalize the type here (and other places), the bug is not (yet) detected by
+    -- unit tests, but only when building a DAR (--run-optimizer); fails to TC (unknown type var)
     ty <- normType ty
     return $ Syntax LF.ENil{nilType=ty}
 
@@ -388,6 +390,7 @@ reflect = \case
   x@LF.EScenario{} -> return $ Syntax x -- TODO: traverse deeply
 
   LF.EToAny{toAnyType=ty,toAnyBody=expr} -> do
+    -- Coverage of LF.EToAny (etc) is detected by unit tests, so long as Examples contain a template
     ty <- normType ty
     expr <- normExpr expr
     return $ Syntax LF.EToAny{toAnyType=ty,toAnyBody=expr}
@@ -402,9 +405,11 @@ reflect = \case
     return $ Syntax $ LF.ETypeRep ty
 
   LF.ELocation _loc expr -> do
-    --expr <- normExpr expr
-    --return $ Syntax $ LF.ELocation loc expr
+    -- If LF.ELocation were to block normalization, the bug would be detected in unit-testing, via
+    -- an unexpected number of app-counts (too high!)
     reflect expr
+    --expr <- normExpr expr
+    --return $ Syntax $ LF.ELocation _loc expr
 
 normUpdate :: LF.Update -> Effect LF.Update
 normUpdate = \case
