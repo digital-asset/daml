@@ -13,7 +13,7 @@ import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
+import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -40,6 +40,7 @@ import com.daml.platform.apiserver.services.{
 }
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfigConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
@@ -83,7 +84,7 @@ object ApiServices {
       engine: Engine,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      defaultLedgerConfiguration: Configuration,
+      ledgerConfigConfiguration: LedgerConfigConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       submissionConfig: SubmissionConfiguration,
@@ -132,7 +133,7 @@ object ApiServices {
         writeService,
         submissionService,
         partyManagementService,
-        defaultLedgerConfiguration.timeModel,
+        ledgerConfigConfiguration.defaultConfiguration.timeModel,
         timeProvider,
         timeProviderType,
         seedService,
@@ -209,7 +210,7 @@ object ApiServices {
             configManagementService,
             writeService,
             timeProvider,
-            defaultLedgerConfiguration)
+            ledgerConfigConfiguration)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 

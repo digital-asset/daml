@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import java.io.File
 import java.nio.file.Files
-import java.time.Instant
+import java.time.{Duration, Instant}
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -25,6 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfigConfiguration,
   PartyConfiguration,
   ServerRole,
   SubmissionConfiguration
@@ -91,6 +92,10 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
+      ledgerConfigConfiguration = LedgerConfigConfiguration(
+        defaultConfiguration = initialConditions.config,
+        initialConfigSubmitDelay = Duration.ofSeconds(5),
+      )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) => {
           ApiServices
@@ -103,7 +108,7 @@ final class StandaloneApiServer(
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               timeProviderType = timeServiceBackend.fold[TimeProviderType](
                 TimeProviderType.WallClock)(_ => TimeProviderType.Static),
-              defaultLedgerConfiguration = initialConditions.config,
+              ledgerConfigConfiguration = ledgerConfigConfiguration,
               commandConfig = commandConfig,
               partyConfig = partyConfig,
               submissionConfig = submissionConfig,

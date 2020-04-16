@@ -27,7 +27,7 @@ import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{LedgerConfigConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -271,6 +271,11 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
       )
+      ledgerConfigConfiguration = LedgerConfigConfiguration(
+        defaultConfiguration = defaultConfiguration,
+        // In SandboxServer, there is no delay between indexer and ledger
+        initialConfigSubmitDelay = Duration.ZERO,
+      )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
@@ -288,7 +293,7 @@ final class SandboxServer(
               engine = SandboxServer.engine,
               timeProvider = timeProvider,
               timeProviderType = timeProviderType,
-              defaultLedgerConfiguration = defaultConfiguration,
+              ledgerConfigConfiguration = ledgerConfigConfiguration,
               commandConfig = config.commandConfig,
               partyConfig = PartyConfiguration.default.copy(
                 // In this version of Sandbox, parties are always allocated implicitly. Enabling
