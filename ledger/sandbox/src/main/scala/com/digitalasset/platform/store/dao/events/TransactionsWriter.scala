@@ -55,7 +55,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       e.targetCoid -> disclosure(nodeId)
     case (nodeId, f: Fetch) if toBeInserted(f.coid) =>
       f.coid -> disclosure(nodeId)
-    case (nodeId, l: LookupByKey) if l.result.fold(false)(toBeInserted) =>
+    case (nodeId, l: LookupByKey) if l.result.exists(toBeInserted) =>
       l.result.get -> disclosure(nodeId)
   }
 
@@ -178,7 +178,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       // Insert the witnesses last to respect the foreign key constraint of the underlying storage.
       // Compute and insert new witnesses regardless of whether the current transaction adds new
       // contracts because it may be the case that we are only adding new witnesses to existing
-      // contracts (e.g. via a fetch).
+      // contracts (e.g. via divulging a contract with fetch).
       val insertWitnessesBatch = prepareWitnessesBatch(
         insertions = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
         deletions = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
