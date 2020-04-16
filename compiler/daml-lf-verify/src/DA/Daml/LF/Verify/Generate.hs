@@ -108,6 +108,7 @@ genValue pac mod val =
 genChoice :: MonadDelta m => Qualified TypeConName -> TemplateChoice
           -> m GenOutput
 genChoice tem cho = do
+  -- TODO: Skolemise chcSelfBinder
   expOut <- extVarDelta (fst $ chcArgBinder cho) $ genExpr TemplatePhase (chcUpdate cho)
   let updSet = if chcConsuming cho
         -- TODO: Convert the `ExprVarName`s to `FieldName`s
@@ -119,6 +120,7 @@ genChoice tem cho = do
 
 genTemplate :: MonadDelta m => PackageRef -> ModuleName -> Template -> m Delta
 -- TODO: lookup the data type and skolemise all fieldnames
+-- TODO: Take precondition into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
   choOuts <- mapM (genChoice name) (NM.toList tplChoices)

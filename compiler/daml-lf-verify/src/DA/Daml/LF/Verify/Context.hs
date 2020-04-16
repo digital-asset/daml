@@ -8,7 +8,7 @@
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
   ( Delta, Error(..)
-  , MonadDelta, dchs, devars, _devals, devals
+  , MonadDelta, _dchs, dchs, _devars, devars, _devals, devals
   , UpdateSet(..)
   , UpdCreate(..), usCre, usArc, usCho, usVal
   , UpdArchive(..)
@@ -21,7 +21,7 @@ module DA.Daml.LF.Verify.Context
   , emptyUpdateSet
   , concatUpdateSet
   , solveValueUpdatesDelta
-  , testPrint
+  , testPrint, lookupChoInHMap
   ) where
 
 import Control.Lens hiding (Context)
@@ -80,6 +80,7 @@ concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2
 -- | The environment for the DAML-LF verifier
 data Delta = Delta
   { _devars :: ![ExprVarName]
+    -- TODO: there seems to be a bug which makes this an infinite list...
     -- ^ The skolemised term variables.
   , _devals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
     -- ^ The bound values.
@@ -102,8 +103,7 @@ concatDelta (Delta vars1 vals1 chs1) (Delta vars2 vals2 chs2) =
 
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
--- TODO: the more I look at this, the more convinced I am that this should be a
--- state monad, not a reader.
+  -- TODO: I think this should be a mix of a reader and a state monad...
 type MonadDelta m = (MonadError Error m, MonadReader Delta m)
 
 runDelta :: ReaderT Delta (Either Error) a -> Delta -> Either Error a
@@ -123,6 +123,9 @@ extVarDelta :: MonadDelta m => ExprVarName -> m a -> m a
 extVarDelta x = local (over devars ((:) x))
 
 lookupDExprVar :: MonadDelta m => ExprVarName -> m ()
+lookupDExprVar (ExprVarName "self") = return ()
+lookupDExprVar (ExprVarName "this") = return ()
+-- TODO: Is there a nicer way to handle this instead of hardcoding?
 lookupDExprVar x = ask >>= \ del -> unless (elem x $ _devars del)
   (throwError $ UnboundVar x)
 
@@ -140,6 +143,11 @@ lookupValInHMap :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
   -> Qualified ExprValName -> Maybe (Expr, UpdateSet)
 lookupValInHMap hmap val = listToMaybe $ HM.elems
   $ HM.filterWithKey (\name _ -> (qualObject name) == (qualObject val)) hmap
+
+lookupChoInHMap :: (HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
+  -> ChoiceName -> Maybe UpdateSet
+lookupChoInHMap hmap cho = listToMaybe $ HM.elems
+  $ HM.filterWithKey (\(_, name) _ -> cho == name) hmap
 
 lookupDChoice :: MonadDelta m => Qualified TypeConName -> ChoiceName
              -> m UpdateSet
