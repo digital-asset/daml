@@ -36,7 +36,6 @@ final class Conversions(
             throw new IllegalArgumentException("unexpected relative contract id")
         }
     })
-    .toMap
 
   private val coidToNodeId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
 
