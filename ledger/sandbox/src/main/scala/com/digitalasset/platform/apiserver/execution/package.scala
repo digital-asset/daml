@@ -7,6 +7,6 @@ import com.daml.metrics.MetricName
 
 package object execution {
 
-  private[execution] val MetricPrefix = MetricName.DAML :+ "execution"
+  private[execution] val MetricPrefix = MetricName.DAML :+ "commands" :+ "execution"
 
 }
