@@ -151,8 +151,10 @@ class Context(val contextId: Context.ContextId) {
     extPackages + (homePackageId -> Ast.Package(modules, extPackages.keySet, None))
 
   // We use a fix Hash and fix time to seed the contract id, so we get reproducible run.
-  private val transactionSeedAndSubmissionTime =
-    Some((crypto.Hash.hashPrivateKey(s"scenario-service"), data.Time.Timestamp.MinValue))
+  private val submissionTime =
+    data.Time.Timestamp.MinValue
+  private val initialSeeding =
+    speedy.InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey(s"scenario-service"))
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
@@ -166,7 +168,8 @@ class Context(val contextId: Context.ContextId) {
         checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
         sexpr = defn,
         compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get,
-        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime
+        submissionTime,
+        initialSeeding,
       )
   }
 

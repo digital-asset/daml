@@ -95,9 +95,9 @@ final class Engine {
               submitters = Set(cmds.submitter),
               commands = processedCmds,
               ledgerTime = cmds.ledgerEffectiveTime,
-              transactionSeedAndSubmissionTime = submissionSeed.map(seed =>
-                crypto.Hash
-                  .deriveTransactionSeed(seed, participantId, submissionTime) -> submissionTime),
+              submissionTime = submissionTime,
+              transactionSeed = submissionSeed.map(
+                crypto.Hash.deriveTransactionSeed(_, participantId, submissionTime)),
             ) map {
               case (tx, dependsOnTime) =>
                 // Annotate the transaction with the package dependencies. Since
@@ -145,7 +145,8 @@ final class Engine {
     * If let undefined, no discriminator will be generated.
     */
   def reinterpret(
-      rootSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)],
+      submissionTime: Time.Timestamp,
+      transactionSeed: Option[crypto.Hash],
       submitters: Set[Party],
       nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
       ledgerEffectiveTime: Time.Timestamp,
@@ -162,7 +163,8 @@ final class Engine {
         submitters = submitters,
         commands = commands,
         ledgerTime = ledgerEffectiveTime,
-        rootSeedAndSubmissionTime,
+        submissionTime,
+        transactionSeed,
       )
     } yield result
 
@@ -185,14 +187,12 @@ final class Engine {
       tx: Transaction.Transaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
-      submissionSeedAndTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+      submissionTime: Time.Timestamp,
+      submissionSeed: Option[crypto.Hash],
   ): Result[Unit] = {
     import scalaz.std.option._
     import scalaz.syntax.traverse.ToTraverseOps
-    val transactionSeedAndSubmissionTime = submissionSeedAndTime.map {
-      case (seed, time) =>
-        crypto.Hash.deriveTransactionSeed(seed, participantId, time) -> time
-    }
+
     //reinterpret
     for {
       requiredAuthorizers <- tx.roots
@@ -227,7 +227,8 @@ final class Engine {
         submitters = submitters,
         commands = commands.map(_._2),
         ledgerTime = ledgerEffectiveTime,
-        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime,
+        submissionTime,
+        submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participantId, submissionTime))
       )
       (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
@@ -255,14 +256,16 @@ final class Engine {
       submitters: Set[Party],
       commands: ImmArray[SpeedyCommand],
       ledgerTime: Time.Timestamp,
-      transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)]
+      submissionTime: Time.Timestamp,
+      transactionSeed: Option[crypto.Hash],
   ): Result[(Transaction.Transaction, Boolean)] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands),
         compiledPackages = _compiledPackages,
-        transactionSeedAndSubmissionTime = transactionSeedAndSubmissionTime,
+        submissionTime,
+        speedy.InitialSeeding(transactionSeed)
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, ledgerTime)

@@ -6,12 +6,12 @@ package script
 
 import io.grpc.StatusRuntimeException
 import java.util
+
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
-import scalaz.{\/-, -\/}
+import scalaz.{-\/, \/-}
 import spray.json._
-
 import com.daml.lf.data.Ref._
 import com.daml.lf.iface
 import com.daml.lf.iface.EnvironmentInterface
@@ -20,15 +20,14 @@ import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.Speedy
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SResult._
-import com.daml.lf.speedy.{SValue, SExpr}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.lf.CompiledPackages
 import com.daml.ledger.api.v1.value
-import com.daml.lf.speedy.Pretty
+import com.daml.lf.data.Time
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -212,7 +211,13 @@ object Converter {
         SEBuiltin(SBStructCon(Name.Array(Name.assertFromString("a"), Name.assertFromString("b")))),
         Array(SEVar(2), SEVar(1))))
     val machine =
-      Speedy.Machine.fromSExpr(SEApp(SEValue(fun), Array(extractStruct)), false, compiledPackages)
+      Speedy.Machine.fromSExpr(
+        SEApp(SEValue(fun), Array(extractStruct)),
+        false,
+        compiledPackages,
+        Time.Timestamp.now(),
+        InitialSeeding.NoSeed
+      )
     @tailrec
     def iter(): Either[String, (SValue, SValue)] = {
       if (machine.isFinal) {
