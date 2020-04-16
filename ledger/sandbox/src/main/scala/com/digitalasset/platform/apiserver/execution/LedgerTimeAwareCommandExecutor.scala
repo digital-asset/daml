@@ -70,7 +70,7 @@ final class LedgerTimeAwareCommandExecutor(
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
               .flatMap(maxUsedTime =>
-                if (!maxUsedTime.forAll(_.isAfter(commands.ledgerEffectiveTime))) {
+                if (!maxUsedTime.forall(_.isAfter(commands.ledgerEffectiveTime))) {
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
