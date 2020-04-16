@@ -128,14 +128,9 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
                  let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
-                 let missingExposed =
-                         S.fromList (fromMaybe [] pExposedModules) S.\\
-                         S.fromList pkgModuleNames
-                 unless (S.null missingExposed) $
-                     -- FIXME: Should be producing a proper diagnostic
-                     error $
-                     "The following modules are declared in exposed-modules but are not part of the DALF: " <>
-                     show (map Ghc.moduleNameString $ S.toList missingExposed)
+
+                 validateExposedModules pExposedModules pkgModuleNames
+
                  let (dalf,pkgId) = encodeArchiveAndHash pkg
                  -- For now, we don’t include ifaces and hie files in incremental mode.
                  -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
@@ -151,13 +146,6 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 liftIO $ whenJust (fmap (pkgModuleNames \\) pExposedModules) $ \hidden ->
-                     when (notNull hidden) $
-                     hPutStr stderr $ unlines
-                         [ "WARNING: The following modules are not part of exposed-modules: " <>
-                           show (map Ghc.moduleNameString hidden)
-                         , "This can cause issues if those modules are referenced from a data-dependency."
-                         ]
                  unstableDeps <- getUnstableDalfDependencies files
                  let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
@@ -172,6 +160,28 @@ buildDar service PackageConfigFields {..} ifDir dalfInput = do
                          files
                          dataFiles
                          ifaces
+
+validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
+validateExposedModules mbExposedModules pkgModuleNames = do
+    let missingExposed =
+            S.fromList (fromMaybe [] mbExposedModules) S.\\
+            S.fromList pkgModuleNames
+    unless (S.null missingExposed) $ do
+        -- FIXME: Should be producing a proper diagnostic
+        liftIO $ hPutStrLn stderr $
+            "The following modules are declared in exposed-modules but are not part of the DALF: " <>
+            show (map Ghc.moduleNameString $ S.toList missingExposed)
+        MaybeT (pure Nothing)
+    whenJust mbExposedModules $ \exposedModules ->
+        let hidden = pkgModuleNames \\ exposedModules
+        in when (notNull hidden) $
+           liftIO $ hPutStr stderr $ unlines
+               [ "WARNING: The following modules are not part of exposed-modules: " <>
+                 show (map Ghc.moduleNameString hidden)
+               , "This can cause issues if those modules are referenced from a data-dependency."
+               , "Suggestion: Remove the exposed-modules field from your daml.yaml file"
+               , "to expose all modules."
+               ]
 
 -- | Write interface files and hie files to the location specified by the given options.
 writeIfacesAndHie ::
