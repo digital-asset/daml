@@ -130,6 +130,8 @@ final class ApiSubmissionService private (
     private val servicePrefix =
       MetricsNaming.nameForService(CommandSubmissionServiceGrpc.javaDescriptor.getFullName)
 
+    val submissionsTimer: Timer =
+      metrics.timer(servicePrefix :+ "submissions")
     val failedInterpretationsMeter: Meter =
       metrics.meter(servicePrefix :+ "failed_command_interpretations")
     val deduplicatedCommandsMeter: Meter =
@@ -174,8 +176,11 @@ final class ApiSubmissionService private (
 
       logger.trace(s"Received composite commands: $commands")
       logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-      deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
-        .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
+      Timed.future(
+        Metrics.submissionsTimer,
+        deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
+          .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
+      )
     }
 
   private def mapSubmissionResult(result: Try[SubmissionResult])(
