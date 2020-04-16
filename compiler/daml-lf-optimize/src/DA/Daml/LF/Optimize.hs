@@ -3,6 +3,8 @@
 
 {-# LANGUAGE GADTs #-}
 
+module DA.Daml.LF.Optimize (optimize) where
+
 {-
 The goal of this Optimization is to remove redexs in (LF)expressions contained in an
 (LF)module. Any redex which we reduce at compile-time, will not have to be reduced at run-rime by
@@ -108,12 +110,6 @@ It's harder to measure, but it is real.
 
 -}
 
-module DA.Daml.LF.Optimize
-  ( World(..) -- TODO: subsume this World with [LF.ExternalPackage]
-  , optimizeWorld -- testing entry point
-  , optimizeModule
-  ) where
-
 import Control.Monad (ap,liftM,forM,(>=>))
 import Data.Map.Strict (Map)
 import Data.Set (Set)
@@ -139,45 +135,9 @@ normExpr = reflect >=> reify
 
 -- TODO: The LF.Type contained `Macro` must e normalized. Use a newtype to capture this.
 
-optimizeWorld :: World -> IO World
-optimizeWorld world = do
-  let World {mainIdM,packageMap} = world
-  case mainIdM of
-    Nothing -> error "optimizeWorld, mainIdM = Nothing"
-    Just mainId -> do
-      -- TODO: dont expect to find mainPkg in the packageMap
-      let mainPkg =
-            case Map.lookup mainId packageMap of
-              Just v -> v
-              Nothing -> error $ "lookup mainId failed, " <> show mainId
-      -- we only optimize (and replace) the main package here
-      mainPackageO <- optimizePackage world mainPkg
-      let otherPairs = [ (pid,pkg) | (pid,pkg) <- Map.toList packageMap, pid /= mainId ]
-      let packageMapO = Map.fromList $ (mainId,mainPackageO) : otherPairs
-      return World { mainIdM
-                   , packageMap = packageMapO
-                   , mainPackageM = Just mainPackageO
-                   }
-
-optimizePackage :: World -> LF.Package -> IO LF.Package
-optimizePackage world pkg =
-  run world $ normPackage pkg
-
-optimizeModule :: World -> LF.Module -> IO LF.Module
-optimizeModule world mod = do
-  run world $ normModule mod
-
-data World = World -- TODO: rethink the components of this type. Will [LF.ExternalPackage] do?
-  { mainIdM :: Maybe LF.PackageId
-  , packageMap :: Map LF.PackageId LF.Package
-  , mainPackageM :: Maybe LF.Package
-  }
-
-normPackage :: LF.Package -> Effect LF.Package
-normPackage pkg = do
-  let LF.Package{packageModules} = pkg
-  packageModules <- NM.traverse normModule packageModules
-  return $ pkg {LF.packageModules}
+optimize :: [LF.ExternalPackage] -> LF.Module -> IO LF.Module
+optimize pkgs mod = do
+  run pkgs mod $ normModule mod
 
 normModule :: LF.Module -> Effect LF.Module
 normModule mod = do
@@ -195,62 +155,34 @@ normDef moduleName dval = do
   expr <- (WithDontInline qval $ reflect expr) >>= reify
   return dval {LF.dvalBody=expr}
 
--- TODO: better to start from a World where all external packages have no PRSelf
-explicateSelfPid :: QVal -> Effect QVal
-explicateSelfPid qval = do
-  let LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name} = qval
-  (case pref of
-    LF.PRImport pid -> return $ Just pid
-    LF.PRSelf -> do
-      GetPid >>= \case
-        Just pid -> return $ Just pid
-        Nothing -> return Nothing --error "explicateSelfPid,Nothing"
-    ) >>= \case
-    Nothing -> return qval
-    Just pid -> do
-      let pref = LF.PRImport pid
-      return $ LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name}
-
 reflectQualifiedExprValName :: QVal -> Effect SemValue
 reflectQualifiedExprValName qval = do
   let LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name} = qval
   case pref of
-
     LF.PRSelf -> do
-      pidm <- GetPid
-      WithPid pidm $ do
-        getExprValName pidm moduleName name >>= \case
-          Just expr -> reflect expr
-          Nothing -> return $ Syntax $ LF.EVal qval
-
+      mod <- GetTheModule
+      getExprValNameFromModule mod name >>= reflect
     LF.PRImport pid -> do
-      let pidm = Just pid
-      WithPid pidm $ do
-        getExprValName pidm moduleName name >>= \case
-          Just expr -> reflect expr
-          Nothing -> return $ Syntax $ LF.EVal qval
+      mod <- getModule pid moduleName
+      expr <- getExprValNameFromModule mod name
+      reflect expr
 
-getExprValName :: Maybe LF.PackageId -> LF.ModuleName -> LF.ExprValName -> Effect (Maybe LF.Expr)
-getExprValName pid moduleName name = do
-  getModule pid moduleName >>= \case
-    Nothing -> return Nothing
-    Just mod -> do
-      let LF.Module{moduleValues} = mod
-      case NM.lookup name moduleValues of
-        Nothing -> error $ "simpExprValName, " <> show name
-        Just dval -> do
-          let LF.DefValue{dvalBody=expr} = dval
-          return $ Just expr
-
-getModule :: Maybe LF.PackageId -> LF.ModuleName -> Effect (Maybe LF.Module)
+getModule :: LF.PackageId -> LF.ModuleName -> Effect LF.Module
 getModule pid moduleName = do
-  GetPackage pid >>= \case
-    Nothing -> return Nothing
-    Just package -> do
-      let LF.Package{packageModules} = package
-      case NM.lookup moduleName packageModules of
-        Nothing -> error $ "getModule, " <> show (pid,moduleName)
-        Just mod -> return $ Just mod
+  package <- GetPackage pid
+  let LF.Package{packageModules} = package
+  case NM.lookup moduleName packageModules of
+    Nothing -> error $ "getModule, " <> show (pid,moduleName)
+    Just mod -> return mod
+
+getExprValNameFromModule :: LF.Module -> LF.ExprValName -> Effect LF.Expr
+getExprValNameFromModule mod name = do
+  let LF.Module{moduleValues} = mod
+  case NM.lookup name moduleValues of
+    Nothing -> error $ "getExprValNameFromModule, " <> show name
+    Just dval -> do
+      let LF.DefValue{dvalBody=expr} = dval
+      return expr
 
 
 reflect :: LF.Expr -> Effect SemValue
@@ -276,7 +208,6 @@ reflect = \case
         WithDontInline qval $
           reflectQualifiedExprValName qval
       False -> do
-        qval <- explicateSelfPid qval
         return $ Syntax $ LF.EVal qval
 
   x@LF.EBuiltin{} -> return $ Syntax x
@@ -550,9 +481,8 @@ data Effect a where
   ModEnv :: (Env -> Env) -> Effect a -> Effect a
   Fresh :: String -> Effect LF.ExprVarName
   FreshTV :: Effect LF.TypeVarName
-  GetPid :: Effect (Maybe LF.PackageId)
-  WithPid :: Maybe LF.PackageId -> Effect a -> Effect a
-  GetPackage :: Maybe LF.PackageId -> Effect (Maybe LF.Package)
+  GetTheModule :: Effect LF.Module
+  GetPackage :: LF.PackageId -> Effect LF.Package
   ShouldInline :: QVal -> Effect Bool
   WithDontInline :: QVal -> Effect a -> Effect a
 
@@ -560,34 +490,31 @@ instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
-run :: World -> Effect a -> IO a -- Only in IO for debug
-run world eff = do
-  (v,_state) <- loop pidm0 scope0 subst0 env0 state0 eff
+run :: [LF.ExternalPackage] -> LF.Module -> Effect a -> IO a -- Only in IO for debug
+run pkgs theModule eff = do
+  (v,_state) <- loop scope0 subst0 env0 state0 eff
   return v
 
   where
-    World{mainIdM,packageMap,mainPackageM} = world
-
-    pidm0 = mainIdM
     scope0 = Set.empty
     subst0 = Map.empty
     env0 = Map.empty
     state0 = State { unique = 0 }
 
-    loop :: Maybe LF.PackageId -> InlineScope -> LF.Subst -> Env -> State -> Effect a -> IO (a,State)
-    loop pidm scope subst env state = \case
+    loop :: InlineScope -> LF.Subst -> Env -> State -> Effect a -> IO (a,State)
+    loop scope subst env state = \case
       Ret x -> return (x,state)
-      Bind eff f -> do (v,state') <- loop pidm scope subst env state eff; loop pidm scope subst env state' (f v)
+      Bind eff f -> do (v,state') <- loop scope subst env state eff; loop scope subst env state' (f v)
 
       -- TODO: pidm/scope/env -- always travel together? so keep as 1 arg? --of type Context
-      Save -> return (Context pidm scope subst env, state)
-      Restore (Context pidm scope subst env) eff -> loop pidm scope subst env state eff
+      Save -> return (Context scope subst env, state)
+      Restore (Context scope subst env) eff -> loop scope subst env state eff
 
       GetSubst -> return (subst,state)
-      ModSubst f eff -> loop pidm scope (f subst) env state eff
+      ModSubst f eff -> loop scope (f subst) env state eff
 
       GetEnv -> return (env,state)
-      ModEnv f eff -> loop pidm scope subst (f env) state eff
+      ModEnv f eff -> loop scope subst (f env) state eff
 
       Fresh tag -> do -- take original name as a base which we can uniquify
         --let tag = "_v"
@@ -603,14 +530,11 @@ run world eff = do
         let tv = LF.TypeVarName $ Text.pack (tag <> show unique)
         return (tv,state')
 
-      GetPid -> do
-        return (pidm,state)
+      GetTheModule -> do
+        return (theModule,state)
 
-      WithPid pidm eff -> do
-        loop pidm scope subst env state eff
-
-      GetPackage pidm -> do
-        return (getPackage pidm, state)
+      GetPackage pid -> do
+        return (getPackage pid, state)
 
       ShouldInline qval -> do
         -- TODO : not if isDirectlyRecursive (code it!) -- need to see body
@@ -618,20 +542,18 @@ run world eff = do
         return (answer, state)
 
       WithDontInline qval eff -> do
-        loop pidm (Set.insert qval scope) subst env state eff
+        loop (Set.insert qval scope) subst env state eff
 
-    getPackage :: Maybe LF.PackageId -> Maybe LF.Package
-    getPackage pidm =
-      case pidm of
-        Nothing -> mainPackageM
-        Just pid ->
-          case Map.lookup pid packageMap of
-            Just v -> Just v
-            Nothing -> error $ "getPackage, " <> show pid
+    packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
--- TODO: rename as Context
-data Context = Context (Maybe LF.PackageId) InlineScope LF.Subst Env
+    getPackage :: LF.PackageId -> LF.Package
+    getPackage pid =
+      case Map.lookup pid packageMap of
+        Just v -> v
+        Nothing -> error $ "getPackage, " <> show pid
 
+
+data Context = Context InlineScope LF.Subst Env
 type Env = Map LF.ExprVarName SemValue
 data State = State { unique :: Unique }
 type Unique = Int

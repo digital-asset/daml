@@ -4,31 +4,34 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Daml.LF.Evaluator
-  ( decodeDalfs,
-    simplify,
-    runIntProgArg, Counts(..),
+  ( decodeDalfs
+  , simplify, Prog(..), DefKey(..)
+  , ppExp
+  , runIntProgArg, Counts(..)
   ) where
 
 import qualified Data.ByteString.Lazy as BSL (ByteString,toStrict)
-import qualified Data.Map.Strict as Map
+import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Evaluator.Eval (runIntProgArg)
+import DA.Daml.LF.Evaluator.Exp (Prog(..),DefKey(..))
+import DA.Daml.LF.Evaluator.Pretty (ppExp)
 import DA.Daml.LF.Evaluator.Simp (simplify)
 import DA.Daml.LF.Evaluator.Value (Counts(..))
-import DA.Daml.LF.Optimize (World(..))
-import DA.Daml.LF.Proto3.Archive (decodeArchive, DecodingMode(DecodeAsMain))
+import DA.Daml.LF.Proto3.Archive (decodeArchive, DecodingMode(DecodeAsMain,DecodeAsDependency))
 import DA.Daml.LF.Reader (Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF
 
-decodeDalfs :: Dalfs -> IO World
+decodeDalfs :: Dalfs -> IO ([LF.ExternalPackage],[LF.Module])
 decodeDalfs Dalfs{mainDalf,dalfs} = do
-  (mainId,mainPackage) <- decodeDalf mainDalf
-  otherIdentifiedPackages <- mapM decodeDalf dalfs
-  let packageMap = Map.fromList $ otherIdentifiedPackages <> [(mainId,mainPackage)]
-  return $ World { mainIdM = Just mainId, packageMap, mainPackageM = Just mainPackage }
+  (_,mainPackage) <- decodeDalf DecodeAsMain mainDalf
+  otherPackages <- mapM (decodeDalf DecodeAsDependency) dalfs
+  let pkgs = [ LF.ExternalPackage pid pkg | (pid,pkg) <- otherPackages ]
+  let LF.Package{packageModules} = mainPackage
+  let mods = NM.toList packageModules
+  return (pkgs,mods)
   where
-    decodeDalf :: BSL.ByteString -> IO (LF.PackageId,LF.Package)
-    decodeDalf dalfBS = do
-      Right pair <- return $ decodeArchive DecodeAsMain $ BSL.toStrict dalfBS
+    decodeDalf :: DecodingMode -> BSL.ByteString -> IO (LF.PackageId,LF.Package)
+    decodeDalf mode dalfBS = do
+      Right pair <- return $ decodeArchive mode $ BSL.toStrict dalfBS
       return pair
-

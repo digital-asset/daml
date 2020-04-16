@@ -12,42 +12,25 @@ import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Evaluator.Exp (Prog,Exp,Alt)
 import DA.Daml.LF.Evaluator.Value (Value)
-import DA.Daml.LF.Optimize (World(..))
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Evaluator.Exp as Exp
 import qualified DA.Daml.LF.Evaluator.Value as Value
 
-simplify :: World -> LF.ModuleName -> LF.ExprValName -> Prog
-simplify world@World{mainIdM} moduleName name = do
-  case mainIdM of
-    Nothing -> error "simplify, mainIdM = Nothing"
-    Just mainId -> do
-      runEffect mainId world $ do
-        simpExprValName mainId moduleName name >>= \case
-          Just exp -> return exp
-          Nothing -> Fail "simplify, Nothing"
+simplify :: [LF.ExternalPackage] -> LF.Module -> LF.ExprValName -> Prog
+simplify pkgs mod name = do
+  runEffect pkgs mod $ do
+    simpModuleValName mod name
 
-simpExprValName :: LF.PackageId -> LF.ModuleName -> LF.ExprValName -> Effect (Maybe Exp)
-simpExprValName pid moduleName name = do
-  getModule pid moduleName >>= \case
-    Nothing -> return Nothing
-    Just mod -> do
-      let LF.Module{moduleValues} = mod
-      case NM.lookup name moduleValues of
-        Nothing -> Fail $ "simpExprValName, " <> show name
-        Just dval -> do
-          let LF.DefValue{dvalBody=expr} = dval
-          let key = Exp.DefKey (pid,moduleName,name)
-          i <- Share key $ simpExpr expr
-          return $ Just $ Exp.Ref i
-
-getModule :: LF.PackageId -> LF.ModuleName -> Effect (Maybe LF.Module)
-getModule pid moduleName = do
-  package <- GetPackage pid
-  let LF.Package{packageModules} = package
-  case NM.lookup moduleName packageModules of
-    Nothing -> return Nothing -- Fail $ "simp-getModule, " <> show (pid,moduleName)
-    Just mod -> return $ Just mod
+simpModuleValName :: LF.Module -> LF.ExprValName -> Effect Exp
+simpModuleValName mod name = do
+  let LF.Module{moduleValues} = mod
+  case NM.lookup name moduleValues of
+    Nothing -> error $ "simpModuleValName, " <> show name
+    Just dval -> do
+      let LF.DefValue{dvalBody=expr} = dval
+      let key = Exp.DefKey (Nothing,name)
+      i <- Share key $ simpExpr expr
+      return $ Exp.Ref i
 
 simpExpr :: LF.Expr -> Effect Exp
 simpExpr expr = case expr of
@@ -139,7 +122,7 @@ simpExpr expr = case expr of
     -- drop location info
     simpExpr expr
 
-  where todo s = Fail $ "todo: simpExpr(" <> s <> "), " <> show expr
+  where todo s = error $ "todo: simpExpr(" <> s <> "), " <> show expr
 
 simpAlternative :: LF.CaseAlternative -> Effect Alt
 simpAlternative = \case
@@ -169,16 +152,22 @@ simpBinding = \case
     return $ Exp.Let name v
 
 simpQualifiedExprValName :: LF.Qualified LF.ExprValName -> Effect Exp
-simpQualifiedExprValName q = do -- trace (show q) $ do
+simpQualifiedExprValName q = do
   let LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name} = q
-  pid <- case pref of
-    LF.PRSelf -> GetPid
-    LF.PRImport pid -> return pid
-  WithPid pid $ do
-    simpExprValName pid moduleName name >>= \case
-      Just exp -> return exp
-      Nothing -> Fail $ "simpQualifiedExprValName, pid = " <> show pid <> ", q = " <> show q
+  mod <-
+    case pref of
+      LF.PRSelf -> GetTheModule
+      LF.PRImport pid -> do
+        pkg <- GetPackage pid
+        return $ lookupModule moduleName pkg
+  simpModuleValName mod name
 
+lookupModule :: LF.ModuleName -> LF.Package -> LF.Module
+lookupModule moduleName pkg = do
+  let LF.Package{packageModules} = pkg
+  case NM.lookup moduleName packageModules of
+    Nothing -> error $ "lookupModule, " <> show moduleName
+    Just mod -> mod
 
 simpBuiltin :: LF.BuiltinExpr -> Value
 simpBuiltin = \case
@@ -210,31 +199,27 @@ instance Monad Effect where return = Ret; (>>=) = Bind
 data Effect a where
   Ret :: a -> Effect a
   Bind :: Effect a -> (a -> Effect b) -> Effect b
-  Fail :: String -> Effect a
   GetPackage :: LF.PackageId -> Effect LF.Package
-  GetPid :: Effect LF.PackageId
-  WithPid :: LF.PackageId -> Effect a -> Effect a
+  GetTheModule :: Effect LF.Module
   Share :: Exp.DefKey -> Effect Exp -> Effect Int
 
 
-runEffect :: LF.PackageId -> World -> Effect Exp -> Prog
-runEffect mainId World{packageMap} e = do
+runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect Exp -> Prog
+runEffect pkgs the_module e = do
   let state0 = (0,Map.empty)
-  let (main,(_,m')) = run mainId state0 e
+  let (start,(_,m')) = run state0 e
   let defs = foldr (\(name,(i,exp)) m -> Map.insert i (name,exp) m) Map.empty (Map.toList m')
-  Exp.Prog {defs,main}
+  Exp.Prog {defs,start}
 
   where
-    run :: LF.PackageId -> State -> Effect a -> (a,State)
-    run pid state = \case
-      Fail mes -> error $ "Simp.Fail, " <> mes
+    run :: State -> Effect a -> (a,State)
+    run state = \case
       Ret x -> (x,state)
       Bind e f -> do
-        let (v1,state1) = run pid state e
-        run pid state1 (f v1)
+        let (v1,state1) = run state e
+        run state1 (f v1)
       GetPackage pid -> (getPackage pid, state)
-      GetPid -> (pid,state)
-      WithPid pid e -> run pid state e
+      GetTheModule -> (the_module, state)
       Share name e -> do
         let (_,m) = state
         case Map.lookup name m of
@@ -243,13 +228,16 @@ runEffect mainId World{packageMap} e = do
           Nothing -> do
             let (i,m) = state
             let state' = (i+1, Map.insert name (i,exp) m)
-                (exp,state'') = run pid state' e
+                (exp,state'') = run state' e
             (i,state'')
 
-    getPackage k =
-      case Map.lookup k packageMap of
+    packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
+
+    getPackage :: LF.PackageId -> LF.Package
+    getPackage pid =
+      case Map.lookup pid packageMap of
         Just v -> v
-        Nothing -> error $ "getPackage, " <> show k
+        Nothing -> error $ "getPackage, " <> show pid
 
 type State = (Int, Map Exp.DefKey (Int,Exp))
 

@@ -1,9 +1,7 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.LF.Evaluator.Tests
-  ( main
-  ) where
+module DA.Daml.LF.Evaluator.Tests (main) where
 
 import Data.Int (Int64)
 import System.Environment.Blank (setEnv)
@@ -16,10 +14,10 @@ import qualified Test.Tasty as Tasty (defaultMain,testGroup,TestTree)
 import qualified Test.Tasty.HUnit as Tasty (assertBool,assertEqual,testCaseSteps)
 
 import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
-import DA.Daml.LF.Optimize (optimizeWorld,World)
+import DA.Daml.LF.Evaluator (decodeDalfs,simplify,runIntProgArg,Counts(..))
+import DA.Daml.LF.Optimize (optimize)
 import DA.Daml.LF.Reader (readDalfs,Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Evaluator as EV
 
 main :: IO ()
 main = do
@@ -42,8 +40,8 @@ tests =
   , Test 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
   , Test 7 "run_makeDecimal" 7 789
 
-  , Test 633 "nthPrime" 10 29 -- TODO: can apps be better?
-  , Test 86897 "nthPrime" 100 541
+  , Test 702 "nthPrime" 10 29 -- TODO: can apps be better? -- was 633
+  , Test 92642 "nthPrime" 100 541 --was 86897
 
   , Test 15 "run_sum_myList" 9 30
   , Test 15 "run_sum_myList2" 99 300
@@ -84,41 +82,40 @@ run :: [Test] -> IO ()
 run tests = do
   filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
   dalfs <- readDar filename
-  world <- EV.decodeDalfs dalfs
-  Tasty.defaultMain $ Tasty.testGroup "daml-lf-evaluator" (map (makeTasty world) tests)
+  (pkgs,[mod]) <- decodeDalfs dalfs
+  Tasty.defaultMain $ Tasty.testGroup "daml-lf-evaluator" (map (makeTasty pkgs mod) tests)
 
 readDar :: FilePath -> IO Dalfs
 readDar inFile = do
   archiveBS <- BS.readFile inFile
   either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict archiveBS
 
-makeTasty :: World -> Test -> Tasty.TestTree
-makeTasty world Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,arg,expected} = do
-  let mn = LF.ModuleName ["Examples"]
+makeTasty :: [LF.ExternalPackage] -> LF.Module -> Test -> Tasty.TestTree
+makeTasty pkgs mod Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,arg,expected} = do
+
   let vn = LF.ExprValName $ Text.pack functionName
   let name = Text.unpack (LF.unExprValName vn) <> "(" <> show arg <> ")"
+
   Tasty.testCaseSteps name $ \_step -> do
 
     -- check the original program evaluates as expected
-    let prog = EV.simplify world mn vn
-    let (actual,countsOrig) = EV.runIntProgArg prog arg
+    let prog = simplify pkgs mod vn
+    let (actual,countsOrig) = runIntProgArg prog arg
     Tasty.assertEqual "original" expected actual
-    let EV.Counts{apps=a1,prims=p1,projections=q1} = countsOrig
+    let Counts{apps=a1,prims=p1,projections=q1} = countsOrig
 
     -- check the program constructed from optimized DAML-LF has same result
-    worldO <- optimizeWorld world
-    let progO = EV.simplify worldO mn vn
-    let (actualO,countsOpt) = EV.runIntProgArg progO arg
+    modO <- optimize pkgs mod
+    let progO = simplify pkgs modO vn
+    let (actualO,countsOpt) = runIntProgArg progO arg
     Tasty.assertEqual "optimized" expected actualO
 
     -- check the optimized program doesn't take more steps to evaluate
     -- in fact check that it has less application steps (i.e it has actually improved!)
     -- But check it executes the same number of primitive ops.
-    let EV.Counts{apps=a2,prims=p2,projections=q2} = countsOpt
+    let Counts{apps=a2,prims=p2,projections=q2} = countsOpt
     let mkName tag x y = tag <> ":" <> show x <> "-->" <> show y
     Tasty.assertBool (mkName "apps" a1 a2) (a2 < a1)
     Tasty.assertBool (mkName "prim" p1 p2) (p2 == p1)
     Tasty.assertBool (mkName "proj" q1 q2) (q2 <= q1)
-
     Tasty.assertBool (mkName "apps!" xa a2) (a2 == xa)
-

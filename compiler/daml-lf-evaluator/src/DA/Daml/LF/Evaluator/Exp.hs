@@ -32,11 +32,11 @@ type Var = LF.ExprVarName
 data Alt = Alt {tag :: Tag, bound :: [Var], rhs :: Exp}
   deriving (Show)
 
-data Prog = Prog { defs :: Defs, main :: Exp }
+data Prog = Prog { defs :: Defs, start :: Exp }
   deriving (Show)
 
 type Defs = Map Int (DefKey,Exp)
 
-newtype DefKey = DefKey (LF.PackageId, LF.ModuleName, LF.ExprValName)
+newtype DefKey = DefKey (Maybe (LF.PackageId, LF.ModuleName), LF.ExprValName)
   deriving (Eq,Ord,Show)
 

@@ -1,24 +1,22 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module MyIntSpeed
-  ( main
-  ) where
+module MyIntSpeed (main) where
 
-import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
-import DA.Daml.LF.Evaluator.Simp (simplify)
-import DA.Daml.LF.Optimize (optimizeWorld)
-import DA.Daml.LF.Reader (readDalfs,Dalfs(..))
 import Data.Int (Int64)
 import Data.Time (getCurrentTime,diffUTCTime)
 import System.Environment (getArgs)
 import System.FilePath ((</>), isExtensionOf)
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Evaluator as EV
 import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL(fromStrict)
 import qualified Data.Text as Text
+
+import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
+import DA.Daml.LF.Evaluator (decodeDalfs,simplify,runIntProgArg)
+import DA.Daml.LF.Optimize (optimize)
+import DA.Daml.LF.Reader (readDalfs,Dalfs(..))
 
 main :: IO ()
 main = do
@@ -48,16 +46,15 @@ getNfib Conf{mode} = do
   let funcName = "nfib"
   filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
   dalfs <- readDar filename
-  world <- EV.decodeDalfs dalfs
-  world <-
+  (pkgs,[mod]) <- decodeDalfs dalfs
+  mod <-
     case mode of
-      Original -> return world
-      Normalized -> optimizeWorld world
-  let mn = LF.ModuleName ["Examples"]
+      Original -> return mod
+      Normalized -> optimize pkgs mod
   let vn = LF.ExprValName $ Text.pack funcName
-  let !prog = simplify world mn vn
+  let !prog = simplify pkgs mod vn
   return $ \arg -> do
-    let (res,_counts) = EV.runIntProgArg prog arg
+    let (res,_counts) = runIntProgArg prog arg
     res
 
 readDar :: FilePath -> IO Dalfs

@@ -3,9 +3,7 @@
 
 {-# LANGUAGE GADTs #-}
 
-module DA.Daml.LF.Evaluator.Eval
-  ( runIntProgArg,
-  ) where
+module DA.Daml.LF.Evaluator.Eval (runIntProgArg) where
 
 import Control.Monad (forM,liftM,ap)
 import DA.Daml.LF.Evaluator.Exp (Exp,Alt,Prog)
@@ -18,9 +16,9 @@ import qualified Data.Map.Strict as Map
 
 
 runIntProgArg :: Prog -> Int64 -> (Int64,Counts)
-runIntProgArg Exp.Prog{defs,main} arg = do
+runIntProgArg Exp.Prog{defs,start} arg = do
   run defs $ do
-    fv <- eval main
+    fv <- eval start
     let av = Value.num arg
     v <- ValueEffect $ Value.apply (fv,av)
     return $ Value.deNum v

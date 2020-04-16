@@ -6,7 +6,6 @@ module Explore -- explore the benefit of normalization
   ) where
 
 import Control.Monad (forM_,unless)
-import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
 import Data.Int (Int64)
 import Data.List (isPrefixOf)
 import System.Environment (getArgs)
@@ -17,13 +16,11 @@ import qualified Data.ByteString.Lazy as BSL(fromStrict)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as Text
 
-import DA.Daml.LF.Evaluator.Pretty (ppExp)
-import DA.Daml.LF.Evaluator.Simp (simplify)
-import DA.Daml.LF.Optimize (optimizeWorld)
+import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
+import DA.Daml.LF.Evaluator (decodeDalfs,simplify,runIntProgArg,Prog(..),DefKey(..),ppExp)
+import DA.Daml.LF.Optimize (optimize)
 import DA.Daml.LF.Reader (readDalfs,Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Evaluator as EV
-import qualified DA.Daml.LF.Evaluator.Exp as Exp
 
 main :: IO ()
 main = do
@@ -62,27 +59,25 @@ runConf = \case
   Conf{mode,funcName,arg} -> do
     filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
     dalfs <- readDar filename
-    world <- EV.decodeDalfs dalfs
-    let mn = LF.ModuleName ["Examples"]
+    (pkgs,[mod]) <- decodeDalfs dalfs
     let vn = LF.ExprValName $ Text.pack funcName
     putStrLn $ "==["<>funcName<>"]============================"
-    let prog = simplify world mn vn
+    let prog = simplify pkgs mod vn
     runProg "original" prog arg
     unless (mode == JustEval) $ do
-      worldO <- optimizeWorld world
-      let progO = simplify worldO mn vn
+      modO <- optimize pkgs mod
+      let progO = simplify pkgs modO vn
       runProg "new-norm" progO arg
 
-runProg :: String -> Exp.Prog -> Int64 -> IO ()
+runProg :: String -> Prog -> Int64 -> IO ()
 runProg title prog arg = do
-  let Exp.Prog{defs,main} = prog
+  let Prog{defs,start} = prog
   putStrLn $ "--["<>title<>"]----------------------------"
-  putStrLn $ "(main): " <> ppExp main
-  forM_ (Map.toList defs) $ \(i,(Exp.DefKey(_,_,name),exp)) ->
+  putStrLn $ "(main): " <> ppExp start
+  forM_ (Map.toList defs) $ \(i,(DefKey(_,name),exp)) ->
     putStrLn $ show i <> "("<> Text.unpack (LF.unExprValName name) <> "): " <> ppExp exp
-
   putStrLn "--------------------------------------------------"
-  let (res,count) = EV.runIntProgArg prog arg
+  let (res,count) = runIntProgArg prog arg
   putStrLn $ "arg = " <> show arg <> ", result = " <> show res <> ", #apps = " <> show count
   putStrLn  "--------------------------------------------------"
 
