@@ -48,7 +48,6 @@ import com.daml.timer.Delayed
 import io.grpc.Status
 
 import scala.collection.breakOut
-import scala.compat.java8.FutureConverters
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -138,8 +137,8 @@ final class ApiSubmissionService private (
       metrics.meter(servicePrefix :+ "deduplicated_commands")
     val delayedSubmissionsMeter: Meter =
       metrics.meter(servicePrefix :+ "delayed_submissions")
-    val submittedTransactionsTimer: Timer =
-      metrics.timer(servicePrefix :+ "submitted_transactions")
+    val validSubmissionsMeter: Meter =
+      metrics.meter(servicePrefix :+ "valid_submissions")
   }
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(
@@ -279,12 +278,10 @@ final class ApiSubmissionService private (
   private def submitTransaction(
       result: CommandExecutionResult,
   ): Future[SubmissionResult] = {
-    Timed.future(
-      Metrics.submittedTransactionsTimer,
-      FutureConverters.toScala(
-        writeService
-          .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction))
-    )
+    Metrics.validSubmissionsMeter.mark()
+    writeService
+      .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction)
+      .toScala
   }
 
   private def toStatus(errorCause: ErrorCause) =
