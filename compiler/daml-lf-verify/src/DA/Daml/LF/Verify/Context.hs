@@ -3,34 +3,33 @@
 
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
 
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
-  ( Delta, Error(..)
-  , MonadDelta, _dchs, dchs, _devars, devars, _devals, devals
+  ( Env(..)
+  , Error(..)
+  , MonadEnv
   , UpdateSet(..)
-  , UpdCreate(..), usCre, usArc, usCho, usVal
+  , UpdCreate(..)
   , UpdArchive(..)
   , UpdChoice(..)
-  , runDelta
-  , emptyDelta, setDelta
-  , introDelta, extVarDelta
-  , lookupDExprVar, lookupDVal, lookupDChoice
-  , concatDelta
+  , runEnv
+  , emptyEnv
+  , introEnv, extVarEnv, extValEnv, extChEnv
+  , lookupVar, lookupVal, lookupChoice
+  , concatEnv
   , emptyUpdateSet
   , concatUpdateSet
-  , solveValueUpdatesDelta
+  , solveValueUpdatesEnv
   , testPrint, lookupChoInHMap
   ) where
 
-import Control.Lens hiding (Context)
 import Control.Monad.Error.Class (MonadError (..), throwError)
-import Control.Monad.Reader
+import Control.Monad.State.Lazy
 import Data.Maybe (listToMaybe)
 import qualified Data.HashMap.Strict as HM
 
-import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast hiding (lookupChoice)
 
 data UpdCreate = UpdCreate
   { _creTemp  :: !(Qualified TypeConName)
@@ -68,8 +67,6 @@ data UpdateSet = UpdateSet
   }
   deriving Show
 
-makeLenses ''UpdateSet
-
 emptyUpdateSet :: UpdateSet
 emptyUpdateSet = UpdateSet [] [] [] []
 
@@ -78,64 +75,74 @@ concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2
   UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
 
 -- | The environment for the DAML-LF verifier
-data Delta = Delta
-  { _devars :: ![ExprVarName]
+data Env = Env
+  { _envvars :: ![ExprVarName]
     -- TODO: there seems to be a bug which makes this an infinite list...
     -- ^ The skolemised term variables.
-  , _devals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
+  , _envvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
     -- ^ The bound values.
-  , _dchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
+  , _envchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
     -- ^ The set of relevant choices.
+  , _envdats :: !(HM.HashMap TypeConName DefDataType)
+    -- ^ The set of data constructors.
   -- TODO: split this off into data types for readability?
   }
   deriving Show
 
-makeLenses ''Delta
+emptyEnv :: Env
+emptyEnv = Env [] HM.empty HM.empty HM.empty
 
-emptyDelta :: Delta
-emptyDelta = Delta [] HM.empty HM.empty
-
-concatDelta :: Delta -> Delta -> Delta
-concatDelta (Delta vars1 vals1 chs1) (Delta vars2 vals2 chs2) =
-  Delta (vars1 ++ vars2) (vals1 `HM.union` vals2) (chs1 `HM.union` chs2)
+concatEnv :: Env -> Env -> Env
+concatEnv (Env vars1 vals1 chs1 dats1) (Env vars2 vals2 chs2 dats2) =
+  Env (vars1 ++ vars2) (vals1 `HM.union` vals2) (chs1 `HM.union` chs2) (dats1 `HM.union` dats2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first)
 
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
-  -- TODO: I think this should be a mix of a reader and a state monad...
-type MonadDelta m = (MonadError Error m, MonadReader Delta m)
+type MonadEnv m = (MonadError Error m, MonadState Env m)
 
-runDelta :: ReaderT Delta (Either Error) a -> Delta -> Either Error a
-runDelta = runReaderT
+runEnv :: StateT Env (Either Error) () -> Env -> Either Error Env
+runEnv comp env0 = do
+  (_res, env) <- runStateT comp env0
+  return env
 
+-- TODO: some of these might not be needed anymore.
 -- | Run a computation in the current environment, with an additional
 -- environment extension.
-introDelta :: MonadDelta m => Delta -> m a -> m a
-introDelta delta = local (concatDelta delta)
+introEnv :: MonadEnv m => Env -> m ()
+introEnv env = modify (concatEnv env)
 
--- TODO: This is a bit strange in a reader monad.
--- Figure out a way to extend, instead of overwrite every time.
-setDelta :: MonadDelta m => Delta -> m a -> m a
-setDelta delta = local (const delta)
+extVarEnv :: MonadEnv m => ExprVarName -> m ()
+extVarEnv x = get >>= \env@Env{..} -> put env{_envvars = x : _envvars}
 
-extVarDelta :: MonadDelta m => ExprVarName -> m a -> m a
-extVarDelta x = local (over devars ((:) x))
+extValEnv :: MonadEnv m => Qualified ExprValName -> Expr -> UpdateSet -> m ()
+extValEnv val expr upd = get >>= \env@Env{..} -> put env{_envvals = HM.insert val (expr, upd) _envvals}
 
-lookupDExprVar :: MonadDelta m => ExprVarName -> m ()
-lookupDExprVar (ExprVarName "self") = return ()
-lookupDExprVar (ExprVarName "this") = return ()
+extChEnv :: MonadEnv m => Qualified TypeConName -> ChoiceName -> UpdateSet -> m ()
+extChEnv tc ch upd = get >>= \env@Env{..} -> put env{_envchs = HM.insert (tc, ch) upd _envchs}
+
+lookupVar :: MonadEnv m => ExprVarName -> m ()
+lookupVar (ExprVarName "self") = return ()
+lookupVar (ExprVarName "this") = return ()
 -- TODO: Is there a nicer way to handle this instead of hardcoding?
-lookupDExprVar x = ask >>= \ del -> unless (elem x $ _devars del)
+lookupVar x = get >>= \ env -> unless (elem x $ _envvars env)
   (throwError $ UnboundVar x)
 
-lookupDVal :: MonadDelta m => Qualified ExprValName -> m (Expr, UpdateSet)
--- lookupDVal w = view (devals . at w) >>= match _Just (UnknownValue w)
-lookupDVal val = do
-  del <- ask
-  case lookupValInHMap (_devals del) val of
+lookupVal :: MonadEnv m => Qualified ExprValName -> m (Expr, UpdateSet)
+lookupVal val = do
+  env <- get
+  case lookupValInHMap (_envvals env) val of
     Just res -> return res
     Nothing -> throwError (UnknownValue val)
+
+lookupChoice :: MonadEnv m => Qualified TypeConName -> ChoiceName
+  -> m UpdateSet
+lookupChoice _tem ch = do
+  env <- get
+  case lookupChoInHMap (_envchs env) ch of
+    Nothing -> throwError (UnknownChoice ch)
+    Just upd -> return upd
 
 -- TODO: There seems to be something wrong with the qualifiers. This is a
 -- temporary solution.
@@ -149,21 +156,11 @@ lookupChoInHMap :: (HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet)
 lookupChoInHMap hmap cho = listToMaybe $ HM.elems
   $ HM.filterWithKey (\(_, name) _ -> cho == name) hmap
 
-lookupDChoice :: MonadDelta m => Qualified TypeConName -> ChoiceName
-             -> m UpdateSet
-lookupDChoice tem ch = view (dchs . at (tem, ch)) >>= match _Just
-  (UnknownChoice ch)
-
--- | Helper functions mirrored from Env.
-match :: MonadDelta m => Prism' a b -> Error -> a -> m b
-match p err x = either (const (throwError err)) pure (matching p x)
--- TODO: no context, like in Gamma
-
-solveValueUpdatesDelta :: Delta -> Delta
-solveValueUpdatesDelta del =
-  let hmap0 = _devals del
+solveValueUpdatesEnv :: Env -> Env
+solveValueUpdatesEnv env =
+  let hmap0 = _envvals env
       hmap1 = foldl solveValueUpdate hmap0 (HM.keys hmap0)
-  in del{_devals = hmap1}
+  in env{_envvals = hmap1}
 
 solveValueUpdate :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
   -> (Qualified ExprValName) -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)

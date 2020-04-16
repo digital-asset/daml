@@ -19,11 +19,11 @@ main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
   pkgs <- readPackages optInputDars
-  putStrLn "Start value phase" >> case runDelta (genPackages ValuePhase pkgs) emptyDelta of
+  putStrLn "Start value phase" >> case runEnv (genPackages ValuePhase pkgs) emptyEnv of
     Left err-> putStrLn "Value phase finished with error: " >> print err
-    Right delta1 -> putStrLn "Start solving" >>
-                    let delta2 = solveValueUpdatesDelta delta1
-                    in putStrLn "Start template phase" >> case runDelta (genPackages TemplatePhase pkgs) delta2 of
-      Left err -> putStrLn "Template phase finished with error: " >> print err
-      Right delta3 -> putStrLn "Success!" >> print (lookupChoInHMap (_dchs delta3) choiceName)
+    Right env1 -> putStrLn "Start solving" >>
+      let env2 = solveValueUpdatesEnv env1
+      in putStrLn "Start template phase" >> case runEnv (genPackages TemplatePhase pkgs) env2 of
+        Left err -> putStrLn "Template phase finished with error: " >> print err
+        Right env3 -> putStrLn "Success!" >> print (lookupChoInHMap (_envchs env3) choiceName)
 
