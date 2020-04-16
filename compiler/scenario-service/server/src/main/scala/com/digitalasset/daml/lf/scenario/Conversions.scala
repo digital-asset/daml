@@ -26,7 +26,7 @@ final class Conversions(
 
   // The ledger data will not contain information from the partial transaction at this point.
   // We need the mapping for converting error message so we manually add it here.
-  private val ptxCoidToNodeId = machine.ptx.nodes.toList
+  private val ptxCoidToNodeId = machine.ptx.nodes
     .collect({
       case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
         node.coid match {
