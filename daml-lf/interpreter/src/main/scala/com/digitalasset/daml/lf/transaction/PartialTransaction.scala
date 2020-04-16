@@ -22,30 +22,40 @@ object PartialTransaction {
   final class Context private (
       val exeContext: Option[ExercisesContext], // empty if root context
       val children: BackStack[Value.NodeId],
-      protected val childrenSeeds: Stream[crypto.Hash]
+      protected val childrenSeeds: Int => Option[crypto.Hash]
   ) {
     def addChild(child: Value.NodeId): Context =
-      new Context(exeContext, children :+ child, childrenSeeds.drop(1))
-    def nextChildrenSeed: Option[crypto.Hash] = childrenSeeds.headOption
+      new Context(exeContext, children :+ child, childrenSeeds)
+    def nextChildrenSeed: Option[crypto.Hash] =
+      childrenSeeds(children.length)
   }
 
   object Context {
-    private def childrenSeeds(contextSeed: Option[crypto.Hash]) =
-      contextSeed.fold(Stream.empty[crypto.Hash])(seed =>
-        Stream.from(0).map(crypto.Hash.deriveNodeSeed(seed, _)))
 
-    def apply(transactionSeed: Option[crypto.Hash]): Context =
-      new Context(None, BackStack.empty, childrenSeeds(transactionSeed))
-
-    def apply(rootNodeSeeds: Stream[crypto.Hash]): Context =
-      new Context(None, BackStack.empty, rootNodeSeeds)
+    def apply(initialSeeds: InitialSeeding): Context =
+      initialSeeds match {
+        case InitialSeeding.NoSeed =>
+          new Context(None, BackStack.empty, _ => None)
+        case InitialSeeding.TransactionSeed(seed) =>
+          new Context(None, BackStack.empty, childrenSeeds(seed))
+        case InitialSeeding.RootNodeSeeds(seeds) =>
+          new Context(
+            None,
+            BackStack.empty,
+            i => if (0 <= i && i < seeds.length) seeds(i) else None
+          )
+      }
 
     def apply(exeContext: ExercisesContext) =
       new Context(
         Some(exeContext),
         BackStack.empty,
-        childrenSeeds(exeContext.parent.nextChildrenSeed),
+        exeContext.parent.nextChildrenSeed
+          .fold[Int => Option[crypto.Hash]](_ => None)(childrenSeeds),
       )
+
+    private def childrenSeeds(seed: crypto.Hash)(i: Int) =
+      Some(crypto.Hash.deriveNodeSeed(seed, i))
 
   }
 
@@ -86,18 +96,20 @@ object PartialTransaction {
       parent: Context,
   )
 
-  def initial(seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None) =
-    PartialTransaction(
-      submissionTime = seedWithTime.map(_._2),
-      nextNodeIdx = 0,
-      nodes = HashMap.empty,
-      consumedBy = Map.empty,
-      context = Context(seedWithTime.map(_._1)),
-      aborted = None,
-      keys = Map.empty,
-      localContracts = Map.empty,
-      globalContracts = Map.empty,
-    )
+  def initial(
+      submissionTime: Time.Timestamp,
+      initialSeeds: InitialSeeding,
+  ) = PartialTransaction(
+    submissionTime = submissionTime,
+    nextNodeIdx = 0,
+    nodes = HashMap.empty,
+    consumedBy = Map.empty,
+    context = Context(initialSeeds),
+    aborted = None,
+    keys = Map.empty,
+    localContracts = Map.empty,
+    globalContracts = Map.empty,
+  )
 
 }
 
@@ -131,7 +143,7 @@ object PartialTransaction {
   *                       other format of contract ids are not cached.
   */
 case class PartialTransaction(
-    submissionTime: Option[Time.Timestamp],
+    submissionTime: Time.Timestamp,
     nextNodeIdx: Int,
     nodes: HashMap[Value.NodeId, Tx.Node],
     consumedBy: Map[Value.ContractId, Value.NodeId],
@@ -268,10 +280,7 @@ case class PartialTransaction(
     } else {
       val nodeSeed = context.nextChildrenSeed
       val discriminator =
-        for {
-          seed <- nodeSeed
-          time <- submissionTime
-        } yield crypto.Hash.deriveContractDiscriminator(seed, time, stakeholders)
+        nodeSeed.map(crypto.Hash.deriveContractDiscriminator(_, submissionTime, stakeholders))
       val cid = discriminator.fold[Value.ContractId](
         Value.RelativeContractId(Value.NodeId(nextNodeIdx))
       )(Value.AbsoluteContractId.V1(_))
@@ -450,4 +459,18 @@ case class PartialTransaction(
     )
   }
 
+}
+
+sealed abstract class InitialSeeding
+
+object InitialSeeding {
+  def apply(transactionSeed: Option[crypto.Hash]): InitialSeeding =
+    transactionSeed match {
+      case None => NoSeed
+      case Some(hash) => TransactionSeed(hash)
+    }
+
+  final case object NoSeed extends InitialSeeding
+  final case class TransactionSeed(seed: crypto.Hash) extends InitialSeeding
+  final case class RootNodeSeeds(seeds: ImmArray[Option[crypto.Hash]]) extends InitialSeeding
 }

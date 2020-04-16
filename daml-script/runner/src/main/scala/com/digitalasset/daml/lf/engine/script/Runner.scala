@@ -26,7 +26,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -291,8 +291,14 @@ class Runner(
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     var clients = initialClients
-    var machine =
-      Speedy.Machine.fromSExpr(script.expr, false, extendedCompiledPackages)
+    val machine =
+      Speedy.Machine.fromSExpr(
+        sexpr = script.expr,
+        checkSubmitterInMaintainers = false,
+        compiledPackages = extendedCompiledPackages,
+        submissionTime = Timestamp.now(),
+        seeds = InitialSeeding.NoSeed,
+      )
 
     // Removing the early return only makes this harder to read.
     @SuppressWarnings(Array("org.wartremover.warts.Return"))

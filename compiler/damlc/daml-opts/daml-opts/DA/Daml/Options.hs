@@ -29,7 +29,6 @@ import Control.Exception
 import Control.Exception.Safe (handleIO)
 import Control.Concurrent.Extra
 import Control.Monad.Extra
-import Control.Monad.Trans.Maybe (runMaybeT)
 import qualified CmdLineParser as Cmd (warnMsg)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -506,9 +505,8 @@ calcUnitsFromDeps root deps = do
       bs <- BS.readFile (fromNormalizedFilePath root </> fp)
       pure (fp, bs)
   let mainDalfs = dalfsFromDars ++ dalfsFromFps
-  flip mapMaybeM mainDalfs $ \(file, dalf) -> runMaybeT $ do
+  forM mainDalfs $ \(file, dalf) -> do
     (pkgId, pkg) <-
-        liftIO $
         either (fail . DA.Pretty.renderPretty) pure $
         Archive.decodeArchive Archive.DecodeAsMain dalf
     let (name, mbVersion) = packageMetadataFromFile file pkg pkgId

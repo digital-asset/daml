@@ -287,6 +287,7 @@ final class SandboxServer(
               authorizer = authorizer,
               engine = SandboxServer.engine,
               timeProvider = timeProvider,
+              timeProviderType = timeProviderType,
               defaultLedgerConfiguration = defaultConfiguration,
               commandConfig = config.commandConfig,
               partyConfig = PartyConfiguration.default.copy(

@@ -135,13 +135,12 @@ object ScenarioLoader {
   private def getSpeedyMachine(
       submissionVersion: LanguageVersion,
       scenarioExpr: Ast.Expr,
-      compiledPackages: CompiledPackages): Speedy.Machine = {
-    Speedy.Machine.newBuilder(compiledPackages) match {
+      compiledPackages: CompiledPackages): Speedy.Machine =
+    Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), None) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
       case Right(build) =>
         build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), scenarioExpr)
     }
-  }
 
   private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
     scenarioDef match {

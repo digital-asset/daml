@@ -14,6 +14,9 @@ import scala.concurrent.Future
 
 object Timed {
 
+  def value[T](timer: Timer, value: => T): T =
+    timer.time(() => value)
+
   def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
     val ctx = timer.time()
     future.whenComplete { (_, _) =>

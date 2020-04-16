@@ -8,7 +8,6 @@ import akka.stream._
 import akka.stream.scaladsl._
 import com.google.rpc.status.Status
 import com.typesafe.scalalogging.StrictLogging
-
 import io.grpc.StatusRuntimeException
 import java.time.Instant
 import java.util.UUID
@@ -25,9 +24,7 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.Compiler
-import com.daml.lf.speedy.Pretty
-import com.daml.lf.speedy.{SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -139,7 +136,13 @@ object Trigger extends StrictLogging {
     val heartbeat = compiler.compile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
-    var machine = Speedy.Machine.fromSExpr(heartbeat, false, compiledPackages)
+    val machine = Speedy.Machine.fromSExpr(
+      sexpr = heartbeat,
+      checkSubmitterInMaintainers = false,
+      compiledPackages = compiledPackages,
+      submissionTime = Timestamp.now(),
+      seeds = InitialSeeding.NoSeed,
+    )
     Machine.stepToValue(machine)
     machine.toSValue match {
       case SOptional(None) => Right(None)
@@ -156,8 +159,14 @@ object Trigger extends StrictLogging {
       expr: TypedExpr): Either[String, Filters] = {
     val registeredTemplates =
       compiler.compile(ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
-    var machine =
-      Speedy.Machine.fromSExpr(registeredTemplates, false, compiledPackages)
+    val machine =
+      Speedy.Machine.fromSExpr(
+        sexpr = registeredTemplates,
+        checkSubmitterInMaintainers = false,
+        compiledPackages = compiledPackages,
+        submissionTime = Timestamp.now(),
+        seeds = InitialSeeding.NoSeed,
+      )
     Machine.stepToValue(machine)
     machine.toSValue match {
       case SVariant(_, "AllInDar", _, _) => {
@@ -306,7 +315,13 @@ class Runner(
       compiler.compile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
 
-    var machine = Speedy.Machine.fromSExpr(null, false, compiledPackages)
+    var machine = Speedy.Machine.fromSExpr(
+      sexpr = null,
+      checkSubmitterInMaintainers = false,
+      compiledPackages = compiledPackages,
+      submissionTime = Timestamp.now(),
+      seeds = InitialSeeding.NoSeed
+    )
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)
       case Right(x) => x

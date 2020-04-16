@@ -98,12 +98,12 @@ object Main extends App {
   ))
 object Repl {
 
-  private val nextSeed =
+  private val nextSeed = {
     // We use a static seed to get reproducible run
-    crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
-
-  private val nextSeedWithTime =
-    () => Some(nextSeed() -> Time.Timestamp.MinValue)
+    val seeding = crypto.Hash.secureRandom(crypto.Hash.hashPrivateKey("lf-repl"))
+    () =>
+      Some(seeding())
+  }
 
   def repl(): Unit = repl(initialState())
   def repl(darFile: String): Unit = repl(load(darFile) getOrElse initialState())
@@ -168,7 +168,7 @@ object Repl {
 
   case class ScenarioRunnerHelper(packages: Map[PackageId, Package]) {
     private val build = Speedy.Machine
-      .newBuilder(PureCompiledPackages(packages).right.get, nextSeedWithTime())
+      .newBuilder(PureCompiledPackages(packages).right.get, Time.Timestamp.MinValue, nextSeed())
       .fold(err => sys.error(err.toString), identity)
     def run(submissionVersion: LanguageVersion, expr: Expr)
       : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {
@@ -412,7 +412,9 @@ object Repl {
                 expr = expr,
                 checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
                 compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false
+                scenario = false,
+                submissionTime = Time.Timestamp.now(),
+                transactionSeed = None
               )
             var count = 0
             val startTime = System.nanoTime()

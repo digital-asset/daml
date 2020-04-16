@@ -119,6 +119,7 @@ da_haskell_library(
         "containers",
         "cryptonite",
         "directory",
+        "either",
         "extra",
         "file-embed",
         "filepath",

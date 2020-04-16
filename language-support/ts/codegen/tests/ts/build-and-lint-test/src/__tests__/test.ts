@@ -5,7 +5,7 @@ import { ChildProcess, spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
+import Ledger, { Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -155,8 +155,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice5Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const alice6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice5Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const alice6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice5Archived.contractId).toEqual(alice5Contract.contractId);
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
@@ -197,8 +197,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice6Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const cooper6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice6Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const cooper6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice6Archived.contractId).toEqual(alice6Contract.contractId);
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});
