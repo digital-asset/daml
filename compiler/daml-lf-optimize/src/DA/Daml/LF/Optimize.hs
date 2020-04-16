@@ -492,29 +492,26 @@ instance Monad Effect where return = Ret; (>>=) = Bind
 
 run :: [LF.ExternalPackage] -> LF.Module -> Effect a -> IO a -- Only in IO for debug
 run pkgs theModule eff = do
-  (v,_state) <- loop scope0 subst0 env0 state0 eff
+  (v,_state) <- loop context0 state0 eff
   return v
 
   where
-    scope0 = Set.empty
-    subst0 = Map.empty
-    env0 = Map.empty
+    context0 = Context { scope = Set.empty, subst = Map.empty, env = Map.empty }
     state0 = State { unique = 0 }
 
-    loop :: InlineScope -> LF.Subst -> Env -> State -> Effect a -> IO (a,State)
-    loop scope subst env state = \case
+    loop :: Context -> State -> Effect a -> IO (a,State)
+    loop context@Context{scope,subst,env} state = \case
       Ret x -> return (x,state)
-      Bind eff f -> do (v,state') <- loop scope subst env state eff; loop scope subst env state' (f v)
+      Bind eff f -> do (v,state') <- loop context state eff; loop context state' (f v)
 
-      -- TODO: pidm/scope/env -- always travel together? so keep as 1 arg? --of type Context
-      Save -> return (Context scope subst env, state)
-      Restore (Context scope subst env) eff -> loop scope subst env state eff
+      Save -> return (context, state)
+      Restore context eff -> loop context state eff
 
       GetSubst -> return (subst,state)
-      ModSubst f eff -> loop scope (f subst) env state eff
+      ModSubst f eff -> loop context { subst = f subst } state eff
 
       GetEnv -> return (env,state)
-      ModEnv f eff -> loop scope subst (f env) state eff
+      ModEnv f eff -> loop context { env = f env } state eff
 
       Fresh tag -> do -- take original name as a base which we can uniquify
         --let tag = "_v"
@@ -542,7 +539,7 @@ run pkgs theModule eff = do
         return (answer, state)
 
       WithDontInline qval eff -> do
-        loop (Set.insert qval scope) subst env state eff
+        loop context { scope = Set.insert qval scope } state eff
 
     packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
@@ -553,8 +550,13 @@ run pkgs theModule eff = do
         Nothing -> error $ "getPackage, " <> show pid
 
 
-data Context = Context InlineScope LF.Subst Env
+data Context = Context
+  { scope :: Set QVal
+  , subst :: LF.Subst
+  , env :: Env
+  }
+
 type Env = Map LF.ExprVarName SemValue
+
 data State = State { unique :: Unique }
 type Unique = Int
-type InlineScope = Set QVal
