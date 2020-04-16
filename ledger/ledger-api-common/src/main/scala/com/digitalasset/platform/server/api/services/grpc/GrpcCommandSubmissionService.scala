@@ -43,18 +43,23 @@ class GrpcCommandSubmissionService(
   private val validator = new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
-    Timed
-      .value(
-        Metrics.validationTimer,
-        validator.validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
-      .fold(
-        Future.failed,
-        service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+    Timed.future(
+      Metrics.submissionsTimer,
+      Timed
+        .value(
+          Metrics.validationTimer,
+          validator
+            .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
+        .fold(
+          Future.failed,
+          service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+    )
 
   override def bindService(): ServerServiceDefinition =
     CommandSubmissionServiceGrpc.bindService(this, DirectExecutionContext)
 
   private object Metrics {
+    val submissionsTimer: Timer = metricRegistry.timer(MetricPrefix :+ "submissions")
     val validationTimer: Timer = metricRegistry.timer(MetricPrefix :+ "validation")
   }
 

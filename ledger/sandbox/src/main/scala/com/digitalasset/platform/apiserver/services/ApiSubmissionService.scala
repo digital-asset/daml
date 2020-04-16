@@ -7,7 +7,7 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 
 import akka.stream.Materializer
-import com.codahale.metrics.{Meter, MetricRegistry, Timer}
+import com.codahale.metrics.{Meter, MetricRegistry}
 import com.daml.api.util.TimeProvider
 import com.daml.dec.DirectExecutionContext
 import com.daml.ledger.api.domain.{LedgerId, Commands => ApiCommands}
@@ -34,7 +34,6 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.Timed
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -128,8 +127,6 @@ final class ApiSubmissionService private (
 
     import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService.MetricPrefix
 
-    val submissionsTimer: Timer =
-      metrics.timer(MetricPrefix :+ "submissions")
     val failedInterpretationsMeter: Meter =
       metrics.meter(MetricPrefix :+ "failed_command_interpretations")
     val deduplicatedCommandsMeter: Meter =
@@ -174,11 +171,8 @@ final class ApiSubmissionService private (
 
       logger.trace(s"Received composite commands: $commands")
       logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
-      Timed.future(
-        Metrics.submissionsTimer,
-        deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
-          .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
-      )
+      deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
+        .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }
 
   private def mapSubmissionResult(result: Try[SubmissionResult])(
