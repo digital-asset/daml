@@ -42,7 +42,9 @@ import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExe
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.platform.store.ErrorCause
+import com.daml.timer.Delayed
 import io.grpc.Status
 
 import scala.collection.breakOut
@@ -63,6 +65,7 @@ object ApiSubmissionService {
       partyManagementService: IndexPartyManagementService,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
+      timeProviderType: TimeProviderType,
       seedService: Option[SeedService],
       commandExecutor: CommandExecutor,
       configuration: ApiSubmissionService.Configuration,
@@ -80,6 +83,7 @@ object ApiSubmissionService {
         partyManagementService,
         timeModel,
         timeProvider,
+        timeProviderType,
         seedService,
         commandExecutor,
         configuration,
@@ -110,6 +114,7 @@ final class ApiSubmissionService private (
     partyManagementService: IndexPartyManagementService,
     timeModel: TimeModel,
     timeProvider: TimeProvider,
+    timeProviderType: TimeProviderType,
     seedService: Option[SeedService],
     commandExecutor: CommandExecutor,
     configuration: ApiSubmissionService.Configuration,
@@ -129,6 +134,8 @@ final class ApiSubmissionService private (
       metrics.meter(servicePrefix :+ "failed_command_interpretations")
     val deduplicatedCommandsMeter: Meter =
       metrics.meter(servicePrefix :+ "deduplicated_commands")
+    val delayedSubmissionsMeter: Meter =
+      metrics.meter(servicePrefix :+ "delayed_submissions")
     val submittedTransactionsTimer: Timer =
       metrics.timer(servicePrefix :+ "submitted_transactions")
   }
@@ -243,14 +250,37 @@ final class ApiSubmissionService private (
       case Some(result) =>
         Future.successful(result)
       case None =>
-        transactionInfo match {
-          case CommandExecutionResult(submitterInfo, transactionMeta, transaction, _) =>
-            Timed.future(
-              Metrics.submittedTransactionsTimer,
-              FutureConverters.toScala(
-                writeService.submitTransaction(submitterInfo, transactionMeta, transaction)))
+        timeProviderType match {
+          case TimeProviderType.WallClock =>
+            // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
+            // If the ledger time of the transaction is far in the future (farther than the expected latency),
+            // the submission to the WriteService is delayed.
+            val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
+              .minus(timeModel.avgTransactionLatency)
+            val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
+            if (submissionDelay.isNegative)
+              submitTransaction(transactionInfo)
+            else {
+              Metrics.delayedSubmissionsMeter.mark()
+              val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
+              Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
+            }
+          case TimeProviderType.Static =>
+            // In static time mode, record time is always equal to ledger time
+            submitTransaction(transactionInfo)
         }
     }
+
+  private def submitTransaction(
+      result: CommandExecutionResult,
+  ): Future[SubmissionResult] = {
+    Timed.future(
+      Metrics.submittedTransactionsTimer,
+      FutureConverters.toScala(
+        writeService
+          .submitTransaction(result.submitterInfo, result.transactionMeta, result.transaction))
+    )
+  }
 
   private def toStatus(errorCause: ErrorCause) =
     errorCause match {

@@ -31,6 +31,7 @@ import com.daml.platform.configuration.{
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.{BindableService, ServerInterceptor}
@@ -100,6 +101,8 @@ final class StandaloneApiServer(
               authorizer = authorizer,
               engine = engine,
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+              timeProviderType = timeServiceBackend.fold[TimeProviderType](
+                TimeProviderType.WallClock)(_ => TimeProviderType.Static),
               defaultLedgerConfiguration = initialConditions.config,
               commandConfig = commandConfig,
               partyConfig = partyConfig,
