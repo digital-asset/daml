@@ -16,8 +16,8 @@ import com.daml.ledger.participant.state.kvutils.{Conversions, DamlStateMap, Err
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.daml.lf.archive.Decode
 import com.daml.lf.archive.Reader.ParseError
-import com.daml.lf.crypto.Hash
-import com.daml.lf.data.Ref.{IdString, PackageId, Party}
+import com.daml.lf.crypto
+import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.{Blinding, Engine}
 import com.daml.lf.language.Ast
@@ -204,7 +204,8 @@ private[kvutils] class ProcessTransactionSubmission(
         transactionEntry.abs,
         transactionEntry.ledgerEffectiveTime,
         participantId,
-        transactionEntry.submissionSeedAndTime,
+        transactionEntry.submissionTime,
+        transactionEntry.submissionSeed,
       )
       .consume(
         lookupContract(transactionEntry, inputState),
@@ -564,12 +565,10 @@ object ProcessTransactionSubmission {
     val ledgerEffectiveTime: Timestamp = parseTimestamp(txEntry.getLedgerEffectiveTime)
     val submitterInfo: DamlSubmitterInfo = txEntry.getSubmitterInfo
     val commandId: String = submitterInfo.getCommandId
-    val submitter: IdString.Party = Party.assertFromString(submitterInfo.getSubmitter)
+    val submitter: Party = Party.assertFromString(submitterInfo.getSubmitter)
     lazy val abs: AbsTransaction = Conversions.decodeTransaction(txEntry.getTransaction)
-    val submissionSeedAndTime: Option[(Hash, Timestamp)] =
-      Conversions
-        .parseOptHash(txEntry.getSubmissionSeed)
-        .map(_ -> Conversions.parseTimestamp(txEntry.getSubmissionTime))
+    val submissionTime: Timestamp = Conversions.parseTimestamp(txEntry.getSubmissionTime)
+    val submissionSeed: Option[crypto.Hash] = Conversions.parseOptHash(txEntry.getSubmissionSeed)
   }
 
 }

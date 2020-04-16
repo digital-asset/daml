@@ -71,7 +71,7 @@ The following table lists the ledgers that are implementing support for running 
      - `VMware <https://www.vmware.com/>`__
      - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
    * - `Corda <https://www.corda.net/>`__
-     - `R3 <https://www.corda.net/>`__
+     - `Digital Asset <https://digitalasset.com/>`__
      - `press release, June 2019 <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
    * - `QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__

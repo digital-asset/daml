@@ -3,8 +3,10 @@
 
 package com.daml.ledger.validator
 
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Bytes
 import com.daml.ledger.validator.LedgerStateOperations._
+import com.daml.metrics.{MetricName, Timed}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -92,7 +94,35 @@ abstract class NonBatchingLedgerStateOperations[LogResult](
       .map(_ => ())
 }
 
+final class TimedLedgerStateOperations[LogResult](
+    delegate: LedgerStateOperations[LogResult],
+    metricRegistry: MetricRegistry,
+) extends LedgerStateOperations[LogResult] {
+  override def readState(key: Key): Future[Option[Value]] =
+    Timed.future(Metrics.readState, delegate.readState(key))
+
+  override def readState(keys: Seq[Key]): Future[Seq[Option[Value]]] =
+    Timed.future(Metrics.readState, delegate.readState(keys))
+
+  override def writeState(key: Key, value: Value): Future[Unit] =
+    Timed.future(Metrics.writeState, delegate.writeState(key, value))
+
+  override def writeState(keyValuePairs: Seq[(Key, Value)]): Future[Unit] =
+    Timed.future(Metrics.writeState, delegate.writeState(keyValuePairs))
+
+  override def appendToLog(key: Key, value: Value): Future[LogResult] =
+    Timed.future(Metrics.appendToLog, delegate.appendToLog(key, value))
+
+  private object Metrics {
+    val appendToLog: Timer = metricRegistry.timer(MetricPrefix :+ "log" :+ "append")
+    val readState: Timer = metricRegistry.timer(MetricPrefix :+ "state" :+ "read")
+    val writeState: Timer = metricRegistry.timer(MetricPrefix :+ "state" :+ "write")
+  }
+}
+
 object LedgerStateOperations {
   type Key = Bytes
   type Value = Bytes
+
+  val MetricPrefix: MetricName = MetricName.DAML :+ "ledger"
 }

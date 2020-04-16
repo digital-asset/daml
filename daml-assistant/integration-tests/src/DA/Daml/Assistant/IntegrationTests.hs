@@ -417,6 +417,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
           runConduitRes
             $ sourceFileBS mvnDbTarball
             .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
+          callCommand "daml codegen java"
           callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
@@ -534,7 +535,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                             outDir  = projectDir </> "generated" </> lang
                         when (lang == "js") $ do
                             let workspaces = Workspaces [makeRelative codegenDir outDir]
-                            setupYarnEnv codegenDir workspaces [DamlTypes]
+                            setupYarnEnv codegenDir workspaces [DamlTypes, DamlLedger]
                         callCommandSilent $
                           unwords [ "daml", "codegen", lang
                                   , darFile ++ maybe "" ("=" ++) namespace
@@ -545,14 +546,20 @@ codegenTests codegenDir = testGroup "daml codegen" (
 createDamlAppTests :: TestTree
 createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not isWindows]
   where
-    gettingStartedGuideTest = testCase "Getting Started Guide" $
+    gettingStartedGuideTest = testCaseSteps "Getting Started Guide" $ \step ->
       withTempDir $ \tmpDir -> do
+        step "Create app from template"
         withCurrentDirectory tmpDir $ do
           callCommandSilent "daml new create-daml-app create-daml-app"
         let cdaDir = tmpDir </> "create-daml-app"
+
+        -- First test the base application (without the user-added feature).
         withCurrentDirectory cdaDir $ do
+          step "Build DAML model for base application"
           callCommandSilent "daml build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes]
+          step "Set up TypeScript libraries and Yarn workspaces for codegen"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
+          step "Run JavaScript codegen"
           callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
         assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
         withCurrentDirectory (cdaDir </> "ui") $ do
@@ -560,11 +567,40 @@ createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not 
           -- dependencies of the UI already in scope when `daml2js` runs
           -- `yarn install`. Some of the UI dependencies are a bit flaky to
           -- install and might need some retries.
+          step "Set up libraries and workspaces again for UI build"
           setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
+          step "Install dependencies for UI"
           retry 3 (callCommandSilent "yarn install")
+          step "Run linter"
           callCommandSilent "yarn lint --max-warnings 0"
+          step "Build the application UI"
           callCommandSilent "yarn build"
         assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
+
+        -- Now test that the messaging feature works by applying the necessary
+        -- changes and testing in the same way as above.
+        step "Patch the application code with messaging feature"
+        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging.patch")
+        patchTool <- locateRunfiles "patch_dev_env/bin/patch"
+        withCurrentDirectory cdaDir $ do
+          callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", messagingPatch]
+          forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
+            assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
+          step "Build the new DAML model"
+          callCommandSilent "daml build"
+          step "Set up TypeScript libraries and Yarn workspaces for codegen again"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
+          step "Run JavaScript codegen for new DAML model"
+          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
+        withCurrentDirectory (cdaDir </> "ui") $ do
+          step "Set up libraries and workspaces again for UI build"
+          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
+          step "Install UI dependencies again, forcing rebuild of generated code"
+          callCommandSilent "yarn install --force --frozen-lockfile"
+          step "Run linter again"
+          callCommandSilent "yarn lint --max-warnings 0"
+          step "Build the new UI"
+          callCommandSilent "yarn build"
 
 damlInstallerName :: String
 damlInstallerName

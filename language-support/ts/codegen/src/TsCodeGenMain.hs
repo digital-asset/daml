@@ -221,10 +221,13 @@ genModule pkgMap (Scope scope) curPkgId mod
       , "/* eslint-disable @typescript-eslint/no-namespace */"
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
-      , "import * as daml from '@daml/types';"
+      , "import * as damlTypes from '@daml/types';"
+      , "/* eslint-disable-next-line @typescript-eslint/no-unused-vars */"
+      , "import * as damlLedger from '@daml/ledger';"
       ]
 
-    -- Split the imports into the from the same package and those from another package.
+    -- Split the imports into those from the same package and those
+    -- from another package.
     splitImports :: Set.Set ModuleRef -> ([ModuleName], Set.Set PackageId)
     splitImports imports =
       let classifyImport (pkgRef, modName) = case pkgRef of
@@ -294,8 +297,8 @@ genDefDataType curPkgId conName mod tpls def =
                   -- of each.
                   assocSers = map (\(n, d) -> (n, serFromDef (drop 1) n d)) assocDefDataTypes
                   -- Type of the companion object.
-                  typ' = "daml.Serializable<" <> conName <> "> & {\n" <>
-                    T.concat (map (\n -> "    " <> n <> ": daml.Serializable<" <> (conName <.> n) <> ">;\n") assocNames) <>
+                  typ' = "damlTypes.Serializable<" <> conName <> "> & {\n" <>
+                    T.concat (map (\n -> "    " <> n <> ": damlTypes.Serializable<" <> (conName <.> n) <> ">;\n") assocNames) <>
                     "  }"
                   -- Body of the companion object.
                   body = map ("  " <>) $
@@ -312,7 +315,7 @@ genDefDataType curPkgId conName mod tpls def =
               typeDesc = "" : ["  | '" <> cons <> "'" | cons <- cs]
               -- The complete definition of the companion object.
               serDesc =
-                ["export const " <> conName <> ": daml.Serializable<" <> conName <> "> " <>
+                ["export const " <> conName <> ": damlTypes.Serializable<" <> conName <> "> " <>
                  "& { readonly keys: " <> conName <> "[] } & { readonly [e in " <> conName <> "]: e } = {"] ++
                 ["  " <> cons <> ": '" <> cons <> "'," | cons <- cs] ++
                 ["  keys: [" <> T.concat ["'" <> cons <> "'," | cons <- cs] <> "],"] ++
@@ -356,8 +359,8 @@ genDefDataType curPkgId conName mod tpls def =
                                 (conName <.> "Key", "() => " <> snd (genType (moduleName mod) keyType) <> ".decoder()", Set.setOf typeModuleRef keyType)
                         templateId = unPackageId curPkgId <> ":" <> T.intercalate "." (unModuleName (moduleName mod)) <> ":" <> conName
                         dict =
-                            ["export const " <> conName <> ": daml.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
-                            ["  " <> x <> ": daml.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
+                            ["export const " <> conName <> ": damlTypes.Template<" <> conName <> ", " <> keyTypeTs <> ", '" <> templateId <> "'> & {"] ++
+                            ["  " <> x <> ": damlTypes.Choice<" <> conName <> ", " <> t <> ", " <> rtyp <> ", " <> keyTypeTs <> ">;" | (x, t, rtyp, _) <- chcs] ++
                             ["} = {"
                             ] ++
                             ["  templateId: '" <> templateId <> "',"
@@ -372,9 +375,9 @@ genDefDataType curPkgId conName mod tpls def =
                               -- We'd write,
                               --   "   resultDecoder: " <> rser <> ".decoder"
                               -- here but, consider the following scenario:
-                              --   export const Person: daml.Template<Person>...
+                              --   export const Person: damlTypes.Template<Person>...
                               --    = {  ...
-                              --         Birthday: { resultDecoder: daml.ContractId(Person).decoder, ... }
+                              --         Birthday: { resultDecoder: damlTypes.ContractId(Person).decoder, ... }
                               --         ...
                               --      }
                               -- This gives rise to "error TS2454: Variable 'Person' is used before being assigned."
@@ -385,13 +388,19 @@ genDefDataType curPkgId conName mod tpls def =
                             ] ++
                             ["};"]
                         associatedTypes =
-                          maybe [] (\key ->
-                              [ "export namespace " <> conName <> " {"
-                              , "  export type Key = " <> fst (genType (moduleName mod) (tplKeyType key)) <> ""
-                              , "}"
-                              ]) (tplKey tpl)
+                          let tT = conName
+                              tK = tT <> ".Key"
+                              tI = "typeof " <> tT <> ".templateId" in
+                          [ "export namespace " <> tT <> " {"
+                          , "  export type Key = " <> maybe "unknown" (fst . genType (moduleName mod) . tplKeyType) (tplKey tpl)
+                          , "  export type CreateEvent = damlLedger.CreateEvent" <> "<" <> tparams [tT, tK, tI] <> ">"
+                          , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> "<" <>  tparams [tT, tI] <> ">"
+                          , "  export type Event = damlLedger.Event"  <> "<" <>  tparams [tT, tK, tI] <> ">"
+                          , "}"
+                          ]
+                          where tparams = T.intercalate ", "
                         registrations =
-                            ["daml.registerTemplate(" <> conName <> ");"]
+                            ["damlTypes.registerTemplate(" <> conName <> ");"]
                         refs = Set.unions (fieldRefs ++ keyRefs : chcRefs)
                     in
                     ((makeType typeDesc, dict ++ associatedTypes ++ registrations), refs)
@@ -400,10 +409,10 @@ genDefDataType curPkgId conName mod tpls def =
         typeParams
           | null paramNames = ""
           | otherwise = "<" <> T.intercalate ", " paramNames <> ">"
-        serParam paramName = paramName <> ": daml.Serializable<" <> paramName <> ">"
+        serParam paramName = paramName <> ": damlTypes.Serializable<" <> paramName <> ">"
         serHeader
-          | null paramNames = ": daml.Serializable<" <> conName <> "> ="
-          | otherwise = " = " <> typeParams <> "(" <> T.intercalate ", " (map serParam paramNames) <> "): daml.Serializable<" <> conName <> typeParams <> "> =>"
+          | null paramNames = ": damlTypes.Serializable<" <> conName <> "> ="
+          | otherwise = " = " <> typeParams <> "(" <> T.intercalate ", " (map serParam paramNames) <> "): damlTypes.Serializable<" <> conName <> typeParams <> "> =>"
         makeType = onHead (\x -> "export type " <> conName <> typeParams <> " = " <> x)
         makeSer serDesc =
             ["export const " <> conName <> serHeader <> " ({"] ++
@@ -438,36 +447,36 @@ genType curModName = go
   where
     go = \case
         TVar v -> dupe (unTypeVarName v)
-        TUnit -> ("{}", "daml.Unit")
-        TBool -> ("boolean", "daml.Bool")
-        TInt64 -> dupe "daml.Int"
-        TDecimal -> dupe "daml.Decimal"
+        TUnit -> ("{}", "damlTypes.Unit")
+        TBool -> ("boolean", "damlTypes.Bool")
+        TInt64 -> dupe "damlTypes.Int"
+        TDecimal -> dupe "damlTypes.Decimal"
         TNumeric (TNat n) -> (
-            "daml.Numeric"
-          , "daml.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
+            "damlTypes.Numeric"
+          , "damlTypes.Numeric(" <> T.pack (show (fromTypeLevelNat n :: Integer)) <> ")"
           )
-        TText -> ("string", "daml.Text")
-        TTimestamp -> dupe "daml.Time"
-        TParty -> dupe "daml.Party"
-        TDate -> dupe "daml.Date"
+        TText -> ("string", "damlTypes.Text")
+        TTimestamp -> dupe "damlTypes.Time"
+        TParty -> dupe "damlTypes.Party"
+        TDate -> dupe "damlTypes.Date"
         TList t ->
             let (t', ser) = go t
             in
-            (t' <> "[]", "daml.List(" <> ser <> ")")
+            (t' <> "[]", "damlTypes.List(" <> ser <> ")")
         TOptional t ->
             let (t', ser) = go t
             in
-            ("daml.Optional<" <> t' <> ">", "daml.Optional(" <> ser <> ")")
+            ("damlTypes.Optional<" <> t' <> ">", "damlTypes.Optional(" <> ser <> ")")
         TTextMap t  ->
             let (t', ser) = go t
             in
-            ("{ [key: string]: " <> t' <> " }", "daml.TextMap(" <> ser <> ")")
+            ("{ [key: string]: " <> t' <> " }", "damlTypes.TextMap(" <> ser <> ")")
         TUpdate _ -> error "IMPOSSIBLE: Update not serializable"
         TScenario _ -> error "IMPOSSIBLE: Scenario not serializable"
         TContractId t ->
             let (t', ser) = go t
             in
-            ("daml.ContractId<" <> t' <> ">", "daml.ContractId(" <> ser <> ")")
+            ("damlTypes.ContractId<" <> t' <> ">", "damlTypes.ContractId(" <> ser <> ")")
         TConApp con ts ->
             let (con', ser) = genTypeCon curModName con
                 (ts', sers) = unzip (map go ts)
@@ -552,6 +561,7 @@ packageJsonDependencies :: SdkVersion -> Scope -> [Dependency] -> Value
 packageJsonDependencies sdkVersion (Scope scope) dependencies = object $
     [ "@mojotech/json-type-validation" .= jtvVersion
     , "@daml/types" .= versionToText sdkVersion
+    , "@daml/ledger" .= versionToText sdkVersion
     ] ++
     [ (scope <> "/" <> pkgName) .= ("file:../" <> pkgName) | Dependency pkgName <- dependencies ]
 

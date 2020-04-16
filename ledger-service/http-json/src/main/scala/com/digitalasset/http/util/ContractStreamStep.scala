@@ -75,6 +75,12 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     case LiveBegin(_) => true // unnatural wrt `toInsertDelete`, but what nonEmpty is used for here
     case Txn(step, _) => step.nonEmpty
   }
+
+  def bookmark: Option[BeginBookmark[domain.Offset]] = this match {
+    case Acs(_) => Option.empty
+    case LiveBegin(bookmark) => Some(bookmark)
+    case Txn(_, offset) => Some(AbsoluteBookmark(offset))
+  }
 }
 
 private[http] object ContractStreamStep extends WithLAV1[ContractStreamStep] {

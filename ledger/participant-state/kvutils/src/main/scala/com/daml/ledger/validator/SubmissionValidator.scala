@@ -12,8 +12,6 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.api.LedgerReader
 import com.daml.ledger.participant.state.kvutils.caching.Cache
 import com.daml.ledger.participant.state.kvutils.{Bytes, Envelope, KeyValueCommitting}
-import com.daml.ledger.participant.state.metrics.MetricName
-import com.daml.ledger.participant.state.metrics.Metrics.timedFuture
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.validator.SubmissionValidator._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
@@ -21,6 +19,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{MetricName, Timed}
 import com.google.protobuf.ByteString
 
 import scala.annotation.tailrec
@@ -185,7 +184,7 @@ class SubmissionValidator[LogResult] private[validator] (
         timedLedgerStateAccess
           .inTransaction { stateOperations =>
             for {
-              readInputs <- timedFuture(
+              readInputs <- Timed.future(
                 Metrics.validateSubmission,
                 for {
                   readStateValues <- stateOperations.readState(inputKeysAsBytes)
@@ -199,7 +198,7 @@ class SubmissionValidator[LogResult] private[validator] (
                   _ <- verifyAllInputsArePresent(declaredInputs, readInputs)
                 } yield readInputs
               )
-              logEntryAndState <- timedFuture(
+              logEntryAndState <- Timed.future(
                 Metrics.processSubmission,
                 Future.fromTry(
                   Try(
@@ -217,7 +216,7 @@ class SubmissionValidator[LogResult] private[validator] (
                   stateOperations,
               )
               result <- postProcessResultTimer.fold(processResult())(
-                timedFuture(_, processResult()))
+                Timed.future(_, processResult()))
             } yield result
           }
           .transform {
@@ -272,7 +271,7 @@ class SubmissionValidator[LogResult] private[validator] (
           if (acquisitionWasRecorded.compareAndSet(false, true)) {
             successfulAcquisitionTimer.stop()
           }
-          body(operations)
+          body(new TimedLedgerStateOperations(operations, metricRegistry))
             .transform(result => Success((result, Metrics.releaseTransactionLock.time())))
         }
         .transform {
@@ -289,19 +288,19 @@ class SubmissionValidator[LogResult] private[validator] (
   }
 
   private object Metrics {
-    private val prefix = kvutils.MetricPrefix :+ "submission" :+ "validator"
+    private val Prefix = kvutils.MetricPrefix :+ "submission" :+ "validator"
 
-    val openEnvelope: Timer = metricRegistry.timer(prefix :+ "open_envelope")
-    val acquireTransactionLock: Timer = metricRegistry.timer(prefix :+ "acquire_transaction_lock")
+    val openEnvelope: Timer = metricRegistry.timer(Prefix :+ "open_envelope")
+    val acquireTransactionLock: Timer = metricRegistry.timer(Prefix :+ "acquire_transaction_lock")
     val failedToAcquireTransaction: Timer =
-      metricRegistry.timer(prefix :+ "failed_to_acquire_transaction")
-    val releaseTransactionLock: Timer = metricRegistry.timer(prefix :+ "release_transaction_lock")
-    val validateSubmission: Timer = metricRegistry.timer(prefix :+ "validate_submission")
-    val processSubmission: Timer = metricRegistry.timer(prefix :+ "process_submission")
-    val commitSubmission: Timer = metricRegistry.timer(prefix :+ "commit_submission")
-    val transformSubmission: Timer = metricRegistry.timer(prefix :+ "transform_submission")
+      metricRegistry.timer(Prefix :+ "failed_to_acquire_transaction")
+    val releaseTransactionLock: Timer = metricRegistry.timer(Prefix :+ "release_transaction_lock")
+    val validateSubmission: Timer = metricRegistry.timer(Prefix :+ "validate_submission")
+    val processSubmission: Timer = metricRegistry.timer(Prefix :+ "process_submission")
+    val commitSubmission: Timer = metricRegistry.timer(Prefix :+ "commit_submission")
+    val transformSubmission: Timer = metricRegistry.timer(Prefix :+ "transform_submission")
 
-    private val stateValueCachePrefix: MetricName = prefix :+ "state_value_cache"
+    private val stateValueCachePrefix: MetricName = Prefix :+ "state_value_cache"
     metricRegistry.gauge(stateValueCachePrefix :+ "size", () => () => stateValueCache.size)
     metricRegistry.gauge(stateValueCachePrefix :+ "weight", () => () => stateValueCache.weight)
   }

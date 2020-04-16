@@ -16,7 +16,6 @@ module DA.Daml.Compiler.Dar
     ) where
 
 import qualified "zip" Codec.Archive.Zip as Zip
-import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Applicative
 import Control.Exception (assert)
 import Control.Monad.Extra
@@ -26,7 +25,6 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import DA.Daml.LF.Reader (readDalfManifest, packageName)
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
@@ -53,13 +51,13 @@ import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import Development.IDE.Types.Options
 import qualified Development.IDE.Types.Logger as IdeLogger
-import SdkVersion
 import System.Directory.Extra
 import System.FilePath
 import System.IO
 
 import MkIface
 import Module
+import qualified Module as Ghc
 import HscTypes
 
 -- | Create a DAR file by running a ZipArchive action.
@@ -105,7 +103,7 @@ buildDar ::
     -> NormalizedFilePath
     -> FromDalf
     -> IO (Maybe (Zip.ZipArchive ()))
-buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
+buildDar service PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -129,15 +127,10 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
 
                  MaybeT $ finalPackageCheck (toNormalizedFilePath' pSrc) pkg
 
-                 let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
-                 let missingExposed =
-                         S.fromList (fromMaybe [] pExposedModules) S.\\
-                         S.fromList pkgModuleNames
-                 unless (S.null missingExposed) $
-                     -- FIXME: Should be producing a proper diagnostic
-                     error $
-                     "The following modules are declared in exposed-modules but are not part of the DALF: " <>
-                     show (S.toList missingExposed)
+                 let pkgModuleNames = map (Ghc.mkModuleName . T.unpack) $ LF.packageModuleNames pkg
+
+                 validateExposedModules pExposedModules pkgModuleNames
+
                  let (dalf,pkgId) = encodeArchiveAndHash pkg
                  -- For now, we don’t include ifaces and hie files in incremental mode.
                  -- The main reason for this is that writeIfacesAndHie is not yet ported to incremental mode
@@ -153,13 +146,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
                          ]
-                 liftIO $ whenJust (fmap (pkgModuleNames \\) pExposedModules) $ \hidden ->
-                     when (notNull hidden) $
-                     hPutStr stderr $ unlines
-                         [ "WARNING: The following modules are not part of exposed-modules: " <> show hidden
-                         , "This can cause issues if those modules are referenced from a data-dependency."
-                         ]
-                 confFile <- liftIO $ mkConfFile lfVersion pkgConf pkgModuleNames pkgId
+                 unstableDeps <- getUnstableDalfDependencies files
+                 let confFile = mkConfFile pName pVersion (Map.keys unstableDeps) pExposedModules pkgModuleNames pkgId
                  let dataFiles = [confFile]
                  srcRoot <- getSrcRoot pSrc
                  pure $
@@ -172,6 +160,28 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          files
                          dataFiles
                          ifaces
+
+validateExposedModules :: Maybe [ModuleName] -> [ModuleName] -> MaybeT Action ()
+validateExposedModules mbExposedModules pkgModuleNames = do
+    let missingExposed =
+            S.fromList (fromMaybe [] mbExposedModules) S.\\
+            S.fromList pkgModuleNames
+    unless (S.null missingExposed) $ do
+        -- FIXME: Should be producing a proper diagnostic
+        liftIO $ hPutStrLn stderr $
+            "The following modules are declared in exposed-modules but are not part of the DALF: " <>
+            show (map Ghc.moduleNameString $ S.toList missingExposed)
+        MaybeT (pure Nothing)
+    whenJust mbExposedModules $ \exposedModules ->
+        let hidden = pkgModuleNames \\ exposedModules
+        in when (notNull hidden) $
+           liftIO $ hPutStr stderr $ unlines
+               [ "WARNING: The following modules are not part of exposed-modules: " <>
+                 show (map Ghc.moduleNameString hidden)
+               , "This can cause issues if those modules are referenced from a data-dependency."
+               , "Suggestion: Remove the exposed-modules field from your daml.yaml file"
+               , "to expose all modules."
+               ]
 
 -- | Write interface files and hie files to the location specified by the given options.
 writeIfacesAndHie ::
@@ -265,25 +275,20 @@ getDamlRootFiles srcRoot = do
         then liftIO $ damlFilesInDir srcRoot
         else pure [toNormalizedFilePath' srcRoot]
 
-mkConfFile ::
-       LF.Version -> PackageConfigFields -> [String] -> LF.PackageId -> IO (String, BS.ByteString)
-mkConfFile lfVersion PackageConfigFields {..} pkgModuleNames pkgId = do
-    deps <- mapM darUnitId =<< expandSdkPackages lfVersion pDependencies
-    pure (confName, confContent deps)
+mkConfFile
+    :: LF.PackageName
+    -> Maybe LF.PackageVersion
+    -> [UnitId]
+    -> Maybe [Ghc.ModuleName]
+    -> [Ghc.ModuleName]
+    -> LF.PackageId
+    -> (FilePath, BS.ByteString)
+mkConfFile pName pVersion pDependencies pExposedModules pkgModuleNames pkgId =
+    (confName, confContent)
   where
-    darUnitId "daml-stdlib" = pure damlStdlib
-    darUnitId "daml-prim" = pure $ stringToUnitId "daml-prim"
-    darUnitId f
-      -- This case is used by data-dependencies. DALF names are not affected by
-      -- -o so this should be fine.
-      | takeExtension f == ".dalf" = pure $ stringToUnitId $ dropExtension $ takeFileName f
-    darUnitId darPath = do
-        archive <- ZipArchive.toArchive . BSL.fromStrict  <$> BS.readFile darPath
-        manifest <- either (\err -> fail $ "Failed to read manifest of " <> darPath <> ": " <> err) pure $ readDalfManifest archive
-        maybe (fail $ "Missing 'Name' attribute in manifest of " <> darPath) (pure . stringToUnitId) (packageName manifest)
     confName = unitIdString (pkgNameVersion pName pVersion) ++ ".conf"
     key = fullPkgName pName pVersion pkgId
-    confContent deps =
+    confContent =
         BSC.toStrict $
         BSC.pack $
         unlines $
@@ -294,11 +299,11 @@ mkConfFile lfVersion PackageConfigFields {..} pkgModuleNames pkgId = do
             ++
             [ "exposed: True"
             , "exposed-modules: " ++
-              unwords (fromMaybe pkgModuleNames pExposedModules)
+              (unwords . map Ghc.moduleNameString . fromMaybe pkgModuleNames) pExposedModules
             , "import-dirs: ${pkgroot}" ++ "/" ++ key -- we really want '/' here
             , "library-dirs: ${pkgroot}" ++ "/" ++ key
             , "data-dir: ${pkgroot}" ++ "/" ++ key
-            , "depends: " ++ unwords (map unitIdString deps)
+            , "depends: " ++ unwords (map unitIdString pDependencies)
             ]
 
 sinkEntryDeterministic

@@ -1,9 +1,9 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml
-package lf
+package com.daml.lf
 package engine
+package preprocessing
 
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{TNat, TTyCon}
@@ -16,7 +16,7 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.language.implicitConversions
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   import defaultParserParameters.{defaultPackageId => pkgId}
 
@@ -78,7 +78,7 @@ class CommandPreprocessorSpec extends WordSpec with Matchers with TableDrivenPro
 
     val compiledPackage = ConcurrentCompiledPackages()
     assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone(()))
-    val preprocessor = new CommandPreprocessor(compiledPackage)
+    val preprocessor = new Preprocessor(compiledPackage)
     import preprocessor.translateValue
 
     "succeeds on well type values" in {

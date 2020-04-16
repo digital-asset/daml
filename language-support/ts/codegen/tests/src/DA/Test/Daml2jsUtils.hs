@@ -33,7 +33,7 @@ tsLibraryName = \case
     DamlTypes -> "daml-types"
 
 -- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in
--- scope. We achieve this by putting a `package.json` file futrher up in the
+-- scope. We achieve this by putting a `package.json` file further up in the
 -- directory tree. This file sets up a yarn workspace that includes the TS
 -- libraries via the `resolutions` field.
 setupYarnEnv :: FilePath -> Workspaces -> [TsLibrary] -> IO ()

@@ -19,7 +19,8 @@ import com.daml.lf.engine._
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.execution.{
   LedgerTimeAwareCommandExecutor,
-  StoreBackedCommandExecutor
+  StoreBackedCommandExecutor,
+  TimedCommandExecutor
 }
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
@@ -43,6 +44,7 @@ import com.daml.platform.configuration.{
   SubmissionConfiguration
 }
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -80,6 +82,7 @@ object ApiServices {
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
+      timeProviderType: TimeProviderType,
       defaultLedgerConfiguration: Configuration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
@@ -108,28 +111,38 @@ object ApiServices {
     val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
-      val commandExecutor = new LedgerTimeAwareCommandExecutor(
-        new StoreBackedCommandExecutor(engine, participantId, packagesService, contractStore),
-        contractStore,
-        maxRetries = 3,
-      )
-      val apiSubmissionService =
-        ApiSubmissionService.create(
-          ledgerId,
-          contractStore,
-          writeService,
-          submissionService,
-          partyManagementService,
-          defaultLedgerConfiguration.timeModel,
-          timeProvider,
-          seedService,
-          commandExecutor,
-          ApiSubmissionService.Configuration(
-            submissionConfig.maxDeduplicationTime,
-            partyConfig.implicitPartyAllocation,
+      val commandExecutor = new TimedCommandExecutor(
+        new LedgerTimeAwareCommandExecutor(
+          new StoreBackedCommandExecutor(
+            engine,
+            participantId,
+            packagesService,
+            contractStore,
+            metrics,
           ),
+          contractStore,
+          maxRetries = 3,
           metrics,
-        )
+        ),
+        metrics,
+      )
+      val apiSubmissionService = ApiSubmissionService.create(
+        ledgerId,
+        contractStore,
+        writeService,
+        submissionService,
+        partyManagementService,
+        defaultLedgerConfiguration.timeModel,
+        timeProvider,
+        timeProviderType,
+        seedService,
+        commandExecutor,
+        ApiSubmissionService.Configuration(
+          submissionConfig.maxDeduplicationTime,
+          partyConfig.implicitPartyAllocation,
+        ),
+        metrics,
+      )
 
       logger.info(EngineInfo.show)
 

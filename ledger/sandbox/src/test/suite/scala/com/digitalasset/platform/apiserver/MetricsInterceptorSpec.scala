@@ -23,7 +23,7 @@ import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
-import io.grpc.{BindableService, Server, ServerInterceptor, ServerServiceDefinition}
+import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Second, Span}
 import org.scalatest.{AsyncFlatSpec, Matchers}
@@ -44,12 +44,7 @@ final class MetricsInterceptorSpec
 
   it should "count the number of calls to a given endpoint" in {
     val metrics = new MetricRegistry
-    val interceptor = new MetricsInterceptor(metrics)
-    val connection = for {
-      server <- serverOwner(interceptor, new AkkaImplementation)
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
-    connection.use { channel =>
+    serverWithMetrics(metrics, new AkkaImplementation).use { channel =>
       for {
         _ <- Future.sequence(
           (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt))))
@@ -61,20 +56,36 @@ final class MetricsInterceptorSpec
     }
   }
 
-  it should "time calls to a given endpoint" in {
+  it should "time calls to an endpoint" in {
     val metrics = new MetricRegistry
-    val interceptor = new MetricsInterceptor(metrics)
-    val connection = for {
-      server <- serverOwner(interceptor, new DelayedAkkaImplementation(1.second))
-      channel <- GrpcClientResource.owner(Port(server.getPort))
-    } yield channel
-    connection.use { channel =>
+    serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
+      for {
+        _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
+      } yield {
+        eventually {
+          val metric = metrics.timer("daml.lapi.hello_service.single")
+          metric.getCount should be > 0L
+
+          val snapshot = metric.getSnapshot
+          val values = Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)
+          all(values) should (be >= 1.second.toNanos and be <= 3.seconds.toNanos)
+        }
+      }
+    }
+  }
+
+  it should "time calls to a streaming endpoint" in {
+    val metrics = new MetricRegistry
+    serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
       for {
         _ <- new StreamConsumer[HelloResponse](observer =>
           HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)).all()
       } yield {
         eventually {
-          val snapshot = metrics.timer("daml.lapi.hello_service.server_streaming").getSnapshot
+          val metric = metrics.timer("daml.lapi.hello_service.server_streaming")
+          metric.getCount should be > 0L
+
+          val snapshot = metric.getSnapshot
           val values = Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)
           all(values) should (be >= 3.seconds.toNanos and be <= 6.seconds.toNanos)
         }
@@ -84,6 +95,12 @@ final class MetricsInterceptorSpec
 }
 
 object MetricsInterceptorSpec {
+
+  def serverWithMetrics(metrics: MetricRegistry, service: BindableService): ResourceOwner[Channel] =
+    for {
+      server <- serverOwner(new MetricsInterceptor(metrics), service)
+      channel <- GrpcClientResource.owner(Port(server.getPort))
+    } yield channel
 
   private def serverOwner(
       interceptor: ServerInterceptor,
@@ -104,15 +121,19 @@ object MetricsInterceptorSpec {
         })(server => Future(server.shutdown().awaitTermination()))
     }
 
-  private final class DelayedAkkaImplementation(delay: FiniteDuration)(
+  private final class DelayedHelloService(delay: FiniteDuration)(
       implicit executionSequencerFactory: ExecutionSequencerFactory,
       materializer: Materializer,
   ) extends HelloService
       with Responding
       with BindableService {
+    private implicit val executionContext: ExecutionContext = materializer.executionContext
 
     override def bindService(): ServerServiceDefinition =
-      HelloServiceGrpc.bindService(this, materializer.executionContext)
+      HelloServiceGrpc.bindService(this, executionContext)
+
+    override def single(request: HelloRequest): Future[HelloResponse] =
+      after(delay, materializer.system.scheduler)(Future.successful(response(request)))
 
     override def serverStreaming(
         request: HelloRequest,
@@ -122,8 +143,7 @@ object MetricsInterceptorSpec {
         .single(request)
         .via(Flow[HelloRequest].mapConcat(responses))
         .mapAsync(1)(response =>
-          after(delay, materializer.system.scheduler)(Future.successful(response))(
-            materializer.executionContext))
+          after(delay, materializer.system.scheduler)(Future.successful(response)))
         .runWith(ServerAdapter.toSink(responseObserver))
       ()
     }

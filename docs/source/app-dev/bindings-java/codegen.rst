@@ -88,15 +88,7 @@ In the following example the logging is set to print most of the output with det
 Integrate with build tools
 --------------------------
 
-While we currently don’t provide direct integration with Maven, Groovy, SBT, etc., you can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler). Alternatively you can integrate it as a runnable dependency in your ``pom.xml`` file for Maven.
-
-The following snippet is an excerpt from the ``pom.xml`` that is part of the :ref:`quickstart` guide.
-
-  .. literalinclude:: quickstart/template-root/pom.xml
-    :language: xml
-    :lines: 47-78,94-95
-    :dedent: 12
-
+While we currently don’t provide direct integration with Maven, Groovy, SBT, etc., you can run the Java codegen as described in :ref:`daml-codegen-java-running` just like any other external process (for example the protobuf compiler).
 
 .. _daml-codegen-java-compiling:
 

@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, spawn } from 'child_process';
+import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
+import Ledger, { Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
 
 import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
@@ -23,10 +24,11 @@ const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 
-const SANDBOX_PORT = 6865;
+let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = 'sandbox.port';
-const JSON_API_PORT = 7575;
-const HTTP_BASE_URL = `http://localhost:${JSON_API_PORT}/`;
+let jsonApiPort: number | undefined = undefined;
+const JSON_API_PORT_FILE = 'json-api.port';
+const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 let jsonApiProcess: ChildProcess | undefined = undefined;
@@ -51,16 +53,21 @@ beforeAll(async () => {
   const darPath = getEnv('DAR');
   sandboxProcess = await spawnJvmAndWaitOn(
     getEnv('SANDBOX'),
-    ['--port', `${SANDBOX_PORT}`, '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
+    ['--port', "0", '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
     `file:${SANDBOX_PORT_FILE}`,
   );
-  console.log('Sandbox up');
+  const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
+  sandboxPort = parseInt(sandboxPortData);
+  console.log('Sandbox listening on port ' + sandboxPort.toString());
+
   jsonApiProcess = await spawnJvmAndWaitOn(
     getEnv('JSON_API'),
-    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
-    `tcp:localhost:${JSON_API_PORT}`,
+    ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`, '--port-file', JSON_API_PORT_FILE, '--http-port', "0", '--websocket-config', 'heartBeatPer=1'],
+    `file:${JSON_API_PORT_FILE}`,
   )
-  console.log('JSON API up');
+  const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
+  jsonApiPort = parseInt(jsonApiPortData);
+  console.log('JSON API listening on port ' + jsonApiPort.toString());
 });
 
 afterAll(() => {
@@ -93,8 +100,8 @@ function promisifyStream<T extends object, K, I extends string, State>(
 }
 
 test('create + fetch & exercise', async () => {
-  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
+  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
   const aliceRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person, {party: ALICE_PARTY});
   const aliceStream = promisifyStream(aliceRawStream);
   // TODO(MH): Move this live marker into `promisifyStream`. Unfortunately,
@@ -148,8 +155,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice5Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const alice6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice5Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const alice6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice5Archived.contractId).toEqual(alice5Contract.contractId);
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
@@ -190,8 +197,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice6Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const cooper6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice6Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const cooper6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice6Archived.contractId).toEqual(alice6Contract.contractId);
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});

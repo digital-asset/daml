@@ -389,6 +389,11 @@ object Ledger {
           }
       }
     }
+
+    // Given a ledger and the node index of a node in a partial transaction
+    // turn it into a node it that can be used in scenario error messages.
+    def ptxNodeId(nodeIdx: NodeId): ScenarioNodeId =
+      ScenarioNodeId(scenarioStepId.makeCommitPrefix, nodeIdx)
   }
 
   sealed trait CommitError
@@ -1246,4 +1251,5 @@ object Ledger {
         }
     }
   }
+
 }

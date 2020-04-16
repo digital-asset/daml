@@ -351,6 +351,7 @@ genrule(
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "//templates:templates-tarball",
+        "//templates:messaging.patch",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -366,8 +367,13 @@ genrule(
         tar -zxf $(location :theme) -C build/docs/theme
 
         # Copy templates for code snippets in getting started guide
-        mkdir -p build/docs/source/getting-started/code
-        tar -zxf $(location //templates:templates-tarball) -C build/docs/source/getting-started/code/
+        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
+        mkdir -p $$CODE_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        # Apply patch for messaging feature (we only need the "after" state)
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        MESSAGING_PATCH=$$PWD/$(location //templates:messaging.patch)
+        (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx
         cd build
@@ -403,9 +409,10 @@ genrule(
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
             | gzip -n > ../$(location html-only.tar.gz)
         """.format(sdk = sdk_version),
-    tools =
-        ["@sphinx_nix//:bin/sphinx-build"] +
-        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    tools = [
+        "@sphinx_nix//:bin/sphinx-build",
+        "@patch_dev_env//:patch",
+    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
 genrule(

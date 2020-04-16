@@ -5,6 +5,7 @@ package com.daml.platform.apiserver.execution
 
 import java.time.Instant
 
+import com.codahale.metrics.{Meter, MetricRegistry}
 import com.daml.ledger.api.domain.Commands
 import com.daml.ledger.participant.state.index.v2.ContractStore
 import com.daml.lf.crypto
@@ -20,6 +21,7 @@ final class LedgerTimeAwareCommandExecutor(
     delegate: CommandExecutor,
     contractStore: ContractStore,
     maxRetries: Int,
+    metricRegistry: MetricRegistry,
 ) extends CommandExecutor {
 
   private val logger = ContextualizedLogger.get(this.getClass)
@@ -67,14 +69,15 @@ final class LedgerTimeAwareCommandExecutor(
           else
             contractStore
               .lookupMaximumLedgerTime(usedContractIds)
-              .flatMap(maxUsedTime => {
-                if (!maxUsedTime.isAfter(commands.ledgerEffectiveTime))
+              .flatMap(maxUsedTime =>
+                if (!maxUsedTime.isAfter(commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
-                else if (!cer.dependsOnLedgerTime)
+                } else if (!cer.dependsOnLedgerTime) {
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
-                else if (retriesLeft > 0)
+                } else if (retriesLeft > 0) {
+                  Metrics.retryMeter.mark()
                   loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
-                else
+                } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
               })
               .recoverWith {
@@ -94,11 +97,17 @@ final class LedgerTimeAwareCommandExecutor(
 
   private[this] def advanceOutputTime(
       res: CommandExecutionResult,
-      t: Instant): CommandExecutionResult =
+      t: Instant
+  ): CommandExecutionResult =
     res.copy(
       transactionMeta =
         res.transactionMeta.copy(ledgerEffectiveTime = Time.Timestamp.assertFromInstant(t)))
 
   private[this] def advanceInputTime(cmd: Commands, t: Instant): Commands =
     cmd.copy(ledgerEffectiveTime = t)
+
+  object Metrics {
+    val retryMeter: Meter = metricRegistry.meter(MetricPrefix :+ "retry")
+  }
+
 }

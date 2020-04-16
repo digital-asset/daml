@@ -9,17 +9,17 @@ import java.util.concurrent.TimeUnit
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.kvutils.app.Metrics.{
   IndexServicePrefix,
   ReadServicePrefix,
   WriteServicePrefix
 }
-import com.daml.ledger.participant.state.metrics.JvmMetricSet
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
-import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.resources.akka.AkkaResourceOwner

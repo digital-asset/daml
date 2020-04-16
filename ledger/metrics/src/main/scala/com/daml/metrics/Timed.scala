@@ -1,7 +1,7 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.metrics
+package com.daml.metrics
 
 import java.util.concurrent.CompletionStage
 
@@ -12,9 +12,12 @@ import com.daml.dec.DirectExecutionContext
 
 import scala.concurrent.Future
 
-object Metrics {
+object Timed {
 
-  def timedCompletionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
+  def value[T](timer: Timer, value: => T): T =
+    timer.time(() => value)
+
+  def completionStage[T](timer: Timer, future: => CompletionStage[T]): CompletionStage[T] = {
     val ctx = timer.time()
     future.whenComplete { (_, _) =>
       ctx.stop()
@@ -22,14 +25,14 @@ object Metrics {
     }
   }
 
-  def timedFuture[T](timer: Timer, future: => Future[T]): Future[T] = {
+  def future[T](timer: Timer, future: => Future[T]): Future[T] = {
     val ctx = timer.time()
     val result = future
     result.onComplete(_ => ctx.stop())(DirectExecutionContext)
     result
   }
 
-  def timedSource[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
+  def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
     val ctx = timer.time()
     source
       .watchTermination()(Keep.both[Mat, Future[Done]])
