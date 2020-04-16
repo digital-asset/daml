@@ -28,36 +28,54 @@ main = do
 
 tests :: [Test]
 tests =
-  [ Test "decrement" 10 9
-  , Test "fact" 4 24
-  , Test "fact" 5 120
+  [ Test 1 "decrement" 10 9
+  , Test 5 "fact" 4 24
+  , Test 6 "fact" 5 120
 
-  , Test "dub_dub_dub" 1 8
+  , Test 1 "dub_dub_dub" 1 8
 
-  , Test "decrement" 0 (-1)
-  , Test "thrice_decrement" 0 (-3)
-  , Test "thrice_thrice_decrement" 0 (-27)
+  , Test 1 "decrement" 0 (-1)
+  , Test 1 "thrice_decrement" 0 (-3)
+  , Test 1 "thrice_thrice_decrement" 0 (-27)
 
-  , Test "length_list" 7 3
-  , Test "sum_list" 7 24
-  , Test "run_makeDecimal" 7 789
+  , Test 7 "length_list" 7 3 -- apps=7 because optimized code passes a lambda to FOLDL
+  , Test 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
+  , Test 7 "run_makeDecimal" 7 789
 
-  , Test "nthPrime" 10 29
-  , Test "nthPrime" 100 541
+  , Test 633 "nthPrime" 10 29 -- TODO: can apps be better?
+  , Test 86897 "nthPrime" 100 541
 
-  , Test "run_sum_myList" 9 30
-  , Test "run_sum_myList2" 99 300
+  , Test 15 "run_sum_myList" 9 30
+  , Test 15 "run_sum_myList2" 99 300
 
-  , Test "nfib" 10 177
+  , Test 177 "nfib" 10 177
 
-  , Test "let1" 10 16
-  , Test "let2" 10 26
-  , Test "let3" 10 13
+  , Test 1 "let1" 10 16
+  , Test 1 "let2" 10 26
+  , Test 1 "let3" 10 13
+
+  , Test 1 "let4" 1 16
+  , Test 1 "let5" 0 16
+
+  , Test 1 "let6" 0 6
+  , Test 3 "let7" 0 6 -- TODO: make NBE better here, and reduce apps to 1, same as for let6
+
+  , Test 1 "easy" 0 27
+  , Test 28 "hard" 0 27 -- TODO: make #apps same as for easy
+
+  , Test 1 "if1" 0 4
+  , Test 1 "if2" 0 9
+  , Test 2 "if3" 0 9 -- TODO: have apps=1, same as if2
+  , Test 1 "if4" 0 9
+  , Test 2 "if5" 0 9 -- TODO: have apps=1, same as if4
+  , Test 2 "if6" 0 10 -- TODO: have apps=1
+
   ]
 
 -- testing for DAML functions of type: `Int -> Int`
 data Test = Test
-  { functionName :: String
+  { expectedAppsWhenEvaluatingOptimizedCode :: Int
+  , functionName :: String
   , arg :: Int64
   , expected :: Int64
   }
@@ -75,7 +93,7 @@ readDar inFile = do
   either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict archiveBS
 
 makeTasty :: World -> Test -> Tasty.TestTree
-makeTasty world Test{functionName,arg,expected} = do
+makeTasty world Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,arg,expected} = do
   let mn = LF.ModuleName ["Examples"]
   let vn = LF.ExprValName $ Text.pack functionName
   let name = Text.unpack (LF.unExprValName vn) <> "(" <> show arg <> ")"
@@ -101,4 +119,6 @@ makeTasty world Test{functionName,arg,expected} = do
     Tasty.assertBool (mkName "apps" a1 a2) (a2 < a1)
     Tasty.assertBool (mkName "prim" p1 p2) (p2 == p1)
     Tasty.assertBool (mkName "proj" q1 q2) (q2 <= q1)
+
+    Tasty.assertBool (mkName "apps!" xa a2) (a2 == xa)
 

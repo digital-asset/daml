@@ -107,9 +107,68 @@ let2 n = let a = 3+5 in a + n + a
 let3 n = let a = 7+8 in n + 3
 
 -- template (loads of polymorphic generated code comes from a user template definiion!)
+-- The reason to have a template here is to force more coverage testing in the unit tests
 
 template MyTemplate
   with
     party : Party
   where
     signatory party
+
+
+-- This patten does not cause code blowup: we get just 5x ADDI in the optimized code
+-- (We dont tests for expected code size yet)
+let4 a =
+  let b = a + a in
+  let c = b + b in
+  let d = c + c in
+  let e = d + d in
+  e + 0
+
+-- This patten *does* cause code blowup: we get 16x ADDI in the optimized code
+let5 =
+  let a = \x -> x+1 in
+  let b = a . a in
+  let c = b . b in
+  let d = c . c in
+  let e = d . d in
+  e
+
+let6 =
+  let f =
+        let a = 3 in
+        \x -> x + a
+  in
+  f . f
+
+let7 =
+  let f =
+        let a = 1+2 in -- TODO: currently this introduces a barrier to NBE
+        \x -> x + a
+  in
+  f . f
+
+easy = thrice thrice (+ 1)
+hard = thrice thrice (+ (7-6)) -- TODO: handle better this non-atomic arg
+
+
+if1 a = if a>7 then 3 else 4
+
+if2 a =
+  let add = (+) in
+  add (if a>7 then 3 else 4) 5
+
+if3 a =
+  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  add (if a>7 then 3 else 4) 5
+
+if4 a =
+  (if a>7 then (3+) else (4+)) 5
+
+if5 a =
+  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  (if a>7 then add 3 else add 4) 5
+
+if6 a =
+  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  add (if a>7 then 3 else 4) (if a>8 then 5 else 6)

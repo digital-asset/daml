@@ -58,7 +58,7 @@ ppExp = pp0
         (map (\(name,exp) -> ppFieldName name <> " = " <> pp0 exp) elems) <> "}"
       Dot exp name -> pp1 exp <> "." <> ppFieldName name
       Con tag elems -> unTag tag <> ppArgs (map pp0 elems)
-      Match{scrut,alts} -> "case " <> pp0 scrut <> " of " <> intercalate "; " (map ppAlt alts)
+      Match{scrut,alts} -> "(case " <> pp0 scrut <> " of " <> intercalate "; " (map ppAlt alts) <> ")"
       Ref i -> "#" <> show i
       TypeLam tv exp -> "\\[" <> ppTV tv <> "]." <> pp1 exp
       TypeApp exp typ -> pp0 exp <> "[" <> ppType typ <> "]"
