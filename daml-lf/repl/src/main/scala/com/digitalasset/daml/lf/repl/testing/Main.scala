@@ -412,7 +412,9 @@ object Repl {
                 expr = expr,
                 checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
                 compiledPackages = PureCompiledPackages(state.packages).right.get,
-                scenario = false
+                scenario = false,
+                submissionTime = Time.Timestamp.now(),
+                transactionSeed = None
               )
             var count = 0
             val startTime = System.nanoTime()

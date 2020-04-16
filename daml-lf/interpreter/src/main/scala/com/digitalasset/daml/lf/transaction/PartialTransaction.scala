@@ -44,7 +44,6 @@ object PartialTransaction {
             BackStack.empty,
             i => if (0 <= i && i < seeds.length) seeds(i) else None
           )
-
       }
 
     def apply(exeContext: ExercisesContext) =
@@ -99,7 +98,7 @@ object PartialTransaction {
 
   def initial(
       submissionTime: Time.Timestamp,
-      initialSeeds: InitialSeeding
+      initialSeeds: InitialSeeding,
   ) = PartialTransaction(
     submissionTime = submissionTime,
     nextNodeIdx = 0,

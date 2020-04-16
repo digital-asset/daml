@@ -257,14 +257,14 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
-        seeds: InitialSeeding,
+        initialSeeding: InitialSeeding,
     ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial(submissionTime, seeds),
+        ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
@@ -276,8 +276,8 @@ object Speedy {
 
     def newBuilder(
         compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp = Time.Timestamp.now(),
-        transactionSeed: Option[crypto.Hash] = None,
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
     ): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
@@ -312,8 +312,8 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
-        submissionTime: Time.Timestamp = Time.Timestamp.now(),
-        transactionSeed: Option[crypto.Hash] = None,
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
@@ -338,8 +338,8 @@ object Speedy {
         sexpr: SExpr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp = Time.Timestamp.now(),
-        seeds: InitialSeeding = InitialSeeding.NoSeed,
+        submissionTime: Time.Timestamp,
+        seeds: InitialSeeding,
     ): Machine =
       initial(checkSubmitterInMaintainers, compiledPackages, submissionTime, seeds).copy(
         ctrl = CtrlExpr(sexpr))
@@ -429,7 +429,7 @@ object Speedy {
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
   type Env = util.ArrayList[SValue]
-  def emptyEnv(): Env = new util.ArrayList[SValue](512)
+  def emptyEnv: Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation

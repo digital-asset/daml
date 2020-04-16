@@ -1,11 +1,11 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
@@ -1447,12 +1447,16 @@ object SBuiltinTest {
   val compiledPackages =
     PureCompiledPackages(Map(defaultParserParameters.defaultPackageId -> pkg)).right.get
 
+  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
+
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
       checkSubmitterInMaintainers = true,
       compiledPackages = compiledPackages,
       scenario = false,
+      Time.Timestamp.now(),
+      Some(txSeed),
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
