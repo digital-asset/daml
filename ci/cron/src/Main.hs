@@ -240,7 +240,7 @@ build_docs_folder path versions latest = do
 
 find_commit_for_version :: String -> IO String
 find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H origin/master -- LATEST"
+    release_commits <- lines <$> shell "git log --format=%H --branches='*' -- LATEST"
     ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
     let expected = ver_sha <> " " <> version
     matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
