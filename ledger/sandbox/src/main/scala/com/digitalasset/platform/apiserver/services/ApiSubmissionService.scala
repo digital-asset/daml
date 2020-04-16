@@ -34,7 +34,7 @@ import com.daml.lf.transaction.BlindingInfo
 import com.daml.lf.transaction.Transaction.Transaction
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.{MetricName, Timed}
+import com.daml.metrics.Timed
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.apiserver.execution.{CommandExecutionResult, CommandExecutor}
 import com.daml.platform.server.api.services.domain.CommandSubmissionService
@@ -73,7 +73,7 @@ object ApiSubmissionService {
       logCtx: LoggingContext
   ): GrpcCommandSubmissionService with GrpcApiService =
     new GrpcCommandSubmissionService(
-      new ApiSubmissionService(
+      service = new ApiSubmissionService(
         contractStore,
         writeService,
         submissionService,
@@ -90,6 +90,7 @@ object ApiSubmissionService {
       currentLedgerTime = () => timeProvider.getCurrentTime,
       currentUtcTime = () => Instant.now,
       maxDeduplicationTime = () => configuration.maxDeduplicationTime,
+      metricRegistry = metrics,
     )
 
   object RecordUpdate {
@@ -124,18 +125,19 @@ final class ApiSubmissionService private (
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private object Metrics {
-    private val Prefix = MetricName.DAML :+ "commands"
+
+    import com.daml.platform.server.api.services.grpc.GrpcCommandSubmissionService.MetricPrefix
 
     val submissionsTimer: Timer =
-      metrics.timer(Prefix :+ "submissions")
+      metrics.timer(MetricPrefix :+ "submissions")
     val failedInterpretationsMeter: Meter =
-      metrics.meter(Prefix :+ "failed_command_interpretations")
+      metrics.meter(MetricPrefix :+ "failed_command_interpretations")
     val deduplicatedCommandsMeter: Meter =
-      metrics.meter(Prefix :+ "deduplicated_commands")
+      metrics.meter(MetricPrefix :+ "deduplicated_commands")
     val delayedSubmissionsMeter: Meter =
-      metrics.meter(Prefix :+ "delayed_submissions")
+      metrics.meter(MetricPrefix :+ "delayed_submissions")
     val validSubmissionsMeter: Meter =
-      metrics.meter(Prefix :+ "valid_submissions")
+      metrics.meter(MetricPrefix :+ "valid_submissions")
   }
 
   private def deduplicateAndRecordOnLedger(seed: Option[crypto.Hash], commands: ApiCommands)(

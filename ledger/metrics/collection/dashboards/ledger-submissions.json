@@ -255,6 +255,11 @@
                 },
                 {
                     "refCount": 0,
+                    "refId": "G",
+                    "target": "daml.commands.validation.mean"
+                },
+                {
+                    "refCount": 0,
                     "refId": "B",
                     "target": "daml.commands.execution.total.mean"
                 },
@@ -835,5 +840,5 @@
     "variables": {
         "list": []
     },
-    "version": 14
+    "version": 20
 }
