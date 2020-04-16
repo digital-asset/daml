@@ -28,6 +28,7 @@ import com.daml.http.util.IdentifierConverters.apiLedgerId
 import com.daml.jwt.JwtDecoder
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.client.LedgerClient
 import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -63,6 +64,7 @@ object HttpService extends StrictLogging {
       address: String,
       httpPort: Int,
       portFile: Option[Path],
+      tlsConfig: TlsConfiguration,
       wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
@@ -85,7 +87,7 @@ object HttpService extends StrictLogging {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
+      sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
     )
 

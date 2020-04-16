@@ -77,6 +77,15 @@ From a DAML project directory:
             Optional unique file name where to write the allocated HTTP port number. If process terminates gracefully, this file will be deleted automatically. Used to inform clients in CI about which port HTTP JSON API listens on. Defaults to none, that is, no file gets created.
       --application-id <value>
             Optional application ID to use for ledger registration. Defaults to HTTP-JSON-API-Gateway
+      --pem <value>
+            TLS: The pem file to be used as the private key.
+      --crt <value>
+            TLS: The crt file to be used as the cert chain.
+            Required for client authentication.
+      --cacrt <value>
+            TLS: The crt file to be used as the the trusted root CA.
+      --tls
+            TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set
       --package-reload-interval <value>
             Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. Defaults to 5 seconds
       --max-inbound-message-size <value>

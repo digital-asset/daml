@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit
 
 import akka.stream.ThrottleMode
 import com.daml.util.ExceptionOps._
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import scalaz.std.option._
 import scalaz.syntax.traverse._
@@ -27,6 +28,7 @@ private[http] final case class Config(
     applicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway"),
     packageReloadInterval: FiniteDuration = HttpService.DefaultPackageReloadInterval,
     maxInboundMessageSize: Int = HttpService.DefaultMaxInboundMessageSize,
+    tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
     accessTokenFile: Option[Path] = None,
