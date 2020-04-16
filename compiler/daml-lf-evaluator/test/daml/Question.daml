@@ -1,0 +1,10 @@
+daml 1.2
+
+module Question where
+
+f x =
+  let x' = error "foobar"
+  in x
+
+main = scenario $ do
+  pure $ f 0
