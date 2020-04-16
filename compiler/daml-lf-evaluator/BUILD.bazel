@@ -39,6 +39,26 @@ daml_compile(
     run_optimizer = True,
 )
 
+genrule(
+    name = "examples.pp",
+    srcs = [
+        ":examples.dar",
+        "//compiler/damlc",
+    ],
+    outs = ["examples.dar.pp"],
+    cmd = "$(location //compiler/damlc) inspect $(location :examples.dar) > $@",
+)
+
+genrule(
+    name = "examples-opt.pp",
+    srcs = [
+        ":examples-opt.dar",
+        "//compiler/damlc",
+    ],
+    outs = ["examples-opt.dar.pp"],
+    cmd = "$(location //compiler/damlc) inspect $(location :examples-opt.dar) > $@",
+)
+
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
