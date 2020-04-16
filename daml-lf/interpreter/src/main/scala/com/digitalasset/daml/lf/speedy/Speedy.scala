@@ -237,18 +237,14 @@ object Speedy {
     // reinitialize the state of the machine with a new fresh submission seed.
     // Should be used only when running scenario
     def clearCommit: Unit = {
+      val freshSeed = ptx.context.nextChildrenSeed
+        .map(crypto.Hash.deriveTransactionSeed(_, scenarioServiceParticipant, ptx.submissionTime))
       committers = Set.empty
       commitLocation = None
-      val seedWithTime = for {
-        time <- ptx.submissionTime
-        currentSeed <- ptx.context.nextChildrenSeed
-        newSeed = crypto.Hash.deriveTransactionSeed(
-          currentSeed,
-          scenarioServiceParticipant,
-          time
-        )
-      } yield newSeed -> time
-      ptx = PartialTransaction.initial(seedWithTime)
+      ptx = PartialTransaction.initial(
+        submissionTime = ptx.submissionTime,
+        InitialSeeding(freshSeed),
+      )
     }
 
   }
@@ -260,14 +256,15 @@ object Speedy {
     private def initial(
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)],
+        submissionTime: Time.Timestamp,
+        seeds: InitialSeeding,
     ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial(seedWithTime),
+        ptx = PartialTransaction.initial(submissionTime, seeds),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
@@ -279,7 +276,8 @@ object Speedy {
 
     def newBuilder(
         compiledPackages: CompiledPackages,
-        submissionSeedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None
+        submissionTime: Time.Timestamp = Time.Timestamp.now(),
+        transactionSeed: Option[crypto.Hash] = None,
     ): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
@@ -287,7 +285,8 @@ object Speedy {
           SEApp(compiler.compile(expr), Array(SEValue.Token)),
           checkSubmitterInMaintainers,
           compiledPackages,
-          submissionSeedWithTime,
+          submissionTime,
+          InitialSeeding(transactionSeed)
         )
       })
     }
@@ -296,13 +295,15 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        seeds: InitialSeeding,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
         checkSubmitterInMaintainers,
         compiledPackages,
-        transactionSeedAndSubmissionTime,
+        submissionTime,
+        seeds,
       )
 
     // Used from repl.
@@ -311,7 +312,8 @@ object Speedy {
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp = Time.Timestamp.now(),
+        transactionSeed: Option[crypto.Hash] = None,
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
@@ -320,7 +322,13 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages, seedWithTime)
+      fromSExpr(
+        sexpr,
+        checkSubmitterInMaintainers,
+        compiledPackages,
+        submissionTime,
+        InitialSeeding(transactionSeed),
+      )
     }
 
     // Construct a machine from an SExpr. This is useful when you don’t have
@@ -330,9 +338,10 @@ object Speedy {
         sexpr: SExpr,
         checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp = Time.Timestamp.now(),
+        seeds: InitialSeeding = InitialSeeding.NoSeed,
     ): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages, seedWithTime).copy(
+      initial(checkSubmitterInMaintainers, compiledPackages, submissionTime, seeds).copy(
         ctrl = CtrlExpr(sexpr))
   }
 
