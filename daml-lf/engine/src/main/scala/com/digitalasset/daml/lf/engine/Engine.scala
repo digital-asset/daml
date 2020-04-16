@@ -5,7 +5,6 @@ package com.daml.lf
 package engine
 
 import com.daml.lf.command._
-import com.daml.lf.crypto.Hash
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
@@ -139,7 +138,7 @@ final class Engine {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.Transaction, Boolean, ImmArray[(NodeId, Hash)])] =
+  ): Result[(Tx.Transaction, Boolean, ImmArray[(NodeId, crypto.Hash)])] =
     for {
       command <- preprocessor.translateNode(node)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
@@ -246,7 +245,7 @@ final class Engine {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(Transaction, Boolean, ImmArray[(Tx.NodeId, Hash)])] = {
+  ): Result[(Transaction, Boolean, ImmArray[(Tx.NodeId, crypto.Hash)])] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
@@ -360,7 +359,7 @@ object Engine {
   def apply(): Engine = new Engine()
 
   def initialSeeding(
-      submissionSeed: Option[Hash],
+      submissionSeed: Option[crypto.Hash],
       participant: Ref.ParticipantId,
       submissionTime: Time.Timestamp,
   ): InitialSeeding =
