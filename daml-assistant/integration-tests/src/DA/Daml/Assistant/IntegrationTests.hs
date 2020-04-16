@@ -192,6 +192,41 @@ packagingTests = testGroup "packaging"
           , "setup' = setup"
           ]
         withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
+     , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do
+           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "name: proj"
+               , "version: 0.0.1"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+               ]
+           writeFileUTF8 (projDir </> "Main.daml") $ unlines
+               [ "module Main where"
+               , "import Daml.Script"
+               , "test : Int -> Script (Int, Int)"
+               , "test x = pure (x, x + 1)"
+               ]
+           withCurrentDirectory projDir $ do
+               callCommandSilent "daml build -o script.dar"
+               writeFileUTF8 (projDir </> "input.json") "0"
+               p :: Int <- fromIntegral <$> getFreePort
+               withDevNull $ \devNull ->
+                   withCreateProcess (shell $ unwords ["daml sandbox --port " <> show p]) { std_out = UseHandle devNull } $ \_ _ _ _ -> do
+                       waitForConnectionOnPort (threadDelay 100000) p
+                       callCommand $ unwords
+                           [ "daml script"
+                           ,"--wall-clock-time"
+                           , "--dar script.dar --script-name Main:test"
+                           , "--input-file input.json --output-file output.json"
+                           , "--ledger-host localhost --ledger-port " <> show p
+                           ]
+           contents <- readFileUTF8 (projDir </> "output.json")
+           lines contents @?=
+               [ "{"
+               , "  \"_1\": 0,"
+               , "  \"_2\": 1"
+               , "}"
+               ]
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")

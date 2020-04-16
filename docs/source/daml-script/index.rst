@@ -191,6 +191,11 @@ We can then initialize our ledger passing in the json file via ``--input-file``.
 
 If you open Navigator, you can now see the contracts that have been created.
 
+While we will not use it here, there is also an ``--output-file``
+option that you can use to write the result of a script to a file
+using the DAML-LF JSON encoding. This is particularly useful if you need to consume
+the result from another program.
+
 .. _script-ledger-initialization:
 
 Using DAML Script for Ledger Initialization

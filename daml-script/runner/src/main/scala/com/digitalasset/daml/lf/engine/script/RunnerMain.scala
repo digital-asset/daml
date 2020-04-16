@@ -9,6 +9,7 @@ import akka.stream._
 import java.nio.file.Files
 import java.time.Instant
 import java.util.stream.Collectors
+import scala.collection.JavaConverters._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.io.Source
@@ -116,7 +117,14 @@ object RunnerMain {
             )
             Runner.connect(participantParams, clientConfig)
           }
-          _ <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+          result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
+          _ <- Future {
+            config.outputFile.foreach { outputFile =>
+              val jsVal = LfValueCodec.apiValueToJsValue(
+                result.toValue.assertNoRelCid(rcoid => s"Unexpected relative contract id $rcoid"))
+              Files.write(outputFile.toPath, Seq(jsVal.prettyPrint).asJava)
+            }
+          }
         } yield ()
 
         flow.onComplete(_ =>
