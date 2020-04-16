@@ -426,10 +426,11 @@ case class PartialTransaction(
           key = ec.contractKey,
         )
         val nodeId = ec.nodeId
+        val nodeSeed = ec.parent.nextChildrenSeed
         copy(
           context = ec.parent.addChild(nodeId),
           nodes = nodes.updated(nodeId, exerciseNode),
-          nodeSeeds = ec.parent.nextChildrenSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nodeId -> s)),
+          nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nodeId -> s)),
         )
       case None =>
         noteAbort(Tx.EndExerciseInRootContext)

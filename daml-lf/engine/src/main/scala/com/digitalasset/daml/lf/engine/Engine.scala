@@ -48,8 +48,8 @@ import com.daml.lf.value.Value
   * This class is thread safe as long `nextRandomInt` is.
   */
 final class Engine {
-  private[this] val _compiledPackages = ConcurrentCompiledPackages()
-  private[this] val _preprocessor = new preprocessing.Preprocessor(_compiledPackages)
+  private[this] val compiledPackages = ConcurrentCompiledPackages()
+  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
 
   /**
     * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
@@ -84,10 +84,10 @@ final class Engine {
       submissionSeed: Option[crypto.Hash],
   ): Result[(Tx.Transaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
-    _preprocessor
+    preprocessor
       .preprocessCommands(cmds.commands)
       .flatMap { processedCmds =>
-        ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
+        ShouldCheckSubmitterInMaintainers(compiledPackages, cmds).flatMap {
           checkSubmitterInMaintainers =>
             interpretCommands(
               validating = false,
@@ -96,7 +96,7 @@ final class Engine {
               commands = processedCmds,
               ledgerTime = cmds.ledgerEffectiveTime,
               submissionTime = submissionTime,
-              seeds = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+              seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
             ) map {
               case (tx, dependsOnTime, nodeSeeds) =>
                 // Annotate the transaction with the package dependencies. Since
@@ -106,7 +106,7 @@ final class Engine {
                 val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
                   val pkgId = cmd.templateId.packageId
                   val transitiveDeps =
-                    _compiledPackages
+                    compiledPackages
                       .getPackageDependencies(pkgId)
                       .getOrElse(
                         sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
@@ -125,47 +125,35 @@ final class Engine {
   }
 
   /**
-    * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
-    * That is, it can be used to reinterpret an already interpreted transaction (since it consists of GenNodes).
-    * Formally, the following is guaranteed to hold for all pcs, pkgs, and keys, when evaluated on the same Engine:
-    * evaluate(submit(cmds)) = ResultDone(tx) ==> evaluate(reinterpret(cmds.submitters, txRoots, cmds.ledgerEffectiveTime)) === ResultDone(tx)
-    * where:
-    *   evaluate(result) = result.consume(pcs, pkgs, keys)
-    *   txRoots = tx.roots.map(id => tx.nodes.get(id).get).toSeq
-    *   tx === tx' if tx and tx' are equivalent modulo a renaming of node and relative contract IDs
+    * Behaves like `submit`, but it takes a GenNode argument instead of a Commands argument.
+    * That is, it can be used to reinterpret partially an already interpreted transaction (since it consists of GenNodes).
     *
-    * Moreover, if the transaction tx is valid at time leTime, n belongs to tx.nodes, and subtx is the subtransaction of
-    * tx rooted at n, the following holds:
-    * evaluate(reinterpret(n.requiredAuthorizers, Seq(n), leTime) === subtx
     *
-    * In addition to the errors returned by `submit`, reinterpretation fails with a `ValidationError` whenever `nodes`
-    * contain a relative contract ID, either as the target contract of a fetch, or as an argument to a
-    * create or an exercise choice.
-    *
-    * [[transactionSeed]] is the master hash te be used to derive node and contractId discriminator.
-    * If let undefined, no discriminator will be generated.
+    * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
+    * If undefined the contract IDs are derive using V0 scheme.
+    * The value of [[nodeSeed]] does not matter for other kind of nodes.
     */
   def reinterpret(
       submitters: Set[Party],
-      nodes: Seq[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
-      nodeSeeds: ImmArray[Option[crypto.Hash]],
+      node: GenNode.WithTxValue[Value.NodeId, Value.ContractId],
+      nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Tx.Transaction, Boolean, ImmArray[(NodeId, Hash)])] =
     for {
-      commands <- Result.sequence(ImmArray(nodes).map(_preprocessor.translateNode))
+      command <- preprocessor.translateNode(node)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
-        _compiledPackages,
-        commands.map(_.templateId))
+        compiledPackages,
+        ImmArray(command.templateId))
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
-        commands = commands,
+        commands = ImmArray(command),
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
-        seeds = InitialSeeding.RootNodeSeeds(nodeSeeds),
+        seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
       )
     } yield result
 
@@ -218,9 +206,9 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commands <- _preprocessor.translateTransactionRoots(tx)
+      commands <- preprocessor.translateTransactionRoots(tx)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
-        _compiledPackages,
+        compiledPackages,
         commands.map(_._2.templateId))
       result <- interpretCommands(
         validating = true,
@@ -229,7 +217,7 @@ final class Engine {
         commands = commands.map(_._2),
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
-        seeds = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+        seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
       )
       (rtx, _, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
@@ -247,8 +235,7 @@ final class Engine {
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
     *
-    * [[transactionSeed]] is the master hash used to derive node and contractId discriminator.
-    * If let undefined, no discriminator will be generated.
+    * [[seeding]] is seeding used to derive node seed and contractId discriminator.
     */
   private[engine] def interpretCommands(
       validating: Boolean,
@@ -258,15 +245,15 @@ final class Engine {
       commands: ImmArray[SpeedyCommand],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
-      seeds: speedy.InitialSeeding,
+      seeding: speedy.InitialSeeding,
   ): Result[(Transaction, Boolean, ImmArray[(Tx.NodeId, Hash)])] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         sexpr = Compiler(compiledPackages.packages).compile(commands),
-        compiledPackages = _compiledPackages,
+        compiledPackages = compiledPackages,
         submissionTime = submissionTime,
-        seeds = seeds,
+        seeds = seeding,
       )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, ledgerTime)
@@ -294,9 +281,9 @@ final class Engine {
           return Result.needPackage(
             pkgId,
             pkg => {
-              _compiledPackages.addPackage(pkgId, pkg).flatMap {
+              compiledPackages.addPackage(pkgId, pkg).flatMap {
                 case _ =>
-                  callback(_compiledPackages)
+                  callback(compiledPackages)
                   interpretLoop(machine, time)
               }
             }
@@ -350,13 +337,13 @@ final class Engine {
     }
   }
 
-  def clearPackages(): Unit = _compiledPackages.clear()
+  def clearPackages(): Unit = compiledPackages.clear()
 
   /** Note: it's important we return a [[com.daml.lf.CompiledPackages]],
     * and not a [[ConcurrentCompiledPackages]], otherwise people would be able
     * to modify them.
     */
-  def compiledPackages(): CompiledPackages = _compiledPackages
+  def compiledPackages(): CompiledPackages = compiledPackages
 
   /** This function can be used to give a package to the engine pre-emptively,
     * rather than having the engine to ask about it through
@@ -366,7 +353,7 @@ final class Engine {
     * be loaded.
     */
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
-    _compiledPackages.addPackage(pkgId, pkg)
+    compiledPackages.addPackage(pkgId, pkg)
 }
 
 object Engine {
