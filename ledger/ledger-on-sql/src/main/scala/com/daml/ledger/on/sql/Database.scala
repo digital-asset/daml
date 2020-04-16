@@ -11,7 +11,8 @@ import com.daml.ledger.on.sql.queries.{
   PostgresqlQueries,
   Queries,
   ReadQueries,
-  SqliteQueries
+  SqliteQueries,
+  TimedQueries
 }
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{MetricName, Timed}
@@ -34,12 +35,14 @@ final class Database(
   def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
-    inTransaction(name, readerConnectionPool)(connection => body(queries(connection)))
+    inTransaction(name, readerConnectionPool)(connection =>
+      body(new TimedQueries(queries(connection), metricRegistry)))
 
   def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
-    inTransaction(name, writerConnectionPool)(connection => body(queries(connection)))
+    inTransaction(name, writerConnectionPool)(connection =>
+      body(new TimedQueries(queries(connection), metricRegistry)))
 
   private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
