@@ -369,7 +369,7 @@
                     "hide": false,
                     "refCount": 0,
                     "refId": "A",
-                    "target": "daml.services.write.submit_transaction.mean"
+                    "target": "daml.kvutils.writer.commit.mean"
                 },
                 {
                     "refCount": 0,
