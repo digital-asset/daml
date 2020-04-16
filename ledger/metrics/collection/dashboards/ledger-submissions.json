@@ -261,22 +261,22 @@
                 {
                     "refCount": 0,
                     "refId": "B",
-                    "target": "daml.commands.execution.total.mean"
+                    "target": "daml.execution.total.mean"
                 },
                 {
                     "refCount": 0,
                     "refId": "C",
-                    "target": "daml.commands.execution.get_lf_package.mean"
+                    "target": "daml.execution.get_lf_package.mean"
                 },
                 {
                     "refCount": 0,
                     "refId": "D",
-                    "target": "daml.commands.execution.lookup_active_contract.mean"
+                    "target": "daml.execution.lookup_active_contract.mean"
                 },
                 {
                     "refCount": 0,
                     "refId": "E",
-                    "target": "daml.commands.execution.lookup_contract_key.mean"
+                    "target": "daml.execution.lookup_contract_key.mean"
                 },
                 {
                     "refCount": 0,
