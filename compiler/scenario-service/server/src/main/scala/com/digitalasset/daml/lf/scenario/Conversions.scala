@@ -24,7 +24,21 @@ final class Conversions(
   private val packageIdSelf: PackageIdentifier =
     PackageIdentifier.newBuilder.setSelf(empty).build
 
-  private val coidToNodeId = ledger.ledgerData.coidToNodeId
+  // The ledger data will not contain information from the partial transaction at this point.
+  // We need the mapping for converting error message so we manually add it here.
+  private val ptxCoidToNodeId = machine.ptx.nodes.toList
+    .collect({
+      case (nodeId, node: N.NodeCreate.WithTxValue[V.ContractId]) =>
+        node.coid match {
+          case acoid: V.AbsoluteContractId =>
+            (node.coid.asInstanceOf[V.AbsoluteContractId], ledger.ptxNodeId(nodeId))
+          case V.RelativeContractId(_) =>
+            throw new IllegalArgumentException("unexpected relative contract id")
+        }
+    })
+    .toMap
+
+  private val coidToNodeId = ledger.ledgerData.coidToNodeId ++ ptxCoidToNodeId
 
   private val nodes =
     ledger.ledgerData.nodeInfos.map(Function.tupled(convertNode))
@@ -308,7 +322,7 @@ final class Conversions(
       case acoid: V.AbsoluteContractId =>
         coidToNodeId(acoid)
       case V.RelativeContractId(_) =>
-        throw new IllegalArgumentException("unexpected relative cotnract id")
+        throw new IllegalArgumentException("unexpected relative contract id")
     }
 
   def convertScenarioStep(
