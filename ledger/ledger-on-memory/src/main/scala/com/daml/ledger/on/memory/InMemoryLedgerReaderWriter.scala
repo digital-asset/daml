@@ -72,9 +72,8 @@ final class InMemoryLedgerReaderWriter private (
             Timed.value(
               Metrics.readLog,
               state
-                .readLog(_.view.zipWithIndex.slice(startExclusive + 1, endInclusive + 1).map {
-                  case (entry, index) => index -> entry
-                })
+                .readLog(
+                  _.view.zipWithIndex.map(_.swap).slice(startExclusive + 1, endInclusive + 1))
                 .iterator)
           }))
       )
