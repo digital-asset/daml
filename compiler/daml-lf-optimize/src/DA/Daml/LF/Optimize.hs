@@ -286,11 +286,13 @@ reflect = \case
     rhs <- reflect rhs
     case duplicatable rhs of
       Nothing -> ModEnv (Map.insert name rhs) $ reflect body
-      Just _ -> do
+      Just reason -> do
         rhs <- reify rhs
-        body <- normExpr body
+        name' <- Fresh reason
+        body <- ModEnv (Map.insert name (Syntax $ LF.EVar name')) $ reflect body
+        body <- reify body
         ty <- normType ty
-        let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
+        let bind = LF.Binding{bindingBinder=(name',ty),bindingBound=rhs}
         return $ Syntax $ LF.ELet{letBinding=bind,letBody=body}
 
   LF.ENil{nilType=ty} -> do
@@ -407,9 +409,10 @@ typeApply expr ty = case expr of -- This ty is already normalized
 -- A normalized-expression can be duplicated if it has no computation effect.
 -- Indicated by return of `Nothing`
 -- If it mustn't be duplicated, the returned Maybe String indicates why.
+
 duplicatable :: SemValue -> Maybe String
 duplicatable = \case
-  TyMacro{} -> Nothing
+  TyMacro{} -> Just "_TyM" -- see "err2" in Examples.daml
   -- TODO: we should only consider a Struct duplicatable when all its fields are.
   Struct{} -> Nothing
   Macro{} -> Nothing

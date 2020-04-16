@@ -7,7 +7,7 @@ module DA.Daml.LF.Evaluator.Eval (runIntProgArg) where
 
 import Control.Monad (forM,liftM,ap)
 import DA.Daml.LF.Evaluator.Exp (Exp,Alt,Prog)
-import DA.Daml.LF.Evaluator.Value (Value,Counts)
+import DA.Daml.LF.Evaluator.Value (Value,Throw,Counts)
 import Data.Map.Strict (Map)
 import Data.Int (Int64)
 import qualified DA.Daml.LF.Evaluator.Exp as Exp
@@ -15,7 +15,7 @@ import qualified DA.Daml.LF.Evaluator.Value as Value
 import qualified Data.Map.Strict as Map
 
 
-runIntProgArg :: Prog -> Int64 -> (Int64,Counts)
+runIntProgArg :: Prog -> Int64 -> (Either Throw Int64,Counts)
 runIntProgArg Exp.Prog{defs,start} arg = do
   run defs $ do
     fv <- eval start
@@ -110,7 +110,7 @@ instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
 
-run :: Exp.Defs -> Effect a -> (a,Counts)
+run :: Exp.Defs -> Effect a -> (Either Throw a, Counts)
 run defs e = Value.run $ run env0 e
   where
     run :: Env -> Effect a -> Value.Effect a

@@ -55,7 +55,7 @@ getNfib Conf{mode} = do
   let !prog = simplify pkgs mod vn
   return $ \arg -> do
     let (res,_counts) = runIntProgArg prog arg
-    res
+    either (error . show) id res
 
 readDar :: FilePath -> IO Dalfs
 readDar inFile = do

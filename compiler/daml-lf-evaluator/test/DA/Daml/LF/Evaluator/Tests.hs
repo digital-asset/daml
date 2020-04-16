@@ -14,7 +14,7 @@ import qualified Test.Tasty as Tasty (defaultMain,testGroup,TestTree)
 import qualified Test.Tasty.HUnit as Tasty (assertBool,assertEqual,testCaseSteps)
 
 import DA.Bazel.Runfiles (locateRunfiles,mainWorkspace)
-import DA.Daml.LF.Evaluator (decodeDalfs,simplify,runIntProgArg,Counts(..))
+import DA.Daml.LF.Evaluator (decodeDalfs,simplify,runIntProgArg,Counts(..),Throw(..))
 import DA.Daml.LF.Optimize (optimize)
 import DA.Daml.LF.Reader (readDalfs,Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF
@@ -26,56 +26,62 @@ main = do
 
 tests :: [Test]
 tests =
-  [ Test 1 "decrement" 10 9
-  , Test 5 "fact" 4 24
-  , Test 6 "fact" 5 120
+  [ mkTest 1 "decrement" 10 9
+  , mkTest 5 "fact" 4 24
+  , mkTest 6 "fact" 5 120
 
-  , Test 1 "dub_dub_dub" 1 8
+  , mkTest 1 "dub_dub_dub" 1 8
 
-  , Test 1 "decrement" 0 (-1)
-  , Test 1 "thrice_decrement" 0 (-3)
-  , Test 1 "thrice_thrice_decrement" 0 (-27)
+  , mkTest 1 "decrement" 0 (-1)
+  , mkTest 1 "thrice_decrement" 0 (-3)
+  , mkTest 1 "thrice_thrice_decrement" 0 (-27)
 
-  , Test 7 "length_list" 7 3 -- apps=7 because optimized code passes a lambda to FOLDL
-  , Test 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
-  , Test 7 "run_makeDecimal" 7 789
+  , mkTest 7 "length_list" 7 3 -- apps=7 because optimized code passes a lambda to FOLDL
+  , mkTest 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
+  , mkTest 7 "run_makeDecimal" 7 789
 
-  , Test 702 "nthPrime" 10 29 -- TODO: can apps be better? -- was 633
-  , Test 92642 "nthPrime" 100 541 --was 86897
+  , mkTest 702 "nthPrime" 10 29 -- TODO: can apps be better? -- was 633
+  , mkTest 92642 "nthPrime" 100 541 --was 86897
 
-  , Test 15 "run_sum_myList" 9 30
-  , Test 15 "run_sum_myList2" 99 300
+  , mkTest 15 "run_sum_myList" 9 30
+  , mkTest 15 "run_sum_myList2" 99 300
 
-  , Test 177 "nfib" 10 177
+  , mkTest 177 "nfib" 10 177
 
-  , Test 1 "let1" 10 16
-  , Test 1 "let2" 10 26
-  , Test 1 "let3" 10 13
+  , mkTest 1 "let1" 10 16
+  , mkTest 1 "let2" 10 26
+  , mkTest 1 "let3" 10 13
 
-  , Test 1 "let4" 1 16
-  , Test 1 "let5" 0 16
+  , mkTest 1 "let4" 1 16
+  , mkTest 1 "let5" 0 16
 
-  , Test 1 "let6" 0 6
-  , Test 3 "let7" 0 6 -- TODO: make NBE better here, and reduce apps to 1, same as for let6
+  , mkTest 1 "let6" 0 6
+  , mkTest 3 "let7" 0 6 -- TODO: make NBE better here, and reduce apps to 1, same as for let6
 
-  , Test 1 "easy" 0 27
-  , Test 28 "hard" 0 27 -- TODO: make #apps same as for easy
+  , mkTest 1 "easy" 0 27
+  , mkTest 28 "hard" 0 27 -- TODO: make #apps same as for easy
 
-  , Test 1 "if1" 0 4
-  , Test 1 "if2" 0 9
-  , Test 2 "if3" 0 9 -- TODO: have apps=1, same as if2
-  , Test 1 "if4" 0 9
-  , Test 2 "if5" 0 9 -- TODO: have apps=1, same as if4
-  , Test 2 "if6" 0 10 -- TODO: have apps=1
+  , mkTest 1 "if1" 0 4
+  , mkTest 1 "if2" 0 9
+  , mkTest 2 "if3" 0 9 -- TODO: have apps=1, same as if2
+  , mkTest 1 "if4" 0 9
+  , mkTest 5 "if5" 0 9 -- TODO: have apps=1, same as if4
+  , mkTest 2 "if6" 0 10 -- TODO: have apps=1
+
+  , Test 1 "err1" 0 (Left (Throw "foobar"))
+  , Test 1 "err2" 0 (Left (Throw "foobar"))
 
   ]
+
+mkTest :: Int -> String -> Int64 -> Int64 -> Test
+mkTest xa fn arg expected = Test xa fn arg (Right expected)
 
 -- testing for DAML functions of type: `Int -> Int`
 data Test = Test
   { expectedAppsWhenEvaluatingOptimizedCode :: Int
   , functionName :: String
   , arg :: Int64
-  , expected :: Int64
+  , expected :: Either Throw Int64
   }
 
 run :: [Test] -> IO ()
@@ -115,7 +121,7 @@ makeTasty pkgs mod Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,
     -- But check it executes the same number of primitive ops.
     let Counts{apps=a2,prims=p2,projections=q2} = countsOpt
     let mkName tag x y = tag <> ":" <> show x <> "-->" <> show y
-    Tasty.assertBool (mkName "apps" a1 a2) (a2 < a1)
+    Tasty.assertBool (mkName "apps" a1 a2) (a2 <= a1)
     Tasty.assertBool (mkName "prim" p1 p2) (p2 == p1)
     Tasty.assertBool (mkName "proj" q1 q2) (q2 <= q1)
     Tasty.assertBool (mkName "apps!" xa a2) (a2 == xa)

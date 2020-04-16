@@ -7,7 +7,7 @@ module DA.Daml.LF.Evaluator
   ( decodeDalfs
   , simplify, Prog(..), DefKey(..)
   , ppExp
-  , runIntProgArg, Counts(..)
+  , runIntProgArg, Counts(..), Throw(..)
   ) where
 
 import qualified Data.ByteString.Lazy as BSL (ByteString,toStrict)
@@ -17,7 +17,7 @@ import DA.Daml.LF.Evaluator.Eval (runIntProgArg)
 import DA.Daml.LF.Evaluator.Exp (Prog(..),DefKey(..))
 import DA.Daml.LF.Evaluator.Pretty (ppExp)
 import DA.Daml.LF.Evaluator.Simp (simplify)
-import DA.Daml.LF.Evaluator.Value (Counts(..))
+import DA.Daml.LF.Evaluator.Value (Counts(..),Throw(..))
 import DA.Daml.LF.Proto3.Archive (decodeArchive, DecodingMode(DecodeAsMain,DecodeAsDependency))
 import DA.Daml.LF.Reader (Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF

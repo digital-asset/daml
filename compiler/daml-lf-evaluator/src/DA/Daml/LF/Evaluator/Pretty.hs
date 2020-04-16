@@ -20,6 +20,7 @@ ppValue = \case
     (map (\(name,v) -> ppFieldName name <> " = " <> ppValue v) elems) <> "}"
   Constructed tag args -> unTag tag <> ppArgs (map ppValue args)
   B0 b -> ppB0 b
+  B1 b -> show b
   B2 b -> show b
   B2_1 b v -> "(" <> show b <> show v <> ")"
   B3 b -> show b
@@ -31,6 +32,7 @@ ppValue = \case
     ppB0 = \case
         Unit -> "()"
         Num i -> show i
+        Text t -> show t
 
 ppVar :: Var -> String
 ppVar = T.unpack . LF.unExprVarName

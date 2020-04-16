@@ -4,7 +4,7 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Daml.LF.Evaluator.Value
-  ( Value(..), Func(..), Tag(..), B0(..), B2(..), B3(..), FieldName,
+  ( Throw(..), Value(..), Func(..), Tag(..), B0(..), B1(..), B2(..), B3(..), FieldName,
     trueTag,falseTag,consTag,nilTag,mkTag,noneTag,someTag,
     bool, num, deNum,
     apply,
@@ -14,14 +14,18 @@ module DA.Daml.LF.Evaluator.Value
 
 import Control.Monad (ap,liftM)
 import Data.Int (Int64)
+import qualified Data.Text as T
+
 import qualified DA.Daml.LF.Ast as LF
-import qualified Data.Text as Text
+
+newtype Throw = Throw String deriving (Eq,Show)
 
 data Value
   = Function Func
   | Record [(FieldName, Value)]
   | Constructed Tag [Value]
   | B0 B0
+  | B1 B1
   | B2 B2
   | B2_1 B2 Value
   | B3 B3
@@ -41,6 +45,11 @@ newtype Tag = Tag { unTag :: String }
 data B0
   = Unit
   | Num Int64
+  | Text T.Text
+  deriving (Show)
+
+data B1
+  = ERROR
   deriving (Show)
 
 data B2
@@ -58,17 +67,23 @@ bool = \case
   True -> Constructed trueTag []
   False -> Constructed falseTag []
 
+
 apply :: (Value, Value) -> Effect Value
 apply = \case
   (Function (Func f), v) -> do CountApp; f v
   (Record _,_) -> error "Value.apply, Record"
   (Constructed _ _,_) -> error "Value.apply, Constructed"
   (B0 _,_) -> error "Value.apply, B0"
+  (B1 b,v) -> applyB1 b v
   (B2 b,v1) -> return $ B2_1 b v1
   (B2_1 b v1,v2) -> do CountPrim; return $ applyB2 b v1 v2
   (B3 b,v1) -> return $ B3_1 b v1
   (B3_1 b v1,v2) -> return $ B3_2 b v1 v2
   (B3_2 b v1 v2,v3) -> do CountPrim; applyB3 b v1 v2 v3
+
+applyB1 :: B1 -> Value -> Effect Value
+applyB1 = \case
+  ERROR -> \v -> Fail $ T.unpack $ deText v
 
 applyB2 :: B2 -> Value -> Value -> Value
 applyB2 = \case
@@ -99,6 +114,11 @@ deNum :: Value -> Int64
 deNum = \case
   B0 (Num n) -> n
   v -> error $ "deNum, " <> show v
+
+deText :: Value -> T.Text
+deText = \case
+  B0 (Text t) -> t
+  v -> error $ "deText, " <> show v
 
 applyB3 :: B3 -> Value -> Value -> Value -> Effect Value
 applyB3 = \case
@@ -149,7 +169,7 @@ noneTag = Tag "None"
 someTag = Tag "Some"
 
 mkTag :: LF.VariantConName -> Tag
-mkTag = Tag . Text.unpack . LF.unVariantConName
+mkTag = Tag . T.unpack . LF.unVariantConName
 
 deListValue :: Value -> Maybe (Value,Value)
 deListValue = \case
@@ -161,6 +181,7 @@ deListValue = \case
 data Effect a where
   Ret :: a -> Effect a
   Bind :: Effect a -> (a -> Effect b) -> Effect b
+  Fail :: String -> Effect a
   CountApp :: Effect ()
   CountPrim :: Effect ()
   CountProjection :: Effect ()
@@ -169,15 +190,20 @@ instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
-run :: Effect a -> (a,Counts)
+run :: Effect a -> (Either Throw a,Counts)
 run = loop counts0 where
-  loop :: Counts -> Effect a -> (a,Counts)
+  loop :: Counts -> Effect a -> (Either Throw a,Counts)
   loop counts = \case
-    Ret x -> (x,counts)
-    Bind e f -> let (v,counts') = loop counts e in loop counts' (f v)
-    CountApp -> return $ incApps counts
-    CountPrim -> return $ incPrim counts
-    CountProjection -> return $ incProjection counts
+    Ret x -> (Right x,counts)
+    Fail s -> (Left (Throw s),counts)
+    Bind e f -> do
+      let (either,counts') = loop counts e
+      case either of
+        Left throw -> (Left throw,counts')
+        Right v -> loop counts' (f v)
+    CountApp -> (Right (), incApps counts)
+    CountPrim -> (Right (), incPrim counts)
+    CountProjection -> (Right (), incProjection counts)
 
 
 data Counts = Counts

@@ -172,3 +172,14 @@ if5 a =
 if6 a =
   let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
   add (if a>7 then 3 else 4) (if a>8 then 5 else 6)
+
+
+-- error is an effect, and so mustn't be re-ordered or dropped
+
+err1 x =
+  let x' : Int = error "foobar" -- type specialized
+  in x
+
+err2 x =
+  let x' = error "foobar" -- not type specialized; is an Error thrown?
+  in x

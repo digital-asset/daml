@@ -174,6 +174,7 @@ simpBuiltin = \case
 
   LF.BEUnit -> Value.B0 Value.Unit
   LF.BEInt64 n -> Value.B0 (Value.Num n)
+  LF.BEText t -> Value.B0 (Value.Text t)
   LF.BEBool b -> Value.bool b
 
   LF.BEFoldl -> Value.B3 Value.FOLDL
@@ -189,6 +190,8 @@ simpBuiltin = \case
   LF.BEGreater LF.BTInt64 -> Value.B2 Value.GREATERI
   LF.BEGreaterEq LF.BTInt64 -> Value.B2 Value.GREATEREQI
   LF.BEEqual LF.BTInt64 -> Value.B2 Value.EQUALI
+
+  LF.BEError -> Value.B1 Value.ERROR
 
   be -> error $ "todo: simpBuiltin, " <> show be
 
