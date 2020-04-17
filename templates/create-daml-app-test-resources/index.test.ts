@@ -2,26 +2,39 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
+import { promises as fs } from 'fs';
+import { stat } from 'fs';
+import puppeteer, { Browser, Page } from 'puppeteer';
 import waitOn from 'wait-on';
 
 import Ledger from '@daml/ledger';
 import { User } from '@daml.js/create-daml-app';
 import { computeCredentials } from './Credentials';
 
-import puppeteer, { Browser, Page } from 'puppeteer';
+const DAR_PATH = '.daml/dist/create-daml-app-0.1.0.dar';
+const SANDBOX_LEDGER_ID = 'create-daml-app-sandbox';
 
-const SANDBOX_PORT = 6865;
+// Base names of port files
+const SANDBOX_PORT_FILE_NAME = 'sandbox.port';
+const JSON_API_PORT_FILE_NAME = 'json-api.port';
+// Relative paths from the ui directory
+const SANDBOX_PORT_FILE_PATH = `../${SANDBOX_PORT_FILE_NAME}`;
+const JSON_API_PORT_FILE_PATH = `../${JSON_API_PORT_FILE_NAME}`;
+
+// We still hardcode the JSON API port as it also appears in test and proxy
+// settings in the ui/package.json.
 const JSON_API_PORT = 7575;
 const UI_PORT = 3000;
 
-// `daml start` process (which spawns a sandbox and JSON API server)
-let startProc: ChildProcess | undefined = undefined;
+// DAML processes
+let sandbox: ChildProcess | undefined = undefined;
+let jsonApiServer: ChildProcess | undefined = undefined;
 
-// Headless Chrome browser:
-// https://developers.google.com/web/updates/2017/04/headless-chrome
-let browser: Browser | undefined = undefined;
-
+// UI processes
 let uiProc: ChildProcess | undefined = undefined;
+let browser: Browser | undefined = undefined;
+// ^ Headless Chrome browser:
+// https://developers.google.com/web/updates/2017/04/headless-chrome
 
 // Function to generate unique party names for us.
 // This should be replaced by the party management service once that is exposed
@@ -38,14 +51,45 @@ test('Party names are unique', async () => {
   expect(parties.size).toEqual(10);
 });
 
-// Use a single sandbox, JSON API server and browser for all tests for speed.
+// Start the DAML and UI processes before the tests begin.
+// To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
+//
+// We run the sandbox and JSON API server separately, as opposed to using
+// `daml start` as we instruct users to do in the Getting Started Guide.
+// This is so that we have more control of the ports used and hopefully avoid
+// hardcoding port numbers (which can cause clashes in CI runs).
 beforeAll(async () => {
-  // Run `daml start` to start up the sandbox and json api server.
-  // Run it from the repository root, where the `daml.yaml` lives.
-  // The path should already include '.daml/bin' in the environment where this is run.
+  // Run the `daml` commands from the project root (where the `daml.yaml` is located).
+  // The path should include '.daml/bin' in the environment where this is run,
+  // which contains the `daml` assistant executable.
   const startOpts: SpawnOptions = { cwd: '..', stdio: 'inherit' };
-  startProc = spawn('daml', ['start'], startOpts);
+
+  // Port number 0 instructs the sandbox to find an available port and write the
+  // real port number to the port file.
+  const sandboxOptions = [
+    'sandbox',
+    '--wall-clock-time',
+    `--ledgerid=${SANDBOX_LEDGER_ID}`,
+    '--port=0',
+    `--port-file=${SANDBOX_PORT_FILE_NAME}`,
+    DAR_PATH
+  ];
+  sandbox = spawn('daml', sandboxOptions, startOpts);
+
+  await waitOn({resources: [`file:${SANDBOX_PORT_FILE_PATH}`]});
+  const sandboxPort = parseInt(await fs.readFile(SANDBOX_PORT_FILE_PATH, 'utf8'));
+
+  const jsonApiOptions = [
+    'json-api',
+    '--ledger-host=localhost',
+    `--ledger-port=${sandboxPort}`,
+    `--http-port=${JSON_API_PORT}`,
+    `--port-file=${JSON_API_PORT_FILE_NAME}`
+  ];
+  jsonApiServer = spawn('daml', jsonApiOptions, startOpts);
+
+  await waitOn({resources: [`file:${JSON_API_PORT_FILE_PATH}`]});
 
   // Run `yarn start` in another shell.
   // Disable automatically opening a browser using the env var described here:
@@ -56,25 +100,31 @@ beforeAll(async () => {
   // This allows us to kill the process with all its descendents after the tests finish,
   // following https://azimi.me/2014/12/31/kill-child_process-node-js.html.
 
-  // We know the `daml start` and `yarn start` servers are ready once the relevant ports become available.
-  await waitOn({resources: [
-    `tcp:localhost:${SANDBOX_PORT}`,
-    `tcp:localhost:${JSON_API_PORT}`,
-    `tcp:localhost:${UI_PORT}`
-  ]});
+  // Ensure the UI server is ready by checking that the port is available.
+  await waitOn({resources: [`tcp:localhost:${UI_PORT}`]});
 
   // Launch a browser once for all tests.
   browser = await puppeteer.launch();
 }, 40_000);
 
 afterAll(async () => {
-  // Kill the `daml start` process.
+  // Kill the sandbox and JSON API processes.
   // Note that `kill()` sends the `SIGTERM` signal but the actual processes may
   // not die immediately.
   // TODO: Test this on Windows.
-  if (startProc) {
-    startProc.kill();
+  if (sandbox) {
+    sandbox.kill();
   }
+  if (jsonApiServer) {
+    jsonApiServer.kill();
+  }
+
+  // The sandbox does not clean up its port file on termination so we take care
+  // of that. (The JSON API server takes care of this for us.)
+  stat(SANDBOX_PORT_FILE_PATH, (err, _stats) => {
+    // In the error case, the file does not exist so do nothing.
+    if (!err) fs.unlink(SANDBOX_PORT_FILE_PATH);
+  });
 
   // Kill the `yarn start` process including all its descendents.
   // The `-` indicates to kill all processes in the process group.
