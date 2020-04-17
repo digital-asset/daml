@@ -25,7 +25,6 @@ class ProjectionsSpec extends WordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
     Node.NodeCreate(
-      nodeSeed = None,
       coid = cid,
       coinst = ContractInst(
         Identifier(
@@ -47,7 +46,6 @@ class ProjectionsSpec extends WordSpec with Matchers {
       stakeholders: Set[Party],
       children: ImmArray[NodeId]) =
     Node.NodeExercises(
-      nodeSeed = None,
       targetCoid = target,
       templateId = Identifier(
         PackageId.assertFromString("some-package"),

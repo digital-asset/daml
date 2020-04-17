@@ -66,7 +66,6 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
       GenTransaction(
         HashMap(
           event1 -> NodeCreate(
-            nodeSeed = None,
             coid = absCid,
             coinst = someContractInstance,
             optLocation = None,
@@ -114,7 +113,6 @@ private[dao] trait JdbcLedgerDaoLedgerEntriesSpec extends LoneElement {
       GenTransaction(
         HashMap(
           event1 -> NodeCreate(
-            nodeSeed = None,
             coid = absCid,
             coinst = someContractInstance,
             optLocation = None,

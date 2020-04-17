@@ -110,7 +110,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       absCid: AbsoluteContractId,
   ): NodeCreate.WithTxValue[AbsoluteContractId] =
     NodeCreate(
-      nodeSeed = None,
       coid = absCid,
       coinst = someContractInstance,
       optLocation = None,
@@ -123,7 +122,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       targetCid: AbsoluteContractId,
   ): NodeExercises.WithTxValue[EventId, AbsoluteContractId] =
     NodeExercises(
-      nodeSeed = None,
       targetCoid = targetCid,
       templateId = someTemplateId,
       choiceId = Ref.Name.assertFromString("choice"),
@@ -425,7 +423,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         GenTransaction(
           HashMap(
             event(s"transactionId$id", id) -> NodeCreate(
-              nodeSeed = None,
               coid = AbsoluteContractId.assertFromString(s"#contractId$id"),
               coinst = someContractInstance,
               optLocation = None,
@@ -465,7 +462,6 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         GenTransaction(
           HashMap(
             event(s"transactionId$id", id) -> NodeExercises(
-              nodeSeed = None,
               targetCoid = AbsoluteContractId.assertFromString(s"#contractId${cid.toLong}"),
               templateId = someTemplateId,
               choiceId = Ref.ChoiceName.assertFromString("Archive"),

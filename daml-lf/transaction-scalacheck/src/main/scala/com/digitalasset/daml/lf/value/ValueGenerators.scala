@@ -243,7 +243,7 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <- Gen.option(keyWithMaintainersGen)
-    } yield NodeCreate(None, coid, coinst, None, signatories, stakeholders, key)
+    } yield NodeCreate(coid, coinst, None, signatories, stakeholders, key)
   }
 
   val fetchNodeGen: Gen[NodeFetch.WithTxValue[ContractId]] = {
@@ -278,7 +278,6 @@ object ValueGenerators {
       maintainers <- genNonEmptyParties
     } yield
       NodeExercises(
-        None,
         targetCoid,
         templateId,
         choiceId,

@@ -55,7 +55,7 @@ class V10_1__Populate_Event_Data extends BaseJavaMigration {
     val data = txs.flatMap {
       case (txId, tx) =>
         tx.nodes.collect {
-          case (eventId, NodeCreate(nodeSeed @ _, cid, _, _, signatories, stakeholders, _)) =>
+          case (eventId, NodeCreate(cid, _, _, signatories, stakeholders, _)) =>
             (cid, eventId, signatories, stakeholders -- signatories)
         }
     }
