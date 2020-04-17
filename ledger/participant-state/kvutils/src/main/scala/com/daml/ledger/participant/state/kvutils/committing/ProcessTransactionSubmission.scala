@@ -63,8 +63,8 @@ private[kvutils] class ProcessTransactionSubmission(
         checkInformeePartiesAllocation(recordTime, transactionEntry),
       "Deduplicate" -> deduplicateCommand(recordTime, transactionEntry),
       "Validate Ledger Time" -> validateLedgerTime(recordTime, transactionEntry, inputState),
-      "Validate Contract Key Uniqueness" ->
-        validateContractKeyUniqueness(recordTime, transactionEntry),
+      "Validate Contract Keys" ->
+        validateContractKeys(recordTime, transactionEntry),
       "Validate Model Conformance" -> timed(
         Metrics.interpretTimer,
         validateModelConformance(engine, recordTime, participantId, transactionEntry, inputState),
@@ -238,7 +238,7 @@ private[kvutils] class ProcessTransactionSubmission(
         pure)
   }
 
-  private def validateContractKeyUniqueness(
+  private def validateContractKeys(
       recordTime: Timestamp,
       transactionEntry: TransactionEntry,
   ): Commit[Unit] =
@@ -271,7 +271,7 @@ private[kvutils] class ProcessTransactionSubmission(
         }
         ._1
 
-      r <- if (allUnique)
+      _ <- if (allUnique)
         pass
       else
         reject(
@@ -279,7 +279,21 @@ private[kvutils] class ProcessTransactionSubmission(
           buildRejectionLogEntry(
             transactionEntry,
             RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
-    } yield r
+
+      // LookupByKey nodes themselves don't actually fetch the contract.
+      // Therefore we need to do an additional check on all contract keys
+      // that the referred contract satisfies the causal monotonicity invariant.
+      causalKeyMonotonicity = startingKeys.forall { key =>
+        val state = damlState(key)
+        val keyActiveAt =
+          Conversions.parseTimestamp(state.getContractKeyState.getActiveAt).toInstant
+        !keyActiveAt.isAfter(transactionEntry.ledgerEffectiveTime.toInstant)
+      }
+      _ <- if (causalKeyMonotonicity)
+        pass
+      else
+        reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent))
+    } yield ()
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
   private def checkInformeePartiesAllocation(
@@ -400,7 +414,12 @@ private[kvutils] class ProcessTransactionSubmission(
           key ->
             DamlStateValue.newBuilder
               .setContractKeyState(
-                DamlContractKeyState.newBuilder.setContractId(contractKeyState.fold("")(_.coid))
+                contractKeyState
+                  .map(coid =>
+                    DamlContractKeyState.newBuilder
+                      .setContractId(coid.coid)
+                      .setActiveAt(transactionEntry.txEntry.getLedgerEffectiveTime))
+                  .getOrElse(DamlContractKeyState.newBuilder())
               )
               .build
       }),

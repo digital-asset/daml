@@ -438,6 +438,9 @@ message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
   string contract_id = 1;
+
+  // The time from which the contract is active.
+  google.protobuf.Timestamp active_at = 2;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test

@@ -80,6 +80,7 @@ object Version {
     *      * Add DamlSubmissionBatch message.
     *   4: * Remove application_id from DamlCommandDedupKey. Only submitter and commandId are used for deduplication.
     *      * Add deduplicatedUntil field to DamlCommandDedupValue to restrict the deduplication window.
+    *   5: * Add active_at to DamlContractKeyState to be able to check causal monotonicity for positive key lookups.
     */
-  val version: Long = 4
+  val version: Long = 5
 }
