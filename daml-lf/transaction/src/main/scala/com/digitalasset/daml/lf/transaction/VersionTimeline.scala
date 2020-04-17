@@ -180,9 +180,4 @@ object VersionTimeline {
       .getOrElse(minimum)
   }
 
-  def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
-    import Implicits._
-    !(lfVers precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion)
-  }
-
 }

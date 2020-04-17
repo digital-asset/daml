@@ -8,7 +8,7 @@ import com.daml.lf.command._
 import com.daml.lf.data._
 import com.daml.lf.data.Ref.{PackageId, ParticipantId, Party}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, Command => SpeedyCommand}
+import com.daml.lf.speedy.{InitialSeeding, Pretty}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Transaction => Tx}
@@ -85,33 +85,28 @@ final class Engine {
     preprocessor
       .preprocessCommands(cmds.commands)
       .flatMap { processedCmds =>
-        ShouldCheckSubmitterInMaintainers(compiledPackages, cmds).flatMap {
-          checkSubmitterInMaintainers =>
-            interpretCommands(
-              validating = false,
-              checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-              submitters = Set(cmds.submitter),
-              commands = processedCmds,
-              ledgerTime = cmds.ledgerEffectiveTime,
-              submissionTime = submissionTime,
-              seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-            ) map {
-              case (tx, meta) =>
-                // Annotate the transaction with the package dependencies. Since
-                // all commands are actions on a contract template, with a fully typed
-                // argument, we only need to consider the templates mentioned in the command
-                // to compute the full dependencies.
-                val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-                  val pkgId = cmd.templateId.packageId
-                  val transitiveDeps =
-                    compiledPackages
-                      .getPackageDependencies(pkgId)
-                      .getOrElse(
-                        sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-                  (pkgIds + pkgId) union transitiveDeps
-                }
-                tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
+        interpretCommands(
+          validating = false,
+          submitters = Set(cmds.submitter),
+          commands = processedCmds,
+          ledgerTime = cmds.ledgerEffectiveTime,
+          submissionTime = submissionTime,
+          seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+        ) map {
+          case (tx, meta) =>
+            // Annotate the transaction with the package dependencies. Since
+            // all commands are actions on a contract template, with a fully typed
+            // argument, we only need to consider the templates mentioned in the command
+            // to compute the full dependencies.
+            val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
+              val pkgId = cmd.templateId.packageId
+              val transitiveDeps =
+                compiledPackages
+                  .getPackageDependencies(pkgId)
+                  .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+              (pkgIds + pkgId) union transitiveDeps
             }
+            tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
         }
       }
   }
@@ -137,13 +132,9 @@ final class Engine {
   ): Result[(Tx.Transaction, Tx.Metadata)] =
     for {
       command <- preprocessor.translateNode(node)
-      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
-        compiledPackages,
-        ImmArray(command.templateId))
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = ImmArray(command),
         ledgerTime = ledgerEffectiveTime,
@@ -196,18 +187,14 @@ final class Engine {
 
       _ <- if (submittersOpt.exists(_.size != 1))
         ResultError(ValidationError(s"Transaction's roots do not have exactly one authorizer: $tx"))
-      else ResultDone(())
+      else ResultDone.Unit
 
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
       commands <- preprocessor.translateTransactionRoots(tx)
-      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
-        compiledPackages,
-        commands.map(_._2.templateId))
       result <- interpretCommands(
         validating = true,
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         submitters = submitters,
         commands = commands.map(_._2),
         ledgerTime = ledgerEffectiveTime,
@@ -216,7 +203,7 @@ final class Engine {
       )
       (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
-        ResultDone(())
+        ResultDone.Unit
       } else {
         ResultError(
           ValidationError(
@@ -225,34 +212,64 @@ final class Engine {
     } yield validationResult
   }
 
+  private def loadPackages(pkgIds: List[PackageId]): Result[Unit] =
+    pkgIds.dropWhile(compiledPackages.packages.isDefinedAt) match {
+      case pkgId :: rest =>
+        ResultNeedPackage(pkgId, {
+          case Some(pkg) =>
+            compiledPackages.addPackage(pkgId, pkg).flatMap(_ => loadPackages(rest))
+          case None =>
+            ResultError(Error(s"package $pkgId not found"))
+        })
+      case Nil =>
+        ResultDone.Unit
+    }
+
+  @inline
+  private[lf] def runSafely[X](handleMissingDependencies: => Result[Unit])(
+      run: => Result[X]): Result[X] = {
+    def start: Result[X] =
+      try {
+        run
+      } catch {
+        case speedy.Compiler.PackageNotFound(_) =>
+          handleMissingDependencies.flatMap(_ => start)
+        case speedy.Compiler.CompilationError(error) =>
+          ResultError(Error(s"CompilationError: $error"))
+      }
+    start
+  }
+
   /** Interprets the given commands under the authority of @submitters
     *
     * Submitters are a set, in order to support interpreting subtransactions
     * (a subtransaction can be authorized by multiple parties).
     *
     * [[seeding]] is seeding used to derive node seed and contractId discriminator.
+    *
     */
   private[engine] def interpretCommands(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
-      checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
-      commands: ImmArray[SpeedyCommand],
+      commands: ImmArray[speedy.Command],
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(Tx.Transaction, Tx.Metadata)] = {
-    val machine = Machine
-      .build(
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-        sexpr = Compiler(compiledPackages.packages).unsafeCompile(commands),
-        compiledPackages = compiledPackages,
-        submissionTime = submissionTime,
-        seeds = seeding,
-      )
-      .copy(validating = validating, committers = submitters)
-    interpretLoop(machine, ledgerTime)
-  }
+  ): Result[(Tx.Transaction, Tx.Metadata)] =
+    runSafely(
+      loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
+    ) {
+      val machine = Machine
+        .build(
+          sexpr = speedy.Compiler(compiledPackages.packages).unsafeCompile(commands),
+          compiledPackages = compiledPackages,
+          submissionTime = submissionTime,
+          seeds = seeding,
+        )
+        .copy(validating = validating, committers = submitters)
+      interpretLoop(machine, ledgerTime)
+    }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.Return"))

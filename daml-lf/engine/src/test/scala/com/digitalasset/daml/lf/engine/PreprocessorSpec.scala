@@ -77,7 +77,7 @@ class PreprocessorSpec extends WordSpec with Matchers with TableDrivenPropertyCh
     )
 
     val compiledPackage = ConcurrentCompiledPackages()
-    assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone(()))
+    assert(compiledPackage.addPackage(pkgId, pkg) == ResultDone.Unit)
     val preprocessor = new Preprocessor(compiledPackage)
     import preprocessor.translateValue
 

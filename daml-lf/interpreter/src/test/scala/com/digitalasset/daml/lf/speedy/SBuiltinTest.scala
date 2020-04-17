@@ -1452,7 +1452,6 @@ object SBuiltinTest {
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
-      checkSubmitterInMaintainers = true,
       compiledPackages = compiledPackages,
       scenario = false,
       Time.Timestamp.now(),

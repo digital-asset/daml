@@ -40,17 +40,6 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
-      /* Whether we check if the submitter is in contract key maintainers
-       * when looking up / fetching keys. This was introduced in #1866.
-       * We derive this from the "submission version", which is the scenario
-       * definition DAML-LF version for scenarios, and the command version for
-       * a Ledger API submission.
-       *
-       * We store a specific flag rather than the DAML-LF version mostly here because
-       * we want to avoid the risk of future implementors misusing the DAML-LF
-       * version to influence the operational semantics of DAML-LF.
-       */
-      var checkSubmitterInMaintainers: Boolean,
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -254,7 +243,6 @@ object Speedy {
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
     private def initial(
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
@@ -269,7 +257,6 @@ object Speedy {
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
         dependsOnTime = false,
       )
@@ -278,21 +265,19 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         transactionSeed: Option[crypto.Hash],
-    ): Either[SError, (Boolean, Expr) => Machine] = {
+    ): Either[SError, Expr => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        fromSExpr(
-          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
-          checkSubmitterInMaintainers,
-          compiledPackages,
-          submissionTime,
-          InitialSeeding(transactionSeed)
-        )
-      })
+      Right(
+        (expr: Expr) =>
+          fromSExpr(
+            SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
+            compiledPackages,
+            submissionTime,
+            InitialSeeding(transactionSeed)
+        ))
     }
 
     def build(
-        checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
@@ -300,7 +285,6 @@ object Speedy {
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
-        checkSubmitterInMaintainers,
         compiledPackages,
         submissionTime,
         seeds,
@@ -309,7 +293,6 @@ object Speedy {
     // Used from repl.
     def fromExpr(
         expr: Expr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
         submissionTime: Time.Timestamp,
@@ -324,7 +307,6 @@ object Speedy {
 
       fromSExpr(
         sexpr,
-        checkSubmitterInMaintainers,
         compiledPackages,
         submissionTime,
         InitialSeeding(transactionSeed),
@@ -336,13 +318,11 @@ object Speedy {
     // a token is not appropriate.
     def fromSExpr(
         sexpr: SExpr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
-        seeds: InitialSeeding,
+        seeding: InitialSeeding,
     ): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages, submissionTime, seeds).copy(
-        ctrl = CtrlExpr(sexpr))
+      initial(compiledPackages, submissionTime, seeding).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.

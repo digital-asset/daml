@@ -63,15 +63,6 @@ object SError {
       reason: String,
   ) extends SErrorDamlException
 
-  /** The submitter was not in the key maintainers on lookup.
-    * See <https://github.com/digital-asset/daml/issues/1866>.
-    */
-  final case class DamlESubmitterNotInMaintainers(
-      templateId: TypeConName,
-      submitter: Party,
-      maintainers: Set[Party],
-  ) extends SErrorDamlException
-
   /** Errors from scenario interpretation. */
   sealed trait SErrorScenario extends SError
 

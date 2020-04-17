@@ -98,7 +98,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
         }
       }
 
-      ResultDone(())
+      ResultDone.Unit
     }
 
   def clear(): Unit = this.synchronized[Unit] {
