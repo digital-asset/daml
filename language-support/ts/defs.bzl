@@ -1,24 +1,21 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@build_bazel_rules_nodejs//:providers.bzl", "DeclarationInfo", "LinkablePackageInfo")
-load("@npm_bazel_typescript//:index.bzl", "ts_project")
+load("@language_support_ts_deps//typescript:index.bzl", "tsc")
 
 def _da_ts_library_impl(ctx):
-    path = "/".join([p for p in [ctx.bin_dir.path, ctx.label.workspace_root, ctx.label.package] if p])
-    print(path)
-    print(ctx.attr.module_name)
     return [
-        ctx.attr.dep[DefaultInfo],
-        ctx.attr.dep[DeclarationInfo],
-        LinkablePackageInfo(package_name = ctx.attr.module_name, path = path)]
+        DefaultInfo(
+            files = depset(ctx.files.srcs),
+            runfiles = ctx.runfiles(files = ctx.files.srcs),
+        ),
+    ]
 
-# TODO This doesn’t quite work, we need a DeclarationInfo provider.
-# ts_project has this but it doesn’t have module_name and module_root.
 _da_ts_library_rule = rule(
     _da_ts_library_impl,
     attrs = {
-        "dep": attr.label(),
+        "srcs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(allow_files = True),
         "module_name": attr.string(),
         "module_root": attr.string(),
     },
@@ -51,19 +48,31 @@ def da_ts_library(
         for ext in [".js", ".d.ts"]
         for s in srcs
     ]
-    ts_project(
-        name = name + "_tsc",
-        srcs = srcs,
-        tsconfig = tsconfig,
-        deps = deps,
-        tsc = "@language_support_ts_deps//typescript/bin:tsc",
-        validate = False,
-        **kwargs,
+    tsc(
+        name = "_%s_tsc" % name,
+        data = [tsconfig] + srcs + deps,
+        outs = outs,
+        args = [
+            "--outDir",
+            "$(RULEDIR)",
+            "--project",
+            "$(location %s)" % tsconfig,
+            "--declaration",
+        ],
+        **kwargs
     )
+
+    # rules_nodejs does import remapping based on the module_name attribute.
+    # The tsc macro is an instance of npm_package_bin under the covers which
+    # doesn't take a module_name attribute. So, we use this wrapper rule to be
+    # able to set the module_name attribute.
     _da_ts_library_rule(
         name = name,
-        dep = name + "_tsc",
+        srcs = outs,
+        # We don't do anything with the deps, but they are needed for
+        # rules_nodejs's tracking of transitive dependencies.
+        deps = deps,
         module_name = module_name,
         module_root = module_root,
-        **kwargs,
+        **kwargs
     )
