@@ -135,15 +135,16 @@ normExpr = reflect >=> reify
 
 -- TODO: The LF.Type contained `Macro` must e normalized. Use a newtype to capture this.
 
-optimize :: [LF.ExternalPackage] -> LF.Module -> IO LF.Module
-optimize pkgs mod = do
-  run pkgs mod $ normModule mod
 
-normModule :: LF.Module -> Effect LF.Module
-normModule mod = do
-  let LF.Module{moduleName,moduleValues} = mod -- TODO: traverse over templates
-  moduleValues <- NM.traverse (normDef moduleName) moduleValues
+optimize :: [LF.ExternalPackage] -> LF.Module -> IO LF.Module
+optimize pkgs mod@LF.Module{moduleName,moduleValues} = do
+  moduleValues <- NM.traverse optimizeDef moduleValues
   return mod {LF.moduleValues}
+    where
+      optimizeDef :: LF.DefValue -> IO LF.DefValue
+      optimizeDef dval = do
+        runEffect pkgs mod $ normDef moduleName dval
+
 
 -- TODO: not great as set items because the qualPackage can be implicit(Self) or explicit
 type QVal = LF.Qualified LF.ExprValName
@@ -497,8 +498,8 @@ instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
-run :: [LF.ExternalPackage] -> LF.Module -> Effect a -> IO a -- Only in IO for debug
-run pkgs theModule eff = do
+runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect a -> IO a -- Only in IO for debug
+runEffect pkgs theModule eff = do
   (v,_state) <- loop context0 state0 eff
   return v
 
