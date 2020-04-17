@@ -82,7 +82,7 @@ eval = \case
     env <- GetEnv
     run <- RunContext
     return $ Value.TFunction $ Value.TFunc $
-      run $ ModEnv (\_ -> env) $ eval body
+      run $ ModEnv (const env) $ eval body
 
   Exp.TypeApp exp _ -> do
     v <- eval exp
