@@ -426,11 +426,17 @@ private[kvutils] class ProcessTransactionSubmission(
     val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
-      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
-        logger.warn(
-          s"Lookup contract failed, contractId=$coid correlationId=${transactionEntry.commandId}")
-        throw Err.MissingInputState(stateKey)
-      }
+      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
+      // PREVIOUSLY: we aborted the validation if the input state for the contract id wasn't loaded,
+      // because it hinted at a missing input declaration. however, this only worked due to a bug
+      // in lookupKey.
+      //
+      // NOW: There is the possibility that the reinterpretation of the transaction yields a different
+      // result in a LookupByKey than the original transaction. This means that we might not have loaded
+      // the contract state data for the contractId pointed to by that contractKey.
+      // This is not a problem because after the transaction reinterpretation, we compare the original
+      // transaction with the reintrepreted one, and the LookupByKey node will not match.
+      // Additionally, all contract keys are checked to uphold causal monotonicity.
       if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
@@ -486,14 +492,20 @@ private[kvutils] class ProcessTransactionSubmission(
       .get(stateKey)
       .flatMap {
         _.flatMap { value =>
-          for {
-            contractId <- Some(value.getContractKeyState.getContractId)
-              .filter(_.nonEmpty)
-              .map(decodeContractId)
-            contractStateKey = contractIdToStateKey(contractId)
-            contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
-            if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
-          } yield contractId
+          // we cannot check whether the contract is active or not, because we might not have loaded it earlier.
+          // this is not a problem, because:
+          // a) if the lookup was negative and we actually found a contract,
+          //    the transaction validation will fail.
+          // b) if the lookup was positive and its result is a different contract,
+          //    the transaction validation will fail.
+          // c) if the lookup was positive and its result is the same contract,
+          //    - the authorization check ensures that the submitter is in fact allowed
+          //      to lookup the contract
+          //    - the separate contract keys check ensures that all contracts pointed to by
+          //    contract keys respect causal monotonicity.
+          Some(value.getContractKeyState.getContractId)
+            .filter(_.nonEmpty)
+            .map(decodeContractId)
         }
       }
       // If the key was not in state inputs, then we look whether any of the accessed contracts has
