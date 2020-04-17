@@ -18,8 +18,6 @@ import DA.Bazel.Runfiles
 import DA.Test.Process (callCommandSilent,callProcessSilent)
 import DA.Test.Util
 
-
-
 -- | Install the SDK in a temporary directory and provide the path to the SDK directory.
 -- This also adds the bin directory to PATH so calling assistant commands works without
 -- special hacks.
