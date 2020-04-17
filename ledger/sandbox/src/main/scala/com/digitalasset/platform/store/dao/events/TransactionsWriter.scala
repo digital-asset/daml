@@ -85,7 +85,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     )
     val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
     if (localDivulgence.nonEmpty) {
-      require(insertWitnessesBatch.nonEmpty, "Illegal: inserting a contract without witnesses")
+      assert(insertWitnessesBatch.nonEmpty, "No witness found for contracts marked for insertion")
     }
     insertWitnessesBatch
   }
@@ -165,7 +165,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
 
       for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
         val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
-        require(deleteWitnessesBatch.nonEmpty, "Illegal: deleting witnesses without a contract")
+        assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
         // Delete the witnesses first to respect the foreign key constraint of the underlying storage
         deleteWitnessesBatch.get.execute()
         deleteContractsBatch.execute()
