@@ -65,11 +65,14 @@ tests =
   , mkTest 1 "if2" 0 9
   , mkTest 2 "if3" 0 9 -- TODO: have apps=1, same as if2
   , mkTest 1 "if4" 0 9
-  , mkTest 5 "if5" 0 9 -- TODO: have apps=1, same as if4
+  , mkTest 2 "if5" 0 9 -- TODO: have apps=1, same as if4
   , mkTest 2 "if6" 0 10 -- TODO: have apps=1
 
   , Test 1 "err1" 0 (Left (Throw "foobar"))
-  , Test 1 "err2" 0 (Left (Throw "foobar"))
+  , Test 1 "err2" 0 (Right 0)
+
+  , mkTest 1 "example1" 0 0
+  , mkTest 1 "example2" 0 0
 
   ]
 

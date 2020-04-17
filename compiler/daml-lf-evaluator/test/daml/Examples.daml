@@ -176,10 +176,25 @@ if6 a =
 
 -- error is an effect, and so mustn't be re-ordered or dropped
 
+err1 : Int -> Int
 err1 x =
   let x' : Int = error "foobar" -- type specialized
   in x
 
+err2 : Int -> Int
 err2 x =
-  let x' = error "foobar" -- not type specialized; is an Error thrown?
+  let x' = error "foobar" -- not type specialized; semantics says no Error is thrown
   in x
+
+
+-- top level vs let-bound thrice_identity example (planned for dive) must be the same
+
+example1 : Int -> Int
+example1 = \arg ->
+  let identity = \y -> y in
+  let thrice = \f x -> f (f (f x)) in
+  thrice identity arg
+
+example2 : Int -> Int
+example2 = \arg ->
+  thrice identity arg

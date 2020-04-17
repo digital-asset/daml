@@ -8,6 +8,7 @@ module DA.Daml.LF.Evaluator.Value
     trueTag,falseTag,consTag,nilTag,mkTag,noneTag,someTag,
     bool, num, deNum,
     apply,
+    TFunc(..), tapply, -- allows types not to be erased at runtime
     projectRec,
     Effect, run, Counts(..),
   ) where
@@ -22,6 +23,7 @@ newtype Throw = Throw String deriving (Eq,Show)
 
 data Value
   = Function Func
+  | TFunction TFunc
   | Record [(FieldName, Value)]
   | Constructed Tag [Value]
   | B0 B0
@@ -36,6 +38,10 @@ data Value
 newtype Func = Func (Value -> Effect Value)
 
 instance Show Func where show _ = "<func>"
+
+newtype TFunc = TFunc (Effect Value)
+
+instance Show TFunc where show _ = "<tfunc>"
 
 type FieldName = LF.FieldName
 
@@ -68,9 +74,19 @@ bool = \case
   False -> Constructed falseTag []
 
 
+tapply :: Value -> Effect Value
+tapply = \case
+  x@(B1 _) -> return x
+  x@(B2 _) -> return x
+  x@(B3 _) -> return x
+  TFunction (TFunc f) -> do f
+  v -> error $ "Value.tapply, " <> show v
+
+
 apply :: (Value, Value) -> Effect Value
 apply = \case
   (Function (Func f), v) -> do CountApp; f v
+  (TFunction _,_) -> error "Value.apply, Type-Function"
   (Record _,_) -> error "Value.apply, Record"
   (Constructed _ _,_) -> error "Value.apply, Constructed"
   (B0 _,_) -> error "Value.apply, B0"

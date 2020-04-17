@@ -412,7 +412,11 @@ typeApply expr ty = case expr of -- This ty is already normalized
 
 duplicatable :: SemValue -> Maybe String
 duplicatable = \case
-  TyMacro{} -> Just "_TyM" -- see "err2" in Examples.daml
+
+  -- We always regard a TyMacro as having no computational effect (as the spec says) and thus able
+  -- to be freely duplicated/dropped.
+  TyMacro{} -> Nothing
+
   -- TODO: we should only consider a Struct duplicatable when all its fields are.
   Struct{} -> Nothing
   Macro{} -> Nothing

@@ -71,8 +71,22 @@ eval = \case
     exp <- GetDef i
     eval exp
 
-  Exp.TypeLam _ exp -> eval exp
-  Exp.TypeApp exp _ -> eval exp
+  -- This has behaviour of all types being erased at runtime:
+  --   Exp.TypeLam _ exp -> eval exp
+  --   Exp.TypeApp exp _ -> eval exp
+
+  -- In this version we don't erase types at runtime, and so an unapplied type-abstraction is
+  -- treated as a value, and wont have an effect (i.e. error) until and unless it is applied.
+
+  Exp.TypeLam _ body -> do
+    env <- GetEnv
+    run <- RunContext
+    return $ Value.TFunction $ Value.TFunc $
+      run $ ModEnv (\_ -> env) $ eval body
+
+  Exp.TypeApp exp _ -> do
+    v <- eval exp
+    ValueEffect $ Value.tapply v
 
 
 evalAlts :: Value -> [Alt] -> Effect Value

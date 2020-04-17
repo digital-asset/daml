@@ -16,6 +16,7 @@ import DA.Pretty (renderPretty)
 ppValue :: Value -> String
 ppValue = \case
   Function _ -> "<func>"
+  TFunction _ -> "<tfunc>"
   Record elems -> "{"<> intercalate ","
     (map (\(name,v) -> ppFieldName name <> " = " <> ppValue v) elems) <> "}"
   Constructed tag args -> unTag tag <> ppArgs (map ppValue args)
