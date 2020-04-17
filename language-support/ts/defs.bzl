@@ -1,6 +1,11 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load(
+    "@build_bazel_rules_nodejs//:providers.bzl",
+    "LinkablePackageInfo",
+)
 load("@language_support_ts_deps//typescript:index.bzl", "tsc")
 
 def _da_ts_library_impl(ctx):
@@ -8,6 +13,14 @@ def _da_ts_library_impl(ctx):
         DefaultInfo(
             files = depset(ctx.files.srcs),
             runfiles = ctx.runfiles(files = ctx.files.srcs),
+        ),
+        LinkablePackageInfo(
+            package_name = ctx.attr.module_name,
+            path = paths.join(
+                ctx.bin_dir.path,
+                ctx.label.workspace_root,
+                ctx.label.package,
+            ),
         ),
     ]
 
