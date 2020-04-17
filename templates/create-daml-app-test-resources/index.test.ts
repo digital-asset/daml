@@ -268,7 +268,7 @@ test('log in as three different users and start following each other', async () 
   await page1.close();
   await page2.close();
   await page3.close();
-}, 40_000);
+}, 60_000);
 
 test('error when following self', async () => {
   const party = getParty();
