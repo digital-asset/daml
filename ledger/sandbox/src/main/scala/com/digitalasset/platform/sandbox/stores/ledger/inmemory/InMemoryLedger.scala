@@ -260,15 +260,26 @@ class InMemoryLedger(
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
-  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
-    Future.fromTry(Try(this.synchronized {
-      contractIds.foldLeft[Instant](Instant.EPOCH)((acc, id) => {
-        val let = acs.activeContracts
-          .getOrElse(id, sys.error(s"Contract $id not found while looking for maximum ledger time"))
-          .let
-        if (let.isAfter(acc)) let else acc
-      })
-    }))
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId]): Future[Option[Instant]] =
+    if (contractIds.isEmpty) {
+      Future.failed(
+        new IllegalArgumentException(
+          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
+        )
+      )
+    } else {
+      Future.fromTry(Try(this.synchronized {
+        contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+          val let = acs.activeContracts
+            .getOrElse(
+              id,
+              sys.error(s"Contract $id not found while looking for maximum ledger time"))
+            .let
+          acc.map(acc => if (let.isAfter(acc)) let else acc)
+        })
+      }))
+    }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,

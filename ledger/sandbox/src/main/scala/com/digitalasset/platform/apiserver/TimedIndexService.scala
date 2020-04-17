@@ -108,7 +108,9 @@ final class TimedIndexService(delegate: IndexService, metrics: MetricRegistry, p
   ): Future[Option[Value.AbsoluteContractId]] =
     time("lookup_contract_key", delegate.lookupContractKey(submitter, key))
 
-  override def lookupMaximumLedgerTime(ids: Set[Value.AbsoluteContractId]): Future[Instant] =
+  override def lookupMaximumLedgerTime(
+      ids: Set[Value.AbsoluteContractId],
+  ): Future[Option[Instant]] =
     time("lookup_maximum_ledger_time", delegate.lookupMaximumLedgerTime(ids))
 
   override def getLedgerId(): Future[LedgerId] =

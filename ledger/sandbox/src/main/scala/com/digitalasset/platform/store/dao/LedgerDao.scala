@@ -52,7 +52,7 @@ trait LedgerReadDao extends ReportsHealth {
   /** Returns the largest ledger time of any of the given contracts */
   def lookupMaximumLedgerTime(
       contractIds: Set[AbsoluteContractId],
-  ): Future[Instant]
+  ): Future[Option[Instant]]
 
   /** Looks up the current ledger configuration, if it has been set. */
   def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]]

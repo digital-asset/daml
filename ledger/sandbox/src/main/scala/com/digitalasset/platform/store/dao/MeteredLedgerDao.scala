@@ -79,7 +79,7 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
 
   override def lookupMaximumLedgerTime(
       contractIds: Set[AbsoluteContractId],
-  ): Future[Instant] =
+  ): Future[Option[Instant]] =
     Timed.future(Metrics.lookupMaximumLedgerTime, ledgerDao.lookupMaximumLedgerTime(contractIds))
 
   override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] =
