@@ -270,13 +270,6 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
-    ScenarioErrorErrorSubmitterNotInMaintainers (ScenarioError_SubmitterNotInMaintainers templateId submitter maintainers) ->
-      pure $ vcat
-        [ "When looking up or fetching a contract of type" <->
-            prettyMay "<missing template id>" (prettyDefName world) templateId <-> "by key, submitter:" <->
-            prettyMay "<missing submitter>" prettyParty submitter
-        , "is not in maintainers:" <-> prettyParties maintainers
-        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =

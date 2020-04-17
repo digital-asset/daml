@@ -151,14 +151,8 @@ final class Conversions(
           s"Got unexpected DamlEWronglyTypedContract error in scenario service: $wtc. Note that in the scenario service this error should never surface since contract fetches are all type checked.",
         )
 
-      case SError.DamlESubmitterNotInMaintainers(templateId, submitter, maintainers) =>
-        builder.setSubmitterNotInMaintainers(
-          ScenarioError.SubmitterNotInMaintainers.newBuilder
-            .setTemplateId(convertIdentifier(templateId))
-            .setSubmitter(convertParty(submitter))
-            .addAllMaintainers(maintainers.map(convertParty).asJava)
-            .build,
-        )
+      case e @ SError.DamlESubmitterNotInMaintainers(_, _, _) =>
+        sys.error(s"Unexpected error $e")
     }
     builder.build
   }
