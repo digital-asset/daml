@@ -35,6 +35,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
@@ -530,7 +531,13 @@ damlGhcSessionRule opts@Options{..} = do
         let base = mkBaseUnits (optUnitId opts)
         inferredPackages <- liftIO $ case mbProjectRoot of
             Just projectRoot | getInferDependantPackages optInferDependantPackages ->
-                dependantUnitsFromDamlYaml optDamlLfVersion projectRoot
+                -- We catch doesNotExistError which could happen if the
+                -- package db has never been initialized. In that case, we simply
+                -- infer no extra packages.
+                catchJust
+                    (guard . isDoesNotExistError)
+                    (directDependencies <$> readMetadata projectRoot)
+                    (const $ pure [])
             _ -> pure []
         optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
         env <- liftIO $ runGhcFast $ do

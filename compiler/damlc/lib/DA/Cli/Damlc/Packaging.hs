@@ -47,6 +47,7 @@ import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import DA.Daml.Package.Config
 import qualified DA.Pretty
@@ -177,6 +178,8 @@ createProjectPackageDb projectRoot opts thisSdkVer deps dataDeps
             deps
             dependenciesInPkgDb
             exposedModules
+
+    writeMetadata projectRoot (PackageDbMetadata (mainUnitIds dependencyInfo))
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
     clearPackageDb = do
