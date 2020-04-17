@@ -433,16 +433,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "reinterpret to the same result" in {
       val Right((tx, txMeta)) = interpretResult
-      val txRoots = tx.roots.map(id => tx.nodes(id))
-      val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
-      val Right((rtx, _, _)) =
+      val Right((rtx, _)) =
         reinterpret(
           engine,
           Set(party),
-          txRoots,
-          tx.roots.map(nodeSeedMap.get),
-          txMeta.submissionTime,
+          tx.roots,
+          tx,
+          txMeta,
           let,
           lookupPackage
         )
@@ -497,7 +495,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
                 seeding = seeding,
               )
               .consume(lookupContract, lookupPackage, lookupKey))
-    val Right((tx, _, nodeSeeds)) = interpretResult
+    val Right((tx, txMeta)) = interpretResult
 
     "be translated" in {
       val Right((rtx, _)) = engine
@@ -507,17 +505,13 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "reinterpret to the same result" in {
-      val nodeSeedMap = HashMap(nodeSeeds.toSeq: _*)
-      val roots = tx.roots.map(tx.nodes)
-      val rootSeeds = tx.roots.map(nodeSeedMap.get)
-
-      val Right((rtx, _, _)) =
+      val Right((rtx, _)) =
         reinterpret(
           engine,
           Set(party),
-          roots,
-          rootSeeds,
-          let,
+          tx.roots,
+          tx,
+          txMeta,
           let,
           lookupPackage,
           defaultContracts
@@ -604,7 +598,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
                 seeding = seeding,
               )
               .consume(lookupContract, lookupPackage, lookupKey))
-    val Right((tx, _, nodeSeeds)) = result
+    val Right((tx, txMeta)) = result
 
     "be translated" in {
       val submitResult = engine
@@ -615,12 +609,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "reinterpret to the same result" in {
-      val roots = tx.roots.map(id => tx.nodes(id))
-      val nodeSeedMap = HashMap(nodeSeeds.toSeq: _*)
-      val rootSeeds = tx.roots.map(nodeSeedMap.get)
 
       val reinterpretResult =
-        reinterpret(engine, Set(alice), roots, rootSeeds, let, let, lookupPackage, defaultContracts)
+        reinterpret(engine, Set(alice), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
           .map(_._1)
       (result.map(_._1) |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
@@ -683,7 +674,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               )
               .consume(lookupContract, lookupPackage, lookupKey))
 
-    val Right((tx, _, nodeSeeds)) = interpretResult
+    val Right((tx, txMeta)) = interpretResult
 
     "be translated" in {
       tx.roots should have length 2
@@ -694,12 +685,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     }
 
     "reinterpret to the same result" in {
-      val nodeSeedMap = HashMap(nodeSeeds.toSeq: _*)
-      val roots = tx.roots.map(tx.nodes)
-      val rootSeeds = tx.roots.map(nodeSeedMap.get)
 
       val reinterpretResult =
-        reinterpret(engine, Set(party), roots, rootSeeds, let, let, lookupPackage)
+        reinterpret(engine, Set(party), tx.roots, tx, txMeta, let, lookupPackage)
           .map(_._1)
       (interpretResult.map(_._1) |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
     }
@@ -901,7 +889,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val Right(cmds) = preprocessor
       .preprocessCommands(ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    val Right((rtx, _, _)) = engine
+    val Right((rtx, _)) = engine
       .interpretCommands(
         validating = false,
         checkSubmitterInMaintainers = true,
@@ -921,20 +909,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       Blinding.checkAuthorizationAndBlind(tx, Set(bob))
 
     "reinterpret to the same result" in {
-      val roots = tx.roots.map(id => tx.nodes(id))
-      val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
-      val rootSeeds = tx.roots.map(nodeSeedMap.get)
 
-      val Right((rtx, _, _)) =
-        reinterpret(
-          engine,
-          Set(bob),
-          roots,
-          rootSeeds,
-          submissionTime,
-          let,
-          lookupPackage,
-          defaultContracts)
+      val Right((rtx, _)) =
+        reinterpret(engine, Set(bob), tx.roots, tx, txMeta, let, lookupPackage, defaultContracts)
       (rtx isReplayedBy tx) shouldBe true
     }
 
@@ -991,7 +968,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val transactionSeed =
         crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
 
-      val Right((tx, _, _)) =
+      val Right((tx, _)) =
         engine
           .interpretCommands(
             validating = false,
@@ -1145,19 +1122,18 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     "propagate the parent's signatories and actors (but not observers) when stakeholders" in {
 
-      val Right((tx, _, _)) = runExample(fetcher1Cid, clara)
+      val Right((tx, _)) = runExample(fetcher1Cid, clara)
       txFetchActors(tx) shouldBe Set(alice, clara)
     }
 
     "not propagate the parent's signatories nor actors when not stakeholders" in {
 
-      val Right((tx, _, _)) = runExample(fetcher2Cid, party)
+      val Right((tx, _)) = runExample(fetcher2Cid, party)
       txFetchActors(tx) shouldBe Set()
     }
 
     "be retained when reinterpreting single fetch nodes" in {
-      val Right((tx, _, nodeSeeds)) = runExample(fetcher1Cid, clara)
-      val nodeSeedMap = HashMap(nodeSeeds.toSeq: _*)
+      val Right((tx, txMeta)) = runExample(fetcher1Cid, clara)
       val fetchNodes =
         tx.fold(Seq[(NodeId, GenNode.WithTxValue[NodeId, ContractId])]()) {
           case (ns, (nid, n @ NodeFetch(_, _, _, _, _, _, _))) => ns :+ ((nid, n))
@@ -1167,9 +1143,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       fetchNodes.foreach {
         case (nid, n) =>
           val fetchTx = GenTx(HashMap(nid -> n), ImmArray(nid))
-          val Right((reinterpreted, _, _)) =
+          val Right((reinterpreted, _)) =
             engine
-              .reinterpret(n.requiredAuthorizers, n, nodeSeedMap.get(nid), let, let)
+              .reinterpret(n.requiredAuthorizers, n, txMeta.nodeSeeds.toSeq.collectFirst {
+                case (`nid`, seed) => seed
+              }, txMeta.submissionTime, let)
               .consume(lookupContract, lookupPackage, lookupKey)
           (fetchTx isReplayedBy reinterpreted) shouldBe true
       }
@@ -1287,7 +1265,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Some((nid, lookupNode)) = firstLookupNode(tx)
       lookupNode.result shouldBe Some(lookedUpCid)
 
-      val Right((reinterpreted, _, _)) =
+      val Right((reinterpreted, _)) =
         Engine()
           .reinterpret(
             Set.empty,
@@ -1319,7 +1297,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val Some((nid, lookupNode)) = firstLookupNode(tx)
       lookupNode.result shouldBe None
 
-      val Right((reinterpreted, _, _)) =
+      val Right((reinterpreted, _)) =
         Engine()
           .reinterpret(Set.empty, lookupNode, nodeSeedMap.get(nid), txMeta.submissionTime, now)
           .consume(lookupContract, lookupPackage, lookupKey)
@@ -1363,7 +1341,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
       val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
-      val Right((tx, _, _)) = engine
+      val Right((tx, _)) = engine
         .interpretCommands(false, false, Set(alice), ImmArray(cmd), now, now, InitialSeeding.NoSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
@@ -1417,7 +1395,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           ))
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val Right((tx, _, _)) = engine
+      val Right((tx, _)) = engine
         .interpretCommands(false, false, Set(alice), cmds, now, now, InitialSeeding.NoSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
@@ -1486,14 +1464,13 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _, _) =
         tx.nodes(exeNode1)
       val nids = children.toSeq.take(2).toImmArray
-      val nodeSeedMap = HashMap(txMeta.nodeSeeds.toSeq: _*)
 
       reinterpret(
         engine,
         Set(party),
-        nids.map(tx.nodes),
-        nids.map(nodeSeedMap.get),
-        txMeta.submissionTime,
+        nids,
+        tx,
+        txMeta,
         let,
         lookupPackage,
       ) shouldBe 'right
@@ -1533,13 +1510,13 @@ object EngineTest {
   private def reinterpret(
       engine: Engine,
       submitters: Set[Party],
-      nodes: ImmArray[GenNode.WithTxValue[Value.NodeId, Value.ContractId]],
-      nodeSeeds: ImmArray[Option[crypto.Hash]],
-      submissionTime: Time.Timestamp,
+      nodes: ImmArray[Tx.NodeId],
+      tx: Tx.Transaction,
+      txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PackageId => Option[Package],
       contracts: Map[AbsoluteContractId, Tx.ContractInst[AbsoluteContractId]] = Map.empty,
-  ): Either[Error, (Tx.Transaction, Boolean, ImmArray[(NodeId, crypto.Hash)])] = {
+  ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
           HashMap[NodeId, Tx.Node],
@@ -1549,18 +1526,24 @@ object EngineTest {
           Map[AbsoluteContractId, Tx.ContractInst[AbsoluteContractId]],
           Map[GlobalKey, AbsoluteContractId],
       )
+    val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
 
     val iterate =
-      (nodes zip nodeSeeds).foldLeft[Either[Error, Acc]](
+      nodes.foldLeft[Either[Error, Acc]](
         Right((HashMap.empty, BackStack.empty, false, BackStack.empty, contracts, Map.empty))) {
-        case (acc, (node, nodeSeed)) =>
+        case (acc, nodeId) =>
           for {
             previousStep <- acc
-            (nodes, roots, dependOnTime, nodeSeeds, contracts0, keys0) = previousStep
+            (nodes, roots, dependsOnTime, nodeSeeds, contracts0, keys0) = previousStep
             currentStep <- engine
-              .reinterpret(submitters, node, nodeSeed, submissionTime, ledgerEffectiveTime)
+              .reinterpret(
+                submitters,
+                tx.nodes(nodeId),
+                nodeSeedMap.get(nodeId),
+                txMeta.submissionTime,
+                ledgerEffectiveTime)
               .consume(contracts0.get, lookupPackages, keys0.get)
-            (tr1, dependOnTime1, nodeSeeds1) = currentStep
+            (tr1, meta1) = currentStep
             (contracts1, keys1) = tr1.fold((contracts0, keys0)) {
               case (
                   (contracts, keys),
@@ -1605,16 +1588,24 @@ object EngineTest {
             (
               nodes ++ tr.nodes,
               roots :++ tr.roots,
-              dependOnTime || dependOnTime1,
-              nodeSeeds :++ nodeSeeds1.map { case (nid, seed) => nodeRenaming(nid) -> seed },
+              dependsOnTime || meta1.dependsOnTime,
+              nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
               contracts1,
               keys1,
             )
       }
 
     iterate.map {
-      case (nodes, roots, dependOnTime, nodeSeeds, _, _) =>
-        (GenTx(nodes, roots.toImmArray), dependOnTime, nodeSeeds.toImmArray)
+      case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
+        (
+          GenTx(nodes, roots.toImmArray),
+          Tx.Metadata(
+            submissionSeed = None,
+            submissionTime = txMeta.submissionTime,
+            usedPackages = Set.empty,
+            dependsOnTime = dependsOnTime,
+            nodeSeeds = nodeSeeds.toImmArray,
+          ))
     }
   }
 
