@@ -170,6 +170,9 @@ da_haskell_test(
         "//:yarn",
         "@patch_dev_env//:patch",
     ] + ([] if is_windows else ts_libraries + create_daml_app_resources),
+    # The Puppeteer tests can have race conditions, probably due to the way
+    # we depend on UI elements appearing.
+    flaky = True,
     hackage_deps = [
         "aeson",
         "aeson-extra",
