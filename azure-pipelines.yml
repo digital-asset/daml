@@ -44,6 +44,7 @@ jobs:
       - git_sha
     variables:
       fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
@@ -53,7 +54,7 @@ jobs:
           set -euo pipefail
 
           has_changed_infra_folder () {
-              git diff $(fork_sha) --name-only | grep -q '^infra/'
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q '^infra/'
           }
 
           fail_if_missing_std_change_label () {
