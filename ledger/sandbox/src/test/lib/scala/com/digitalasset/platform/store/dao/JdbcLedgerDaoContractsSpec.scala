@@ -24,6 +24,21 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
     }
   }
 
+  it should "allow to divulge a contract that has already been committed" in {
+    for {
+      (_, tx) <- store(singleCreate)
+      create = nonTransient(tx).loneElement
+      _ <- store(
+        divulgedContracts = Map((create, someContractInstance) -> Set(charlie)),
+        offsetAndTx = divulgeAlreadyCommittedContract(id = create, divulgees = Set(charlie)),
+      )
+      result <- ledgerDao.lookupActiveOrDivulgedContract(create, charlie)
+    } yield {
+      // The agreement text is always empty when retrieved from the contract store
+      result shouldEqual Some(someContractInstance.copy(agreementText = ""))
+    }
+  }
+
   it should "not find contracts that are not visible to the requester" in {
     for {
       (_, tx) <- store(singleCreate)

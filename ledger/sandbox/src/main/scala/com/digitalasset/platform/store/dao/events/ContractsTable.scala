@@ -7,13 +7,14 @@ import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.platform.store.Conversions._
+import com.daml.platform.store.DbType
 import com.daml.platform.store.serialization.KeyHasher.{hashKey => hash}
 import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
-private[events] object ContractsTable {
+private[events] sealed abstract class ContractsTable {
 
-  private val insertContractQuery =
-    "insert into participant_contracts(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
+  protected val insertContractQuery: String
+
   private def insertContractQuery(
       contractId: ContractId,
       templateId: Identifier,
@@ -135,6 +136,26 @@ private[events] object ContractsTable {
       .copy(insertions = locallyCreatedContracts.insertions ++ divulgedContractsInsertions)
       .prepare
 
+  }
+
+}
+
+private[events] object ContractsTable {
+
+  def apply(dbType: DbType): ContractsTable =
+    dbType match {
+      case DbType.Postgres => Postgresql
+      case DbType.H2Database => H2Database
+    }
+
+  object Postgresql extends ContractsTable {
+    override protected val insertContractQuery: String =
+      "insert into participant_contracts(contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders}) on conflict do nothing"
+  }
+
+  object H2Database extends ContractsTable {
+    override protected val insertContractQuery: String =
+      s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
   }
 
 }

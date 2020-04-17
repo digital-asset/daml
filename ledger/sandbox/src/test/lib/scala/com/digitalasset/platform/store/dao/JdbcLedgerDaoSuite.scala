@@ -200,6 +200,54 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
+  protected def divulgeAlreadyCommittedContract(
+      id: AbsoluteContractId,
+      divulgees: Set[Party],
+  ): (Offset, LedgerEntry.Transaction) = {
+    val offset = nextOffset()
+    val txId = s"trId${id.coid}"
+    val exerciseId = event(txId, 0L)
+    val fetchEventId = event(txId, 1L)
+    offset -> LedgerEntry.Transaction(
+      commandId = Some(s"just-divulged-${id.coid}"),
+      transactionId = txId,
+      Some("appID1"),
+      Some(divulgees.head),
+      workflowId = None,
+      ledgerEffectiveTime = Instant.now,
+      recordedAt = Instant.now,
+      transaction = GenTransaction(
+        HashMap(
+          exerciseId -> NodeExercises(
+            targetCoid = id,
+            templateId = someTemplateId,
+            choiceId = Ref.ChoiceName.assertFromString("someChoice"),
+            optLocation = None,
+            consuming = false,
+            actingParties = Set(alice),
+            chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
+            stakeholders = divulgees,
+            signatories = divulgees,
+            children = ImmArray(fetchEventId),
+            exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
+            key = None,
+          ),
+          fetchEventId -> NodeFetch(
+            coid = id,
+            templateId = someTemplateId,
+            optLocation = None,
+            actingParties = Some(divulgees),
+            signatories = Set(alice),
+            stakeholders = Set(alice),
+            None,
+          )
+        ),
+        ImmArray(exerciseId),
+      ),
+      explicitDisclosure = Map.empty,
+    )
+  }
+
   protected def singleExercise(
       targetCid: AbsoluteContractId,
   ): (Offset, LedgerEntry.Transaction) = {

@@ -16,6 +16,7 @@ import com.daml.platform.store.DbType
 
 private[dao] final class TransactionsWriter(dbType: DbType) {
 
+  private val contractsTable = ContractsTable(dbType)
   private val contractWitnessesTable = WitnessesTable.ForContracts(dbType)
 
   private def computeDisclosureForFlatTransaction(
@@ -157,7 +158,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       flatTransactionWitnessesBatch.foreach(_.execute())
       complementWitnessesBatch.foreach(_.execute())
 
-      val contractBatches = ContractsTable.prepareBatchInsert(
+      val contractBatches = contractsTable.prepareBatchInsert(
         ledgerEffectiveTime = ledgerEffectiveTime,
         transaction = transaction,
         divulgedContracts = divulgedContracts,
