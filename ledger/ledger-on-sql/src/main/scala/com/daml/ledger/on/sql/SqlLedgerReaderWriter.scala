@@ -92,7 +92,7 @@ final class SqlLedgerReaderWriter(
   private object SqlLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       database.inWriteTransaction("commit") { queries =>
-        body(new SqlLedgerStateOperations(queries))
+        body(new TimedLedgerStateOperations(new SqlLedgerStateOperations(queries), metricRegistry))
       }
   }
 

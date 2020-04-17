@@ -271,7 +271,7 @@ class SubmissionValidator[LogResult] private[validator] (
           if (acquisitionWasRecorded.compareAndSet(false, true)) {
             successfulAcquisitionTimer.stop()
           }
-          body(new TimedLedgerStateOperations(operations, metricRegistry))
+          body(operations)
             .transform(result => Success((result, Metrics.releaseTransactionLock.time())))
         }
         .transform {
