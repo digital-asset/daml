@@ -395,6 +395,9 @@ object Transaction {
     *        time.
     * @param nodeSeeds: An association list that maps to each ID of create and exercise
     *        nodes its seeds.
+    * @param byKeyNodes: The list of the IDs of each node that corresponds to a FetchByKey,
+    *        LookupByKey, or ExerciseByKey commands. Empty in case of validation or
+    *        reinterpretation
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -402,6 +405,7 @@ object Transaction {
       usedPackages: Set[PackageId],
       dependsOnTime: Boolean,
       nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
+      byKeyNodes: ImmArray[Value.NodeId],
   )
 
   type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]
