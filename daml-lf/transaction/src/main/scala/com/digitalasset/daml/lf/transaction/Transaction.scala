@@ -382,15 +382,20 @@ object Transaction {
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
 
-  /* Transaction meta data
-   * @param submissionTime: submission time
-   * @param usedPackages The set of packages used during command processing.
-   *        This is a hint for what packages are required to validate
-   *        the transaction using the current interpreter.
-   *        The used packages are not serialized using [[TransactionCoder]].
-   * @dependsOnTime: indicate the transaction computation depends on ledger
-   *        time.
-   */
+  /** Transaction meta data
+    * @param submissionSeed: the submission seed used to derive the contract IDs.
+    *        If undefined no seed has been used (the legacy contract ID scheme
+    *        have been used) or it is unknown (output of partial reinterpretation).
+    * @param submissionTime: the submission time
+    * @param usedPackages The set of packages used during command processing.
+    *        This is a hint for what packages are required to validate
+    *        the transaction using the current interpreter.
+    *        If set to `empty` the package dependency have not be computed.
+    * @param dependsOnTime: indicate the transaction computation depends on ledger
+    *        time.
+    * @param nodeSeeds: An association list that maps to each ID of create and exercise
+    *        nodes its seeds.
+    */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,

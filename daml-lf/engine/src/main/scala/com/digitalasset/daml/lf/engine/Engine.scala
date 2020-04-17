@@ -13,7 +13,6 @@ import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.transaction.{Transaction => Tx}
 import com.daml.lf.transaction.Node._
-import com.daml.lf.transaction.Transaction.{NodeId, Transaction}
 import com.daml.lf.value.Value
 
 /**
@@ -97,7 +96,7 @@ final class Engine {
               submissionTime = submissionTime,
               seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
             ) map {
-              case (tx, dependsOnTime, nodeSeeds) =>
+              case (tx, meta) =>
                 // Annotate the transaction with the package dependencies. Since
                 // all commands are actions on a contract template, with a fully typed
                 // argument, we only need to consider the templates mentioned in the command
@@ -111,13 +110,7 @@ final class Engine {
                         sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
                   (pkgIds + pkgId) union transitiveDeps
                 }
-                tx -> Tx.Metadata(
-                  submissionSeed,
-                  submissionTime,
-                  deps,
-                  dependsOnTime,
-                  nodeSeeds,
-                )
+                tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
             }
         }
       }
@@ -131,6 +124,9 @@ final class Engine {
     * [[nodeSeed]] is the seed of the Create and Exercise node as generated during submission.
     * If undefined the contract IDs are derive using V0 scheme.
     * The value of [[nodeSeed]] does not matter for other kind of nodes.
+    *
+    * The reinterpretation does not recompute the package dependencies, so the field `usedPackages` in the
+    * `Tx.MetaData` component of the output is always set to `empty`.
     */
   def reinterpret(
       submitters: Set[Party],
@@ -138,7 +134,7 @@ final class Engine {
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
-  ): Result[(Tx.Transaction, Boolean, ImmArray[(NodeId, crypto.Hash)])] =
+  ): Result[(Tx.Transaction, Tx.Metadata)] =
     for {
       command <- preprocessor.translateNode(node)
       checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
@@ -218,7 +214,7 @@ final class Engine {
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
       )
-      (rtx, _, _) = result
+      (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -245,7 +241,7 @@ final class Engine {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
-  ): Result[(Transaction, Boolean, ImmArray[(Tx.NodeId, crypto.Hash)])] = {
+  ): Result[(Tx.Transaction, Tx.Metadata)] = {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
@@ -263,7 +259,7 @@ final class Engine {
   private[engine] def interpretLoop(
       machine: Machine,
       time: Time.Timestamp
-  ): Result[(Tx.Transaction, Boolean, ImmArray[(Tx.NodeId, crypto.Hash)])] = {
+  ): Result[(Tx.Transaction, Tx.Metadata)] = {
     while (!machine.isFinal) {
       machine.step() match {
         case SResultContinue =>
@@ -332,7 +328,18 @@ final class Engine {
     machine.ptx.finish match {
       case Left(p) =>
         ResultError(Error(s"Interpretation error: ended with partial result: $p"))
-      case Right(t) => ResultDone((t, machine.dependsOnTime, machine.ptx.nodeSeeds.toImmArray))
+      case Right(t) =>
+        ResultDone(
+          (
+            t,
+            Tx.Metadata(
+              submissionSeed = None,
+              submissionTime = machine.ptx.submissionTime,
+              usedPackages = Set.empty,
+              dependsOnTime = machine.dependsOnTime,
+              nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
+            )))
+
     }
   }
 
