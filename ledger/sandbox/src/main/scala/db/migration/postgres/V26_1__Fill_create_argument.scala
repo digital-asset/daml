@@ -19,7 +19,7 @@ class V26_1__Fill_create_argument extends BaseJavaMigration {
       |  and contracts.archive_offset is null""".stripMargin
 
   private val UPDATE_PARTICIPANT_CONTRACTS =
-    "update participant_contracts set create_argument = ? where contract_id = ?"
+    "update participant_contracts set create_argument = ?, template_id = ? where contract_id = ?"
 
   override def migrate(context: Context): Unit = {
     val conn = context.getConnection
@@ -33,19 +33,21 @@ class V26_1__Fill_create_argument extends BaseJavaMigration {
 
       while (rows.next()) {
         val contractId = rows.getString("id")
-        val contract = rows.getBinaryStream("contract")
-        val createArgument =
+        val contractBytes = rows.getBinaryStream("contract")
+        val contract =
           ContractSerializer
-            .deserializeContractInstance(contract)
+            .deserializeContractInstance(contractBytes)
             .getOrElse(sys.error(s"failed to deserialize contract $contractId"))
-            .arg
+        val createArgument = contract.arg
+        val templateId = contract.template
         val createArgumentBytes =
           new ByteArrayInputStream(
             ValueSerializer.serializeValue(
               createArgument,
               s"failed to serialize create argument for contract $contractId"))
         updateParticipantContracts.setBinaryStream(1, createArgumentBytes)
-        updateParticipantContracts.setString(2, contractId)
+        updateParticipantContracts.setString(2, templateId.toString)
+        updateParticipantContracts.setString(3, contractId)
         updateParticipantContracts.execute()
       }
     } finally {

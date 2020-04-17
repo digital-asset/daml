@@ -11,10 +11,11 @@
 create table participant_contracts
 (
     contract_id varchar primary key not null,
-    template_id varchar not null,
-    -- create_argument needs to be nullable to leave this field empty as part of this migration
-    -- a second (java) migration will fill it up
-    -- a third (sql) migration will make this non-nullable, as it's supposed to always be populated
+
+    -- template_id and create_argument need to be nullable to leave this fields empty as part of this migration
+    -- a second (java) migration will fill them up
+    -- a third (sql) migration will make them non-nullable, as it's supposed to always be populated
+    template_id varchar,
     create_argument bytea,
 
     -- the following fields are null for divulged contracts
@@ -28,19 +29,20 @@ create unique index on participant_contracts(create_key_hash);
 
 insert into participant_contracts
 select
-    contracts.id as contract_id,
-    contracts.package_id || ':' || contracts.name as template_id,
+    contract_data.id as contract_id,
+    null as template_id, -- filled up in a subsequent migration
     null as create_argument, -- filled up in a subsequent migration
     array_agg(contract_observers.observer) filter (where contract_observers.observer is not null) || array_agg(contract_signatories.signatory) filter (where contract_signatories.signatory is not null) as create_stakeholders,
     decode(contract_keys.value_hash, 'hex') as create_key_hash,
     ledger_entries.effective_at as create_ledger_effective_time
-from contracts
-left join contract_keys on contract_keys.contract_id = contracts.id
+from contract_data
+left join contracts on contracts.id = contract_data.id
+left join contract_keys on contract_keys.contract_id = contract_data.id
 left join ledger_entries on ledger_entries.transaction_id = contracts.transaction_id
-left join contract_observers on contract_observers.contract_id = contracts.id
-left join contract_signatories on contract_signatories.contract_id = contracts.id
+left join contract_observers on contract_observers.contract_id = contract_data.id
+left join contract_signatories on contract_signatories.contract_id = contract_data.id
 group by (
-    contracts.id,
+    contract_data.id,
     template_id,
     create_key_hash,
     create_ledger_effective_time
