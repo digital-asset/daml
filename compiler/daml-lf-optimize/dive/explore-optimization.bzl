@@ -3,11 +3,10 @@
 
 load("//rules_daml:daml.bzl", "daml_compile")
 
-
 def _inspect_dar(base):
     name = base + "-inspect"
     dar = base + ".dar"
-    pp = "xx-" + base + ".pp"# prefix with xx so these list together at the end
+    pp = "xx-" + base + ".pp"  # prefix with xx so these list together at the end
     native.genrule(
         name = name,
         srcs = [
@@ -18,9 +17,7 @@ def _inspect_dar(base):
         cmd = "$(location //compiler/damlc) inspect $(location :" + dar + ") > $@",
     )
 
-
 def daml_explore_optimization(example):
-
     daml = "daml/" + example + ".daml"
     original = example + "-A"
     optimized = example + "-B"

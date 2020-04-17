@@ -4,7 +4,11 @@
 load("explore-optimization.bzl", "daml_explore_optimization")
 
 daml_explore_optimization("Example1")
+
 daml_explore_optimization("Example2")
+
 daml_explore_optimization("All")
+
 daml_explore_optimization("Template")
+
 daml_explore_optimization("Nfib")

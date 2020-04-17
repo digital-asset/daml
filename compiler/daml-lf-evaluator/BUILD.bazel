@@ -58,11 +58,11 @@ genrule(
     cmd = "$(location //compiler/damlc) inspect $(location :examples-opt.dar) > $@",
 )
 
-
 daml_compile(
     name = "question",
     srcs = glob(["test/daml/Question.daml"]),
 )
+
 genrule(
     name = "question.pp",
     srcs = [
@@ -72,11 +72,13 @@ genrule(
     outs = ["question.dar.pp"],
     cmd = "$(location //compiler/damlc) inspect $(location :question.dar) > $@",
 )
+
 daml_compile(
     name = "question-opt",
     srcs = glob(["test/daml/Question.daml"]),
     run_optimizer = True,
 )
+
 genrule(
     name = "question-opt.pp",
     srcs = [
@@ -86,7 +88,6 @@ genrule(
     outs = ["question-opt.dar.pp"],
     cmd = "$(location //compiler/damlc) inspect $(location :question-opt.dar) > $@",
 )
-
 
 da_haskell_test(
     name = "test",
