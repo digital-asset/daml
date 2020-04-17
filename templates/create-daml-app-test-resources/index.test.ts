@@ -3,7 +3,6 @@
 
 import { ChildProcess, spawn, SpawnOptions } from 'child_process';
 import { promises as fs } from 'fs';
-import { stat } from 'fs';
 import puppeteer, { Browser, Page } from 'puppeteer';
 import waitOn from 'wait-on';
 
@@ -51,6 +50,15 @@ test('Party names are unique', async () => {
   expect(parties.size).toEqual(10);
 });
 
+const removeFile = async (path: string) => {
+  try {
+    await fs.stat(path);
+    await fs.unlink(path);
+  } catch (_e) {
+    // Do nothing if the file does not exist.
+  }
+}
+
 // Start the DAML and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
@@ -60,6 +68,13 @@ test('Party names are unique', async () => {
 // This is so that we have more control of the ports used and hopefully avoid
 // hardcoding port numbers (which can cause clashes in CI runs).
 beforeAll(async () => {
+  // If the sandbox or JSON API processes were previously shut down
+  // abruptly then their port files may not have been deleted.
+  // Since we use these files to know when the servers are up, we remove them
+  // first (if they exist) to be sure.
+  await removeFile(SANDBOX_PORT_FILE_PATH);
+  await removeFile(JSON_API_PORT_FILE_PATH);
+
   // Run the `daml` commands from the project root (where the `daml.yaml` is located).
   // The path should include '.daml/bin' in the environment where this is run,
   // which contains the `daml` assistant executable.
@@ -121,10 +136,7 @@ afterAll(async () => {
 
   // The sandbox does not clean up its port file on termination so we take care
   // of that. (The JSON API server takes care of this for us.)
-  stat(SANDBOX_PORT_FILE_PATH, (err, _stats) => {
-    // In the error case, the file does not exist so do nothing.
-    if (!err) fs.unlink(SANDBOX_PORT_FILE_PATH);
-  });
+  await removeFile(SANDBOX_PORT_FILE_PATH);
 
   // Kill the `yarn start` process including all its descendents.
   // The `-` indicates to kill all processes in the process group.
