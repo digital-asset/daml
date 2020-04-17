@@ -17,8 +17,7 @@ private[events] sealed abstract class WitnessesTable[Id: ToStatement](
     protected val witnessColumn: String,
 ) {
 
-  protected val insert =
-    s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
+  protected val insert: String
 
   final def prepareBatchInsert(witnesses: WitnessRelation[Id]): Option[BatchSql] = {
     val flattenedWitnesses = Relation.flatten(witnesses)
@@ -52,7 +51,10 @@ private[events] object WitnessesTable {
         tableName = tableName,
         idColumn = "event_id",
         witnessColumn = "event_witness",
-      )
+      ) {
+    protected val insert =
+      s"insert into $tableName($idColumn, $witnessColumn) values ({$idColumn}, {$witnessColumn})"
+  }
 
   /**
     * Concrete [[WitnessesTable]] to store which party can see which
