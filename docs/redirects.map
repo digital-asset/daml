@@ -808,4 +808,5 @@ tools.html -> /tools/assistant.html
 examples.html -> /examples/bond-trading/index.html
 search.html
 getting-started/installation.htm -> /getting-started/installation.html
-gsg -> /getting-started/installation.html
+gsg.html -> /getting-started/installation.html
+getting-started/quickstart.html -> /getting-started/index.html
