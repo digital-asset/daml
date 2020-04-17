@@ -30,7 +30,6 @@ _da_ts_library_rule = rule(
         "srcs": attr.label_list(allow_files = True),
         "deps": attr.label_list(allow_files = True),
         "module_name": attr.string(),
-        "module_root": attr.string(),
     },
 )
 
@@ -40,7 +39,6 @@ def da_ts_library(
         srcs = [],
         deps = [],
         module_name = "",
-        module_root = "",
         **kwargs):
     """Build a typescript library.
 
@@ -54,7 +52,6 @@ def da_ts_library(
         Defines which files are visible to the typescript compiler.
       deps: Typescript library dependencies.
       module_name: The import name of this library. E.g. @daml/types.
-      module_root: Treat sources as rooted under module_name.
     """
     outs = [
         s.replace(".ts", ext)
@@ -86,6 +83,5 @@ def da_ts_library(
         # rules_nodejs's tracking of transitive dependencies.
         deps = deps,
         module_name = module_name,
-        module_root = module_root,
         **kwargs
     )
