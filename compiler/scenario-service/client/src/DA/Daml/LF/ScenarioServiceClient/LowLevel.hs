@@ -27,6 +27,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ) where
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Either
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -37,6 +38,7 @@ import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -329,10 +331,16 @@ runScenario Handle{..} (ContextId ctxId) name = do
       let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
             LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
             LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+          mangledDefn =
+              fromRight (error "Failed to mangle scenario name") $
+              mangleIdentifier (LF.unExprValName defn)
+          mangledModName = T.intercalate "." $
+              map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) (LF.unModuleName modName)
+
       in
         SS.Identifier
           (Just ssPkgId)
-          (TL.fromStrict $ T.intercalate "." (LF.unModuleName modName) <> ":" <> LF.unExprValName defn)
+          (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))
