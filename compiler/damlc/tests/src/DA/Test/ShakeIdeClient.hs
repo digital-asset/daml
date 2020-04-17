@@ -247,6 +247,25 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
 
+    , testCase' "Scenario with mangled names" $ do
+            a <- makeFile "foo/MangledScenario'.daml" $ T.unlines
+                [ "module MangledScenario' where"
+                , "template T' with"
+                , "    p : Party"
+                , "  where"
+                , "    signatory p"
+                , "mangled' = scenario do"
+                , "  alice <- getParty \"Alice\""
+                , "  t' <- submit alice (create (T' alice))"
+                , "  submit alice (exercise t' Archive)"
+                ]
+            setFilesOfInterest [a]
+            expectNoErrors
+            let va = VRScenario a "mangled'"
+            setOpenVirtualResources [va]
+            expectVirtualResource va "title=\"MangledScenario':T'\""
+
+
     ,   testCaseFails' "Modules must match their filename DEL-7175" $ do
             a <- makeFile "Foo/Test.daml" "daml 1.2 module Test where"
             setFilesOfInterest [a]
