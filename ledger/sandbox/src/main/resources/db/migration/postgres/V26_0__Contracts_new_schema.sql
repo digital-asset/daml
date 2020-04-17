@@ -58,12 +58,6 @@ create table participant_contract_witnesses
     foreign key (contract_id) references participant_contracts(contract_id)
 );
 
-select contract_data.id, contract_data.contract
-from contract_data
-left join contracts
-  on contracts.id = contract_data.id
-  and contracts.archive_offset is null;
-
 insert into participant_contract_witnesses
 (
 select contract_id, witness as contract_witness
