@@ -223,7 +223,7 @@ test('log in as a new user, log out and log back in', async () => {
   expect(usersFinal[0].payload.username).toEqual(partyName);
 
   await page.close();
-}, 10_000);
+}, 20_000);
 // LOGIN_TEST_END
 
 // This tests following users in a few different ways:
