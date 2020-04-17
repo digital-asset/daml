@@ -31,7 +31,7 @@ select
     contracts.id as contract_id,
     contracts.package_id || ':' || contracts.name as template_id,
     null as create_argument, -- filled up in a subsequent migration
-    array_agg(contract_observers.observer) || array_agg(contract_signatories.signatory) as create_stakeholders,
+    array_agg(contract_observers.observer) filter (where contract_observers.observer is not null) || array_agg(contract_signatories.signatory) filter (where contract_signatories.signatory is not null) as create_stakeholders,
     decode(contract_keys.value_hash, 'hex') as create_key_hash,
     ledger_entries.effective_at as create_ledger_effective_time
 from contracts
