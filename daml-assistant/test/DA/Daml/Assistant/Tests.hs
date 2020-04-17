@@ -363,7 +363,7 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
             createDirectoryIfMissing True "source"
             createDirectoryIfMissing True ("source" </> "daml")
             writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
-            -- daml / daml.exe "binary" for --install-assistan=yes
+            -- daml / daml.exe "binary" for --install-assistant=yes
             writeFileUTF8 ("source" </> "daml" </> if isWindows then "daml.exe" else "daml") ""
 
             runConduitRes $
