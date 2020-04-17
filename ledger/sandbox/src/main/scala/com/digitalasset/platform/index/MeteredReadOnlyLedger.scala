@@ -131,7 +131,9 @@ class MeteredReadOnlyLedger(ledger: ReadOnlyLedger, metrics: MetricRegistry)
       ledger.lookupTransactionTreeById(transactionId, requestingParties),
     )
 
-  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Option[Instant]] =
     Timed.future(Metrics.lookupMaximumLedgerTime, ledger.lookupMaximumLedgerTime(contractIds))
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =

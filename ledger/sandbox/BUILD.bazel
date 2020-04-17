@@ -357,7 +357,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -372,7 +371,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -387,7 +385,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
     ],
@@ -400,7 +397,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=CommandDeduplicationIT",
     ],
@@ -414,7 +410,6 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
@@ -448,7 +443,6 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
@@ -463,7 +457,6 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
@@ -478,7 +471,6 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
     ],

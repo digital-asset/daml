@@ -136,7 +136,9 @@ abstract class BaseLedger(
   ): Future[Option[GetTransactionResponse]] =
     ledgerDao.transactionsReader.lookupTransactionTreeById(transactionId, requestingParties)
 
-  override def lookupMaximumLedgerTime(contractIds: Set[AbsoluteContractId]): Future[Instant] =
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Option[Instant]] =
     ledgerDao.lookupMaximumLedgerTime(contractIds)
 
   override def getParties(parties: Seq[Party]): Future[List[domain.PartyDetails]] =

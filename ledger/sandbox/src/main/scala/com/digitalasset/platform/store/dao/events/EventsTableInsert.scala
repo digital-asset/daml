@@ -3,7 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
-import java.util.Date
+import java.time.Instant
 
 import anorm.{BatchSql, NamedParameter}
 import com.daml.ledger.participant.state.v1.Offset
@@ -80,7 +80,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       nodeId: NodeId,
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       create: Create,
   ): Vector[NamedParameter] =
@@ -136,7 +136,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       nodeId: NodeId,
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       exercise: Exercise,
   ): Vector[NamedParameter] =
@@ -238,7 +238,7 @@ private[events] trait EventsTableInsert { this: EventsTable =>
       commandId: Option[CommandId],
       submitter: Option[Party],
       roots: Set[NodeId],
-      ledgerEffectiveTime: Date,
+      ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
   ): PreparedBatches =
