@@ -147,22 +147,20 @@ da_haskell_test(
     main_function = "DA.Daml.Assistant.IntegrationTests.main",
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-test-utils",
         "//:sdk-version-hs-lib",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        ":integration-test-utils",
     ],
 )
 
 da_haskell_test(
     name = "create-daml-app-tests",
     timeout = "long",
-    srcs = [
-        "src/DA/Daml/Assistant/CreateDamlAppTests.hs",
-    ],
+    srcs = ["src/DA/Daml/Assistant/CreateDamlAppTests.hs"],
     args = [
         "$(location //:yarn)",
     ],
@@ -188,10 +186,10 @@ da_haskell_test(
     tags = ["exclusive"],
     visibility = ["//visibility:public"],
     deps = [
+        ":integration-test-utils",
         "//language-support/ts/codegen/tests:daml2js-test-helpers",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
-        ":integration-test-utils",
     ],
 )
