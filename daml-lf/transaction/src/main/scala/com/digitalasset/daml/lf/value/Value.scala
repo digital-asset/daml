@@ -6,6 +6,7 @@ package value
 
 import com.daml.lf.data.Ref.{Identifier, Name}
 import com.daml.lf.data._
+import data.ScalazEqual._
 import com.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
@@ -373,6 +374,14 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
 
     def assertFromString(s: String): AbsoluteContractId =
       assertRight(fromString(s))
+
+    implicit val `AbsCid Equal`: Equal[AbsoluteContractId] = (a, b) =>
+      (a, b).match2 {
+        case a: V0 => { case b: V0 => Equal[V0].equal(a, b) }
+        case V1(discA, suffA) => {
+          case V1(discB, suffB) => discA == discB && suffA.toByteString == suffB.toByteString
+        }
+      }(fallback = false)
   }
 
   final case class RelativeContractId(txnid: NodeId) extends ContractId
