@@ -15,13 +15,15 @@ module DA.Daml.LF.Verify.Context
   , UpdChoice(..)
   , runEnv
   , emptyEnv
-  , introEnv, extVarEnv, extValEnv, extChEnv
-  , lookupVar, lookupVal, lookupChoice
+  , introEnv
+  , extVarEnv, extValEnv, extChEnv, extDatsEnv
+  , lookupVar, lookupVal, lookupChoice, lookupDataCon
   , concatEnv
   , emptyUpdateSet
   , concatUpdateSet
   , solveValueUpdatesEnv
   , testPrint, lookupChoInHMap
+  , fieldName2VarName
   ) where
 
 import Control.Monad.Error.Class (MonadError (..), throwError)
@@ -98,6 +100,9 @@ concatEnv (Env vars1 vals1 chs1 dats1) (Env vars2 vals2 chs2 dats2) =
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first)
 
+fieldName2VarName :: FieldName -> ExprVarName
+fieldName2VarName = ExprVarName . unFieldName
+
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
 type MonadEnv m = (MonadError Error m, MonadState Env m)
@@ -122,6 +127,9 @@ extValEnv val expr upd = get >>= \env@Env{..} -> put env{_envvals = HM.insert va
 extChEnv :: MonadEnv m => Qualified TypeConName -> ChoiceName -> UpdateSet -> m ()
 extChEnv tc ch upd = get >>= \env@Env{..} -> put env{_envchs = HM.insert (tc, ch) upd _envchs}
 
+extDatsEnv :: MonadEnv m => HM.HashMap TypeConName DefDataType -> m ()
+extDatsEnv hmap = get >>= \env@Env{..} -> put env{_envdats = hmap `HM.union` _envdats}
+
 lookupVar :: MonadEnv m => ExprVarName -> m ()
 lookupVar (ExprVarName "self") = return ()
 lookupVar (ExprVarName "this") = return ()
@@ -143,6 +151,13 @@ lookupChoice _tem ch = do
   case lookupChoInHMap (_envchs env) ch of
     Nothing -> throwError (UnknownChoice ch)
     Just upd -> return upd
+
+lookupDataCon :: MonadEnv m => TypeConName -> m DefDataType
+lookupDataCon tc = do
+  env <- get
+  case HM.lookup tc (_envdats env) of
+    Nothing -> throwError (UnknownDataCons tc)
+    Just def -> return def
 
 -- TODO: There seems to be something wrong with the qualifiers. This is a
 -- temporary solution.
@@ -179,6 +194,7 @@ solveValueUpdate hmap0 val0 =
 
 data Error
   = UnknownValue (Qualified ExprValName)
+  | UnknownDataCons TypeConName
   | UnknownChoice ChoiceName
   | UnboundVar ExprVarName
   | ExpectRecord
@@ -187,6 +203,7 @@ data Error
 instance Show Error where
   show (UnknownValue qname) = ("Impossible: Unknown value definition: "
     ++ (show $ unExprValName $ qualObject qname))
+  show (UnknownDataCons tc) = ("Impossible: Unknown data constructor: " ++ (show tc))
   show (UnknownChoice ch) = ("Impossible: Unknown choice definition: " ++ (show ch))
   show (UnboundVar name) = ("Impossible: Unbound term variable: " ++ (show name))
   show ExpectRecord = "Impossible: Expected a record type"

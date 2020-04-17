@@ -31,9 +31,7 @@ emptyGO expr = GenOutput expr emptyUpdateSet
 -- | Extend a generator output with the updates of the second generator output.
 -- Note that the end result will contain the first expression.
 combineGO :: GenOutput -> GenOutput -> GenOutput
-combineGO genOut1 genOut2
-  = extendGOUpds (_goUpd genOut2)
-    genOut1
+combineGO genOut1 genOut2 = extendGOUpds (_goUpd genOut2) genOut1
 
 updateGOExpr :: Expr
   -- ^ The new output expression.
@@ -59,9 +57,9 @@ genPackages ph inp = mapM_ (genPackage ph) inp
 genPackage :: MonadEnv m => Phase -> (PackageId, (Package, Maybe PackageName)) -> m ()
 genPackage ph (id, (pac, _)) = mapM_ (genModule ph (PRImport id)) (NM.toList $ packageModules pac)
 
--- TODO: Type synonyms and data types are ignored for now.
 genModule :: MonadEnv m => Phase -> PackageRef -> Module -> m ()
-genModule ValuePhase pac mod =
+genModule ValuePhase pac mod = do
+  extDatsEnv (NM.toHashMap (moduleDataTypes mod))
   mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
 genModule TemplatePhase pac mod =
   mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
@@ -73,25 +71,34 @@ genValue pac mod val = do
   extValEnv qname (_goExp expOut) (_goUpd expOut)
 
 -- TODO: Handle annotated choices, by returning a set of annotations.
-genChoice :: MonadEnv m => Qualified TypeConName -> TemplateChoice
-  -> m GenOutput
-genChoice tem cho = do
+genChoice :: MonadEnv m => Qualified TypeConName -> [FieldName] -> [ExprVarName]
+  -> TemplateChoice -> m GenOutput
+genChoice tem fs xs cho = do
   -- TODO: Skolemise chcSelfBinder
   extVarEnv (fst $ chcArgBinder cho)
   expOut <- genExpr TemplatePhase (chcUpdate cho)
   if chcConsuming cho
-    -- TODO: Convert the `ExprVarName`s to `FieldName`s
-    then return $ addArchiveUpd tem [] expOut
+    then let fields = map (\(f,x) -> (f,EVar x)) (zip fs xs)
+         in return $ addArchiveUpd tem fields expOut
     else return expOut
 
 genTemplate :: MonadEnv m => PackageRef -> ModuleName -> Template -> m ()
--- TODO: lookup the data type and skolemise all fieldnames
 -- TODO: Take precondition into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  choOuts <- mapM (genChoice name) (NM.toList tplChoices)
-  mapM_ (\(ch, upd) -> extChEnv name ch upd)
-    $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
+  datatyp <- lookupDataCon tplTypeCon
+  case dataCons datatyp of
+    DataRecord fields -> do
+      -- TODO: skolemise only when defining the choice? But then multiple choice
+      -- would skolemise multiple times...
+      -- TODO: skolemise the fields themselves or rather self.field?
+      let fs = map fst fields
+      let xs = map fieldName2VarName fs
+      mapM_ extVarEnv xs
+      choOuts <- mapM (genChoice name fs xs) (NM.toList tplChoices)
+      mapM_ (\(ch, upd) -> extChEnv name ch upd)
+        $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
+    _ -> error "Impossible: Template defined on non-record data type"
 
 genExpr :: MonadEnv m => Phase -> Expr -> m GenOutput
 genExpr ph = \case
