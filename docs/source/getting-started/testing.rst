@@ -20,6 +20,7 @@ run the following command in the ``ui`` directory::
 
     yarn add --dev puppeteer wait-on @types/jest @types/node @types/puppeteer @types/wait-on
 
+
 Setting up our tests
 ====================
 
@@ -60,7 +61,7 @@ This means we use Puppeteer to type text into input forms, click buttons and sea
 In order to find those elements, we do need to make some adjustments in our React components, which we'll show later.
 Let's start at a higher level with a ``test``.
 
-.. literalinclude:: code/test-before/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
   :start-after: // LOGIN_TEST_BEGIN
   :end-before: // LOGIN_TEST_END
@@ -86,7 +87,7 @@ We showed how to write a simple test at a high level, but haven't shown how to m
 This was hidden in the ``login()`` and ``logout()`` functions.
 Let's see how ``login()`` is implemented.
 
-.. literalinclude:: code/test-before/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
   :start-after: // LOGIN_FUNCTION_BEGIN
   :end-before: // LOGIN_FUNCTION_END
@@ -134,5 +135,5 @@ While harmless in this case, in general you may need to inspect the HTML transla
 The Full Test Suite
 ===================
 
-.. literalinclude:: code/test-before/index.test.ts
+.. literalinclude:: code/testing/index.test.ts
   :language: ts
