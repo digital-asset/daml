@@ -35,7 +35,6 @@ select
     decode(contract_keys.value_hash, 'hex') as create_key_hash,
     ledger_entries.effective_at as create_ledger_effective_time
 from contracts
-join contract_data on contract_data.id = contracts.id
 left join contract_keys on contract_keys.contract_id = contracts.id
 left join ledger_entries on ledger_entries.transaction_id = contracts.transaction_id
 left join contract_observers on contract_observers.contract_id = contracts.id
@@ -57,4 +56,18 @@ create table participant_contract_witnesses
     foreign key (contract_id) references participant_contracts(contract_id)
 );
 
-insert into participant_contract_witnesses select contract_id, party as contract_witness from contract_divulgences;
+select contract_data.id, contract_data.contract
+from contract_data
+left join contracts
+  on contracts.id = contract_data.id
+  and contracts.archive_offset is null;
+
+insert into participant_contract_witnesses
+(
+select contract_id, witness as contract_witness
+from contract_witnesses
+join contracts on contracts.id = contract_witnesses.contract_id and contracts.archive_offset is null
+union
+select contract_id, party as contract_witness
+from contract_divulgences
+);
