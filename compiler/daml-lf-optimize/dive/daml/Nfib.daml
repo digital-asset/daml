@@ -1,0 +1,7 @@
+
+module Nfib where
+
+nfib : Int -> Int
+nfib 0 = 1
+nfib 1 = 1
+nfib n = nfib (n-1) + nfib (n-2) + 1

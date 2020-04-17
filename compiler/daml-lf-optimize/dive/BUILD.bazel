@@ -1,64 +1,10 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//rules_daml:daml.bzl", "daml_compile")
+load("explore-optimization.bzl", "daml_explore_optimization")
 
-#TODO: write a bazel macro for this...
-
-daml_compile(
-    name = "Example1-init",
-    srcs = glob(["Example1.daml"]),
-)
-genrule(
-    name = "Example1-init.pp",
-    srcs = [
-        ":Example1-init.dar",
-        "//compiler/damlc",
-    ],
-    outs = ["Example1-init.dar.pp"],
-    cmd = "$(location //compiler/damlc) inspect $(location :Example1-init.dar) > $@",
-)
-daml_compile(
-    name = "Example1-opt",
-    srcs = glob(["Example1.daml"]),
-    run_optimizer = True,
-)
-genrule(
-    name = "Example1-opt.pp",
-    srcs = [
-        ":Example1-opt.dar",
-        "//compiler/damlc",
-    ],
-    outs = ["Example1-opt.dar.pp"],
-    cmd = "$(location //compiler/damlc) inspect $(location :Example1-opt.dar) > $@",
-)
-
-
-
-daml_compile(
-    name = "Example2-init",
-    srcs = ["Example2.daml"],
-)
-genrule(
-    name = "Example2-init.pp",
-    srcs = [
-        ":Example2-init.dar",
-        "//compiler/damlc",
-    ],
-    outs = ["Example2-init.dar.pp"],
-    cmd = "$(location //compiler/damlc) inspect $(location :Example2-init.dar) > $@",
-)
-daml_compile(
-    name = "Example2-opt",
-    srcs = ["Example2.daml"],
-    run_optimizer = True,
-)
-genrule(
-    name = "Example2-opt.pp",
-    srcs = [
-        ":Example2-opt.dar",
-        "//compiler/damlc",
-    ],
-    outs = ["Example2-opt.dar.pp"],
-    cmd = "$(location //compiler/damlc) inspect $(location :Example2-opt.dar) > $@",
-)
+daml_explore_optimization("Example1")
+daml_explore_optimization("Example2")
+daml_explore_optimization("All")
+daml_explore_optimization("Template")
+daml_explore_optimization("Nfib")

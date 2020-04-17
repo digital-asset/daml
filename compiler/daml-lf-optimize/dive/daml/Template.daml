@@ -1,0 +1,10 @@
+module Template where
+
+-- loads of polymorphic generated code comes from a user template definiion!
+
+template MyTemplate
+  with
+    party : Party
+  where
+    signatory party
+
