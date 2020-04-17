@@ -723,6 +723,8 @@ object ParticipantStateIntegrationSpecBase {
         crypto.Hash.assertFromString(
           "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
       optUsedPackages = Some(Set.empty),
+      optNodeSeeds = None,
+      optByKeyNodes = None,
     )
 
   private def matchPackageUpload(
