@@ -22,7 +22,7 @@ def eslint_test(name, srcs, tsconfig = ":tsconfig.json", eslintrc = ":.eslintrc.
         "--config",
         "$(rlocation $(location %s))" % eslintrc,
         "--parser-options",
-        '{\"tsconfigRootDir":"$(dirname $(rlocation $(location %s)))"}' % tsconfig,
+        '{\"tsconfigRootDir":"$$(dirname $$(rlocation $(location %s)))"}' % tsconfig,
         "--max-warnings",
         "0",
     ]

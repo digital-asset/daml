@@ -174,8 +174,8 @@ def daml_deps():
     if "build_bazel_rules_nodejs" not in native.existing_rules():
         http_archive(
             name = "build_bazel_rules_nodejs",
-            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.1.0/rules_nodejs-1.1.0.tar.gz"],
-            sha256 = "c97bf38546c220fa250ff2cc052c1a9eac977c662c1fc23eda797b0ce8e70a43",
+            urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/1.6.0/rules_nodejs-1.6.0.tar.gz"],
+            sha256 = "f9e7b9f42ae202cc2d2ce6d698ccb49a9f7f7ea572a78fd451696d03ef2ee116",
             patches = [
                 # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
