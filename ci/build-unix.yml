@@ -68,7 +68,7 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
                    eq('${{parameters.name}}', 'linux'))
   - bash: |
       set -euo pipefail
@@ -83,7 +83,7 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
@@ -91,7 +91,7 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.protos-zip)
@@ -99,5 +99,5 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')),
                    eq('${{parameters.name}}', 'linux'))
