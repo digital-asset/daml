@@ -58,12 +58,6 @@ USAGE
       dade_copyright_arg=check
       buildifier_target=//:buildifier
       ;;
-    --scalafmt-diff)
-      shift
-      echo "Please use the new --diff flag instead. The --scalafmt-diff one will be removed on April 1."
-      scalafmt_args+=(--mode=diff --diff-branch=origin/master)
-      hlint_diff=true
-      ;;
     --diff)
       shift
       scalafmt_args+=(--mode=diff --diff-branch=origin/master)

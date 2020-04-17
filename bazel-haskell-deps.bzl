@@ -482,6 +482,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",
+            "aeson-extra",
             "aeson-pretty",
             "ansi-terminal",
             "ansi-wl-pprint",

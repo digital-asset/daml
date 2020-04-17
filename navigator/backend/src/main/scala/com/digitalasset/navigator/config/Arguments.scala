@@ -99,6 +99,8 @@ object Arguments {
           .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
+      // TODO: the 4 following TLS options can be defined by TlsConfigurationCli instead
+
       opt[String]("pem")
         .optional()
         .text("TLS: The pem file to be used as the private key.")

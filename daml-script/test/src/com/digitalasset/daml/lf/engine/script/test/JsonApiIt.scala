@@ -40,6 +40,7 @@ import com.daml.ledger.api.testing.utils.{
   MockMessages,
 }
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.platform.common.LedgerIdMode
 import com.daml.platform.sandbox.{AbstractSandboxFixture, SandboxServer}
 import com.daml.platform.sandbox.config.SandboxConfig
@@ -96,6 +97,7 @@ trait JsonApiFixture
                   "localhost",
                   0,
                   None,
+                  TlsConfiguration(enabled = false, None, None, None),
                   None,
                   None)(
                   jsonApiActorSystem,

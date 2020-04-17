@@ -51,6 +51,7 @@ genrule(
         "@npm//browser-resolve",
         "@npm//buffer",
         "@npm//buffer-from",
+        "@npm//bytes",
         "@npm//cached-path-relative",
         "@npm//chalk",
         "@npm//chokidar",
@@ -92,6 +93,7 @@ genrule(
         "@npm//faye-websocket",
         "@npm//figures",
         "@npm//file-sync-cmp",
+        "@npm//finalhandler",
         "@npm//findup-sync",
         "@npm//fresh",
         "@npm//fs.realpath",
@@ -123,6 +125,7 @@ genrule(
         "@npm//has-flag",
         "@npm//hooker",
         "@npm//htmlescape",
+        "@npm//http-errors",
         "@npm//http-parser-js",
         "@npm//https-browserify",
         "@npm//iconv-lite",
@@ -170,7 +173,9 @@ genrule(
         "@npm//pretty-bytes",
         "@npm//process",
         "@npm//process-nextick-args",
+        "@npm//punycode",
         "@npm//querystring-es3",
+        "@npm//raw-body",
         "@npm//readable-stream",
         "@npm//readdirp",
         "@npm//read-only-stream",
@@ -179,7 +184,9 @@ genrule(
         "@npm//safe-buffer",
         "@npm//safe-json-parse",
         "@npm//safer-buffer",
+        "@npm//send",
         "@npm//serve-index",
+        "@npm//serve-static",
         "@npm//shasum",
         "@npm//sprintf-js",
         "@npm//statuses",
@@ -351,7 +358,8 @@ genrule(
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "//templates:templates-tarball",
-        "//templates:messaging.patch",
+        "//templates:create-daml-app-test-resources/messaging.patch",
+        "//templates:create-daml-app-test-resources/index.test.ts",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -370,9 +378,12 @@ genrule(
         CODE_DIR=$$PWD/build/docs/source/getting-started/code/
         mkdir -p $$CODE_DIR
         tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        # Copy create-daml-app tests
+        mkdir $$CODE_DIR/testing
+        cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
         # Apply patch for messaging feature (we only need the "after" state)
         PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
-        MESSAGING_PATCH=$$PWD/$(location //templates:messaging.patch)
+        MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
         (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx

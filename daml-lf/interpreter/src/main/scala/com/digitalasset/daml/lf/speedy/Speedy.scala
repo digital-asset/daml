@@ -631,4 +631,12 @@ object Speedy {
   /** Internal exception thrown when a continuation result needs to be returned. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
 
+  def deriveTransactionSeed(
+      submissionSeed: Option[crypto.Hash],
+      participant: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+  ): InitialSeeding =
+    InitialSeeding(
+      submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, submissionTime)))
+
 }

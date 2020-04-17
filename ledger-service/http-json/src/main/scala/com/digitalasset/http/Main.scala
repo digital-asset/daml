@@ -12,6 +12,7 @@ import akka.stream.Materializer
 import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.daml.http.Statement.discard
 import com.daml.http.dbbackend.ContractDao
+import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
@@ -49,6 +50,7 @@ object Main extends StrictLogging {
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
+        s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
@@ -88,6 +90,7 @@ object Main extends StrictLogging {
         address = config.address,
         httpPort = config.httpPort,
         portFile = config.portFile,
+        tlsConfig = config.tlsConfig,
         wsConfig = config.wsConfig,
         accessTokenFile = config.accessTokenFile,
         contractDao = contractDao,
@@ -177,6 +180,9 @@ object Main extends StrictLogging {
         .optional()
         .text(
           s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
+
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
 
       opt[Duration]("package-reload-interval")
         .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))

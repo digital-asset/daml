@@ -20,6 +20,7 @@ case class RunnerConfig(
     timeProviderType: TimeProviderType,
     commandTtl: Duration,
     inputFile: Option[File],
+    outputFile: Option[File],
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
     jsonApi: Boolean,
@@ -82,6 +83,12 @@ object RunnerConfig {
         c.copy(inputFile = Some(t))
       }
       .text("Path to a file containing the input value for the script in JSON format.")
+
+    opt[File]("output-file")
+      .action { (t, c) =>
+        c.copy(outputFile = Some(t))
+      }
+      .text("Path to a file where the result of the script will be written to in JSON format.")
 
     opt[String]("access-token-file")
       .action { (f, c) =>
@@ -159,6 +166,7 @@ object RunnerConfig {
         timeProviderType = null,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
+        outputFile = None,
         accessTokenFile = None,
         tlsConfig = None,
         jsonApi = false,

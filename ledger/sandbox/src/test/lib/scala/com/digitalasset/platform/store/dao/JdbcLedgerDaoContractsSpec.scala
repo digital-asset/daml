@@ -47,7 +47,6 @@ private[dao] trait JdbcLedgerDaoContractsSpec {
       GenTransaction(
         HashMap(
           event1 -> NodeCreate(
-            nodeSeed = None,
             coid = absCid,
             coinst = someContractInstance,
             optLocation = None,

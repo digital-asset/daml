@@ -7,10 +7,8 @@ import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception.Extra
 import Control.Monad
-import Control.Monad.Fail (MonadFail)
 import qualified Data.Aeson as Aeson
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
-import qualified Data.Conduit.Zlib as Zlib
 import Data.List.Extra
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.Map as Map
@@ -34,9 +32,10 @@ import qualified Web.JWT as JWT
 
 import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
+import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
 import DA.Test.Daml2jsUtils
-import DA.Test.Process (callCommandSilent,callProcessSilent)
+import DA.Test.Process (callCommandSilent)
 import DA.Test.Util
 import SdkVersion
 
@@ -68,43 +67,11 @@ tests tmpDir = withSdkResource $ \_ -> testGroup "Integration tests"
     , cleanTests cleanDir
     , templateTests
     , codegenTests codegenDir
-    , createDamlAppTests
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           codegenDir = tmpDir </> "codegen"
-
--- | Install the SDK in a temporary directory and provide the path to the SDK directory.
--- This also adds the bin directory to PATH so calling assistant commands works without
--- special hacks.
-withSdkResource :: (IO FilePath -> TestTree) -> TestTree
-withSdkResource f =
-    withTempDirResource $ \getDir ->
-    withResource (installSdk =<< getDir) restoreEnv (const $ f getDir)
-  where installSdk targetDir = do
-            releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-            oldPath <- getSearchPath
-            withTempDir $ \extractDir -> do
-                runConduitRes
-                    $ sourceFileBS releaseTarball
-                    .| Zlib.ungzip
-                    .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError extractDir)
-                setEnv "DAML_HOME" targetDir True
-                if isWindows
-                    then callProcessSilent
-                        (extractDir </> "daml" </> damlInstallerName)
-                        ["install", "--install-assistant=yes", "--set-path=no", extractDir]
-                    else callCommandSilent $ extractDir </> "install.sh"
-            setEnv "PATH" (intercalate [searchPathSeparator] ((targetDir </> "bin") : oldPath)) True
-            pure oldPath
-        restoreEnv oldPath = do
-            setEnv "PATH" (intercalate [searchPathSeparator] oldPath) True
-            unsetEnv "DAML_HOME"
-
-
-throwError :: MonadFail m => T.Text -> T.Text -> m ()
-throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 -- Most of the packaging tests are in the a separate test suite in
 -- //compiler/damlc/tests:packaging. This only has a couple of
@@ -192,6 +159,41 @@ packagingTests = testGroup "packaging"
           , "setup' = setup"
           ]
         withCurrentDirectory (tmpDir </> "proj") $ callCommandSilent "daml build"
+     , testCase "DAML Script --input-file and --output-file" $ withTempDir $ \projDir -> do
+           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+               [ "sdk-version: " <> sdkVersion
+               , "name: proj"
+               , "version: 0.0.1"
+               , "source: ."
+               , "dependencies: [daml-prim, daml-stdlib, daml-script]"
+               ]
+           writeFileUTF8 (projDir </> "Main.daml") $ unlines
+               [ "module Main where"
+               , "import Daml.Script"
+               , "test : Int -> Script (Int, Int)"
+               , "test x = pure (x, x + 1)"
+               ]
+           withCurrentDirectory projDir $ do
+               callCommandSilent "daml build -o script.dar"
+               writeFileUTF8 (projDir </> "input.json") "0"
+               p :: Int <- fromIntegral <$> getFreePort
+               withDevNull $ \devNull ->
+                   withCreateProcess (shell $ unwords ["daml sandbox --port " <> show p]) { std_out = UseHandle devNull } $ \_ _ _ _ -> do
+                       waitForConnectionOnPort (threadDelay 100000) p
+                       callCommand $ unwords
+                           [ "daml script"
+                           ,"--wall-clock-time"
+                           , "--dar script.dar --script-name Main:test"
+                           , "--input-file input.json --output-file output.json"
+                           , "--ledger-host localhost --ledger-port " <> show p
+                           ]
+           contents <- readFileUTF8 (projDir </> "output.json")
+           lines contents @?=
+               [ "{"
+               , "  \"_1\": 0,"
+               , "  \"_2\": 1"
+               , "}"
+               ]
      , testCase "Run init-script" $ withTempDir $ \tmpDir -> do
         let projDir = tmpDir </> "init-script-example"
         createDirectoryIfMissing True (projDir </> "daml")
@@ -542,70 +544,6 @@ codegenTests codegenDir = testGroup "daml codegen" (
                                   , "-o", outDir]
                         contents <- listDirectory outDir
                         assertBool "bindings were written" (not $ null contents)
-
-createDamlAppTests :: TestTree
-createDamlAppTests = testGroup "create-daml-app" [gettingStartedGuideTest | not isWindows]
-  where
-    gettingStartedGuideTest = testCaseSteps "Getting Started Guide" $ \step ->
-      withTempDir $ \tmpDir -> do
-        step "Create app from template"
-        withCurrentDirectory tmpDir $ do
-          callCommandSilent "daml new create-daml-app create-daml-app"
-        let cdaDir = tmpDir </> "create-daml-app"
-
-        -- First test the base application (without the user-added feature).
-        withCurrentDirectory cdaDir $ do
-          step "Build DAML model for base application"
-          callCommandSilent "daml build"
-          step "Set up TypeScript libraries and Yarn workspaces for codegen"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
-          step "Run JavaScript codegen"
-          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
-        assertFileDoesNotExist (cdaDir </> "ui" </> "build" </> "index.html")
-        withCurrentDirectory (cdaDir </> "ui") $ do
-          -- NOTE(MH): We set up the yarn env again to avoid having all the
-          -- dependencies of the UI already in scope when `daml2js` runs
-          -- `yarn install`. Some of the UI dependencies are a bit flaky to
-          -- install and might need some retries.
-          step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
-          step "Install dependencies for UI"
-          retry 3 (callCommandSilent "yarn install")
-          step "Run linter"
-          callCommandSilent "yarn lint --max-warnings 0"
-          step "Build the application UI"
-          callCommandSilent "yarn build"
-        assertFileExists (cdaDir </> "ui" </> "build" </> "index.html")
-
-        -- Now test that the messaging feature works by applying the necessary
-        -- changes and testing in the same way as above.
-        step "Patch the application code with messaging feature"
-        messagingPatch <- locateRunfiles (mainWorkspace </> "templates" </> "messaging.patch")
-        patchTool <- locateRunfiles "patch_dev_env/bin/patch"
-        withCurrentDirectory cdaDir $ do
-          callCommandSilent $ unwords [patchTool, "-s", "-p2", "<", messagingPatch]
-          forM_ ["MessageEdit", "MessageList"] $ \messageComponent ->
-            assertFileExists ("ui" </> "src" </> "components" </> messageComponent <.> "tsx")
-          step "Build the new DAML model"
-          callCommandSilent "daml build"
-          step "Set up TypeScript libraries and Yarn workspaces for codegen again"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/daml.js"]) [DamlTypes, DamlLedger]
-          step "Run JavaScript codegen for new DAML model"
-          callCommandSilent "daml codegen js -o daml.js .daml/dist/create-daml-app-0.1.0.dar"
-        withCurrentDirectory (cdaDir </> "ui") $ do
-          step "Set up libraries and workspaces again for UI build"
-          setupYarnEnv tmpDir (Workspaces ["create-daml-app/ui"]) allTsLibraries
-          step "Install UI dependencies again, forcing rebuild of generated code"
-          callCommandSilent "yarn install --force --frozen-lockfile"
-          step "Run linter again"
-          callCommandSilent "yarn lint --max-warnings 0"
-          step "Build the new UI"
-          callCommandSilent "yarn build"
-
-damlInstallerName :: String
-damlInstallerName
-    | isWindows = "daml.exe"
-    | otherwise = "daml"
 
 -- | Like `waitForProcess` but throws ProcessExitFailure if the process fails to start.
 waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()

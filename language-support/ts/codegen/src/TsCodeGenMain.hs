@@ -388,12 +388,13 @@ genDefDataType curPkgId conName mod tpls def =
                             ] ++
                             ["};"]
                         associatedTypes =
-                          let tT = conName
-                              tK = tT <> ".Key"
+                          let mbKeyDef = fst . genType (moduleName mod) . tplKeyType <$> tplKey tpl
+                              tT = conName
+                              tK = maybe "undefined" (const (tT <> ".Key")) mbKeyDef
                               tI = "typeof " <> tT <> ".templateId" in
-                          [ "export namespace " <> tT <> " {"
-                          , "  export type Key = " <> maybe "unknown" (fst . genType (moduleName mod) . tplKeyType) (tplKey tpl)
-                          , "  export type CreateEvent = damlLedger.CreateEvent" <> "<" <> tparams [tT, tK, tI] <> ">"
+                          [ "export namespace " <> tT <> " {" ] ++
+                          [ "  export type Key = " <> keyDef | Just keyDef <- [mbKeyDef] ] ++
+                          [ "  export type CreateEvent = damlLedger.CreateEvent" <> "<" <> tparams [tT, tK, tI] <> ">"
                           , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> "<" <>  tparams [tT, tI] <> ">"
                           , "  export type Event = damlLedger.Event"  <> "<" <>  tparams [tT, tK, tI] <> ">"
                           , "}"

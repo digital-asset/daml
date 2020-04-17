@@ -82,7 +82,10 @@ final class InMemoryLedgerReaderWriter private (
   object InMemoryLedgerStateAccess extends LedgerStateAccess[Index] {
     override def inTransaction[T](body: LedgerStateOperations[Index] => Future[T]): Future[T] =
       state.write { (log, state) =>
-        body(new InMemoryLedgerStateOperations(log, state))
+        body(
+          new TimedLedgerStateOperations(
+            new InMemoryLedgerStateOperations(log, state),
+            metricRegistry))
       }
   }
 
