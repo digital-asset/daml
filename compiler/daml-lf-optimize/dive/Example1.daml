@@ -1,0 +1,9 @@
+--daml 1.2
+
+module Example1 where
+
+example1 : Int -> Int
+example1 = \arg ->
+  let identity = \y -> y in
+  let thrice = \f x -> f (f (f x)) in
+  thrice identity arg

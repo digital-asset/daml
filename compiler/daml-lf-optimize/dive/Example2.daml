@@ -1,0 +1,12 @@
+--daml 1.2
+
+module Example2 where
+
+import Prelude hiding (identity)
+
+identity = \y -> y
+thrice = \f x -> f (f (f x))
+
+example2 : Int -> Int
+example2 = \arg ->
+  thrice identity arg
