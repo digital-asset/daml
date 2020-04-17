@@ -307,11 +307,16 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       SS.UpdateContextRequest_UpdatePackages
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
-    encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
+    encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
             LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+
+mangleModuleName :: LF.ModuleName -> T.Text
+mangleModuleName (LF.ModuleName modName) =
+    T.intercalate "." $
+    map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
@@ -334,9 +339,7 @@ runScenario Handle{..} (ContextId ctxId) name = do
           mangledDefn =
               fromRight (error "Failed to mangle scenario name") $
               mangleIdentifier (LF.unExprValName defn)
-          mangledModName = T.intercalate "." $
-              map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) (LF.unModuleName modName)
-
+          mangledModName = mangleModuleName modName
       in
         SS.Identifier
           (Just ssPkgId)
