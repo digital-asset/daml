@@ -1,0 +1,10 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Dive where
+
+dive = \arg ->
+  let dub x = x + x in
+  let twice f x = f (f x) in
+  let increase q a = dub a + q in
+  twice (increase (arg+1)) 3

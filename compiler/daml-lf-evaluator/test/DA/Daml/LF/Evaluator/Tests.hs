@@ -26,11 +26,13 @@ main = do
 
 tests :: [Test]
 tests =
-  [ mkTest 1 "decrement" 10 9
+  [ mkTest 1 "dub" 1 2
+  , mkTest 1 "dub_dub" 1 4
+  , mkTest 1 "dub_dub_dub" 1 8
+
+  , mkTest 1 "decrement" 10 9
   , mkTest 5 "fact" 4 24
   , mkTest 6 "fact" 5 120
-
-  , mkTest 1 "dub_dub_dub" 1 8
 
   , mkTest 1 "decrement" 0 (-1)
   , mkTest 1 "thrice_decrement" 0 (-3)
@@ -40,11 +42,11 @@ tests =
   , mkTest 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
   , mkTest 7 "run_makeDecimal" 7 789
 
-  , mkTest 702 "nthPrime" 10 29 -- TODO: can apps be better? -- was 633
-  , mkTest 92642 "nthPrime" 100 541 --was 86897
+  , mkTest 632 "nthPrime" 10 29
+  , mkTest 86896 "nthPrime" 100 541
 
-  , mkTest 15 "run_sum_myList" 9 30
-  , mkTest 15 "run_sum_myList2" 99 300
+  , mkTest 13 "run_sum_myList" 9 30
+  , mkTest 13 "run_sum_myList2" 99 300
 
   , mkTest 177 "nfib" 10 177
 
@@ -56,30 +58,33 @@ tests =
   , mkTest 1 "let5" 0 16
 
   , mkTest 1 "let6" 0 6
-  , mkTest 3 "let7" 0 6 -- TODO: make NBE better here, and reduce apps to 1, same as for let6
+  , mkTest 1 "let7" 0 6
 
   , mkTest 1 "easy" 0 27
-  , mkTest 28 "hard" 0 27 -- TODO: make #apps same as for easy
+  , mkTest 1 "hard" 0 27
 
   , mkTest 1 "if1" 0 4
   , mkTest 1 "if2" 0 9
-  , mkTest 2 "if3" 0 9 -- TODO: have apps=1, same as if2
+  , mkTest 1 "if3" 0 9
   , mkTest 1 "if4" 0 9
-  , mkTest 2 "if5" 0 9 -- TODO: have apps=1, same as if4
-  , mkTest 2 "if6" 0 10 -- TODO: have apps=1
+  , mkTest 2 "if5" 0 9 -- TODO: want apps=1, same as if4
+  , mkTest 1 "if6" 0 10
 
   , Test 1 "err1" 0 (Left (Throw "foobar"))
   , Test 1 "err2" 0 (Right 0)
 
-  , mkTest 1 "example1" 0 0
-  , mkTest 1 "example2" 0 0
-
+  , mkTest 1 "dive" 9 42
   ]
 
+-- | Like `Test`, except we always expect a non-`Throw` result
 mkTest :: Int -> String -> Int64 -> Int64 -> Test
 mkTest xa fn arg expected = Test xa fn arg (Right expected)
 
--- testing for DAML functions of type: `Int -> Int`
+-- | Setup a testcase, for DAML function named `fn` (of type `Int64 -> Int64)
+-- | Check the result is `expected` when the function is applied to Int64 `arg`
+-- | (We check evaluation of both original code and the optimized code)
+-- | Also, check the expected number of `application` during optimized evaluation
+
 data Test = Test
   { expectedAppsWhenEvaluatingOptimizedCode :: Int
   , functionName :: String

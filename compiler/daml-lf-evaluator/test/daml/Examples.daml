@@ -9,8 +9,10 @@ import qualified DA.List as List
 
 -- Dub example
 
-dub x = x + x + 0
+dub : Int -> Int
+dub x = x + x -- + 0
 
+dub_dub x = dub (dub x)
 dub_dub_dub x = dub (dub (dub x))
 
 -- Factorial
@@ -143,13 +145,13 @@ let6 =
 
 let7 =
   let f =
-        let a = 1+2 in -- TODO: currently this introduces a barrier to NBE
+        let a = 1+2 in
         \x -> x + a
   in
   f . f
 
 easy = thrice thrice (+ 1)
-hard = thrice thrice (+ (7-6)) -- TODO: handle better this non-atomic arg
+hard = thrice thrice (+ (7-6))
 
 
 if1 a = if a>7 then 3 else 4
@@ -159,18 +161,19 @@ if2 a =
   add (if a>7 then 3 else 4) 5
 
 if3 a =
-  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  let add x y = x+y in
   add (if a>7 then 3 else 4) 5
 
 if4 a =
   (if a>7 then (3+) else (4+)) 5
 
 if5 a =
-  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  -- TODO: apps=2: if-then-else in function-position; to get apps=1 requires continuation duplication!
+  let add x y = x+y in
   (if a>7 then add 3 else add 4) 5
 
 if6 a =
-  let add x y = x+y in -- TODO: blocks NBE in conjunction with if-then-else
+  let add x y = x+y in
   add (if a>7 then 3 else 4) (if a>8 then 5 else 6)
 
 
@@ -187,14 +190,10 @@ err2 x =
   in x
 
 
--- top level vs let-bound thrice_identity example (planned for dive) must be the same
+-- Deep dive example
 
-example1 : Int -> Int
-example1 = \arg ->
-  let identity = \y -> y in
-  let thrice = \f x -> f (f (f x)) in
-  thrice identity arg
-
-example2 : Int -> Int
-example2 = \arg ->
-  thrice identity arg
+dive = \arg ->
+  let dub x = x + x in
+  let twice f x = f (f x) in
+  let increase q a = dub a + q in
+  twice (increase (arg+1)) 3
