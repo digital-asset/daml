@@ -275,6 +275,7 @@ reflect = \case
       Restore rp $ do
       ModSubst (Map.insert tv ty) $ reflect expr
 
+{-
   LF.ECase{casScrutinee=scrut, casAlternatives=alts} -> do
     scrut <- normExpr scrut
     Shift $ \(k :: SemValue -> LF.Expr) -> do
@@ -282,6 +283,14 @@ reflect = \case
         expr <- Reset (k <$> reflect expr)
         return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
       return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
+-}
+
+  LF.ECase{casScrutinee=scrut, casAlternatives=alts} -> do
+    scrut <- normExpr scrut
+    alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
+      expr <- Reset $ normExpr expr
+      return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+    return $ Syntax $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
   LF.ELet{letBinding=bind,letBody=body} -> do
     let LF.Binding{bindingBinder=binder,bindingBound=rhs} = bind
