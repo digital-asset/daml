@@ -67,7 +67,7 @@ tests =
   , mkTest 1 "if2" 0 9
   , mkTest 1 "if3" 0 9
   , mkTest 1 "if4" 0 9
-  , mkTest 2 "if5" 0 9 -- TODO: want apps=1, same as if4
+  , mkTest 1 "if5" 0 9
   , mkTest 1 "if6" 0 10
 
   , Test 1 "err1" 0 (Left (Throw "foobar"))

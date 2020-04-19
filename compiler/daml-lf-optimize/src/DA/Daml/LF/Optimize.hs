@@ -132,7 +132,7 @@ optimize pkgs mod@LF.Module{moduleName,moduleValues} = do
       optimizeDef dval = do
         let LF.DefValue{dvalBinder=(name,_),dvalBody=expr} = dval
         let qval = LF.Qualified{qualPackage=LF.PRSelf, qualModule=moduleName, qualObject=name}
-        expr <- do
+        expr <- pure $ do -- TODO: no need to be in IO anymore!
           -- run the optimization effect separately for the body of each top-level definition
           runEffect pkgs mod $ do
             WithDontInline qval $ normExpr expr
@@ -275,12 +275,13 @@ reflect = \case
       Restore rp $ do
       ModSubst (Map.insert tv ty) $ reflect expr
 
-  LF.ECase{casScrutinee=expr, casAlternatives=alts} -> do
-    expr <- normExpr expr
-    -- TODO: avoid reification (stay in SemValue) by accessing continuation via Shift
-    -- and duplicating it across each alternative
-    alts <- mapM normAlt alts
-    return $ Syntax $ LF.ECase{casScrutinee=expr, casAlternatives=alts}
+  LF.ECase{casScrutinee=scrut, casAlternatives=alts} -> do
+    scrut <- normExpr scrut
+    Shift $ \(k :: SemValue -> LF.Expr) -> do
+      alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
+        expr <- Reset (k <$> reflect expr)
+        return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+      return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
   LF.ELet{letBinding=bind,letBody=body} -> do
     let LF.Binding{bindingBinder=binder,bindingBound=rhs} = bind
@@ -360,16 +361,19 @@ normUpdate = \case
   x@LF.ULookupByKey{} -> return x
   x@LF.UFetchByKey{} -> return x
 
-normAlt :: LF.CaseAlternative -> Effect LF.CaseAlternative
-normAlt = \case
-  -- TODO: rename vars in the pattern?
-  LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
-    expr <- Reset $ normExpr expr
-    return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
 
 -- TODO: have specialized error function to use when LF is badly types
 
 -- TODO: The LF.Type contained `Macro` must e normalized. Use a newtype to capture this.
+
+nameIt :: String -> LF.Type -> LF.Expr -> Effect LF.ExprVarName
+nameIt reason ty exp = do
+  name <- Fresh reason
+  let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=exp}
+  Shift $ \(k :: LF.ExprVarName -> LF.Expr) -> do
+    let body = k name
+    return $ LF.ELet{letBinding=bind,letBody=body}
+
 
 termApply :: (SemValue,SemValue) -> Effect SemValue
 termApply = \case
@@ -380,25 +384,12 @@ termApply = \case
   (Struct _ _, _) -> error "SemValue,termApply,struct"
   (Macro ty func, arg) -> do
     case duplicatable arg of
-      Nothing ->
-        -- beta-reduction effectively occurs...
-        func arg
+      Nothing -> func arg -- beta-reduction here
       Just reason -> do
-        -- because we dont reconstruct any syntax
-        name <- Fresh reason
-        rhs <- reify arg
-        let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=rhs}
-        let wrap x = LF.ELet{letBinding=bind,letBody=x}
-        -- TODO: split out `nameIt` code
-        if
-          | useShift ->
-            Wrap wrap $ func (Syntax (LF.EVar name))
+        arg <- reify arg
+        name <- nameIt reason ty arg
+        func (Syntax (LF.EVar name)) -- beta-reduction here
 
-          | otherwise -> do
-              body <- func (Syntax (LF.EVar name)) >>= reify
-              return $ Syntax $ wrap body
-        where
-          useShift = True -- TODO: remove soon: False generates older, less-optimized code.
 
 typeApply :: SemValue -> LF.Type -> Effect SemValue
 typeApply expr ty = case expr of -- This ty is already normalized
@@ -495,8 +486,7 @@ data Effect a where
   ShouldInline :: QVal -> Effect Bool
   WithDontInline :: QVal -> Effect a -> Effect a
   Reset :: Effect LF.Expr -> Effect LF.Expr
-  Wrap :: (LF.Expr -> LF.Expr) -> Effect a -> Effect a
-  -- intoduce Shift. Wrap is just a special case
+  Shift :: ((a -> LF.Expr) -> Effect LF.Expr) -> Effect a
 
 
 instance Functor Effect where fmap = liftM
@@ -504,28 +494,26 @@ instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
 
-runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect LF.Expr -> IO LF.Expr -- Only in IO for debug
-runEffect pkgs theModule eff = do
-  return $ loop context0 state0 eff k0
-
+runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect LF.Expr -> LF.Expr
+runEffect pkgs theModule eff = loop context0 state0 eff k0
   where
-    k0 :: (LF.Expr,State) -> LF.Expr = \(e,_s) -> e
     context0 = Context { scope = Set.empty, subst = Map.empty, env = Map.empty }
     state0 = State { unique = 0 }
+    k0 _state e = e -- state thrown away
 
-    loop :: Context -> State -> Effect a -> ((a,State) -> LF.Expr) -> LF.Expr
+    loop :: Context -> State -> Effect a -> (State -> a -> LF.Expr) -> LF.Expr
     loop context@Context{scope,subst,env} state eff k = case eff of
 
-      Ret x -> k (x,state)
-      Bind eff f -> loop context state eff $ \(v,state) -> loop context state (f v) k
+      Ret x -> k state x
+      Bind eff f -> loop context state eff $ \state v -> loop context state (f v) k
 
-      Save -> k (context, state)
+      Save -> k state context
       Restore context eff -> loop context state eff k
 
-      GetSubst -> k (subst,state)
+      GetSubst -> k state subst
       ModSubst f eff -> loop context { subst = f subst } state eff k
 
-      GetEnv -> k (env,state)
+      GetEnv -> k state env
       ModEnv f eff -> loop context { env = f env } state eff k
 
       Fresh tag -> do -- take original name as a base which we can uniquify
@@ -533,31 +521,32 @@ runEffect pkgs theModule eff = do
         let State{unique} = state
         let state' = state { unique = unique + 1 }
         let x = LF.ExprVarName $ Text.pack (tag <> show unique)
-        k (x,state')
+        k state' x
 
       FreshTV -> do -- share the same counter as for term-vars
         let tag = "_tv"
         let State{unique} = state
         let state' = state { unique = unique + 1 }
         let tv = LF.TypeVarName $ Text.pack (tag <> show unique)
-        k (tv,state')
+        k state' tv
 
       GetTheModule -> do
-        k (theModule,state)
+        k state theModule
 
       GetPackage pid -> do
-        k (getPackage pid, state)
+        k state (getPackage pid)
 
       ShouldInline qval -> do
         -- TODO : not if isDirectlyRecursive (code it!) -- need to see body
         let answer = not (Set.member qval scope)
-        k (answer, state)
+        k state answer
 
       WithDontInline qval eff -> do
         loop context { scope = Set.insert qval scope } state eff k
 
-      Reset eff -> k (loop context state eff k0, state) -- TODO: avoid dup of state
-      Wrap f eff -> f (loop context state eff k)
+      -- state get duplicated/re-used by Reset/Shift
+      Reset eff -> k state (loop context state eff k0)
+      Shift f -> loop context state (f (k state)) k0
 
     packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
