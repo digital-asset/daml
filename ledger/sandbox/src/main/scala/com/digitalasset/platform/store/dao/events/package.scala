@@ -63,4 +63,18 @@ package object events {
       .fold(Vector.empty[A])(_ :+ _)
       .mergeSubstreams
 
+  // Dispatches the call to either function based on the cardinality of the input
+  // This is mostly designed to route requests to queries specialized for single/multi-party subs
+  // Callers should ensure that the set is not empty, which in the usage this
+  // is designed for should be provided by the Ledger API validation layer
+  private[events] def route[A, B](
+      set: Set[A],
+  )(single: A => B, multi: Set[A] => B): B = {
+    assume(set.nonEmpty, "Empty set, unable to dispatch to single/multi implementation")
+    set.size match {
+      case 1 => single(set.toIterator.next)
+      case n if n > 1 => multi(set)
+    }
+  }
+
 }
