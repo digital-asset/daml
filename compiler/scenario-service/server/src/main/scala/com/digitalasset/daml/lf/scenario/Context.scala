@@ -94,7 +94,7 @@ class Context(val contextId: Context.ContextId) {
       loadModules: Seq[ProtoScenarioModule],
       unloadPackages: Seq[String],
       loadPackages: Seq[ByteString],
-      forScenarioService: Boolean,
+      omitValidation: Boolean,
   ): Unit = this.synchronized {
 
     // First we unload modules and packages
@@ -114,15 +114,13 @@ class Context(val contextId: Context.ContextId) {
         Decode.decodeArchiveFromInputStream(archive.newInput)
       }.toMap
     extPackages ++= newPackages
-    defns ++= Compiler(extPackages).compilePackages(extPackages.keys)
+    defns ++= Compiler(extPackages).compilePackages(extPackages.keys, !omitValidation)
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
       decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
 
     modules ++= lfModules.map(m => m.name -> m)
-    if (!forScenarioService)
-      validate(newPackages.keys ++ Iterable(homePackageId))
 
     // At this point 'allPackages' is consistent and we can
     // compile the new modules.
