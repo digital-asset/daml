@@ -4,6 +4,7 @@
 module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
+import Control.Monad
 import Data.Foldable
 import Data.List.Extra
 import Options.Applicative.Extended
@@ -43,7 +44,7 @@ data Command
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start
-      { sandboxPortM :: Maybe SandboxPort
+      { sandboxPortM :: Maybe SandboxPortSpec
       , openBrowser :: OpenBrowser
       , startNavigator :: Maybe StartNavigator
       , jsonApiCfg :: JsonApiConfig
@@ -120,7 +121,7 @@ commandParser = subparser $ fold
         <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
 
     startCmd = Start
-        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+        <$> optional (option (maybeReader (toSandboxPortSpec <=< readMaybe)) (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
         <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
         <*> optional navigatorFlag
         <*> jsonApiCfg

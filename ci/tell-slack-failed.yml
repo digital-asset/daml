@@ -21,4 +21,4 @@ steps:
            $(Slack.team-daml)
     condition: and(failed(),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

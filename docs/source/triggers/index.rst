@@ -240,7 +240,7 @@ Now we are ready to run the trigger using ``daml trigger``:
 
 .. code-block:: sh
 
-    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice --wall-clock-time
+    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice
 
 The first argument specifies the ``.dar`` file that we have just
 built. The second argument specifies the identifier of the trigger

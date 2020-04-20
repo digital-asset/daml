@@ -34,6 +34,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.Assistant.FreePort (getFreePort,socketHints)
 import DA.Daml.Assistant.IntegrationTestUtils
 import DA.Daml.Helper.Run (waitForHttpServer,waitForConnectionOnPort)
+import DA.PortFile
 import DA.Test.Daml2jsUtils
 import DA.Test.Process (callCommandSilent)
 import DA.Test.Util
@@ -182,7 +183,6 @@ packagingTests = testGroup "packaging"
                        waitForConnectionOnPort (threadDelay 100000) p
                        callCommand $ unwords
                            [ "daml script"
-                           ,"--wall-clock-time"
                            , "--dar script.dar --script-name Main:test"
                            , "--input-file input.json --output-file output.json"
                            , "--ledger-host localhost --ledger-port " <> show p
@@ -320,6 +320,46 @@ packagingTests = testGroup "packaging"
               statusCode (responseStatus createResponse) @?= 200
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess startPh
+    , testCase "daml start --sandbox-port=0" $ withTempDir $ \tmpDir -> do
+          writeFileUTF8 (tmpDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: sandbox-options"
+              , "version: \"1.0\""
+              , "source: ."
+              , "dependencies:"
+              , "  - daml-prim"
+              , "  - daml-stdlib"
+              , "start-navigator: false"
+              ]
+          let startProc = shell $ unwords
+                  [ "daml"
+                  , "start"
+                  , "--sandbox-port=0"
+                  , "--sandbox-option=--ledgerid=MyLedger"
+                  , "--json-api-port=0"
+                  , "--json-api-option=--port-file=jsonapi.port"
+                  ]
+          withCurrentDirectory tmpDir $
+              withCreateProcess startProc $ \_ _ _ _ph -> do
+              jsonApiPort <- readPortFile maxRetries "jsonapi.port"
+              let token = JWT.encodeSigned (JWT.HMACSecret "secret") mempty mempty
+                    { JWT.unregisteredClaims = JWT.ClaimsMap $
+                          Map.fromList [("https://daml.com/ledger-api", Aeson.Object $ HashMap.fromList [("actAs", Aeson.toJSON ["Alice" :: T.Text]), ("ledgerId", "MyLedger"), ("applicationId", "foobar")])]
+                    }
+              let headers =
+                    [ ("Authorization", "Bearer " <> T.encodeUtf8 token)
+                    ] :: RequestHeaders
+              initialRequest <- parseRequest $ "http://localhost:" <> show jsonApiPort <> "/v1/parties/allocate"
+              let queryRequest = initialRequest
+                    { method = "POST"
+                    , requestHeaders = headers
+                    , requestBody = RequestBodyLBS $ Aeson.encode $ Aeson.object
+                        [ "identifierHint" Aeson..= ("Alice" :: String)
+                        ]
+                    }
+              manager <- newManager defaultManagerSettings
+              queryResponse <- httpLbs queryRequest manager
+              responseBody queryResponse @?= "{\"result\":{\"identifier\":\"Alice\",\"isLocal\":true},\"status\":200}"
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree

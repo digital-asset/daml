@@ -87,16 +87,23 @@ latest commit on master.
    show up in web searches on the Maven Central website is up to two hours. Do not
    worry if the artifacts do not show on the website yet.)
 
-1. Tests for the getting started guide
+1. Install the new SDK using:
+   ```
+   curl -sSL https://get.daml.com/ | sh -s $(cat LATEST | gawk '{print $2}')
+   ```
+   Note: this assumes you have the up-to-date `LATEST` file, either because
+   you just checked out master or because you're still on the release PR
+   commit.
 
-    You will have to run through those steps on both Linux/MacOS and
-    on Windows. See the platform specific-instructions below for more
-    details on when the order of steps you need to follow.
+1. Run `daml version --assistant=yes` and verify that the new version is
+   selected as the assistant version and the default version for new projects.
+
+1. Tests for the getting started guide (macOS/Linux **and** Windows)
 
     1. For these steps you will need the documentation for the
        release you are about to make. Documentation is published at
        every hour so if you wait for a bit you can go to
-       https://docs.daml.com/$RELEASE_NUMBER/getting-started/index.html.
+       https://docs.daml.com/$VERSION/getting-started/index.html.
        Otherwise, check out the commit that you are referencing in the `LATEST` file
        and build documentation locally via `./docs/scripts/preview.sh`.
 
@@ -128,7 +135,7 @@ latest commit on master.
     1. Kill the `daml start` process and the `yarn start` process.
 
     1. Open the your first feature section of the GSG, e.g., from
-       https://docs.daml.com/$RELEASE_NUMBER/getting-started/first-feature.html
+       https://docs.daml.com/$VERSION/getting-started/first-feature.html
        if you did not build docs locally.
 
     1. Run `daml studio --replace=always` from the project root
@@ -176,96 +183,85 @@ latest commit on master.
 
     1. Verify that `Bob` has received the message in the other window.
 
-1. Run through the following test plan on one of Linux or macOS:
+    1. You can now close both browser windows and both running processes (`daml
+       start` and `yarn start`).
 
-   1. Install the new SDK using:
-      ```
-      curl -sSL https://get.daml.com/ | sh -s $(cat LATEST | gawk '{print $2}')
-      ```
-      Note: this assumes you have the up-to-date `LATEST` file, either because
-      you just checked out master or because you're still on the release PR
-      commit.
+    1. Don't forget to run this on the other platform! E.g. if you just ran
+       through on Linux or macOS, you still need to run on Windows, and vice
+       versa.
 
-   1. Run `daml version --assistant=yes` and verify that the new version is
-      selected as the assistant version and the default version for new projects.
+1. Tests for `quickstart-java` (Linux/macOS)
 
-   1. Tests for `quickstart-java`
+   While this is no longer the default getting started guide we still test it
+   for now since it covers things not covered by the new GSG
+   (Navigator, scenarios, Maven artifacts, …)
 
-      While this is no longer the default getting started guide we still test it
-      for now since it covers things not covered by the new GSG
-      (Navigator, scenarios, Maven artifacts, …)
+    1. Create a new project with `daml new quickstart quickstart-java`
+       and switch to it using `cd quickstart`.
 
-       1. Create a new project with `daml new quickstart quickstart-java`
-          and switch to it using `cd quickstart`.
+    1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-       1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
+    1. Run `daml start`. Your browser should be opened automatically at
+       `http://localhost:7500`. Login as `Alice` and verify that there is
+       1 contract and 3 templates. Close the tab and kill `daml start` using
+       `Ctrl-C`.
 
-       1. Run `daml start`. Your browser should be opened automatically at
-          `http://localhost:7500`. Login as `Alice` and verify that there is
-          1 contract and 3 templates. Close the tab and kill `daml start` using
-          `Ctrl-C`.
+    1. Run `daml build`.
 
-       1. Run `daml build`.
+    1. In 3 separate terminals (since each command blocks), run:
 
-       1. In 3 separate terminals (since each command except for `daml script …`
-          will block), run:
+       1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
+       1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
+       1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
-          1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-          1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time`
-          1. `daml navigator server localhost 6865 --port 7500`
-          1. `daml codegen java`
-          1. `mvn compile exec:java@run-quickstart`
+       > Note: It takes some time for our artifacts to be available on Maven
+       > Central. If you try running the last command before the artifacts are
+       > available, you will get a "not found" error. Trying to build again _in
+       > the next 24 hours_ will result in:
+       >
+       > ```
+       > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
+       > ```
+       >
+       > This is Maven telling you it has locally cached that "not found" result
+       > and will consider it valid for 24h. To bypass that and force Maven to
+       > try the network call again, add a `-U` option, as in
+       > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
+       > bypass your local cache of the failure; it will not be required for a
+       > user trying to run the quickstart after the artifacts have been
+       > published.
 
-          > Note: It takes some time for our artifacts to be available on Maven
-          > Central. If you try running the last command before the artifacts are
-          > available, you will get a "not found" error. Trying to build again _in
-          > the next 24 hours_ will result in:
-          >
-          > ```
-          > Failure to find ... was cached in the local repository, resolution will not be reattempted until the update interval of digitalasset-releases has elapsed or updates are forced
-          > ```
-          >
-          > This is Maven telling you it has locally cached that "not found" result
-          > and will consider it valid for 24h. To bypass that and force Maven to
-          > try the network call again, add a `-U` option, as in
-          > `mvn compile exec:java@run-quickstart -U`. Note that this is required to
-          > bypass your local cache of the failure; it will not be required for a
-          > user trying to run the quickstart after the artifacts have been
-          > published.
+    1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
+       that there is 1 contract, 3 templates and 1 owned IOU.
 
-       1. Point your browser to `http://localhost:7500`, login as `Alice` and verify
-          that there is 1 contract, 3 templates and 1 owned IOU.
+    1. Check that `curl http://localhost:8080/iou` returns:
+       ```
+       {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0000000000,"observers":[]}}
+       ```
 
-       1. Check that `curl http://localhost:8080/iou` returns:
-          ```
-          {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0000000000,"observers":[]}}
-          ```
+    1. Kill all processes.
 
-       1. Kill all processes.
+    1. Run `daml studio --replace=always`. This should open VSCode and trigger
+       the DAML extension that's bundled with the new SDK version. (The new
+       VSCode extension will not be in the marketplace at this point.)
 
-       1. Run `daml studio --replace=always`. This should open VSCode and trigger
-          the DAML extension that's bundled with the new SDK version. (The new
-          VSCode extension will not be in the marketplace at this point.)
+    1. Open `daml/Main.daml`.
 
-       1. Open `daml/Main.daml`.
+    1. Click on `Scenario results` above `setup` and wait for the scenario
+       results to appear.
 
-       1. Click on `Scenario results` above `setup` and wait for the scenario
-          results to appear.
+    1. Add `+` at the end of line 12, after `"Alice"` and confirm you get an
+       error in line 13.
 
-       1. Add `+` at the end of line 12, after `"Alice"` and confirm you get an
-          error in line 13.
+    1. Add `1` after the `+` and confirm you get an error in line 12.
 
-       1. Add `1` after the `+` and confirm you get an error in line 12.
+    1. Delete the `+1` and the `e` in `Alice` and verify that the scenario
+       results are updated to the misspelled name.
 
-       1. Delete the `+1` and the `e` in `Alice` and verify that the scenario
-          results are updated to the misspelled name.
+    1. Right click on `eurBank` in line 18 and verify that "Go to Definition"
+       takes you to the definition in line 15.
 
-       1. Right click on `eurBank` in line 18 and verify that "Go to Definition"
-          takes you to the definition in line 15.
-
-       1. Close all files.
-
-   1. Run through the tests for the getting started guide described above.
+    1. Close all files.
 
 1. On your PR, add the comment:
 

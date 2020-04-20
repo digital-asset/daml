@@ -9,7 +9,6 @@ import java.time.Instant
 import anorm.SqlParser.{array, binaryStream, bool, str}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
-import com.daml.lf.data.Ref.QualifiedName
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
 import com.daml.ledger.api.v1.transaction.{
@@ -23,12 +22,11 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.daml.ledger.api.v1.value.{Identifier => ApiIdentifier}
 import com.daml.platform.ApiOffset
 import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import com.daml.platform.index.TransactionConversion
 import com.daml.platform.participant.util.LfEngineToApi
-import com.daml.platform.store.Conversions.{instant, offset}
+import com.daml.platform.store.Conversions.{identifier, instant, offset}
 import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
 import com.google.protobuf.timestamp.Timestamp
 
@@ -160,7 +158,7 @@ private[events] trait EventsTable {
   }
 
   private type SharedRow =
-    Offset ~ String ~ String ~ String ~ Instant ~ String ~ String ~ Option[String] ~ Option[String] ~ Array[
+    Offset ~ String ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~ Option[String] ~ Array[
       String]
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -168,8 +166,7 @@ private[events] trait EventsTable {
       str("event_id") ~
       str("contract_id") ~
       instant("ledger_effective_time") ~
-      str("template_package_id") ~
-      str("template_name") ~
+      identifier("template_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
       array[String]("event_witnesses")
@@ -198,24 +195,10 @@ private[events] trait EventsTable {
   protected type ArchiveEventRow = SharedRow
   protected val archivedEventRow: RowParser[ArchiveEventRow] = sharedRow
 
-  private def templateId(
-      templatePackageId: String,
-      templateName: String,
-  ): ApiIdentifier = {
-    val QualifiedName(templateModuleName, templateEntityName) =
-      QualifiedName.assertFromString(templateName)
-    ApiIdentifier(
-      packageId = templatePackageId,
-      moduleName = templateModuleName.dottedName,
-      entityName = templateEntityName.dottedName,
-    )
-  }
-
   protected def createdEvent(
       eventId: String,
       contractId: String,
-      templatePackageId: String,
-      templateName: String,
+      templateId: Identifier,
       createArgument: InputStream,
       createSignatories: Array[String],
       createObservers: Array[String],
@@ -227,7 +210,7 @@ private[events] trait EventsTable {
     CreatedEvent(
       eventId = eventId,
       contractId = contractId,
-      templateId = Some(templateId(templatePackageId, templateName)),
+      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
       contractKey = createKeyValue.map(
         key =>
           LfEngineToApi.assertOrRuntimeEx(
@@ -258,8 +241,7 @@ private[events] trait EventsTable {
   protected def exercisedEvent(
       eventId: String,
       contractId: String,
-      templatePackageId: String,
-      templateName: String,
+      templateId: Identifier,
       exerciseConsuming: Boolean,
       exerciseChoice: String,
       exerciseArgument: InputStream,
@@ -272,7 +254,7 @@ private[events] trait EventsTable {
     ExercisedEvent(
       eventId = eventId,
       contractId = contractId,
-      templateId = Some(templateId(templatePackageId, templateName)),
+      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
       choice = exerciseChoice,
       choiceArgument = Some(
         LfEngineToApi.assertOrRuntimeEx(
@@ -304,14 +286,13 @@ private[events] trait EventsTable {
   protected def archivedEvent(
       eventId: String,
       contractId: String,
-      templatePackageId: String,
-      templateName: String,
+      templateId: Identifier,
       eventWitnesses: Array[String],
   ): ArchivedEvent =
     ArchivedEvent(
       eventId = eventId,
       contractId = contractId,
-      templateId = Some(templateId(templatePackageId, templateName)),
+      templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
       witnessParties = eventWitnesses,
     )
 
