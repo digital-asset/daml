@@ -91,12 +91,12 @@ latest commit on master.
 
     You will have to run through those steps on both Linux/MacOS and
     on Windows. See the platform specific-instructions below for more
-    details on when the order of steps you need to follow.
+    details on the order of steps you need to follow.
 
     1. For these steps you will need the documentation for the
        release you are about to make. Documentation is published at
        every hour so if you wait for a bit you can go to
-       https://docs.daml.com/$RELEASE_NUMBER/getting-started/index.html.
+       https://docs.daml.com/$VERSION/getting-started/index.html.
        Otherwise, check out the commit that you are referencing in the `LATEST` file
        and build documentation locally via `./docs/scripts/preview.sh`.
 
@@ -128,7 +128,7 @@ latest commit on master.
     1. Kill the `daml start` process and the `yarn start` process.
 
     1. Open the your first feature section of the GSG, e.g., from
-       https://docs.daml.com/$RELEASE_NUMBER/getting-started/first-feature.html
+       https://docs.daml.com/$VERSION/getting-started/first-feature.html
        if you did not build docs locally.
 
     1. Run `daml studio --replace=always` from the project root
@@ -207,14 +207,11 @@ latest commit on master.
 
        1. Run `daml build`.
 
-       1. In 3 separate terminals (since each command except for `daml script …`
-          will block), run:
+       1. In 3 separate terminals (since each command blocks), run:
 
           1. `daml sandbox --wall-clock-time --port 6865 .daml/dist/quickstart-0.0.1.dar`
-          1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time`
-          1. `daml navigator server localhost 6865 --port 7500`
-          1. `daml codegen java`
-          1. `mvn compile exec:java@run-quickstart`
+          1. `daml script --dar .daml/dist/quickstart-0.0.1.dar --script-name Setup:initialize --ledger-host localhost --ledger-port 6865 --wall-clock-time && daml navigator server localhost 6865 --port 7500`
+          1. `daml codegen java && mvn compile exec:java@run-quickstart`
 
           > Note: It takes some time for our artifacts to be available on Maven
           > Central. If you try running the last command before the artifacts are
