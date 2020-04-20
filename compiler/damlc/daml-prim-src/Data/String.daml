@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
+-- | HIDE
 module Data.String(fromString) where
 
 import GHC.Types
