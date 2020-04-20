@@ -32,6 +32,8 @@ module DA.Daml.Helper.Run
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , SandboxPortSpec(..)
+    , toSandboxPortSpec
     , JsonApiPort(..)
     , JsonApiConfig(..)
     , ReplaceExtension(..)
@@ -583,6 +585,18 @@ runListTemplates = do
           "The following templates are available:" :
           (map ("  " <>) . sort . map takeFileName) templates
 
+data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
+
+toSandboxPortSpec :: Int -> Maybe SandboxPortSpec
+toSandboxPortSpec n
+  | n < 0 = Nothing
+  | n  == 0 = Just FreePort
+  | otherwise = Just (SpecifiedPort (SandboxPort n))
+
+fromSandboxPortSpec :: SandboxPortSpec -> Int
+fromSandboxPortSpec FreePort = 0
+fromSandboxPortSpec (SpecifiedPort (SandboxPort n)) = n
+
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
 newtype JsonApiPort = JsonApiPort Int
@@ -593,14 +607,14 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxClassic -> SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
-withSandbox (SandboxClassic classic) (SandboxPort port) args a = withTempFile $ \portFile -> do
+withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox (SandboxClassic classic) portSpec args a = withTempFile $ \portFile -> do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
     let sandbox = if classic then "sandbox-classic" else "sandbox"
-    withJar damlSdkJar [logbackArg] ([sandbox, "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
+    withJar damlSdkJar [logbackArg] ([sandbox, "--port", show (fromSandboxPortSpec portSpec), "--port-file", portFile] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
-        _port <- readPortFile maxRetries portFile
-        a ph
+        port <- readPortFile maxRetries portFile
+        a ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
@@ -672,7 +686,7 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 
 
 runStart
-    :: Maybe SandboxPort
+    :: Maybe SandboxPortSpec
     -> Maybe StartNavigator
     -> JsonApiConfig
     -> OpenBrowser
@@ -719,7 +733,7 @@ runStart
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
+    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
         withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust mbInitScript $ \initScript -> do
                 procScript <- toAssistantCommand $
@@ -746,7 +760,7 @@ runStart
 
     where
         navigatorPort = NavigatorPort 7500
-        defaultSandboxPort = SandboxPort 6865
+        defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
         withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
