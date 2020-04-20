@@ -43,6 +43,7 @@ data DamldocOptions = DamldocOptions
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
+    , do_docIndexTemplate :: Maybe FilePath
     , do_transformOptions :: TransformOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
@@ -90,6 +91,7 @@ inputDocData DamldocOptions{..} = do
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
 renderDocData DamldocOptions{..} docData = do
     templateM <- mapM T.readFileUtf8 do_docTemplate
+    indexTemplateM <- mapM T.readFileUtf8 do_docIndexTemplate
 
     let prefix = fromMaybe "" templateM
         write file contents = do
@@ -111,5 +113,6 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_format = format
                         , ro_title = do_docTitle
                         , ro_template = templateM
+                        , ro_indexTemplate = indexTemplateM
                         }
                 renderDocs renderOptions docData

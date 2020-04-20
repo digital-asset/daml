@@ -32,6 +32,7 @@ documentation numProcessors = Damldoc
     <*> optOutputPath
     <*> optOutputFormat
     <*> optTemplate
+    <*> optIndexTemplate
     <*> optOmitEmpty
     <*> optDataOnly
     <*> optNoAnnot
@@ -73,6 +74,13 @@ documentation numProcessors = Damldoc
             <> help "Path to mustache template. The variables 'title' and 'body' in the template are substituted with the doc title and body respectively. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
             <> long "template"
             <> short 't'
+
+    optIndexTemplate :: Parser (Maybe FilePath)
+    optIndexTemplate =
+        optional . option str
+            $ metavar "FILE"
+            <> help "Path to mustache template for index, when rendering to a folder. The variable 'body' in the template is substituted with a module index."
+            <> long "index-template"
 
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
@@ -190,6 +198,7 @@ data CmdArgs = Damldoc
     , cOutputPath :: FilePath
     , cOutputFormat :: OutputFormat
     , cTemplate :: Maybe FilePath
+    , cIndexTemplate :: Maybe FilePath
     , cOmitEmpty :: Bool
     , cDataOnly  :: Bool
     , cNoAnnot   :: Bool
@@ -217,6 +226,7 @@ exec Damldoc{..} = do
         , do_inputFormat = cInputFormat
         , do_inputFiles = map toNormalizedFilePath' cMainFiles
         , do_docTemplate = cTemplate
+        , do_docIndexTemplate = cIndexTemplate
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack . unitIdString <$> optUnitId cOptions
         , do_combine = cCombine
