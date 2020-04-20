@@ -50,10 +50,10 @@ class GraphsSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
         sortedEdges.toSet shouldBe allEdges
 
         val edgeRank = sortedEdges.zipWithIndex.toMap
-        dag.foreach {
-          case (e, dest) =>
-            dest.foreach(e_ => edgeRank(e) > edgeRank(e_))
-        }
+        for {
+          e <- dag.keys
+          e_ <- dag(e)
+        } edgeRank(e_) should be < edgeRank(e)
       }
     }
 
@@ -65,8 +65,8 @@ class GraphsSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
         val Left(Cycle(loop)) = result
 
         ((loop.last :: loop) zip loop).foreach {
-          case (e, dest) =>
-            dcg(e) should contain(dest)
+          case (e, e_) =>
+            dcg(e) should contain(e_)
         }
       }
     }
