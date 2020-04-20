@@ -10,30 +10,22 @@ import Ledger from '@daml/ledger';
 import { User } from '@daml.js/create-daml-app';
 import { computeCredentials } from './Credentials';
 
-const DAR_PATH = '.daml/dist/create-daml-app-0.1.0.dar';
-const SANDBOX_LEDGER_ID = 'create-daml-app-sandbox';
-
-// Base names of port files
-const SANDBOX_PORT_FILE_NAME = 'sandbox.port';
 const JSON_API_PORT_FILE_NAME = 'json-api.port';
-// Relative paths from the ui directory
-const SANDBOX_PORT_FILE_PATH = `../${SANDBOX_PORT_FILE_NAME}`;
-const JSON_API_PORT_FILE_PATH = `../${JSON_API_PORT_FILE_NAME}`;
 
-// We still hardcode the JSON API port as it also appears in test and proxy
-// settings in the ui/package.json.
+// We hardcode the JSON API port as it also appears in test and proxy settings
+// in ui/package.json.
 const JSON_API_PORT = 7575;
 const UI_PORT = 3000;
 
-// DAML processes
-let sandbox: ChildProcess | undefined = undefined;
-let jsonApiServer: ChildProcess | undefined = undefined;
+// `daml start` process
+let startProc: ChildProcess | undefined = undefined;
 
-// UI processes
+// `yarn start` process
 let uiProc: ChildProcess | undefined = undefined;
+
+// Headless Chrome browser
+// (see https://developers.google.com/web/updates/2017/04/headless-chrome)
 let browser: Browser | undefined = undefined;
-// ^ Headless Chrome browser:
-// https://developers.google.com/web/updates/2017/04/headless-chrome
 
 // Function to generate unique party names for us.
 // This should be replaced by the party management service once that is exposed
@@ -62,49 +54,35 @@ const removeFile = async (path: string) => {
 // Start the DAML and UI processes before the tests begin.
 // To reduce test times, we reuse the same processes between all the tests.
 // This means we need to use a different set of parties and a new browser page for each test.
-//
-// We run the sandbox and JSON API server separately, as opposed to using
-// `daml start` as we instruct users to do in the Getting Started Guide.
-// This is so that we have more control of the ports used and hopefully avoid
-// hardcoding port numbers (which can cause clashes in CI runs).
 beforeAll(async () => {
-  // If the sandbox or JSON API processes were previously shut down
-  // abruptly then their port files may not have been deleted.
-  // Since we use these files to know when the servers are up, we remove them
-  // first (if they exist) to be sure.
-  await removeFile(SANDBOX_PORT_FILE_PATH);
-  await removeFile(JSON_API_PORT_FILE_PATH);
+  // If the JSON API server was previously shut down abruptly then the port file
+  // may not have been removed.
+  // Since we use this file to know when the server is up, we remove it first
+  // (if it exists) to be sure.
+  const jsonApiPortFilePath = `../${JSON_API_PORT_FILE_NAME}`; // relative to ui folder
+  await removeFile(jsonApiPortFilePath);
 
-  // Run the `daml` commands from the project root (where the `daml.yaml` is located).
+  // Run `daml start` from the project root (where the `daml.yaml` is located).
   // The path should include '.daml/bin' in the environment where this is run,
   // which contains the `daml` assistant executable.
   const startOpts: SpawnOptions = { cwd: '..', stdio: 'inherit' };
 
-  // Port number 0 instructs the sandbox to find an available port and write the
-  // real port number to the port file.
-  const sandboxOptions = [
-    'sandbox',
-    '--wall-clock-time',
-    `--ledgerid=${SANDBOX_LEDGER_ID}`,
-    '--port=0',
-    `--port-file=${SANDBOX_PORT_FILE_NAME}`,
-    DAR_PATH
+  // Arguments for `daml start` (besides those in the `daml.yaml`).
+  // `--sandbox-port=0` instructs the sandbox to find an available port which is
+  // then used as the `--ledger-port` for the JSON API.
+  // The JSON API `--port-file` gives us a file we can check to know that both
+  // the sandbox and JSON API server are up and running.
+  // The JSON API port is hardcoded for now.
+  const startArgs = [
+    'start',
+    '--sandbox-port=0',
+    `--json-api-port=${JSON_API_PORT}`,
+    `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`
   ];
-  sandbox = spawn('daml', sandboxOptions, startOpts);
 
-  await waitOn({resources: [`file:${SANDBOX_PORT_FILE_PATH}`]});
-  const sandboxPort = parseInt(await fs.readFile(SANDBOX_PORT_FILE_PATH, 'utf8'));
+  startProc = spawn('daml', startArgs, startOpts);
 
-  const jsonApiOptions = [
-    'json-api',
-    '--ledger-host=localhost',
-    `--ledger-port=${sandboxPort}`,
-    `--http-port=${JSON_API_PORT}`,
-    `--port-file=${JSON_API_PORT_FILE_NAME}`
-  ];
-  jsonApiServer = spawn('daml', jsonApiOptions, startOpts);
-
-  await waitOn({resources: [`file:${JSON_API_PORT_FILE_PATH}`]});
+  await waitOn({resources: [`file:${jsonApiPortFilePath}`]});
 
   // Run `yarn start` in another shell.
   // Disable automatically opening a browser using the env var described here:
@@ -118,25 +96,18 @@ beforeAll(async () => {
   // Ensure the UI server is ready by checking that the port is available.
   await waitOn({resources: [`tcp:localhost:${UI_PORT}`]});
 
-  // Launch a browser once for all tests.
+  // Launch a single browser for all tests.
   browser = await puppeteer.launch();
 }, 40_000);
 
 afterAll(async () => {
-  // Kill the sandbox and JSON API processes.
-  // Note that `kill()` sends the `SIGTERM` signal but the actual processes may
-  // not die immediately.
+  // Kill the `daml start` process, allowing the sandbox and JSON API server to
+  // shut down gracefully.
+  // The latter process should also remove the JSON API port file.
   // TODO: Test this on Windows.
-  if (sandbox) {
-    sandbox.kill();
+  if (startProc) {
+    startProc.kill('SIGTERM');
   }
-  if (jsonApiServer) {
-    jsonApiServer.kill();
-  }
-
-  // The sandbox does not clean up its port file on termination so we take care
-  // of that. (The JSON API server takes care of this for us.)
-  await removeFile(SANDBOX_PORT_FILE_PATH);
 
   // Kill the `yarn start` process including all its descendents.
   // The `-` indicates to kill all processes in the process group.
