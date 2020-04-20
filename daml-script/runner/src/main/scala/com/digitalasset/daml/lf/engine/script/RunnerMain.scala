@@ -52,7 +52,7 @@ object RunnerMain {
 
         val applicationId = ApplicationId("Script Runner")
         val timeProvider: TimeProvider =
-          config.timeProviderType match {
+          config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType) match {
             case TimeProviderType.Static => TimeProvider.Constant(Instant.EPOCH)
             case TimeProviderType.WallClock => TimeProvider.UTC
             case _ =>

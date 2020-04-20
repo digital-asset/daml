@@ -17,7 +17,8 @@ case class RunnerConfig(
     ledgerHost: Option[String],
     ledgerPort: Option[Int],
     participantConfig: Option[File],
-    timeProviderType: TimeProviderType,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     inputFile: Option[File],
     outputFile: Option[File],
@@ -27,6 +28,9 @@ case class RunnerConfig(
 )
 
 object RunnerConfig {
+
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
     if (readable) Right(()) else Left(message)
@@ -61,14 +65,14 @@ object RunnerConfig {
       .text("File containing the participant configuration in JSON format")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.Static)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.Static)
       }
       .text("Use static time.")
 
@@ -151,7 +155,20 @@ object RunnerConfig {
         success
       }
     })
+
   }
+
+  private def setTimeProviderType(
+      config: RunnerConfig,
+      timeProviderType: TimeProviderType,
+  ): RunnerConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
+
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
@@ -161,7 +178,7 @@ object RunnerConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = TimeProviderType.WallClock,
+        timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
         outputFile = None,

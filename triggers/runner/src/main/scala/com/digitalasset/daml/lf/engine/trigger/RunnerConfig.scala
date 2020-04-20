@@ -19,13 +19,17 @@ case class RunnerConfig(
     ledgerHost: String,
     ledgerPort: Int,
     ledgerParty: String,
-    timeProviderType: TimeProviderType,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     accessTokenFile: Option[Path],
     tlsConfig: Option[TlsConfiguration],
 )
 
 object RunnerConfig {
+
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
     if (readable) Right(()) else Left(message)
@@ -56,14 +60,14 @@ object RunnerConfig {
       .text("Ledger party")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.Static)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.Static)
       }
       .text("Use static time.")
 
@@ -139,6 +143,18 @@ object RunnerConfig {
         }
     })
   }
+
+  private def setTimeProviderType(
+      config: RunnerConfig,
+      timeProviderType: TimeProviderType,
+  ): RunnerConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
+
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
@@ -149,7 +165,7 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
-        timeProviderType = TimeProviderType.WallClock,
+        timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
         tlsConfig = None,
