@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf.language
 
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -5,9 +8,9 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.collection.immutable.HashMap
 
-class UtilSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class GraphsSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
-  import Util._
+  import Graphs._
 
   "topoSort" should {
 
@@ -36,7 +39,7 @@ class UtilSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
       )
     )
 
-    "successfully sort edges of directed acyclic graph" in {
+    "successfully sort all edges of directed acyclic graph" in {
       dags.forEvery { dag =>
         val result = topoSort(dag)
         result shouldBe 'right
@@ -54,12 +57,12 @@ class UtilSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
       }
     }
 
-    "fail on cyclic graph and return a cycle" in {
+    "fail on cyclic graph and return a proper cycle" in {
       dcgs.forEvery { dcg =>
         val result = topoSort(dcg)
         result shouldBe 'left
 
-        val Left(loop) = result
+        val Left(Cycle(loop)) = result
 
         ((loop.last :: loop) zip loop).foreach {
           case (e, dest) =>

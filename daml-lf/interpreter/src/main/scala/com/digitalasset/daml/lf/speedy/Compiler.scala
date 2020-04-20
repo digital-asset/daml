@@ -156,6 +156,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   @throws[CompileError]
   @throws[ValidationError]
   def compilePackages(toCompile: Iterable[PackageId]): Map[SDefinitionRef, SExpr] =
+    // Package needs to be compiled in order.
     dependenciesInTopologicalOrder(toCompile.toList, packages)
       .foldLeft(Map.empty[SDefinitionRef, SExpr])(
         _ ++ compilePackage(_)

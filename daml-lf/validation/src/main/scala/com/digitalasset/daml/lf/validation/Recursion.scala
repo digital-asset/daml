@@ -5,7 +5,7 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Util => AstUtil}
+import com.daml.lf.language.Graphs
 import com.daml.lf.validation.traversable.{ExprTraversable, TypeTraversable}
 
 private[validation] object Recursion {
@@ -18,7 +18,7 @@ private[validation] object Recursion {
       case (name, mod) => name -> (mod.definitions.values.flatMap(modRefs(pkgId, _)).toSet - name)
     }
 
-    AstUtil.topoSort(g).left.foreach(c => throw EImportCycle(NoContext, c))
+    Graphs.topoSort(g).left.foreach(cycle => throw EImportCycle(NoContext, cycle.vertices))
 
     modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
@@ -68,7 +68,7 @@ private[validation] object Recursion {
           val name = Identifier(pkgId, QualifiedName(modName, dottedName))
           (name, synRefsOfType(Set.empty, replacementTyp))
       }
-    AstUtil.topoSort(g).left.foreach(c => throw ETypeSynCycle(NoContext, c))
+    Graphs.topoSort(g).left.foreach(cycle => throw ETypeSynCycle(NoContext, cycle.vertices))
   }
 
   private def synRefsOfType(acc: Set[TypeSynName], typ: Type): Set[TypeSynName] = typ match {

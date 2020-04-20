@@ -3,7 +3,7 @@
 
 package com.daml.lf.language
 
-import com.daml.lf.data.{Decimal, ImmArray, InsertOrdSet, Ref}
+import com.daml.lf.data.{Decimal, ImmArray, Ref}
 import com.daml.lf.language.Ast._
 
 import scala.annotation.tailrec
@@ -84,39 +84,7 @@ object Util {
   val CPTrue = CPPrimCon(PCTrue)
   val CPFalse = CPPrimCon(PCFalse)
 
-  type Graph[X] = Map[X, Set[X]]
-
-  // Topologically order the vertices of an abstract Graph.
-  // If the `graph` is a directed acyclic graph returns a list of its vertices in topological order as `Right`
-  // otherwise returns a list of vertices that form a cycle as `Left`
-  def topoSort[X](graph: Graph[X]): Either[List[X], List[X]] = {
-
-    var white = graph.keySet
-    var black = graph.values.foldLeft(InsertOrdSet.empty[X])(_ | _.filterNot(white))
-    def gray(x: X) = !white(x) && !black(x)
-
-    def visitSet(xs: Set[X]): Option[X] = xs.foldLeft(Option.empty[X])(_ orElse visit(_))
-
-    def visit(x: X): Option[X] =
-      if (black(x))
-        None
-      else if (!white(x))
-        Some(x)
-      else { white -= x; visitSet(graph(x)) } orElse { black += x; None }
-
-    def buildCycle(curr: X, start: X, list: List[X] = List.empty): List[X] = {
-      val next = graph(curr).find(gray).getOrElse(throw new UnknownError)
-      if (next == start)
-        curr :: list
-      else
-        buildCycle(next, start, curr :: list)
-    }
-
-    visitSet(graph.keySet).fold[Either[List[X], List[X]]](Right(black.toList))(x =>
-      Left(buildCycle(x, x)))
-  }
-
-  // Return the `pkgIds` and all its dependencies in topological order.
+  // Returns the `pkgIds` and all its dependencies in topological order.
   // A package undefined w.r.t. the function `packages` is treated as a sink.
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
@@ -125,10 +93,10 @@ object Util {
 
     @tailrec
     def buildGraph(
-        toProcess0: List[Ref.PackageId] = pkgIds,
-        seen0: Set[Ref.PackageId] = pkgIds.toSet,
-        graph0: Graph[Ref.PackageId] = HashMap.empty,
-    ): Graph[Ref.PackageId] =
+        toProcess0: List[Ref.PackageId],
+        seen0: Set[Ref.PackageId],
+        graph0: Graphs.Graph[Ref.PackageId],
+    ): Graphs.Graph[Ref.PackageId] =
       toProcess0 match {
         case pkgId :: toProcess1 =>
           val deps = packages.lift(pkgId).fold(Set.empty[Ref.PackageId])(_.directDeps)
@@ -141,12 +109,15 @@ object Util {
         case Nil => graph0
       }
 
-    topoSort(buildGraph()).fold(
-      // If we get a cycle in package dependencies, there is something very wrong
-      // (i.e. we find a collision in SHA256), so we crash.
-      ids => throw new Error(s"cycle in package definitions ${ids.mkString(" -> ")}"),
-      identity
-    )
+    Graphs
+      .topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty))
+      .fold(
+        // If we get a cycle in package dependencies, there is something very wrong
+        // (i.e. we find a collision in SHA256), so we crash.
+        cycle =>
+          throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
+        identity
+      )
   }
 
 }
