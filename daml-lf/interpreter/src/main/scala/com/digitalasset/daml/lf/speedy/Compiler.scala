@@ -118,17 +118,23 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     */
   @throws(classOf[PackageNotFound])
   @throws(classOf[ValidationError])
-  def compilePackage(pkgId: PackageId): Iterable[(SDefinitionRef, SExpr)] = {
+  def compilePackage(
+      pkgId: PackageId,
+      validation: Boolean = true,
+  ): Iterable[(SDefinitionRef, SExpr)] = {
     logger.trace(s"compilePackage: Compiling $pkgId...")
 
     val t0 = Time.Timestamp.now()
-    Validation.checkPackage(packages, pkgId).left.foreach {
-      case EUnknownDefinition(_, LEPackage(pkgId_)) =>
-        logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
-        throw PackageNotFound(pkgId_)
-      case e =>
-        throw e
-    }
+
+    if (validation)
+      Validation.checkPackage(packages, pkgId).left.foreach {
+        case EUnknownDefinition(_, LEPackage(pkgId_)) =>
+          logger.trace(s"compilePackage: Missing $pkgId_, requesting it...")
+          throw PackageNotFound(pkgId_)
+        case e =>
+          throw e
+      }
+
     val t1 = Time.Timestamp.now()
 
     val defns = for {
@@ -155,11 +161,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   @throws[PackageNotFound]
   @throws[CompileError]
   @throws[ValidationError]
-  def compilePackages(toCompile: Iterable[PackageId]): Map[SDefinitionRef, SExpr] =
+  def compilePackages(
+      toCompile: Iterable[PackageId],
+      validation: Boolean = true,
+  ): Map[SDefinitionRef, SExpr] =
     // Package needs to be compiled in order.
     dependenciesInTopologicalOrder(toCompile.toList, packages)
       .foldLeft(Map.empty[SDefinitionRef, SExpr])(
-        _ ++ compilePackage(_)
+        _ ++ compilePackage(_, validation)
       )
 
   private def patternNArgs(pat: SCasePat): Int = pat match {
