@@ -12,9 +12,6 @@ import { computeCredentials } from './Credentials';
 
 const JSON_API_PORT_FILE_NAME = 'json-api.port';
 
-// We hardcode the JSON API port as it also appears in test and proxy settings
-// in ui/package.json.
-const JSON_API_PORT = 7575;
 const UI_PORT = 3000;
 
 // `daml start` process
@@ -23,8 +20,7 @@ let startProc: ChildProcess | undefined = undefined;
 // `yarn start` process
 let uiProc: ChildProcess | undefined = undefined;
 
-// Headless Chrome browser
-// (see https://developers.google.com/web/updates/2017/04/headless-chrome)
+// Chrome browser that we run in headless mode
 let browser: Browser | undefined = undefined;
 
 // Function to generate unique party names for us.
@@ -68,15 +64,12 @@ beforeAll(async () => {
   const startOpts: SpawnOptions = { cwd: '..', stdio: 'inherit' };
 
   // Arguments for `daml start` (besides those in the `daml.yaml`).
-  // `--sandbox-port=0` instructs the sandbox to find an available port which is
-  // then used as the `--ledger-port` for the JSON API.
   // The JSON API `--port-file` gives us a file we can check to know that both
   // the sandbox and JSON API server are up and running.
-  // The JSON API port is hardcoded for now.
+  // We use the default ports for the sandbox and JSON API as done in the
+  // Getting Started Guide.
   const startArgs = [
     'start',
-    '--sandbox-port=0',
-    `--json-api-port=${JSON_API_PORT}`,
     `--json-api-option=--port-file=${JSON_API_PORT_FILE_NAME}`
   ];
 
