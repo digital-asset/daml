@@ -182,7 +182,6 @@ packagingTests = testGroup "packaging"
                        waitForConnectionOnPort (threadDelay 100000) p
                        callCommand $ unwords
                            [ "daml script"
-                           ,"--wall-clock-time"
                            , "--dar script.dar --script-name Main:test"
                            , "--input-file input.json --output-file output.json"
                            , "--ledger-host localhost --ledger-port " <> show p

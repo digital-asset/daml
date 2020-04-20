@@ -134,8 +134,6 @@ object RunnerConfig {
           failure("Missing option --ledger-port")
         } else if (c.ledgerParty == null) {
           failure("Missing option --ledger-party")
-        } else if (c.timeProviderType == null) {
-          failure("Must specify either --wall-clock-time or --static-time")
         } else {
           success
         }
@@ -151,7 +149,7 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
-        timeProviderType = null,
+        timeProviderType = TimeProviderType.WallClock,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
         tlsConfig = None,

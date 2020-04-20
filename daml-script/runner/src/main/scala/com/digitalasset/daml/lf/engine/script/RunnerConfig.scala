@@ -145,8 +145,6 @@ object RunnerConfig {
         failure("Cannot specify both --ledger-host and --participant-config")
       } else if (c.ledgerHost.isEmpty && c.participantConfig.isEmpty) {
         failure("Must specify either --ledger-host or --participant-config")
-      } else if (c.timeProviderType == null) {
-        failure("Must specify either --wall-clock-time or --static-time")
       } else if (c.jsonApi && c.accessTokenFile.isEmpty) {
         failure("The json-api requires an access token")
       } else {
@@ -163,7 +161,7 @@ object RunnerConfig {
         ledgerHost = None,
         ledgerPort = None,
         participantConfig = None,
-        timeProviderType = null,
+        timeProviderType = TimeProviderType.WallClock,
         commandTtl = Duration.ofSeconds(30L),
         inputFile = None,
         outputFile = None,
