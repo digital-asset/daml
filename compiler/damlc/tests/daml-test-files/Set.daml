@@ -1,10 +1,10 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use infix
--- @INFO Use infix
--- @INFO Use infix
--- @INFO Use infix
+-- @INFO range=57:30-57:77; Use infix
+-- @INFO range=58:21-58:52; Use infix
+-- @INFO range=59:24-59:58; Use infix
+-- @INFO range=60:17-60:54; Use infix
 
 -- @SINCE-LF 1.3
 

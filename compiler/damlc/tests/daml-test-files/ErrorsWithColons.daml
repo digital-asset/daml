@@ -1,9 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO range=9:35-9:42; Use list literal
--- @ERROR range=9:35-9:42; In the expression: (1 :: [])
--- @ERROR range=11:13-11:14; In the expression: 1 : Text
+-- @INFO range=9:34-9:41; Use list literal
+-- @ERROR range=9:34-9:41; In the expression: (1 :: [])
+-- @ERROR range=11:12-11:13; In the expression: 1 : Text
 module ErrorsWithColons where
 
 badIf = if True then Some 1 else (1 :: [])

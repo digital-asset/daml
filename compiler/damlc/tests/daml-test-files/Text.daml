@@ -1,13 +1,13 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Evaluate
--- @INFO Evaluate
--- @INFO Use null
--- @INFO Use null
--- @INFO Use null
--- @INFO Use isNone
--- @INFO Use isNone
+-- @INFO range=41:9-41:17; Evaluate
+-- @INFO range=55:2-55:12; Evaluate
+-- @INFO range=61:13-61:46; Use null
+-- @INFO range=69:13-69:46; Use null
+-- @INFO range=70:13-70:46; Use null
+-- @INFO range=92:13-92:47; Use isNone
+-- @INFO range=97:13-97:47; Use isNone
 
 
 module Text where
