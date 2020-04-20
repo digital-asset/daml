@@ -52,12 +52,12 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
   - task: PublishPipelineArtifact@0
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.installer)
       artifactName: $(publish.installer)
@@ -65,7 +65,7 @@ steps:
     condition: and(succeeded(),
                    eq(${{parameters.is_release}}, 'true'),
                    or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranchName'], 'release/')))
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     inputs:
       targetPath: $(Build.StagingDirectory)/$(publish.tarball)
       artifactName: $(publish.tarball)
