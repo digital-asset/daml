@@ -112,6 +112,7 @@ It's harder to measure, but it is real.
 -}
 
 import Control.Monad (ap,liftM,forM,(>=>))
+import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import Data.Set (Set)
 import qualified DA.Daml.LF.Ast as LF
@@ -275,22 +276,25 @@ reflect = \case
       Restore rp $ do
       ModSubst (Map.insert tv ty) $ reflect expr
 
-{-
   LF.ECase{casScrutinee=scrut, casAlternatives=alts} -> do
     scrut <- normExpr scrut
-    Shift $ \(k :: SemValue -> LF.Expr) -> do
-      alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
-        expr <- Reset (k <$> reflect expr)
-        return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
-      return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
--}
+    if
+      | allowDupK -> do
+          -- Grab and duplicate the continuation for better optimization.
+          ShiftK $ \(k :: SemValue -> LF.Expr) -> do
+            alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
+              expr <- ResetK (k <$> reflect expr)
+              return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+            return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
-  LF.ECase{casScrutinee=scrut, casAlternatives=alts} -> do
-    scrut <- normExpr scrut
-    alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
-      expr <- Reset $ normExpr expr
-      return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
-    return $ Syntax $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
+      | otherwise -> do
+          -- Previous simpler behaviour if it turns out the code blowup from above is unacceptable.
+          alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
+            expr <- ResetK $ normExpr expr
+            return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+          return $ Syntax $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
+
+    where allowDupK = True
 
   LF.ELet{letBinding=bind,letBody=body} -> do
     let LF.Binding{bindingBinder=binder,bindingBound=rhs} = bind
@@ -379,10 +383,7 @@ nameIt :: String -> LF.Type -> LF.Expr -> Effect LF.ExprVarName
 nameIt reason ty exp = do
   name <- Fresh reason
   let bind = LF.Binding{bindingBinder=(name,ty),bindingBound=exp}
-  Shift $ \(k :: LF.ExprVarName -> LF.Expr) -> do
-    let body = k name
-    return $ LF.ELet{letBinding=bind,letBody=body}
-
+  WrapK (\body -> LF.ELet{letBinding=bind,letBody=body}) (return name)
 
 termApply :: (SemValue,SemValue) -> Effect SemValue
 termApply = \case
@@ -455,7 +456,7 @@ reify = \case
 
   Macro ty f -> do
     name <- Fresh "_r"
-    body <- Reset $ f (Syntax (LF.EVar name)) >>= reify
+    body <- ResetK $ f (Syntax (LF.EVar name)) >>= reify
     return $ LF.ETmLam{tmlamBinder=(name,ty),tmlamBody=body}
 
 applyProjection :: LF.FieldName -> SemValue -> Effect SemValue
@@ -494,23 +495,26 @@ data Effect a where
   GetPackage :: LF.PackageId -> Effect LF.Package
   ShouldInline :: QVal -> Effect Bool
   WithDontInline :: QVal -> Effect a -> Effect a
-  Reset :: Effect LF.Expr -> Effect LF.Expr
-  Shift :: ((a -> LF.Expr) -> Effect LF.Expr) -> Effect a
+
+  -- Operator which manipulate the continuation
+  WrapK :: (LF.Expr -> LF.Expr) -> Effect a -> Effect a
+  ResetK :: Effect LF.Expr -> Effect LF.Expr
+  ShiftK :: ((a -> LF.Expr) -> Effect LF.Expr) -> Effect a
 
 
 instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
+type Res = (LF.Expr,State)
 
 runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect LF.Expr -> LF.Expr
-runEffect pkgs theModule eff = loop context0 state0 eff k0
+runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
   where
     context0 = Context { scope = Set.empty, subst = Map.empty, env = Map.empty }
-    state0 = State { unique = 0 }
-    k0 _state e = e -- state thrown away
+    k0 state e = (e,state)
 
-    loop :: Context -> State -> Effect a -> (State -> a -> LF.Expr) -> LF.Expr
+    loop :: Context -> State -> Effect a -> (State -> a -> Res) -> Res
     loop context@Context{scope,subst,env} state eff k = case eff of
 
       Ret x -> k state x
@@ -525,18 +529,15 @@ runEffect pkgs theModule eff = loop context0 state0 eff k0
       GetEnv -> k state env
       ModEnv f eff -> loop context { env = f env } state eff k
 
-      Fresh tag -> do -- take original name as a base which we can uniquify
-        --let tag = "_v"
-        let State{unique} = state
-        let state' = state { unique = unique + 1 }
-        let x = LF.ExprVarName $ Text.pack (tag <> show unique)
+      Fresh tag -> do
+        let (name,state') = generateName state
+        let x = LF.ExprVarName $ Text.pack (tag <> name)
         k state' x
 
-      FreshTV -> do -- share the same counter as for term-vars
+      FreshTV -> do -- share the same unique name source as for term-vars
         let tag = "_tv"
-        let State{unique} = state
-        let state' = state { unique = unique + 1 }
-        let tv = LF.TypeVarName $ Text.pack (tag <> show unique)
+        let (name,state') = generateName state
+        let tv = LF.TypeVarName $ Text.pack (tag <> name)
         k state' tv
 
       GetTheModule -> do
@@ -553,9 +554,16 @@ runEffect pkgs theModule eff = loop context0 state0 eff k0
       WithDontInline qval eff -> do
         loop context { scope = Set.insert qval scope } state eff k
 
-      -- state get duplicated/re-used by Reset/Shift
-      Reset eff -> k state (loop context state eff k0)
-      Shift f -> loop context state (f (k state)) k0
+      WrapK f eff ->
+        loop context state eff $ \state v -> f' (k state v) where f' (e,s) = (f e, s)
+
+      ResetK eff -> do
+        let (v,state') = loop context state eff k0
+        k state' v
+
+      ShiftK f -> do
+        let (state1,state2) = splitState state
+        loop context state2 (f (fst . k state1)) k0
 
     packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
@@ -572,11 +580,36 @@ data Context = Context
   , env :: Env
   }
 
-type Env = Map LF.ExprVarName SemValue
-
-data State = State { unique :: Unique }
-type Unique = Int
-
-
 -- TODO: not great as set items because the qualPackage can be implicit(Self) or explicit
 type QVal = LF.Qualified LF.ExprValName
+
+type Env = Map LF.ExprVarName SemValue
+
+
+-- | Splittable state. Currently contains a single unique name source.
+data State = State { unique :: Unique }
+
+state0 :: State
+state0 = State { unique = unique0 }
+
+splitState :: State -> (State,State)
+splitState State{unique=u} = let (u1,u2) = splitUnique u in (State{unique=u1}, State{unique=u2})
+
+generateName :: State -> (String,State)
+generateName State{unique=u} = let (name,u') = generateUniqueName u in (name, State {unique = u'})
+
+
+-- | Splittable source of unique names
+data Unique = Unique Int [Int]
+
+unique0 :: Unique
+unique0 = Unique 0 []
+
+-- | Split a unique name source in two. Prefer the first in the pair as it is more concise.
+splitUnique :: Unique -> (Unique,Unique)
+splitUnique (Unique n xs) = (Unique (n+1) xs, Unique 0 (n:xs))
+
+generateUniqueName :: Unique -> (String,Unique)
+generateUniqueName (Unique n xs) = do
+  let name = intercalate "_" $ map show (reverse (n:xs))
+  (name, Unique (n+1) xs)
