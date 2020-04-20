@@ -15,7 +15,6 @@ import com.daml.lf.validation.{EUnknownDefinition, LEPackage, Validation, Valida
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -153,32 +152,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     * The packages do not need to be in any specific order, as long as they and all the packages
     * they transitively reference are in the [[packages]] in the compiler.
     */
-  @throws(classOf[PackageNotFound])
-  def compilePackages(toCompile0: Iterable[PackageId]): Map[SDefinitionRef, SExpr] = {
-    var defns = Map.empty[SDefinitionRef, SExpr]
-    val compiled = mutable.Set.empty[PackageId]
-    var toCompile = toCompile0.toList
-    val foundDependencies = mutable.Set.empty[PackageId]
-
-    while (toCompile.nonEmpty) {
-      val pkgId = toCompile.head
-      toCompile = toCompile.tail
-      try {
-        if (!compiled.contains(pkgId))
-          defns ++= compilePackage(pkgId)
-      } catch {
-        case PackageNotFound(dependency) if dependency != pkgId =>
-          if (foundDependencies.contains(dependency)) {
-            throw CompileError(s"Cyclical packages, stumbled upon $dependency twice")
-          }
-          foundDependencies += dependency
-          toCompile = dependency :: pkgId :: toCompile
-      }
-      compiled += pkgId
-    }
-
-    defns
-  }
+  @throws[PackageNotFound]
+  @throws[CompileError]
+  @throws[ValidationError]
+  def compilePackages(toCompile: Iterable[PackageId]): Map[SDefinitionRef, SExpr] =
+    // Package needs to be compiled in order.
+    dependenciesInTopologicalOrder(toCompile.toList, packages)
+      .foldLeft(Map.empty[SDefinitionRef, SExpr])(
+        _ ++ compilePackage(_)
+      )
 
   private def patternNArgs(pat: SCasePat): Int = pat match {
     case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
