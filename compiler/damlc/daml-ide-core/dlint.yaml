@@ -193,7 +193,7 @@
     - warn: {lhs: intersectBy (==), rhs: intersect}
     - warn: {lhs: maximumBy compare, rhs: maximum}
     - warn: {lhs: minimumBy compare, rhs: minimum}
-    - warn: {lhs: nubBy (==), rhs: nub}
+    - warn: {lhs: dedupBy compare, rhs: dedup}
     - warn: {lhs: sortBy compare, rhs: sort}
     - warn: {lhs: unionBy (==), rhs: union}
 
