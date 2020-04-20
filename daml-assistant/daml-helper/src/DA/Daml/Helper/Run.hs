@@ -728,9 +728,9 @@ runStart
                     , darPath
                     , "--script-name"
                     , initScript
-                    , if any (`elem` ["-w", "--wall-clock-time"]) sandboxOpts
-                        then "--wall-clock-time"
-                        else "--static-time"
+                    , if any (`elem` ["-s", "--static-time"]) sandboxOpts
+                        then "--static-time"
+                        else "--wall-clock-time"
                     , "--ledger-host"
                     , "localhost"
                     , "--ledger-port"

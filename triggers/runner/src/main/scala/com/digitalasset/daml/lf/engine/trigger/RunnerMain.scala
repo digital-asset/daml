@@ -93,7 +93,7 @@ object RunnerMain {
             dar,
             triggerId,
             client,
-            config.timeProviderType,
+            config.timeProviderType.getOrElse(RunnerConfig.DefaultTimeProviderType),
             applicationId,
             config.ledgerParty)
         } yield ()
