@@ -195,12 +195,7 @@ reflect = \case
     env <- GetEnv
     case Map.lookup name env of
       Just v -> return v
-      Nothing ->
-        -- TODO: We ought to be able to error here.
-        -- When normalizing under lambda, we should always rename vars (and add them to the env)
-        -- and then we can this error should be ok.
-        --error $ "reflect, " <> show name
-        return $ Syntax $ LF.EVar name
+      Nothing -> error $ "reflect, unbound var: " <> show name
 
   LF.EVal qval -> do
     ShouldInline qval >>= \case
@@ -283,15 +278,17 @@ reflect = \case
           -- Grab and duplicate the continuation for better optimization.
           ShiftK $ \(k :: SemValue -> LF.Expr) -> do
             alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
-              expr <- ResetK (k <$> reflect expr)
-              return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+              freshenCasePattern pat $ \pat -> do
+                expr <- ResetK (k <$> reflect expr)
+                return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
             return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
       | otherwise -> do
           -- Previous simpler behaviour if it turns out the code blowup from above is unacceptable.
           alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
-            expr <- ResetK $ normExpr expr
-            return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
+            freshenCasePattern pat $ \pat -> do
+              expr <- ResetK $ normExpr expr
+              return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
           return $ Syntax $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
     where allowDupK = True
@@ -348,6 +345,38 @@ reflect = \case
     reflect expr
     --expr <- normExpr expr
     --return $ Syntax $ LF.ELocation _loc expr
+
+
+freshenCasePattern :: LF.CasePattern -> (LF.CasePattern -> Effect a) -> Effect a
+freshenCasePattern pat k = case pat of
+  LF.CPVariant{patTypeCon,patVariant,patBinder=x} -> do
+    freshenExpVarName x $ \x -> do
+      k $ LF.CPVariant{patTypeCon,patVariant,patBinder=x}
+
+  LF.CPCons {patHeadBinder=x1,patTailBinder=x2} -> do
+    freshenExpVarName x1 $ \x1 -> do
+      freshenExpVarName x2 $ \x2 -> do
+        k $ LF.CPCons{patHeadBinder=x1,patTailBinder=x2}
+
+  LF.CPSome{patBodyBinder=x} -> do
+    freshenExpVarName x $ \x -> do
+      k $ LF.CPSome{patBodyBinder=x}
+
+  -- no binders in these
+  x@LF.CPEnum{} -> k x
+  x@LF.CPUnit -> k x
+  x@LF.CPBool{} -> k x
+  x@LF.CPNil -> k x
+  x@LF.CPNone -> k x
+  x@LF.CPDefault -> k x
+
+freshenExpVarName :: LF.ExprVarName -> (LF.ExprVarName -> Effect a) -> Effect a
+freshenExpVarName x k = do
+  let name :: String = (Text.unpack . LF.unExprVarName) x
+  x' <- Fresh name -- use old name as base for new
+  let f = Map.insert x (Syntax (LF.EVar x'))
+  ModEnv f $ k x'
+
 
 normUpdate :: LF.Update -> Effect LF.Update
 normUpdate = \case
