@@ -1,17 +1,17 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use null
--- @INFO Evaluate
--- @INFO Use sum
--- @INFO Use sum
--- @INFO Use sum
--- @INFO Use head
--- @INFO Use head
--- @INFO Use isNone
--- @INFO Use isNone
--- @INFO Use isNone
--- @INFO Use dedup
+-- @INFO range=36:16-36:29; Use section
+-- @INFO range=104:13-104:58; Use null
+-- @INFO range=118:16-118:31; Use dedup
+-- @INFO range=304:9-304:23; Evaluate
+-- @INFO range=319:37-319:47; Use sum
+-- @INFO range=320:42-320:52; Use sum
+-- @INFO range=321:28-321:38; Use sum
+-- @INFO range=324:2-324:22; Use head
+-- @INFO range=329:28-329:35; Use head
+-- @INFO range=336:11-336:33; Use isNone
+-- @INFO range=343:11-343:36; Use isNone
 
 module List where
 

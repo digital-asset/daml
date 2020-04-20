@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Test that rational literals with precision higher then e^-10 fail.
--- @ERROR Rational is out of bounds
+-- @ERROR range=12:0-12:1; Rational is out of bounds
 
 
 

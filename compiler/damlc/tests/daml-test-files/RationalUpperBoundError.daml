@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Test that rational positive literals fail when bigger than 10^38 -1 after multiplying with 10^10.
--- @ERROR Rational is out of bounds
+-- @ERROR range=13:0-13:1; Rational is out of bounds
 
 
 
