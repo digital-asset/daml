@@ -13,7 +13,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private def createdTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -25,8 +25,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
               createdEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 createArgument = createArgument,
                 createSignatories = createSignatories,
                 createObservers = createObservers,
@@ -42,7 +41,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
 
   private def exercisedTreeEventParser(verbose: Boolean): RowParser[Entry[TreeEvent]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ exerciseConsuming ~ exerciseChoice ~ exerciseArgument ~ exerciseResult ~ exerciseActors ~ exerciseChildEventIds =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -54,8 +53,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
               exercisedEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 exerciseConsuming = exerciseConsuming,
                 exerciseChoice = exerciseChoice,
                 exerciseArgument = exerciseArgument,
@@ -86,8 +84,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "participant_events.event_id",
     "contract_id",
     "ledger_effective_time",
-    "template_package_id",
-    "template_name",
+    "template_id",
     "workflow_id",
     "create_argument",
     "create_signatories",
@@ -113,8 +110,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
     "participant_events.event_id",
     "contract_id",
     "ledger_effective_time",
-    "template_package_id",
-    "template_name",
+    "template_id",
     "command_id",
     "workflow_id",
     "application_id",
