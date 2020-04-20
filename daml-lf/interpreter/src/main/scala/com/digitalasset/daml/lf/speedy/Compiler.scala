@@ -772,9 +772,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   /** Compile a choice into a top-level function for exercising that choice */
   private def compileChoice(tmplId: TypeConName, tmpl: Template, choice: TemplateChoice): SExpr =
     // Compiles a choice into:
-    // SomeTemplate$SomeChoice = \actors cid arg token ->
-    //   let targ = fetch cid
-    //       _ = $beginExercise[tmplId, chId] arg cid actors <sigs> <obs> <ctrls> <mbKey> token
+    // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
+    //   let targ = fetch <cid>
+    //       _ = $beginExercise[tmplId, chId] <choice arg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
     //       result = <updateE>
     //       _ = $endExercise[tmplId]
     //   in result
@@ -783,15 +783,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         Map.empty,
         0,
         withEnv { _ =>
-          env = env.incrPos // byKey flag
-          env = env.incrPos // actors
+          env = env.incrPos // <byKey flag>
+          env = env.incrPos // <actors>
           val selfBinderPos = env.position
-          env = env.incrPos // cid
+          env = env.incrPos // <cid>
           val choiceArgumentPos = env.position
-          env = env.incrPos // choice argument
-          env = env.incrPos // token
+          env = env.incrPos // <choice argument>
+          env = env.incrPos // <token>
 
-          // template argument
+          // <template argument>
           env = env.addExprVar(tmpl.param)
 
           val signatories = translate(tmpl.signatories)
@@ -811,13 +811,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(5) {
             SELet(
               // stack: <byKey flag> <actors> <cid> <choice arg> <token>
-              SBUFetch(tmplId)(SEVar(3) /* cid */, SEVar(1) /* token */ ),
+              SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
               // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
               SBUBeginExercise(tmplId, choice.name, choice.consuming)(
-                SEVar(3), // choice argument
-                SEVar(4), // cid
-                SEVar(5), // actors
-                SEVar(6), // byKey flag
+                SEVar(3), // <choice arg>
+                SEVar(4), // <cid>
+                SEVar(5), // <actors>
+                SEVar(6), // <byKey flag>
                 signatories,
                 observers,
                 controllers,
