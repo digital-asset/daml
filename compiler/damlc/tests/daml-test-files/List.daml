@@ -11,6 +11,7 @@
 -- @INFO Use isNone
 -- @INFO Use isNone
 -- @INFO Use isNone
+-- @INFO Use dedup
 
 module List where
 
