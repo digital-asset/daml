@@ -13,7 +13,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private def createdFlatEventParser(verbose: Boolean): RowParser[Entry[Event]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ createArgument ~ createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -25,8 +25,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
               createdEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 createArgument = createArgument,
                 createSignatories = createSignatories,
                 createObservers = createObservers,
@@ -42,7 +41,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
 
   private val archivedFlatEventParser: RowParser[Entry[Event]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templatePackageId ~ templateName ~ commandId ~ workflowId ~ eventWitnesses =>
+      case eventOffset ~ transactionId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses =>
         Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
@@ -54,8 +53,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
               archivedEvent(
                 eventId = eventId,
                 contractId = contractId,
-                templatePackageId = templatePackageId,
-                templateName = templateName,
+                templateId = templateId,
                 eventWitnesses = eventWitnesses,
               )
             )
@@ -80,8 +78,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
-      "template_package_id",
-      "template_name",
+      "template_id",
       "create_argument",
       "create_signatories",
       "create_observers",
@@ -105,8 +102,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
       "workflow_id",
       "participant_events.event_id",
       "contract_id",
-      "template_package_id",
-      "template_name",
+      "template_id",
       "create_argument",
       "create_signatories",
       "create_observers",

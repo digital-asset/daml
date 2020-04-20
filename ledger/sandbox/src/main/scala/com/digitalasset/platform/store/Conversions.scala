@@ -147,6 +147,12 @@ object Conversions {
   ): ToStatement[Ref.Identifier] =
     (s: PreparedStatement, index: Int, v: Ref.Identifier) => strToStm.set(s, index, v.toString)
 
+  implicit def columnToIdentifier(implicit c: Column[String]): Column[Ref.Identifier] =
+    stringColumnToX(Ref.Identifier.fromString)(c)
+
+  def identifier(columnName: String)(implicit c: Column[String]): RowParser[Ref.Identifier] =
+    SqlParser.get[Ref.Identifier](columnName)(columnToIdentifier(c))
+
   // Offsets
 
   implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
