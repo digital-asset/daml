@@ -7,7 +7,6 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -30,9 +29,26 @@ object Compiler {
   case class CompileError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
+
+  private val compileGetTime: SExpr = SEAbs(1) { SBGetTime(SEVar(1)) }
+
+  private def SBCompareNumeric(b: SBuiltin) =
+    SEAbs(3, SEApp(SEBuiltin(b), Array(SEVar(2), SEVar(1))))
+  private val SBLessNumeric = SBCompareNumeric(SBLess)
+  private val SBLessEqNumeric = SBCompareNumeric(SBLessEq)
+  private val SBGreaterNumeric = SBCompareNumeric(SBGreater)
+  private val SBGreaterEqNumeric = SBCompareNumeric(SBGreaterEq)
+  private val SBEqualNumeric = SBCompareNumeric(SBEqual)
+
+  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
+  private val SEUpdatePureUnit = SEApp(SEDropSecondArgument, Array(SEValue.Unit))
+  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
 }
 
 final case class Compiler(packages: PackageId PartialFunction Package) {
+
+  import Compiler._
+
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private abstract class VarRef { def name: Ref.Name }
@@ -167,20 +183,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case _: SCPVariant | SCPSome => 1
     case SCPCons => 2
   }
-
-  private val compileGetTime: SExpr =
-    SEAbs(1) { SBGetTime(SEVar(1)) }
-
-  private val SBLessNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBLess), Array(SEVar(2), SEVar(1))))
-  private val SBLessEqNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBLessEq), Array(SEVar(2), SEVar(1))))
-  private val SBGreaterNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBGreater), Array(SEVar(2), SEVar(1))))
-  private val SBGreaterEqNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBGreaterEq), Array(SEVar(2), SEVar(1))))
-  private val SBEqualNumeric =
-    SEAbs(3, SEApp(SEBuiltin(SBEqual), Array(SEVar(2), SEVar(1))))
 
   private def translate(expr0: Expr): SExpr =
     expr0 match {
@@ -686,8 +688,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       }
     }
   }
-
-  private val SEDropSecondArgument = SEAbs(2, SEVar(2))
 
   private def translatePure(body: Expr): SExpr =
     // pure <E>
@@ -1297,9 +1297,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case Command.LookupByKey(templateId, contractKey) =>
       compileLookupByKey(templateId, SEValue(contractKey))
   }
-
-  private val SEUpdatePureUnit = translate(EUpdate(UpdatePure(TUnit, EUnit)))
-  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
 
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {
 
