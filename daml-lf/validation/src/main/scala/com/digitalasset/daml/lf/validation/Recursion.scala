@@ -5,6 +5,7 @@ package com.daml.lf.validation
 
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
+import com.daml.lf.language.{Util => AstUtil}
 import com.daml.lf.validation.traversable.{ExprTraversable, TypeTraversable}
 
 private[validation] object Recursion {
@@ -17,7 +18,7 @@ private[validation] object Recursion {
       case (name, mod) => name -> (mod.definitions.values.flatMap(modRefs(pkgId, _)).toSet - name)
     }
 
-    cycle(g).foreach(c => throw EImportCycle(NoContext, c))
+    AstUtil.topoSort(g).left.foreach(c => throw EImportCycle(NoContext, c))
 
     modules.foreach { case (modName, mod) => checkModule(pkgId, modName, mod) }
   }
@@ -67,7 +68,7 @@ private[validation] object Recursion {
           val name = Identifier(pkgId, QualifiedName(modName, dottedName))
           (name, synRefsOfType(Set.empty, replacementTyp))
       }
-    cycle(g).foreach(c => throw ETypeSynCycle(NoContext, c))
+    AstUtil.topoSort(g).left.foreach(c => throw ETypeSynCycle(NoContext, c))
   }
 
   private def synRefsOfType(acc: Set[TypeSynName], typ: Type): Set[TypeSynName] = typ match {
@@ -77,29 +78,4 @@ private[validation] object Recursion {
       (acc /: TypeTraversable(otherwise))(synRefsOfType)
   }
 
-  private def cycle[X](graph: Map[X, Set[X]]): Option[List[X]] = {
-
-    var white = graph.keySet
-    var black = (Set.empty[X] /: graph.values)(_ | _) -- white
-    def gray(x: X): Boolean = !white(x) && !black(x)
-
-    def visitSet(xs: Set[X]): Option[X] = (Option.empty[X] /: xs)(_ orElse visit(_))
-
-    def visit(x: X): Option[X] =
-      if (black(x))
-        None
-      else if (!white(x))
-        Some(x)
-      else { white -= x; visitSet(graph(x)) } orElse { black += x; None }
-
-    def buildCycle(curr: X, start: X, list: List[X] = List.empty): List[X] = {
-      val next = graph(curr).find(gray).getOrElse(throw new UnknownError)
-      if (next == start)
-        curr :: list
-      else
-        buildCycle(next, start, curr :: list)
-    }
-
-    visitSet(graph.keySet).map(x => buildCycle(x, x))
-  }
 }
