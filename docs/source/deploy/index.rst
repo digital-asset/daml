@@ -21,7 +21,7 @@ for production use today.
    * - Product
      - Ledger
      - Vendor
-   * - `DAML on Corda <https://blockchaintp.com/sextant/daml/>`__
+   * - `DAML on Corda <#>`__
      - `Corda <https://www.corda.net/>`__
      - `Multiple. Contact Digital Asset <https://digitalasset.com/contact/>`__
    * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
