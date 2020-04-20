@@ -1282,12 +1282,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           Some(submissionSeed))
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val fetchNodes = tx.nodes.collect {
+      val lookupNodes = tx.nodes.collect {
         case (id, _: NodeLookupByKey[_, _]) => id
       }
 
       txMeta.byKeyNodes shouldBe 'nonEmpty
-      txMeta.byKeyNodes.toSeq.toSet shouldBe fetchNodes.toSet
+      txMeta.byKeyNodes.toSeq.toSet shouldBe lookupNodes.toSet
     }
 
     "be reinterpreted to the same node when lookup finds a contract" in {

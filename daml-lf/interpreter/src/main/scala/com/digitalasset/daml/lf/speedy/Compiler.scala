@@ -810,9 +810,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           val update = translate(choice.update)
           SEAbs(5) {
             SELet(
-              // stack: <actors> <cid> <choice arg> <token>
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token>
               SBUFetch(tmplId)(SEVar(3) /* cid */, SEVar(1) /* token */ ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg>
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
               SBUBeginExercise(tmplId, choice.name, choice.consuming)(
                 SEVar(3), // choice argument
                 SEVar(4), // cid
@@ -824,12 +824,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 mbKey,
                 SEVar(2),
               ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> ()
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
               SEApp(update, Array(SEVar(3))),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
               SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
             ) in
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
               SEVar(2)
           }
         },
