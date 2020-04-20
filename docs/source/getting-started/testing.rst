@@ -43,11 +43,11 @@ You can scroll down to the important ones with the following descriptions (the f
 
 Before this, we need to set up the environment in which the tests run.
 At the top of the file we have some global state that we use throughout.
-Specifically, we have child processes for the ``daml sandbox``, ``daml json-api`` and ``yarn start`` commands, which run for the duration of our tests.
+Specifically, we have child processes for the ``daml start`` and ``yarn start`` commands, which run for the duration of our tests.
 We also have a single Puppeteer browser that we share among tests, opening new browser pages for each one.
 
 The ``beforeAll()`` section is a function run once before any of the tests run.
-We use it to spawn the sandbox, JSON API and ``yarn start`` processes and launch the browser.
+We use it to spawn the ``daml start`` and ``yarn start`` processes and launch the browser.
 On the other hand the ``afterAll()`` section is used to shut down these processes and close the browser.
 This step is important to prevent child processes persisting in the background after our program has finished.
 
