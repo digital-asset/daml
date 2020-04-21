@@ -14,12 +14,16 @@ import com.daml.platform.store.dao.{DbDispatcher, events}
 import com.daml.platform.store.serialization.KeyHasher.{hashKey => hash}
 import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 /**
   * @see [[ContractsTable]]
   */
-private[dao] sealed abstract class ContractsReader(dispatcher: DbDispatcher) extends ContractStore {
+private[dao] sealed abstract class ContractsReader(
+    dispatcher: DbDispatcher,
+    executionContext: ExecutionContext,
+) extends ContractStore {
 
   import ContractsReader._
 
@@ -45,26 +49,35 @@ private[dao] sealed abstract class ContractsReader(dispatcher: DbDispatcher) ext
     if (ids.isEmpty) {
       Future.failed(emptyContractIds)
     } else {
-      dispatcher.executeSql("lookup_maximum_ledger_time") { implicit connection =>
-        SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
-          .as((instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single.map {
-            case result ~ retrievedContracts if retrievedContracts == ids.size => result
-            case _ => throw notFound(ids)
-          })
-      }
+      val expectedContracts = ids.size
+      dispatcher
+        .executeSql("lookup_maximum_ledger_time") { implicit connection =>
+          SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
+            .as((instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
+              .map {
+                case result ~ `expectedContracts` => Success(result)
+                case _ => Failure(notFound(ids))
+              })
+        }
+        .map(_.get)(executionContext)
     }
 
 }
 
 object ContractsReader {
 
-  private[dao] def apply(dispatcher: DbDispatcher, dbType: DbType): ContractsReader =
+  private[dao] def apply(
+      dispatcher: DbDispatcher,
+      executionContext: ExecutionContext,
+      dbType: DbType,
+  ): ContractsReader =
     dbType match {
-      case DbType.Postgres => new Postgresql(dispatcher)
-      case DbType.H2Database => new H2Database(dispatcher)
+      case DbType.Postgres => new Postgresql(dispatcher, executionContext)
+      case DbType.H2Database => new H2Database(dispatcher, executionContext)
     }
 
-  private final class Postgresql(dispatcher: DbDispatcher) extends ContractsReader(dispatcher) {
+  private final class Postgresql(dispatcher: DbDispatcher, executionContext: ExecutionContext)
+      extends ContractsReader(dispatcher, executionContext) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: events.Key,
@@ -72,7 +85,8 @@ object ContractsReader {
       SQL"select participant_contracts.contract_id from #$contractsTable where $submitter =ANY(create_stakeholders) and contract_witness = $submitter and create_key_hash = ${hash(key)}"
   }
 
-  private final class H2Database(dispatcher: DbDispatcher) extends ContractsReader(dispatcher) {
+  private final class H2Database(dispatcher: DbDispatcher, executionContext: ExecutionContext)
+      extends ContractsReader(dispatcher, executionContext) {
     override protected def lookupContractKeyQuery(
         submitter: Party,
         key: events.Key,
