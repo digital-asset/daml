@@ -15,7 +15,10 @@ function da_install {
     }
 
     da_enable_scoop
-    $isScoopEnabled = da_is_scoop_installed
+    # $isScoopEnabled = da_is_scoop_installed
+    # Temporary because we upgraded scoop so we need to force a reinstall. After all
+    # machines have been refreshed we can remove this.
+    $isScoopEnabled = $false
     da_reset_path
 
     if ($isScoopEnabled) {
