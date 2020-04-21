@@ -23,7 +23,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DamlSyntax                 #-}
 
--- | HIDE Partial implementation of DeriveGeneric. Unstable, use at great risk.
+-- | HIDE Partial implementation of DeriveGeneric. Note that this is not supported in cross-SDK dependencies.
 module DA.Generics (
 
   -- * Generic representation types
