@@ -3,6 +3,8 @@
 
 package com.daml.platform.apiserver.services.admin
 
+import java.util.UUID
+
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.IndexConfigManagementService
@@ -20,10 +22,13 @@ import com.daml.ledger.api.domain
 import com.daml.ledger.api.domain.LedgerOffset
 import com.daml.ledger.api.v1.admin.config_management_service.ConfigManagementServiceGrpc.ConfigManagementService
 import com.daml.ledger.api.v1.admin.config_management_service._
+import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
+import com.daml.timer.Delayed
 import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 
 import scala.compat.java8.FutureConverters
@@ -35,7 +40,7 @@ final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
-    defaultConfiguration: Configuration,
+    ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer
 )(implicit logCtx: LoggingContext)
     extends ConfigManagementService
@@ -43,7 +48,11 @@ final class ApiConfigManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val defaultConfigResponse = configToResponse(defaultConfiguration)
+  private val defaultConfigResponse = configToResponse(ledgerConfiguration.initialConfiguration)
+
+  // After a short delay, check if there exists a ledger configuration,
+  // and submit an initial configuration if no ledger configuration exists.
+  submitInitialConfig()
 
   override def close(): Unit = ()
 
@@ -55,6 +64,46 @@ final class ApiConfigManagementService private (
       .lookupConfiguration()
       .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })(DE)
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
+
+  private def submitInitialConfig() = {
+    implicit val executionContext: ExecutionContext = DE
+    // There are several reasons why the change could be rejected:
+    // - The participant is not authorized to set the configuration
+    // - There already is a configuration, it just didn't appear in the index yet
+    // This method therefore does not try to re-submit the initial configuration in case of failure.
+    Delayed.Future.by(
+      Duration.fromNanos(ledgerConfiguration.initialConfigurationSubmitDelay.toNanos))(
+      for {
+        optConfig <- index.lookupConfiguration()
+        _ <- if (optConfig.isDefined)
+          Future.successful(())
+        else {
+          val submissionId = SubmissionId.assertFromString(UUID.randomUUID.toString)
+          logger.info(
+            s"No ledger configuration found, submitting an initial configuration $submissionId")
+          FutureConverters
+            .toScala(
+              writeService.submitConfiguration(
+                Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
+                submissionId,
+                ledgerConfiguration.initialConfiguration
+              ))
+            .map {
+              case SubmissionResult.Acknowledged =>
+                logger.info(s"Initial configuration submission $submissionId was successful")
+                ()
+              case SubmissionResult.NotSupported =>
+                logger.info("Setting an initial ledger configuration is not supported")
+                ()
+              case result =>
+                logger.warn(
+                  s"Initial configuration submission $submissionId failed. Reason: ${result.description}")
+                ()
+            }(DE)
+        }
+      } yield ()
+    )
+  }
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -81,7 +130,9 @@ final class ApiConfigManagementService private (
       // Lookup latest configuration to check generation and to extend it with the new time model.
       optConfigAndOffset <- index.lookupConfiguration()
       pollOffset = optConfigAndOffset.map(_._1)
-      currentConfig = optConfigAndOffset.map(_._2).getOrElse(defaultConfiguration)
+      currentConfig = optConfigAndOffset
+        .map(_._2)
+        .getOrElse(ledgerConfiguration.initialConfiguration)
 
       // Verify that we're modifying the current configuration.
       _ <- if (request.configurationGeneration != currentConfig.generation) {
@@ -191,13 +242,13 @@ object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      defaultConfiguration: Configuration)(implicit mat: Materializer, logCtx: LoggingContext)
+      ledgerConfiguration: LedgerConfiguration)(implicit mat: Materializer, logCtx: LoggingContext)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,
       timeProvider,
-      defaultConfiguration,
+      ledgerConfiguration,
       mat)
 
 }

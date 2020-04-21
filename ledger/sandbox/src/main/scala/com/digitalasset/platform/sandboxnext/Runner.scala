@@ -198,6 +198,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     implicitPartyAllocation = config.implicitPartyAllocation,
                   ),
                   submissionConfig = config.submissionConfig,
+                  ledgerConfig = config.ledgerConfig,
                   readService = readService,
                   writeService = writeService,
                   authService = authService,

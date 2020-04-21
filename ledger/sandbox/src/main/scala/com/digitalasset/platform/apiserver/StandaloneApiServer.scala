@@ -25,6 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
   SubmissionConfiguration
@@ -47,6 +48,7 @@ final class StandaloneApiServer(
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
+    ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
@@ -91,6 +93,10 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
+      ledgerConfiguration = ledgerConfig.copy(
+        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
+        initialConfiguration = initialConditions.config,
+      )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) => {
           ApiServices
@@ -103,7 +109,7 @@ final class StandaloneApiServer(
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               timeProviderType = timeServiceBackend.fold[TimeProviderType](
                 TimeProviderType.WallClock)(_ => TimeProviderType.Static),
-              defaultLedgerConfiguration = initialConditions.config,
+              ledgerConfiguration = ledgerConfiguration,
               commandConfig = commandConfig,
               partyConfig = partyConfig,
               submissionConfig = submissionConfig,
