@@ -16,7 +16,7 @@ case class LedgerConfiguration(
       */
     initialConfiguration: Configuration,
     /**
-      * The delay until the ledger API server tries to submit an initial configuration if none exists.
+      * The delay until the ledger API server tries to submit an initial configuration at startup if none exists.
       */
     initialConfigurationSubmitDelay: Duration,
 )
