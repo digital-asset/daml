@@ -1108,7 +1108,7 @@ HTTP Response, status: 200 OK
 =============================
 
 - Transfer-Encoding: ``chunked``
-- Content-Type: ``application/dalf``
+- Content-Type: ``application/octet-stream``
 - Content: <DALF bytes>
 
 The content (body) of the HTTP response contains raw DALF package bytes, without any encoding. Note that the package ID specified in the URL is actually the SHA-256 hash of the downloaded DALF package and can be used to validate the integrity of the downloaded content.
