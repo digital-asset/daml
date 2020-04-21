@@ -105,4 +105,8 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside {
     }
   }
 
+  it should "store contracts with a transient contract in the global divulgence" in {
+    store(fullyTransientWithChildren).flatMap(_ => succeed)
+  }
+
 }
