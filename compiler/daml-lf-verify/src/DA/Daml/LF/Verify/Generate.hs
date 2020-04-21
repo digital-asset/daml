@@ -5,14 +5,17 @@
 module DA.Daml.LF.Verify.Generate
   ( genPackages
   , Phase(..)
+  , genExpr -- TODO: remove
   ) where
 
-import Control.Monad.Error.Class (throwError)
+-- import Control.Monad.Error.Class (throwError)
 import qualified Data.NameMap as NM
+import Data.Bifunctor (second)
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
 import DA.Daml.LF.Verify.Subst
+-- import DA.Pretty
 
 data Phase
   = ValuePhase
@@ -49,7 +52,7 @@ extendGOUpds upds gout@GenOutput{..} = gout{_goUpd = concatUpdateSet upds _goUpd
 
 addArchiveUpd :: Qualified TypeConName -> [(FieldName, Expr)] -> GenOutput -> GenOutput
 addArchiveUpd temp fs (GenOutput expr upd@UpdateSet{..}) =
-  GenOutput expr upd{_usArc = (UpdArchive temp fs) : _usArc}
+  GenOutput expr upd{_usArc = UpdArchive temp fs : _usArc}
 
 genPackages :: MonadEnv m => Phase -> [(PackageId, (Package, Maybe PackageName))] -> m ()
 genPackages ph inp = mapM_ (genPackage ph) inp
@@ -73,12 +76,15 @@ genValue pac mod val = do
 -- TODO: Handle annotated choices, by returning a set of annotations.
 genChoice :: MonadEnv m => Qualified TypeConName -> [FieldName] -> [ExprVarName]
   -> TemplateChoice -> m GenOutput
-genChoice tem fs xs cho = do
-  -- TODO: Skolemise chcSelfBinder
-  extVarEnv (fst $ chcArgBinder cho)
-  expOut <- genExpr TemplatePhase (chcUpdate cho)
-  if chcConsuming cho
-    then let fields = map (\(f,x) -> (f,EVar x)) (zip fs xs)
+genChoice tem temFs temXs TemplateChoice{..} = do
+  extVarEnv chcSelfBinder
+  extVarEnv (fst chcArgBinder)
+  argFs <- recTypFields (snd chcArgBinder)
+  extRecEnv (fst chcArgBinder) argFs
+  expOut <- genExpr TemplatePhase chcUpdate
+  if chcConsuming
+    -- TODO: This is weird. Either drop (as it's quite obvious), or use `amount = this.amount`, so we can at the very least drop the xs argument.
+    then let fields = zipWith (curry (second EVar)) temFs temXs
          in return $ addArchiveUpd tem fields expOut
     else return expOut
 
@@ -86,28 +92,33 @@ genTemplate :: MonadEnv m => PackageRef -> ModuleName -> Template -> m ()
 -- TODO: Take precondition into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  datatyp <- lookupDataCon tplTypeCon
-  case dataCons datatyp of
-    DataRecord fields -> do
-      -- TODO: skolemise only when defining the choice? But then multiple choice
-      -- would skolemise multiple times...
-      -- TODO: skolemise the fields themselves or rather self.field?
-      let fs = map fst fields
-      let xs = map fieldName2VarName fs
-      mapM_ extVarEnv xs
-      choOuts <- mapM (genChoice name fs xs) (NM.toList tplChoices)
-      mapM_ (\(ch, upd) -> extChEnv name ch upd)
-        $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
-    _ -> error "Impossible: Template defined on non-record data type"
+  fields <- recTypConFields tplTypeCon
+  -- TODO: skolemise only when defining the choice? But then multiple choice
+  -- would skolemise multiple times...
+  -- TODO: skolemise the fields themselves or rather self.field?
+  let fs = map fst fields
+      xs = map fieldName2VarName fs
+  -- TODO: if daml indead translates into `amount = this.amount`, this can be dropped.
+  mapM_ extVarEnv xs
+  extRecEnv tplParam fs
+  extRecEnvLvl1 fields
+  choOuts <- mapM (genChoice name fs xs) (NM.toList tplChoices)
+  mapM_ (\(ch, upd) -> extChEnv name ch upd)
+    $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
 
 genExpr :: MonadEnv m => Phase -> Expr -> m GenOutput
 genExpr ph = \case
   ETmApp fun arg -> genForTmApp ph fun arg
   ETyApp expr typ -> genForTyApp ph expr typ
+  ELet bind body -> genForLet ph bind body
   EVar name -> genForVar ph name
   EVal w -> genForVal ph w
+  ERecProj tc f e -> genForRecProj ph tc f e
+  ELocation _ expr -> genExpr ph expr
   EUpdate (UCreate tem arg) -> genForCreate ph tem arg
   EUpdate (UExercise tem ch cid par arg) -> genForExercise ph tem ch cid par arg
+  EUpdate (UBind bind expr) -> genForBind ph bind expr
+  EUpdate (UPure _ expr) -> genExpr ph expr
   -- TODO: Extend additional cases
   e -> return $ emptyGO e
 
@@ -136,6 +147,18 @@ genForTyApp ph expr typ = do
       return $ combineGO resOut exprOut
     expr' -> return $ updateGOExpr (ETyApp expr' typ) exprOut
 
+genForLet :: MonadEnv m => Phase -> Binding -> Expr -> m GenOutput
+genForLet ph bind body = do
+  -- TODO: temporary test; remove
+  -- let testSubst = singleExprSubst (fst $ bindingBinder bind) (bindingBound bind)
+  --     testRec = (==) (substituteTmTm testSubst (bindingBound bind)) (bindingBound bind)
+  -- unless testRec (error "Recursive function!")
+  bindOut <- genExpr ph (bindingBound bind)
+  let subst = singleExprSubst (fst $ bindingBinder bind) (_goExp bindOut)
+      resExpr = substituteTmTm subst body
+  resOut <- genExpr ph resExpr
+  return $ combineGO resOut bindOut
+
 genForVar :: MonadEnv m => Phase -> ExprVarName -> m GenOutput
 genForVar _ph name = lookupVar name >> return (emptyGO (EVar name))
 
@@ -145,14 +168,30 @@ genForVal ValuePhase w
 genForVal TemplatePhase w
   = lookupVal w >>= \ (expr, upds) -> return (GenOutput expr upds)
 
+genForRecProj :: MonadEnv m => Phase -> TypeConApp -> FieldName -> Expr -> m GenOutput
+genForRecProj ph tc f body = do
+  bodyOut <- genExpr ph body
+  case _goExp bodyOut of
+    -- TODO: I think we can reduce duplication a bit more here
+    EVar x -> do
+      skol <- lookupRec x f
+      if skol
+        then return $ updateGOExpr (ERecProj tc f (EVar x)) bodyOut
+        else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
+    expr -> do
+      fs <- recExpFields expr
+      case lookup f fs of
+        Just expr -> genExpr ph expr
+        -- TODO: Temporary solution
+        Nothing -> return $ updateGOExpr (ERecProj tc f expr) bodyOut
+        -- Nothing -> throwError $ UnknownRecField f
+
 genForCreate :: MonadEnv m => Phase -> Qualified TypeConName -> Expr -> m GenOutput
 genForCreate ph tem arg = do
   argOut <- genExpr ph arg
-  case _goExp argOut of
-    argExpr@(ERecCon _ fs) ->
-      return (GenOutput (EUpdate (UCreate tem argExpr)) emptyUpdateSet{_usCre = [UpdCreate tem fs]})
-      -- TODO: We could potentially filter here to only store the interesting fields?
-    _ -> throwError ExpectRecord
+  fs <- recExpFields (_goExp argOut)
+  return (GenOutput (EUpdate (UCreate tem $ _goExp argOut)) emptyUpdateSet{_usCre = [UpdCreate tem fs]})
+  -- TODO: We could potentially filter here to only store the interesting fields?
 
 genForExercise :: MonadEnv m => Phase -> Qualified TypeConName -> ChoiceName
   -> Expr -> Maybe Expr -> Expr -> m GenOutput
@@ -162,3 +201,16 @@ genForExercise ph tem ch cid par arg = do
   updSet <- lookupChoice tem ch
   return (GenOutput (EUpdate (UExercise tem ch (_goExp cidOut) par (_goExp argOut))) updSet)
 
+-- TODO: handle binds by substituting?
+genForBind :: MonadEnv m => Phase -> Binding -> Expr -> m GenOutput
+-- TODO: The way we treat updates seems wrong. This should not be a special case.
+genForBind ph bind body = do
+  bindOut <- genExpr ph (bindingBound bind)
+  case _goExp bindOut of
+    EUpdate (UFetch tc _cid) -> do
+      fs <- recTypConFields $ qualObject tc
+      extRecEnv (fst $ bindingBinder bind) (map fst fs)
+    _ -> return ()
+  extVarEnv (fst $ bindingBinder bind)
+  bodyOut <- genExpr ph body
+  return $ combineGO bodyOut bindOut
