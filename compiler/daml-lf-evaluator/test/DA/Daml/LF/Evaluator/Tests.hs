@@ -74,6 +74,17 @@ tests =
   , Test 1 "err2" 0 (Right 0)
 
   , mkTest 1 "dive" 9 42
+
+  , mkTest 1 "b1" 0 (-3)
+  , mkTest 5 "b2" 0 (-3)
+  , mkTest 6 "b3" 0 (-3)
+
+  , mkTest 1 "b4" 0 (-27)
+  , mkTest 29 "b5" 0 (-27)
+  , mkTest 44 "b6" 0 (-27)
+  , mkTest 30 "b7" 0 (-27)
+  , mkTest 46 "b8" 0 (-27)
+
   ]
 
 -- | Like `Test`, except we always expect a non-`Throw` result

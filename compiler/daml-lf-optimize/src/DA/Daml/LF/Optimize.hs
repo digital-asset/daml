@@ -153,7 +153,7 @@ data SemValue
 -- TODO: introduce `Variable` to replace `Syntax`; cleaning up handling of `duplicatable`
 --  | Variable LF.ExprVarName
   | Struct Context [(LF.FieldName,SemValue)]
-  | Macro LF.Type (SemValue -> Effect SemValue)
+  | Macro String LF.Type (SemValue -> Effect SemValue)
   | TyMacro LF.Kind (LF.Type -> Effect SemValue)
 
 
@@ -262,13 +262,13 @@ reflect = \case
     ty <- normType ty
     typeApply expr ty
 
-  LF.ETmLam{tmlamBinder=binder,tmlamBody=body} -> do
-    let (name,ty) = binder
+  LF.ETmLam{tmlamBinder=(x,ty),tmlamBody=body} -> do
     ty <- normType ty
     rp <- Save
-    return $ Macro ty $ \arg ->
+    let tag = (Text.unpack . LF.unExprVarName) x
+    return $ Macro tag ty $ \arg ->
       Restore rp $
-      ModEnv (Map.insert name arg) $ reflect body
+      ModEnv (Map.insert x arg) $ reflect body
 
   LF.ETyLam{tylamBinder=binder, tylamBody=expr} -> do
     let (tv,kind) = binder
@@ -378,8 +378,8 @@ freshenCasePattern pat k = case pat of
 
 freshenExpVarName :: LF.ExprVarName -> (LF.ExprVarName -> Effect a) -> Effect a
 freshenExpVarName x k = do
-  let name :: String = (Text.unpack . LF.unExprVarName) x
-  x' <- Fresh name -- use old name as base for new
+  let tag = (Text.unpack . LF.unExprVarName) x
+  x' <- Fresh tag -- use old name as base for new
   let f = Map.insert x (Syntax (LF.EVar x'))
   ModEnv f $ k x'
 
@@ -427,13 +427,14 @@ termApply = \case
     arg <- reify arg
     return $ Syntax $ LF.ETmApp{tmappFun=func,tmappArg=arg}
   (Struct _ _, _) -> error "SemValue,termApply,struct"
-  (Macro ty func, arg) -> do
+  (Macro _ ty func, arg) -> do
+    -- The ETmLam is not recreated, so achieving beta-reduction
     case duplicatable arg of
-      Nothing -> func arg -- beta-reduction here
+      Nothing -> func arg
       Just reason -> do
         arg <- reify arg
         name <- nameIt reason ty arg
-        func (Syntax (LF.EVar name)) -- beta-reduction here
+        func (Syntax (LF.EVar name))
 
 
 typeApply :: SemValue -> LF.Type -> Effect SemValue
@@ -489,10 +490,10 @@ reify = \case
         return (name,exp)
       return $ LF.EStructCon{structFields}
 
-  Macro ty f -> do
-    name <- Fresh "_r"
-    body <- ResetK (f (Syntax (LF.EVar name)) >>= reify)
-    return $ LF.ETmLam{tmlamBinder=(name,ty),tmlamBody=body}
+  Macro tag ty f -> do
+    x <- Fresh tag
+    body <- ResetK (f (Syntax (LF.EVar x)) >>= reify)
+    return $ LF.ETmLam{tmlamBinder=(x,ty),tmlamBody=body}
 
 applyProjection :: LF.FieldName -> SemValue -> Effect SemValue
 applyProjection field = \case

@@ -202,3 +202,19 @@ dive = \arg ->
   let twice f x = f (f x) in
   let increase q a = dub a + q in
   twice (increase (arg+1)) 3
+
+
+-- examples which explicitly block normalization
+
+block : a -> a
+block = if False then \x -> block x else \x -> x
+
+b1 = thrice decrement
+b2 = thrice (block decrement)
+b3 = block thrice decrement
+
+b4 = thrice thrice decrement
+b5 = thrice thrice (block decrement)
+b6 = thrice (block thrice) decrement
+b7 = block (thrice thrice) decrement -- This testcase will fail if ETmLam bound vars are not renamed
+b8 = block thrice thrice decrement
