@@ -13,4 +13,4 @@ not present in the class itself.
 > 
 > <a name="function-constrainedclassmethod-bar-13431"></a>[bar](#function-constrainedclassmethod-bar-13431)
 > 
-> > : [Eq](https://docs.daml.com/daml/reference/base.html#class-ghc-classes-eq-21216) t =\> t -\> t
+> > : [Eq](https://docs.daml.com/daml/stdlib/index.html#class-ghc-classes-eq-21216) t =\> t -\> t

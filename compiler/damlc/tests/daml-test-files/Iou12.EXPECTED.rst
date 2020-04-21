@@ -24,10 +24,10 @@ Templates
        - Party
        - 
      * - currency
-       - `Text <https://docs.daml.com/daml/reference/base.html#type-ghc-types-text-57703>`_
+       - `Text <https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-text-57703>`_
        - only 3\-letter symbols are allowed
      * - amount
-       - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
+       - `Decimal <https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-decimal-54602>`_
        - must be positive
      * - regulators
        - \[Party\]
@@ -67,7 +67,7 @@ Templates
          - Type
          - Description
        * - splitAmount
-         - `Decimal <https://docs.daml.com/daml/reference/base.html#type-ghc-types-decimal-54602>`_
+         - `Decimal <https://docs.daml.com/daml/stdlib/index.html#type-ghc-types-decimal-54602>`_
          - must be between zero and original amount
   
   + **Choice Transfer**
