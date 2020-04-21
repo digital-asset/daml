@@ -12,6 +12,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
@@ -62,6 +63,9 @@ trait ConfigProvider[ExtraConfig] {
 
   def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
     SubmissionConfiguration.default
+
+  def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
+    LedgerConfiguration.default
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 

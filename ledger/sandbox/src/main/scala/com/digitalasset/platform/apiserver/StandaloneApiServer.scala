@@ -5,7 +5,7 @@ package com.daml.platform.apiserver
 
 import java.io.File
 import java.nio.file.Files
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
@@ -48,6 +48,7 @@ final class StandaloneApiServer(
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
+    ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
@@ -92,9 +93,9 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      ledgerConfiguration = LedgerConfiguration(
+      ledgerConfiguration = ledgerConfig.copy(
+        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
         initialConfiguration = initialConditions.config,
-        initialConfigurationSubmitDelay = Duration.ofSeconds(5),
       )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) => {

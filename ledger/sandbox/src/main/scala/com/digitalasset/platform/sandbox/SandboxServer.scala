@@ -20,7 +20,6 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
@@ -207,11 +206,7 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = ParticipantState.Configuration(
-      generation = 0,
-      timeModel = config.timeModel,
-      maxDeduplicationTime = Duration.ofDays(1),
-    )
+    val defaultConfiguration = config.ledgerConfig.initialConfiguration
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
