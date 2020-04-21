@@ -279,7 +279,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
       Some(UUID.randomUUID().toString),
       txId,
       Some("appID1"),
-      Some("Alice"),
+      Some(alice),
       Some("workflowId"),
       let,
       let,
@@ -288,8 +288,45 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
         exerciseId -> exercise(absCid)
       ),
       Map(
-        createId -> Set("Alice", "Bob"),
-        exerciseId -> Set("Alice", "Bob"),
+        createId -> Set(alice, bob),
+        exerciseId -> Set(alice, bob),
+      )
+    )
+  }
+
+  // The transient contract is divulged to `charlie` as a non-stakeholder actor on the
+  // root exercise node that causes the creation of a transient contract
+  protected def fullyTransientWithChildren: (Offset, LedgerEntry.Transaction) = {
+    val txId = UUID.randomUUID().toString
+    val root = AbsoluteContractId.assertFromString(s"#root-transient-${UUID.randomUUID}")
+    val transient = AbsoluteContractId.assertFromString(s"#child-transient-${UUID.randomUUID}")
+    val let = Instant.now
+    val rootCreateId = event(txId, 0)
+    val rootExerciseId = event(txId, 1)
+    val createTransientId = event(txId, 2)
+    val consumeTransientId = event(txId, 3)
+    nextOffset() -> LedgerEntry.Transaction(
+      Some(UUID.randomUUID.toString),
+      txId,
+      Some("appID1"),
+      Some(alice),
+      Some("workflowId"),
+      let,
+      let,
+      addChildren(
+        tx = transaction(
+          rootCreateId -> create(root),
+          rootExerciseId -> exercise(root).copy(actingParties = Set(charlie)),
+        ),
+        parent = rootExerciseId,
+        createTransientId -> create(transient),
+        consumeTransientId -> exercise(transient),
+      ),
+      Map(
+        rootCreateId -> Set(alice, bob),
+        rootExerciseId -> Set(alice, bob, charlie),
+        createTransientId -> Set(alice, bob, charlie),
+        consumeTransientId -> Set(alice, bob, charlie),
       )
     )
   }
