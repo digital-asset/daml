@@ -50,6 +50,10 @@ final class ApiConfigManagementService private (
 
   private val defaultConfigResponse = configToResponse(ledgerConfiguration.initialConfiguration)
 
+  // After a short delay, check if there exists a ledger configuration,
+  // and submit an initial configuration if no ledger configuration exists.
+  submitInitialConfig()
+
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
@@ -61,16 +65,12 @@ final class ApiConfigManagementService private (
       .map(_.fold(defaultConfigResponse) { case (_, conf) => configToResponse(conf) })(DE)
       .andThen(logger.logErrorsOnCall[GetTimeModelResponse])(DE)
 
-  /** After a short delay, this method checks if there exists a ledger configuration,
-    *  and submits a default configuration if no ledger configuration exists.
-    *
-    *  There are several reasons why the change could be rejected:
-    *  - The participant is not authorized to set the configuration
-    *  - There already is a configuration, it just didn't appear in the index yet
-    *  This method therefore does not try to re-submit the initial configuration in case of failure.
-    */
-  private def submitInitialConfig(initialConfig: Configuration) = {
+  private def submitInitialConfig() = {
     implicit val executionContext: ExecutionContext = DE
+    // There are several reasons why the change could be rejected:
+    // - The participant is not authorized to set the configuration
+    // - There already is a configuration, it just didn't appear in the index yet
+    // This method therefore does not try to re-submit the initial configuration in case of failure.
     Delayed.Future.by(
       Duration.fromNanos(ledgerConfiguration.initialConfigurationSubmitDelay.toNanos))(
       for {
@@ -86,7 +86,7 @@ final class ApiConfigManagementService private (
               writeService.submitConfiguration(
                 Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
                 submissionId,
-                initialConfig
+                ledgerConfiguration.initialConfiguration
               ))
             .map {
               case SubmissionResult.Acknowledged =>
@@ -104,7 +104,6 @@ final class ApiConfigManagementService private (
       } yield ()
     )
   }
-  submitInitialConfig(ledgerConfiguration.initialConfiguration)
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
