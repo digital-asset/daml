@@ -117,7 +117,9 @@ packageURI (Packagename "daml-stdlib") = Just damlBaseURI
 packageURI _ = Nothing
 
 damlBaseURI :: URI.URI
-damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/reference/base.html"
+damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/stdlib/index.html"
+    -- TODO (sofia): Make this configurable, and don't include index.html,
+    -- need a way to supply (or recreate) anchor list.
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 

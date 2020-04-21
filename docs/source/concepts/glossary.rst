@@ -169,7 +169,7 @@ Standard library
 
 The **DAML standard library** is a set of `DAML` functions, classes and more that make developing with DAML easier.
 
-For documentation, see :doc:`/daml/reference/base/index`.
+For documentation, see :doc:`/daml/stdlib/index`.
 
 Agreement
 =========

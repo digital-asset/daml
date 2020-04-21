@@ -273,10 +273,10 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        mkdir -p source/daml/reference/base
+        mkdir -p source/daml/stdlib
         tar xf $(location //compiler/damlc:daml-base-rst-docs) \
             --strip-components 1 \
-            -C source/daml/reference/base/
+            -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
         cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
