@@ -1,8 +1,8 @@
-$scoopUrl = 'https://github.com/lukesampson/scoop/archive/b819876ec373cfadc1fc490b56340dec73dc6eb5.zip'
+$scoopUrl = 'https://github.com/lukesampson/scoop/archive/a9fa775d59b14e7dce335313faa0eff855469764.zip'
 
 $scoopTmpDir = "$env:Temp\scoop"
 $scoopTmp = "$scoopTmpDir\scoop.zip"
-$scoopMaster = "$scoopTmpDir\scoop-b819876ec373cfadc1fc490b56340dec73dc6eb5"
+$scoopMaster = "$scoopTmpDir\scoop-a9fa775d59b14e7dce335313faa0eff855469764"
 $scoopCore = "$scoopMaster\lib\core.ps1"
 $dadewInstallDir = $env:DADEW, "$env:USERPROFILE\dadew" | Select-Object -first 1
 $scoopInstallDir = "$dadewInstallDir\scoop"
