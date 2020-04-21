@@ -31,8 +31,8 @@ tests =
   , mkTest 1 "dub_dub_dub" 1 8
 
   , mkTest 1 "decrement" 10 9
-  , mkTest 5 "fact" 4 24
   , mkTest 6 "fact" 5 120
+  , mkTest 6 "factA" 5 120
 
   , mkTest 1 "decrement" 0 (-1)
   , mkTest 1 "thrice_decrement" 0 (-3)
@@ -40,13 +40,13 @@ tests =
 
   , mkTest 7 "length_list" 7 3 -- apps=7 because optimized code passes a lambda to FOLDL
   , mkTest 1 "sum_list" 7 24 -- apps=1 because optimized code passes the prim ADDI to FOLDL
-  , mkTest 7 "run_makeDecimal" 7 789
+  , mkTest 9 "run_makeDecimal" 7 789
 
-  , mkTest 632 "nthPrime" 10 29
-  , mkTest 86896 "nthPrime" 100 541
+  , mkTest 635 "nthPrime" 10 29
+  , mkTest 86899 "nthPrime" 100 541
 
-  , mkTest 13 "run_sum_myList" 9 30
-  , mkTest 13 "run_sum_myList2" 99 300
+  , mkTest 17 "run_sum_myList" 9 30
+  , mkTest 17 "run_sum_myList2" 99 300
 
   , mkTest 177 "nfib" 10 177
 

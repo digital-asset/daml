@@ -21,6 +21,11 @@ fact n = if n <= 0 then 1 else n * fact (n-1)
 
 triangle n = if n <= 0 then 0 else n + triangle (n-1)
 
+-- use of a directly recusive definition
+
+factA n = if n <= 0 then 1 else n * fact (n-1)
+
+
 -- Thrice Thrice example
 
 decrement x = x - 1

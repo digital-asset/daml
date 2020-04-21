@@ -112,11 +112,13 @@ It's harder to measure, but it is real.
 -}
 
 import Control.Monad (ap,liftM,forM,(>=>))
+import Control.Lens (toListOf)
 import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import Data.Set (Set)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Type as LF
+import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified Data.Map.Strict as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
@@ -155,17 +157,18 @@ data SemValue
   | TyMacro LF.Kind (LF.Type -> Effect SemValue)
 
 
-reflectQualifiedExprValName :: QVal -> Effect SemValue
-reflectQualifiedExprValName qval = do
+type QVal = LF.ValueRef -- TODO: inline & rename code
+
+getQValBody :: QVal -> Effect LF.Expr
+getQValBody qval = do
   let LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name} = qval
   case pref of
     LF.PRSelf -> do
       mod <- GetTheModule
-      getExprValNameFromModule mod name >>= reflect
+      getExprValNameFromModule mod name
     LF.PRImport pid -> do
       mod <- getModule pid moduleName
-      expr <- getExprValNameFromModule mod name
-      reflect expr
+      getExprValNameFromModule mod name
 
 getModule :: LF.PackageId -> LF.ModuleName -> Effect LF.Module
 getModule pid moduleName = do
@@ -198,12 +201,15 @@ reflect = \case
       Nothing -> error $ "reflect, unbound var: " <> show name
 
   LF.EVal qval -> do
-    ShouldInline qval >>= \case
-      True -> do
-        WithDontInline qval $
-          reflectQualifiedExprValName qval
-      False -> do
-        return $ Syntax $ LF.EVal qval
+    body <- getQValBody qval
+    let isDirectlyRecursive = qval `elem` toListOf LF.exprValueRef body
+    dontInline <- DontInline qval
+    if
+      | isDirectlyRecursive || dontInline -> do
+          return $ Syntax $ LF.EVal qval
+
+      | otherwise -> do
+          WithDontInline qval $ reflect body
 
   x@LF.EBuiltin{} -> return $ Syntax x
 
@@ -522,7 +528,7 @@ data Effect a where
   FreshTV :: Effect LF.TypeVarName
   GetTheModule :: Effect LF.Module
   GetPackage :: LF.PackageId -> Effect LF.Package
-  ShouldInline :: QVal -> Effect Bool
+  DontInline :: QVal -> Effect Bool
   WithDontInline :: QVal -> Effect a -> Effect a
 
   -- Operator which manipulate the continuation
@@ -575,10 +581,8 @@ runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
       GetPackage pid -> do
         k state (getPackage pid)
 
-      ShouldInline qval -> do
-        -- TODO : not if isDirectlyRecursive (code it!) -- need to see body
-        let answer = not (Set.member qval scope)
-        k state answer
+      DontInline qval -> do
+        k state (Set.member qval scope)
 
       WithDontInline qval eff -> do
         loop context { scope = Set.insert qval scope } state eff k
@@ -608,9 +612,6 @@ data Context = Context
   , subst :: LF.Subst
   , env :: Env
   }
-
--- TODO: not great as set items because the qualPackage can be implicit(Self) or explicit
-type QVal = LF.Qualified LF.ExprValName
 
 type Env = Map LF.ExprVarName SemValue
 
