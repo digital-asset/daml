@@ -206,6 +206,8 @@ object ImplicitPartyAdditionIT {
       submissionTime = let.addMicros(1000),
       submissionSeed = None,
       optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None
     )
 
     ledger.publishTransaction(submitterInfo, transactionMeta, transaction)
