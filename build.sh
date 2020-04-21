@@ -5,6 +5,8 @@
 
 set -euo pipefail
 
+df -h
+
 eval "$($(dirname "$0")/dev-env/bin/dade-assist)"
 
 execution_log_postfix=${1:-}
