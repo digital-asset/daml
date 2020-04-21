@@ -26,24 +26,14 @@ trait CommonQueries extends Queries {
   }
 
   override final def selectFromLog(
-      start: Index,
-      end: Index,
+      startExclusive: Index,
+      endInclusive: Index,
   ): Try[immutable.Seq[(Index, LedgerRecord)]] = Try {
-    SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $start AND sequence_no <= $end ORDER BY sequence_no"
-      .as(
-        (long("sequence_no")
-          ~ getBytes("entry_id")
-          ~ getBytes("envelope")).map {
-          case index ~ entryId ~ envelope =>
-            index -> LedgerRecord(
-              KVOffset.fromLong(index),
-              entryId,
-              envelope,
-            )
-          case _ =>
-            throw new IllegalStateException(s"Invalid data in the $LogTable table.")
-        }.*,
-      )
+    SQL"SELECT sequence_no, entry_id, envelope FROM #$LogTable WHERE sequence_no > $startExclusive AND sequence_no <= $endInclusive ORDER BY sequence_no"
+      .as((long("sequence_no") ~ getBytes("entry_id") ~ getBytes("envelope")).map {
+        case index ~ entryId ~ envelope =>
+          index -> LedgerRecord(KVOffset.fromLong(index), entryId, envelope)
+      }.*)
   }
 
   override final def selectStateValuesByKeys(keys: Seq[Key]): Try[immutable.Seq[Option[Value]]] =

@@ -75,14 +75,15 @@ final class SqlLedgerReaderWriter(
     dispatcher
       .startingAt(
         KVOffset.highestIndex(startExclusive.getOrElse(StartOffset)),
-        RangeSource((start, end) => {
-          Source
-            .future(Timed.value(Metrics.readLog, database.inReadTransaction("read_log") { queries =>
-              Future.fromTry(queries.selectFromLog(start, end))
-            }))
-            .mapConcat(identity)
-            .mapMaterializedValue(_ => NotUsed)
-        }),
+        RangeSource(
+          (startExclusive, endInclusive) =>
+            Source
+              .future(Timed.value(Metrics.readLog, database.inReadTransaction("read_log") {
+                queries =>
+                  Future.fromTry(queries.selectFromLog(startExclusive, endInclusive))
+              }))
+              .mapConcat(identity)
+              .mapMaterializedValue(_ => NotUsed)),
       )
       .map { case (_, entry) => entry }
 
