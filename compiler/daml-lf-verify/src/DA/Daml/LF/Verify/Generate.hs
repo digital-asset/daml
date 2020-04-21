@@ -5,7 +5,6 @@
 module DA.Daml.LF.Verify.Generate
   ( genPackages
   , Phase(..)
-  , genExpr -- TODO: remove
   ) where
 
 -- import Control.Monad.Error.Class (throwError)

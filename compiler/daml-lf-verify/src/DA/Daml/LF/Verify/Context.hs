@@ -13,6 +13,7 @@ module DA.Daml.LF.Verify.Context
   , UpdCreate(..)
   , UpdArchive(..)
   , UpdChoice(..)
+  , Skolem(..)
   , runEnv
   , emptyEnv
   , introEnv
