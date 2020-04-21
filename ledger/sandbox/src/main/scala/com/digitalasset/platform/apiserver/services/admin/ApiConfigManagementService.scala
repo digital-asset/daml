@@ -93,7 +93,7 @@ final class ApiConfigManagementService private (
                 logger.info(s"Initial configuration submission $submissionId was successful")
                 ()
               case SubmissionResult.NotSupported =>
-                logger.info(s"Setting an initial ledger configuration is not supported")
+                logger.info("Setting an initial ledger configuration is not supported")
                 ()
               case result =>
                 logger.warn(
