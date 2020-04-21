@@ -3,6 +3,7 @@
 
 package com.daml.http
 
+import java.security.DigestInputStream
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -10,6 +11,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
+import akka.stream.scaladsl.{Source, StreamConverters}
 import akka.util.ByteString
 import com.daml.api.util.TimestampConversion
 import com.daml.bazeltools.BazelRunfiles.requiredResource
@@ -43,11 +45,30 @@ import spray.json._
 
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Success, Try}
 
 object AbstractHttpServiceIntegrationTestFuns {
   private val dar1 = requiredResource("docs/quickstart-model.dar")
 
   private val dar2 = requiredResource("ledger-service/http-json/Account.dar")
+
+  private[http] val dar3 = requiredResource("ledger/test-common/Test-stable.dar")
+
+  def sha256(source: Source[ByteString, Any])(implicit mat: Materializer): Try[String] = Try {
+    import java.security.MessageDigest
+    import javax.xml.bind.DatatypeConverter
+
+    val md = MessageDigest.getInstance("SHA-256")
+    val is = source.runWith(StreamConverters.asInputStream())
+    val dis = new DigestInputStream(is, md)
+
+    // drain the input stream and calculate the hash
+    while (-1 != dis.read()) ()
+
+    dis.on(false)
+
+    DatatypeConverter.printHexBinary(md.digest()).toLowerCase
+  }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -116,7 +137,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     domain.CreateCommand(templateId, arg, None)
   }
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  protected val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   protected def postJsonStringRequest(
       uri: Uri,
@@ -391,6 +412,15 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     actual.moduleName shouldBe expected.moduleName
     actual.entityName shouldBe expected.entityName
   }
+
+  protected def getAllPackageIds(uri: Uri): Future[domain.OkResponse[List[String]]] =
+    getRequest(uri = uri.withPath(Uri.Path("/v1/packages"))).map {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        inside(decode1[domain.OkResponse, List[String]](output)) {
+          case \/-(x) => x
+        }
+    }
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any", "org.wartremover.warts.NonUnitStatements"))
@@ -1183,7 +1213,7 @@ abstract class AbstractHttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "query by a variant field" in withHttpService { (uri, encoder, decoder) =>
+  "query by a variant field" in withHttpService { (uri, encoder, _) =>
     val owner = domain.Party("Alice")
     val accountNumber = "abc123"
     val now = TimestampConversion.instantToMicros(Instant.now)
@@ -1218,6 +1248,64 @@ abstract class AbstractHttpServiceIntegrationTest
               case List(ac) =>
                 ac.contractId shouldBe contractId
             }
+        }
+    }: Future[Assertion]
+  }
+
+  "packages endpoint should return all known package IDs" in withHttpServiceAndClient {
+    (uri, _, _, _) =>
+      getAllPackageIds(uri).map { x =>
+        inside(x) {
+          case domain.OkResponse(ps, None, StatusCodes.OK) if ps.nonEmpty =>
+            Inspectors.forAll(ps)(_.length should be > 0)
+        }
+      }: Future[Assertion]
+  }
+
+  "packages/packageId should return a requested package" in withHttpServiceAndClient {
+    import AbstractHttpServiceIntegrationTestFuns.sha256
+
+    (uri, _, _, _) =>
+      getAllPackageIds(uri).flatMap { okResp =>
+        inside(okResp.result.headOption) {
+          case Some(packageId) =>
+            Http()
+              .singleRequest(
+                HttpRequest(
+                  method = HttpMethods.GET,
+                  uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
+                  headers = headersWithAuth,
+                )
+              )
+              .map { resp =>
+                resp.status shouldBe StatusCodes.OK
+                resp.entity.getContentType() shouldBe ContentTypes.`application/octet-stream`
+                sha256(resp.entity.dataBytes) shouldBe Success(packageId)
+              }
+        }
+      }: Future[Assertion]
+  }
+
+  "packages/upload endpoint" in withHttpServiceAndClient { (uri, _, _, _) =>
+    val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
+
+    getAllPackageIds(uri).flatMap { okResp =>
+      val existingPackageIds: Set[String] = okResp.result.toSet
+      Http()
+        .singleRequest(
+          HttpRequest(
+            method = HttpMethods.POST,
+            uri = uri.withPath(Uri.Path("/v1/packages")),
+            headers = headersWithAuth,
+            entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
+          )
+        )
+        .flatMap { resp =>
+          resp.status shouldBe StatusCodes.OK
+          getAllPackageIds(uri).map { okResp =>
+            val newPackageIds: Set[String] = okResp.result.toSet -- existingPackageIds
+            newPackageIds.size should be > 0
+          }
         }
     }: Future[Assertion]
   }

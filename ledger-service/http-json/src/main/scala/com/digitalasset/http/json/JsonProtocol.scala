@@ -3,19 +3,16 @@
 
 package com.daml.http.json
 
-import java.time.Instant
-
 import akka.http.scaladsl.model.StatusCode
+import com.daml.http.domain
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.lf.value.json.ApiCodecCompressed
-import com.daml.http.domain
-import com.daml.http.json.TaggedJsonFormat._
-import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.syntax.std.option._
 import scalaz.{-\/, NonEmptyList, OneAnd, \/-}
 import spray.json._
 
-object JsonProtocol extends DefaultJsonProtocol {
+object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
 
@@ -97,15 +94,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       case JsString(s) =>
         AbsoluteContractId fromString s fold (deserializationError(_), identity)
       case _ => deserializationError("ContractId must be a string")
-    }
-  }
-
-  implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
-    override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
-
-    override def read(json: JsValue): Instant = json match {
-      case JsNumber(a) => java.time.Instant.ofEpochMilli(a.toLongExact)
-      case _ => deserializationError("java.time.Instant must be epoch millis")
     }
   }
 
