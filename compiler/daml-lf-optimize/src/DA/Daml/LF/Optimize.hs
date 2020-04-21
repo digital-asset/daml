@@ -177,9 +177,9 @@ getModule pid moduleName = do
 
 getExprValNameFromModule :: LF.Module -> LF.ExprValName -> Effect LF.Expr
 getExprValNameFromModule mod name = do
-  let LF.Module{moduleValues} = mod
+  let LF.Module{moduleName,moduleValues} = mod
   case NM.lookup name moduleValues of
-    Nothing -> error $ "getExprValNameFromModule, " <> show name
+    Nothing -> error $ "getExprValNameFromModule, " <> show (moduleName,name)
     Just dval -> do
       let LF.DefValue{dvalBody=expr} = dval
       return expr
@@ -473,7 +473,7 @@ reify = \case
   TyMacro kind f -> do
     tv <- FreshTV
     let ty = LF.TVar tv
-    body <- f ty >>= reify
+    body <- ResetK (f ty >>= reify)
     return $ LF.ETyLam{tylamBinder=(tv,kind), tylamBody=body}
 
   Struct rp xs -> do
@@ -485,7 +485,7 @@ reify = \case
 
   Macro ty f -> do
     name <- Fresh "_r"
-    body <- ResetK $ f (Syntax (LF.EVar name)) >>= reify
+    body <- ResetK (f (Syntax (LF.EVar name)) >>= reify)
     return $ LF.ETmLam{tmlamBinder=(name,ty),tmlamBody=body}
 
 applyProjection :: LF.FieldName -> SemValue -> Effect SemValue
