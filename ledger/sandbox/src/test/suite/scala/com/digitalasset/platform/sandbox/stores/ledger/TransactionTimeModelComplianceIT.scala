@@ -92,6 +92,8 @@ class TransactionTimeModelComplianceIT
       submissionTime = Time.Timestamp.assertFromInstant(ledgerTime.plusNanos(3)),
       submissionSeed = submissionSeed,
       optUsedPackages = None,
+      optNodeSeeds = None,
+      optByKeyNodes = None
     )
 
     val offset = ledger.ledgerEnd

@@ -66,7 +66,9 @@ final class StoreBackedCommandExecutor(
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,
               submissionSeed,
-              Some(meta.usedPackages)
+              Some(meta.usedPackages),
+              Some(meta.nodeSeeds),
+              Some(meta.byKeyNodes),
             ),
             transaction = updateTx,
             dependsOnLedgerTime = meta.dependsOnTime,

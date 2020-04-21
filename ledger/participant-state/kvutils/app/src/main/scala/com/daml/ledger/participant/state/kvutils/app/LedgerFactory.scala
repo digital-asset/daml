@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils.app
 
+import java.time.Duration
+
 import akka.stream.Materializer
 import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -12,6 +14,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
@@ -62,6 +65,11 @@ trait ConfigProvider[ExtraConfig] {
 
   def submissionConfig(config: Config[ExtraConfig]): SubmissionConfiguration =
     SubmissionConfiguration.default
+
+  def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
+    LedgerConfiguration.default.copy(
+      initialConfigurationSubmitDelay = Duration.ofSeconds(5)
+    )
 
   def timeServiceBackend(config: Config[ExtraConfig]): Option[TimeServiceBackend] = None
 

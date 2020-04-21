@@ -43,11 +43,13 @@ private[events] sealed abstract class ContractsTable {
   case class PreparedBatches private (
       insertions: Option[(Set[ContractId], BatchSql)],
       deletions: Option[(Set[ContractId], BatchSql)],
+      transientContracts: Set[ContractId],
   )
 
   private case class AccumulatingBatches(
       insertions: Map[ContractId, Vector[NamedParameter]],
       deletions: Map[ContractId, Vector[NamedParameter]],
+      transientContracts: Set[ContractId],
   ) {
 
     def insert(contractId: ContractId, insertion: Vector[NamedParameter]): AccumulatingBatches =
@@ -57,7 +59,10 @@ private[events] sealed abstract class ContractsTable {
     // Otherwise, add a delete. This prevents the insertion of transient contracts.
     def delete(contractId: ContractId, deletion: => Vector[NamedParameter]): AccumulatingBatches =
       if (insertions.contains(contractId))
-        copy(insertions = insertions - contractId)
+        copy(
+          insertions = insertions - contractId,
+          transientContracts = transientContracts + contractId,
+        )
       else
         copy(deletions = deletions.updated(contractId, deletion))
 
@@ -79,6 +84,7 @@ private[events] sealed abstract class ContractsTable {
       PreparedBatches(
         insertions = prepareNonEmpty(insertContractQuery, insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
+        transientContracts = transientContracts,
       )
 
   }
@@ -93,7 +99,7 @@ private[events] sealed abstract class ContractsTable {
     // contracts are not inserted in the first place
     val locallyCreatedContracts =
       transaction
-        .fold(AccumulatingBatches(Map.empty, Map.empty)) {
+        .fold(AccumulatingBatches(Map.empty, Map.empty, Set.empty)) {
           case (batches, (_, node: Create)) =>
             batches.insert(
               contractId = node.coid,

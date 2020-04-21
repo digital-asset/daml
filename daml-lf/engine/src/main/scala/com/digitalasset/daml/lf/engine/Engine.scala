@@ -338,6 +338,7 @@ final class Engine {
               usedPackages = Set.empty,
               dependsOnTime = machine.dependsOnTime,
               nodeSeeds = machine.ptx.nodeSeeds.toImmArray,
+              byKeyNodes = machine.ptx.byKeyNodes.toImmArray,
             )))
 
     }
