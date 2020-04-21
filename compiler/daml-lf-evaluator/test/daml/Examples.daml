@@ -218,3 +218,19 @@ b5 = thrice thrice (block decrement)
 b6 = thrice (block thrice) decrement
 b7 = block (thrice thrice) decrement -- This testcase will fail if ETmLam bound vars are not renamed
 b8 = block thrice thrice decrement
+
+
+
+-- Example which shows state mustn't be duplicated by ShiftK
+-- based on real pattern of code: showParen/showString in Show.daml
+
+type II = Int -> Int
+
+add : Int -> II
+add = (+)
+
+paren : Bool -> II -> II
+paren b p = if b then add 8 . p . add 16 else p
+
+useParen : Int -> Int
+useParen n = (paren (True) (add 1 . add 2 . add 4)) n

@@ -85,6 +85,7 @@ tests =
   , mkTest 30 "b7" 0 (-27)
   , mkTest 46 "b8" 0 (-27)
 
+  , mkTest 1 "useParen" 0 31
   ]
 
 -- | Like `Test`, except we always expect a non-`Throw` result
