@@ -113,7 +113,6 @@ It's harder to measure, but it is real.
 
 import Control.Monad (ap,liftM,forM,(>=>))
 import Control.Lens (toListOf)
-import Data.List (intercalate)
 import Data.Map.Strict (Map)
 import Data.Set (Set)
 import qualified DA.Daml.LF.Ast as LF
@@ -282,10 +281,10 @@ reflect = \case
     if
       | allowDupK -> do
           -- Grab and duplicate the continuation for better optimization.
-          ShiftK $ \(k :: SemValue -> LF.Expr) -> do
+          ShiftK $ \(k :: SemValue -> Effect LF.Expr) -> do
             alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
               freshenCasePattern pat $ \pat -> do
-                expr <- ResetK (k <$> reflect expr)
+                expr <- ResetK (reflect expr >>= k)
                 return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
             return $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
@@ -293,7 +292,7 @@ reflect = \case
           -- Previous simpler behaviour if it turns out the code blowup from above is unacceptable.
           alts <- forM alts $ \LF.CaseAlternative{altPattern=pat,altExpr=expr} -> do
             freshenCasePattern pat $ \pat -> do
-              expr <- ResetK $ normExpr expr
+              expr <- ResetK (normExpr expr)
               return $ LF.CaseAlternative{altPattern=pat,altExpr=expr}
           return $ Syntax $ LF.ECase{casScrutinee=scrut, casAlternatives=alts}
 
@@ -535,8 +534,8 @@ data Effect a where
   -- Operator which manipulate the continuation
   WrapK :: (LF.Expr -> LF.Expr) -> Effect a -> Effect a
   ResetK :: Effect LF.Expr -> Effect LF.Expr
-  ShiftK :: ((a -> LF.Expr) -> Effect LF.Expr) -> Effect a
-
+  ShiftK :: ((a -> Effect LF.Expr) -> Effect LF.Expr) -> Effect a
+  WithState :: (State -> Res) -> Effect a
 
 instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
@@ -588,16 +587,18 @@ runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
       WithDontInline qval eff -> do
         loop context { scope = Set.insert qval scope } state eff k
 
+      --WrapK f m == ShiftK $ \k -> f <$> ResetK (m >>= k)
       WrapK f eff ->
-        loop context state eff $ \state v -> f' (k state v) where f' (e,s) = (f e, s)
+        f' (loop context state eff k) where f' (e,s) = (f e, s)
 
       ResetK eff -> do
         let (v,state') = loop context state eff k0
         k state' v
 
       ShiftK f -> do
-        let (state1,state2) = splitState state
-        loop context state2 (f (fst . k state1)) k0
+        loop context state (f (\a -> WithState (\state -> k state a))) k0
+
+      WithState f -> f state
 
     packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
@@ -617,30 +618,21 @@ data Context = Context
 type Env = Map LF.ExprVarName SemValue
 
 
--- | Splittable state. Currently contains a single unique name source.
+-- | State. Currently contains a single unique name source.
 data State = State { unique :: Unique }
 
 state0 :: State
 state0 = State { unique = unique0 }
 
-splitState :: State -> (State,State)
-splitState State{unique=u} = let (u1,u2) = splitUnique u in (State{unique=u1}, State{unique=u2})
-
 generateName :: State -> (String,State)
 generateName State{unique=u} = let (name,u') = generateUniqueName u in (name, State {unique = u'})
 
 
--- | Splittable source of unique names
-data Unique = Unique Int [Int]
+-- | Source of unique names
+newtype Unique = Unique Int
 
 unique0 :: Unique
-unique0 = Unique 0 []
-
--- | Split a unique name source in two. Prefer the first in the pair as it is more concise.
-splitUnique :: Unique -> (Unique,Unique)
-splitUnique (Unique n xs) = (Unique (n+1) xs, Unique 0 (n:xs))
+unique0 = Unique 0
 
 generateUniqueName :: Unique -> (String,Unique)
-generateUniqueName (Unique n xs) = do
-  let name = intercalate "_" $ map show (reverse (n:xs))
-  (name, Unique (n+1) xs)
+generateUniqueName (Unique n) = (show n, Unique (n+1))
