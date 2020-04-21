@@ -6,7 +6,13 @@ package com.daml.http
 import akka.NotUsed
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model.headers.{
+  Authorization,
+  ModeledCustomHeader,
+  ModeledCustomHeaderCompanion,
+  OAuth2BearerToken,
+  `X-Forwarded-Proto`
+}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Source}
 import akka.util.ByteString
@@ -31,6 +37,7 @@ import spray.json._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -340,6 +347,13 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
+  private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
+    headers exists {
+      case `X-Forwarded-Proto`(protocol) => protocol equalsIgnoreCase "https"
+      case Forwarded(value) => Forwarded(value).proto contains "https"
+      case _ => false
+    }
+
   private def resolveReference(
       jwt: Jwt,
       jwtPayload: JwtPayload,
@@ -396,5 +410,19 @@ object Endpoints {
 
   private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
     SprayJson.encode(a).liftErr(ServerError)
+  }
+
+  private[http] final case class Forwarded(value: String) extends ModeledCustomHeader[Forwarded] {
+    override def companion = Forwarded
+    override def renderInRequests = true
+    override def renderInResponses = false
+    def proto: Option[String] =
+      Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
+  }
+
+  private[http] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
+    override val name = "Forwarded"
+    override def parse(value: String) = Try(new Forwarded(value))
+    private val re = raw"""(?i)proto\s*=\s*"?(https?)""".r
   }
 }

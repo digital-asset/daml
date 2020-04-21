@@ -31,6 +31,7 @@ private[http] final case class Config(
     tlsConfig: TlsConfiguration = TlsConfiguration(enabled = false, None, None, None),
     jdbcConfig: Option[JdbcConfig] = None,
     staticContentConfig: Option[StaticContentConfig] = None,
+    allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
 )

@@ -214,6 +214,11 @@ object Main extends StrictLogging {
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
 
+      opt[Unit]("leak-passwords-firesheep-style")
+        .action((_, c) => c copy (allowNonHttps = true))
+        .text(
+          "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
+
       opt[String]("access-token-file")
         .text(
           s"provide the path from which the access token will be read, required to interact with an authenticated ledger, no default")
