@@ -22,10 +22,10 @@ import com.daml.lf.transaction.{Transaction => Tx}
   *
   * @param submissionTime: the transaction submission time
   *
-  * @param submissionSeed: The seed used to derive the transaction contract IDs.
+  * @param submissionSeed: the seed used to derive the transaction contract IDs.
   *
   * @param optUsedPackages: the set of package IDs the transaction is depending on.
-  *   undefined is not known. Undefined is not known.
+  *   Undefined means 'not known'.
   *
   * @param optNodeSeeds: an association list that maps to each ID if create and exercise nodes
   *   its respective seed. Undefined is not known.
