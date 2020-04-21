@@ -53,6 +53,7 @@ class Endpoints(
   import encoder.implicits._
   import json.JsonProtocol._
   import util.ErrorOps._
+  import Uri.Path._
 
   lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/v1/create"), _, _, _) => httpResponse(create(req))
@@ -68,24 +69,14 @@ class Endpoints(
       httpResponse(allocateParty(req))
     case req @ HttpRequest(GET, Uri.Path("/v1/packages"), _, _, _) =>
       httpResponse(listPackages(req))
-    case req @ HttpRequest(GET, uri, _, _, _) if v1PackagesPackageId(uri.path).isDefined =>
-      v1PackagesPackageId(uri.path).cata(
-        packageId => downloadPackage(req, packageId),
-        Future.successful(
-          httpResponseError(
-            ServerError("Cannot parse packageId. Technically this should never happen!")))
-      )
+    // format: off
+    case req @ HttpRequest(
+          GET, Uri(_, _, Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))), _, _),
+          _, _, _) =>
+      downloadPackage(req, packageId)
+    // format: on
     case req @ HttpRequest(POST, Uri.Path("/v1/packages"), _, _, _) =>
       httpResponse(uploadDarFile(req))
-  }
-
-  private def v1PackagesPackageId(path: Uri.Path): Option[String] = {
-    import Uri.Path._
-    path match {
-      case Slash(Segment("v1", Slash(Segment("packages", Slash(Segment(packageId, Empty)))))) =>
-        Some(packageId)
-      case _ => None
-    }
   }
 
   def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
