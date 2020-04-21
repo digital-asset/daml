@@ -67,6 +67,7 @@ object HttpService extends StrictLogging {
       tlsConfig: TlsConfiguration,
       wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
+      allowNonHttps: Boolean,
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
@@ -137,6 +138,7 @@ object HttpService extends StrictLogging {
 
       jsonEndpoints = new Endpoints(
         ledgerId,
+        allowNonHttps,
         validateJwt,
         commandService,
         contractsService,

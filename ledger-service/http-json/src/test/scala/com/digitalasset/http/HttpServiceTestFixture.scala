@@ -80,6 +80,7 @@ object HttpServiceTestFixture {
           tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
           wsConfig = Some(Config.DefaultWsConfig),
           accessTokenFile = None,
+          allowNonHttps = true,
           contractDao = contractDao,
           staticContentConfig = staticContentConfig,
           packageReloadInterval = doNotReloadPackages

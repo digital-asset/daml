@@ -93,6 +93,7 @@ object Main extends StrictLogging {
         tlsConfig = config.tlsConfig,
         wsConfig = config.wsConfig,
         accessTokenFile = config.accessTokenFile,
+        allowNonHttps = config.allowNonHttps,
         contractDao = contractDao,
         staticContentConfig = config.staticContentConfig,
         packageReloadInterval = config.packageReloadInterval,

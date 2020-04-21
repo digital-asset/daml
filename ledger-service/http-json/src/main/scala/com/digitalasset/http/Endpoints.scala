@@ -43,6 +43,7 @@ import scala.util.control.NonFatal
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
+    allowNonHttps: Boolean,
     decodeJwt: EndpointsCompanion.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
@@ -340,16 +341,28 @@ class Endpoints(
       jsVal <- either(SprayJson.parse(t3._3).liftErr(InvalidUserInput)): ET[JsValue]
     } yield (t3._1, t3._2, jsVal)
 
-  private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
-    req.headers
-      .collectFirst {
-        case Authorization(OAuth2BearerToken(token)) => Jwt(token)
-      }
-      .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+  private[this] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
+    ensureHttpsForwarded(req) flatMap { _ =>
+      req.headers
+        .collectFirst {
+          case Authorization(OAuth2BearerToken(token)) => Jwt(token)
+        }
+        .toRightDisjunction(
+          Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
+    }
+
+  private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
+    if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
+    else
+      -\/(Unauthorized(
+        "missing HTTPS reverse-proxy request headers; for development launch with --leak-passwords-firesheep-style"))
 
   private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
     headers exists {
       case `X-Forwarded-Proto`(protocol) => protocol equalsIgnoreCase "https"
+      // the whole "custom headers" thing in akka-http is a mishmash of
+      // actually using the ModeledCustomHeaderCompanion stuff (which works)
+      // and "just use ClassTag YOLO" (which won't work)
       case Forwarded(value) => Forwarded(value).proto contains "https"
       case _ => false
     }
@@ -412,7 +425,9 @@ object Endpoints {
     SprayJson.encode(a).liftErr(ServerError)
   }
 
-  private[http] final case class Forwarded(value: String) extends ModeledCustomHeader[Forwarded] {
+  // avoid case class to avoid using the wrong unapply in isForwardedForHttps
+  private[http] final class Forwarded(override val value: String)
+      extends ModeledCustomHeader[Forwarded] {
     override def companion = Forwarded
     override def renderInRequests = true
     override def renderInResponses = false
