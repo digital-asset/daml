@@ -25,7 +25,7 @@ import com.daml.ledger.api.v1.admin.config_management_service._
 import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.api.grpc.GrpcApiService
-import com.daml.platform.configuration.LedgerConfigConfiguration
+import com.daml.platform.configuration.LedgerConfiguration
 import com.daml.platform.server.api.validation
 import com.daml.platform.server.api.validation.ErrorFactories
 import com.daml.timer.Delayed
@@ -40,7 +40,7 @@ final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
     writeService: WriteConfigService,
     timeProvider: TimeProvider,
-    ledgerConfigConfiguration: LedgerConfigConfiguration,
+    ledgerConfiguration: LedgerConfiguration,
     materializer: Materializer
 )(implicit logCtx: LoggingContext)
     extends ConfigManagementService
@@ -48,8 +48,7 @@ final class ApiConfigManagementService private (
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val defaultConfigResponse = configToResponse(
-    ledgerConfigConfiguration.defaultConfiguration)
+  private val defaultConfigResponse = configToResponse(ledgerConfiguration.initialConfiguration)
 
   override def close(): Unit = ()
 
@@ -73,7 +72,7 @@ final class ApiConfigManagementService private (
   private def submitInitialConfig(initialConfig: Configuration) = {
     implicit val executionContext: ExecutionContext = DE
     Delayed.Future.by(
-      Duration.fromNanos(ledgerConfigConfiguration.initialConfigSubmitDelay.toNanos))(
+      Duration.fromNanos(ledgerConfiguration.initialConfigurationSubmitDelay.toNanos))(
       for {
         optConfig <- index.lookupConfiguration()
         _ <- if (optConfig.isDefined)
@@ -102,7 +101,7 @@ final class ApiConfigManagementService private (
       } yield ()
     )
   }
-  submitInitialConfig(ledgerConfigConfiguration.defaultConfiguration)
+  submitInitialConfig(ledgerConfiguration.initialConfiguration)
 
   private def configToResponse(config: Configuration): GetTimeModelResponse = {
     val tm = config.timeModel
@@ -131,7 +130,7 @@ final class ApiConfigManagementService private (
       pollOffset = optConfigAndOffset.map(_._1)
       currentConfig = optConfigAndOffset
         .map(_._2)
-        .getOrElse(ledgerConfigConfiguration.defaultConfiguration)
+        .getOrElse(ledgerConfiguration.initialConfiguration)
 
       // Verify that we're modifying the current configuration.
       _ <- if (request.configurationGeneration != currentConfig.generation) {
@@ -241,15 +240,13 @@ object ApiConfigManagementService {
       readBackend: IndexConfigManagementService,
       writeBackend: WriteConfigService,
       timeProvider: TimeProvider,
-      ledgerConfigConfiguration: LedgerConfigConfiguration)(
-      implicit mat: Materializer,
-      logCtx: LoggingContext)
+      ledgerConfiguration: LedgerConfiguration)(implicit mat: Materializer, logCtx: LoggingContext)
     : ConfigManagementServiceGrpc.ConfigManagementService with GrpcApiService =
     new ApiConfigManagementService(
       readBackend,
       writeBackend,
       timeProvider,
-      ledgerConfigConfiguration,
+      ledgerConfiguration,
       mat)
 
 }

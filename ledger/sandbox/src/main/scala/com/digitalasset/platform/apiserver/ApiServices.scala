@@ -40,7 +40,7 @@ import com.daml.platform.apiserver.services.{
 }
 import com.daml.platform.configuration.{
   CommandConfiguration,
-  LedgerConfigConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
@@ -84,7 +84,7 @@ object ApiServices {
       engine: Engine,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      ledgerConfigConfiguration: LedgerConfigConfiguration,
+      ledgerConfiguration: LedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       submissionConfig: SubmissionConfiguration,
@@ -133,7 +133,7 @@ object ApiServices {
         writeService,
         submissionService,
         partyManagementService,
-        ledgerConfigConfiguration.defaultConfiguration.timeModel,
+        ledgerConfiguration.initialConfiguration.timeModel,
         timeProvider,
         timeProviderType,
         seedService,
@@ -210,7 +210,7 @@ object ApiServices {
             configManagementService,
             writeService,
             timeProvider,
-            ledgerConfigConfiguration)
+            ledgerConfiguration)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 

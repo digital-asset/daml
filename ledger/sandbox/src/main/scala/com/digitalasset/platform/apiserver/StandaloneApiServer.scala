@@ -25,7 +25,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
   CommandConfiguration,
-  LedgerConfigConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
   SubmissionConfiguration
@@ -92,9 +92,9 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      ledgerConfigConfiguration = LedgerConfigConfiguration(
-        defaultConfiguration = initialConditions.config,
-        initialConfigSubmitDelay = Duration.ofSeconds(5),
+      ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = initialConditions.config,
+        initialConfigurationSubmitDelay = Duration.ofSeconds(5),
       )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) => {
@@ -108,7 +108,7 @@ final class StandaloneApiServer(
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
               timeProviderType = timeServiceBackend.fold[TimeProviderType](
                 TimeProviderType.WallClock)(_ => TimeProviderType.Static),
-              ledgerConfigConfiguration = ledgerConfigConfiguration,
+              ledgerConfiguration = ledgerConfiguration,
               commandConfig = commandConfig,
               partyConfig = partyConfig,
               submissionConfig = submissionConfig,
