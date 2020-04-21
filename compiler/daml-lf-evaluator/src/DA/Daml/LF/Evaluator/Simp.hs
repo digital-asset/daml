@@ -193,7 +193,8 @@ simpBuiltin = \case
 
   LF.BEError -> Value.B1 Value.ERROR
 
-  be -> error $ "todo: simpBuiltin, " <> show be
+-- be -> error $ "todo: simpBuiltin, " <> show be
+  be -> Value.UnknownBuiltin be
 
 instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap

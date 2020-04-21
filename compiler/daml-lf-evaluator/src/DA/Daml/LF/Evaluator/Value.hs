@@ -33,6 +33,7 @@ data Value
   | B3 B3
   | B3_1 B3 Value
   | B3_2 B3 Value Value
+  | UnknownBuiltin LF.BuiltinExpr
   deriving (Show)
 
 newtype Func = Func (Value -> Effect Value)
@@ -96,6 +97,7 @@ apply = \case
   (B3 b,v1) -> return $ B3_1 b v1
   (B3_1 b v1,v2) -> return $ B3_2 b v1 v2
   (B3_2 b v1 v2,v3) -> do CountPrim; applyB3 b v1 v2 v3
+  (UnknownBuiltin b,_) -> error $ "Value.apply, UnknownBuiltin, " <> show b
 
 applyB1 :: B1 -> Value -> Effect Value
 applyB1 = \case

@@ -27,6 +27,7 @@ ppValue = \case
   B3 b -> show b
   B3_1 b v1 -> "(" <> show b <> show v1 <> ")"
   B3_2 b v1 v2 -> "(" <> show b <> show v1 <> " " <> show v2 <> ")"
+  UnknownBuiltin be -> "<" <> show be <> ">"
   where
 
     ppB0 :: B0 -> String
