@@ -490,7 +490,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             compileCreate(tmplId, translate(arg))
 
           case UpdateExercise(tmplId, chId, cidE, actorsE, argE) =>
-            compileExercise(tmplId, translate(cidE), chId, actorsE.map(translate), translate(argE))
+            compileExercise(
+              tmplId = tmplId,
+              contractId = translate(cidE),
+              choiceId = chId,
+              optActors = actorsE.map(translate),
+              byKey = false,
+              argument = translate(argE),
+            )
 
           case UpdateGetTime =>
             compileGetTime
@@ -538,7 +545,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       SEVar(1), /* coid */
                       SEVar(2) /* token */
                     ),
-                    SBUInsertFetchNode(retrieveByKey.templateId)(
+                    SBUInsertFetchNode(retrieveByKey.templateId, byKey = true)(
                       SEVar(2), // coid
                       signatories,
                       observers,
@@ -756,9 +763,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   /** Compile a choice into a top-level function for exercising that choice */
   private def compileChoice(tmplId: TypeConName, tmpl: Template, choice: TemplateChoice): SExpr =
     // Compiles a choice into:
-    // SomeTemplate$SomeChoice = \actors cid arg token ->
-    //   let targ = fetch cid
-    //       _ = $beginExercise[tmplId, chId] arg cid actors <sigs> <obs> <ctrls> <mbKey> token
+    // SomeTemplate$SomeChoice = \<byKey flag> <actors> <cid> <choice arg> <token> ->
+    //   let targ = fetch <cid>
+    //       _ = $beginExercise[tmplId, chId] <choice arg> <cid> <actors> <byKey flag> sigs obs ctrls mbKey <token>
     //       result = <updateE>
     //       _ = $endExercise[tmplId]
     //   in result
@@ -767,14 +774,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         Map.empty,
         0,
         withEnv { _ =>
-          env = env.incrPos // actors
+          env = env.incrPos // <byKey flag>
+          env = env.incrPos // <actors>
           val selfBinderPos = env.position
-          env = env.incrPos // cid
+          env = env.incrPos // <cid>
           val choiceArgumentPos = env.position
-          env = env.incrPos // choice argument
-          env = env.incrPos // token
+          env = env.incrPos // <choice argument>
+          env = env.incrPos // <token>
 
-          // template argument
+          // <template argument>
           env = env.addExprVar(tmpl.param)
 
           val signatories = translate(tmpl.signatories)
@@ -791,27 +799,28 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           // allow access to the self contract id
           env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
-          SEAbs(4) {
+          SEAbs(5) {
             SELet(
-              // stack: <actors> <cid> <choice arg> <token>
-              SBUFetch(tmplId)(SEVar(3) /* cid */, SEVar(1) /* token */ ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg>
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token>
+              SBUFetch(tmplId)(SEVar(3) /* <cid> */, SEVar(1) /* <token> */ ),
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg>
               SBUBeginExercise(tmplId, choice.name, choice.consuming)(
-                SEVar(3), // choice argument
-                SEVar(4), // cid
-                SEVar(5), // actors
+                SEVar(3), // <choice arg>
+                SEVar(4), // <cid>
+                SEVar(5), // <actors>
+                SEVar(6), // <byKey flag>
                 signatories,
                 observers,
                 controllers,
                 mbKey,
                 SEVar(2),
               ),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> ()
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> ()
               SEApp(update, Array(SEVar(3))),
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value>
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value>
               SBUEndExercise(tmplId)(SEVar(4), SEVar(1)),
             ) in
-              // stack: <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
+              // stack: <byKey flag> <actors> <cid> <choice arg> <token> <template arg> () <ret value> ()
               SEVar(2)
           }
         },
@@ -1119,7 +1128,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               SEVar(2), /* coid */
               SEVar(1) /* token */
             ),
-            SBUInsertFetchNode(tmplId)(
+            SBUInsertFetchNode(tmplId, byKey = false)(
               SEVar(3), /* coid */
               signatories,
               observers,
@@ -1187,6 +1196,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // actors are only present when compiling old LF update expressions;
       // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
+      byKey: Boolean,
       argument: SExpr,
   ): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
@@ -1197,7 +1207,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case None => SEValue.None
         case Some(actors) => SEApp(SEBuiltin(SBSome), Array(actors))
       }
-      SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
+      SEApp(
+        SEVal(ChoiceDefRef(tmplId, choiceId), None),
+        Array(SEValue.bool(byKey), actors, contractId, argument))
     }
 
   private def compileExerciseByKey(
@@ -1229,7 +1241,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SELet(
             SBUFetchKey(tmplId)(SEVar(2), SEVar(1)),
             SEApp(
-              compileExercise(tmplId, SEVar(1), choiceId, optActors, argument),
+              compileExercise(
+                tmplId = tmplId,
+                contractId = SEVar(1),
+                choiceId = choiceId,
+                byKey = true,
+                optActors = optActors,
+                argument = argument),
               Array(SEVar(2)),
             ),
           ) in SEVar(1)
@@ -1251,7 +1269,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELet(
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
-            compileExercise(tmplId, SEVar(1), choiceId, None, SEValue(choiceArg)),
+            compileExercise(
+              tmplId = tmplId,
+              contractId = SEVar(1),
+              choiceId = choiceId,
+              optActors = None,
+              byKey = false,
+              argument = SEValue(choiceArg),
+            ),
             Array(SEVar(2)),
           ),
         ) in SEVar(1)
@@ -1291,7 +1316,14 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, SEValue(argument))
     case Command.Exercise(templateId, contractId, choiceId, argument) =>
-      compileExercise(templateId, SEValue(contractId), choiceId, None, SEValue(argument))
+      compileExercise(
+        tmplId = templateId,
+        contractId = SEValue(contractId),
+        choiceId = choiceId,
+        optActors = None,
+        byKey = false,
+        argument = SEValue(argument),
+      )
     case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
       compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
     case Command.Fetch(templateId, coid) =>

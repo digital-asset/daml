@@ -196,6 +196,9 @@ object SValue {
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
   final case class SBool(value: Boolean) extends SPrimLit
+  object SBool {
+    def apply(value: Boolean): SBool = if (value) SValue.True else SValue.False
+  }
   final case object SUnit extends SPrimLit
   final case class SDate(value: Time.Date) extends SPrimLit
   final case class SContractId(value: V.ContractId) extends SPrimLit
@@ -205,8 +208,8 @@ object SValue {
 
   object SValue {
     val Unit = SUnit
-    val True = SBool(true)
-    val False = SBool(false)
+    val True = new SBool(true)
+    val False = new SBool(false)
     val EmptyList = SList(FrontStack.empty)
     val None = SOptional(Option.empty)
     val EmptyMap = STextMap(HashMap.empty)

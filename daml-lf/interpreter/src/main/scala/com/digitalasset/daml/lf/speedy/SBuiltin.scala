@@ -839,10 +839,10 @@ object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-  ) extends SBuiltin(8) {
+  ) extends SBuiltin(9) {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(7))
+      checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -852,11 +852,15 @@ object SBuiltin {
         case SOptional(optValue) => optValue.map(extractParties)
         case v => crash(s"expect optional parties, got: $v")
       }
-      val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
+      val byKey = args.get(3) match {
+        case SBool(b) => b
+        case v => crash(s"expect boolean flag, got: $v")
+      }
+      val sigs = extractParties(args.get(4))
+      val obs = extractParties(args.get(5))
+      val ctrls = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -870,6 +874,7 @@ object SBuiltin {
           stakeholders = sigs union obs,
           controllers = ctrls,
           mbKey = mbKey,
+          byKey = byKey,
           chosenValue = asVersionedValue(arg) match {
             case Left(err) => crash(err)
             case Right(x) => x
@@ -1068,7 +1073,7 @@ object SBuiltin {
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(5) {
+  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(4))
       val coid = args.get(0) match {
@@ -1094,7 +1099,8 @@ object SBuiltin {
         contextActors intersect stakeholders,
         signatories,
         stakeholders,
-        key
+        key,
+        byKey,
       )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
