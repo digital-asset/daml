@@ -24,7 +24,8 @@ object BenchmarkReporter {
 class FileOutputBenchmarkReporter(path: Path) extends BenchmarkReporter {
 
   override def addReport(key: String, value: Double): Unit = synchronized {
-    val _ = Files.write(path, Seq(s"$key=$value").asJava, StandardOpenOption.APPEND)
+    val _ = Files
+      .write(path, Seq(s"$key=$value").asJava, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
   }
 }
 
