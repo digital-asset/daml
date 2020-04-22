@@ -38,11 +38,12 @@ object PureCompiledPackages {
   def apply(
       packages: Map[PackageId, Package],
       defns: Map[SDefinitionRef, SExpr],
-  ): Either[String, PureCompiledPackages] = {
-    Right(new PureCompiledPackages(packages, defns))
-  }
+  ): PureCompiledPackages =
+    new PureCompiledPackages(packages, defns)
 
-  def apply(packages: Map[PackageId, Package]): Either[String, PureCompiledPackages] = {
-    apply(packages, Compiler(packages).compilePackages(packages.keys))
-  }
+  def apply(packages: Map[PackageId, Package]): Either[String, PureCompiledPackages] =
+    Compiler
+      .compilePackages(packages)
+      .map(new PureCompiledPackages(packages, _))
+
 }

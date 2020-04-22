@@ -282,7 +282,7 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
         fromSExpr(
-          SEApp(compiler.compile(expr), Array(SEValue.Token)),
+          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
           checkSubmitterInMaintainers,
           compiledPackages,
           submissionTime,
@@ -318,9 +318,9 @@ object Speedy {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          SEApp(compiler.compile(expr), Array(SEValue.Token))
+          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
         else
-          compiler.compile(expr)
+          compiler.unsafeCompile(expr)
 
       fromSExpr(
         sexpr,
