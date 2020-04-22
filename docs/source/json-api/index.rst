@@ -103,6 +103,8 @@ From a DAML project directory:
             prefix -- URL prefix,
             directory -- local directory that will be mapped to the URL prefix.
             Example: "prefix=static,directory=./static-content"
+      --leak-passwords-firesheep-style
+            DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.
       --access-token-file <value>
             provide the path from which the access token will be read, required to interact with an authenticated ledger, no default
       --websocket-config "maxDuration=<Maximum websocket session duration in minutes>,heartBeatPer=Server-side heartBeat interval in seconds"
