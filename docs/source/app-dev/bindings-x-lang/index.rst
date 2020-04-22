@@ -94,13 +94,12 @@ Links
 
 - gRPC documentation: https://grpc.io/docs/
 
-- DAML Ledger API gRPC protobuf definitions
+- Documentation for Protobuf "well known types": https://developers.google.com/protocol-buffers/docs/reference/google.protobuf
+
+- DAML Ledger API gRPC Protobuf definitions
     - current master: https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions
     - for specific versions: https://github.com/digital-asset/daml/releases
 
-- External required protobuf definitions:
+- Required gRPC Protobuf definitions:
     - https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/status/status.proto
     - https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/health/v1/health.proto
-
-- External optional protobuf definitions:
-    - https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/reflection/v1alpha/reflection.proto
