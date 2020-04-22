@@ -81,7 +81,7 @@ class Endpoints(
 
   def create(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -99,7 +99,7 @@ class Endpoints(
 
   def exercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -125,7 +125,7 @@ class Endpoints(
 
   def createAndExercise(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+      t3 <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = t3
 
@@ -143,7 +143,7 @@ class Endpoints(
 
   def fetch(req: HttpRequest): ET[domain.SyncResponse[JsValue]] =
     for {
-      input <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
+      input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
 
@@ -166,7 +166,7 @@ class Endpoints(
     } yield domain.OkResponse(jsVal)
 
   def retrieveAll(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    input(req).map {
+    inputAndJwtPayload(req).map {
       _.map {
         case (jwt, jwtPayload, _) =>
           val result: SearchResult[ContractsService.Error \/ domain.ActiveContract[LfValue]] =
@@ -181,7 +181,7 @@ class Endpoints(
     }
 
   def query(req: HttpRequest): Future[Error \/ SearchResult[Error \/ JsValue]] =
-    input(req).map {
+    inputAndJwtPayload(req).map {
       _.flatMap {
         case (jwt, jwtPayload, reqBody) =>
           SprayJson
@@ -201,47 +201,22 @@ class Endpoints(
     }
 
   def allParties(req: HttpRequest): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    proxyWithoutInput(partiesService.allParties)(req).map(domain.OkResponse(_))
+    proxyWithoutCommand(partiesService.allParties)(req).map(domain.OkResponse(_))
 
   def parties(req: HttpRequest): ET[domain.SyncResponse[List[domain.PartyDetails]]] =
-    for {
-      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-
-      (jwt, _, reqBody) = t3
-
-      cmd <- either(
-        SprayJson.decode[NonEmptyList[domain.Party]](reqBody).liftErr(InvalidUserInput)
-      ): ET[NonEmptyList[domain.Party]]
-
-      ps <- eitherT(
-        handleFutureEitherFailure(
-          partiesService.parties(jwt, toNonEmptySet(cmd))
-        )): ET[(Set[domain.PartyDetails], Set[domain.Party])]
-
-    } yield partiesResonse(parties = ps._1.toList, unknownParties = ps._2.toList)
+    proxyWithCommand[NonEmptyList[domain.Party], (Set[domain.PartyDetails], Set[domain.Party])](
+      (jwt, cmd) => partiesService.parties(jwt, toNonEmptySet(cmd)))(req)
+      .map(ps => partiesResponse(parties = ps._1.toList, unknownParties = ps._2.toList))
 
   def allocateParty(req: HttpRequest): ET[domain.SyncResponse[domain.PartyDetails]] =
-    for {
-      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
-
-      (jwt, _, reqBody) = t3
-
-      cmd <- either(
-        SprayJson.decode[domain.AllocatePartyRequest](reqBody).liftErr(InvalidUserInput)
-      ): ET[domain.AllocatePartyRequest]
-
-      allocatedParty <- eitherT(
-        handleFutureEitherFailure(partiesService.allocate(jwt, cmd))
-      ): ET[domain.PartyDetails]
-
-    } yield domain.OkResponse(allocatedParty)
+    proxyWithCommand(partiesService.allocate)(req).map(domain.OkResponse(_))
 
   def listPackages(req: HttpRequest): ET[domain.SyncResponse[Seq[String]]] =
-    proxyWithoutInput(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
+    proxyWithoutCommand(packageManagementService.listPackages)(req).map(domain.OkResponse(_))
 
   def downloadPackage(req: HttpRequest, packageId: String): Future[HttpResponse] = {
     val et: ET[admin.GetPackageResponse] =
-      proxyWithoutInput(jwt => packageManagementService.getPackage(jwt, packageId))(req)
+      proxyWithoutCommand(jwt => packageManagementService.getPackage(jwt, packageId))(req)
     val fa: Future[Error \/ admin.GetPackageResponse] = et.run
     fa.map {
       case -\/(e) =>
@@ -257,9 +232,9 @@ class Endpoints(
 
   def uploadDarFile(req: HttpRequest): ET[domain.SyncResponse[Unit]] =
     for {
-      t3 <- either(inputSource(req)): ET[(Jwt, JwtPayload, Source[ByteString, Any])]
+      t2 <- either(inputSource(req)): ET[(Jwt, Source[ByteString, Any])]
 
-      (jwt, _, source) = t3
+      (jwt, source) = t2
 
       _ <- eitherT(
         handleFutureFailure(
@@ -347,33 +322,45 @@ class Endpoints(
       }
   }
 
-  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, JwtPayload, String)] = {
-    findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {
+  private[http] def data(entity: RequestEntity): Future[String] =
+    entity.toStrict(maxTimeToCollectRequest).map(_.data.utf8String)
+
+  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (Jwt, String)] = {
+    findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
         Future.successful(e)
-      case \/-((j, p)) =>
-        req.entity
-          .toStrict(maxTimeToCollectRequest)
-          .map(b => \/-((j, p, b.data.utf8String)))
+      case \/-(j) =>
+        data(req.entity).map(d => \/-((j, d)))
     }
   }
 
-  private[http] def inputJsVal(req: HttpRequest): ET[(Jwt, JwtPayload, JsValue)] =
+  private[http] def inputJsVal(req: HttpRequest): ET[(Jwt, JsValue)] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, JwtPayload, String)]
-      jsVal <- either(SprayJson.parse(t3._3).liftErr(InvalidUserInput)): ET[JsValue]
-    } yield (t3._1, t3._2, jsVal)
+      t2 <- eitherT(input(req)): ET[(Jwt, String)]
+      jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
+    } yield (t2._1, jsVal)
+
+  private[http] def withJwtPayload[A](fa: (Jwt, A)): Unauthorized \/ (Jwt, JwtPayload, A) =
+    decodeAndParsePayload(fa._1, decodeJwt).map(t2 => (t2._1, t2._2, fa._2))
+
+  private[http] def inputAndJwtPayload(
+      req: HttpRequest
+  ): Future[Unauthorized \/ (Jwt, JwtPayload, String)] =
+    input(req).map(_.flatMap(withJwtPayload))
+
+  private[http] def inputJsValAndJwtPayload(req: HttpRequest): ET[(Jwt, JwtPayload, JsValue)] =
+    inputJsVal(req).flatMap(x => either(withJwtPayload(x)))
 
   private[http] def inputSource(
       req: HttpRequest
-  ): Error \/ (Jwt, JwtPayload, Source[ByteString, Any]) =
-    findJwt(req).flatMap(decodeAndParsePayload(_, decodeJwt)) match {
+  ): Error \/ (Jwt, Source[ByteString, Any]) =
+    findJwt(req) match {
       case e @ -\/(_) =>
         discard { req.entity.discardBytes(mat) }
         e
-      case \/-((j, p)) =>
-        \/-((j, p, req.entity.dataBytes))
+      case \/-(j) =>
+        \/-((j, req.entity.dataBytes))
     }
 
   private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
@@ -399,18 +386,19 @@ class Endpoints(
         }
       }
 
-  private def proxyWithoutInput[A](fn: Jwt => Future[A])(req: HttpRequest): ET[A] =
+  private def proxyWithoutCommand[A](fn: Jwt => Future[A])(req: HttpRequest): ET[A] =
     for {
-      t3 <- eitherT(input(req)): ET[(Jwt, _, _)]
+      t3 <- eitherT(input(req)): ET[(Jwt, _)]
       a <- eitherT(handleFutureFailure(fn(t3._1))): ET[A]
     } yield a
 
-  private def proxyWithInput[A: JsonReader, B](fn: (Jwt, A) => Future[B])(req: HttpRequest): ET[B] =
+  private def proxyWithCommand[A: JsonReader, R](fn: (Jwt, A) => Future[Error \/ R])(
+      req: HttpRequest): ET[R] =
     for {
-      t3 <- inputJsVal(req): ET[(Jwt, JwtPayload, JsValue)]
-      (jwt, _, reqBody) = t3
+      t2 <- inputJsVal(req): ET[(Jwt, JsValue)]
+      (jwt, reqBody) = t2
       a <- either(SprayJson.decode[A](reqBody).liftErr(InvalidUserInput)): ET[A]
-      b <- eitherT(handleFutureFailure(fn(jwt, a))): ET[B]
+      b <- eitherT(handleFutureEitherFailure(fn(jwt, a))): ET[R]
     } yield b
 }
 
@@ -439,7 +427,7 @@ object Endpoints {
     } yield c
   }
 
-  private def partiesResonse(
+  private def partiesResponse(
       parties: List[domain.PartyDetails],
       unknownParties: List[domain.Party]
   ): domain.SyncResponse[List[domain.PartyDetails]] = {
