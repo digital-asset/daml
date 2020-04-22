@@ -23,6 +23,7 @@ da_haskell_binary(
         "recursion-schemes",
         "safe",
         "scientific",
+        "simple-smt",
         "template-haskell",
         "text",
         "time",
