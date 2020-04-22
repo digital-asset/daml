@@ -91,7 +91,17 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected val jwt: Jwt = {
     val decodedJwt = DecodedJwt(
       """{"alg": "HS256", "typ": "JWT"}""",
-      s"""{"ledgerId": "${testId: String}", "applicationId": "ledger-service-test", "party": "Alice"}"""
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "actAs": ["Alice"]}}"""
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
+
+  protected val jwtAdminNoParty: Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"https://daml.com/ledger-api": {"ledgerId": "${testId: String}", "applicationId": "test", "admin": true}}"""
     )
     JwtSigner.HMAC256
       .sign(decodedJwt, "secret")
@@ -137,7 +147,10 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     domain.CreateCommand(templateId, arg, None)
   }
 
-  protected val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  protected val headersWithAuth = authorizationHeader(jwt)
+
+  protected def authorizationHeader(token: Jwt): List[Authorization] =
+    List(Authorization(OAuth2BearerToken(token.value)))
 
   protected def postJsonStringRequest(
       uri: Uri,
@@ -1003,7 +1016,10 @@ abstract class AbstractHttpServiceIntegrationTest
     )
     val json = SprayJson.encode(request).valueOr(e => fail(e.shows))
 
-    postJsonRequest(uri = uri.withPath(Uri.Path("/v1/parties/allocate")), json = json)
+    postJsonRequest(
+      uri = uri.withPath(Uri.Path("/v1/parties/allocate")),
+      json = json,
+      headers = authorizationHeader(jwtAdminNoParty))
       .flatMap {
         case (status, output) =>
           status shouldBe StatusCodes.OK
@@ -1274,7 +1290,7 @@ abstract class AbstractHttpServiceIntegrationTest
                 HttpRequest(
                   method = HttpMethods.GET,
                   uri = uri.withPath(Uri.Path(s"/v1/packages/$packageId")),
-                  headers = headersWithAuth,
+                  headers = authorizationHeader(jwtAdminNoParty),
                 )
               )
               .map { resp =>
@@ -1286,7 +1302,7 @@ abstract class AbstractHttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "packages/upload endpoint" in withHttpServiceAndClient { (uri, _, _, _) =>
+  "packages upload endpoint" in withHttpServiceAndClient { (uri, _, _, _) =>
     val newDar = AbstractHttpServiceIntegrationTestFuns.dar3
 
     getAllPackageIds(uri).flatMap { okResp =>
@@ -1296,7 +1312,7 @@ abstract class AbstractHttpServiceIntegrationTest
           HttpRequest(
             method = HttpMethods.POST,
             uri = uri.withPath(Uri.Path("/v1/packages")),
-            headers = headersWithAuth,
+            headers = authorizationHeader(jwtAdminNoParty),
             entity = HttpEntity.fromFile(ContentTypes.`application/octet-stream`, newDar)
           )
         )
