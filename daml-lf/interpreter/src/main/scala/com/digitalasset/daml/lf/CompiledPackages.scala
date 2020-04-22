@@ -23,11 +23,11 @@ trait CompiledPackages {
 
 final class PureCompiledPackages private (
     packages: Map[PackageId, Package],
-    defns: Map[SDefinitionRef, SExpr],
+    defns: PartialFunction[SDefinitionRef, SExpr],
 ) extends CompiledPackages {
-  override def packageIds = packages.keySet
+  override def packageIds: Set[PackageId] = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
-  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
+  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.lift(dref)
 }
 
 object PureCompiledPackages {
