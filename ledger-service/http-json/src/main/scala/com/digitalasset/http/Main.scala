@@ -84,20 +84,8 @@ object Main extends StrictLogging {
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
-        ledgerHost = config.ledgerHost,
-        ledgerPort = config.ledgerPort,
-        applicationId = config.applicationId,
-        address = config.address,
-        httpPort = config.httpPort,
-        portFile = config.portFile,
-        tlsConfig = config.tlsConfig,
-        wsConfig = config.wsConfig,
-        accessTokenFile = config.accessTokenFile,
-        allowNonHttps = config.allowNonHttps,
+        startSettings = config,
         contractDao = contractDao,
-        staticContentConfig = config.staticContentConfig,
-        packageReloadInterval = config.packageReloadInterval,
-        maxInboundMessageSize = config.maxInboundMessageSize,
       )
 
     discard {

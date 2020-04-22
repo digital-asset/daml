@@ -88,7 +88,12 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
   protected def withHttpServiceAndClient[A]
     : ((Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A]) => Future[A] =
     HttpServiceTestFixture
-      .withHttpService[A](testId, List(dar1, dar2), jdbcConfig, staticContentConfig, useTls)
+      .withHttpService[A](
+        testId,
+        List(dar1, dar2),
+        jdbcConfig,
+        staticContentConfig,
+        useTls = useTls)
 
   protected def withHttpService[A](
       f: (Uri, DomainJsonEncoder, DomainJsonDecoder) => Future[A]): Future[A] =
@@ -116,7 +121,7 @@ trait AbstractHttpServiceIntegrationTestFuns extends StrictLogging {
     domain.CreateCommand(templateId, arg, None)
   }
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
+  protected val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   protected def postJsonStringRequest(
       uri: Uri,

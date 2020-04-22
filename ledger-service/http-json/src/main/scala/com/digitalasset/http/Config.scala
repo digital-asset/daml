@@ -19,6 +19,8 @@ import scalaz.{Show, \/}
 import scala.concurrent.duration._
 import scala.util.Try
 
+// The internal transient scopt structure *and* StartSettings; external `start`
+// users should extend StartSettings or DefaultStartSettings themselves
 private[http] final case class Config(
     ledgerHost: String,
     ledgerPort: Int,
@@ -34,7 +36,7 @@ private[http] final case class Config(
     allowNonHttps: Boolean = false,
     accessTokenFile: Option[Path] = None,
     wsConfig: Option[WebsocketConfig] = None,
-)
+) extends HttpService.StartSettings
 
 private[http] object Config {
   import scala.language.postfixOps
