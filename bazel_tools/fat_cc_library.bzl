@@ -61,7 +61,7 @@ def _fat_cc_library_impl(ctx):
     mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
     ctx.actions.write(mri_script, mri_script_content)
 
-    ar = toolchain.ar_executable()
+    ar = toolchain.ar_executable
 
     if ar.find("libtool") >= 0:
         # We are on MacOS where ar_executable is actually libtool, see
