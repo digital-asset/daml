@@ -30,14 +30,10 @@ def _fat_cc_library_impl(ctx):
     toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
     feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain = toolchain)
 
-    compiler = None
-    if is_darwin:
-        # toolchain.compiler_executable() fails on MacOS, see https://github.com/bazelbuild/bazel/issues/7105
-        compiler = ctx.executable._cc_compiler
-    elif is_windows:
-        compiler = toolchain.compiler_executable() + ".exe"
+    if is_windows:
+        compiler = toolchain.compiler + ".exe"
     else:
-        compiler = toolchain.compiler_executable()
+        compiler = toolchain.compiler
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
         outputs = [dyn_lib],
