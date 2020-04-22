@@ -24,6 +24,7 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
+        "@z3_nix//:bin/z3",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
         "@static_asset_d3plus//:js/d3.min.js",
         "@static_asset_d3plus//:js/d3plus.min.js",
