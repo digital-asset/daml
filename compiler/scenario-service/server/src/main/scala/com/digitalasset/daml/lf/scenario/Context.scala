@@ -121,16 +121,14 @@ class Context(val contextId: Context.ContextId) {
     val compiler = Compiler(pkgs)
 
     modulesToCompile.foreach { mod =>
-      assert(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
+      if (!omitValidation)
+        assert(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
       modDefns += mod.name -> mod.definitions.flatMap {
         case (defName, defn) =>
           compiler
             .unsafeCompileDefn(Identifier(homePackageId, QualifiedName(mod.name, defName)), defn)
       }
     }
-
-    if (!omitValidation)
-      Validation.checkPackage(allPackages, homePackageId)
 
     defns = extDefns
     modDefns.values.foreach(defns ++= _)
