@@ -10,6 +10,8 @@ module DA.Daml.LF.Verify.Solve
 import Data.Maybe (fromJust)
 import Data.List (lookup)
 import qualified Data.Text as T
+import SimpleSMT
+-- import Z3.Monad
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Verify.Context
@@ -20,20 +22,20 @@ data ConstraintExpr
   -- | Reference to an expression variable.
   = CVar !ExprVarName
   -- | Sum of two expressions.
-  | CSum !ConstraintExpr !ConstraintExpr
+  | CAdd !ConstraintExpr !ConstraintExpr
   -- | Subtraction of two expressions.
   | CSub !ConstraintExpr !ConstraintExpr
 
 instance Show ConstraintExpr where
   show (CVar x) = T.unpack $ unExprVarName x
-  show (CSum e1 e2) = show e1 ++ " + " ++ show e2
+  show (CAdd e1 e2) = show e1 ++ " + " ++ show e2
   show (CSub e1 e2) = show e1 ++ " - " ++ show e2
 
 exp2CExp :: Expr -> ConstraintExpr
 exp2CExp (EVar x) = CVar x
 exp2CExp (ERecProj _ f (EVar x)) = CVar $ recProj2Var x f
 exp2CExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
-  BEAddNumeric -> CSum (exp2CExp e1) (exp2CExp e2)
+  BEAddNumeric -> CAdd (exp2CExp e1) (exp2CExp e2)
   BESubNumeric -> CSub (exp2CExp e1) (exp2CExp e2)
   _ -> error ("Builtin: " ++ show b)
 exp2CExp e = error ("Conversion: " ++ show e)
@@ -71,3 +73,20 @@ constructConstr env tem ch f =
           arcVals = map (exp2CExp . fromJust . (lookup f) . _arcField) arcUpds
       in ConstraintSet vars creVals arcVals
     Nothing -> error "Choice not found"
+
+-- cexp2Z3 :: ConstraintExpr -> Z3 AST
+-- cexp2Z3 (CVar x) = undefined
+-- cexp2Z3 (CAdd e1 e2) = do
+--   ze1 <- cexp2Z3 e1
+--   ze2 <- cexp2Z3 e2
+--   mkAdd [ze1, ze2]
+-- cexp2Z3 (CSub e1 e2) = do
+--   ze1 <- cexp2Z3 e1
+--   ze2 <- cexp2Z3 e2
+--   mkSub [ze1, ze2]
+
+-- -- TODO: This really shouldn't be an Integer
+-- ctr2Z3 :: ConstraintSet -> Z3 (Maybe [Integer])
+-- ctr2Z3 ConstraintSet{..} = do
+--   -- TODO: Declare variables
+--   cres <- mapM cexp2Z3 _cCres >>= mkAdd

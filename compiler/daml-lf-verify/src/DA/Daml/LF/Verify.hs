@@ -20,7 +20,7 @@ templName :: TypeConName
 templName = TypeConName ["Iou"]
 
 choiceName :: ChoiceName
-choiceName = ChoiceName "Iou_Split"
+choiceName = ChoiceName "Iou_Merge"
 
 fieldName :: FieldName
 fieldName = FieldName "amount"

@@ -9,7 +9,7 @@ module DA.Daml.LF.Verify.Generate
 
 -- import Control.Monad.Error.Class (throwError)
 import qualified Data.NameMap as NM
-import Data.Bifunctor (second)
+-- import Data.Bifunctor (second)
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
@@ -73,17 +73,16 @@ genValue pac mod val = do
   extValEnv qname (_goExp expOut) (_goUpd expOut)
 
 -- TODO: Handle annotated choices, by returning a set of annotations.
-genChoice :: MonadEnv m => Qualified TypeConName -> [FieldName] -> [ExprVarName]
+genChoice :: MonadEnv m => Qualified TypeConName -> ExprVarName -> [FieldName]
   -> TemplateChoice -> m GenOutput
-genChoice tem temFs temXs TemplateChoice{..} = do
+genChoice tem this temFs TemplateChoice{..} = do
   extVarEnv chcSelfBinder
   extVarEnv (fst chcArgBinder)
   argFs <- recTypFields (snd chcArgBinder)
   extRecEnv (fst chcArgBinder) argFs
   expOut <- genExpr TemplatePhase chcUpdate
   if chcConsuming
-    -- TODO: This is weird. Either drop (as it's quite obvious), or use `amount = this.amount`, so we can at the very least drop the xs argument.
-    then let fields = zipWith (curry (second EVar)) temFs temXs
+    then let fields = map (\f -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
          in return $ addArchiveUpd tem fields expOut
     else return expOut
 
@@ -94,14 +93,14 @@ genTemplate pac mod Template{..} = do
   fields <- recTypConFields tplTypeCon
   -- TODO: skolemise only when defining the choice? But then multiple choice
   -- would skolemise multiple times...
-  -- TODO: skolemise the fields themselves or rather self.field?
+  -- TODO: skolemise the fields themselves or rather this.field?
   let fs = map fst fields
       xs = map fieldName2VarName fs
   -- TODO: if daml indead translates into `amount = this.amount`, this can be dropped.
   mapM_ extVarEnv xs
   extRecEnv tplParam fs
   extRecEnvLvl1 fields
-  choOuts <- mapM (genChoice name fs xs) (NM.toList tplChoices)
+  choOuts <- mapM (genChoice name tplParam fs) (NM.toList tplChoices)
   mapM_ (\(ch, upd) -> extChEnv name ch upd)
     $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
 
