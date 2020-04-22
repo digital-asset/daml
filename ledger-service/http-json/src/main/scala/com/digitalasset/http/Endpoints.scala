@@ -353,9 +353,7 @@ class Endpoints(
 
   private[this] def ensureHttpsForwarded(req: HttpRequest): Unauthorized \/ Unit =
     if (allowNonHttps || isForwardedForHttps(req.headers)) \/-(())
-    else
-      -\/(Unauthorized(
-        "missing HTTPS reverse-proxy request headers; for development launch with --leak-passwords-firesheep-style"))
+    else -\/(Unauthorized(nonHttpsErrorMessage))
 
   private[this] def isForwardedForHttps(headers: Seq[HttpHeader]): Boolean =
     headers exists {
@@ -408,6 +406,9 @@ object Endpoints {
       c <- toJsValue(b)
     } yield c
   }
+
+  private[http] val nonHttpsErrorMessage =
+    "missing HTTPS reverse-proxy request headers; for development launch with --leak-passwords-firesheep-style"
 
   private def partiesResonse(
       parties: List[domain.PartyDetails],
