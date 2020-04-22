@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
--- | Automatically imported unqualified in every module.
+-- | HIDE Automatically imported unqualified in every module.
 module DA.Internal.RebindableSyntax
   -- things GHC generates unqualified through RebindableSyntax
   (fromString

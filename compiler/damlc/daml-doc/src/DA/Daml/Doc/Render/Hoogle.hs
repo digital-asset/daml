@@ -23,7 +23,9 @@ hooglify (Just md) =
 
 urlTag :: Maybe Anchor -> T.Text
 urlTag Nothing = ""
-urlTag (Just (Anchor t)) = "@url https://docs.daml.com/daml/reference/base.html#" <> t
+urlTag (Just (Anchor t)) = "@url https://docs.daml.com/daml/stdlib/index.html#" <> t
+    -- ^ TODO(sofia): This needs a map of anchors to final module names / filenames.
+    -- Or maybe there is a sphinx setting/plugin to create anchor-based redirects for us...
 
 renderSimpleHoogle :: ModuleDoc -> T.Text
 renderSimpleHoogle ModuleDoc{..}

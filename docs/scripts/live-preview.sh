@@ -14,7 +14,7 @@ cleanup()
   echo "Caught Signal ... cleaning up."
   rm -rf $BUILD_DIR
   cd $SCRIPT_DIR
-  rm -f ../source/daml/reference/base.rst
+  rm -rf ../source/daml/stdlib
   rm -f ../source/app-dev/grpc/proto-docs.rst
   rm -f ../source/LICENSE
   rm -f ../source/NOTICES
@@ -59,8 +59,9 @@ do
         cp -L ../../bazel-bin/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
-        bazel build //compiler/damlc:daml-base-rst-docs
-        cp -L ../../bazel-bin/compiler/damlc/daml-base.rst ../source/daml/reference/base.rst
+        bazel build //compiler/damlc:daml-base-rst.tar.gz
+        tar xf ../../bazel-bin/compiler/damlc/daml-base-rst.tar.gz \
+            --strip-components 1 -C ../source/daml/stdlib
     fi
 done
 

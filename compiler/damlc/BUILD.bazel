@@ -187,15 +187,6 @@ da_haskell_library(
 # Generating DAML stdlib docs.
 
 filegroup(
-    name = "daml-base-files",  # DAML files to be included in DAML base docs.
-    srcs = [
-        "//compiler/damlc/daml-prim-src",
-        "//compiler/damlc/daml-stdlib-src",
-    ],
-    visibility = ["__pkg__"],
-)
-
-filegroup(
     name = "daml-base-hoogle-template",
     srcs = ["base-hoogle-template.txt"],
     visibility = ["__pkg__"],
@@ -204,6 +195,12 @@ filegroup(
 filegroup(
     name = "daml-base-rst-template",
     srcs = ["base-rst-template.rst"],
+    visibility = ["__pkg__"],
+)
+
+filegroup(
+    name = "daml-base-rst-index-template",
+    srcs = ["base-rst-index-template.rst"],
     visibility = ["__pkg__"],
 )
 
@@ -278,59 +275,21 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
+        ":daml-base-rst-index-template",
         ":daml-base-rst-template",
     ],
-    outs = ["daml-base.rst"],
+    outs = ["daml-base-rst.tar.gz"],
     cmd = """
         $(location //compiler/damlc) -- docs \
-            --combine \
-            --output=$(OUTS) \
+            --output=daml-base-rst \
             --input-format=json \
             --format=Rst \
             --exclude-instances=HasField \
             --drop-orphan-instances \
             --template=$(location :daml-base-rst-template) \
+            --index-template=$(location :daml-base-rst-index-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
-    """,
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "daml-base-md-docs",
-    srcs = [
-        ":daml-prim.json",
-        ":daml-stdlib.json",
-        ":daml-base-md-template",
-    ],
-    outs = ["daml-base.md"],
-    cmd = """
-        $(location //compiler/damlc) -- docs \
-            --combine \
-            --output=$(OUTS) \
-            --input-format=json \
-            --format=Markdown \
-            --template=$(location :daml-base-md-template) \
-            $(location :daml-stdlib.json) $(location :daml-prim.json)
-    """,
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "daml-base-html-docs",
-    srcs = [
-        ":daml-prim.json",
-        ":daml-stdlib.json",
-    ],
-    outs = ["daml-base-html.tar.gz"],
-    cmd = """
-        $(location //compiler/damlc) -- docs \
-            --output=daml-base-html \
-            --input-format=json \
-            --format=Html \
-            $(location :daml-stdlib.json) $(location :daml-prim.json)
-        tar c daml-base-html \
+        tar c daml-base-rst \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
             | gzip -n > $(OUTS)
     """,

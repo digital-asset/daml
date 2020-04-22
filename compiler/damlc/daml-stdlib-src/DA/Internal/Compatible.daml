@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PatternSynonyms #-}
 
--- | Our Prelude, extending WiredIn with things that don't need special treatment.
+-- | HIDE Our Prelude, extending WiredIn with things that don't need special treatment.
 
 module DA.Internal.Compatible where
 

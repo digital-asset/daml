@@ -29,6 +29,7 @@ data RenderOut
     | RenderRecordFields [(RenderText, RenderText, RenderText)]
     | RenderParagraph RenderText
     | RenderDocs DocText
+    | RenderIndex [Modulename]
 
 data RenderText
     = RenderConcat [RenderText]
@@ -67,7 +68,9 @@ renderUnwords = renderIntercalate " "
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv
-    { re_localAnchors :: Set.Set Anchor
+    { re_separateModules :: Bool
+        -- ^ are modules being rendered separately, one per page?
+    , re_localAnchors :: Set.Set Anchor
         -- ^ anchors defined in the same file
     , re_globalAnchors :: Map.Map Anchor FilePath
         -- ^ anchors defined in the same folder
@@ -114,7 +117,9 @@ packageURI (Packagename "daml-stdlib") = Just damlBaseURI
 packageURI _ = Nothing
 
 damlBaseURI :: URI.URI
-damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/reference/base.html"
+damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/stdlib/index.html"
+    -- TODO (sofia): Make this configurable, and don't include index.html,
+    -- need a way to supply (or recreate) anchor list.
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 
@@ -129,13 +134,15 @@ getRenderAnchors = \case
     RenderRecordFields _ -> Set.empty
     RenderParagraph _ -> Set.empty
     RenderDocs _ -> Set.empty
+    RenderIndex _ -> Set.empty
 
 renderPage :: RenderFormatter -> RenderOut -> T.Text
 renderPage formatter output =
     T.unlines (formatter renderEnv output)
   where
     renderEnv = RenderEnv
-        { re_localAnchors = getRenderAnchors output
+        { re_separateModules = False
+        , re_localAnchors = getRenderAnchors output
         , re_globalAnchors = Map.empty
         }
 
@@ -143,19 +150,25 @@ renderPage formatter output =
 renderFolder ::
     RenderFormatter
     -> Map.Map Modulename RenderOut
-    -> Map.Map Modulename T.Text
+    -> (T.Text, Map.Map Modulename T.Text)
 renderFolder formatter fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
+        re_separateModules = True
         re_globalAnchors = Map.fromList
             [ (anchor, moduleNameToFileName moduleName <.> "html")
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
-    in flip Map.mapWithKey fileMap $ \moduleName output ->
-        let re_localAnchors = fromMaybe Set.empty $
-                Map.lookup moduleName moduleAnchors
-            renderEnv = RenderEnv {..}
-        in T.unlines (formatter renderEnv output)
+        moduleMap =
+            flip Map.mapWithKey fileMap $ \moduleName output ->
+                let re_localAnchors = fromMaybe Set.empty $
+                        Map.lookup moduleName moduleAnchors
+                in T.unlines (formatter RenderEnv{..} output)
+        index =
+            let re_localAnchors = Set.empty
+                output = RenderIndex (Map.keys fileMap)
+            in T.unlines (formatter RenderEnv{..} output)
+    in (index, moduleMap)
 
 moduleNameToFileName :: Modulename -> FilePath
 moduleNameToFileName =
