@@ -19,6 +19,7 @@ import com.daml.lf.speedy.SExpr
 import com.daml.lf.speedy.SValue
 import com.daml.lf.types.Ledger.Ledger
 import com.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
+import com.daml.lf.validation.Validation
 import com.google.protobuf.ByteString
 
 import scala.collection.immutable.HashMap
@@ -31,13 +32,9 @@ object Context {
   type ContextId = Long
   case class ContextException(err: String) extends RuntimeException(err)
 
-  private val nextContextId: () => ContextId = {
-    val atmLong = new AtomicLong()
-    () =>
-      atmLong.incrementAndGet
-  }
+  private val contextCounter = new AtomicLong()
 
-  def newContext: Context = new Context(nextContextId())
+  def newContext: Context = new Context(contextCounter.incrementAndGet())
 
   private def assert[X](either: Either[String, X]): X =
     either.fold(e => throw new ParseError(e), identity)
@@ -55,12 +52,11 @@ class Context(val contextId: Context.ContextId) {
     */
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
-  private var extPackages: Map[PackageId, Ast.Package] = HashMap.empty[PackageId, Ast.Package]
-  private var extDefns: Map[SDefinitionRef, SExpr] = HashMap.empty[SDefinitionRef, SExpr]
-  private var modules: Map[ModuleName, Ast.Module] = HashMap.empty[ModuleName, Ast.Module]
-  private var modDefns: Map[SDefinitionRef, SExpr] = HashMap.empty[SDefinitionRef, SExpr]
-  private var defns: PartialFunction[SDefinitionRef, SExpr] =
-    PartialFunction.empty[SDefinitionRef, SExpr]
+  private var extPackages: Map[PackageId, Ast.Package] = HashMap.empty
+  private var extDefns: Map[SDefinitionRef, SExpr] = HashMap.empty
+  private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
+  private var modDefns: Map[ModuleName, Map[SDefinitionRef, SExpr]] = HashMap.empty
+  private var defns: Map[SDefinitionRef, SExpr] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
@@ -98,36 +94,46 @@ class Context(val contextId: Context.ContextId) {
       omitValidation: Boolean,
   ): Unit = synchronized {
 
+    val newModules = loadModules.map(module =>
+      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+    modules --= unloadModules
+    newModules.foreach(mod => modules += mod.name -> mod)
+
     val newPackages =
       loadPackages.map { archive =>
         Decode.decodeArchiveFromInputStream(archive.newInput)
       }.toMap
 
-    if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
-      // if any change we recompile everything
-      extPackages --= unloadPackages
-      extPackages ++= newPackages
-      extDefns ++= Compiler.compilePackages(extPackages).right.get
+    val modulesToCompile =
+      if (unloadPackages.nonEmpty || newPackages.nonEmpty) {
+        // if any change we recompile everything
+        extPackages --= unloadPackages
+        extPackages ++= newPackages
+        extDefns = assert(Compiler.compilePackages(extPackages))
+        modDefns = HashMap.empty
+        modules.values
+      } else {
+        modDefns --= unloadModules
+        newModules
+      }
+
+    val pkgs = allPackages
+    val compiler = Compiler(pkgs)
+
+    modulesToCompile.foreach { mod =>
+      assert(Validation.checkModule(pkgs, homePackageId, mod.name).left.map(_.pretty))
+      modDefns += mod.name -> mod.definitions.flatMap {
+        case (defName, defn) =>
+          compiler
+            .unsafeCompileDefn(Identifier(homePackageId, QualifiedName(mod.name, defName)), defn)
+      }
     }
 
-    val lfModules = loadModules.map(module =>
-      decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1))
+    if (!omitValidation)
+      Validation.checkPackage(allPackages, homePackageId)
 
-    modules --= unloadModules
-    lfModules.foreach(mod => modules += mod.name -> mod)
-
-    val compiler = Compiler(allPackages)
-    modDefns = HashMap.empty
-    modules.foreach {
-      case (modName, mod) =>
-        mod.definitions.foreach {
-          case (defName, defn) =>
-            modDefns ++= compiler
-              .unsafeCompileDefn(Identifier(homePackageId, QualifiedName(modName, defName)), defn)
-        }
-    }
-
-    defns = modDefns orElse extDefns
+    defns = extDefns
+    modDefns.values.foreach(defns ++= _)
   }
 
   def allPackages: Map[PackageId, Ast.Package] = synchronized {
@@ -143,18 +149,16 @@ class Context(val contextId: Context.ContextId) {
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     val defns = this.defns
     for {
-      defn <- defns.lift(LfDefRef(identifier))
+      defn <- defns.get(LfDefRef(identifier))
     } yield
-    // note that the use of `Map#mapValues` here is intentional: we lazily project the
-    // definition out rather than rebuilding the map.
-    Speedy.Machine
-      .build(
-        checkSubmitterInMaintainers = false,
-        sexpr = defn,
-        compiledPackages = PureCompiledPackages(allPackages, defns),
-        submissionTime,
-        initialSeeding,
-      )
+      Speedy.Machine
+        .build(
+          checkSubmitterInMaintainers = false,
+          sexpr = defn,
+          compiledPackages = PureCompiledPackages(allPackages, defns),
+          submissionTime,
+          initialSeeding,
+        )
   }
 
   def interpretScenario(

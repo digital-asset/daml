@@ -31,6 +31,7 @@ da_scala_binary(
         "//daml-lf/language",
         "//daml-lf/scenario-interpreter",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_core",
