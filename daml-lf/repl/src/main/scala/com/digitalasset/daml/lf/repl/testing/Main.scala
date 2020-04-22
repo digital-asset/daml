@@ -15,7 +15,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.types.Ledger
 import com.daml.lf.speedy.SExpr.LfDefRef
-import com.daml.lf.PureCompiledPackages
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
@@ -372,8 +371,7 @@ object Repl {
   }
 
   def speedyCompile(state: State, args: Seq[String]): Unit = {
-    val compiler = Compiler(state.packages)
-    val defs = compiler.compilePackages(state.packages.keys)
+    val defs = assertRight(Compiler.compilePackages(state.packages))
     defs.get(idToRef(state, args(0))) match {
       case None =>
         println("Error: definition '" + args(0) + "' not found. Try :list."); usage
@@ -595,11 +593,6 @@ object Repl {
     """.stripMargin)
   }
 
-  case class ParseError(error: String) extends RuntimeException(error)
-
   private def assertRight[X](e: Either[String, X]): X =
-    e.fold(
-      err => throw ParseError(err),
-      identity
-    )
+    e.fold(err => throw new RuntimeException(err), identity)
 }

@@ -53,7 +53,7 @@ renderDocs RenderOptions{..} mods = do
                 Html -> (renderMd, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
         templateText = fromMaybe (defaultTemplate ro_format) ro_template
 
-    template <- compileTemplate templateText
+    template <- compileTemplate "template" templateText
 
     case ro_mode of
         RenderToFile path -> do
@@ -68,7 +68,7 @@ renderDocs RenderOptions{..} mods = do
         RenderToFolder path -> do
             let renderMap = Map.fromList
                     [(md_name mod, renderModule mod) | mod <- mods]
-                outputMap = renderFolder formatter renderMap
+                (outputIndex, outputMap) = renderFolder formatter renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"
@@ -89,12 +89,21 @@ renderDocs RenderOptions{..} mods = do
                     . postProcessing
                     $ renderedOutput
 
-compileTemplate :: T.Text -> IO M.Template
-compileTemplate templateText =
+            let indexTemplateText = fromMaybe (defaultTemplate ro_format) ro_indexTemplate
+            indexTemplate <- compileTemplate "index template" indexTemplateText
+
+            BS.writeFile (path </> "index" <.> extension)
+                . T.encodeUtf8
+                . renderTemplate indexTemplate (fromMaybe "index" ro_title)
+                . postProcessing
+                $ outputIndex
+
+compileTemplate :: T.Text -> T.Text -> IO M.Template
+compileTemplate templateName templateText =
     case M.compileMustacheText "daml docs template" templateText of
         Right t -> pure t
         Left e -> do
-            hPutStrLn stderr ("Error with daml docs template: " <> show e)
+            hPutStrLn stderr ("Error with daml docs " <> T.unpack templateName <> ": " <> show e)
             exitFailure
 
 renderTemplate ::

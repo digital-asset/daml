@@ -148,6 +148,14 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.allocateParty(client)
       )
 
+      packageManagementService = new PackageManagementService(
+        LedgerClientJwt.listPackages(client),
+        LedgerClientJwt.getPackage(client),
+        uploadDarAndReloadPackages(
+          LedgerClientJwt.uploadDar(client),
+          () => packageService.reload(ec))
+      )
+
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
       jsonEndpoints = new Endpoints(
@@ -157,6 +165,7 @@ object HttpService extends StrictLogging {
         commandService,
         contractsService,
         partiesService,
+        packageManagementService,
         encoder,
         decoder,
       )
@@ -176,11 +185,11 @@ object HttpService extends StrictLogging {
         websocketService,
       )
 
+      defaultEndpoints = jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+
       allEndpoints = staticContentConfig.cata(
-        c =>
-          StaticContentEndpoints
-            .all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
+        c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
+        defaultEndpoints
       )
 
       binding <- liftET[Error](
@@ -313,4 +322,10 @@ object HttpService extends StrictLogging {
     import util.ErrorOps._
     PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
   }
+
+  private def uploadDarAndReloadPackages(
+      f: LedgerClientJwt.UploadDarFile,
+      g: () => Future[PackageService.Error \/ Unit])(
+      implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
+    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
 }

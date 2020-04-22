@@ -1505,7 +1505,8 @@ private class JdbcLedgerDao(
   override val transactionsReader: TransactionsReader =
     new TransactionsReader(dbDispatcher, executionContext, eventsPageSize)
 
-  private val contractsReader: ContractsReader = ContractsReader(dbDispatcher, dbType)
+  private val contractsReader: ContractsReader =
+    ContractsReader(dbDispatcher, executionContext, dbType)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

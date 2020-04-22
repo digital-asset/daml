@@ -23,4 +23,5 @@ data RenderOptions = RenderOptions
     , ro_format :: RenderFormat -- ^ renderer output format
     , ro_title :: Maybe T.Text -- ^ title of rendered documentation
     , ro_template :: Maybe T.Text -- ^ renderer template
+    , ro_indexTemplate :: Maybe T.Text -- ^ renderer template for index
     }

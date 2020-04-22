@@ -35,7 +35,7 @@ proto_library(
 
 pkg_tar(
     name = "ledger-api-protos",
-    srcs = glob(["**/*.proto"]),
+    srcs = glob(["**/*.proto"]) + ["README.md"],
     extension = "tar.gz",
     strip_prefix = "./",
     visibility = [

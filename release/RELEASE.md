@@ -87,13 +87,31 @@ latest commit on master.
    show up in web searches on the Maven Central website is up to two hours. Do not
    worry if the artifacts do not show on the website yet.)
 
-1. Install the new SDK using:
+1. On Windows, install the new SDK using the installer on
+   https://github.com/digital-asset/daml/releases.
+
+   On macOS/Linux:
    ```
    curl -sSL https://get.daml.com/ | sh -s $(cat LATEST | gawk '{print $2}')
    ```
+
    Note: this assumes you have the up-to-date `LATEST` file, either because
    you just checked out master or because you're still on the release PR
    commit.
+
+1. Windows prerequisites for running the tests:
+    - [Visual Studio Code, Java-SDK](https://docs.daml.com/getting-started/installation.html)
+      - The above link takes you docs.daml.com's "getting started" installation guide;
+    - [Maven](https://maven.apache.org/install.html)
+      - You may have to manually set the  environment variable `JAVA_HOME`;
+      - For example, assuming the Zulu Java-SDK, something like
+        `C:\Program Files\Zulu\zulu-14`;
+    - [Node.js](https://nodejs.org/en/download/)
+      - Just the bare install; you don't need Visual Studio build
+        tools for compiling C dependencies (and trying to install them
+        takes forever and in the end hangs it seems);
+    - [Yarn](https://classic.yarnpkg.com/en/docs/install/)
+      - Install Node.js first.
 
 1. Run `daml version --assistant=yes` and verify that the new version is
    selected as the assistant version and the default version for new projects.

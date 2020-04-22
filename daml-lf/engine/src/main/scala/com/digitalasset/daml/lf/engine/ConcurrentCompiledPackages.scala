@@ -79,9 +79,10 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
           _packages.computeIfAbsent(
             pkgId, { _ =>
               // Compile the speedy definitions for this package.
-              val defns = speedy.Compiler(packages orElse state.packages).compilePackage(pkgId)
-              for ((defnId, defn) <- defns) {
-                _defns.put(defnId, defn)
+              val defns =
+                speedy.Compiler(packages orElse state.packages).unsafeCompilePackage(pkgId)
+              defns.foreach {
+                case (defnId, defn) => _defns.put(defnId, defn)
               }
               // Compute the transitive dependencies of the new package. Since we are adding
               // packages in dependency order we can just union the dependencies of the
