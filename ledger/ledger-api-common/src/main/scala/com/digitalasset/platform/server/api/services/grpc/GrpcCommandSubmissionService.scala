@@ -30,7 +30,7 @@ class GrpcCommandSubmissionService(
     ledgerId: LedgerId,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
-    maxDeduplicationTime: () => Duration,
+    maxDeduplicationTime: () => Option[Duration],
     metrics: Metrics,
 ) extends ApiCommandSubmissionService
     with ProxyCloseable

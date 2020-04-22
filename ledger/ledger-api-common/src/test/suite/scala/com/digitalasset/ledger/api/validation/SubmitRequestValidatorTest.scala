@@ -19,7 +19,7 @@ import com.daml.ledger.api.v1.value.Value.Sum
 import com.daml.ledger.api.v1.value.{List => ApiList, Map => ApiMap, Optional => ApiOptional, _}
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
-import io.grpc.Status.Code.INVALID_ARGUMENT
+import io.grpc.Status.Code.{INVALID_ARGUMENT, UNAVAILABLE}
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
@@ -124,7 +124,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommands(Seq.empty),
             internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: commands"
         )
@@ -137,7 +137,7 @@ class SubmitRequestValidatorTest
               api.commands.withLedgerId(""),
               internal.ledgerTime,
               internal.submittedAt,
-              internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: ledger_id"
         )
@@ -148,7 +148,7 @@ class SubmitRequestValidatorTest
           api.commands.withWorkflowId(""),
           internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
+          Some(internal.maxDeduplicationTime)) shouldEqual Right(
           internal.emptyCommands.copy(
             workflowId = None,
             commands = internal.emptyCommands.commands.copy(commandsReference = "")))
@@ -160,7 +160,7 @@ class SubmitRequestValidatorTest
             api.commands.withApplicationId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: application_id"
         )
@@ -172,7 +172,7 @@ class SubmitRequestValidatorTest
             api.commands.withCommandId(""),
             internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Missing field: command_id"
         )
@@ -185,7 +185,7 @@ class SubmitRequestValidatorTest
               api.commands.withParty(""),
               internal.ledgerTime,
               internal.submittedAt,
-              internal.maxDeduplicationTime),
+              Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           """Missing field: party"""
         )
@@ -198,7 +198,7 @@ class SubmitRequestValidatorTest
             minLedgerTimeAbs = Some(TimestampConversion.fromInstant(minLedgerTimeAbs))),
           internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime
+          Some(internal.maxDeduplicationTime)
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -209,7 +209,7 @@ class SubmitRequestValidatorTest
             minLedgerTimeRel = Some(DurationConversion.toProto(internal.timeDelta))),
           internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime
+          Some(internal.maxDeduplicationTime)
         ) shouldEqual Right(withLedgerTime(internal.emptyCommands, minLedgerTimeAbs))
       }
 
@@ -219,7 +219,7 @@ class SubmitRequestValidatorTest
             api.commands.copy(deduplicationTime = Some(Duration.of(-1, 0))),
             internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           "Invalid field deduplication_time: Duration must be positive"
         )
@@ -232,7 +232,7 @@ class SubmitRequestValidatorTest
             api.commands.copy(deduplicationTime = Some(Duration.of(manySeconds, 0))),
             internal.ledgerTime,
             internal.submittedAt,
-            internal.maxDeduplicationTime),
+            Some(internal.maxDeduplicationTime)),
           INVALID_ARGUMENT,
           s"Invalid field deduplication_time: The given deduplication time of ${java.time.Duration
             .ofSeconds(manySeconds)} exceeds the maximum deduplication time of ${internal.maxDeduplicationTime}"
@@ -244,9 +244,21 @@ class SubmitRequestValidatorTest
           api.commands.copy(deduplicationTime = None),
           internal.ledgerTime,
           internal.submittedAt,
-          internal.maxDeduplicationTime) shouldEqual Right(
+          Some(internal.maxDeduplicationTime)) shouldEqual Right(
           internal.emptyCommands.copy(
             deduplicateUntil = internal.submittedAt.plus(internal.maxDeduplicationTime)))
+      }
+
+      "not allow missing ledger configuration" in {
+        requestMustFailWith(
+          commandsValidator.validateCommands(
+            api.commands.withApplicationId(""),
+            internal.ledgerTime,
+            internal.submittedAt,
+            None),
+          UNAVAILABLE,
+          "The ledger configuration is not available."
+        )
       }
 
     }

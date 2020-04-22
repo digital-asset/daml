@@ -235,14 +235,14 @@ abstract class LedgerBackedIndexService(
       .map(_.map { case (offset, config) => (toAbsolute(offset), config) })(DEC)
 
   /** Retrieve configuration entries. */
-  override def configurationEntries(
-      startExclusive: Option[LedgerOffset.Absolute]): Source[domain.ConfigurationEntry, NotUsed] =
+  override def configurationEntries(startExclusive: Option[LedgerOffset.Absolute])
+    : Source[(domain.LedgerOffset.Absolute, domain.ConfigurationEntry), NotUsed] =
     Source
       .future(
         startExclusive
           .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
-      .flatMapConcat(ledger.configurationEntries(_).map(_._2.toDomain))
+      .flatMapConcat(ledger.configurationEntries(_).map(e => toAbsolute(e._1) -> e._2.toDomain))
 
   /** Deduplicate commands */
   override def deduplicateCommand(

@@ -35,7 +35,7 @@ final class CommandsValidator(ledgerId: LedgerId) {
       commands: ProtoCommands,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
-      maxDeduplicationTime: Duration): Either[StatusRuntimeException, domain.Commands] =
+      maxDeduplicationTime: Option[Duration]): Either[StatusRuntimeException, domain.Commands] =
     for {
       cmdLegerId <- requireLedgerString(commands.ledgerId, "ledger_id")
       ledgerId <- matchLedgerId(ledgerId)(LedgerId(cmdLegerId))

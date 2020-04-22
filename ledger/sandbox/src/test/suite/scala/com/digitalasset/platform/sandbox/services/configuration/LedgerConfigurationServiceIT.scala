@@ -28,7 +28,8 @@ sealed trait LedgerConfigurationServiceITBase extends WordSpec with Matchers {
             .next()
             .getLedgerConfiguration
 
-        maxDeduplicationTime shouldEqual toProto(config.submissionConfig.maxDeduplicationTime)
+        maxDeduplicationTime shouldEqual toProto(
+          config.ledgerConfig.initialConfiguration.maxDeduplicationTime)
       }
     }
   }

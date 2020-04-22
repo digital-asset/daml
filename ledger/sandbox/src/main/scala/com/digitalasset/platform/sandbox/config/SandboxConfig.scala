@@ -12,12 +12,7 @@ import com.daml.ledger.api.auth.AuthService
 import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.platform.common.LedgerIdMode
-import com.daml.platform.configuration.{
-  CommandConfiguration,
-  LedgerConfiguration,
-  MetricsReporter,
-  SubmissionConfiguration
-}
+import com.daml.platform.configuration.{CommandConfiguration, LedgerConfiguration, MetricsReporter}
 import com.daml.platform.services.time.TimeProviderType
 import com.daml.ports.Port
 
@@ -31,7 +26,6 @@ final case class SandboxConfig(
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
     commandConfig: CommandConfiguration,
-    submissionConfig: SubmissionConfiguration,
     ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
@@ -65,7 +59,6 @@ object SandboxConfig {
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,
-      submissionConfig = SubmissionConfiguration.default,
       ledgerConfig = LedgerConfiguration.default,
       tlsConfig = None,
       scenario = None,

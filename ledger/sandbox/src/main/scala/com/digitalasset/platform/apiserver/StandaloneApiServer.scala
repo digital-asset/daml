@@ -26,7 +26,6 @@ import com.daml.platform.configuration.{
   LedgerConfiguration,
   PartyConfiguration,
   ServerRole,
-  SubmissionConfiguration
 }
 import com.daml.platform.index.JdbcIndex
 import com.daml.platform.packages.InMemoryPackageStore
@@ -45,7 +44,6 @@ final class StandaloneApiServer(
     config: ApiServerConfig,
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
-    submissionConfig: SubmissionConfiguration,
     ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
@@ -109,7 +107,6 @@ final class StandaloneApiServer(
         ledgerConfiguration = ledgerConfiguration,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
-        submissionConfig = submissionConfig,
         optTimeServiceBackend = timeServiceBackend,
         metrics = metrics,
         healthChecks = healthChecks,

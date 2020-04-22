@@ -33,8 +33,7 @@ import com.daml.platform.apiserver.services._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
-  PartyConfiguration,
-  SubmissionConfiguration
+  PartyConfiguration
 }
 import com.daml.platform.server.api.services.grpc.GrpcHealthService
 import com.daml.platform.services.time.TimeProviderType
@@ -74,7 +73,6 @@ object ApiServices {
       ledgerConfiguration: LedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
-      submissionConfig: SubmissionConfiguration,
       optTimeServiceBackend: Option[TimeServiceBackend],
       metrics: Metrics,
       healthChecks: HealthChecks,
@@ -109,6 +107,7 @@ object ApiServices {
 
     private def createServices(ledgerId: LedgerId)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
+      val ledgerConfigProvider = LedgerConfigProvider.create(configManagementService)
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
           new StoreBackedCommandExecutor(
@@ -130,13 +129,12 @@ object ApiServices {
         writeService,
         submissionService,
         partyManagementService,
-        ledgerConfiguration.initialConfiguration.timeModel,
         timeProvider,
         timeProviderType,
+        ledgerConfigProvider,
         seedService,
         commandExecutor,
         ApiSubmissionService.Configuration(
-          submissionConfig.maxDeduplicationTime,
           partyConfig.implicitPartyAllocation,
         ),
         metrics,
@@ -168,7 +166,6 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,
-          submissionConfig.maxDeduplicationTime,
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LocalServices(
@@ -179,6 +176,7 @@ object ApiServices {
           apiTransactionService.getFlatTransactionById
         ),
         timeProvider,
+        ledgerConfigProvider,
       )
 
       val apiActiveContractsService =

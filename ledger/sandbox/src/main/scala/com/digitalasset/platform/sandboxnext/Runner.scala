@@ -201,7 +201,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   partyConfig = PartyConfiguration.default.copy(
                     implicitPartyAllocation = config.implicitPartyAllocation,
                   ),
-                  submissionConfig = config.submissionConfig,
                   ledgerConfig = config.ledgerConfig,
                   readService = readService,
                   writeService = writeService,

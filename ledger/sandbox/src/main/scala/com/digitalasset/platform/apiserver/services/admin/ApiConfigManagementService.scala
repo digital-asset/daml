@@ -224,8 +224,8 @@ final class ApiConfigManagementService private (
     index
       .configurationEntries(offset)
       .collect {
-        case entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _, _) => entry
-        case entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _, _) => entry
+        case (_, entry @ domain.ConfigurationEntry.Accepted(`submissionId`, _, _)) => entry
+        case (_, entry @ domain.ConfigurationEntry.Rejected(`submissionId`, _, _, _)) => entry
       }
       .completionTimeout(timeToLive)
       .runWith(Sink.head)(materializer)

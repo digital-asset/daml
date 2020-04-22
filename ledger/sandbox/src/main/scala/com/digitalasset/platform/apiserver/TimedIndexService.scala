@@ -9,7 +9,14 @@ import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.domain
-import com.daml.ledger.api.domain.{ApplicationId, CommandId, LedgerId, LedgerOffset, TransactionId}
+import com.daml.ledger.api.domain.{
+  ApplicationId,
+  CommandId,
+  ConfigurationEntry,
+  LedgerId,
+  LedgerOffset,
+  TransactionId
+}
 import com.daml.ledger.api.health.HealthStatus
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
@@ -158,7 +165,7 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
 
   override def configurationEntries(
       startExclusive: Option[LedgerOffset.Absolute]
-  ): Source[domain.ConfigurationEntry, NotUsed] =
+  ): Source[(LedgerOffset.Absolute, ConfigurationEntry), NotUsed] =
     Timed.source(
       metrics.daml.services.indexService.configurationEntries,
       delegate.configurationEntries(startExclusive))

@@ -285,7 +285,6 @@ final class SandboxServer(
           // sandbox-classic always allocates party implicitly
           implicitPartyAllocation = true,
         ),
-        submissionConfig = config.submissionConfig,
         optTimeServiceBackend = timeServiceBackendO,
         metrics = metrics,
         healthChecks = healthChecks,
