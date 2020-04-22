@@ -114,7 +114,7 @@ class Context(val contextId: Context.ContextId) {
         Decode.decodeArchiveFromInputStream(archive.newInput)
       }.toMap
     extPackages ++= newPackages
-    defns ++= Compiler(extPackages).compilePackages(extPackages.keys, !omitValidation)
+    defns ++= Compiler.compilePackages(extPackages, !omitValidation).right.get
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
@@ -131,7 +131,7 @@ class Context(val contextId: Context.ContextId) {
           ++ m.definitions.flatMap {
             case (defName, defn) =>
               compiler
-                .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
+                .unsafeCompileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
         })
   }
 
@@ -154,7 +154,7 @@ class Context(val contextId: Context.ContextId) {
       .build(
         checkSubmitterInMaintainers = false,
         sexpr = defn,
-        compiledPackages = PureCompiledPackages(allPackages, defns).right.get,
+        compiledPackages = PureCompiledPackages(allPackages, defns),
         submissionTime,
         initialSeeding,
       )

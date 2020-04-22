@@ -245,7 +245,7 @@ final class Engine {
     val machine = Machine
       .build(
         checkSubmitterInMaintainers = checkSubmitterInMaintainers,
-        sexpr = Compiler(compiledPackages.packages).compile(commands),
+        sexpr = Compiler(compiledPackages.packages).unsafeCompile(commands),
         compiledPackages = compiledPackages,
         submissionTime = submissionTime,
         seeds = seeding,

@@ -133,7 +133,7 @@ object Trigger extends StrictLogging {
       compiler: Compiler,
       converter: Converter,
       expr: TypedExpr): Either[String, Option[FiniteDuration]] = {
-    val heartbeat = compiler.compile(
+    val heartbeat = compiler.unsafeCompile(
       ERecProj(expr.ty, Name.assertFromString("heartbeat"), expr.expr)
     )
     val machine = Speedy.Machine.fromSExpr(
@@ -158,7 +158,8 @@ object Trigger extends StrictLogging {
       converter: Converter,
       expr: TypedExpr): Either[String, Filters] = {
     val registeredTemplates =
-      compiler.compile(ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
+      compiler.unsafeCompile(
+        ERecProj(expr.ty, Name.assertFromString("registeredTemplates"), expr.expr))
     val machine =
       Speedy.Machine.fromSExpr(
         sexpr = registeredTemplates,
@@ -309,10 +310,10 @@ class Runner(
   ): Sink[TriggerMsg, Future[SExpr]] = {
     logger.info(s"Trigger is running as ${party}")
     val update =
-      compiler.compile(
+      compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("update"), trigger.expr.expr))
     val getInitialState =
-      compiler.compile(
+      compiler.unsafeCompile(
         ERecProj(trigger.expr.ty, Name.assertFromString("initialState"), trigger.expr.expr))
 
     var machine = Speedy.Machine.fromSExpr(
@@ -455,9 +456,7 @@ object Runner extends StrictLogging {
       party: String
   )(implicit materializer: Materializer, executionContext: ExecutionContext): Future[SExpr] = {
     val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
+    val compiledPackages = PureCompiledPackages(darMap).right.get
     val trigger = Trigger.fromIdentifier(compiledPackages, triggerId) match {
       case Left(err) => throw new RuntimeException(s"Invalid trigger: $err")
       case Right(trigger) => trigger

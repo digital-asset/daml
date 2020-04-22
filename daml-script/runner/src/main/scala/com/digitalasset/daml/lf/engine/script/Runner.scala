@@ -18,7 +18,6 @@ import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 import spray.json._
 import com.daml.api.util.TimeProvider
-import com.daml.lf.{CompiledPackages, PureCompiledPackages}
 import com.daml.lf.archive.Dar
 import com.daml.lf.data.FrontStack
 import com.daml.lf.data.Ref._
@@ -26,7 +25,7 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{Compiler, InitialSeeding, Pretty, SExpr, SValue, Speedy}
+import com.daml.lf.speedy.{InitialSeeding, Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
@@ -192,13 +191,8 @@ object Runner {
       implicit ec: ExecutionContext,
       mat: Materializer): Future[SValue] = {
     val darMap = dar.all.toMap
-    val compiler = Compiler(darMap)
-    val compiledPackages =
-      PureCompiledPackages(darMap, compiler.compilePackages(darMap.keys)).right.get
-    val script = Script.fromIdentifier(compiledPackages, scriptId) match {
-      case Left(msg) => throw new RuntimeException(msg)
-      case Right(x) => x
-    }
+    val compiledPackages = PureCompiledPackages(darMap).right.get
+    val script = data.assertRight(Script.fromIdentifier(compiledPackages, scriptId))
     val scriptAction: Script.Action = (script, inputValue) match {
       case (script: Script.Action, None) => script
       case (script: Script.Function, Some(inputJson)) =>

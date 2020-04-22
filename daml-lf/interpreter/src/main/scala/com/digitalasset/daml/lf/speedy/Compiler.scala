@@ -1,12 +1,12 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Time}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.Util._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
@@ -25,12 +25,12 @@ import scala.annotation.tailrec
   * a pretty-printer defined in lf.speedy.Pretty, which
   * is exposed via ':speedy' command in the REPL.
   */
-object Compiler {
-  case class CompileError(error: String) extends RuntimeException(error, null, true, false)
+private[lf] object Compiler {
+  case class CompilationError(error: String) extends RuntimeException(error, null, true, false)
   case class PackageNotFound(pkgId: PackageId)
       extends RuntimeException(s"Package not found $pkgId", null, true, false)
 
-  private val compileGetTime: SExpr = SEAbs(1) { SBGetTime(SEVar(1)) }
+  private val SEGetTime = SEBuiltin(SBGetTime)
 
   private def SBCompareNumeric(b: SBuiltin) =
     SEAbs(3, SEApp(SEBuiltin(b), Array(SEVar(2), SEVar(1))))
@@ -41,17 +41,43 @@ object Compiler {
   private val SBEqualNumeric = SBCompareNumeric(SBEqual)
 
   private val SEDropSecondArgument = SEAbs(2, SEVar(2))
-  private val SEUpdatePureUnit = SEApp(SEDropSecondArgument, Array(SEValue.Unit))
-  private val appBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
+  private val SEUpdatePureUnit = SEAbs(1, SEValue.Unit)
+  private val SEAppBoundHead = SEApp(SEVar(2), Array(SEVar(1)))
+
+  private val SENat: Numeric.Scale => Some[SEValue] =
+    Numeric.Scale.values.map(n => Some(SEValue(STNat(n))))
+
+  /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
+    *
+    * The packages do not need to be in any specific order, as long as they and all the packages
+    * they transitively reference are in the [[packages]] in the compiler.
+    */
+  def compilePackages(
+      packages: Map[PackageId, Package],
+      validation: Boolean = true,
+  ): Either[String, Map[SDefinitionRef, SExpr]] = {
+    val compiler = Compiler(packages)
+    try {
+      Right(
+        packages.keys.foldLeft(Map.empty[SDefinitionRef, SExpr])(
+          _ ++ compiler.unsafeCompilePackage(_, validation))
+      )
+    } catch {
+      case CompilationError(msg) => Left(s"Compilation Error: $msg")
+      case PackageNotFound(pkgId) => Left(s"Package not found $pkgId")
+      case e: ValidationError => Left(e.pretty)
+    }
+  }
+
 }
 
-final case class Compiler(packages: PackageId PartialFunction Package) {
+private[lf] final case class Compiler(packages: PackageId PartialFunction Package) {
 
   import Compiler._
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private abstract class VarRef { def name: Ref.Name }
+  private abstract class VarRef { def name: Name }
   // corresponds to DAML-LF expression variable.
   private case class EVarRef(name: ExprVarName) extends VarRef
   // corresponds to DAML-LF type variable.
@@ -85,7 +111,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     def lookUpExprVar(name: ExprVarName): Int =
       lookUpVar(EVarRef(name))
-        .getOrElse(throw CompileError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
+        .getOrElse(
+          throw CompilationError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}"))
 
     def lookUpTypeVar(name: TypeVarName): Option[Int] =
       lookUpVar(TVarRef(name))
@@ -95,22 +122,25 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   /** Environment mapping names into stack positions */
   private var env = Env()
 
-  def compile(cmds: ImmArray[Command]): SExpr =
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompile(cmds: ImmArray[Command]): SExpr =
     validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
 
-  def compile(cmd: Command): SExpr =
-    validate(closureConvert(Map.empty, 0, translateCommand(cmd)))
-
-  def compile(expr: Expr): SExpr =
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompile(expr: Expr): SExpr =
     validate(closureConvert(Map.empty, 0, translate(expr)))
 
-  def compileDefn(
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  def unsafeCompileDefn(
       identifier: Identifier,
       defn: Definition,
   ): List[(SDefinitionRef, SExpr)] =
     defn match {
       case DValue(_, _, body, _) =>
-        List(LfDefRef(identifier) -> compile(body))
+        List(LfDefRef(identifier) -> unsafeCompile(body))
 
       case DDataType(_, _, DataRecord(_, Some(tmpl))) =>
         // Compile choices into top-level definitions that exercise
@@ -132,9 +162,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     *
     * @throws ValidationError if the package does not pass validations.
     */
-  @throws(classOf[PackageNotFound])
-  @throws(classOf[ValidationError])
-  def compilePackage(
+  @throws[PackageNotFound]
+  @throws[CompilationError]
+  @throws[ValidationError]
+  def unsafeCompilePackage(
       pkgId: PackageId,
       validation: Boolean = true,
   ): Iterable[(SDefinitionRef, SExpr)] = {
@@ -158,7 +189,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       defnWithId <- module.definitions
       (defnId, defn) = defnWithId
       fullId = Identifier(pkgId, QualifiedName(module.name, defnId))
-      exprWithId <- compileDefn(fullId, defn)
+      exprWithId <- unsafeCompileDefn(fullId, defn)
     } yield exprWithId
     val t2 = Time.Timestamp.now()
 
@@ -168,24 +199,6 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     defns
   }
-
-  /** Validates and Compiles all the definitions in the packages provided. Returns them in a Map.
-    *
-    * The packages do not need to be in any specific order, as long as they and all the packages
-    * they transitively reference are in the [[packages]] in the compiler.
-    */
-  @throws[PackageNotFound]
-  @throws[CompileError]
-  @throws[ValidationError]
-  def compilePackages(
-      toCompile: Iterable[PackageId],
-      validation: Boolean = true,
-  ): Map[SDefinitionRef, SExpr] =
-    // Package needs to be compiled in order.
-    dependenciesInTopologicalOrder(toCompile.toList, packages)
-      .foldLeft(Map.empty[SDefinitionRef, SExpr])(
-        _ ++ compilePackage(_, validation)
-      )
 
   private def patternNArgs(pat: SCasePat): Int = pat match {
     case _: SCPEnum | _: SCPPrimCon | SCPNil | SCPDefault | SCPNone => 0
@@ -303,7 +316,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BFoldl | BFoldr | BCoerceContractId | BEqual | BEqualList | BLessEq | BLess |
                   BGreaterEq | BGreater | BLessNumeric | BLessEqNumeric | BGreaterNumeric |
                   BGreaterEqNumeric | BEqualNumeric | BTextMapEmpty | BGenMapEmpty =>
-                throw CompileError(s"unexpected $bf")
+                throw CompilationError(s"unexpected $bf")
             })
         }
 
@@ -371,7 +384,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               pat match {
                 case CPVariant(tycon, variant, binder) =>
                   val variantDef = lookupVariantDefinition(tycon).getOrElse(
-                    throw CompileError(s"variant $tycon not found"))
+                    throw CompilationError(s"variant $tycon not found"))
                   withBinders(binder) { _ =>
                     SCaseAlt(
                       SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
@@ -381,7 +394,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
                 case CPEnum(tycon, constructor) =>
                   val enumDef = lookupEnumDefinition(tycon).getOrElse(
-                    throw CompileError(s"enum $tycon not found"))
+                    throw CompilationError(s"enum $tycon not found"))
                   SCaseAlt(
                     SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
                     translate(expr),
@@ -431,12 +444,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case EEnumCon(tyCon, constructor) =>
         val enumDef =
-          lookupEnumDefinition(tyCon).getOrElse(throw CompileError(s"enum $tyCon not found"))
+          lookupEnumDefinition(tyCon).getOrElse(throw CompilationError(s"enum $tyCon not found"))
         SEValue(SEnum(tyCon, constructor, enumDef.constructorRank(constructor)))
 
       case EVariantCon(tapp, variant, arg) =>
         val variantDef = lookupVariantDefinition(tapp.tycon)
-          .getOrElse(throw CompileError(s"variant ${tapp.tycon} not found"))
+          .getOrElse(throw CompilationError(s"variant ${tapp.tycon} not found"))
         SBVariantCon(tapp.tycon, variant, variantDef.constructorRank(variant))(translate(arg))
 
       case let: ELet =>
@@ -500,7 +513,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             )
 
           case UpdateGetTime =>
-            compileGetTime
+            SEGetTime
 
           case UpdateLookupByKey(retrieveByKey) =>
             // Translates 'lookupByKey Foo <key>' into:
@@ -523,7 +536,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             withEnv { _ =>
               val key = translate(retrieveByKey.key)
               val keyTemplate = template.key.getOrElse(
-                throw CompileError(
+                throw CompilationError(
                   s"Expecting to find key for template ${retrieveByKey.templateId}, but couldn't",
                 ),
               )
@@ -613,7 +626,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
   private def translateType(typ: Type): Option[SExpr] =
     typ match {
-      case TNat(n) => Some(SEValue(STNat(n)))
+      case TNat(n) => SENat(n)
       case TVar(name) => env.lookUpTypeVar(name).map(SEVar)
       case _ => None
     }
@@ -671,7 +684,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
 
       case ScenarioGetTime =>
-        compileGetTime
+        SEGetTime
 
       case ScenarioGetParty(e) =>
         withEnv { _ =>
@@ -851,7 +864,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case DDataType(_, _, DataRecord(_, tmpl)) => tmpl
         case _ => None
       }
-      .getOrElse(throw CompileError(s"template $tycon not found"))
+      .getOrElse(throw CompilationError(s"template $tycon not found"))
 
   private def lookupVariantDefinition(tycon: TypeConName): Option[DataVariant] =
     lookupDefinition(tycon).flatMap {
@@ -877,7 +890,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           if (idx < 0) None else Some(idx)
         case _ => None
       }
-      .getOrElse(throw CompileError(s"record type $tapp not found"))
+      .getOrElse(throw CompilationError(s"record type $tapp not found"))
 
   private def withEnv[A](f: Unit => A): A = {
     val oldEnv = env
@@ -934,7 +947,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SELocation(loc, closureConvert(remaps, bound, body))
 
       case SEAbs(0, _) =>
-        throw CompileError("empty SEAbs")
+        throw CompilationError("empty SEAbs")
 
       case SEAbs(n, body) =>
         val fv = freeVars(body, n).toList.sorted
@@ -951,7 +964,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         SEMakeClo(fv.reverse.map(remap).toArray, n, newBody)
 
       case x: SEMakeClo =>
-        throw CompileError(s"unexpected SEMakeClo: $x")
+        throw CompilationError(s"unexpected SEMakeClo: $x")
 
       case SEApp(fun, args) =>
         val newFun = closureConvert(remaps, bound, fun)
@@ -1011,7 +1024,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(body)
           bound -= n
         case x: SEMakeClo =>
-          throw CompileError(s"unexpected SEMakeClo: $x")
+          throw CompilationError(s"unexpected SEMakeClo: $x")
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1056,7 +1069,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case SEnum(_, _, _) => ()
         case SAny(_, v) => goV(v)
         case _: SPAP | SToken | SStruct(_, _) =>
-          throw CompileError("validate: unexpected SEValue")
+          throw CompilationError("validate: unexpected SEValue")
       }
     }
 
@@ -1064,7 +1077,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       expr match {
         case SEVar(i) =>
           if (i < 1 || i > bound) {
-            throw CompileError(s"validate: SEVar: index $i out of bound $bound")
+            throw CompilationError(s"validate: SEVar: index $i out of bound $bound")
           }
         case _: SEVal => ()
         case _: SEBuiltin => ()
@@ -1074,11 +1087,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           go(fun)
           args.foreach(go)
         case abs: SEAbs =>
-          throw CompileError(s"validate: SEAbs encountered: $abs")
+          throw CompilationError(s"validate: SEAbs encountered: $abs")
         case SEMakeClo(fv, n, body) =>
           fv.foreach { i =>
             if (i < 1 || i > bound) {
-              throw CompileError(s"validate: SEMakeClo: free variable $i is out of bounds ($bound)")
+              throw CompilationError(
+                s"validate: SEMakeClo: free variable $i is out of bounds ($bound)")
             }
           }
           val oldBound = bound
@@ -1232,7 +1246,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val template = lookupTemplate(tmplId)
     withEnv { _ =>
       val tmplKey = template.key.getOrElse(
-        throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't"),
+        throw CompilationError(s"Expecting to find key for template ${tmplId}, but couldn't"),
       )
       SELet(encodeKeyWithMaintainers(key, tmplKey)) in {
         env = env.incrPos // key with maintainers
@@ -1288,7 +1302,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     val template = lookupTemplate(templateId)
     withEnv { _ =>
       val templateKey = template.key.getOrElse(
-        throw CompileError(
+        throw CompilationError(
           s"Expecting to find key for template ${templateId}, but couldn't",
         ),
       )
@@ -1360,7 +1374,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           env = env.incrPos
           SEApp(translateCommand(cmd), Array(SEVar(tokenIndex)))
         }
-        val allBounds = appBoundHead +: boundTail
+        val allBounds = SEAppBoundHead +: boundTail
         SELet(boundHead) in
           SEAbs(1) {
             SELet(allBounds: _*) in

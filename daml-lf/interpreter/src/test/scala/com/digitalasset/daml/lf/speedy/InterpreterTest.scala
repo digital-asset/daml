@@ -125,7 +125,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       runExpr(input) shouldBe output
     }
 
-    a[Compiler.CompileError] shouldBe thrownBy(
+    a[Compiler.CompilationError] shouldBe thrownBy(
       runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
     )
   }
