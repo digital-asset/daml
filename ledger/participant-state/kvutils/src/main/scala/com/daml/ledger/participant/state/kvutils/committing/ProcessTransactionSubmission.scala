@@ -24,6 +24,8 @@ import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Transaction.AbsTransaction
 import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Node}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.google.protobuf.{Timestamp => ProtoTimestamp}
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.JavaConverters._
@@ -247,53 +249,74 @@ private[kvutils] class ProcessTransactionSubmission(
       startingKeys = damlState.collect {
         case (k, v) if k.hasContractKey && v.getContractKeyState.getContractId.nonEmpty => k
       }.toSet
-
-      allUnique = transactionEntry.abs
-        .fold((true, startingKeys)) {
-          case (
-              (allUnique, existingKeys),
-              (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _)))
-              if exe.key.isDefined && exe.consuming =>
-            val stateKey = Conversions.globalKeyToStateKey(
-              Node.GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
-            (allUnique, existingKeys - stateKey)
-
-          case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _)))
-              if create.key.isDefined =>
-            val stateKey = Conversions.globalKeyToStateKey(
-              Node.GlobalKey(
-                create.coinst.template,
-                Conversions.forceNoContractIds(create.key.get.key.value)))
-
-            (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
-
-          case (accum, _) => accum
-        }
-        ._1
-
-      _ <- if (allUnique)
-        pass
-      else
-        reject(
-          recordTime,
-          buildRejectionLogEntry(
-            transactionEntry,
-            RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
-
-      // LookupByKey nodes themselves don't actually fetch the contract.
-      // Therefore we need to do an additional check on all contract keys
-      // that the referred contract satisfies the causal monotonicity invariant.
-      causalKeyMonotonicity = startingKeys.forall { key =>
-        val state = damlState(key)
-        val keyActiveAt =
-          Conversions.parseTimestamp(state.getContractKeyState.getActiveAt).toInstant
-        !keyActiveAt.isAfter(transactionEntry.ledgerEffectiveTime.toInstant)
-      }
-      _ <- if (causalKeyMonotonicity)
-        pass
-      else
-        reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent))
+      _ <- validateContractKeyUniqueness(recordTime, transactionEntry, startingKeys)
+      _ <- validateContractKeyCausalMonotonicity(
+        recordTime,
+        transactionEntry,
+        startingKeys,
+        damlState)
     } yield ()
+
+  private def validateContractKeyUniqueness(
+      recordTime: Timestamp,
+      transactionEntry: TransactionEntry,
+      keys: Set[DamlStateKey]) = {
+    val allUnique = transactionEntry.abs
+      .fold((true, keys)) {
+        case (
+            (allUnique, existingKeys),
+            (_, exe @ Node.NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _)))
+            if exe.key.isDefined && exe.consuming =>
+          val stateKey = Conversions.globalKeyToStateKey(
+            Node.GlobalKey(exe.templateId, Conversions.forceNoContractIds(exe.key.get.key.value)))
+          (allUnique, existingKeys - stateKey)
+
+        case ((allUnique, existingKeys), (_, create @ Node.NodeCreate(_, _, _, _, _, _)))
+            if create.key.isDefined =>
+          val stateKey = Conversions.globalKeyToStateKey(
+            Node.GlobalKey(
+              create.coinst.template,
+              Conversions.forceNoContractIds(create.key.get.key.value)))
+
+          (allUnique && !existingKeys.contains(stateKey), existingKeys + stateKey)
+
+        case (accum, _) => accum
+      }
+      ._1
+
+    if (allUnique)
+      pass
+    else
+      reject(
+        recordTime,
+        buildRejectionLogEntry(
+          transactionEntry,
+          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")))
+
+  }
+
+  /** LookupByKey nodes themselves don't actually fetch the contract.
+    * Therefore we need to do an additional check on all contract keys
+    * to ensure the referred contract satisfies the causal monotonicity invariant.
+    * This could be reduced to only validate this for keys referred to by
+    * NodeLookupByKey.
+    */
+  private def validateContractKeyCausalMonotonicity(
+      recordTime: Timestamp,
+      transactionEntry: TransactionEntry,
+      keys: Set[DamlStateKey],
+      damlState: DamlOutputStateMap) = {
+    val causalKeyMonotonicity = keys.forall { key =>
+      val state = damlState(key)
+      val keyActiveAt =
+        Conversions.parseTimestamp(state.getContractKeyState.getActiveAt).toInstant
+      !keyActiveAt.isAfter(transactionEntry.ledgerEffectiveTime.toInstant)
+    }
+    if (causalKeyMonotonicity)
+      pass
+    else
+      reject(recordTime, buildRejectionLogEntry(transactionEntry, RejectionReason.Inconsistent))
+  }
 
   /** Check that all informee parties mentioned of a transaction are allocated. */
   private def checkInformeePartiesAllocation(
@@ -334,6 +357,8 @@ private[kvutils] class ProcessTransactionSubmission(
     val cid2nid: Value.AbsoluteContractId => Value.NodeId = transactionEntry.abs.localContracts
 
     val dedupKey = commandDedupKey(transactionEntry.submitterInfo)
+
+    val ledgerEffectiveTime = transactionEntry.txEntry.getLedgerEffectiveTime
 
     // Helper to read the _current_ contract state.
     // NOTE(JM): Important to fetch from the state that is currently being built up since
@@ -410,18 +435,7 @@ private[kvutils] class ProcessTransactionSubmission(
       // Update contract keys
       set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
-          logger.trace(s"updating contract key $key to $contractKeyState")
-          key ->
-            DamlStateValue.newBuilder
-              .setContractKeyState(
-                contractKeyState
-                  .map(coid =>
-                    DamlContractKeyState.newBuilder
-                      .setContractId(coid.coid)
-                      .setActiveAt(transactionEntry.txEntry.getLedgerEffectiveTime))
-                  .getOrElse(DamlContractKeyState.newBuilder())
-              )
-              .build
+          updateContractKeyWithContractKeyState(ledgerEffectiveTime, key, contractKeyState)
       }),
       delay {
         Metrics.accepts.inc()
@@ -436,6 +450,25 @@ private[kvutils] class ProcessTransactionSubmission(
     )
   }
 
+  private def updateContractKeyWithContractKeyState(
+      ledgerEffectiveTime: ProtoTimestamp,
+      key: DamlStateKey,
+      contractKeyState: Option[AbsoluteContractId]): (DamlStateKey, DamlStateValue) = {
+    logger.trace(s"updating contract key $key to $contractKeyState")
+    key ->
+      DamlStateValue.newBuilder
+        .setContractKeyState(
+          contractKeyState
+            .map(
+              coid =>
+                DamlContractKeyState.newBuilder
+                  .setContractId(coid.coid)
+                  .setActiveAt(ledgerEffectiveTime))
+            .getOrElse(DamlContractKeyState.newBuilder())
+        )
+        .build
+  }
+
   // Helper to lookup contract instances. We verify the activeness of
   // contract instances here. Since we look up every contract that was
   // an input to a transaction, we do not need to verify the inputs separately.
@@ -445,17 +478,13 @@ private[kvutils] class ProcessTransactionSubmission(
     val stateKey = contractIdToStateKey(coid)
     for {
       // Fetch the state of the contract so that activeness and visibility can be checked.
-      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
-      // PREVIOUSLY: we aborted the validation if the input state for the contract id wasn't loaded,
-      // because it hinted at a missing input declaration. however, this only worked due to a bug
-      // in lookupKey.
-      //
-      // NOW: There is the possibility that the reinterpretation of the transaction yields a different
-      // result in a LookupByKey than the original transaction. This means that we might not have loaded
-      // the contract state data for the contractId pointed to by that contractKey.
+      // There is the possibility that the reinterpretation of the transaction yields a different
+      // result in a LookupByKey than the original transaction. This means that the contract state data for the
+      // contractId pointed to by that contractKey might not have been preloaded into the input state map.
       // This is not a problem because after the transaction reinterpretation, we compare the original
       // transaction with the reintrepreted one, and the LookupByKey node will not match.
       // Additionally, all contract keys are checked to uphold causal monotonicity.
+      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState))
       if contractIsActiveAndVisibleToSubmitter(transactionEntry, contractState)
       contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
@@ -506,33 +535,29 @@ private[kvutils] class ProcessTransactionSubmission(
       inputState: DamlStateMap,
       knownKeys: Map[DamlContractKey, Value.AbsoluteContractId],
   )(key: Node.GlobalKey): Option[Value.AbsoluteContractId] = {
+    // we don't check whether the contract is active or not, because in we might not have loaded it earlier.
+    // this is not a problem, because:
+    // a) if the lookup was negative and we actually found a contract,
+    //    the transaction validation will fail.
+    // b) if the lookup was positive and its result is a different contract,
+    //    the transaction validation will fail.
+    // c) if the lookup was positive and its result is the same contract,
+    //    - the authorization check ensures that the submitter is in fact allowed
+    //      to lookup the contract
+    //    - the separate contract keys check ensures that all contracts pointed to by
+    //    contract keys respect causal monotonicity.
     val stateKey = Conversions.globalKeyToStateKey(key)
-    inputState
-      .get(stateKey)
-      .flatMap {
-        _.flatMap { value =>
-          // we cannot check whether the contract is active or not, because we might not have loaded it earlier.
-          // this is not a problem, because:
-          // a) if the lookup was negative and we actually found a contract,
-          //    the transaction validation will fail.
-          // b) if the lookup was positive and its result is a different contract,
-          //    the transaction validation will fail.
-          // c) if the lookup was positive and its result is the same contract,
-          //    - the authorization check ensures that the submitter is in fact allowed
-          //      to lookup the contract
-          //    - the separate contract keys check ensures that all contracts pointed to by
-          //    contract keys respect causal monotonicity.
-          Some(value.getContractKeyState.getContractId)
-            .filter(_.nonEmpty)
-            .map(decodeContractId)
-        }
-      }
-      // If the key was not in state inputs, then we look whether any of the accessed contracts has
-      // the key we're looking for. This happens with "fetchByKey" where the key lookup is not
-      // evidenced in the transaction. The activeness of the contract is checked when it is fetched.
-      .orElse {
-        knownKeys.get(stateKey.getContractKey)
-      }
+    val contractId = for {
+      stateValue <- inputState.get(stateKey).flatten
+      if stateValue.getContractKeyState.getContractId.nonEmpty
+    } yield decodeContractId(stateValue.getContractKeyState.getContractId)
+
+    // If the key was not in state inputs, then we look whether any of the accessed contracts has
+    // the key we're looking for. This happens with "fetchByKey" where the key lookup is not
+    // evidenced in the transaction. The activeness of the contract is checked when it is fetched.
+    contractId.orElse {
+      knownKeys.get(stateKey.getContractKey)
+    }
   }
 
   private def buildRejectionLogEntry(

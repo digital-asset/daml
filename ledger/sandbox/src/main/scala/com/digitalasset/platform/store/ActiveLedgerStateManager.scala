@@ -200,7 +200,7 @@ class ActiveLedgerStateManager[ALS <: ActiveLedgerState[ALS]](initialState: => A
                     } else {
                       ats.copy(
                         errs = errs + Disputed(
-                          s"Contract key lookup with different results: expected [${nlkup.result}], actual[${currentResult}]")
+                          s"Contract key lookup with different results: expected [${nlkup.result}], actual [${currentResult}]")
                       )
                     }
                   // Otherwise, trust that the lookup was valid.
