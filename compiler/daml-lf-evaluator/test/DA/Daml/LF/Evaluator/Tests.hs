@@ -108,16 +108,16 @@ run :: [Test] -> IO ()
 run tests = do
   filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
   dalfs <- readDar filename
-  (pkgs,[mod]) <- decodeDalfs dalfs
-  Tasty.defaultMain $ Tasty.testGroup "daml-lf-evaluator" (map (makeTasty pkgs mod) tests)
+  (pkgs,mainPackage,[mod]) <- decodeDalfs dalfs
+  Tasty.defaultMain $ Tasty.testGroup "daml-lf-evaluator" (map (makeTasty pkgs mainPackage mod) tests)
 
 readDar :: FilePath -> IO Dalfs
 readDar inFile = do
   archiveBS <- BS.readFile inFile
   either fail pure $ readDalfs $ ZipArchive.toArchive $ BSL.fromStrict archiveBS
 
-makeTasty :: [LF.ExternalPackage] -> LF.Module -> Test -> Tasty.TestTree
-makeTasty pkgs mod Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,arg,expected} = do
+makeTasty :: [LF.ExternalPackage] -> LF.Package -> LF.Module -> Test -> Tasty.TestTree
+makeTasty pkgs mainPackage mod Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,arg,expected} = do
 
   let vn = LF.ExprValName $ Text.pack functionName
   let name = Text.unpack (LF.unExprValName vn) <> "(" <> show arg <> ")"
@@ -131,7 +131,7 @@ makeTasty pkgs mod Test{expectedAppsWhenEvaluatingOptimizedCode=xa,functionName,
     let Counts{apps=a1,prims=p1,projections=q1} = countsOrig
 
     -- check the program constructed from optimized DAML-LF has same result
-    modO <- optimize pkgs mod
+    modO <- optimize pkgs mainPackage mod
     let progO = simplify pkgs modO vn
     let (actualO,countsOpt) = runIntProgArg progO arg
     Tasty.assertEqual "optimized" expected actualO

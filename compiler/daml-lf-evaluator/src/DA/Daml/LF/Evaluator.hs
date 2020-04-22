@@ -22,14 +22,14 @@ import DA.Daml.LF.Proto3.Archive (decodeArchive, DecodingMode(DecodeAsMain,Decod
 import DA.Daml.LF.Reader (Dalfs(..))
 import qualified DA.Daml.LF.Ast as LF
 
-decodeDalfs :: Dalfs -> IO ([LF.ExternalPackage],[LF.Module])
+decodeDalfs :: Dalfs -> IO ([LF.ExternalPackage],LF.Package,[LF.Module])
 decodeDalfs Dalfs{mainDalf,dalfs} = do
   (_,mainPackage) <- decodeDalf DecodeAsMain mainDalf
   otherPackages <- mapM (decodeDalf DecodeAsDependency) dalfs
   let pkgs = [ LF.ExternalPackage pid pkg | (pid,pkg) <- otherPackages ]
   let LF.Package{packageModules} = mainPackage
   let mods = NM.toList packageModules
-  return (pkgs,mods)
+  return (pkgs,mainPackage,mods)
   where
     decodeDalf :: DecodingMode -> BSL.ByteString -> IO (LF.PackageId,LF.Package)
     decodeDalf mode dalfBS = do

@@ -125,8 +125,9 @@ import qualified Data.Text as Text
 
 
 -- | Optimize an LF.Module using NbE
-optimize :: [LF.ExternalPackage] -> LF.Module -> IO LF.Module
-optimize pkgs mod@LF.Module{moduleName,moduleValues} = do
+optimize :: [LF.ExternalPackage] -> LF.Package -> LF.Module -> IO LF.Module
+optimize pkgs pkg mod@LF.Module{moduleName,moduleValues} = do
+  --putStrLn $ "**opt: " <> show (moduleName, length pkgs)
   moduleValues <- NM.traverse optimizeDef moduleValues
   return mod {LF.moduleValues}
     where
@@ -134,9 +135,10 @@ optimize pkgs mod@LF.Module{moduleName,moduleValues} = do
       optimizeDef dval = do
         let LF.DefValue{dvalBinder=(name,_),dvalBody=expr} = dval
         let qval = LF.Qualified{qualPackage=LF.PRSelf, qualModule=moduleName, qualObject=name}
-        expr <- pure $ do -- TODO: no need to be in IO anymore!
+        expr <- do -- TODO: no need to be in IO anymore!
           -- run the optimization effect separately for the body of each top-level definition
-          runEffect pkgs mod $ do
+          --putStrLn $ "**opt, runEffect " <> show (moduleName,name)
+          runEffect (show (moduleName,name)) pkgs pkg mod $ do
             WithDontInline qval $ normExpr expr
         return dval {LF.dvalBody=expr}
 
@@ -160,31 +162,26 @@ type QVal = LF.ValueRef -- TODO: inline & rename code
 
 getQValBody :: QVal -> Effect LF.Expr
 getQValBody qval = do
+  --Message ("getQValBody: " <> show qval)
   let LF.Qualified{qualPackage=pref, qualModule=moduleName, qualObject=name} = qval
+  getModule pref moduleName >>= \case
+    Nothing -> Die $ "getQValBody, no such module" <> show qval
+    Just LF.Module{moduleValues} -> do
+      case NM.lookup name moduleValues of
+        Nothing -> do Die $ "getQValBody, no such name in module " <> show qval
+        Just LF.DefValue{dvalBody=expr} ->
+          return expr
+
+
+getModule :: LF.PackageRef -> LF.ModuleName -> Effect (Maybe LF.Module)
+getModule pref moduleName =
   case pref of
-    LF.PRSelf -> do
-      mod <- GetTheModule
-      getExprValNameFromModule mod name
+    LF.PRSelf -> GetSelfModule moduleName
     LF.PRImport pid -> do
-      mod <- getModule pid moduleName
-      getExprValNameFromModule mod name
-
-getModule :: LF.PackageId -> LF.ModuleName -> Effect LF.Module
-getModule pid moduleName = do
-  package <- GetPackage pid
-  let LF.Package{packageModules} = package
-  case NM.lookup moduleName packageModules of
-    Nothing -> error $ "getModule, " <> show (pid,moduleName)
-    Just mod -> return mod
-
-getExprValNameFromModule :: LF.Module -> LF.ExprValName -> Effect LF.Expr
-getExprValNameFromModule mod name = do
-  let LF.Module{moduleName,moduleValues} = mod
-  case NM.lookup name moduleValues of
-    Nothing -> error $ "getExprValNameFromModule, " <> show (moduleName,name)
-    Just dval -> do
-      let LF.DefValue{dvalBody=expr} = dval
-      return expr
+      GetPackage pid >>= \case
+        Nothing -> Die $ "unknown package import identifier: " <> show pid
+        Just LF.Package{packageModules} ->
+          return $ NM.lookup moduleName packageModules
 
 
 reflect :: LF.Expr -> Effect SemValue
@@ -197,7 +194,7 @@ reflect = \case
     env <- GetEnv
     case Map.lookup name env of
       Just v -> return v
-      Nothing -> error $ "reflect, unbound var: " <> show name
+      Nothing -> Die $ "reflect, unbound var: " <> show name
 
   LF.EVal qval -> do
     body <- getQValBody qval
@@ -226,10 +223,11 @@ reflect = \case
     expr <- normExpr expr
     return $ Syntax $ LF.ERecProj{recTypeCon=tca,recField=fieldName,recExpr=expr}
 
-  LF.ERecUpd{recTypeCon,recField,recExpr=e,recUpdate=u} -> do
+  LF.ERecUpd{recTypeCon=tca,recField,recExpr=e,recUpdate=u} -> do
+    tca <- normTypeConApp tca
     e <- normExpr e
     u <- normExpr u
-    return $ Syntax $ LF.ERecUpd{recTypeCon,recField,recExpr=e,recUpdate=u}
+    return $ Syntax $ LF.ERecUpd{recTypeCon=tca,recField,recExpr=e,recUpdate=u}
 
   LF.EVariantCon{varTypeCon=tca,varVariant,varArg=expr} -> do
     tca <- normTypeConApp tca
@@ -249,7 +247,11 @@ reflect = \case
     expr <- reflect expr
     applyProjection field expr
 
-  LF.EStructUpd{} -> undefined -- TODO, support this final case!
+  LF.EStructUpd{structField,structExpr=e1,structUpdate=e2} -> do
+    -- TODO: special support for optimization, as for EStructCon/EStructProj
+    e1 <- normExpr e1
+    e2 <- normExpr e2
+    return $ Syntax $ LF.EStructUpd{structField,structExpr=e1,structUpdate=e2}
 
   LF.ETmApp{tmappFun=e1,tmappArg=e2} -> do
     v1 <- reflect e1
@@ -327,10 +329,11 @@ reflect = \case
     upd <- normUpdate upd
     return $ Syntax $ LF.EUpdate upd
 
-  x@LF.EScenario{} -> return $ Syntax x -- TODO: traverse deeply
+  LF.EScenario scenario -> do
+    scenario <- normScenario scenario
+    return $ Syntax $ LF.EScenario scenario
 
   LF.EToAny{toAnyType=ty,toAnyBody=expr} -> do
-    -- Coverage of LF.EToAny (etc) is detected by unit tests, so long as Examples contain a template
     ty <- normType ty
     expr <- normExpr expr
     return $ Syntax LF.EToAny{toAnyType=ty,toAnyBody=expr}
@@ -344,12 +347,104 @@ reflect = \case
     ty <- normType ty
     return $ Syntax $ LF.ETypeRep ty
 
-  LF.ELocation _loc expr -> do
+  LF.ELocation loc expr -> do
+    WithLocation loc $ reflect expr
     -- If LF.ELocation were to block normalization, the bug would be detected in unit-testing, via
     -- an unexpected number of app-counts (too high!)
-    reflect expr
     --expr <- normExpr expr
-    --return $ Syntax $ LF.ELocation _loc expr
+    --return $ Syntax $ LF.ELocation loc expr
+
+
+normScenario :: LF.Scenario -> Effect LF.Scenario
+normScenario = \case
+
+  LF.SPure{spureType=ty,spureExpr=e} -> do
+    ty <- normType ty
+    e <- normExpr e
+    return $ LF.SPure{spureType=ty,spureExpr=e}
+
+  LF.SBind{sbindBinding=b,sbindBody=e} -> do
+    freshenBinding b $ \b -> do
+      e <- ResetK (normExpr e)
+      return $ LF.SBind{sbindBinding=b,sbindBody=e}
+
+  LF.SCommit{scommitType=ty,scommitParty=e1,scommitExpr=e2} -> do
+    ty <- normType ty
+    e1 <- normExpr e1
+    e2 <- normExpr e2
+    return $ LF.SCommit{scommitType=ty,scommitParty=e1,scommitExpr=e2}
+
+  LF.SMustFailAt{smustFailAtType=ty,smustFailAtParty=e1,smustFailAtExpr=e2} -> do
+    ty <- normType ty
+    e1 <- normExpr e1
+    e2 <- normExpr e2
+    return $ LF.SMustFailAt{smustFailAtType=ty,smustFailAtParty=e1,smustFailAtExpr=e2}
+
+  LF.SPass{spassDelta=e} -> do
+    e <- normExpr e
+    return LF.SPass{spassDelta=e}
+
+  x@LF.SGetTime -> return x
+
+  LF.SGetParty{sgetPartyName=e} -> do
+    e <- normExpr e
+    return LF.SGetParty{sgetPartyName=e}
+
+  LF.SEmbedExpr{scenarioEmbedType=ty,scenarioEmbedExpr=e} -> do
+    ty <- normType ty
+    e <- normExpr e
+    return $ LF.SEmbedExpr{scenarioEmbedType=ty,scenarioEmbedExpr=e}
+
+
+normUpdate :: LF.Update -> Effect LF.Update
+normUpdate = \case
+
+  LF.UPure{pureType=ty,pureExpr=e} -> do
+    ty <- normType ty
+    e <- normExpr e
+    return $ LF.UPure{pureType=ty,pureExpr=e}
+
+  LF.UBind{bindBinding=b,bindBody=e} -> do
+    freshenBinding b $ \b -> do
+      e <- ResetK (normExpr e)
+      return $ LF.UBind{bindBinding=b,bindBody=e}
+
+  LF.UCreate{creTemplate,creArg=expr} -> do
+    expr <- normExpr expr
+    return $ LF.UCreate{creTemplate,creArg=expr}
+
+  LF.UExercise{exeTemplate,exeChoice,exeContractId=e1,exeActors=e2m,exeArg=e3} -> do
+    e1 <- normExpr e1
+    e2m <- traverse normExpr e2m
+    e3 <- normExpr e3
+    return $ LF.UExercise{exeTemplate,exeChoice,exeContractId=e1,exeActors=e2m,exeArg=e3}
+
+  LF.UFetch{fetTemplate,fetContractId=expr} -> do
+    expr <- normExpr expr
+    return $ LF.UFetch{fetTemplate,fetContractId=expr}
+
+  x@LF.UGetTime -> return x
+
+  LF.UEmbedExpr{updateEmbedType=ty,updateEmbedBody=e} -> do
+    ty <- normType ty
+    e <- normExpr e
+    return $ LF.UEmbedExpr{updateEmbedType=ty,updateEmbedBody=e}
+
+  LF.ULookupByKey rbk -> do
+    rbk <- normRetrieveByKey rbk
+    return $ LF.ULookupByKey rbk
+
+  LF.UFetchByKey rbk -> do
+    rbk <- normRetrieveByKey rbk
+    return $ LF.UFetchByKey rbk
+
+
+normRetrieveByKey :: LF.RetrieveByKey -> Effect LF.RetrieveByKey
+normRetrieveByKey = \case
+  LF.RetrieveByKey {retrieveByKeyTemplate, retrieveByKeyKey=e} -> do
+    e <- normExpr e
+    return $ LF.RetrieveByKey {retrieveByKeyTemplate, retrieveByKeyKey=e}
+
 
 
 freshenCasePattern :: LF.CasePattern -> (LF.CasePattern -> Effect a) -> Effect a
@@ -375,6 +470,15 @@ freshenCasePattern pat k = case pat of
   x@LF.CPNone -> k x
   x@LF.CPDefault -> k x
 
+freshenBinding :: LF.Binding -> (LF.Binding -> Effect a) -> Effect a
+freshenBinding b k = case b of
+  LF.Binding{bindingBinder=(x,ty),bindingBound=e} -> do
+    ty <- normType ty
+    e <- normExpr e
+    freshenExpVarName x $ \x -> do
+      k $ LF.Binding{bindingBinder=(x,ty),bindingBound=e}
+
+
 freshenExpVarName :: LF.ExprVarName -> (LF.ExprVarName -> Effect a) -> Effect a
 freshenExpVarName x k = do
   let tag = (Text.unpack . LF.unExprVarName) x
@@ -383,35 +487,6 @@ freshenExpVarName x k = do
   ModEnv f $ k x'
 
 
-normUpdate :: LF.Update -> Effect LF.Update
-normUpdate = \case
-  -- TODO: finish work to traverse all cases...
-  x@LF.UPure{} -> return x
-  x@LF.UBind{} -> return x
-
-  LF.UCreate{creTemplate,creArg=expr} -> do
-    expr <- normExpr expr
-    return $ LF.UCreate{creTemplate,creArg=expr}
-
-  LF.UExercise{exeTemplate,exeChoice,exeContractId=e1,exeActors=e2,exeArg=e3} -> do
-    e1 <- normExpr e1
-    e2 <- traverse normExpr e2 -- e2 is Maybe
-    e3 <- normExpr e3
-    return $ LF.UExercise{exeTemplate,exeChoice,exeContractId=e1,exeActors=e2,exeArg=e3}
-
-  LF.UFetch{fetTemplate,fetContractId=expr} -> do
-    expr <- normExpr expr
-    return $ LF.UFetch{fetTemplate,fetContractId=expr}
-
-  x@LF.UGetTime{} -> return x
-  x@LF.UEmbedExpr{} -> return x
-  x@LF.ULookupByKey{} -> return x
-  x@LF.UFetchByKey{} -> return x
-
-
--- TODO: have specialized error function to use when LF is badly types
-
--- TODO: The LF.Type contained `Macro` must e normalized. Use a newtype to capture this.
 
 nameIt :: String -> LF.Type -> LF.Expr -> Effect LF.ExprVarName
 nameIt reason ty exp = do
@@ -421,11 +496,11 @@ nameIt reason ty exp = do
 
 termApply :: (SemValue,SemValue) -> Effect SemValue
 termApply = \case
-  (TyMacro{},_) -> error "termApply, TyMacro"
+  (TyMacro{},_) -> Die "termApply, TyMacro"
   (Syntax func, arg) -> do
     arg <- reify arg
     return $ Syntax $ LF.ETmApp{tmappFun=func,tmappArg=arg}
-  (Struct _ _, _) -> error "SemValue,termApply,struct"
+  (Struct _ _, _) -> Die "SemValue,termApply,struct"
   (Macro _ ty func, arg) -> do
     -- The ETmLam is not recreated, so achieving beta-reduction
     case duplicatable arg of
@@ -440,8 +515,8 @@ typeApply :: SemValue -> LF.Type -> Effect SemValue
 typeApply expr ty = case expr of -- This ty is already normalized
   Syntax expr -> do
     return $ Syntax $ LF.ETyApp{tyappExpr=expr,tyappType=ty}
-  Struct{} -> error "typeApply, Struct"
-  Macro{} -> error "typeApply, Macro"
+  Struct{} -> Die "typeApply, Struct"
+  Macro tag _ _ -> Die $ "typeApply, Macro, " <> show tag
   TyMacro _ f -> f ty
 
 -- A normalized-expression can be duplicated if it has no computation effect.
@@ -496,12 +571,12 @@ reify = \case
 
 applyProjection :: LF.FieldName -> SemValue -> Effect SemValue
 applyProjection field = \case
-  TyMacro{} -> error "applyProjection,TyMacro"
-  Macro{} -> error "applyProjection,Macro"
+  TyMacro{} -> Die "applyProjection,TyMacro"
+  Macro{} -> Die "applyProjection,Macro"
   Syntax expr -> return $ Syntax $ LF.EStructProj{structField=field,structExpr=expr}
-  Struct _ xs -> do -- TODO: dont loose restore-point
+  Struct _ xs -> do -- TODO: dont loose restore-point?
     case lookup field xs of
-      Nothing -> error $ "applyProjection, " <> show field
+      Nothing -> Die $ "applyProjection, " <> show field
       Just v -> return v -- insert restore-point here.
 
 normTypeConApp :: LF.TypeConApp -> Effect LF.TypeConApp
@@ -526,8 +601,10 @@ data Effect a where
   ModEnv :: (Env -> Env) -> Effect a -> Effect a
   Fresh :: String -> Effect LF.ExprVarName
   FreshTV :: Effect LF.TypeVarName
-  GetTheModule :: Effect LF.Module
-  GetPackage :: LF.PackageId -> Effect LF.Package
+
+  GetSelfModule :: LF.ModuleName -> Effect (Maybe LF.Module)
+  GetPackage :: LF.PackageId -> Effect (Maybe LF.Package)
+
   DontInline :: QVal -> Effect Bool
   WithDontInline :: QVal -> Effect a -> Effect a
 
@@ -537,20 +614,24 @@ data Effect a where
   ShiftK :: ((a -> Effect LF.Expr) -> Effect LF.Expr) -> Effect a
   WithState :: (State -> Res) -> Effect a
 
+  Die :: String -> Effect a
+  Message :: String -> Effect ()
+  WithLocation :: LF.SourceLoc -> Effect a -> Effect a
+
 instance Functor Effect where fmap = liftM
 instance Applicative Effect where pure = return; (<*>) = ap
 instance Monad Effect where return = Ret; (>>=) = Bind
 
-type Res = (LF.Expr,State)
+type Res = IO (LF.Expr,State)
 
-runEffect :: [LF.ExternalPackage] -> LF.Module -> Effect LF.Expr -> LF.Expr
-runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
+runEffect :: String -> [LF.ExternalPackage] -> LF.Package -> LF.Module -> Effect LF.Expr -> IO LF.Expr
+runEffect tag pkgs mainPackage startModule eff0 = fst <$> loop context0 state0 eff0 k0
   where
-    context0 = Context { scope = Set.empty, subst = Map.empty, env = Map.empty }
-    k0 state e = (e,state)
+    context0 = Context { scope = Set.empty, subst = Map.empty, env = Map.empty, loc = Nothing}
+    k0 state e = pure (e,state)
 
     loop :: Context -> State -> Effect a -> (State -> a -> Res) -> Res
-    loop context@Context{scope,subst,env} state eff k = case eff of
+    loop context@Context{scope,subst,env,loc} state eff k = case eff of
 
       Ret x -> k state x
       Bind eff f -> loop context state eff $ \state v -> loop context state (f v) k
@@ -575,11 +656,13 @@ runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
         let tv = LF.TypeVarName $ Text.pack (tag <> name)
         k state' tv
 
-      GetTheModule -> do
-        k state theModule
+      GetSelfModule mn ->
+        if mn == LF.moduleName startModule
+        then k state (Just startModule)
+        else k state (NM.lookup mn (LF.packageModules mainPackage))
 
       GetPackage pid -> do
-        k state (getPackage pid)
+        k state (Map.lookup pid packageMap)
 
       DontInline qval -> do
         k state (Set.member qval scope)
@@ -589,10 +672,10 @@ runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
 
       --WrapK f m == ShiftK $ \k -> f <$> ResetK (m >>= k)
       WrapK f eff ->
-        f' (loop context state eff k) where f' (e,s) = (f e, s)
+        f' <$> loop context state eff k where f' (e,s) = (f e, s)
 
       ResetK eff -> do
-        let (v,state') = loop context state eff k0
+        (v,state') <- loop context state eff k0
         k state' v
 
       ShiftK f -> do
@@ -600,19 +683,23 @@ runEffect pkgs theModule eff0 = fst $ loop context0 state0 eff0 k0
 
       WithState f -> f state
 
-    packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
+      Die s -> do
+        let mes = "runEffect(" <> tag <> ")["<> show loc <> "], " <> s
+        putStrLn $ "About to Die: " <> mes
+        error mes
 
-    getPackage :: LF.PackageId -> LF.Package
-    getPackage pid =
-      case Map.lookup pid packageMap of
-        Just v -> v
-        Nothing -> error $ "getPackage, " <> show pid
+      Message mes -> do putStrLn $ "**mes: " <> mes; k state ()
+      WithLocation loc eff -> loop context { loc = Just loc } state eff k
+
+
+    packageMap = Map.fromList [ (pkgId,pkg) | LF.ExternalPackage pkgId pkg <- pkgs ]
 
 
 data Context = Context
   { scope :: Set QVal
   , subst :: LF.Subst
   , env :: Env
+  , loc :: Maybe LF.SourceLoc
   }
 
 type Env = Map LF.ExprVarName SemValue

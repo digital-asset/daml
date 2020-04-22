@@ -46,11 +46,11 @@ getNfib Conf{mode} = do
   let funcName = "nfib"
   filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
   dalfs <- readDar filename
-  (pkgs,[mod]) <- decodeDalfs dalfs
+  (pkgs,mainPackage,[mod]) <- decodeDalfs dalfs
   mod <-
     case mode of
       Original -> return mod
-      Normalized -> optimize pkgs mod
+      Normalized -> optimize pkgs mainPackage mod
   let vn = LF.ExprValName $ Text.pack funcName
   let !prog = simplify pkgs mod vn
   return $ \arg -> do

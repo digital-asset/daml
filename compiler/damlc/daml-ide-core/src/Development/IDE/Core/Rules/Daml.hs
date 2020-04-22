@@ -276,7 +276,7 @@ generateDalfRule =
         DamlEnv{envRunOptimizer} <- getDamlServiceEnv
         rawDalf <- liftIO $ if envRunOptimizer then do
           putStrLn "**running optimizer..."
-          optimize pkgs rawDalf0
+          optimize pkgs pkg rawDalf0
         else do
           -- putStrLn "**NOT running optimizer..."
           pure rawDalf0

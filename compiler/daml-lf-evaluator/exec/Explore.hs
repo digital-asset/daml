@@ -59,13 +59,13 @@ runConf = \case
   Conf{mode,funcName,arg} -> do
     filename <- locateRunfiles (mainWorkspace </> "compiler/daml-lf-evaluator/examples.dar")
     dalfs <- readDar filename
-    (pkgs,[mod]) <- decodeDalfs dalfs
+    (pkgs,mainPackage,[mod]) <- decodeDalfs dalfs
     let vn = LF.ExprValName $ Text.pack funcName
     putStrLn $ "==["<>funcName<>"]============================"
     let prog = simplify pkgs mod vn
     runProg "original" prog arg
     unless (mode == JustEval) $ do
-      modO <- optimize pkgs mod
+      modO <- optimize pkgs mainPackage mod
       let progO = simplify pkgs modO vn
       runProg "new-norm" progO arg
 
