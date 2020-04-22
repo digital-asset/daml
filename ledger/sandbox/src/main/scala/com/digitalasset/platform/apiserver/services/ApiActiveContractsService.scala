@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrp
 import com.daml.ledger.api.v1.active_contracts_service._
 import com.daml.ledger.api.validation.TransactionFilterValidator
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.AccessViolationMapping
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
@@ -28,7 +29,8 @@ final class ApiActiveContractsService private (
     protected val esf: ExecutionSequencerFactory,
     logCtx: LoggingContext,
 ) extends ActiveContractsServiceAkkaGrpc
-    with GrpcApiService {
+    with GrpcApiService
+    with AccessViolationMapping {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -39,7 +41,7 @@ final class ApiActiveContractsService private (
     TransactionFilterValidator
       .validate(request.getFilter, "filter")
       .fold(Source.failed, backend.getActiveContracts(_, request.verbose))
-      .via(logger.logErrorsOnStream)
+      .via(logger.mapAndLogErrorsOnStream(mapAccessViolations(logger)))
   }
 
   override def bindService(): ServerServiceDefinition =

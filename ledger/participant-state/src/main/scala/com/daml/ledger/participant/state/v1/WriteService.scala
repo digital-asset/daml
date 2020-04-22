@@ -31,6 +31,7 @@ trait WriteService
     extends WritePackagesService
     with WritePartyService
     with WriteConfigService
+    with WriteParticipantPruningService
     with ReportsHealth {
 
   /** Submit a transaction for acceptance to the ledger.

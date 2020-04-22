@@ -1,0 +1,63 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v1.admin;
+
+import "com/daml/ledger/api/v1/ledger_offset.proto";
+
+import "google/protobuf/timestamp.proto";
+
+option java_outer_classname = "ParticipantPruningServiceOuterClass";
+option java_package = "com.daml.ledger.api.v1.admin";
+option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
+
+// Status: experimental interface, will change before it is deemed production
+// ready
+
+// Prunes/truncates the "oldest" transactions from the participant (the participant Ledger Api Server plus any other
+// participant-local state) by removing a portion of the ledger in such a way that the set of future, allowed
+// commands are not affected.
+//
+// This enables:
+// 1. keeping the "inactive" portion of the ledger to a manageable size and
+// 2. removing inactive state to honor the right to be forgotten.
+service ParticipantPruningService {
+
+    // Prune the ledger specifying the inclusive point in time before and at which ledger transactions can be removed.
+    rpc PruneByTime (PruneByTimeRequest) returns (PruneResponse);
+
+    // Prune the ledger specifying the inclusive offset up to and at which ledger transactions can be removed.
+    rpc PruneByOffset (PruneByOffsetRequest) returns (PruneResponse);
+
+}
+
+message PruneByTimeRequest {
+    // Inclusive point in time up to and at which the ledger is allowed to be pruned.
+    google.protobuf.Timestamp prune_up_to = 1;
+
+    // Unique submission identifier.
+    // Optional, defaults to a random identifier, used for logging.
+    string submission_id = 2;
+}
+
+message PruneByOffsetRequest {
+    // Inclusive offset up to and at which the ledger is allowed to be pruned.
+    LedgerOffset prune_up_to = 1;
+
+    // Unique submission identifier.
+    // Optional, defaults to a random identifier, used for logging.
+    string submission_id = 2;
+}
+
+// The actual pruning point may be earlier than "prune_before" e.g. if the specified participant cannot safely prune
+// "as aggressively" as requested.
+message PruneResponse {
+    // Inclusive offset up to which the participant has been pruned.
+    LedgerOffset pruned_offset = 1;
+
+    // Inclusive offset up to which the participant has chosen to retain additional state for safety (e.g. to prevent
+    // getting out of sync with other participants). Optional.
+    LedgerOffset state_retained_until_offset = 2;
+}

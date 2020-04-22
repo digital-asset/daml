@@ -256,6 +256,7 @@ class Metrics(val registry: MetricRegistry) {
       val publishPartyAllocation: Timer = registry.timer(prefix :+ "publish_party_allocation")
       val uploadPackages: Timer = registry.timer(prefix :+ "upload_packages")
       val publishConfiguration: Timer = registry.timer(prefix :+ "publish_configuration")
+      val pruneByOffset: Timer = registry.timer(prefix :+ "prune_by_offset")
 
       // FIXME Name mushing and inconsistencies here, tracked by https://github.com/digital-asset/daml/issues/5926
       object db {
@@ -286,6 +287,7 @@ class Metrics(val registry: MetricRegistry) {
           registry.timer(prefix :+ "remove_expired_deduplication_data")
         val stopDeduplicatingCommand: Timer =
           registry.timer(prefix :+ "stop_deduplicating_command")
+        val pruneByOffset: Timer = registry.timer(prefix :+ "prune_by_offset")
 
         private val createDatabaseMetrics: String => DatabaseMetrics =
           DatabaseMetrics(registry, prefix)(_)
@@ -409,6 +411,8 @@ class Metrics(val registry: MetricRegistry) {
         val uploadPackages: Timer = registry.timer(prefix :+ "upload_packages")
         val allocateParty: Timer = registry.timer(prefix :+ "allocate_party")
         val submitConfiguration: Timer = registry.timer(prefix :+ "submit_configuration")
+        val pruneByTime: Timer = registry.timer(prefix :+ "prune_by_time")
+        val pruneByOffset: Timer = registry.timer(prefix :+ "prune_by_offset")
       }
     }
   }

@@ -49,6 +49,14 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       metrics.daml.services.write.submitConfiguration,
       delegate.submitConfiguration(maxRecordTime, submissionId, config))
 
+  override def pruneByTime(pruneUpTo: Time.Timestamp): CompletionStage[Option[ParticipantPruned]] =
+    Timed.completionStage(metrics.daml.services.write.pruneByTime, delegate.pruneByTime(pruneUpTo))
+
+  override def pruneByOffset(pruneUpTo: Offset): CompletionStage[Option[ParticipantPruned]] =
+    Timed.completionStage(
+      metrics.daml.services.write.pruneByOffset,
+      delegate.pruneByOffset(pruneUpTo))
+
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
 }

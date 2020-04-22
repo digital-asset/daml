@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils.api
 
 import java.util.UUID
-import java.util.concurrent.CompletionStage
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.health.HealthStatus
@@ -70,6 +70,16 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter, metrics: Metrics) ext
         writer.participantId)
     commit(submissionId, submission)
   }
+
+  override def pruneByTime(pruneUpTo: Time.Timestamp): CompletionStage[Option[ParticipantPruned]] =
+    // For pruneByTime to return None indicates that KVUtils does not support pruning by time relying on
+    // pruneByOffset instead. This avoids the need to translate time to an offset.
+    CompletableFuture.completedFuture(None)
+
+  override def pruneByOffset(pruneUpTo: Offset): CompletionStage[Option[ParticipantPruned]] =
+    // KVUtil participants don't have participant-local ledger state beyond the ledger api server index,
+    // so simply return None to let the ledger api server prune its index prune at the pruneUpTo offset.
+    CompletableFuture.completedFuture(Some(ParticipantPruned(pruneUpTo, None)))
 
   override def currentHealth(): HealthStatus = writer.currentHealth()
 

@@ -25,7 +25,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
-  GetTransactionsResponse,
+  GetTransactionsResponse
 }
 import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
@@ -145,4 +145,10 @@ trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
   def removeExpiredDeduplicationData(
       currentTime: Instant,
   ): Future[Unit]
+
+  // Participant pruning
+  // The fact that these non-read methods are part of the *read only* ledger interface (along with deduplication).
+  // This appears to be an artifact of the LedgerApiServer only recently having begun to issue writes to the index in
+  // these two use cases (deduplication and pruning).
+  def pruneByOffset(pruneUpToInclusive: Offset): Future[Unit]
 }

@@ -28,7 +28,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 }
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{Configuration, PackageId, ParticipantId, Party}
+import com.daml.ledger.participant.state.v1.{Configuration, Offset, PackageId, ParticipantId, Party}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 import com.daml.lf.transaction.Node
@@ -187,6 +187,9 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
     Timed.future(
       metrics.daml.services.indexService.stopDeduplicateCommand,
       delegate.stopDeduplicatingCommand(commandId, submitter))
+
+  override def pruneByOffset(offset: Offset): Future[Unit] =
+    time("prune_by_offset", delegate.pruneByOffset(offset))
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()

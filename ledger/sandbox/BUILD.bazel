@@ -391,6 +391,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=ParticipantPruningIT",
     ],
 )
 
@@ -405,6 +406,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=ParticipantPruningIT",
     ],
 )
 
@@ -444,6 +446,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
+        "--exclude=ParticipantPruningIT",
     ],
 )
 
@@ -477,6 +480,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ClosedWorldIT",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=ParticipantPruningIT",
     ],
 )
 
@@ -491,6 +495,7 @@ server_conformance_test(
         "--all-tests",
         "--exclude=ClosedWorldIT",
         "--exclude=ConfigManagementServiceIT",
+        "--exclude=ParticipantPruningIT",
     ],
 )
 
@@ -516,6 +521,19 @@ server_conformance_test(
     test_tool_args = [
         "--verbose",
         "--include=ClosedWorldIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-participant-pruning",
+    server_args = [
+        "--wall-clock-time",
+        "--implicit-party-allocation=false",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ParticipantPruningIT",
     ],
 )
 

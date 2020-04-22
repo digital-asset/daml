@@ -22,6 +22,7 @@ import com.daml.ledger.api.v1.transaction_service.{
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.AccessViolationMapping
 import com.daml.platform.apiserver.services.logging
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.events.EventIdFormatter.TransactionIdWithIndex
@@ -58,7 +59,8 @@ final class ApiTransactionService private (
     esf: ExecutionSequencerFactory,
     logCtx: LoggingContext)
     extends TransactionService
-    with ErrorFactories {
+    with ErrorFactories
+    with AccessViolationMapping {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -75,7 +77,7 @@ final class ApiTransactionService private (
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
-        .via(logger.logErrorsOnStream)
+        .via(logger.mapAndLogErrorsOnStream(mapAccessViolations(logger)))
     }
 
   override def getTransactionTrees(
@@ -93,7 +95,7 @@ final class ApiTransactionService private (
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
           request.verbose
         )
-        .via(logger.logErrorsOnStream)
+        .via(logger.mapAndLogErrorsOnStream(mapAccessViolations(logger)))
     }
 
   override def getTransactionByEventId(

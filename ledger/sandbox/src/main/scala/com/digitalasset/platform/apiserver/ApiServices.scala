@@ -26,6 +26,7 @@ import com.daml.platform.apiserver.execution.{
 import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
+  ApiParticipantPruningService,
   ApiPartyManagementService
 }
 import com.daml.platform.apiserver.services.transaction.ApiTransactionService
@@ -219,6 +220,10 @@ object ApiServices {
             timeProvider,
             ledgerConfiguration)
 
+      val apiParticipantPruningService =
+        ApiParticipantPruningService
+          .createApiService(indexService, writeService, commandConfig.retentionPeriod, timeProvider)
+
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks)
@@ -236,6 +241,7 @@ object ApiServices {
         new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
         new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
         new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
+        new ParticipantPruningServiceAuthorization(apiParticipantPruningService, authorizer),
         apiReflectionService,
         apiHealthService,
       )

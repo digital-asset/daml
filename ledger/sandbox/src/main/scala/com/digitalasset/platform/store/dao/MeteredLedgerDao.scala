@@ -118,6 +118,9 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: Metrics) extends L
     Timed.future(
       metrics.daml.index.db.stopDeduplicatingCommand,
       ledgerDao.stopDeduplicatingCommand(commandId, submitter))
+
+  override def pruneByOffset(pruneUpToInclusive: Offset): Future[Unit] =
+    Timed.future(metrics.daml.index.db.pruneByOffset, ledgerDao.pruneByOffset(pruneUpToInclusive))
 }
 
 class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)

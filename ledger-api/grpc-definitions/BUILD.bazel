@@ -217,7 +217,7 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg-admin",
-    srcs = glob(["com/daml/ledger/api/v1/admin/*.proto"]),
+    srcs = glob(["com/daml/ledger/api/v1/admin/*_management_service.proto"]),  # TODO(oliver): Figure out haskell grpc client work for participant_pruning
     visibility = ["//visibility:private"],
 )
 

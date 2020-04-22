@@ -52,6 +52,7 @@ object Tests {
     "ConfigManagementServiceIT" -> (new ConfigManagement(_)),
     "LotsOfPartiesIT" -> (new LotsOfParties(_)),
     "TransactionScaleIT" -> (new TransactionScale(_)),
+    "ParticipantPruningIT" -> (new ParticipantPruning(_)),
   )
 
   val all: Tests = default ++ optional

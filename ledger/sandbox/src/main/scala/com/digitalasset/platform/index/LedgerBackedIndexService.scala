@@ -258,4 +258,8 @@ abstract class LedgerBackedIndexService(
       submitter: Ref.Party,
   ): Future[Unit] =
     ledger.stopDeduplicatingCommand(commandId, submitter)
+
+  /** Pruning command */
+  override def pruneByOffset(pruneUpToInclusive: Offset): Future[Unit] =
+    ledger.pruneByOffset(pruneUpToInclusive)
 }

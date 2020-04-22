@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.command_completion_service._
 import com.daml.ledger.api.validation.PartyNameChecker
 import com.daml.logging.LoggingContext.withEnrichedLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.AccessViolationMapping
 import com.daml.platform.api.grpc.GrpcApiService
 import com.daml.platform.server.api.services.domain.CommandCompletionService
 import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
@@ -30,7 +31,8 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
     protected val mat: Materializer,
     protected val esf: ExecutionSequencerFactory,
     logCtx: LoggingContext)
-    extends CommandCompletionService {
+    extends CommandCompletionService
+    with AccessViolationMapping {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
@@ -47,7 +49,7 @@ final class ApiCommandCompletionService private (completionsService: IndexComple
 
         completionsService
           .getCompletions(offset, request.applicationId, request.parties)
-          .via(logger.logErrorsOnStream)
+          .via(logger.mapAndLogErrorsOnStream(mapAccessViolations(logger)))
     }
 
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =

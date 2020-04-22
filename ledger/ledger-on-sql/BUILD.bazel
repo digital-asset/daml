@@ -243,6 +243,7 @@ da_scala_test_suite(
                 "--verbose",
                 "--all-tests",
                 "--exclude=ConfigManagementServiceIT",
+                "--exclude=ParticipantPruningIT",
             ],
         ),
         conformance_test(

@@ -69,9 +69,15 @@ private[dao] final class TransactionsReader(
             )
             .withFetchSize(Some(pageSize))
         val rawEventsFuture =
-          dispatcher.executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
+          dispatcher
+            .executeSql(dbMetrics.getFlatTransactions) { implicit connection =>
+              QueryNonPruned.executeSql(
+                query.asVectorOf(EventsTable.rawFlatEventParser),
+                _ > startExclusive,
+                s"Flat transactions from ${startExclusive.toHexString}"
+              )
+            }
+            .flatMap(_.fold(Future.failed, Future.successful))
         rawEventsFuture.flatMap(
           rawEvents =>
             Timed.future(
@@ -128,9 +134,14 @@ private[dao] final class TransactionsReader(
             )
             .withFetchSize(Some(pageSize))
         val rawEvents =
-          dispatcher.executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
-            query.asVectorOf(EventsTable.rawTreeEventParser)
-          }
+          dispatcher
+            .executeSql(dbMetrics.getTransactionTrees) { implicit connection =>
+              QueryNonPruned.executeSql(
+                query.asVectorOf(EventsTable.rawTreeEventParser),
+                _ > startExclusive,
+                s"Transaction trees from ${startExclusive.toHexString}")
+            }
+            .flatMap(_.fold(Future.failed, Future.successful))
         rawEvents.flatMap(
           es =>
             Timed.future(
@@ -185,9 +196,14 @@ private[dao] final class TransactionsReader(
             )
             .withFetchSize(Some(pageSize))
         val rawEvents =
-          dispatcher.executeSql(dbMetrics.getActiveContracts) { implicit connection =>
-            query.asVectorOf(EventsTable.rawFlatEventParser)
-          }
+          dispatcher
+            .executeSql(dbMetrics.getActiveContracts) { implicit connection =>
+              QueryNonPruned.executeSql(
+                query.asVectorOf(EventsTable.rawFlatEventParser),
+                _ >= activeAt,
+                s"Active contracts at ${activeAt.toHexString}")
+            }
+            .flatMap(_.fold(Future.failed, Future.successful))
         Timed.future(
           future = rawEvents.flatMap(Future.traverse(_)(deserializeEntry(verbose))),
           timer = dbMetrics.getActiveContracts.translationTimer,

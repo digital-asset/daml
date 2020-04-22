@@ -29,6 +29,11 @@ import com.daml.ledger.api.v1.admin.package_management_service.{
   PackageDetails,
   UploadDarFileRequest
 }
+import com.daml.ledger.api.v1.admin.participant_pruning_service.{
+  PruneByOffsetRequest,
+  PruneByTimeRequest,
+  PruneResponse
+}
 import com.daml.ledger.api.v1.admin.party_management_service.{
   AllocatePartyRequest,
   GetParticipantIdRequest,
@@ -628,6 +633,14 @@ private[testtool] final class ParticipantTestContext private[participant] (
     services.configManagement.setTimeModel(
       SetTimeModelRequest(nextSubmissionId(), Some(mrt.asProtobuf), generation, Some(newTimeModel)),
     )
+
+  def pruneByTime(pruneUpTo: Instant): Future[PruneResponse] =
+    services.participantPruning.pruneByTime(
+      PruneByTimeRequest(Some(pruneUpTo.asProtobuf), nextSubmissionId()))
+
+  def pruneByOffset(pruneUpTo: LedgerOffset): Future[PruneResponse] =
+    services.participantPruning.pruneByOffset(
+      PruneByOffsetRequest(Some(pruneUpTo), nextSubmissionId()))
 
   private[infrastructure] def preallocateParties(
       n: Int,

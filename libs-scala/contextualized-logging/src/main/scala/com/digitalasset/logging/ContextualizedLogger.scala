@@ -62,7 +62,11 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
   }
 
   def logErrorsOnStream[Out](implicit logCtx: LoggingContext): Flow[Out, Out, NotUsed] =
-    Flow[Out].mapError {
+    mapAndLogErrorsOnStream[Out](Map.empty)(logCtx)
+
+  def mapAndLogErrorsOnStream[Out](pf: PartialFunction[Throwable, Throwable])(
+      implicit logCtx: LoggingContext): Flow[Out, Out, NotUsed] =
+    Flow[Out].mapError(pf orElse {
       case e @ GrpcException(s, _) =>
         if (internalOrUnknown(s.getCode)) {
           logError(e)
@@ -71,6 +75,6 @@ final class ContextualizedLogger private (val withoutContext: Logger) {
       case NonFatal(e) =>
         logError(e)
         e
-    }
+    })
 
 }

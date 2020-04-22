@@ -149,6 +149,13 @@ trait LedgerReadDao extends ReportsHealth {
       commandId: CommandId,
       submitter: Ref.Party,
   ): Future[Unit]
+
+  /** Participant pruning commands
+    * The fact that these non-read methods are part of the *read only* ledger interface (along with deduplication).
+    * This appears to be an artifact of the LedgerApiServer only recently having begun to issue writes to the index in
+    * these two use cases (deduplication and pruning).
+    */
+  def pruneByOffset(pruneUpToInclusive: Offset): Future[Unit]
 }
 
 trait LedgerWriteDao extends ReportsHealth {

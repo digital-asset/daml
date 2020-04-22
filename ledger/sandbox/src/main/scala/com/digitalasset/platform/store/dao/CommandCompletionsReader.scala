@@ -11,8 +11,12 @@ import com.daml.ledger.ApplicationId
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.metrics.Metrics
 import com.daml.platform.ApiOffset
+import com.daml.platform.store.dao.events.QueryNonPruned
 
-private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher, metrics: Metrics) {
+import scala.concurrent.{ExecutionContext, Future}
+
+private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher, metrics: Metrics)(
+    implicit executionContext: ExecutionContext) {
 
   private def offsetFor(response: CompletionStreamResponse): Offset =
     ApiOffset.assertFromString(response.checkpoint.get.offset.get.getAbsolute)
@@ -29,9 +33,17 @@ private[dao] final class CommandCompletionsReader(dispatcher: DbDispatcher, metr
       parties = parties,
     )
     Source
-      .future(dispatcher.executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
-        query.as(CommandCompletionsTable.parser.*)
-      })
+      .future(dispatcher
+        .executeSql(metrics.daml.index.db.getCompletions) { implicit connection =>
+          // Check pruning constraint after query to prevent possible race-condition in opposite
+          // order when running request in READ_COMMITTED isolation level.
+          QueryNonPruned.executeSql[List[CompletionStreamResponse]](
+            query.as(CommandCompletionsTable.parser.*),
+            _ > startExclusive,
+            s"Command completion request from ${startExclusive.toHexString} to ${endInclusive.toHexString}"
+          )
+        }
+        .flatMap(_.fold(Future.failed, Future.successful)))
       .mapConcat(_.map(response => offsetFor(response) -> response))
   }
 
