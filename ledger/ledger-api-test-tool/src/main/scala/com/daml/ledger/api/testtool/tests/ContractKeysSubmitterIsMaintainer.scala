@@ -45,7 +45,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)),
+              .exerciseFetchByKeyDelegated(_, owner, key),
           )
           .failed
 
@@ -54,7 +54,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)),
+              .exerciseLookupByKeyDelegated(_, owner, key),
           )
           .failed
       } yield {
@@ -99,7 +99,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseFetchByKeyDelegated(_, owner, key, None),
+              .exerciseFetchByKeyDelegated(_, owner, key),
           )
           .failed
 
@@ -108,7 +108,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           .exercise(
             delegate,
             delegation
-              .exerciseLookupByKeyDelegated(_, owner, key, None),
+              .exerciseLookupByKeyDelegated(_, owner, key),
           )
           .failed
       } yield {
