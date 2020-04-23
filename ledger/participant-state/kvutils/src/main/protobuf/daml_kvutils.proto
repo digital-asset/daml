@@ -387,6 +387,8 @@ message DamlSubmissionDedupValue {
 // instance storage.
 message DamlContractState {
   // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
   google.protobuf.Timestamp active_at = 1;
 
   // Optional, if set the contract has been archived.
@@ -438,6 +440,11 @@ message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
   string contract_id = 1;
+
+  // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
+  google.protobuf.Timestamp active_at = 2;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test

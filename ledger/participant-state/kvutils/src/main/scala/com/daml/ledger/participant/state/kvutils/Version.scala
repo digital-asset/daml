@@ -80,6 +80,10 @@ object Version {
     *      * Add DamlSubmissionBatch message.
     *   4: * Remove application_id from DamlCommandDedupKey. Only submitter and commandId are used for deduplication.
     *      * Add deduplicatedUntil field to DamlCommandDedupValue to restrict the deduplication window.
+    *   5: * Add active_at to DamlContractKeyState to be able to check causal monotonicity of positive key lookups,
+    *        i.e. whether the contract currently associated with a contract key was created in a transaction with
+    *        ledger_effective_time <= the ledger_effective_time of the transaction under validation.
+    *
     */
-  val version: Long = 4
+  val version: Long = 5
 }
