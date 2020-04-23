@@ -13,6 +13,7 @@ import DA.Daml.LF.Verify.Solve
 import DA.Daml.LF.Verify.Read
 import DA.Daml.LF.Verify.Context
 import DA.Pretty
+import DA.Bazel.Runfiles
 -- import qualified Data.NameMap as NM
 
 -- TODO: temporarily hardcoded
@@ -28,6 +29,8 @@ fieldName = FieldName "amount"
 main :: IO ()
 main = do
   Options{..} <- execParser optionsParserInfo
+  solver <- locateRunfiles "z3_nix/bin/z3"
+  print solver
   pkgs <- readPackages optInputDars
   -- mapM_ (putStrLn . renderPretty) (concat (map (NM.toList . packageModules . fst . snd) pkgs))
   putStrLn "Start value phase" >> case runEnv (genPackages ValuePhase pkgs) emptyEnv of
@@ -46,6 +49,7 @@ main = do
           let cset = constructConstr env3 templName choiceName fieldName
           putStr "Create: " >> print (_cCres cset)
           putStr "Archive: " >> print (_cArcs cset)
+          solveConstr solver cset
 
 printFExpr :: [(FieldName, Expr)] -> IO ()
 printFExpr fields = mapM_ (\(f,e) -> putStrLn (show f ++ " : " ++ renderPretty e)) fields

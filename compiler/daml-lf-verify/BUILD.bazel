@@ -6,6 +6,9 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "daml-lf-verify",
     srcs = glob(["src/**/*.hs"]),
+    data = [
+        "@z3_nix//:bin/z3",
+    ],
     hackage_deps = [
         "aeson",
         "base",
@@ -38,6 +41,7 @@ da_haskell_binary(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )

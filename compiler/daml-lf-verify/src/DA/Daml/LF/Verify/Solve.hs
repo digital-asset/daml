@@ -4,19 +4,22 @@
 -- | Constraint solver for DAML LF static verification
 module DA.Daml.LF.Verify.Solve
   ( constructConstr
+  , solveConstr
   , ConstraintSet(..)
   ) where
 
 import Data.Maybe (fromJust)
 import Data.List (lookup)
+import Data.Set (toList, fromList)
 import qualified Data.Text as T
-import SimpleSMT
+import qualified SimpleSMT as S
 -- import Z3.Monad
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Verify.Context
 -- import DA.Pretty
 
+-- TODO: Since S.SExpr is so similar, we might be able to just drop this.
 -- | A simple form of expressions featuring basic arithmetic.
 data ConstraintExpr
   -- | Reference to an expression variable.
@@ -74,19 +77,35 @@ constructConstr env tem ch f =
       in ConstraintSet vars creVals arcVals
     Nothing -> error "Choice not found"
 
--- cexp2Z3 :: ConstraintExpr -> Z3 AST
--- cexp2Z3 (CVar x) = undefined
--- cexp2Z3 (CAdd e1 e2) = do
---   ze1 <- cexp2Z3 e1
---   ze2 <- cexp2Z3 e2
---   mkAdd [ze1, ze2]
--- cexp2Z3 (CSub e1 e2) = do
---   ze1 <- cexp2Z3 e1
---   ze2 <- cexp2Z3 e2
---   mkSub [ze1, ze2]
+cexp2sexp :: [(ExprVarName,S.SExpr)] -> ConstraintExpr -> IO S.SExpr
+cexp2sexp vars (CVar x) = return $ fromJust $ lookup x vars
+cexp2sexp vars (CAdd ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.add se1 se2
+cexp2sexp vars (CSub ce1 ce2) = do
+  se1 <- cexp2sexp vars ce1
+  se2 <- cexp2sexp vars ce2
+  return $ S.sub se1 se2
 
--- -- TODO: This really shouldn't be an Integer
--- ctr2Z3 :: ConstraintSet -> Z3 (Maybe [Integer])
--- ctr2Z3 ConstraintSet{..} = do
---   -- TODO: Declare variables
---   cres <- mapM cexp2Z3 _cCres >>= mkAdd
+declareVars :: S.Solver -> [ExprVarName] -> IO [(ExprVarName,S.SExpr)]
+-- TODO: This should be a float instead of an int
+declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tInt) xs
+  where
+    var2str :: ExprVarName -> String
+    var2str (ExprVarName x) = T.unpack x
+
+solveConstr :: FilePath -> ConstraintSet -> IO ()
+solveConstr spath ConstraintSet{..} = do
+  log <- S.newLogger 0
+  sol <- S.newSolver spath ["-in"] (Just log)
+  vars <- declareVars sol $ filterDups _cVars
+  cre <- foldl S.add (S.int 0) <$> mapM (cexp2sexp vars) _cCres
+  arc <- foldl S.add (S.int 0) <$> mapM (cexp2sexp vars) _cArcs
+  S.assert sol (S.not (cre `S.eq` arc))
+  S.check sol >>= print
+  where
+    -- TODO: Filter vars beforehand
+    -- TODO: Where does this "_" come from?
+    filterDups :: [ExprVarName] -> [ExprVarName]
+    filterDups = filter (\(ExprVarName x) -> x /= "_") . toList . fromList
