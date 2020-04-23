@@ -65,7 +65,7 @@ withPostgres f =
   where startPostgres dataDir logFile =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
-                ["-o", "-F -p " <> show dbPort, "-w", "-D", dataDir, "-l", logFile, "start"]
+                ["-w", "-D", dataDir, "-l", logFile, "start"]
         stopPostgres dataDir =
             callProcess
                 "external/postgresql_nix/bin/pg_ctl"
