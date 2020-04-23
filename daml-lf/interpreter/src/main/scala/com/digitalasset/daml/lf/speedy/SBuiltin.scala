@@ -1129,15 +1129,17 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.ctrl = CtrlValue.None
-                true
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SOptional(Some(SContractId(contractId))))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SOptional(Some(SContractId(cid))))
+                  true
+                case SKeyLookupResult.NotFound =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.ctrl = CtrlValue.None
+                  true
+                case SKeyLookupResult.NotVisible =>
+                  machine.tryHandleException()
               },
             ),
           )
@@ -1199,14 +1201,14 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.tryHandleException()
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SContractId(contractId))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SContractId(cid))
+                  true
+                case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.tryHandleException()
               },
             ),
           )
