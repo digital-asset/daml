@@ -54,7 +54,7 @@ USAGE
     --test)
       shift
       is_test=1
-      scalafmt_args+=(--test)
+      scalafmt_args+=(--test --non-interactive)
       dade_copyright_arg=check
       buildifier_target=//:buildifier
       ;;
