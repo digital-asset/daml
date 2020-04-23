@@ -11,11 +11,13 @@ load("//bazel_tools:testing.bzl", "sdk_platform_test")
 sdk_versions = [
     "1.0.0",
     "1.0.1-snapshot.20200417.3908.1.722bac90",
+    "1.1.0-snapshot.20200422.3991.0.6391ee9f",
 ]
 
 platform_versions = [
     "1.0.0",
     "1.0.1-snapshot.20200417.3908.1.722bac90",
+    "1.1.0-snapshot.20200422.3991.0.6391ee9f"
 ]
 
 [

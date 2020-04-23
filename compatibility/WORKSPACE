@@ -104,3 +104,9 @@ daml_sdk(
     sdk_sha256 = "aaf832ceda1a66a8469460d5a4b6c14f681ce692d4e9ef6010896febbaf4b6e1",
     test_tool_sha256 = "762cd4836a8359dca0fb3271ba2e1d0629138f7d8d914298324418a174c5d22a",
 )
+
+daml_sdk(
+    version = "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+    sdk_sha256 = "d3bddaa903ebaebb6f714a3ac39598ba7fd71e8b80636c1275054ed7b883a0d9",
+    test_tool_sha256 = "649ecf7a7e98caef7dac20082526444b33d85dfe79b4b9b66d069ad67aac74fa",
+)
