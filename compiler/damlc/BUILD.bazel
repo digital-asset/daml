@@ -249,36 +249,15 @@ genrule(
 )
 
 genrule(
-    name = "daml-base-hoogle-docs",
+    name = "daml-base-docs",
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
         ":daml-base-hoogle-template",
-    ],
-    outs = ["daml-base-hoogle.txt"],
-    cmd = """
-        $(location //compiler/damlc) -- docs \
-            --output=$(OUTS) \
-            --input-format=json \
-            --format=Hoogle \
-            --exclude-instances=HasField \
-            --drop-orphan-instances \
-            --template=$(location :daml-base-hoogle-template) \
-            $(location :daml-stdlib.json) $(location :daml-prim.json)
-    """,
-    tools = ["//compiler/damlc"],
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "daml-base-rst-docs",
-    srcs = [
-        ":daml-prim.json",
-        ":daml-stdlib.json",
         ":daml-base-rst-index-template",
         ":daml-base-rst-template",
     ],
-    outs = ["daml-base-rst.tar.gz"],
+    outs = ["daml-base-rst.tar.gz", "daml-base-hoogle.txt"],
     cmd = """
         $(location //compiler/damlc) -- docs \
             --output=daml-base-rst \
@@ -288,10 +267,13 @@ genrule(
             --drop-orphan-instances \
             --template=$(location :daml-base-rst-template) \
             --index-template=$(location :daml-base-rst-index-template) \
+            --hoogle-template=$(location :daml-base-hoogle-template) \
+            --base-url=https://docs.daml.com/daml/stdlib \
+            --output-hoogle=$(location :daml-base-hoogle.txt) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
         tar c daml-base-rst \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
-            | gzip -n > $(OUTS)
+            | gzip -n > $(location :daml-base-rst.tar.gz)
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
