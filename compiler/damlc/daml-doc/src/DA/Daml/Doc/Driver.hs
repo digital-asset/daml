@@ -44,17 +44,21 @@ data DamldocOptions = DamldocOptions
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
     , do_docIndexTemplate :: Maybe FilePath
+    , do_docHoogleTemplate :: Maybe FilePath
     , do_transformOptions :: TransformOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool
     , do_extractOptions :: ExtractOptions
+    , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
+    , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
+    , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
     }
 
 data InputFormat = InputJson | InputDaml
     deriving (Eq, Show, Read)
 
-data OutputFormat = OutputJson | OutputHoogle | OutputDocs RenderFormat
+data OutputFormat = OutputJson | OutputDocs RenderFormat
     deriving (Eq, Show, Read)
 
 -- | Run damldocs!
@@ -92,6 +96,7 @@ renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
 renderDocData DamldocOptions{..} docData = do
     templateM <- mapM T.readFileUtf8 do_docTemplate
     indexTemplateM <- mapM T.readFileUtf8 do_docIndexTemplate
+    hoogleTemplateM <- mapM T.readFileUtf8 do_docHoogleTemplate
 
     let prefix = fromMaybe "" templateM
         write file contents = do
@@ -102,8 +107,6 @@ renderDocData DamldocOptions{..} docData = do
     case do_outputFormat of
             OutputJson ->
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
-            OutputHoogle ->
-                write do_outputPath . T.concat $ map renderSimpleHoogle docData
             OutputDocs format -> do
                 let renderOptions = RenderOptions
                         { ro_mode =
@@ -114,5 +117,9 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_title = do_docTitle
                         , ro_template = templateM
                         , ro_indexTemplate = indexTemplateM
+                        , ro_hoogleTemplate = hoogleTemplateM
+                        , ro_baseURL = do_baseURL
+                        , ro_hooglePath = do_hooglePath
+                        , ro_anchorPath = do_anchorPath
                         }
                 renderDocs renderOptions docData

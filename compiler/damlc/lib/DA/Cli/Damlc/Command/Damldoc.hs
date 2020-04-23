@@ -33,6 +33,7 @@ documentation numProcessors = Damldoc
     <*> optOutputFormat
     <*> optTemplate
     <*> optIndexTemplate
+    <*> optHoogleTemplate
     <*> optOmitEmpty
     <*> optDataOnly
     <*> optNoAnnot
@@ -42,6 +43,9 @@ documentation numProcessors = Damldoc
     <*> optDropOrphanInstances
     <*> optCombine
     <*> optExtractOptions
+    <*> optBaseURL
+    <*> optHooglePath
+    <*> optAnchorPath
     <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -67,6 +71,27 @@ documentation numProcessors = Damldoc
             <> long "output"
             <> short 'o'
 
+    optBaseURL :: Parser (Maybe T.Text)
+    optBaseURL =
+        optional . fmap T.pack . option str
+            $ metavar "URL"
+            <> help "Base URL for generated documentation."
+            <> long "base-url"
+
+    optHooglePath :: Parser (Maybe FilePath)
+    optHooglePath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to output hoogle database."
+            <> long "output-hoogle"
+
+    optAnchorPath :: Parser (Maybe FilePath)
+    optAnchorPath =
+        optional . option str
+            $ metavar "PATH"
+            <> help "Path to output anchor table."
+            <> long "output-anchor"
+
     optTemplate :: Parser (Maybe FilePath)
     optTemplate =
         optional . option str
@@ -81,6 +106,13 @@ documentation numProcessors = Damldoc
             $ metavar "FILE"
             <> help "Path to mustache template for index, when rendering to a folder. The variable 'body' in the template is substituted with a module index."
             <> long "index-template"
+
+    optHoogleTemplate :: Parser (Maybe FilePath)
+    optHoogleTemplate =
+        optional . option str
+            $ metavar "FILE"
+            <> help "Path to mustache template for hoogle database."
+            <> long "hoogle-template"
 
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
@@ -102,9 +134,8 @@ documentation numProcessors = Damldoc
                 "md" -> Right (OutputDocs Markdown)
                 "markdown" -> Right (OutputDocs Markdown)
                 "html" -> Right (OutputDocs Html)
-                "hoogle" -> Right OutputHoogle
                 "json" -> Right OutputJson
-                _ -> Left "Unknown output format. Expected rst, md, markdown, html, hoogle, or json."
+                _ -> Left "Unknown output format. Expected rst, md, markdown, html, or json."
 
     optOmitEmpty :: Parser Bool
     optOmitEmpty = switch
@@ -199,6 +230,7 @@ data CmdArgs = Damldoc
     , cOutputFormat :: OutputFormat
     , cTemplate :: Maybe FilePath
     , cIndexTemplate :: Maybe FilePath
+    , cHoogleTemplate :: Maybe FilePath
     , cOmitEmpty :: Bool
     , cDataOnly  :: Bool
     , cNoAnnot   :: Bool
@@ -208,6 +240,9 @@ data CmdArgs = Damldoc
     , cDropOrphanInstances :: Bool
     , cCombine :: Bool
     , cExtractOptions :: ExtractOptions
+    , cBaseURL :: Maybe T.Text
+    , cHooglePath :: Maybe FilePath
+    , cAnchorPath :: Maybe FilePath
     , cMainFiles :: [FilePath]
     } deriving (Show)
 
@@ -227,10 +262,14 @@ exec Damldoc{..} = do
         , do_inputFiles = map toNormalizedFilePath' cMainFiles
         , do_docTemplate = cTemplate
         , do_docIndexTemplate = cIndexTemplate
+        , do_docHoogleTemplate = cHoogleTemplate
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack . unitIdString <$> optUnitId cOptions
         , do_combine = cCombine
         , do_extractOptions = cExtractOptions
+        , do_baseURL = cBaseURL
+        , do_hooglePath = cHooglePath
+        , do_anchorPath = cAnchorPath
         }
 
   where

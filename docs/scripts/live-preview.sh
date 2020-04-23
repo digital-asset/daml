@@ -45,7 +45,7 @@ do
     fi
     if [ "$arg" = "--gen" ]; then
         # Hoogle
-        bazel build //compiler/damlc:daml-base-hoogle-docs
+        bazel build //compiler/damlc:daml-base-hoogle.txt
         mkdir -p $BUILD_DIR/gen/hoogle_db
         cp -L ../../bazel-bin/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
