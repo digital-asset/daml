@@ -7,6 +7,7 @@ import java.sql.PreparedStatement
 import java.time.Instant
 import java.util.Date
 
+import anorm.ParameterMetaData.ByteArrayParameterMetaData
 import anorm.{
   Column,
   MetaDataItem,
@@ -17,6 +18,7 @@ import anorm.{
   ToStatement
 }
 import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.crypto.Hash
 import com.daml.lf.data.Ref
 import com.daml.lf.value.Value
 
@@ -155,7 +157,7 @@ object Conversions {
 
   // Offsets
 
-  implicit def offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
+  implicit val offsetToStatement: ToStatement[Offset] = new ToStatement[Offset] {
     override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
       s.setBytes(index, v.toByteArray)
   }
@@ -170,5 +172,20 @@ object Conversions {
 
   def instant(name: String): RowParser[Instant] =
     SqlParser.get[Date](name).map(_.toInstant)
+
+  // Hashes
+
+  implicit val hashToStatement: ToStatement[Hash] =
+    (s: PreparedStatement, i: Int, v: Hash) => s.setBytes(i, v.bytes.toByteArray)
+
+  implicit val columnToHash: Column[Hash] =
+    Column.nonNull((value: Any, meta) =>
+      Column.columnToByteArray(value, meta).toEither.map(Hash.assertFromByteArray))
+
+  implicit val hashMetaParameter: ParameterMetaData[Hash] =
+    new ParameterMetaData[Hash] {
+      override final val sqlType: String = ByteArrayParameterMetaData.sqlType
+      override final val jdbcType: Int = ByteArrayParameterMetaData.jdbcType
+    }
 
 }
