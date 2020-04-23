@@ -67,8 +67,6 @@ trait PostgresAround {
       run(
         "start PostgreSQL",
         Tool.pg_ctl,
-        "-o",
-        s"-F -p ${postgresFixture.port}",
         "-w",
         "-D",
         postgresFixture.dataDir.toString,
