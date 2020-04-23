@@ -19,7 +19,7 @@ object Conversions {
     Column.nonNull((value: Any, meta) =>
       Column.columnToString(value, meta).toEither.flatMap(x => f(x).left.map(SqlMappingError)))
 
-  private final class SubStringToStatement[S <: String] extends ToStatement[S] {
+  private final class SubTypeOfStringToStatement[S <: String] extends ToStatement[S] {
     override def set(s: PreparedStatement, i: Int, v: S): Unit =
       ToStatement.stringToStatement.set(s, i, v)
   }
@@ -29,7 +29,7 @@ object Conversions {
       ToStatement.stringToStatement.set(s, i, v.toString)
   }
 
-  private final class SubStringMetaParameter[S <: String] extends ParameterMetaData[S] {
+  private final class SubTypeOfStringMetaParameter[S <: String] extends ParameterMetaData[S] {
     override val sqlType: String = ParameterMetaData.StringParameterMetaData.sqlType
     override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
   }
@@ -40,10 +40,10 @@ object Conversions {
     stringColumnToX(Ref.Party.fromString)
 
   implicit val partyToStatement: ToStatement[Ref.Party] =
-    new SubStringToStatement[Ref.Party]
+    new SubTypeOfStringToStatement[Ref.Party]
 
   implicit val partyMetaParameter: ParameterMetaData[Ref.Party] =
-    new SubStringMetaParameter[Ref.Party]
+    new SubTypeOfStringMetaParameter[Ref.Party]
 
   def party(columnName: String): RowParser[Ref.Party] =
     SqlParser.get[Ref.Party](columnName)(columnToParty)
@@ -54,7 +54,7 @@ object Conversions {
     stringColumnToX(Ref.PackageId.fromString)
 
   implicit val packageIdToStatement: ToStatement[Ref.PackageId] =
-    new SubStringToStatement[Ref.PackageId]
+    new SubTypeOfStringToStatement[Ref.PackageId]
 
   def packageId(columnName: String): RowParser[Ref.PackageId] =
     SqlParser.get[Ref.PackageId](columnName)(columnToPackageId)
@@ -65,13 +65,13 @@ object Conversions {
     stringColumnToX(Ref.LedgerString.fromString)
 
   implicit val ledgerStringToStatement: ToStatement[Ref.LedgerString] =
-    new SubStringToStatement[Ref.LedgerString]
+    new SubTypeOfStringToStatement[Ref.LedgerString]
 
   def ledgerString(columnName: String): RowParser[Ref.LedgerString] =
     SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString)
 
   implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
-    new SubStringMetaParameter[Ref.LedgerString]
+    new SubTypeOfStringMetaParameter[Ref.LedgerString]
 
   // ParticipantId
 
@@ -79,10 +79,10 @@ object Conversions {
     stringColumnToX(Ref.ParticipantId.fromString)
 
   implicit val participantToStatement: ToStatement[Ref.ParticipantId] =
-    new SubStringToStatement[Ref.ParticipantId]
+    new SubTypeOfStringToStatement[Ref.ParticipantId]
 
   implicit val participantIdMetaParameter: ParameterMetaData[Ref.ParticipantId] =
-    new SubStringMetaParameter[Ref.ParticipantId]
+    new SubTypeOfStringMetaParameter[Ref.ParticipantId]
 
   def participantId(columnName: String): RowParser[Ref.ParticipantId] =
     SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId)
@@ -103,7 +103,7 @@ object Conversions {
   // ContractIdString
 
   implicit val contractIdStringMetaParameter: ParameterMetaData[Ref.ContractIdString] =
-    new SubStringMetaParameter[Ref.ContractIdString]
+    new SubTypeOfStringMetaParameter[Ref.ContractIdString]
 
   // ChoiceName
 
@@ -111,10 +111,10 @@ object Conversions {
     stringColumnToX(Ref.ChoiceName.fromString)
 
   implicit val choiceNameToStatement: ToStatement[Ref.ChoiceName] =
-    new SubStringToStatement[Ref.ChoiceName]
+    new SubTypeOfStringToStatement[Ref.ChoiceName]
 
   implicit val choiceNameMetaParameter: ParameterMetaData[Ref.ChoiceName] =
-    new SubStringMetaParameter[Ref.ChoiceName]
+    new SubTypeOfStringMetaParameter[Ref.ChoiceName]
 
   // QualifiedName
 
