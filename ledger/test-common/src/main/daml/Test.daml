@@ -469,20 +469,18 @@ template Delegation
         with
           p: Party
           k: Text
-          expected: Optional (ContractId Delegated)
         do
-          (cid, _) <- fetchByKey @Delegated (p, k)
-          assertMsg "fetch matches" (expected == Some cid)
+          _ <- fetchByKey @Delegated (p, k)
+          pure ()
 
     controller delegate can
       nonconsuming LookupByKeyDelegated: ()
         with
           p: Party
           k: Text
-          expected: Optional (ContractId Delegated)
         do
-          actual <- lookupByKey @Delegated (p, k)
-          assertMsg "lookup matches" (expected == actual)
+          _ <- lookupByKey @Delegated (p, k)
+          pure ()
 
 
 template ShowDelegated
