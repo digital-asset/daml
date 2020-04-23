@@ -44,4 +44,7 @@ jobs:
 
           # FIXME: fill in the gaps.
           exit 0
-      - template: ci/tell-slack-failed.yml
+      # For whatever reason, templates are searched from the path of the
+      # current YML file. I could not find any reference to that in the
+      # documentation.
+      - template: ../tell-slack-failed.yml
