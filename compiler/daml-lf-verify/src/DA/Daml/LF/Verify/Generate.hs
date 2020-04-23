@@ -10,11 +10,12 @@ module DA.Daml.LF.Verify.Generate
 -- import Control.Monad.Error.Class (throwError)
 import qualified Data.NameMap as NM
 -- import Data.Bifunctor (second)
+import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
 import DA.Daml.LF.Verify.Subst
--- import DA.Pretty
+import DA.Pretty
 
 data Phase
   = ValuePhase
@@ -76,7 +77,7 @@ genValue pac mod val = do
 genChoice :: MonadEnv m => Qualified TypeConName -> ExprVarName -> [FieldName]
   -> TemplateChoice -> m GenOutput
 genChoice tem this temFs TemplateChoice{..} = do
-  extVarEnv chcSelfBinder
+  trace ("Start choice " ++ show chcName) $ extVarEnv chcSelfBinder
   extVarEnv (fst chcArgBinder)
   argFs <- recTypFields (snd chcArgBinder)
   extRecEnv (fst chcArgBinder) argFs
@@ -90,7 +91,7 @@ genTemplate :: MonadEnv m => PackageRef -> ModuleName -> Template -> m ()
 -- TODO: Take precondition into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
-  fields <- recTypConFields tplTypeCon
+  fields <- trace ("Start template " ++ (show tplTypeCon)) $ recTypConFields tplTypeCon
   -- TODO: skolemise only when defining the choice? But then multiple choice
   -- would skolemise multiple times...
   -- TODO: skolemise the fields themselves or rather this.field?
@@ -100,9 +101,18 @@ genTemplate pac mod Template{..} = do
   mapM_ extVarEnv xs
   extRecEnv tplParam fs
   extRecEnvLvl1 fields
-  choOuts <- mapM (genChoice name tplParam fs) (NM.toList tplChoices)
-  mapM_ (\(ch, upd) -> extChEnv name ch upd)
-    $ zip (map chcName $ NM.toList tplChoices) (map _goUpd choOuts)
+  mapM_ (extChoice name fs) (archive : NM.toList tplChoices)
+  where
+    archive :: TemplateChoice
+    archive = TemplateChoice Nothing (ChoiceName "Archive") True
+      (ENil (TBuiltin BTParty)) (ExprVarName "self")
+      (ExprVarName "arg", TStruct []) (TBuiltin BTUnit)
+      (EUpdate $ UPure (TBuiltin BTUnit) (EBuiltin BEUnit))
+    extChoice :: MonadEnv m => Qualified TypeConName -> [FieldName]
+      -> TemplateChoice -> m ()
+    extChoice tem fs ch = do
+      chOut <- genChoice tem tplParam fs ch
+      extChEnv tem (chcName ch) (_goUpd chOut)
 
 genExpr :: MonadEnv m => Phase -> Expr -> m GenOutput
 genExpr ph = \case
@@ -196,7 +206,8 @@ genForExercise :: MonadEnv m => Phase -> Qualified TypeConName -> ChoiceName
 genForExercise ph tem ch cid par arg = do
   cidOut <- genExpr ph cid
   argOut <- genExpr ph arg
-  updSet <- lookupChoice tem ch
+  -- TODO: Substitute arg in these updates
+  updSet <- trace ("Lookup: " ++ show tem ++ " : " ++ show ch) $ trace (renderPretty arg) $ lookupChoice tem ch
   return (GenOutput (EUpdate (UExercise tem ch (_goExp cidOut) par (_goExp argOut))) updSet)
 
 -- TODO: handle binds by substituting?
@@ -206,7 +217,7 @@ genForBind ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
   case _goExp bindOut of
     EUpdate (UFetch tc _cid) -> do
-      fs <- recTypConFields $ qualObject tc
+      fs <- trace ("Fetch " ++ show tc) $ recTypConFields $ qualObject tc
       extRecEnv (fst $ bindingBinder bind) (map fst fs)
     _ -> return ()
   extVarEnv (fst $ bindingBinder bind)

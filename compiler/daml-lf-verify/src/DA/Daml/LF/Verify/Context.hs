@@ -34,6 +34,7 @@ import Control.Monad.State.Lazy
 import Data.Maybe (listToMaybe, isJust)
 import Data.List (find)
 import qualified Data.HashMap.Strict as HM
+import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 
@@ -130,18 +131,20 @@ introEnv :: MonadEnv m => Env -> m ()
 introEnv env = modify (concatEnv env)
 
 extVarEnv :: MonadEnv m => ExprVarName -> m ()
+-- TODO: Check for doubles when adding
 extVarEnv x = get >>= \env@Env{..} -> put env{_envskol = SkolVar x : _envskol}
 
 -- TODO: Problem! ExprVarName is always `this` or `arg`, so it overwrites!!
 -- Possible solution: pass in the current template?
 extRecEnv :: MonadEnv m => ExprVarName -> [FieldName] -> m ()
+-- TODO: Check for doubles when adding
 extRecEnv x fs = get >>= \env@Env{..} -> put env{_envskol = SkolRec x fs : _envskol}
 
 extValEnv :: MonadEnv m => Qualified ExprValName -> Expr -> UpdateSet -> m ()
 extValEnv val expr upd = get >>= \env@Env{..} -> put env{_envvals = HM.insert val (expr, upd) _envvals}
 
 extChEnv :: MonadEnv m => Qualified TypeConName -> ChoiceName -> UpdateSet -> m ()
-extChEnv tc ch upd = get >>= \env@Env{..} -> put env{_envchs = HM.insert (tc, ch) upd _envchs}
+extChEnv tc ch upd = trace "Extend!" $ trace (show ch) $ get >>= \env@Env{..} -> put env{_envchs = HM.insert (tc, ch) upd _envchs}
 
 extDatsEnv :: MonadEnv m => HM.HashMap TypeConName DefDataType -> m ()
 extDatsEnv hmap = get >>= \env@Env{..} -> put env{_envdats = hmap `HM.union` _envdats}
@@ -183,13 +186,13 @@ lookupVal val = do
 lookupChoice :: MonadEnv m => Qualified TypeConName -> ChoiceName
   -> m UpdateSet
 -- TODO: Actually bind this, instead of hardcoding
-lookupChoice tem (ChoiceName "Archive") = do
-  fs <- recTypConFields $ qualObject tem
-  let fields = map ((\f -> (f, EVar $ fieldName2VarName f)) . fst) fs
-  return emptyUpdateSet{_usArc = [UpdArchive tem fields]}
-lookupChoice _tem ch = do
+-- lookupChoice tem (ChoiceName "Archive") = do
+--   fs <- recTypConFields $ qualObject tem
+--   let fields = map ((\f -> (f, EVar $ fieldName2VarName f)) . fst) fs
+--   return emptyUpdateSet{_usArc = [UpdArchive tem fields]}
+lookupChoice tem ch = do
   env <- get
-  case lookupChoInHMap (_envchs env) ch of
+  case lookupChoInHMap (_envchs env) (qualObject tem) ch of
     Nothing -> throwError (UnknownChoice ch)
     Just upd -> return upd
 
@@ -200,17 +203,23 @@ lookupDataCon tc = do
     Nothing -> throwError (UnknownDataCons tc)
     Just def -> return def
 
--- TODO: There seems to be something wrong with the qualifiers. This is a
--- temporary solution.
 lookupValInHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
   -> Qualified ExprValName -> Maybe (Expr, UpdateSet)
-lookupValInHMap hmap val = listToMaybe $ HM.elems
-  $ HM.filterWithKey (\name _ -> qualObject name == qualObject val) hmap
+-- TODO: Temp print
+lookupValInHMap hmap val =
+  -- TODO: There seems to be something wrong with the PackageRef in Qualified.
+  let ress = HM.elems $ HM.filterWithKey (\name _ -> qualObject name == qualObject val && qualModule name == qualModule val) hmap
+  in listToMaybe ress
+  -- in if length ress > 1
+  --    then trace ("Overlapping vals! : " ++ show val) $ listToMaybe ress
+  --    else listToMaybe ress
 
 lookupChoInHMap :: HM.HashMap (Qualified TypeConName, ChoiceName) UpdateSet
-  -> ChoiceName -> Maybe UpdateSet
-lookupChoInHMap hmap cho = listToMaybe $ HM.elems
-  $ HM.filterWithKey (\(_, name) _ -> cho == name) hmap
+  -> TypeConName -> ChoiceName -> Maybe UpdateSet
+-- TODO: This TypeConName should be qualified
+-- TODO: The type con name really should be taken into account here
+lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
+  $ HM.filterWithKey (\(_t, c) _ -> c == cho) hmap
 
 solveValueUpdatesEnv :: Env -> Env
 solveValueUpdatesEnv env =
@@ -247,6 +256,7 @@ recTypFields :: MonadEnv m => Type -> m [FieldName]
 recTypFields (TCon tc) = do
   fields <- recTypConFields $ qualObject tc
   return $ map fst fields
+recTypFields (TStruct fs) = return $ map fst fs
 recTypFields _ = throwError ExpectRecord
 
 recExpFields :: MonadEnv m => Expr -> m [(FieldName, Expr)]

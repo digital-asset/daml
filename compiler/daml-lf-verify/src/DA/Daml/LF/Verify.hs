@@ -41,7 +41,7 @@ main = do
         Left err -> putStrLn "Template phase finished with error: " >> print err
         Right env3 -> do
           putStrLn "Success!"
-          let upds = fromJust $ lookupChoInHMap (_envchs env3) choiceName
+          let upds = fromJust $ lookupChoInHMap (_envchs env3) templName choiceName
           mapM_ (\cre -> putStrLn "Create: " >> print (qualObject $ _creTemp cre) >> printFExpr (_creField cre) >> putStrLn "") (_usCre upds)
           mapM_ (\arc -> putStrLn "Archive: " >> print (qualObject $ _arcTemp arc) >> printFExpr (_arcField arc) >> putStrLn "") (_usArc upds)
           mapM_ (\cho -> putStrLn "Choice: " >> print (_choName cho) >> putStrLn "") (_usCho upds)

@@ -67,7 +67,7 @@ data ConstraintSet = ConstraintSet
 -- TODO: Take choices into account?
 constructConstr :: Env -> TypeConName -> ChoiceName -> FieldName -> ConstraintSet
 constructConstr env tem ch f =
-  case lookupChoInHMap (_envchs env) ch of
+  case lookupChoInHMap (_envchs env) tem ch of
     Just upds ->
       let vars = concat $ map skol2var $ _envskol env
           creUpds = filter (\UpdCreate{..} -> tem == qualObject _creTemp) (_usCre upds)
