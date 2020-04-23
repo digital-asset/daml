@@ -153,8 +153,10 @@ object Conversions {
 
   // Hash
 
-  implicit val hashToStatement: ToStatement[Hash] =
-    (s: PreparedStatement, i: Int, v: Hash) => s.setBytes(i, v.bytes.toByteArray)
+  implicit object HashToStatement extends ToStatement[Hash] {
+    override def set(s: PreparedStatement, i: Int, v: Hash): Unit =
+      s.setBytes(i, v.bytes.toByteArray)
+  }
 
   implicit val columnToHash: Column[Hash] =
     Column.nonNull((value: Any, meta) =>
