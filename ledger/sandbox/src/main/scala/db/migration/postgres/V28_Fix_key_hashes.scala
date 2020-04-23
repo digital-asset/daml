@@ -36,8 +36,8 @@ final class V28_Fix_key_hashes extends BaseJavaMigration {
         val key = GlobalKey.assertBuild(templateId, keyValue.value)
         val hashBytes = key.hash.bytes.toInputStream
 
-        fixHash.setString(1, contractId)
-        fixHash.setBinaryStream(2, hashBytes)
+        fixHash.setBinaryStream(1, hashBytes)
+        fixHash.setString(2, contractId)
         fixHash.addBatch()
       }
       val _ = fixHash.executeBatch()
