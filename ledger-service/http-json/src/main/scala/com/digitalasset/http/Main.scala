@@ -16,6 +16,7 @@ import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
+import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -53,6 +54,7 @@ object Main extends StrictLogging {
         s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
+        s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
         ")")
 
