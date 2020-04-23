@@ -11,7 +11,7 @@ import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 final class V28__Fix_key_hashes extends BaseJavaMigration {
 
   private val SELECT_KEYS =
-    "select contract_id, template_id, create_key_value from participant_events where create_key_value is not null and create_consumed_at is not null"
+    "select contract_id, template_id, create_key_value from participant_events where create_key_value is not null and create_consumed_at is null"
 
   private val FIX_HASH =
     "update participant_contracts set create_key_hash = ? where contract_id = ?"
