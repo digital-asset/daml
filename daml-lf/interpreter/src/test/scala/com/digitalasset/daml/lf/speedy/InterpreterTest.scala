@@ -25,7 +25,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   private def runExpr(e: Expr): SValue = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
-      checkSubmitterInMaintainers = true,
       compiledPackages = PureCompiledPackages(Map.empty).right.get,
       scenario = false,
       submissionTime = Time.Timestamp.now(),
@@ -142,7 +141,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     "compile" in {
       machine = Speedy.Machine.fromExpr(
         expr = list,
-        checkSubmitterInMaintainers = true,
         compiledPackages = PureCompiledPackages(Map.empty).right.get,
         scenario = false,
         submissionTime = Time.Timestamp.now(),
@@ -244,7 +242,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         expr = EVal(ref),
-        checkSubmitterInMaintainers = true,
         compiledPackages = pkgs1,
         scenario = false,
         submissionTime = Time.Timestamp.now(),
@@ -272,7 +269,6 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     "crashes without definition" in {
       val machine = Speedy.Machine.fromExpr(
         expr = EVal(ref),
-        checkSubmitterInMaintainers = true,
         compiledPackages = pkgs1,
         scenario = false,
         submissionTime = Time.Timestamp.now(),

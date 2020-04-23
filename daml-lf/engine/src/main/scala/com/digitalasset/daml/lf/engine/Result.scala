@@ -58,6 +58,9 @@ sealed trait Result[+A] extends Product with Serializable {
 }
 
 final case class ResultDone[A](result: A) extends Result[A]
+object ResultDone {
+  val Unit: ResultDone[Unit] = new ResultDone(())
+}
 final case class ResultError(err: Error) extends Result[Nothing]
 
 /**
@@ -204,9 +207,10 @@ object Result {
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
-    if (assertion) {
-      ResultDone(())
-    } else ResultError(err)
+    if (assertion)
+      ResultDone.Unit
+    else
+      ResultError(err)
 
   implicit val resultInstance: Monad[Result] = new Monad[Result] {
     override def point[A](a: => A): Result[A] = ResultDone(a)

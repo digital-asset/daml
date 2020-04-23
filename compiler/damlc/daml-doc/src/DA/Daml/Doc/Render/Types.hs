@@ -24,4 +24,8 @@ data RenderOptions = RenderOptions
     , ro_title :: Maybe T.Text -- ^ title of rendered documentation
     , ro_template :: Maybe T.Text -- ^ renderer template
     , ro_indexTemplate :: Maybe T.Text -- ^ renderer template for index
+    , ro_hoogleTemplate :: Maybe T.Text -- ^ renderer template for hoogle database
+    , ro_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
+    , ro_hooglePath :: Maybe FilePath -- ^ path to output hoogle database
+    , ro_anchorPath :: Maybe FilePath -- ^ path to output anchor table
     }

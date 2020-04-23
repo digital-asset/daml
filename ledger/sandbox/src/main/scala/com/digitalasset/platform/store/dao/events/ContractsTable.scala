@@ -8,7 +8,6 @@ import java.time.Instant
 import anorm.{BatchSql, NamedParameter}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
-import com.daml.platform.store.serialization.KeyHasher.{hashKey => hash}
 import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
 private[events] sealed abstract class ContractsTable {
@@ -32,7 +31,7 @@ private[events] sealed abstract class ContractsTable {
       ),
       "create_ledger_effective_time" -> createLedgerEffectiveTime,
       "create_stakeholders" -> stakeholders.toArray[String],
-      "create_key_hash" -> key.map(hash),
+      "create_key_hash" -> key.map(_.hash),
     )
 
   private val deleteContractQuery =

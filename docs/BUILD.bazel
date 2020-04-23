@@ -261,7 +261,7 @@ genrule(
 genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
-        "//compiler/damlc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-rst.tar.gz",
         "//triggers/daml:daml-trigger-rst-docs",
         "//daml-script/daml:daml-script-rst-docs",
         "//ledger-api/grpc-definitions:docs",
@@ -274,7 +274,7 @@ genrule(
 
         # Copy in Stdlib
         mkdir -p source/daml/stdlib
-        tar xf $(location //compiler/damlc:daml-base-rst-docs) \
+        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \
             --strip-components 1 \
             -C source/daml/stdlib
 
@@ -354,8 +354,7 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//compiler/damlc:daml-base-rst-docs",
-        "//compiler/damlc:daml-base-hoogle-docs",
+        "//compiler/damlc:daml-base-hoogle.txt",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
@@ -417,7 +416,7 @@ genrule(
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
-        cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+        cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
 
         tar c html \
             --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \

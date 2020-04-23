@@ -40,6 +40,10 @@ cd "$(dirname "$0")"/..
 
 step "configuring bazel"
 
+if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
+    cd "$BAZEL_CONFIG_DIR"
+fi
+
 if is_windows; then
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local

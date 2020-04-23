@@ -96,9 +96,10 @@ to accept the current documentation as new golden files.
 Standard library docs are exposed under the bazel rules which you can build with:
 
 ```
-bazel build //compiler/damlc:daml-base-rst-docs
-bazel build //compiler/damlc:daml-base-hoogle-docs
+bazel build //compiler/damlc:daml-base-docs
 ```
+
+This creates a tarball containing RST (ReStructured Text) docs, and a hoogle database.
 
 ## DAML Packages and Database
 

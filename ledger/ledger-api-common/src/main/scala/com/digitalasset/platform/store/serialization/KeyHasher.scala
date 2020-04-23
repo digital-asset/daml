@@ -11,15 +11,27 @@ import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.AbsoluteContractId
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 trait KeyHasher {
 
-  /** Returns the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns the hash of the given DAML-LF value
+    */
   def hashKey(key: GlobalKey): Array[Byte]
 
-  /** Returns a string representation of the hash of the given DAML-LF value */
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    * Returns a string representation of the hash of the given DAML-LF value
+    */
   def hashKeyString(key: GlobalKey): String = hashKey(key).map("%02x" format _).mkString
 }
 
+/**
+  * @deprecated in favor of [[GlobalKey.hash]]
+  */
 object KeyHasher extends KeyHasher {
 
   /**
@@ -150,6 +162,9 @@ object KeyHasher extends KeyHasher {
     )
   }
 
+  /**
+    * @deprecated in favor of [[GlobalKey.hash]]
+    */
   override def hashKey(key: GlobalKey): Array[Byte] = {
     val digest = MessageDigest.getInstance("SHA-256")
 

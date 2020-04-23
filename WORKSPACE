@@ -36,6 +36,7 @@ load(
     "nixpkgs_cc_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
@@ -103,6 +104,8 @@ nixpkgs_cc_configure(
     ],
     repositories = dev_env_nix_repos,
 )
+
+nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
 
 # Curl system dependency
 nixpkgs_package(
@@ -784,16 +787,6 @@ cc_library(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
-
-nixpkgs_package(
-    name = "python3_nix",
-    attribute_path = "python3",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",

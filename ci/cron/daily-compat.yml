@@ -1,0 +1,54 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# Do not run on PRs
+pr: none
+
+# Do not run on merge to master
+trigger: none
+
+# Do run on a schedule (daily)
+#
+# Note: machines are killed every day at 4AM UTC, so we need to either:
+# - run sufficiently before that that this doesn't get killed, or
+# - run sufficiently after that that machines are initialized.
+#
+# Targeting 6AM UTC seems to fit that.
+schedules:
+- cron: "0 6 * * *"
+  displayName: daily compat check
+  branches:
+    include:
+    - master
+  always: true
+
+jobs:
+  - job: compatibility
+    timeoutInMinutes: 240
+    strategy:
+      matrix:
+        linux:
+          pool: 'linux-pool'
+        # macos:
+        #   pool: 'macOS-pool'
+        # windows:
+        #   pool: 'windows-pool'
+    pool:
+      name: $(pool)
+    steps:
+      - checkout: self
+      - bash: ci/dev-env-install.sh
+        displayName: 'Build/Install the Developer Environment'
+      - bash: |
+          set -euo pipefail
+
+          cd compatibility
+          bazel build //...
+          bazel test //...
+
+          # FIXME: fill in the gaps.
+          exit 0
+      # For whatever reason, templates are searched from the path of the
+      # current YML file. I could not find any reference to that in the
+      # documentation.
+      - template: ../tell-slack-failed.yml

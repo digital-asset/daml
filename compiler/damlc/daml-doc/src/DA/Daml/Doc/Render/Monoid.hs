@@ -9,12 +9,14 @@ module DA.Daml.Doc.Render.Monoid
     ) where
 
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Render.Types
 import Control.Monad
 import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import System.FilePath
 import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Network.URI as URI
@@ -173,3 +175,38 @@ renderFolder formatter fileMap =
 moduleNameToFileName :: Modulename -> FilePath
 moduleNameToFileName =
     T.unpack . T.replace "." "-" . unModulename
+
+buildAnchorTable :: RenderOptions -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
+buildAnchorTable RenderOptions{..} outputs
+    | Just baseURL <- ro_baseURL
+    = HMS.fromList
+        [ (anchor, buildURL baseURL moduleName anchor)
+        | (moduleName, output) <- Map.toList outputs
+        , anchor <- Set.toList (getRenderAnchors output)
+        ]
+    where
+        stripTrailingSlash :: T.Text -> T.Text
+        stripTrailingSlash x = fromMaybe x (T.stripSuffix "/" x)
+
+        buildURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildURL = case ro_mode of
+            RenderToFile _ -> buildFileURL
+            RenderToFolder _ -> buildFolderURL
+
+        buildFileURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildFileURL baseURL _ anchor = T.concat
+            [ baseURL
+            , "#"
+            , unAnchor anchor
+            ]
+
+        buildFolderURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildFolderURL baseURL moduleName anchor = T.concat
+            [ stripTrailingSlash baseURL
+            , "/"
+            , T.pack (moduleNameToFileName moduleName <.> "html")
+            , "#"
+            , unAnchor anchor
+            ]
+
+buildAnchorTable _ _ = HMS.empty

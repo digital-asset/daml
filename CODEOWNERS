@@ -21,6 +21,7 @@ azure-cron.yml      @garyverhaegen-da
 /daml-script/       @cocreature @hurryabit @aherrmann-da
 /triggers/          @cocreature @hurryabit @aherrmann-da
 /ghc-lib/           @shayne-fletcher @cocreature
+/compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
 /daml-lf/governance.rst @gerolf-da @S11001001

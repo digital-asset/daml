@@ -47,18 +47,18 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // fetch by key should fail during interpretation
         // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
         fetchFailure <- beta
-          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
           .failed
 
         // lookup by key delegation is should fail during validation
         // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
         // but validation determined that this result is wrong as the contract is there.
         lookupByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
           .failed
       } yield {
         assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
   }
 
@@ -85,14 +85,14 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // fetch by key should fail
         // Reason: Only stakeholders see the result of fetchByKey, beta is only a divulgee
         fetchByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
           .failed
 
         // lookup by key should fail
         // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
         // but validation determined that this result is wrong as the contract is there.
         lookupByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
           .failed
       } yield {
         assertGrpcError(
@@ -101,7 +101,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           "dependency error: couldn't find contract",
         )
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
   }
 
@@ -229,7 +229,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         delegated <- ledger.create(owner, Delegated(owner, key))
 
         failedFetch <- ledger
-          .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2, None))
+          .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2))
           .failed
 
         // Create a transient contract with a key that is created and archived in same transaction.
