@@ -78,5 +78,4 @@ main :: IO ()
 main = do
     (version : args) <- getArgs
     withPostgres $ \jdbcUrl ->
-        callProcess ("external/daml-sdk-" <> version </> "daml") (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
-
+        callProcess (arg </> version) (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
