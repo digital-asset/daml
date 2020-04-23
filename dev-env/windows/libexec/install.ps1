@@ -15,7 +15,9 @@ function da_install {
     }
 
     da_enable_scoop
+    # Temporary until all machines have been upgraded.
     $isScoopEnabled = da_is_scoop_installed
+    $isScoopEnabled = $false
     da_reset_path
 
     if ($isScoopEnabled) {
