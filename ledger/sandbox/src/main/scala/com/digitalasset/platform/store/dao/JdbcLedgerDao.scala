@@ -216,7 +216,7 @@ private class JdbcLedgerDao(
       str("typ") ~
       str("submission_id") ~
       str("participant_id") ~
-      str("rejection_reason")(emptyStringToNullColumn).? ~
+      str("rejection_reason").map(s => if (s.isEmpty) null else s).? ~
       byteArray("configuration"))
       .map(flatten)
       .map {
@@ -1059,7 +1059,9 @@ private class JdbcLedgerDao(
       ledgerString("command_id").? ~
       ledgerString("application_id").? ~
       party("submitter").? ~
-      ledgerString("workflow_id")(emptyStringToNullColumn).? ~
+      ledgerString("workflow_id")
+        .map(s => if (s.isEmpty) null.asInstanceOf[Ref.LedgerString] else s)
+        .? ~
       date("effective_at").? ~
       date("recorded_at").? ~
       binaryStream("transaction").? ~
