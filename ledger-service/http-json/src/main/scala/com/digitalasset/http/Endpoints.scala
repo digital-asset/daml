@@ -477,6 +477,7 @@ object Endpoints {
     override def companion = Forwarded
     override def renderInRequests = true
     override def renderInResponses = false
+    // per discussion https://github.com/digital-asset/daml/pull/5660#discussion_r412539107
     def proto: Option[String] =
       Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
   }
