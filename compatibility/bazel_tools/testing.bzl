@@ -1,3 +1,6 @@
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
