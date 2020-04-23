@@ -310,19 +310,16 @@ final class Engine {
           machine.dependsOnTime = true
           callback(time)
 
-        case SResultNeedKey(gk, _, cbMissing, cbPresent) =>
+        case SResultNeedKey(gk, _, cb) =>
           return ResultNeedKey(
-            gk, {
-              case None =>
-                if (!cbMissing(())) {
-                  ResultError(Error(s"dependency error: couldn't find key $gk"))
-                } else {
-                  interpretLoop(machine, time)
-                }
-              case Some(key) =>
-                cbPresent(key)
-                interpretLoop(machine, time)
-            }
+            gk,
+            (
+                result =>
+                  if (cb(SKeyLookupResult(result)))
+                    interpretLoop(machine, time)
+                  else
+                    ResultError(Error(s"dependency error: couldn't find key $gk"))
+            )
           )
 
         case _: SResultScenarioCommit =>
