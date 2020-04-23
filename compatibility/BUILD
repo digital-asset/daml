@@ -19,6 +19,15 @@ platform_versions = [
 ]
 
 [
+    sh_binary(
+        name = "sandbox-with-postgres-{}".format(version),
+        srcs = ["@//bazel_tools:sandbox-with-postgres.sh"],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+        data = ["@//bazel_tools/client_server:with-postgres", "@daml-sdk-{}//:daml".format(version)],
+    ) for version in platform_versions
+]
+
+[
     sdk_platform_test(
         sdk_version = sdk_version,
         platform_version = platform_version,

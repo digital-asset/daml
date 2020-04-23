@@ -76,6 +76,6 @@ withPostgres f =
                 ["-h", "localhost", "-U", T.unpack dbUser, "-p", show dbPort, T.unpack dbName]
 main :: IO ()
 main = do
-    (version : args) <- getArgs
+    (arg : args) <- getArgs
     withPostgres $ \jdbcUrl ->
-        callProcess (arg </> version) (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])
+        callProcess arg (args <> ["--jdbcurl=" <> T.unpack jdbcUrl])

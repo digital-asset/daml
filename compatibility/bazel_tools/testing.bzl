@@ -43,13 +43,6 @@ def sdk_platform_test(sdk_version, platform_version):
         tags = ["exclusive"],
     )
 
-    native.sh_binary(
-        name = "sandbox-with-postgres-{}-{}".format(sdk_version, platform_version),
-        srcs = ["@//bazel_tools:sandbox-with-postgres.sh"],
-        deps = ["@bazel_tools//tools/bash/runfiles"],
-        data = ["@//bazel_tools/client_server:with-postgres", "@daml-sdk-{}//:daml".format(platform_version)],
-    )
-
     client_server_test(
         name = name + "-postgresql",
         client = ledger_api_test_tool,
@@ -61,7 +54,7 @@ def sdk_platform_test(sdk_version, platform_version):
         data = [dar_files],
         runner = "@//bazel_tools/client_server:runner",
         runner_args = ["6865"],
-        server = ":sandbox-with-postgres-{}-{}".format(sdk_version, platform_version),
+        server = ":sandbox-with-postgres-{}".format(platform_version),
         server_args = [platform_version],
         server_files = ["$(rootpaths {dar_files})".format(
             dar_files = dar_files,
