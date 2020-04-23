@@ -29,10 +29,10 @@ jobs:
       matrix:
         linux:
           pool: 'linux-pool'
-        macos:
-          pool: 'macOS-pool'
-        #windows:
-          #pool: 'windows-pool'
+        # macos:
+        #   pool: 'macOS-pool'
+        # windows:
+        #   pool: 'windows-pool'
     pool:
       name: $(pool)
     steps:
@@ -41,6 +41,10 @@ jobs:
         displayName: 'Build/Install the Developer Environment'
       - bash: |
           set -euo pipefail
+
+          cd compatibility
+          bazel build //...
+          bazel test //...
 
           # FIXME: fill in the gaps.
           exit 0
