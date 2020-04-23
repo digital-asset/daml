@@ -17,7 +17,6 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
       val e = Ast.EScenario(ScenarioGetParty(Ast.EPrimLit(Ast.PLText(("foo-bar")))))
       val m = Speedy.Machine.fromExpr(
         expr = e,
-        checkSubmitterInMaintainers = true,
         compiledPackages = PureCompiledPackages(Map.empty).right.get,
         scenario = true,
         submissionTime = Time.Timestamp.now(),

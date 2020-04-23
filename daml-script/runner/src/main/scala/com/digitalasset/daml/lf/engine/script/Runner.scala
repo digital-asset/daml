@@ -288,10 +288,9 @@ class Runner(
     val machine =
       Speedy.Machine.fromSExpr(
         sexpr = script.expr,
-        checkSubmitterInMaintainers = false,
         compiledPackages = extendedCompiledPackages,
         submissionTime = Timestamp.now(),
-        seeds = InitialSeeding.NoSeed,
+        seeding = InitialSeeding.NoSeed,
       )
 
     // Removing the early return only makes this harder to read.

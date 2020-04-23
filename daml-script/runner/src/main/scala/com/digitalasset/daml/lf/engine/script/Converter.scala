@@ -212,11 +212,10 @@ object Converter {
         Array(SEVar(2), SEVar(1))))
     val machine =
       Speedy.Machine.fromSExpr(
-        SEApp(SEValue(fun), Array(extractStruct)),
-        false,
-        compiledPackages,
-        Time.Timestamp.now(),
-        InitialSeeding.NoSeed
+        sexpr = SEApp(SEValue(fun), Array(extractStruct)),
+        compiledPackages = compiledPackages,
+        submissionTime = Time.Timestamp.now(),
+        seeding = InitialSeeding.NoSeed
       )
     @tailrec
     def iter(): Either[String, (SValue, SValue)] = {

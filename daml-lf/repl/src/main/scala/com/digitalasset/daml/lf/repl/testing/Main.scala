@@ -18,7 +18,6 @@ import com.daml.lf.speedy.SExpr.LfDefRef
 import com.daml.lf.validation.Validation
 import com.daml.lf.testing.parser
 import com.daml.lf.language.LanguageVersion
-import com.daml.lf.transaction.VersionTimeline
 import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
@@ -169,11 +168,9 @@ object Repl {
     private val build = Speedy.Machine
       .newBuilder(PureCompiledPackages(packages).right.get, Time.Timestamp.MinValue, nextSeed())
       .fold(err => sys.error(err.toString), identity)
-    def run(submissionVersion: LanguageVersion, expr: Expr)
-      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {
-      val mach = build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), expr)
-      (mach, ScenarioRunner(mach).run())
-    }
+    def run(expr: Expr)
+      : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) =
+      (build(expr), ScenarioRunner(build(expr)).run())
   }
 
   case class Command(help: String, action: (State, Seq[String]) => State)
@@ -402,13 +399,12 @@ object Repl {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
             usage
-          case Some((lfVer, DValue(_, _, body, _))) =>
+          case Some(DValue(_, _, body, _)) =>
             val expr = argExprs.foldLeft(body)((e, arg) => EApp(e, arg))
 
             val machine =
               Speedy.Machine.fromExpr(
                 expr = expr,
-                checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
                 compiledPackages = PureCompiledPackages(state.packages).right.get,
                 scenario = false,
                 submissionTime = Time.Timestamp.now(),
@@ -449,40 +445,40 @@ object Repl {
     }
   }
 
-  def buildExpr(state: State, idAndArgs: Seq[String]): Option[(LanguageVersion, Expr)] =
+  def buildExpr(state: State, idAndArgs: Seq[String]): Option[Expr] =
     idAndArgs match {
       case id :: args =>
         lookup(state, id) match {
           case None =>
             println("Error: " + id + " not found.")
             None
-          case Some((lfVer, DValue(_, _, body, _))) =>
+          case Some(DValue(_, _, body, _)) =>
             val argExprs = args.map(s => assertRight(parser.parseExpr(s)))
-            Some((lfVer, argExprs.foldLeft(body)((e, arg) => EApp(e, arg))))
+            Some(argExprs.foldLeft(body)((e, arg) => EApp(e, arg)))
           case Some(_) =>
             println("Error: " + id + " is not a value.")
             None
         }
       case _ =>
-        usage(); None
+        usage()
+        None
     }
 
   def invokeScenario(state: State, idAndArgs: Seq[String]): (Boolean, State) = {
     buildExpr(state, idAndArgs)
-      .map {
-        case (lfVer, expr) =>
-          val (machine, errOrLedger) =
-            state.scenarioRunner.run(lfVer, expr)
-          errOrLedger match {
-            case Left((err, ledger @ _)) =>
-              println(prettyError(err, machine.ptx).render(128))
-              (false, state)
-            case Right((diff @ _, steps @ _, ledger)) =>
-              // NOTE(JM): cannot print this, output used in tests.
-              //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
-              println(prettyLedger(ledger).render(128))
-              (true, state)
-          }
+      .map { expr =>
+        val (machine, errOrLedger) =
+          state.scenarioRunner.run(expr)
+        errOrLedger match {
+          case Left((err, ledger @ _)) =>
+            println(prettyError(err, machine.ptx).render(128))
+            (false, state)
+          case Right((diff @ _, steps @ _, ledger)) =>
+            // NOTE(JM): cannot print this, output used in tests.
+            //println(s"done in ${diff.formatted("%.2f")}ms, ${steps} steps")
+            println(prettyLedger(ledger).render(128))
+            (true, state)
+        }
       }
       .getOrElse((false, state))
   }
@@ -496,16 +492,16 @@ object Repl {
         definition <- mod.definitions
         (dfnName, dfn) = definition
         bodyScenario <- List(dfn).collect { case DValue(TScenario(_), _, body, _) => body }
-      } yield QualifiedName(modName, dfnName).toString -> ((mod.languageVersion, bodyScenario))
+      } yield QualifiedName(modName, dfnName).toString -> bodyScenario
     var failures = 0
     var successes = 0
     val state = state0
     var totalTime = 0.0
     var totalSteps = 0
     allScenarios.foreach {
-      case (name, (lfVer, body)) =>
+      case (name, body) =>
         print(name + ": ")
-        val (machine, errOrLedger) = state.scenarioRunner.run(lfVer, body)
+        val (machine, errOrLedger) = state.scenarioRunner.run(body)
         errOrLedger match {
           case Left((err, ledger @ _)) =>
             println(
@@ -545,7 +541,7 @@ object Repl {
     LfDefRef(DefinitionRef(packageId, qualName))
   }
 
-  def lookup(state: State, id: String): Option[(LanguageVersion, Definition)] = {
+  def lookup(state: State, id: String): Option[Definition] = {
     val (defRef, optPackageId): (String, Option[PackageId]) =
       id.split("@").toList match {
         case defRef :: packageId :: Nil =>
@@ -558,20 +554,18 @@ object Repl {
     }
     optPackageId match {
       case Some(packageId) =>
-        state.packages
-          .get(packageId)
-          .flatMap(pkg => pkg.modules.get(qualName.module))
-          .flatMap(module =>
-            module.definitions.get(qualName.name).map(defn => (module.languageVersion, defn)))
+        for {
+          pkg <- state.packages.get(packageId)
+          module <- pkg.modules.get(qualName.module)
+          defn <- module.definitions.get(qualName.name)
+        } yield defn
       case None =>
-        state.packages.view
-          .flatMap { case (pkgId @ _, pkg) => pkg.modules.get(qualName.module).toList }
-          .flatMap(
-            module =>
-              module.definitions
-                .get(qualName.name)
-                .toList
-                .map(defn => (module.languageVersion, defn)))
+        state.packages.values.view
+          .flatMap(pkg =>
+            for {
+              module <- pkg.modules.get(qualName.module).toList
+              defn <- module.definitions.get(qualName.name).toList
+            } yield defn)
           .headOption
 
     }

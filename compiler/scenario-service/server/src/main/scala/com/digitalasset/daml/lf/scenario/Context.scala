@@ -151,7 +151,6 @@ class Context(val contextId: Context.ContextId) {
     } yield
       Speedy.Machine
         .build(
-          checkSubmitterInMaintainers = false,
           sexpr = defn,
           compiledPackages = PureCompiledPackages(allPackages, defns),
           submissionTime,
