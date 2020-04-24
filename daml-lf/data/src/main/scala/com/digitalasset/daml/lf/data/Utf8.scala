@@ -8,6 +8,7 @@ import java.security.MessageDigest
 
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
+import scalaz.Order
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -62,6 +63,10 @@ object Utf8 {
       } else xs.length - ys.length
 
     lp(0)
+  }
+
+  object ImplicitOrder {
+    implicit val `String Utf8 Order`: Order[String] = scalaz.Order fromScalaOrdering Ordering
   }
 
   def unpack(s: String): ImmArray[Long] =

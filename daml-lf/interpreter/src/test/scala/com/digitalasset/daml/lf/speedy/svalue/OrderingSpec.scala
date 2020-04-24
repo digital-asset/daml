@@ -1,17 +1,31 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy.svalue
+package com.daml.lf.speedy
+package svalue
 
 import java.util
 
+import com.daml.lf.crypto
 import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
 import com.daml.lf.language.{Ast, Util => AstUtil}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
-import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
+import com.daml.lf.value.TypedValueGenerators.genAddend
+import com.daml.lf.value.ValueGenerators.absCoidGen
+import com.daml.lf.PureCompiledPackages
+import org.scalacheck.Arbitrary
+import org.scalatest.prop.{
+  GeneratorDrivenPropertyChecks,
+  TableDrivenPropertyChecks,
+  TableFor1,
+  TableFor2
+}
 import org.scalatest.{Matchers, WordSpec}
+import scalaz.{Order, Tag}
+import scalaz.syntax.order._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -19,7 +33,11 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class OrderingSpec
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -420,7 +438,40 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
+  // A problem in this test *usually* indicates changes that need to be made
+  // in Value.orderInstance or TypedValueGenerators, rather than to svalue.Ordering.
+  // The tests are here as this is difficult to test outside daml-lf/interpreter.
+  "txn Value Ordering" should {
+    import Value.{AbsoluteContractId => Cid}
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidGen)
+    implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
+    implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
+    val EmptyScope: Value.LookupVariantEnum = _ => None
+    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
+      import va.{injarb, injshrink}
+      implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
+      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+        import va.injord
+        val ta = va.inj(a)
+        val tb = va.inj(b)
+        val bySvalue = translatePrimValue(ta) ?|? translatePrimValue(tb)
+        (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
+      }
+    }
+  }
+
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
+  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
+  private def dummyMachine = Speedy.Machine fromExpr (
+    expr = e"NA:na ()",
+    compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
+    scenario = false,
+    Time.Timestamp.now(),
+    Some(txSeed),
+  )
+
+  private def translatePrimValue(v: Value[Value.ContractId]) =
+    SBuiltin.translateValue(dummyMachine, v).value
 }

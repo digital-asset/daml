@@ -5,7 +5,7 @@ package com.daml.lf.data
 import java.io.{StringReader, StringWriter}
 
 import com.google.common.io.{BaseEncoding, ByteStreams}
-import scalaz.Equal
+import scalaz.{Equal, Order}
 
 sealed trait StringModule[T] {
 
@@ -108,8 +108,9 @@ sealed abstract class IdString {
 }
 
 object IdString {
-  import Ref.Name
-  implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
+  import Ref.{Name, Party}
+  implicit def `Name order instance`: Order[Name] = Order fromScalaOrdering Name.ordering
+  implicit def `Party order instance`: Order[Party] = Order fromScalaOrdering Party.ordering
 }
 
 private sealed abstract class StringModuleImpl extends StringModule[String] {
