@@ -69,12 +69,16 @@ final class LedgerTimeAwareCommandExecutor(
               .lookupMaximumLedgerTime(usedContractIds)
               .flatMap(maxUsedInstant => {
                 val maxUsedTime = maxUsedInstant.map(Time.Timestamp.assertFromInstant)
-                if (maxUsedTime.forall(_.compare(commands.commands.ledgerEffectiveTime) <= 0)) {
+                if (maxUsedTime.forall(_ <= commands.commands.ledgerEffectiveTime)) {
                   Future.successful(Right(cer))
                 } else if (!cer.dependsOnLedgerTime) {
+                  logger.debug(
+                    s"Advancing ledger effective time for the output from ${commands.commands.ledgerEffectiveTime} to $maxUsedTime")
                   Future.successful(Right(advanceOutputTime(cer, maxUsedTime)))
                 } else if (retriesLeft > 0) {
                   Metrics.retryMeter.mark()
+                  logger.debug(
+                    s"Restarting the computation with new ledger effective time $maxUsedTime")
                   loop(advanceInputTime(commands, maxUsedTime), submissionSeed, retriesLeft - 1)
                 } else {
                   Future.successful(Left(ErrorCause.LedgerTime(maxRetries)))
