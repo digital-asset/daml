@@ -9,7 +9,7 @@ load("@os_info//:os_info.bzl", "is_linux")
 load("//bazel_tools:testing.bzl", "sdk_platform_test")
 load(
     "//bazel_tools:version.bzl",
-    "platform_sdk_test",
+    "matrix_test",
     "version_flag",
     "versioned_binary",
     "versioned_file",
@@ -91,7 +91,7 @@ client_server_test(
 )
 
 [
-    platform_sdk_test(
+    matrix_test(
         name = "matrix-{sdk_version}-{platform_version}".format(
             sdk_version = sdk_version,
             platform_version = platform_version,

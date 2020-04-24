@@ -155,13 +155,13 @@ version_transition = transition(
     outputs = ["//:sdk_version", "//:platform_version"],
 )
 
-def _platform_sdk_test_impl(ctx):
+def _matrix_test_impl(ctx):
     wrapper = ctx.actions.declare_file("%s.sh" % ctx.label.name)
     default_info = _wrap_binary(ctx, ctx.attr.test, wrapper, before = "set -euo pipefail")
     return [default_info]
 
-_platform_sdk_test = rule(
-    _platform_sdk_test_impl,
+matrix_test = rule(
+    _matrix_test_impl,
     cfg = version_transition,
     attrs = {
         "test": attr.label(),
@@ -172,10 +172,3 @@ _platform_sdk_test = rule(
     },
     test = True
 )
-
-def platform_sdk_test(name, test, **kwargs):
-    _platform_sdk_test(
-        name = name,
-        test = test,
-        **kwargs
-    )
