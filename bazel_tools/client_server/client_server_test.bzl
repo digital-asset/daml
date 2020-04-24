@@ -44,7 +44,12 @@ $runner "$client" "$client_args" "$server" "$server_args" "$runner_args"
         is_executable = True,
     )
 
-    runfiles = ctx.runfiles(files = [wrapper], collect_data = True)
+    runfiles = ctx.runfiles(
+        files = [wrapper] + ctx.files.data,
+        # collect_data is deprecated, see
+        # https://docs.bazel.build/versions/master/skylark/rules.html#runfiles-features-to-avoid
+        collect_data = True,
+    )
     runfiles = runfiles.merge(ctx.attr.runner[DefaultInfo].default_runfiles)
     runfiles = runfiles.merge(ctx.attr.client[DefaultInfo].default_runfiles)
     runfiles = runfiles.merge(ctx.attr.server[DefaultInfo].default_runfiles)
