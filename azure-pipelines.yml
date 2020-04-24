@@ -199,7 +199,9 @@ jobs:
           bazel build //...
           # Run one test as a sanity check. We do not run all of them
           # since the test matrix will get large.
-          bazel test //:ledger-api-test-tool-1.0.1-snapshot.20200417.3908.1.722bac90-platform-1.0.0
+          bazel test \
+            //:ledger-api-test-tool-1.0.1-snapshot.20200417.3908.1.722bac90-platform-1.0.0 \
+            //:ledger-api-test-tool-1.0.1-snapshot.20200417.3908.1.722bac90-platform-1.0.0-postgresql
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 

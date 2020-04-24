@@ -16,3 +16,21 @@ haskell_binary(
     ],
     visibility = ["//visibility:public"],
 )
+
+haskell_binary(
+    name = "with-postgres",
+    srcs = ["WithPostgres.hs"],
+    data = [
+        "@postgresql_nix//:all",
+    ],
+    deps = [
+        "@stackage//:base",
+        "@rules_haskell//tools/runfiles",
+        "@stackage//:directory",
+        "@stackage//:extra",
+        "@stackage//:filepath",
+        "@stackage//:process",
+        "@stackage//:text",
+    ],
+    visibility = ["//visibility:public"],
+)
