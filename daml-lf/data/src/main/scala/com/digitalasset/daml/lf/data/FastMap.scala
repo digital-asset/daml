@@ -1,3 +1,6 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.lf.data
 
 import scala.annotation.tailrec
@@ -58,3 +61,4 @@ final class FastMap[Key, Value](map: Iterable[(Key, Value)])(implicit keyClassTa
     values.iterator.zipWithIndex.collect { case (Some(v), i) => keys(i) -> v }
 
 }
+
