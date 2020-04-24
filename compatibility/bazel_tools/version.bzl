@@ -44,37 +44,47 @@ def _versioned_file_impl(ctx, executable = False):
     )
     return [target[DefaultInfo]]
 
+def _wrap_binary(ctx, target, wrapper, before = "", after = ""):
+    binary = target[DefaultInfo].files_to_run.executable
+    binary_runfiles = target[DefaultInfo].default_runfiles
+    binary_runpath = paths.join(ctx.workspace_name, paths.relativize(binary.path, binary.root.path))
+    ctx.actions.write(
+        output = wrapper,
+        content = """\
+#!/usr/bin/env bash
+{runfiles_library}
+{before}
+$(rlocation {runpath}) "$@"
+{after}
+""".format(
+            runfiles_library = runfiles_library,
+            before = before,
+            runpath = binary_runpath,
+            after = after,
+        ),
+        is_executable = True,
+    )
+    return DefaultInfo(
+        executable = wrapper,
+        files = depset(direct = [wrapper]),
+        runfiles = binary_runfiles.merge(
+            ctx.runfiles(
+                files = [wrapper],
+                transitive_files = ctx.attr._bash_runfiles.files,
+                # collect_data is deprecated, see
+                # https://docs.bazel.build/versions/master/skylark/rules.html#runfiles-features-to-avoid
+                collect_data = True,
+            ),
+        ),
+    )
+
 def _versioned_binary_impl(ctx):
     target = _get_version(
         ctx.attr.flag[VersionInfo].version,
         _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions),
     )
-    executable = target[DefaultInfo].files_to_run.executable
-    executable_runpath = paths.join(ctx.workspace_name, paths.relativize(executable.path, executable.root.path))
-    output = ctx.outputs.output
-    ctx.actions.write(
-        output = output,
-        content = """\
-#!/usr/bin/env bash
-{runfiles_library}
-$(rlocation {executable}) "$@"
-""".format(
-            runfiles_library = runfiles_library,
-            executable = executable_runpath,
-        ),
-        is_executable = True,
-    )
-    return [DefaultInfo(
-        executable = output,
-        files = depset(direct = [output]),
-        runfiles = target[DefaultInfo].default_runfiles.merge(
-            ctx.runfiles(
-                files = [output],
-                transitive_files = ctx.attr._runfiles.files,
-                collect_data = True,
-            ),
-        ),
-    )]
+    default_info = _wrap_binary(ctx, target, ctx.outputs.output, before = "set -euo pipefail")
+    return [default_info]
 
 _versioned_file = rule(
     _versioned_file_impl,
@@ -90,7 +100,7 @@ _versioned_binary = rule(
         "flag": attr.label(providers = [VersionInfo]),
         "versions": attr.label_keyed_string_dict(),
         "output": attr.output(),
-        "_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
+        "_bash_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
     },
     executable = True,
 )
@@ -147,33 +157,8 @@ version_transition = transition(
 )
 
 def _platform_sdk_test_impl(ctx):
-    target = ctx.attr.test
-    executable = target[DefaultInfo].files_to_run.executable
-    executable_runpath = paths.join(ctx.workspace_name, paths.relativize(executable.path, executable.root.path))
-    output = ctx.outputs.output
-    ctx.actions.write(
-        output = output,
-        content = """\
-#!/usr/bin/env bash
-{runfiles_library}
-$(rlocation {executable}) "$@"
-""".format(
-            runfiles_library = runfiles_library,
-            executable = executable_runpath,
-        ),
-        is_executable = True,
-    )
-    return [DefaultInfo(
-        executable = output,
-        files = depset(direct = [output]),
-        runfiles = target[DefaultInfo].default_runfiles.merge(
-            ctx.runfiles(
-                files = [output],
-                transitive_files = ctx.attr._runfiles.files,
-                collect_data = True,
-            ),
-        ),
-    )]
+    default_info = _wrap_binary(ctx, ctx.attr.test, ctx.outputs.output, before = "set -euo pipefail")
+    return [default_info]
 
 _platform_sdk_test = rule(
     _platform_sdk_test_impl,
@@ -181,7 +166,7 @@ _platform_sdk_test = rule(
     attrs = {
         "test": attr.label(),
         "output": attr.output(),
-        "_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
+        "_bash_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
         "_whitelist_function_transition": attr.label(
              default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
          ),
