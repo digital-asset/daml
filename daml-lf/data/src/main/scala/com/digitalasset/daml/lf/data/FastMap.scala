@@ -51,9 +51,8 @@ final class FastMap[Key, Value](map: Iterable[(Key, Value)])(implicit keyClassTa
       else if (currKey == key) values(i)
       else loop(i + 1 % capacity)
     }
-    var i = key.hashCode() % capacity
-    if (i < 0) i += capacity
-    loop(i)
+    val i = key.hashCode() % capacity
+    loop(if (i < 0) i + capacity else i)
   }
 
   override def iterator: Iterator[(Key, Value)] =

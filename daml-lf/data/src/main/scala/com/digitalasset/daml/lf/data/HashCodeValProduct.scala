@@ -17,4 +17,3 @@ trait HashCodeValProduct extends Product with Serializable {
   }
 
 }
-
