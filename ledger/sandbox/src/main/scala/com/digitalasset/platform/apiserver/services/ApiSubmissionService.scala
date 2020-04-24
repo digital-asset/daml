@@ -166,7 +166,7 @@ final class ApiSubmissionService private (
       val commands = request.commands
 
       logger.trace(s"Received composite commands: $commands")
-      logger.debug(s"Received composite command let ${commands.ledgerEffectiveTime}.")
+      logger.debug(s"Received composite command let ${commands.commands.ledgerEffectiveTime}.")
       deduplicateAndRecordOnLedger(seedService.map(_.nextSeed()), commands)
         .andThen(logger.logErrorsOnCall[Unit])(DirectExecutionContext)
     }

@@ -77,7 +77,6 @@ class SubmitRequestValidatorTest
       applicationId = applicationId,
       commandId = commandId,
       submitter = DomainMocks.party,
-      ledgerEffectiveTime = ledgerTime,
       submittedAt = submittedAt,
       deduplicateUntil = deduplicateUntil,
       commands = LfCommands(
@@ -107,7 +106,6 @@ class SubmitRequestValidatorTest
 
   private[this] def withLedgerTime(commands: ApiCommands, let: Instant): ApiCommands =
     commands.copy(
-      ledgerEffectiveTime = let,
       commands = commands.commands.copy(
         ledgerEffectiveTime = Time.Timestamp.assertFromInstant(let),
       ),
