@@ -1,7 +1,8 @@
 // Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 /**
   * The simplified AST for the speedy interpreter.
@@ -39,9 +40,7 @@ object SExpr {
     * https://en.wikipedia.org/wiki/De_Bruijn_index
     */
   final case class SEVar(index: Int) extends SExpr {
-    def execute(machine: Machine): Ctrl = {
-      CtrlValue(machine.getEnv(index))
-    }
+    def execute(machine: Machine): Ctrl = machine.getEnv(index)
   }
 
   /** Reference to a value. On first lookup the evaluated expression is
@@ -62,7 +61,7 @@ object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          CtrlValue(SRecord(id, fields, new ArrayList()))
+          SRecord(id, fields, new ArrayList())
         case _ =>
           Ctrl.fromPrim(PBuiltin(b), b.arity)
       }
@@ -71,7 +70,7 @@ object SExpr {
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
   final case class SEValue(v: SValue) extends SExpr {
-    def execute(machine: Machine): Ctrl = CtrlValue(v)
+    def execute(machine: Machine): Ctrl = v
   }
 
   object SEValue extends SValueContainer[SEValue]
@@ -82,7 +81,7 @@ object SExpr {
   final case class SEApp(fun: SExpr, args: Array[SExpr]) extends SExpr with SomeArrayEquals {
     def execute(machine: Machine): Ctrl = {
       machine.kont.add(KArg(args))
-      CtrlExpr(fun)
+      fun.execute(machine)
     }
   }
 
@@ -128,12 +127,21 @@ object SExpr {
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: Array[SCaseAlt]) extends SExpr with SomeArrayEquals {
+    val continuation = KMatch(alts)
     def execute(machine: Machine): Ctrl = {
-      machine.kont.add(KMatch(alts))
-      CtrlExpr(scrut)
+      machine.kont.add(continuation)
+      scrut.execute(machine)
     }
 
     override def toString: String = s"SECase($scrut, ${alts.mkString("[", ",", "]")})"
+  }
+
+  final case class SEIfThenElse(cond: SExpr, ifCase: SExpr, elseCase: SExpr) extends SExpr {
+    val continuation = KIfThenElse(ifCase, elseCase)
+    def execute(machine: Machine): Ctrl = {
+      machine.kont.add(continuation)
+      cond.execute(machine)
+    }
   }
 
   object SECase {
@@ -167,7 +175,7 @@ object SExpr {
         val b = bounds(bounds.size - i)
         machine.kont.add(KPushTo(machine.env, b))
       }
-      CtrlExpr(bounds.head)
+      bounds.head.execute(machine)
     }
   }
 
@@ -195,7 +203,7 @@ object SExpr {
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.pushLocation(loc)
-      CtrlExpr(expr)
+      expr.execute(machine)
     }
   }
 
@@ -209,12 +217,12 @@ object SExpr {
   final case class SECatch(body: SExpr, handler: SExpr, fin: SExpr) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.kont.add(KCatch(handler, fin, machine.env.size))
-      CtrlExpr(body)
+      body.execute(machine)
     }
   }
 
   /** Case patterns */
-  sealed trait SCasePat
+  sealed abstract class SCasePat
 
   /** Match on a variant. On match the value is unboxed and pushed to environment. */
   final case class SCPVariant(id: Identifier, variant: Name, constructorRank: Int) extends SCasePat
@@ -242,7 +250,7 @@ object SExpr {
     * extended and 'body' is evaluated. */
   final case class SCaseAlt(pattern: SCasePat, body: SExpr)
 
-  sealed abstract class SDefinitionRef {
+  sealed abstract class SDefinitionRef extends data.HashCodeValProduct {
     def ref: DefinitionRef
     def packageId: PackageId = ref.packageId
     def modName: ModuleName = ref.qualifiedName.module

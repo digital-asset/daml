@@ -24,7 +24,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run()
-      m.ctrl shouldBe Speedy.CtrlValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
+      m.ctrl shouldBe SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX"))
     }
   }
 

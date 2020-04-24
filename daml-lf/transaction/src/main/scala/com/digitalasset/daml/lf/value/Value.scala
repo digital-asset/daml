@@ -347,9 +347,9 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
     * to be able to use AbsoluteContractId elsewhere, so that we can
     * automatically upcast to ContractId by subtyping.
     */
-  sealed abstract class ContractId
+  sealed abstract class ContractId extends data.HashCodeValProduct
 
-  sealed abstract class AbsoluteContractId extends ContractId with Product with Serializable {
+  sealed abstract class AbsoluteContractId extends ContractId {
     def coid: String
   }
 
@@ -426,7 +426,7 @@ object Value extends CidContainer1WithDefaultCidResolver[Value] {
   /** The constructor is private so that we make sure that only this object constructs
     * node ids -- we don't want external code to manipulate them.
     */
-  final case class NodeId(index: Int)
+  final case class NodeId(index: Int) extends AnyVal
 
   object NodeId {
     implicit def cidMapperInstance[In, Out]: CidMapper[NodeId, NodeId, In, Out] =

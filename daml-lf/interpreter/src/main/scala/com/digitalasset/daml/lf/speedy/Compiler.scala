@@ -377,53 +377,67 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         SBStructUpd(field)(translate(struct), translate(update))
 
       case ECase(scrut, alts) =>
-        SECase(
-          translate(scrut),
-          alts.iterator.map {
-            case CaseAlt(pat, expr) =>
-              pat match {
-                case CPVariant(tycon, variant, binder) =>
-                  val variantDef = lookupVariantDefinition(tycon).getOrElse(
-                    throw CompilationError(s"variant $tycon not found"))
-                  withBinders(binder) { _ =>
-                    SCaseAlt(
-                      SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
-                      translate(expr),
-                    )
+        alts match {
+          case ImmArray(CaseAlt(CPPrimCon(PCUnit), e)) =>
+            SELet(
+              translate(scrut)
+            ) in
+              translate(e)
+          case ImmArray(CaseAlt(CPPrimCon(c @ (PCTrue | PCFalse)), a), CaseAlt(_, b)) =>
+            SEIfThenElse(
+              translate(scrut),
+              translate(if (c == PCTrue) a else b),
+              translate(if (c == PCTrue) b else a),
+            )
+          case _ =>
+            SECase(
+              translate(scrut),
+              alts.iterator.map {
+                case CaseAlt(pat, expr) =>
+                  pat match {
+                    case CPVariant(tycon, variant, binder) =>
+                      val variantDef = lookupVariantDefinition(tycon).getOrElse(
+                        throw CompilationError(s"variant $tycon not found"))
+                      withBinders(binder) { _ =>
+                        SCaseAlt(
+                          SCPVariant(tycon, variant, variantDef.constructorRank(variant)),
+                          translate(expr),
+                        )
+                      }
+
+                    case CPEnum(tycon, constructor) =>
+                      val enumDef = lookupEnumDefinition(tycon).getOrElse(
+                        throw CompilationError(s"enum $tycon not found"))
+                      SCaseAlt(
+                        SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
+                        translate(expr),
+                      )
+
+                    case CPNil =>
+                      SCaseAlt(SCPNil, translate(expr))
+
+                    case CPCons(head, tail) =>
+                      withBinders(head, tail) { _ =>
+                        SCaseAlt(SCPCons, translate(expr))
+                      }
+
+                    case CPPrimCon(pc) =>
+                      SCaseAlt(SCPPrimCon(pc), translate(expr))
+
+                    case CPNone =>
+                      SCaseAlt(SCPNone, translate(expr))
+
+                    case CPSome(body) =>
+                      withBinders(body) { _ =>
+                        SCaseAlt(SCPSome, translate(expr))
+                      }
+
+                    case CPDefault =>
+                      SCaseAlt(SCPDefault, translate(expr))
                   }
-
-                case CPEnum(tycon, constructor) =>
-                  val enumDef = lookupEnumDefinition(tycon).getOrElse(
-                    throw CompilationError(s"enum $tycon not found"))
-                  SCaseAlt(
-                    SCPEnum(tycon, constructor, enumDef.constructorRank(constructor)),
-                    translate(expr),
-                  )
-
-                case CPNil =>
-                  SCaseAlt(SCPNil, translate(expr))
-
-                case CPCons(head, tail) =>
-                  withBinders(head, tail) { _ =>
-                    SCaseAlt(SCPCons, translate(expr))
-                  }
-
-                case CPPrimCon(pc) =>
-                  SCaseAlt(SCPPrimCon(pc), translate(expr))
-
-                case CPNone =>
-                  SCaseAlt(SCPNone, translate(expr))
-
-                case CPSome(body) =>
-                  withBinders(body) { _ =>
-                    SCaseAlt(SCPSome, translate(expr))
-                  }
-
-                case CPDefault =>
-                  SCaseAlt(SCPDefault, translate(expr))
-              }
-          }.toArray,
-        )
+              }.toArray,
+            )
+        }
 
       case ENil(_) => SEValue.EmptyList
       case ECons(_, front, tail) =>
@@ -971,6 +985,13 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
         val newArgs = args.map(closureConvert(remaps, bound, _))
         SEApp(newFun, newArgs)
 
+      case SEIfThenElse(scrut, ifCase, elseCase) =>
+        SEIfThenElse(
+          closureConvert(remaps, bound, scrut),
+          closureConvert(remaps, bound, ifCase),
+          closureConvert(remaps, bound, elseCase),
+        )
+
       case SECase(scrut, alts) =>
         SECase(
           closureConvert(remaps, bound, scrut),
@@ -1025,6 +1046,10 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound -= n
         case x: SEMakeClo =>
           throw CompilationError(s"unexpected SEMakeClo: $x")
+        case SEIfThenElse(cond, ifCase, elseCase) =>
+          go(cond)
+          go(ifCase)
+          go(elseCase)
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {
@@ -1099,6 +1124,10 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound = n + fv.length
           go(body)
           bound = oldBound
+        case SEIfThenElse(cond, ifCase, elseCase) =>
+          go(cond)
+          go(ifCase)
+          go(elseCase)
         case SECase(scrut, alts) =>
           go(scrut)
           alts.foreach {

@@ -3,6 +3,7 @@
 
 package com.daml.lf
 
+import com.daml.lf.data.FastMap
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.speedy.SExpr.SDefinitionRef
@@ -27,7 +28,8 @@ final class PureCompiledPackages private (
 ) extends CompiledPackages {
   override def packageIds: Set[PackageId] = packages.keySet
   override def getPackage(pkgId: PackageId): Option[Package] = packages.get(pkgId)
-  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = defns.get(dref)
+  private val fastMap = new FastMap(defns)
+  override def getDefinition(dref: SDefinitionRef): Option[SExpr] = fastMap.get(dref)
 }
 
 object PureCompiledPackages {

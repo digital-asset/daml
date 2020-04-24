@@ -259,7 +259,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
           cb(pkgs2)
           result = SResultContinue
           run()
-          machine.ctrl shouldBe Speedy.CtrlValue(SValue.SBool(true))
+          machine.ctrl shouldBe SValue.SBool(true)
         case _ =>
           sys.error(s"expected result to be missing definition, got $result")
       }

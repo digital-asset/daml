@@ -432,7 +432,7 @@ object Repl {
             println(s"time: ${diff}ms")
             if (!errored) {
               val result = machine.ctrl match {
-                case Speedy.CtrlValue(sv) =>
+                case sv: SValue =>
                   prettyValue(true)(sv.toValue).render(128)
                 case x => x.toString
               }
@@ -501,6 +501,7 @@ object Repl {
     allScenarios.foreach {
       case (name, body) =>
         print(name + ": ")
+        System.gc()
         val (machine, errOrLedger) = state.scenarioRunner.run(body)
         errOrLedger match {
           case Left((err, ledger @ _)) =>
