@@ -83,7 +83,8 @@ def _versioned_binary_impl(ctx):
         ctx.attr.flag[VersionInfo].version,
         _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions),
     )
-    default_info = _wrap_binary(ctx, target, ctx.outputs.output, before = "set -euo pipefail")
+    wrapper = ctx.actions.declare_file("%s.sh" % ctx.label.name)
+    default_info = _wrap_binary(ctx, target, wrapper, before = "set -euo pipefail")
     return [default_info]
 
 _versioned_file = rule(
@@ -99,7 +100,6 @@ _versioned_binary = rule(
     attrs = {
         "flag": attr.label(providers = [VersionInfo]),
         "versions": attr.label_keyed_string_dict(),
-        "output": attr.output(),
         "_bash_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
     },
     executable = True,
@@ -118,7 +118,6 @@ def versioned_binary(name, flag, versions, **kwargs):
         name = name,
         flag = flag,
         versions = _string_keyed_label_dict_to_label_keyed_string_dict(versions),
-        output = "%s.sh" % name,
         **kwargs
     )
 
@@ -157,7 +156,8 @@ version_transition = transition(
 )
 
 def _platform_sdk_test_impl(ctx):
-    default_info = _wrap_binary(ctx, ctx.attr.test, ctx.outputs.output, before = "set -euo pipefail")
+    wrapper = ctx.actions.declare_file("%s.sh" % ctx.label.name)
+    default_info = _wrap_binary(ctx, ctx.attr.test, wrapper, before = "set -euo pipefail")
     return [default_info]
 
 _platform_sdk_test = rule(
@@ -165,7 +165,6 @@ _platform_sdk_test = rule(
     cfg = version_transition,
     attrs = {
         "test": attr.label(),
-        "output": attr.output(),
         "_bash_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
         "_whitelist_function_transition": attr.label(
              default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
@@ -178,6 +177,5 @@ def platform_sdk_test(name, test, **kwargs):
     _platform_sdk_test(
         name = name,
         test = test,
-        output = "%s.sh" % name,
         **kwargs
     )
