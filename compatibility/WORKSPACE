@@ -129,7 +129,17 @@ load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
 
 daml_haskell_deps()
 
-load("//bazel_tools:daml_sdk.bzl", "daml_sdk")
+load("//bazel_tools:daml_sdk.bzl", "daml_sdk", "daml_sdk_head")
+
+local_repository(
+    name = "head_sdk",
+    path = "head_sdk",
+)
+
+daml_sdk_head(
+    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
+    sdk_tarball = "@head_sdk//:sdk-release-tarball.tar.gz",
+)
 
 daml_sdk(
     sdk_sha256 = "ee7e2f50394d44fb3490068de64d37f4f87534e802717bd7e07e8767df2e4e05",

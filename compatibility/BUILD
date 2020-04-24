@@ -19,12 +19,14 @@ sdk_versions = [
     "1.0.0",
     "1.0.1-snapshot.20200417.3908.1.722bac90",
     "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+    "0.0.0",
 ]
 
 platform_versions = [
     "1.0.0",
     "1.0.1-snapshot.20200417.3908.1.722bac90",
     "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+    "0.0.0",
 ]
 
 [
@@ -48,3 +50,8 @@ platform_versions = [
     for sdk_version in sdk_versions
     for platform_version in platform_versions
 ] if is_linux else None
+
+test_suite(
+    name = "head-quick",
+    tags = ["head-quick"],
+)
