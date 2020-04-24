@@ -83,7 +83,7 @@ We can now run the app in two steps.
 You'll need two terminal windows running for this.
 In one terminal, at the root of the ``create-daml-app`` directory, run the command::
 
-    daml start
+    daml start --json-api-option=--leak-passwords-firesheep-style
 
 You will know that the command has started successfully when you see the ``INFO  com.daml.http.Main$ - Started server: ServerBinding(/127.0.0.1:7575)`` message in the terminal. The command does a few things:
 
