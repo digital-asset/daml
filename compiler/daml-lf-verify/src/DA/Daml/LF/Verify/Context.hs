@@ -36,6 +36,7 @@ import Data.Hashable
 import GHC.Generics
 import Data.Maybe (listToMaybe, isJust)
 import Data.List (find)
+import Data.Bifunctor
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 
@@ -86,7 +87,7 @@ concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2
   UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
 
 genRenamedVar :: MonadEnv m => ExprVarName -> m ExprVarName
-genRenamedVar (ExprVarName x) = ExprVarName . (T.append x) . T.pack <$> fresh
+genRenamedVar (ExprVarName x) = ExprVarName . T.append x . T.pack <$> fresh
 
 data Skolem
   = SkolVar ExprVarName
@@ -184,7 +185,7 @@ extChEnv :: MonadEnv m
   -> m ()
 extChEnv tc ch self this arg upd = do
   env@Env{..} <- getEnv
-  let substUpd = \sExp tExp aExp -> substituteTmUpd (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
+  let substUpd sExp tExp aExp = substituteTmUpd (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
   putEnv env{_envchs = HM.insert (tc, ch) (self,this,arg,substUpd) _envchs}
 
 extDatsEnv :: MonadEnv m => HM.HashMap TypeConName DefDataType -> m ()
@@ -335,11 +336,11 @@ substituteTmUpd s UpdateSet{..} = UpdateSet susCre susArc _usCho _usVal
 
 substituteTmUpdCreate :: ExprSubst -> UpdCreate -> UpdCreate
 substituteTmUpdCreate s UpdCreate{..} = UpdCreate _creTemp
-  (map (\(f,e) -> (f, substituteTmTm s e)) _creField)
+  (map (second (substituteTmTm s)) _creField)
 
 substituteTmUpdArchive :: ExprSubst -> UpdArchive -> UpdArchive
 substituteTmUpdArchive s UpdArchive{..} = UpdArchive _arcTemp
-  (map (\(f,e) -> (f, substituteTmTm s e)) _arcField)
+  (map (second (substituteTmTm s)) _arcField)
 
 data Error
   = UnknownValue (Qualified ExprValName)

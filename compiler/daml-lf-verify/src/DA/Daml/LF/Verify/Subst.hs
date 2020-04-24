@@ -49,7 +49,7 @@ substituteTmTm s = \case
   EStructUpd f e1 e2 -> EStructUpd f (substituteTmTm s e1) (substituteTmTm s e2)
   ETmApp e1 e2 -> ETmApp (substituteTmTm s e1) (substituteTmTm s e2)
   ETyApp e t -> ETyApp (substituteTmTm s e) t
-  ETmLam (x,t) e -> if x `elem` (substDom s)
+  ETmLam (x,t) e -> if x `elem` substDom s
     then ETmLam (x,t) e
     else ETmLam (x,t) (substituteTmTm s e)
   ETyLam (a,k) e -> ETyLam (a,k) (substituteTmTm s e)

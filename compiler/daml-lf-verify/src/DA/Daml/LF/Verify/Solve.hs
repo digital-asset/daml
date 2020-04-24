@@ -67,11 +67,11 @@ constructConstr env tem ch f =
   case lookupChoInHMap (_envchs env) tem ch of
     Just (self, this, arg, updSubst) ->
       let upds = updSubst (EVar self) (EVar this) (EVar arg)
-          vars = concat $ map skol2var $ _envskol env
+          vars = concatMap skol2var (_envskol env)
           creUpds = filter (\UpdCreate{..} -> tem == qualObject _creTemp) (_usCre upds)
-          creVals = map (exp2CExp . fromJust . (lookup f) . _creField) creUpds
+          creVals = map (exp2CExp . fromJust . lookup f . _creField) creUpds
           arcUpds = filter (\UpdArchive{..} -> tem == qualObject _arcTemp) (_usArc upds)
-          arcVals = map (exp2CExp . fromJust . (lookup f) . _arcField) arcUpds
+          arcVals = map (exp2CExp . fromJust . lookup f . _arcField) arcUpds
       in ConstraintSet vars creVals arcVals
     Nothing -> error "Choice not found"
 
