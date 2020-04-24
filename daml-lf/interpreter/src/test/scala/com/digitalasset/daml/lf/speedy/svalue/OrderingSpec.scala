@@ -23,7 +23,7 @@ import org.scalatest.prop.{
   TableFor1,
   TableFor2
 }
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.{Matchers, WordSpec}
 import scalaz.{Order, Tag}
 import scalaz.syntax.order._
 
@@ -36,7 +36,6 @@ import scala.util.Random
 class OrderingSpec
     extends WordSpec
     with Matchers
-    with Inside
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks {
 
@@ -467,8 +466,7 @@ class OrderingSpec
   private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
   private def dummyMachine = Speedy.Machine fromExpr (
     expr = e"NA:na ()",
-    checkSubmitterInMaintainers = true,
-    compiledPackages = inside(PureCompiledPackages(Map.empty, Map.empty)) { case Right(x) => x },
+    compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
     scenario = false,
     Time.Timestamp.now(),
     Some(txSeed),
