@@ -7,6 +7,12 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_linux")
 load("//bazel_tools:testing.bzl", "sdk_platform_test")
+load(
+    "//bazel_tools:version.bzl",
+    "version_flag",
+    "versioned_binary",
+    "versioned_file",
+)
 
 sdk_versions = [
     "1.0.0",
@@ -28,6 +34,43 @@ platform_versions = [
         data = ["@//bazel_tools/client_server:with-postgres", "@daml-sdk-{}//:daml".format(version)],
     ) for version in platform_versions
 ]
+
+version_flag(
+    name = "sdk_version",
+    build_setting_default = sdk_versions[0],
+)
+
+version_flag(
+    name = "platform_version",
+    build_setting_default = platform_versions[0],
+)
+
+versioned_file(
+    name = "dar-files",
+    flag = ":sdk_version",
+    versions = {
+        version: "@daml-sdk-%s//:dar-files" % version
+        for version in sdk_versions
+    },
+)
+
+versioned_binary(
+    name = "ledger-api-test-tool",
+    flag = ":sdk_version",
+    versions = {
+        version: "@daml-sdk-%s//:ledger-api-test-tool" % version
+        for version in sdk_versions
+    },
+)
+
+versioned_binary(
+    name = "sandbox",
+    flag = ":platform_version",
+    versions = {
+        version: "@daml-sdk-%s//:daml" % version
+        for version in platform_versions
+    },
+)
 
 [
     sdk_platform_test(
