@@ -16,8 +16,8 @@ module DA.Daml.LF.Verify.Context
   , UpdChoice(..)
   , Skolem(..)
   , runEnv
+  , genRenamedVar
   , emptyEnv
-  , introEnv
   , extVarEnv, extRecEnv, extValEnv, extChEnv, extDatsEnv, extCidEnv
   , extRecEnvLvl1
   , lookupVar, lookupRec, lookupVal, lookupChoice, lookupDataCon, lookupCid
@@ -25,7 +25,7 @@ module DA.Daml.LF.Verify.Context
   , emptyUpdateSet
   , concatUpdateSet
   , solveValueUpdatesEnv
-  , testPrint, lookupChoInHMap
+  , lookupChoInHMap
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
   ) where
@@ -36,9 +36,8 @@ import Data.Hashable
 import GHC.Generics
 import Data.Maybe (listToMaybe, isJust)
 import Data.List (find)
-import qualified Data.Map.Strict as Map
 import qualified Data.HashMap.Strict as HM
-import Debug.Trace
+import qualified Data.Text as T
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Subst
@@ -86,6 +85,9 @@ concatUpdateSet :: UpdateSet -> UpdateSet -> UpdateSet
 concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2 vals2) =
   UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
 
+genRenamedVar :: MonadEnv m => ExprVarName -> m ExprVarName
+genRenamedVar (ExprVarName x) = ExprVarName . (T.append x) . T.pack <$> fresh
+
 data Skolem
   = SkolVar ExprVarName
     -- ^ Skolemised term variable.
@@ -97,29 +99,27 @@ data Skolem
 expr2cid :: MonadEnv m => Expr -> m Cid
 expr2cid (EVar x) = return $ CidVar x
 expr2cid (ERecProj _ f (EVar x)) = return $ CidRec x f
--- TODO: Temporary solution
-expr2cid (ERecProj _ f (ERecCon tc _)) = return $ CidRec (ExprVarName $ head $ unTypeConName $ qualObject $ tcaTypeCon tc) f
-expr2cid expr = error ("Expected cid: " ++ show expr)
--- expr2cid _ = throwError ExpectCid
+expr2cid _ = throwError ExpectCid
 
 data Cid
   = CidVar ExprVarName
   | CidRec ExprVarName FieldName
   deriving (Generic, Hashable, Eq, Show)
 
+-- TODO: Could we alternatively just declare the variables that occur in the updates and drop the skolems?
 -- | The environment for the DAML-LF verifier
 data Env = Env
   { _envskol :: ![Skolem]
     -- ^ The skolemised term variables and fields.
   , _envvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
     -- ^ The bound values.
-  , _envchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName) (Expr -> Expr -> Expr -> UpdateSet))
+  , _envchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName)
+      (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet))
     -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
   , _envdats :: !(HM.HashMap TypeConName DefDataType)
     -- ^ The set of data constructors.
   , _envcids :: !(HM.HashMap Cid ExprVarName)
     -- ^ The set of fetched cid's mapped to their variable name.
-  -- TODO: split this off into data types for readability?
   }
 
 emptyEnv :: Env
@@ -137,31 +137,35 @@ fieldName2VarName = ExprVarName . unFieldName
 
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
-type MonadEnv m = (MonadError Error m, MonadState Env m)
+type MonadEnv m = (MonadError Error m, MonadState (Int,Env) m)
 
-runEnv :: StateT Env (Either Error) () -> Env -> Either Error Env
+getEnv :: MonadEnv m => m Env
+getEnv = snd <$> get
+
+putEnv :: MonadEnv m => Env -> m ()
+putEnv env = get >>= \(uni,_) -> put (uni,env)
+
+fresh :: MonadEnv m => m String
+fresh = do
+  (cur,env) <- get
+  put (cur + 1,env)
+  return $ show cur
+
+runEnv :: StateT (Int,Env) (Either Error) () -> Env -> Either Error Env
 runEnv comp env0 = do
-  (_res, env) <- runStateT comp env0
-  return env
-
--- TODO: some of these might not be needed anymore.
--- | Run a computation in the current environment, with an additional
--- environment extension.
-introEnv :: MonadEnv m => Env -> m ()
-introEnv env = modify (concatEnv env)
+  (_res, (_uni,env1)) <- runStateT comp (0,env0)
+  return env1
 
 extVarEnv :: MonadEnv m => ExprVarName -> m ()
--- TODO: Check for doubles when adding
-extVarEnv x = get >>= \env@Env{..} -> put env{_envskol = SkolVar x : _envskol}
+extVarEnv x = do
+  env@Env{..} <- getEnv
+  putEnv env{_envskol = SkolVar x : _envskol}
 
--- TODO: Problem! ExprVarName is always `this` or `arg`, so it overwrites!!
--- Possible solution: pass in the current template?
 extRecEnv :: MonadEnv m => ExprVarName -> [FieldName] -> m ()
--- TODO: Check for doubles when adding
-extRecEnv x fs = get >>= \env@Env{..} -> put env{_envskol = SkolRec x fs : _envskol}
+extRecEnv x fs = getEnv >>= \env@Env{..} -> putEnv env{_envskol = SkolRec x fs : _envskol}
 
 extValEnv :: MonadEnv m => Qualified ExprValName -> Expr -> UpdateSet -> m ()
-extValEnv val expr upd = get >>= \env@Env{..} -> put env{_envvals = HM.insert val (expr, upd) _envvals}
+extValEnv val expr upd = getEnv >>= \env@Env{..} -> putEnv env{_envvals = HM.insert val (expr, upd) _envvals}
 
 -- | Extends the environment with a new choice.
 extChEnv :: MonadEnv m
@@ -179,18 +183,18 @@ extChEnv :: MonadEnv m
   -- ^ The updates performed by the new choice.
   -> m ()
 extChEnv tc ch self this arg upd = do
-  env@Env{..} <- get
-  let substUpd = \sExp tExp aExp -> trace ("Subst " ++ (show arg) ++ "with" ++ (show aExp)) $ substituteTmUpd (Map.fromList [(self,sExp),(this,tExp),(arg,aExp)]) upd
-  put env{_envchs = HM.insert (tc, ch) substUpd _envchs}
+  env@Env{..} <- getEnv
+  let substUpd = \sExp tExp aExp -> substituteTmUpd (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
+  putEnv env{_envchs = HM.insert (tc, ch) (self,this,arg,substUpd) _envchs}
 
 extDatsEnv :: MonadEnv m => HM.HashMap TypeConName DefDataType -> m ()
-extDatsEnv hmap = get >>= \env@Env{..} -> put env{_envdats = hmap `HM.union` _envdats}
+extDatsEnv hmap = getEnv >>= \env@Env{..} -> putEnv env{_envdats = hmap `HM.union` _envdats}
 
 extCidEnv :: MonadEnv m => Expr -> ExprVarName -> m ()
 extCidEnv exp var = do
   cid <- expr2cid exp
-  env@Env{..} <- get
-  put env{_envcids = HM.insert cid var _envcids}
+  env@Env{..} <- getEnv
+  putEnv env{_envcids = HM.insert cid var _envcids}
 
 -- TODO: Is one layer of recursion enough?
 extRecEnvLvl1 :: MonadEnv m => [(FieldName, Type)] -> m ()
@@ -205,15 +209,15 @@ extRecEnvLvl1 = mapM_ step
       `catchError` (\_ -> return ())
 
 lookupVar :: MonadEnv m => ExprVarName -> m ()
+-- TODO: This should be skolemised in the template instead of hardcoding here
 lookupVar (ExprVarName "self") = return ()
 lookupVar (ExprVarName "this") = return ()
--- TODO: Is there a nicer way to handle this instead of hardcoding?
-lookupVar x = get >>= \ env -> unless (elem (SkolVar x) $ _envskol env)
+lookupVar x = getEnv >>= \ env -> unless (elem (SkolVar x) $ _envskol env)
   (throwError $ UnboundVar x)
 
 lookupRec :: MonadEnv m => ExprVarName -> FieldName -> m Bool
 lookupRec x f = do
-  env <- get
+  env <- getEnv
   let fields = [ fs | SkolRec y fs <- _envskol env , x == y ]
   if not (null fields)
     then return (elem f $ head fields)
@@ -221,53 +225,45 @@ lookupRec x f = do
 
 lookupVal :: MonadEnv m => Qualified ExprValName -> m (Expr, UpdateSet)
 lookupVal val = do
-  env <- get
+  env <- getEnv
   case lookupValInHMap (_envvals env) val of
     Just res -> return res
     Nothing -> throwError (UnknownValue val)
 
 lookupChoice :: MonadEnv m => Qualified TypeConName -> ChoiceName
   -> m (Expr -> Expr -> Expr -> UpdateSet)
--- TODO: Actually bind this, instead of hardcoding
--- lookupChoice tem (ChoiceName "Archive") = do
---   fs <- recTypConFields $ qualObject tem
---   let fields = map ((\f -> (f, EVar $ fieldName2VarName f)) . fst) fs
---   return emptyUpdateSet{_usArc = [UpdArchive tem fields]}
 lookupChoice tem ch = do
-  env <- get
+  env <- getEnv
   case lookupChoInHMap (_envchs env) (qualObject tem) ch of
     Nothing -> throwError (UnknownChoice ch)
-    Just upd -> return upd
+    Just (_,_,_,upd) -> return upd
 
 lookupDataCon :: MonadEnv m => TypeConName -> m DefDataType
 lookupDataCon tc = do
-  env <- get
+  env <- getEnv
   case HM.lookup tc (_envdats env) of
     Nothing -> throwError (UnknownDataCons tc)
     Just def -> return def
 
 lookupCid :: MonadEnv m => Expr -> m ExprVarName
 lookupCid exp = do
-  env <- get
+  env <- getEnv
   cid <- expr2cid exp
   case HM.lookup cid (_envcids env) of
-    Nothing -> trace (show $ _envcids env) $ throwError $ UnknownCid cid
+    Nothing -> throwError $ UnknownCid cid
     Just var -> return var
 
+-- TODO: There seems to be something wrong with the PackageRef in Qualified.
 lookupValInHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
   -> Qualified ExprValName -> Maybe (Expr, UpdateSet)
--- TODO: Temp print
-lookupValInHMap hmap val =
-  -- TODO: There seems to be something wrong with the PackageRef in Qualified.
-  let ress = HM.elems $ HM.filterWithKey (\name _ -> qualObject name == qualObject val && qualModule name == qualModule val) hmap
-  in listToMaybe ress
-  -- in if length ress > 1
-  --    then trace ("Overlapping vals! : " ++ show val) $ listToMaybe ress
-  --    else listToMaybe ress
+lookupValInHMap hmap val = listToMaybe $ HM.elems
+  $ HM.filterWithKey (\name _ -> qualObject name == qualObject val && qualModule name == qualModule val) hmap
 
 -- TODO: Does this really need to be a seperate function?
-lookupChoInHMap :: HM.HashMap (Qualified TypeConName, ChoiceName) (Expr -> Expr -> Expr -> UpdateSet)
-  -> TypeConName -> ChoiceName -> Maybe (Expr -> Expr -> Expr -> UpdateSet)
+lookupChoInHMap :: HM.HashMap (Qualified TypeConName, ChoiceName)
+    (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet)
+  -> TypeConName -> ChoiceName
+  -> Maybe (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet)
 -- TODO: This TypeConName should be qualified
 -- TODO: The type con name really should be taken into account here
 lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
@@ -313,7 +309,7 @@ recTypFields _ = throwError ExpectRecord
 
 recExpFields :: MonadEnv m => Expr -> m [(FieldName, Expr)]
 recExpFields (EVar x) = do
-  env <- get
+  env <- getEnv
   let fss = [ fs | SkolRec y fs <- _envskol env , x == y ]
   if not (null fss)
     -- TODO: I would prefer `this.amount` here
@@ -324,13 +320,12 @@ recExpFields (ERecUpd _ f recExp fExp) = do
   fs <- recExpFields recExp
   unless (isJust $ find (\(n, _) -> n == f) fs) (throwError $ UnknownRecField f)
   return $ (f, fExp) : [(n, e) | (n, e) <- fs, n /= f]
--- recExpFields _ = throwError ExpectRecord
 recExpFields (ERecProj _ f e) = do
   fields <- recExpFields e
   case lookup f fields of
     Just e' -> recExpFields e'
     Nothing -> throwError $ UnknownRecField f
-recExpFields e = error ("Expected record: " ++ show e)
+recExpFields _ = throwError ExpectRecord
 
 substituteTmUpd :: ExprSubst -> UpdateSet -> UpdateSet
 substituteTmUpd s UpdateSet{..} = UpdateSet susCre susArc _usCho _usVal
@@ -368,9 +363,3 @@ instance Show Error where
   show ExpectRecord = "Impossible: Expected a record type"
   show ExpectCid = "Impossible: Expected a contract id"
   show (CyclicModules mods) = "Cyclic modules: " ++ show mods
-
--- | For testing purposes: print the stored value definitions in the environment.
--- TODO: Remove
-testPrint :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet) -> IO ()
-testPrint hmap = putStrLn "Test print keys:"
-  >> mapM_ print (HM.keys hmap)

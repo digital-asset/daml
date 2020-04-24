@@ -6,6 +6,7 @@ module DA.Daml.LF.Verify.Subst
   ( ExprSubst
   , singleExprSubst
   , singleTypeSubst
+  , createExprSubst
   , substituteTmTm
   , substituteTyTm
   ) where
@@ -23,6 +24,12 @@ singleExprSubst = Map.singleton
 
 singleTypeSubst :: TypeVarName -> Type -> Subst
 singleTypeSubst = Map.singleton
+
+createExprSubst :: [(ExprVarName,Expr)] -> ExprSubst
+createExprSubst = Map.fromList
+
+substDom :: ExprSubst -> [ExprVarName]
+substDom = Map.keys
 
 -- | Apply an expression substitution to an expression.
 -- TODO: We assume that for any substitution x |-> e : x notin e
@@ -42,8 +49,10 @@ substituteTmTm s = \case
   EStructUpd f e1 e2 -> EStructUpd f (substituteTmTm s e1) (substituteTmTm s e2)
   ETmApp e1 e2 -> ETmApp (substituteTmTm s e1) (substituteTmTm s e2)
   ETyApp e t -> ETyApp (substituteTmTm s e) t
-  ETmLam xs e -> ETmLam xs (substituteTmTm s e)
-  ETyLam as e -> ETyLam as (substituteTmTm s e)
+  ETmLam (x,t) e -> if x `elem` (substDom s)
+    then ETmLam (x,t) e
+    else ETmLam (x,t) (substituteTmTm s e)
+  ETyLam (a,k) e -> ETyLam (a,k) (substituteTmTm s e)
   ECase e cs -> ECase (substituteTmTm s e)
     $ map (\CaseAlternative{..} -> CaseAlternative altPattern (substituteTmTm s altExpr)) cs
   ELet Binding{..} e -> ELet (Binding bindingBinder $ substituteTmTm s bindingBound)

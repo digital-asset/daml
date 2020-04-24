@@ -13,13 +13,11 @@ import Data.List (lookup)
 import Data.Set (toList, fromList)
 import qualified Data.Text as T
 import qualified SimpleSMT as S
--- import Z3.Monad
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Verify.Context
--- import DA.Pretty
 
--- TODO: Since S.SExpr is so similar, we might be able to just drop this.
+-- TODO: Since S.SExpr is so similar, we could just drop this.
 -- | A simple form of expressions featuring basic arithmetic.
 data ConstraintExpr
   -- | Reference to an expression variable.
@@ -42,7 +40,6 @@ exp2CExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
   BESubNumeric -> CSub (exp2CExp e1) (exp2CExp e2)
   _ -> error ("Builtin: " ++ show b)
 exp2CExp e = error ("Conversion: " ++ show e)
--- exp2CExp e = error ("Conversion: " ++ renderPretty e)
 
 skol2var :: Skolem -> [ExprVarName]
 skol2var (SkolVar x) = [x]
@@ -68,9 +65,8 @@ data ConstraintSet = ConstraintSet
 constructConstr :: Env -> TypeConName -> ChoiceName -> FieldName -> ConstraintSet
 constructConstr env tem ch f =
   case lookupChoInHMap (_envchs env) tem ch of
-    Just updSubst ->
-      let upds = updSubst (EVar $ ExprVarName "self") (EVar $ ExprVarName "this")
-            (EVar $ ExprVarName "args")
+    Just (self, this, arg, updSubst) ->
+      let upds = updSubst (EVar self) (EVar this) (EVar arg)
           vars = concat $ map skol2var $ _envskol env
           creUpds = filter (\UpdCreate{..} -> tem == qualObject _creTemp) (_usCre upds)
           creVals = map (exp2CExp . fromJust . (lookup f) . _creField) creUpds
@@ -80,7 +76,9 @@ constructConstr env tem ch f =
     Nothing -> error "Choice not found"
 
 cexp2sexp :: [(ExprVarName,S.SExpr)] -> ConstraintExpr -> IO S.SExpr
-cexp2sexp vars (CVar x) = return $ fromJust $ lookup x vars
+cexp2sexp vars (CVar x) = case lookup x vars of
+  Just exp -> return exp
+  Nothing -> error ("Impossible: variable not found " ++ show x)
 cexp2sexp vars (CAdd ce1 ce2) = do
   se1 <- cexp2sexp vars ce1
   se2 <- cexp2sexp vars ce2
@@ -99,7 +97,7 @@ declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tInt) xs
 
 solveConstr :: FilePath -> ConstraintSet -> IO ()
 solveConstr spath ConstraintSet{..} = do
-  log <- S.newLogger 0
+  log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars <- declareVars sol $ filterDups _cVars
   cre <- foldl S.add (S.int 0) <$> mapM (cexp2sexp vars) _cCres
