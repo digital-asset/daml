@@ -292,6 +292,7 @@ packagingTests = testGroup "packaging"
               , "--start-navigator=no"
               , "--sandbox-port=" <> show sandboxPort
               , "--json-api-port=" <> show jsonApiPort
+              , "--json-api-option=--leak-passwords-firesheep-style"
               ]
         withCurrentDirectory projDir $
           withCreateProcess startProc $ \_ _ _ startPh ->
