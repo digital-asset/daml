@@ -32,20 +32,23 @@ version_flag = rule(
     build_setting = config.string(flag = True),
 )
 
+def _get_version(version, known_versions):
+    if not version in known_versions:
+        fail("Version {version} not available".format(version = version), "versions")
+    return known_versions[version]
+
 def _versioned_file_impl(ctx, executable = False):
-    version = ctx.attr.flag[VersionInfo].version
-    registry = _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions)
-    if not version in registry:
-        fail("Version {version} not available in registry".format(version = version), "versions")
-    target = registry[version]
+    target = _get_version(
+        ctx.attr.flag[VersionInfo].version,
+        _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions),
+    )
     return [target[DefaultInfo]]
 
 def _versioned_binary_impl(ctx):
-    version = ctx.attr.flag[VersionInfo].version
-    registry = _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions)
-    if not version in registry:
-        fail("Version {version} not available in registry".format(version = version), "versions")
-    target = registry[version]
+    target = _get_version(
+        ctx.attr.flag[VersionInfo].version,
+        _label_keyed_string_dict_to_string_keyed_label_dict(ctx.attr.versions),
+    )
     executable = target[DefaultInfo].files_to_run.executable
     executable_runpath = paths.join(ctx.workspace_name, paths.relativize(executable.path, executable.root.path))
     output = ctx.outputs.output
