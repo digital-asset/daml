@@ -10,7 +10,7 @@ import com.daml.ledger.api.domain.{Commands => ApiCommands}
 import com.daml.ledger.participant.state.index.v2.{ContractStore, IndexPackagesService}
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.daml.lf.crypto
-import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref
 import com.daml.lf.engine.{
   Blinding,
   Engine,
@@ -62,7 +62,7 @@ final class StoreBackedCommandExecutor(
               commands.deduplicateUntil,
             ),
             transactionMeta = TransactionMeta(
-              Time.Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
+              commands.commands.ledgerEffectiveTime,
               commands.workflowId.map(_.unwrap),
               meta.submissionTime,
               submissionSeed,

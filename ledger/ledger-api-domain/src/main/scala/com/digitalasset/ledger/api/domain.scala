@@ -271,7 +271,6 @@ object domain {
       applicationId: ApplicationId,
       commandId: CommandId,
       submitter: Ref.Party,
-      ledgerEffectiveTime: Instant,
       submittedAt: Instant,
       deduplicateUntil: Instant,
       commands: LfCommands)
