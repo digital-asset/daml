@@ -5,7 +5,7 @@
 module DA.Daml.LF.Verify ( main ) where
 
 import Options.Applicative
-import Data.Maybe (fromJust)
+-- import Data.Maybe (fromJust)
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Verify.Generate
@@ -15,6 +15,7 @@ import DA.Daml.LF.Verify.Context
 import DA.Pretty
 import DA.Bazel.Runfiles
 -- import qualified Data.NameMap as NM
+import qualified Data.HashMap.Strict as HM
 
 -- TODO: temporarily hardcoded
 templName :: TypeConName
@@ -35,21 +36,25 @@ main = do
   -- mapM_ (putStrLn . renderPretty) (concat (map (NM.toList . packageModules . fst . snd) pkgs))
   putStrLn "Start value phase" >> case runEnv (genPackages ValuePhase pkgs) emptyEnv of
     Left err-> putStrLn "Value phase finished with error: " >> print err
-    Right env1 -> putStrLn "Start value solving" >>
+    Right env1 -> do
+      putStrLn "Start value solving"
       let env2 = solveValueUpdatesEnv env1
-      in putStrLn "Start template phase" >> case runEnv (genPackages TemplatePhase pkgs) env2 of
+          testexpr = fst $ (HM.elems $ HM.filterWithKey (\name _ -> unExprValName (qualObject name) == "$carchive") (_envvals env2)) !! 1
+      putStrLn $ renderPretty testexpr
+      print testexpr
+      putStrLn "Start template phase" >> case runEnv (genPackages TemplatePhase pkgs) env2 of
         Left err -> putStrLn "Template phase finished with error: " >> print err
         Right env3 -> do
           putStrLn "Success!"
-          let upds = fromJust $ lookupChoInHMap (_envchs env3) templName choiceName
-          mapM_ (\cre -> putStrLn "Create: " >> print (qualObject $ _creTemp cre) >> printFExpr (_creField cre) >> putStrLn "") (_usCre upds)
-          mapM_ (\arc -> putStrLn "Archive: " >> print (qualObject $ _arcTemp arc) >> printFExpr (_arcField arc) >> putStrLn "") (_usArc upds)
-          mapM_ (\cho -> putStrLn "Choice: " >> print (_choName cho) >> putStrLn "") (_usCho upds)
+          -- let upds = fromJust $ lookupChoInHMap (_envchs env3) templName choiceName
+          -- mapM_ (\cre -> putStrLn "Create: " >> print (qualObject $ _creTemp cre) >> printFExpr (_creField cre) >> putStrLn "") (_usCre upds)
+          -- mapM_ (\arc -> putStrLn "Archive: " >> print (qualObject $ _arcTemp arc) >> printFExpr (_arcField arc) >> putStrLn "") (_usArc upds)
+          -- mapM_ (\cho -> putStrLn "Choice: " >> print (_choName cho) >> putStrLn "") (_usCho upds)
           putStrLn "Start constraint solving phase"
           let cset = constructConstr env3 templName choiceName fieldName
           putStr "Create: " >> print (_cCres cset)
           putStr "Archive: " >> print (_cArcs cset)
           solveConstr solver cset
 
-printFExpr :: [(FieldName, Expr)] -> IO ()
-printFExpr fields = mapM_ (\(f,e) -> putStrLn (show f ++ " : " ++ renderPretty e)) fields
+-- printFExpr :: [(FieldName, Expr)] -> IO ()
+-- printFExpr fields = mapM_ (\(f,e) -> putStrLn (show f ++ " : " ++ renderPretty e)) fields

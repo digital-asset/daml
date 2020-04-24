@@ -110,12 +110,12 @@ genTemplate pac mod Template{..} = do
       (EUpdate $ UPure (TBuiltin BTUnit) (EBuiltin BEUnit))
     extChoice :: MonadEnv m => Qualified TypeConName -> [FieldName]
       -> TemplateChoice -> m ()
-    extChoice tem fs ch = do
+    extChoice tem fs ch@TemplateChoice{..} = do
       chOut <- genChoice tem tplParam fs ch
-      extChEnv tem (chcName ch) (_goUpd chOut)
+      extChEnv tem chcName chcSelfBinder tplParam (fst chcArgBinder) (_goUpd chOut)
 
 genExpr :: MonadEnv m => Phase -> Expr -> m GenOutput
-genExpr ph = \case
+genExpr ph exp = trace (renderPretty exp) $ trace " " $ case exp of
   ETmApp fun arg -> genForTmApp ph fun arg
   ETyApp expr typ -> genForTyApp ph expr typ
   ELet bind body -> genForLet ph bind body
@@ -207,7 +207,14 @@ genForExercise ph tem ch cid par arg = do
   cidOut <- genExpr ph cid
   argOut <- genExpr ph arg
   -- TODO: Substitute arg in these updates
-  updSet <- trace ("Lookup: " ++ show tem ++ " : " ++ show ch) $ trace (renderPretty arg) $ lookupChoice tem ch
+  -- TODO: Lookup the cid in the map, and subst this to the matching var
+  -- TODO: Achieve this by making the updSet a function taking the cid and its args (both ExprVarNames)?
+  updSubst <- lookupChoice tem ch
+  -- TODO WIP: I dont think this is correct yet. We should look up the var this cidOut is bound to.
+  test <- lookupDataCon (TypeConName ["Archive"])
+  this <- trace (show cid) $ trace (show test) $ lookupCid (_goExp cidOut)
+  -- TODO: Should we further eval after subst? But how to eval an update set?
+  let updSet = updSubst (_goExp cidOut) (EVar this) (_goExp argOut)
   return (GenOutput (EUpdate (UExercise tem ch (_goExp cidOut) par (_goExp argOut))) updSet)
 
 -- TODO: handle binds by substituting?
@@ -216,9 +223,12 @@ genForBind :: MonadEnv m => Phase -> Binding -> Expr -> m GenOutput
 genForBind ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
   case _goExp bindOut of
-    EUpdate (UFetch tc _cid) -> do
+    -- TODO: Create a map from this cid to the variable it binds to
+    EUpdate (UFetch tc cid) -> do
       fs <- trace ("Fetch " ++ show tc) $ recTypConFields $ qualObject tc
       extRecEnv (fst $ bindingBinder bind) (map fst fs)
+      cidOut <- genExpr ph cid
+      extCidEnv (_goExp cidOut) (fst $ bindingBinder bind)
     _ -> return ()
   extVarEnv (fst $ bindingBinder bind)
   bodyOut <- genExpr ph body
