@@ -12,7 +12,7 @@ object GlobalLogLevel {
     LoggerFactory.getILoggerFactory match {
       case loggerContext: ch.qos.logback.classic.LoggerContext =>
         rootLogger.info(s"Sandbox verbosity changed to $level")
-        loggerContext.getLoggerList.forEach(l => l.setLevel(level))
+        loggerContext.getLoggerList.forEach(_.setLevel(level))
       case _ =>
         rootLogger.warn(s"Sandbox verbosity cannot be set to requested $level")
     }

@@ -24,13 +24,6 @@
     <!-- raising the command tracker logging level -->
     <logger name="com.digitalasset.platform.apiserver.services.tracking.TrackerMap" level="WARN" />
 
-    <!--
-    explicitly enabling the info logging for sandbox main and ledger api server
-    for the usual startup info logging (which port, dar files, etc...)
-    -->
-    <logger name="com.digitalasset.platform.sandboxnext" level="INFO" />
-    <logger name="com.digitalasset.platform.apiserver.LedgerApiServer" level="INFO" />
-
     <logger name="io.netty" level="WARN" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
