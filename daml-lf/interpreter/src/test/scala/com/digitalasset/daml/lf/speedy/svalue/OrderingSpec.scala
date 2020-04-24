@@ -472,6 +472,14 @@ class OrderingSpec
     Some(txSeed),
   )
 
-  private def translatePrimValue(v: Value[Value.ContractId]) =
-    SBuiltin.translateValue(dummyMachine, v).value
+  private def translatePrimValue(v: Value[Value.ContractId]) = {
+    val ctrl = Speedy.CtrlTranslateValue(v)
+    val machine = dummyMachine
+    machine.ctrl = Speedy.CtrlCrash(ctrl)
+    ctrl.execute(machine)
+    machine.ctrl match {
+      case Speedy.CtrlValue(value) => value
+      case _ => throw new Error(s"error while translating value $v")
+    }
+  }
 }
