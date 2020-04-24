@@ -72,6 +72,23 @@ versioned_binary(
     },
 )
 
+client_server_test(
+    name = "sandbox-api-tool-test",
+    client = ":ledger-api-test-tool",
+    client_args = [
+        "localhost:6865",
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+    data = [":dar-files"],
+    runner = "@//bazel_tools/client_server:runner",
+    runner_args = ["6865"],
+    server = ":sandbox",
+    server_args = ["sandbox"],
+    server_files = ["$(rootpaths :dar-files)"],
+    tags = ["exclusive"],
+)
+
 [
     sdk_platform_test(
         sdk_version = sdk_version,
