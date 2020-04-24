@@ -25,25 +25,6 @@ def sdk_platform_test(sdk_version, platform_version):
         platform_version = platform_version,
     )
     client_server_test(
-        name = name,
-        client = ledger_api_test_tool,
-        client_args = [
-            "localhost:6865",
-            "--open-world",
-            "--exclude=ClosedWorldIT",
-        ],
-        data = [dar_files],
-        runner = "@//bazel_tools/client_server:runner",
-        runner_args = ["6865"],
-        server = sandbox,
-        server_args = sandbox_args,
-        server_files = ["$(rootpaths {dar_files})".format(
-            dar_files = dar_files,
-        )],
-        tags = ["exclusive"],
-    )
-
-    client_server_test(
         name = name + "-postgresql",
         client = ledger_api_test_tool,
         client_args = [

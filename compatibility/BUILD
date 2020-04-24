@@ -74,7 +74,7 @@ versioned_binary(
 )
 
 client_server_test(
-    name = "sandbox-api-tool-test",
+    name = "ledger-api-test-tool-test",
     client = ":ledger-api-test-tool",
     client_args = [
         "localhost:6865",
@@ -87,17 +87,21 @@ client_server_test(
     server = ":sandbox",
     server_args = ["sandbox"],
     server_files = ["$(rootpaths :dar-files)"],
-    tags = ["exclusive"],
+    tags = [
+        "exclusive",
+        "manual",
+    ],
 )
 
 [
     matrix_test(
-        name = "matrix-{sdk_version}-{platform_version}".format(
+        name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
             sdk_version = sdk_version,
             platform_version = platform_version,
         ),
-        test = "sandbox-api-tool-test",
+        test = "ledger-api-test-tool-test",
         tags = [
+            "exclusive",
             "sdk_version=%s" % sdk_version,
             "platform_version=%s" % platform_version,
         ],
