@@ -110,7 +110,7 @@ run dade-copyright-headers "$dade_copyright_arg" .
 # We do test hlint via Bazel rules but we run it separately
 # to get linting failures early.
 if [ "$hlint_diff" = "true" ]; then
-    changed_haskell_files="$(git diff --name-only origin/master | grep '.hs$' || [[ $? == 1 ]])"
+    changed_haskell_files="$(git diff --name-only origin/master | grep '\.hs$' || [[ $? == 1 ]])"
     if [ "" != "$changed_haskell_files" ]; then
         hlint -j4 $changed_haskell_files
     fi
