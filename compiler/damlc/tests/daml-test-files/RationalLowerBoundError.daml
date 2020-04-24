@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 -- Test that rational negative literals bigger or equal -10^38 + 1 fail.
--- @ERROR Rational is out of bounds
+-- @ERROR range=13:0-13:1; Rational is out of bounds
 
 
 

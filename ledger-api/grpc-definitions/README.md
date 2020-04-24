@@ -1,5 +1,6 @@
-# gRPC LEDGER API
+# Ledger API gRPC definitions
 
-This repository serves for prototyping the next generation gRPC ledger-api.
+The definitions in this package depend on Protobuf's ["well known types"](https://developers.google.com/protocol-buffers/docs/reference/google.protobuf), as well as:
 
-For a description of error codes that may appear on the API, see [this document](ERRORS.md)
+- https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/status/status.proto
+- https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/health/v1/health.proto

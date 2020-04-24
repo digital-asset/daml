@@ -56,8 +56,6 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       e.targetCoid -> disclosure(nodeId)
     case (nodeId, f: Fetch) if toBeInserted(f.coid) =>
       f.coid -> disclosure(nodeId)
-    case (nodeId, l: LookupByKey) if l.result.exists(toBeInserted) =>
-      l.result.get -> disclosure(nodeId)
   }
 
   private def divulgence(
@@ -74,15 +72,16 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     }
 
   private def prepareWitnessesBatch(
-      insertions: Set[ContractId],
-      deletions: Set[ContractId],
+      toBeInserted: Set[ContractId],
+      toBeDeleted: Set[ContractId],
+      transient: Set[ContractId],
       transaction: Transaction,
       blinding: BlindingInfo,
   ): Option[BatchSql] = {
-    val localDivulgence = divulgence(transaction, blinding.disclosure, insertions)
+    val localDivulgence = divulgence(transaction, blinding.disclosure, toBeInserted)
     val fullDivulgence = Relation.union(
       localDivulgence,
-      blinding.globalDivulgence.filterKeys(!deletions.contains(_))
+      blinding.globalDivulgence.filterKeys(cid => !toBeDeleted(cid) && !transient(cid))
     )
     val insertWitnessesBatch = contractWitnessesTable.prepareBatchInsert(fullDivulgence)
     if (localDivulgence.nonEmpty) {
@@ -123,10 +122,6 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
 
     } else {
 
-      // `disclosure` says which node within the current transaction are visible to which party
-      // `globalDivulgence` includes:
-      // - contracts created on another participant
-      // - contracts created in a previous transaction that are divulged in the current transaction
       val blinding = Blinding.blind(transaction)
 
       val disclosureForFlatTransaction =
@@ -181,8 +176,9 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       // contracts because it may be the case that we are only adding new witnesses to existing
       // contracts (e.g. via divulging a contract with fetch).
       val insertWitnessesBatch = prepareWitnessesBatch(
-        insertions = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
-        deletions = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+        toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
+        toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
+        transient = contractBatches.transientContracts,
         transaction = transaction,
         blinding = blinding,
       )

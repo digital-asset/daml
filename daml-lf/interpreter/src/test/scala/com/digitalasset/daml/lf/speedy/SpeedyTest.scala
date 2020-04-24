@@ -253,7 +253,6 @@ object SpeedyTest {
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
-      checkSubmitterInMaintainers = true,
       compiledPackages = packages,
       scenario = false,
       submissionTime = Time.Timestamp.now(),

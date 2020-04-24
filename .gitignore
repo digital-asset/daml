@@ -78,6 +78,7 @@ ledger-api/.bin
 **/.history/
 ### Bazel: https://www.gitignore.io/api/bazel ###
 /bazel-*
+/compatibility/bazel-*
 .bazelrc.local
 .ijwb
 .bazelproject

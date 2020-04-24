@@ -142,15 +142,17 @@ object Arguments {
           ))
 
       opt[Int]("ledger-api-inbound-message-size-max")
-        .hidden()
         .text(
           s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}.")
         .valueName("<bytes>")
         .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
-        .action((x, arguments) =>
-          arguments.copy(
-            ledgerInboundMessageSizeMax = x
-        ))
+        .action(
+          (ledgerInboundMessageSizeMax, arguments) => {
+            arguments.copy(
+              ledgerInboundMessageSizeMax = ledgerInboundMessageSizeMax,
+            )
+          }
+        )
 
       cmd("server")
         .text("serve data from platform")

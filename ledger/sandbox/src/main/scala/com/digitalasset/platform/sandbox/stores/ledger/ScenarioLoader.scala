@@ -8,9 +8,9 @@ import java.time.Instant
 import com.daml.lf.CompiledPackages
 import com.daml.lf.data._
 import com.daml.lf.language.Ast.{DDataType, DTypeSyn, DValue, Definition}
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import com.daml.lf.speedy.{ScenarioRunner, Speedy}
-import com.daml.lf.transaction.{GenTransaction, VersionTimeline}
+import com.daml.lf.transaction.GenTransaction
 import com.daml.lf.types.Ledger.ScenarioTransactionId
 import com.daml.lf.types.{Ledger => L}
 import com.daml.platform.packages.InMemoryPackageStore
@@ -112,12 +112,11 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)] =
+    val candidateScenarios: List[(Ref.DefinitionRef, Ast.Definition)] =
       getCandidateScenarios(packages, scenarioQualName)
-    val (scenarioRef, scenarioLfVers, scenarioDef) =
-      identifyScenario(packages, scenario, candidateScenarios)
+    val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioLfVers, scenarioExpr, compiledPackages)
+    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
@@ -133,13 +132,11 @@ object ScenarioLoader {
   }
 
   private def getSpeedyMachine(
-      submissionVersion: LanguageVersion,
       scenarioExpr: Ast.Expr,
       compiledPackages: CompiledPackages): Speedy.Machine =
     Speedy.Machine.newBuilder(compiledPackages, Time.Timestamp.now(), None) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
-      case Right(build) =>
-        build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), scenarioExpr)
+      case Right(build) => build(scenarioExpr)
     }
 
   private def getScenarioExpr(scenarioRef: Ref.DefinitionRef, scenarioDef: Definition): Ast.Expr = {
@@ -157,8 +154,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: InMemoryPackageStore,
       scenario: String,
-      candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)])
-    : (Ref.DefinitionRef, LanguageVersion, Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
+    : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -173,7 +170,7 @@ object ScenarioLoader {
   private def getCandidateScenarios(
       packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
-  ): List[(Ref.Identifier, LanguageVersion, Definition)] = {
+  ): List[(Ref.Identifier, Ast.Definition)] = {
     packages
       .listLfPackagesSync()
       .flatMap {
@@ -183,11 +180,7 @@ object ScenarioLoader {
             .getOrElse(sys.error(s"Listed package $packageId not found"))
           pkg.lookupIdentifier(scenarioQualName) match {
             case Right(x) =>
-              List(
-                (
-                  Ref.Identifier(packageId, scenarioQualName),
-                  pkg.modules(scenarioQualName.module).languageVersion,
-                  x))
+              List((Ref.Identifier(packageId, scenarioQualName) -> x))
             case Left(_) => List()
           }
       }(breakOut)

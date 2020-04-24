@@ -174,6 +174,21 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
+  - job: compatibility
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: 'linux-pool'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
   - job: check_for_release
     dependsOn:
       - git_sha

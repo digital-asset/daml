@@ -83,9 +83,19 @@ object SResult {
   final case class SResultNeedKey(
       key: GlobalKey,
       committers: Set[Party],
-      // Callback to signal that the key was not present.
-      // returns true if this was recoverable.
-      cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit,
+      // Callback.
+      // returns true if machine can continue with the given result.
+      cb: SKeyLookupResult => Boolean,
   ) extends SResult
+
+  sealed abstract class SKeyLookupResult
+  object SKeyLookupResult {
+    final case class Found(coid: AbsoluteContractId) extends SKeyLookupResult
+    final case object NotFound extends SKeyLookupResult
+    final case object NotVisible extends SKeyLookupResult
+
+    def apply(coid: Option[AbsoluteContractId]): SKeyLookupResult =
+      coid.fold[SKeyLookupResult](NotFound)(Found)
+  }
+
 }

@@ -3,6 +3,7 @@
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
+-- | HIDE
 module Control.Exception.Base
   ( recSelError
   , recConError

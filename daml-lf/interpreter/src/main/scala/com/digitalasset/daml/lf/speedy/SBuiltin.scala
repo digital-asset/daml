@@ -839,10 +839,10 @@ object SBuiltin {
       templateId: TypeConName,
       choiceId: ChoiceName,
       consuming: Boolean,
-  ) extends SBuiltin(8) {
+  ) extends SBuiltin(9) {
 
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(7))
+      checkToken(args.get(8))
       val arg = args.get(0).toValue
       val coid = args.get(1) match {
         case SContractId(coid) => coid
@@ -852,11 +852,15 @@ object SBuiltin {
         case SOptional(optValue) => optValue.map(extractParties)
         case v => crash(s"expect optional parties, got: $v")
       }
-      val sigs = extractParties(args.get(3))
-      val obs = extractParties(args.get(4))
-      val ctrls = extractParties(args.get(5))
+      val byKey = args.get(3) match {
+        case SBool(b) => b
+        case v => crash(s"expect boolean flag, got: $v")
+      }
+      val sigs = extractParties(args.get(4))
+      val obs = extractParties(args.get(5))
+      val ctrls = extractParties(args.get(6))
 
-      val mbKey = extractOptionalKeyWithMaintainers(args.get(6))
+      val mbKey = extractOptionalKeyWithMaintainers(args.get(7))
 
       machine.ptx = machine.ptx
         .beginExercises(
@@ -870,6 +874,7 @@ object SBuiltin {
           stakeholders = sigs union obs,
           controllers = ctrls,
           mbKey = mbKey,
+          byKey = byKey,
           chosenValue = asVersionedValue(arg) match {
             case Left(err) => crash(err)
             case Right(x) => x
@@ -1068,7 +1073,7 @@ object SBuiltin {
     *    -> Token
     *    -> ()
     */
-  final case class SBUInsertFetchNode(templateId: TypeConName) extends SBuiltin(5) {
+  final case class SBUInsertFetchNode(templateId: TypeConName, byKey: Boolean) extends SBuiltin(5) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(4))
       val coid = args.get(0) match {
@@ -1094,7 +1099,8 @@ object SBuiltin {
         contextActors intersect stakeholders,
         signatories,
         stakeholders,
-        key
+        key,
+        byKey,
       )
       machine.ctrl = CtrlValue.Unit
       checkAborted(machine.ptx)
@@ -1110,7 +1116,6 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
-      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1124,15 +1129,17 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.ctrl = CtrlValue.None
-                true
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SOptional(Some(SContractId(contractId))))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SOptional(Some(SContractId(cid))))
+                  true
+                case SKeyLookupResult.NotFound =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.ctrl = CtrlValue.None
+                  true
+                case SKeyLookupResult.NotVisible =>
+                  machine.tryHandleException()
               },
             ),
           )
@@ -1181,7 +1188,6 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
       val keyWithMaintainers = extractKeyWithMaintainers(args.get(0))
-      checkLookupMaintainers(templateId, machine, keyWithMaintainers.maintainers)
       val gkey = GlobalKey(templateId, keyWithMaintainers.key.value)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1195,14 +1201,14 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committers,
-              cbMissing = _ => {
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
-                machine.tryHandleException()
-              },
-              cbPresent = { contractId =>
-                machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(contractId)))
-                machine.ctrl = CtrlValue(SContractId(contractId))
+              machine.committers, {
+                case SKeyLookupResult.Found(cid) =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
+                  machine.ctrl = CtrlValue(SContractId(cid))
+                  true
+                case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
+                  machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
+                  machine.tryHandleException()
               },
             ),
           )
@@ -1619,36 +1625,6 @@ object SBuiltin {
       case SOptional(mbKey) => mbKey.map(extractKeyWithMaintainers)
       case v => crash(s"Expected optional key with maintainers, got: $v")
     }
-
-  private def checkLookupMaintainers(
-      templateId: Identifier,
-      machine: Machine,
-      maintainers: Set[Party],
-  ): Unit = {
-    // This check is dependent on whether we are submitting or validating the transaction.
-    // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
-    // specifically "Consequently it suffices to implement this check
-    // only for the submission. There is no intention to enforce "submitter
-    // must be a maintainer" during validation; if we find in the future a
-    // way to disclose key information or support interactive submission,
-    // then we can lift this restriction without changing the validation
-    // parts. In particular, this should not affect whether we have to ship
-    // the submitter along with the transaction."
-    if (!machine.validating) {
-      val submitter = if (machine.committers.size != 1) {
-        crash(
-          s"expecting exactly one committer since we're not validating, but got ${machine.committers}",
-        )
-      } else {
-        machine.committers.toSeq.head
-      }
-      if (machine.checkSubmitterInMaintainers) {
-        if (!(maintainers.contains(submitter))) {
-          throw DamlESubmitterNotInMaintainers(templateId, submitter, maintainers)
-        }
-      }
-    }
-  }
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)

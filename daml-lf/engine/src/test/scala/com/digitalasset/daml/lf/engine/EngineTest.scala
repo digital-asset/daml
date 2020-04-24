@@ -464,6 +464,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       // don't know the package ids here.
       interpretResult.map(_._2.usedPackages.contains(basicTestsPkgId)) shouldBe Right(true)
     }
+
+    "not mark any node as byKey" in {
+      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
+    }
+
   }
 
   "exercise command" should {
@@ -487,7 +492,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             engine
               .interpretCommands(
                 validating = false,
-                checkSubmitterInMaintainers = true,
                 submitters = Set(party),
                 commands = r,
                 ledgerTime = let,
@@ -590,7 +594,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             engine
               .interpretCommands(
                 validating = false,
-                checkSubmitterInMaintainers = true,
                 submitters = Set(alice),
                 commands = r,
                 ledgerTime = let,
@@ -638,6 +641,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         case _ => fail("expected exercise")
       }
     }
+
+    "mark all the exercise nodes as performed byKey" in {
+      val exerciseNodes = tx.nodes.collect {
+        case (id, _: NodeExercises[_, _, _]) => id
+      }
+      txMeta.byKeyNodes shouldBe 'nonEmpty
+      txMeta.byKeyNodes.toSeq.toSet shouldBe exerciseNodes.toSet
+    }
   }
 
   "create-and-exercise command" should {
@@ -665,7 +676,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             engine
               .interpretCommands(
                 validating = false,
-                checkSubmitterInMaintainers = true,
                 submitters = Set(party),
                 commands = r,
                 ledgerTime = let,
@@ -701,6 +711,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           fail(e.msg)
         case Right(()) => ()
       }
+    }
+
+    "not mark any node as byKey" in {
+      interpretResult.map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
     }
   }
 
@@ -892,7 +906,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     val Right((rtx, _)) = engine
       .interpretCommands(
         validating = false,
-        checkSubmitterInMaintainers = true,
         submitters = Set(bob),
         commands = cmds,
         ledgerTime = let,
@@ -972,7 +985,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
         engine
           .interpretCommands(
             validating = false,
-            checkSubmitterInMaintainers = true,
             submitters = Set(bob),
             commands = cmds,
             ledgerTime = let,
@@ -1109,7 +1121,6 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
             engine
               .interpretCommands(
                 validating = false,
-                checkSubmitterInMaintainers = true,
                 submitters = Set(exerciseActor),
                 commands = r,
                 ledgerTime = let,
@@ -1151,6 +1162,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
               .consume(lookupContract, lookupPackage, lookupKey)
           (fetchTx isReplayedBy reinterpreted) shouldBe true
       }
+    }
+
+    "not mark any node as byKey" in {
+      runExample(fetcher2Cid, party).map(_._2.byKeyNodes) shouldBe Right(ImmArray.empty)
     }
   }
 
@@ -1207,7 +1222,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
   }
 
-  "reinterpreting lookup by key" should {
+  "lookup by key" should {
 
     val submissionSeed = hash("interpreting lookup by key nodes")
 
@@ -1248,7 +1263,28 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
 
     val now = Time.Timestamp.now()
 
-    "reinterpret to the same node when lookup finds a contract" in {
+    "mark all lookupByKey nodes as byKey" in {
+      val exerciseCmd = ExerciseCommand(
+        lookerUpTemplateId,
+        lookerUpCid,
+        "Lookup",
+        ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(42)))))
+      val Right((tx, txMeta)) = engine
+        .submit(
+          Commands(alice, ImmArray(exerciseCmd), now, "test"),
+          participant,
+          Some(submissionSeed))
+        .consume(lookupContractMap.get, lookupPackage, lookupKey)
+
+      val lookupNodes = tx.nodes.collect {
+        case (id, _: NodeLookupByKey[_, _]) => id
+      }
+
+      txMeta.byKeyNodes shouldBe 'nonEmpty
+      txMeta.byKeyNodes.toSeq.toSet shouldBe lookupNodes.toSet
+    }
+
+    "be reinterpreted to the same node when lookup finds a contract" in {
       val exerciseCmd = ExerciseCommand(
         lookerUpTemplateId,
         lookerUpCid,
@@ -1279,7 +1315,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       firstLookupNode(reinterpreted).map(_._2) shouldEqual Some(lookupNode)
     }
 
-    "reinterpret to the same node when lookup doesn't find a contract" in {
+    "be reinterpreted to the same node when lookup doesn't find a contract" in {
       val exerciseCmd = ExerciseCommand(
         lookerUpTemplateId,
         lookerUpCid,
@@ -1342,7 +1378,14 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       val cmd = speedy.Command.Fetch(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
       val Right((tx, _)) = engine
-        .interpretCommands(false, false, Set(alice), ImmArray(cmd), now, now, InitialSeeding.NoSeed)
+        .interpretCommands(
+          validating = false,
+          submitters = Set(alice),
+          commands = ImmArray(cmd),
+          ledgerTime = now,
+          submissionTime = now,
+          seeding = InitialSeeding.NoSeed,
+        )
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
       tx.nodes.values.headOption match {
@@ -1395,22 +1438,22 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           ))
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      val Right((tx, _)) = engine
-        .interpretCommands(false, false, Set(alice), cmds, now, now, InitialSeeding.NoSeed)
+      val Right((tx, txMeta)) = engine
+        .interpretCommands(false, Set(alice), cmds, now, now, InitialSeeding.NoSeed)
         .consume(lookupContractMap.get, lookupPackage, lookupKey)
 
-      tx.nodes.values.collectFirst {
-        case nf: NodeFetch[_, _] => nf
-      } match {
-        case Some(nf) =>
-          nf.key match {
-            // just test that the maintainers match here, getting the key out is a bit hairier
-            case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
-              assert(maintainers == Set(alice))
-            case None => fail("the recomputed fetch didn't have a key")
-          }
-        case None => fail("didn't find the fetch node resulting from fetchByKey")
-      }
+      tx.nodes
+        .collectFirst {
+          case (id, nf: NodeFetch[_, _]) =>
+            nf.key match {
+              // just test that the maintainers match here, getting the key out is a bit hairier
+              case Some(KeyWithMaintainers(keyValue @ _, maintainers)) =>
+                assert(maintainers == Set(alice))
+              case None => fail("the recomputed fetch didn't have a key")
+            }
+            txMeta.byKeyNodes shouldBe ImmArray(id)
+        }
+        .getOrElse(fail("didn't find the fetch node resulting from fetchByKey"))
     }
   }
 
@@ -1605,6 +1648,7 @@ object EngineTest {
             usedPackages = Set.empty,
             dependsOnTime = dependsOnTime,
             nodeSeeds = nodeSeeds.toImmArray,
+            byKeyNodes = ImmArray.empty,
           ))
     }
   }

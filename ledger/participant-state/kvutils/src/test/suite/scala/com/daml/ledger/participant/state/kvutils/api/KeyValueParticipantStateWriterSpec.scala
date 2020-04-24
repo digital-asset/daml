@@ -118,7 +118,9 @@ object KeyValueParticipantStateWriterSpec {
     submissionSeed = Some(
       crypto.Hash.assertFromString(
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
-    optUsedPackages = Some(Set.empty)
+    optUsedPackages = Some(Set.empty),
+    optNodeSeeds = None,
+    optByKeyNodes = None
   )
 
   private def newRecordTime(): Timestamp =

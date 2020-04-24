@@ -20,14 +20,13 @@ import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.health.HealthChecks
 import com.daml.ledger.participant.state.v1.metrics.TimedWriteService
 import com.daml.ledger.participant.state.v1.{ParticipantId, SeedService}
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.MetricName
 import com.daml.platform.apiserver._
-import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.configuration.{LedgerConfiguration, PartyConfiguration}
 import com.daml.platform.packages.InMemoryPackageStore
 import com.daml.platform.sandbox.SandboxServer._
 import com.daml.platform.sandbox.banner.Banner
@@ -207,11 +206,7 @@ final class SandboxServer(
     implicit val actorSystem: ActorSystem = materializer.system
     implicit val executionContext: ExecutionContext = materializer.executionContext
 
-    val defaultConfiguration = ParticipantState.Configuration(
-      generation = 0,
-      timeModel = config.timeModel,
-      maxDeduplicationTime = Duration.ofDays(1),
-    )
+    val defaultConfiguration = config.ledgerConfig.initialConfiguration
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
 
@@ -271,6 +266,11 @@ final class SandboxServer(
         () => resetAndRestartServer(),
         authorizer,
       )
+      ledgerConfiguration = LedgerConfiguration(
+        initialConfiguration = defaultConfiguration,
+        // In SandboxServer, there is no delay between indexer and ledger
+        initialConfigurationSubmitDelay = Duration.ZERO,
+      )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) =>
           ApiServices
@@ -288,7 +288,7 @@ final class SandboxServer(
               engine = SandboxServer.engine,
               timeProvider = timeProvider,
               timeProviderType = timeProviderType,
-              defaultLedgerConfiguration = defaultConfiguration,
+              ledgerConfiguration = ledgerConfiguration,
               commandConfig = config.commandConfig,
               partyConfig = PartyConfiguration.default.copy(
                 // In this version of Sandbox, parties are always allocated implicitly. Enabling

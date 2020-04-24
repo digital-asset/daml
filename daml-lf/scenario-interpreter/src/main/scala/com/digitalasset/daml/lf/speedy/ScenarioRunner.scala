@@ -83,8 +83,8 @@ final case class ScenarioRunner(
         case SResultScenarioGetParty(partyText, callback) =>
           getParty(partyText, callback)
 
-        case SResultNeedKey(gk, committers, cbMissing, cbPresent) =>
-          lookupKey(gk, committers, cbMissing, cbPresent)
+        case SResultNeedKey(gk, committers, cb) =>
+          lookupKey(gk, committers, cb)
       }
     }
     val endTime = System.nanoTime()
@@ -191,39 +191,36 @@ final case class ScenarioRunner(
   private def lookupKey(
       gk: GlobalKey,
       committers: Set[Party],
-      cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit) = {
+      cb: SKeyLookupResult => Boolean,
+  ): Unit = {
     val committer =
       if (committers.size == 1) committers.head else crashTooManyCommitters(committers)
     val effectiveAt = ledger.currentTime
 
     def missingWith(err: SError) =
-      if (!cbMissing(())) {
+      if (!cb(SKeyLookupResult.NotFound))
         throw SRunnerException(err)
-      }
+
     ledger.ledgerData.activeKeys.get(gk) match {
-      case None => missingWith(SErrorCrash(s"Key $gk not found"))
+      case None =>
+        missingWith(SErrorCrash(s"Key $gk not found"))
       case Some(acoid) =>
-        // make sure that the contract is visible, see
-        // <https://github.com/digital-asset/daml/issues/751>.
         ledger.lookupGlobalContract(
           view = ParticipantView(committer),
           effectiveAt = effectiveAt,
           acoid) match {
           case LookupOk(_, _) =>
-            cbPresent(acoid)
-
+            cb(SKeyLookupResult.Found(acoid))
+            ()
           case LookupContractNotFound(coid) =>
             missingWith(SErrorCrash(s"contract $coid not found, but we found its key!"))
-
           case LookupContractNotEffective(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not effective, but we found its key!"))
-
           case LookupContractNotActive(_, _, _) =>
             missingWith(SErrorCrash(s"contract $acoid not active, but we found its key!"))
-
           case LookupContractNotVisible(_, _, _) =>
-            missingWith(SErrorCrash(s"Key $gk not found"))
+            if (!cb(SKeyLookupResult.NotVisible))
+              throw SErrorCrash(s"contract $acoid not visible, but we found its key!")
         }
     }
   }

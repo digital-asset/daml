@@ -9,6 +9,14 @@ images from earlier OSes, nor earlier OS images from a Catalina host.
 As I only have access to Catalina host systems, I have not been able to test
 older versions.
 
+# Machine Setup
+
+You should consider the following changes to the MacOS device:
+
+- Disable Energy Saving settings
+- Ensure timezone and time sync are set correctly
+- Depending on requirements to manage boxes, enable Screen Share and Remote Access
+
 # Installing tools
 
 ## macOS Installer App
@@ -46,9 +54,9 @@ This will open a graphical dialog to install the XCode Command-Line Tools.
 ## VirtualBox
 
 Download and install
-[https://download.virtualbox.org/virtualbox/6.1.4/VirtualBox-6.1.4-136177-OSX.dmg](VirtualBox),
+[https://download.virtualbox.org/virtualbox/6.1.6/VirtualBox-6.1.6-137129-OSX.dmg](VirtualBox),
 including the
-[https://download.virtualbox.org/virtualbox/6.1.4/Oracle_VM_VirtualBox_Extension_Pack-6.1.4.vbox-extpack](extension
+[https://download.virtualbox.org/virtualbox/6.1.6/Oracle_VM_VirtualBox_Extension_Pack-6.1.6.vbox-extpack](extension
 pack).
 
 Alternatively, it can be installed from Homebrew using:
@@ -127,6 +135,7 @@ maximum reproducibility, but I have no reason to mistrust the master branch.
 Finally, run:
 ```bash
 rbenv install 2.7.0
+rbenv global 2.7.0
 ```
 
 which installs Ruby 2.7.0 for the current user.
@@ -148,7 +157,7 @@ downloading), you can create the base image ("Vagrant box") using the following
 command:
 
 ```bash
-sudo macinbox --box-format virtualbox --disk 200 --memory 32768 --cpu 4 --user-script user-script.sh
+sudo macinbox --box-format virtualbox --disk 400 --memory 32000 --cpu 6 --user-script user-script.sh
 ```
 
 The disk size given here (in GB) will be the disk size used by the individual

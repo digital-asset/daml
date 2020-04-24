@@ -18,6 +18,8 @@ final class GroupContiguousSpec
 
   behavior of "groupContiguous"
 
+  override def spanScaleFactor: Double = 10 // Give some extra slack on CI
+
   it should "be equivalent to grouping on inputs with an ordered key" in forAll {
     pairs: List[(Int, String)] =>
       val sortedPairs = pairs.sortBy(_._1)

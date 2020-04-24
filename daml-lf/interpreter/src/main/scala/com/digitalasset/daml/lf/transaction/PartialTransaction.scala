@@ -104,6 +104,7 @@ object PartialTransaction {
     nextNodeIdx = 0,
     nodes = HashMap.empty,
     nodeSeeds = BackStack.empty,
+    byKeyNodes = BackStack.empty,
     consumedBy = Map.empty,
     context = Context(initialSeeds),
     aborted = None,
@@ -117,6 +118,11 @@ object PartialTransaction {
 /** A transaction under construction
   *
   *  @param nodes The nodes of the transaction graph being built up.
+  *  @param nodeSeeds The seeds of Create and Exercise nodes
+  *  @param byKeyNodes The list of the IDs of each node that
+  *           corresponds to a FetchByKey, LookupByKey, or
+  *           ExerciseByKey commands. Empty in case of validation
+  *           or reinterpretation.
   *  @param consumedBy 'ContractId's of all contracts that have
   *                    been consumed by nodes up to now.
   *  @param context The context of what sub-transaction is being
@@ -148,6 +154,7 @@ case class PartialTransaction(
     nextNodeIdx: Int,
     nodes: HashMap[Value.NodeId, Tx.Node],
     nodeSeeds: BackStack[(Value.NodeId, crypto.Hash)],
+    byKeyNodes: BackStack[Value.NodeId],
     consumedBy: Map[Value.ContractId, Value.NodeId],
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
@@ -323,7 +330,8 @@ case class PartialTransaction(
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]]
+      key: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      byKey: Boolean,
   ): PartialTransaction =
     mustBeActive(
       coid,
@@ -338,6 +346,7 @@ case class PartialTransaction(
             signatories,
             stakeholders,
             key),
+        byKey,
       ),
     )
 
@@ -347,7 +356,7 @@ case class PartialTransaction(
       key: Node.KeyWithMaintainers[Tx.Value[Nothing]],
       result: Option[Value.ContractId],
   ): PartialTransaction =
-    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result))
+    insertLeafNode(Node.NodeLookupByKey(templateId, optLocation, key, result), byKey = true)
 
   def beginExercises(
       targetId: Value.ContractId,
@@ -360,6 +369,7 @@ case class PartialTransaction(
       stakeholders: Set[Party],
       controllers: Set[Party],
       mbKey: Option[Node.KeyWithMaintainers[Tx.Value[Nothing]]],
+      byKey: Boolean,
       chosenValue: Tx.Value[Value.ContractId],
   ): Either[String, PartialTransaction] = {
     val serializableErrs = serializable(chosenValue)
@@ -376,6 +386,7 @@ case class PartialTransaction(
           templateId,
           copy(
             nextNodeIdx = nextNodeIdx + 1,
+            byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes,
             context = Context(
               ExercisesContext(
                 targetId = targetId,
@@ -456,12 +467,13 @@ case class PartialTransaction(
     }
 
   /** Insert the given `LeafNode` under a fresh node-id, and return it */
-  def insertLeafNode(node: Tx.LeafNode): PartialTransaction = {
+  def insertLeafNode(node: Tx.LeafNode, byKey: Boolean): PartialTransaction = {
     val nid = Value.NodeId(nextNodeIdx)
     copy(
       nextNodeIdx = nextNodeIdx + 1,
       context = context.addChild(nid),
       nodes = nodes.updated(nid, node),
+      byKeyNodes = if (byKey) byKeyNodes :+ nid else byKeyNodes
     )
   }
 

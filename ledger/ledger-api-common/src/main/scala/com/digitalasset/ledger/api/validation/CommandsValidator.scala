@@ -65,7 +65,6 @@ final class CommandsValidator(ledgerId: LedgerId) {
         applicationId = appId,
         commandId = commandId,
         submitter = submitter,
-        ledgerEffectiveTime = ledgerEffectiveTime,
         submittedAt = currentUtcTime,
         deduplicateUntil = currentUtcTime.plus(deduplicationTime),
         commands = Commands(

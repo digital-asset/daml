@@ -5,7 +5,6 @@ package com.daml.http
 
 import akka.NotUsed
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage, WebSocketRequest}
 import akka.http.scaladsl.model.{StatusCode, StatusCodes, Uri}
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
@@ -41,8 +40,6 @@ class WebsocketServiceIntegrationTest
   override def staticContentConfig: Option[StaticContentConfig] = None
 
   override def useTls = UseTls.NoTls
-
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   private val baseQueryInput: Source[Message, NotUsed] =
     Source.single(TextMessage.Strict("""{"templateIds": ["Account:Account"]}"""))
