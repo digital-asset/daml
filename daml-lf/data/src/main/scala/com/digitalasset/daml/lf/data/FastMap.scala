@@ -41,7 +41,6 @@ final class FastMap[Key, Value](map: Iterable[(Key, Value)])(implicit keyClassTa
         values(i) = currValue
         scores(i) = currScore
     }
-    remy.log(capacity -> scores.max)
   }
 
   def get(key: Key): Option[Value] = {
@@ -61,4 +60,3 @@ final class FastMap[Key, Value](map: Iterable[(Key, Value)])(implicit keyClassTa
     values.iterator.zipWithIndex.collect { case (Some(v), i) => keys(i) -> v }
 
 }
-
