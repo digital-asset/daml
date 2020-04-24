@@ -38,6 +38,13 @@ final class H2Queries(override protected implicit val connection: Connection)
     SQL"CALL IDENTITY()"
       .as(long("IDENTITY()").single)
   }
+
+  override final def truncate(): Try[Unit] = Try {
+    SQL"truncate #$StateTable".executeUpdate()
+    SQL"truncate #$LogTable".executeUpdate()
+    SQL"truncate #$MetaTable".executeUpdate()
+    ()
+  }
 }
 
 object H2Queries {

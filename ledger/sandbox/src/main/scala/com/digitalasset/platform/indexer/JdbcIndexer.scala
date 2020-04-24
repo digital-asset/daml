@@ -54,6 +54,22 @@ final class JdbcIndexerFactory(
       .migrate(allowExistingSchema)
       .map(_ => initialized())
 
+  def resetSchema()(
+    implicit executionContext: ExecutionContext
+  ): Future[ResourceOwner[JdbcIndexer]] =
+    Future.successful(for {
+      ledgerDao <- JdbcLedgerDao.writeOwner(
+        serverRole,
+        config.jdbcUrl,
+        config.eventsPageSize,
+        metrics,
+      )
+      _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
+      initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
+    )
+
+
   private def initialized()(
       implicit executionContext: ExecutionContext
   ): ResourceOwner[JdbcIndexer] =

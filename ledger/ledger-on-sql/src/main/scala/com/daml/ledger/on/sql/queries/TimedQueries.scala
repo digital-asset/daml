@@ -35,6 +35,10 @@ final class TimedQueries(delegate: Queries, metricRegistry: MetricRegistry) exte
   override def updateState(stateUpdates: Seq[(Key, Value)]): Try[Unit] =
     Timed.value(Metrics.updateState, delegate.updateState(stateUpdates))
 
+  override def truncate(): Try[Unit] = {
+    Timed.value(Metrics.truncate, delegate.truncate())
+  }
+
   private object Metrics {
     private val prefix = MetricName.DAML :+ "ledger" :+ "database" :+ "queries"
 
@@ -50,6 +54,8 @@ final class TimedQueries(delegate: Queries, metricRegistry: MetricRegistry) exte
       metricRegistry.timer(prefix :+ "insert_record_into_log")
     val updateState: Timer =
       metricRegistry.timer(prefix :+ "update_state")
+    val truncate: Timer =
+      metricRegistry.timer(prefix :+ "truncate")
   }
 
 }

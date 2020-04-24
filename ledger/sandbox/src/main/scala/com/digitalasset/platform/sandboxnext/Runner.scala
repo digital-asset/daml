@@ -38,7 +38,6 @@ import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.FlywayMigrations
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
@@ -122,14 +121,6 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config.metricsReporter,
                   config.metricsReportingInterval,
                 )
-                _ <- startupMode match {
-                  case StartupMode.MigrateAndStart =>
-                    ResourceOwner.successful(())
-                  case StartupMode.ResetAndStart =>
-                    // Resetting through Flyway removes all tables in the database schema.
-                    // Therefore we don't need to "reset" the KV Ledger and Index separately.
-                    ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
-                }
                 timeServiceBackend = timeProviderType match {
                   case TimeProviderType.Static =>
                     Some(TimeServiceBackend.simple(Instant.EPOCH))
@@ -141,6 +132,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   participantId = ParticipantId,
                   metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
+                  resetOnStartup = startupMode == StartupMode.ResetAndStart,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   seedService = SeedService(seeding),
                   stateValueCache = caching.Cache.from(
@@ -163,7 +155,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
-                    startupMode = IndexerStartupMode.MigrateAndStart,
+                    startupMode = if (startupMode == StartupMode.MigrateAndStart) IndexerStartupMode.MigrateAndStart else IndexerStartupMode.ResetAndStart,
                     eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),
