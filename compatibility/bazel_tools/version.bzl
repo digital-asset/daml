@@ -108,3 +108,88 @@ def versioned_binary(name, flag, versions, **kwargs):
         output = "%s.sh" % name,
         **kwargs
     )
+
+def _version_transition(settings, attr):
+    new_settings = {
+        "//:sdk_version": settings["//:sdk_version"],
+        "//:platform_version": settings["//:platform_version"],
+    }
+
+    sdk_versions = [
+        tag[len("sdk_version="):]
+        for tag in attr.tags
+        if tag.startswith("sdk_version=")
+    ]
+    if len(sdk_versions) > 1:
+        fail("Found more than one sdk_version tag", "tags")
+    if sdk_versions:
+        new_settings["//:sdk_version"] = sdk_versions[0]
+
+    platform_versions = [
+        tag[len("platform_version="):]
+        for tag in attr.tags
+        if tag.startswith("platform_version=")
+    ]
+    if len(platform_versions) > 1:
+        fail("Found more than one platform_version tag", "tags")
+    if platform_versions:
+        new_settings["//:platform_version"] = platform_versions[0]
+
+    return [new_settings]
+
+version_transition = transition(
+    implementation = _version_transition,
+    inputs = ["//:sdk_version", "//:platform_version"],
+    outputs = ["//:sdk_version", "//:platform_version"],
+)
+
+def _platform_sdk_test_impl(ctx):
+    target = ctx.attr.test
+    executable = target[DefaultInfo].files_to_run.executable
+    executable_runpath = paths.join(ctx.workspace_name, paths.relativize(executable.path, executable.root.path))
+    output = ctx.outputs.output
+    ctx.actions.write(
+        output = output,
+        content = """\
+#!/usr/bin/env bash
+{runfiles_library}
+$(rlocation {executable}) "$@"
+""".format(
+            runfiles_library = runfiles_library,
+            executable = executable_runpath,
+        ),
+        is_executable = True,
+    )
+    return [DefaultInfo(
+        executable = output,
+        files = depset(direct = [output]),
+        runfiles = target[DefaultInfo].default_runfiles.merge(
+            ctx.runfiles(
+                files = [output],
+                transitive_files = ctx.attr._runfiles.files,
+                collect_data = True,
+            ),
+        ),
+    )]
+
+_platform_sdk_test = rule(
+    _platform_sdk_test_impl,
+    cfg = version_transition,
+    attrs = {
+        "test": attr.label(),
+        "output": attr.output(),
+        "_runfiles": attr.label(default = "@bazel_tools//tools/bash/runfiles"),
+        "_whitelist_function_transition": attr.label(
+             default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
+         ),
+    },
+    test = True
+)
+
+def platform_sdk_test(name, test, **kwargs):
+    _platform_sdk_test(
+        name = name,
+        test = test,
+        output = "%s.sh" % name,
+        **kwargs
+    )

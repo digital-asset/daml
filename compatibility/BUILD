@@ -9,6 +9,7 @@ load("@os_info//:os_info.bzl", "is_linux")
 load("//bazel_tools:testing.bzl", "sdk_platform_test")
 load(
     "//bazel_tools:version.bzl",
+    "platform_sdk_test",
     "version_flag",
     "versioned_binary",
     "versioned_file",
@@ -88,6 +89,22 @@ client_server_test(
     server_files = ["$(rootpaths :dar-files)"],
     tags = ["exclusive"],
 )
+
+[
+    platform_sdk_test(
+        name = "matrix-{sdk_version}-{platform_version}".format(
+            sdk_version = sdk_version,
+            platform_version = platform_version,
+        ),
+        test = "sandbox-api-tool-test",
+        tags = [
+            "sdk_version=%s" % sdk_version,
+            "platform_version=%s" % platform_version,
+        ],
+    )
+    for sdk_version in sdk_versions
+    for platform_version in platform_versions
+] if is_linux else None
 
 [
     sdk_platform_test(
