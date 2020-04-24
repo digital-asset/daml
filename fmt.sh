@@ -107,19 +107,15 @@ echo "\
 # Check for correct copyrights
 run dade-copyright-headers "$dade_copyright_arg" .
 
+# We do test hlint via Bazel rules but we run it separately
+# to get linting failures early.
 if [ "$hlint_diff" = "true" ]; then
-    changed_haskell_files="$(git diff --name-only origin/master | grep '.hs$' || [[ $? == 1 ]])"
+    changed_haskell_files="$(git diff --name-only origin/master | grep '\.hs$' || [[ $? == 1 ]])"
     if [ "" != "$changed_haskell_files" ]; then
         hlint -j4 $changed_haskell_files
     fi
 else
-    # We have a Bazel test that is meant to run HLint, but we're a little
-    # sceptical of it If we get this far, but hlint fails, that's a problem we
-    # should fix
-    if ! hlint --git -j4; then
-        echo "UNEXPECTED HLINT FAILURE: The Bazel rules should have spotted this, please raise a GitHub issue"
-        exit $?
-    fi
+    hlint --git -j4
 fi
 
 # check for scala code style

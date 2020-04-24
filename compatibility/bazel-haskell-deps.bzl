@@ -37,11 +37,15 @@ def daml_haskell_deps():
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "base",
+            "directory",
+            "extra",
+            "filepath",
             "monad-loops",
             "network",
             "process",
             "safe-exceptions",
             "split",
+            "text",
         ] + (["unix"] if not is_windows else ["Win32"]),
         stack = None,
         tools = [

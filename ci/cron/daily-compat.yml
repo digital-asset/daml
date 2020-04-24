@@ -37,18 +37,5 @@ jobs:
       name: $(pool)
     steps:
       - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: |
-          set -euo pipefail
-
-          cd compatibility
-          bazel build //...
-          bazel test //...
-
-          # FIXME: fill in the gaps.
-          exit 0
-      # For whatever reason, templates are searched from the path of the
-      # current YML file. I could not find any reference to that in the
-      # documentation.
+      - template: ../compatibility.yml
       - template: ../tell-slack-failed.yml
