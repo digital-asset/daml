@@ -257,7 +257,10 @@ genrule(
         ":daml-base-rst-index-template",
         ":daml-base-rst-template",
     ],
-    outs = ["daml-base-rst.tar.gz", "daml-base-hoogle.txt"],
+    outs = [
+        "daml-base-rst.tar.gz",
+        "daml-base-hoogle.txt",
+    ],
     cmd = """
         $(location //compiler/damlc) -- docs \
             --output=daml-base-rst \

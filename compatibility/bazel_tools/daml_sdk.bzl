@@ -111,4 +111,5 @@ def daml_sdk(version, **kwargs):
     _daml_sdk(
         name = "daml-sdk-{}".format(version),
         version = version,
-        **kwargs)
+        **kwargs
+    )
