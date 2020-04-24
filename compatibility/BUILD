@@ -93,18 +93,52 @@ client_server_test(
     ],
 )
 
+client_server_test(
+    name = "ledger-api-test-tool-postgres-test",
+    client = ":ledger-api-test-tool",
+    client_args = [
+        "localhost:6865",
+        "--open-world",
+        "--exclude=ClosedWorldIT",
+    ],
+    data = [":dar-files"],
+    runner = "@//bazel_tools/client_server:runner",
+    runner_args = ["6865"],
+    server = ":sandbox",
+    server_args = [],
+    server_files = ["$(rootpaths :dar-files)"],
+    tags = [
+        "exclusive",
+        "manual",
+    ],
+)
+
 [
-    matrix_test(
-        name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
-            sdk_version = sdk_version,
-            platform_version = platform_version,
+    (
+        matrix_test(
+            name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
+                sdk_version = sdk_version,
+                platform_version = platform_version,
+            ),
+            test = "ledger-api-test-tool-test",
+            tags = [
+                "exclusive",
+                "sdk_version=%s" % sdk_version,
+                "platform_version=%s" % platform_version,
+            ],
         ),
-        test = "ledger-api-test-tool-test",
-        tags = [
-            "exclusive",
-            "sdk_version=%s" % sdk_version,
-            "platform_version=%s" % platform_version,
-        ],
+        matrix_test(
+           name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}-postgresql".format(
+               sdk_version = sdk_version,
+               platform_version = platform_version,
+           ),
+           test = "ledger-api-test-tool-test",
+           tags = [
+               "exclusive",
+               "sdk_version=%s" % sdk_version,
+               "platform_version=%s" % platform_version,
+           ],
+       )
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
