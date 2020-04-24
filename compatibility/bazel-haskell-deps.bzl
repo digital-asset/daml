@@ -37,7 +37,6 @@ def daml_haskell_deps():
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "base",
-            "bazel-runfiles",
             "directory",
             "extra",
             "filepath",

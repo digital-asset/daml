@@ -25,7 +25,7 @@ haskell_binary(
     ],
     deps = [
         "@stackage//:base",
-        "@stackage//:bazel-runfiles",
+        "@rules_haskell//tools/runfiles",
         "@stackage//:directory",
         "@stackage//:extra",
         "@stackage//:filepath",
