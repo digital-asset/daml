@@ -14,11 +14,13 @@ def sdk_platform_test(sdk_version, platform_version):
     dar_files = "@daml-sdk-{sdk_version}//:dar-files".format(
         sdk_version = sdk_version,
     )
+
     # Platform components
     sandbox = "@daml-sdk-{platform_version}//:daml".format(
         platform_version = platform_version,
     )
     sandbox_args = ["sandbox"]
+
     # Test case
     name = "ledger-api-test-tool-{sdk_version}-platform-{platform_version}".format(
         sdk_version = sdk_version,

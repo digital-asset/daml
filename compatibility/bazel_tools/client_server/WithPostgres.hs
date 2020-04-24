@@ -1,10 +1,8 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
-import qualified Bazel.Runfiles as Runfiles
 import Control.Exception
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -51,7 +49,6 @@ withPostgres f =
     let dataDir = tmpDir </> "data"
     let logFile = tmpDir </> "postgresql.log"
     createDirectory dataDir
-    runfiles <- Runfiles.create
     -- For reasons I don’t entirely understand, `locateRunfiles` does not
     -- work here. Hardcoding the paths to external/... matches what we do in
     -- com.daml.testing.postgresql.Tool.

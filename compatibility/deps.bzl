@@ -28,8 +28,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-
-load("@daml//:deps.bzl", "rules_haskell_version", "rules_haskell_sha256", "rules_nixpkgs_version", "rules_nixpkgs_sha256")
+load("@daml//:deps.bzl", "buildifier_sha256", "buildifier_version", "rules_haskell_sha256", "rules_haskell_version", "rules_nixpkgs_sha256", "rules_nixpkgs_version")
 
 def daml_deps():
     if "rules_haskell" not in native.existing_rules():
@@ -46,4 +45,12 @@ def daml_deps():
             strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
+        )
+
+    if "com_github_bazelbuild_buildtools" not in native.existing_rules():
+        http_archive(
+            name = "com_github_bazelbuild_buildtools",
+            sha256 = buildifier_sha256,
+            strip_prefix = "buildtools-{}".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )

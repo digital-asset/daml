@@ -35,6 +35,8 @@ rules_haskell_version = "cf6beb4e3748dce6dc401a95ab8cacb803c5d944"
 rules_haskell_sha256 = "cadb4ceb63994d86343fb407a9b5eaab363af428850d1698d6c6132690ccfb71"
 rules_nixpkgs_version = "c966bb8bd335f1e244c03efe6e7a1afa9784038e"
 rules_nixpkgs_sha256 = "ccafea4fc4d5fa2ddba2882f76728558bfe2c12657f7f56078ece43a31761148"
+buildifier_version = "0.26.0"
+buildifier_sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to DAML SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
@@ -229,9 +231,9 @@ def daml_deps():
     if "com_github_bazelbuild_buildtools" not in native.existing_rules():
         http_archive(
             name = "com_github_bazelbuild_buildtools",
-            sha256 = "86592d703ecbe0c5cbb5139333a63268cf58d7efd2c459c8be8e69e77d135e29",
-            strip_prefix = "buildtools-0.26.0",
-            url = "https://github.com/bazelbuild/buildtools/archive/0.26.0.tar.gz",
+            sha256 = buildifier_sha256,
+            strip_prefix = "buildtools-{}".format(buildifier_version),
+            url = "https://github.com/bazelbuild/buildtools/archive/{}.tar.gz".format(buildifier_version),
         )
 
     native.bind(
