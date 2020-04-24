@@ -312,9 +312,8 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
-  private lazy val engine = Engine()
-
   def create[LogResult](
+      engine: Engine,
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
@@ -322,6 +321,7 @@ object SubmissionValidator {
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(
+      engine,
       ledgerStateAccess,
       allocateNextLogEntryId,
       checkForMissingInputs,
@@ -333,6 +333,7 @@ object SubmissionValidator {
 
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
+      engine: Engine,
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
@@ -342,7 +343,7 @@ object SubmissionValidator {
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
+      processSubmission(new KeyValueCommitting(engine, metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
       stateValueCache,
@@ -362,7 +363,6 @@ object SubmissionValidator {
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
   ): LogEntryAndState =
     keyValueCommitting.processSubmission(
-      engine,
       damlLogEntryId,
       recordTime,
       LedgerReader.DefaultConfiguration,

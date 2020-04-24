@@ -32,10 +32,10 @@ import scala.collection.JavaConverters._
 //
 // The primary constructor is private to the daml package, because we don't expect any ledger other
 // than sandbox to actually support static time.
-class KeyValueCommitting private[daml] (metricRegistry: MetricRegistry, inStaticTimeMode: Boolean) {
+class KeyValueCommitting private[daml] (engine: Engine, metricRegistry: MetricRegistry, inStaticTimeMode: Boolean) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  def this(metricRegistry: MetricRegistry) = this(metricRegistry, false)
+  def this(engine: Engine, metricRegistry: MetricRegistry) = this(engine, metricRegistry, false)
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
 
@@ -94,7 +94,6 @@ class KeyValueCommitting private[daml] (metricRegistry: MetricRegistry, inStatic
     */
   @throws(classOf[Err])
   def processSubmission(
-      engine: Engine,
       entryId: DamlLogEntryId,
       recordTime: Timestamp,
       defaultConfig: Configuration,

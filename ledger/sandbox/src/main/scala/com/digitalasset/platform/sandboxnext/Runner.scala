@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricName
@@ -61,6 +62,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     case LedgerIdMode.Dynamic =>
       None
   }
+  private val engine = Engine()
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,
@@ -71,7 +73,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       case Some(url) if url.startsWith("jdbc:postgresql:") =>
         ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.ResetAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:") =>
         throw new InvalidDatabaseException(
           "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
@@ -80,7 +82,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       case Some(url) =>
         throw new InvalidDatabaseException(s"Unknown database: $url")
       case None =>
-        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
     }
 
   private val timeProviderType =
@@ -143,14 +145,19 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   seedService = SeedService(seeding),
                   stateValueCache = caching.Cache.from(
                     caching.Configuration(maximumWeight = MaximumStateValueCacheSize)),
+                  engine = engine
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
                 writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                _ <- ResourceOwner.forFuture(() =>
-                  Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+                _ <- if (startupMode == StartupMode.MigrateAndStart) {
+                  ResourceOwner.forFuture(() =>
+                    Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))).map(_ => ())
+                } else {
+                  ResourceOwner.unit
+                }
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
@@ -193,6 +200,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     portFile = config.portFile,
                     seeding = Some(seeding),
                   ),
+                  engine = engine,
                   commandConfig = config.commandConfig,
                   partyConfig = PartyConfiguration.default.copy(
                     implicitPartyAllocation = config.implicitPartyAllocation,

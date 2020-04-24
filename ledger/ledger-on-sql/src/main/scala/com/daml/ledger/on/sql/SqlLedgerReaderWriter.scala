@@ -22,6 +22,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.metrics.Timed
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
@@ -36,6 +37,7 @@ import scala.util.{Failure, Success}
 final class SqlLedgerReaderWriter(
     override val ledgerId: LedgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     val participantId: ParticipantId,
+    engine: Engine,
     metricRegistry: MetricRegistry,
     timeProvider: TimeProvider,
     stateValueCache: Cache[Bytes, DamlStateValue],
@@ -60,6 +62,7 @@ final class SqlLedgerReaderWriter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .createForTimeMode(
+        engine,
         SqlLedgerStateAccess,
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
         stateValueCache = stateValueCache,
@@ -124,6 +127,7 @@ object SqlLedgerReaderWriter {
       initialLedgerId: Option[LedgerId],
       participantId: ParticipantId,
       metricRegistry: MetricRegistry,
+      engine: Engine,
       jdbcUrl: String,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       timeProvider: TimeProvider = DefaultTimeProvider,
@@ -142,6 +146,7 @@ object SqlLedgerReaderWriter {
         new SqlLedgerReaderWriter(
           ledgerId,
           participantId,
+          engine,
           metricRegistry,
           timeProvider,
           stateValueCache,

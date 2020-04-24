@@ -66,9 +66,6 @@ final class StandaloneApiServer(
   val participantId: ParticipantId = config.participantId
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
-    val packageStore = loadDamlPackages()
-    preloadPackages(packageStore)
-
     val owner = for {
       initialConditions <- ResourceOwner.forFuture(() =>
         readService.getLedgerInitialConditions().runWith(Sink.head))
