@@ -287,7 +287,8 @@ simplifyExpr = fst . cata go
         , x `Set.notMember` freeVars (snd e2) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
-      -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
+      --
+      -- NOTE(MH): The reasoning behind the choice of `s1` and `s2` is as follows:
       -- - If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and
       --   `fv(e2) ⊆ V ∪ {x}`.
       -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
@@ -297,6 +298,16 @@ simplifyExpr = fst . cata go
         where
           s1 = Info fv (sf `min` Safe 0)
           s2 = Info (Set.insert x fv) sf
+
+      -- (λx. e1) e2    ==>    let x = e2 in e1
+      --
+      -- NOTE(MH): The reasoning behind the choice of `s1` is as follows:
+      -- - If `fv(λx. e1) ⊆ V`, then `fv(e1) ⊆ V ∪ {x}`.
+      -- - If `λx. e1` is k-safe, then `e1` is (k-1)-safe.
+      ETmAppF (ETmLam (x, t) e1, Info fv sf) (e2, s2) ->
+        go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        where
+          s1 = Info (Set.insert x fv) (decrSafety sf)
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep (fmap snd e))
