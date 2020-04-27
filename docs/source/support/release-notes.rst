@@ -6,6 +6,40 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-1-0-1:
+
+1.0.1 - 2020-04-27
+------------------
+
+This is a bugfix release for SDK 1.0.0. All users of SDK 1.0.0 are
+encouraged to upgrade at their earliest convenience. This release
+fixes 3 issues:
+
+1. Fix an issue with false negative contract key lookups by
+   non-stakeholders (see
+   https://github.com/digital-asset/daml/issues/5562 for
+   details).
+
+   This issue affected the new Sandbox introduced in SDK
+   1.0.0 (but not sandbox-classic) as well as the scenario
+   service. Both Sandbox and the scenario service are fixed.
+
+2. Fix a crash in the scenario service.
+
+   SDK 1.0 introduced a bug where the scenario service would crash if
+   a failing transaction contained transient contracts. In DAML Studio this was shown as the following error:
+
+.. code::
+
+   BErrorClient (ClientIOError (GRPCIOBadStatusCode StatusUnknown (StatusDetails {unStatusDetails = \“\”})))
+
+3. Fix an issue where Sandbox incorrectly rejected certain commands
+   relying on ``getTime`` during validation (see
+   https://github.com/digital-asset/daml/issues/5662 for
+   details). This was only an issue if you set either
+   ``min_ledger_time_rel`` or ``min_ledger_time_abs``.
+
+
 .. _release-1-0-0:
 
 1.0.0 - 2020-04-15
