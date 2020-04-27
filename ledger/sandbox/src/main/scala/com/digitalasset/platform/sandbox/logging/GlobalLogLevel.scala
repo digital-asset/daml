@@ -8,11 +8,12 @@ import org.slf4j.{Logger, LoggerFactory}
 
 object GlobalLogLevel {
   def set(level: Level): Unit = {
-    LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME) match {
-      case rootLogger: ch.qos.logback.classic.Logger =>
-        rootLogger.setLevel(level)
+    val rootLogger = LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME)
+    LoggerFactory.getILoggerFactory match {
+      case loggerContext: ch.qos.logback.classic.LoggerContext =>
         rootLogger.info(s"Sandbox verbosity changed to $level")
-      case rootLogger =>
+        loggerContext.getLoggerList.forEach(_.setLevel(level))
+      case _ =>
         rootLogger.warn(s"Sandbox verbosity cannot be set to requested $level")
     }
   }
