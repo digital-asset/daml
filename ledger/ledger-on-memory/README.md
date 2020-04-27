@@ -57,9 +57,9 @@ Ledger On Memory can be used to generate ledger dumps through an environment var
 
     export KVUTILS_LEDGER_DUMP=/path/to/dump/file
 
-Then launch the ledger using bazel or java command as described above.
+Then launch the ledger using the Bazel or Java command as described above.
 
-In case the ledger is run from within the docker container, use following syntax:
+In case the ledger is run from within the Docker container, use following syntax:
 
     export KVUTILS_LEDGER_DUMP=/path/to/dump/directory"
     docker run \
