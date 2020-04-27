@@ -138,6 +138,22 @@ should be separate scala_library targets, unvisible to the outside.
 A visible scala_library target should then collect the unrelated modules
 into a single target that can be depended on from outside.
 
+Benchmarking
+------------
+
+Benchmarks for scenario execution can be run with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf
+```
+A run of this benchmark will take between 6 and 7 minutes. A faster, less
+precise benchmark which takes around 1 minute can be invoked with
+```
+bazel run //daml-lf/scenario-interpreter:scenario-perf -- -f 0
+```
+
+These benchmarks are focused on DAML execution speed and try to avoid noise
+caused by, say, I/O as much as possible.
+
 DAML-LF-REPL Usage
 ------------------
 
