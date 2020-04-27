@@ -148,7 +148,7 @@ object PostCommitValidation {
     *
     * @param errors Accumulates errors retrieved so far while validating
     * @param contracts All contracts created as part of the current transaction
-    * @param removed Ensures indexed transactions are not referred to if they are removed in the current transaction
+    * @param removed Ensures indexed contracts are not referred to by key if they are removed in the current transaction
     * @param submitter The submitter of the current transaction
     */
   private final case class State(
