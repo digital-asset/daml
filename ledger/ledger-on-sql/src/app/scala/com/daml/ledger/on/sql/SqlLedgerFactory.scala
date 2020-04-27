@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
 }
 import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
@@ -38,13 +39,15 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
 
   override def readWriteServiceOwner(
       config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig
+      participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[ReadWriteService] =
-    new Owner(config, participantConfig)
+    new Owner(config, participantConfig, engine)
 
   class Owner(
       config: Config[ExtraConfig],
-      participantConfig: ParticipantConfig
+      participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext)
       extends ResourceOwner[KeyValueParticipantState] {
     override def acquire()(
@@ -58,9 +61,11 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
         config.ledgerId,
         participantConfig.participantId,
         metrics,
+        engine,
         jdbcUrl,
         stateValueCache = caching.Cache.from(config.stateValueCache),
         seedService = SeedService(config.seeding),
+        resetOnStartup = false
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }

@@ -56,7 +56,7 @@ final class StandaloneApiServer(
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
-    engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
+    engine: Engine
 )(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
@@ -169,8 +169,4 @@ final class StandaloneApiServer(
     config.portFile.foreach { path =>
       Files.write(path, Seq(port.toString).asJava)
     }
-}
-
-object StandaloneApiServer {
-  private val sharedEngine: Engine = Engine()
 }
