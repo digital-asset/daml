@@ -1,62 +1,146 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module DA.Daml.Helper.Test.Deployment (main) where
+module Main (main) where
 
+import Control.Applicative (many)
+import Control.Monad (unless, void)
+import Data.Function ((&))
+import Data.Maybe (fromMaybe)
+import Data.Proxy (Proxy (..))
+import Data.Tagged (Tagged (..))
 import System.Directory.Extra (withCurrentDirectory)
+import System.Environment (lookupEnv)
 import System.Environment.Blank (setEnv)
-import System.FilePath ((</>))
+import System.Exit (ExitCode(..), exitFailure)
+import System.FilePath ((</>), takeBaseName)
+import System.IO (hPutStrLn, stderr)
 import System.IO.Extra (withTempDir,writeFileUTF8)
-import Test.Tasty (TestTree,defaultMain,testGroup)
+import System.Process (CreateProcess,proc,readCreateProcessWithExitCode)
+import Test.Tasty (TestTree,askOption,defaultMainWithIngredients,defaultIngredients,includingOptions,testGroup,withResource)
+import Test.Tasty.Options (IsOption(..), OptionDescription(..), mkOptionCLParser)
 import Test.Tasty.HUnit (testCaseSteps)
-import qualified "zip-archive" Codec.Archive.Zip as Zip
+import qualified Bazel.Runfiles
 import qualified Data.Aeson as Aeson
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.List as List
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import qualified Web.JWT as JWT
 
-import DA.Bazel.Runfiles (mainWorkspace,locateRunfiles,exe)
-import DA.Daml.LF.Reader (Dalfs(..),readDalfs)
-import DA.Test.Process (callProcessSilent)
-import DA.Test.Sandbox (mbSharedSecret,withSandbox,defaultSandboxConf)
-import SdkVersion (sdkVersion)
-import qualified DA.Daml.LF.Ast as LF
-import qualified DA.Daml.LF.Proto3.Archive as LFArchive
+import Sandbox
 
-data Tools = Tools { damlc :: FilePath, damlHelper :: FilePath }
+data Tools = Tools
+  { daml :: FilePath
+  , sandboxConfig :: SandboxConfig
+  }
+
+newtype DamlOption = DamlOption FilePath
+instance IsOption DamlOption where
+  defaultValue = DamlOption $ "daml"
+  parseValue = Just . DamlOption
+  optionName = Tagged "daml"
+  optionHelp = Tagged "runfiles path to the daml executable"
+
+newtype SandboxOption = SandboxOption FilePath
+instance IsOption SandboxOption where
+  defaultValue = SandboxOption $ "sandbox"
+  parseValue = Just . SandboxOption
+  optionName = Tagged "sandbox"
+  optionHelp = Tagged "runfiles path to the sandbox executable"
+
+newtype SandboxArgsOption = SandboxArgsOption { unSandboxArgsOption :: [String] }
+instance IsOption SandboxArgsOption where
+  defaultValue = SandboxArgsOption []
+  parseValue = Just . SandboxArgsOption . (:[])
+  optionName = Tagged "sandbox-arg"
+  optionHelp = Tagged "extra arguments to pass to sandbox executable"
+  optionCLParser = concatMany (mkOptionCLParser mempty)
+    where concatMany = fmap (SandboxArgsOption . concat) . many . fmap unSandboxArgsOption
+
+newtype CertificatesOption = CertificatesOption FilePath
+instance IsOption CertificatesOption where
+  defaultValue = CertificatesOption $ "certificates"
+  parseValue = Just . CertificatesOption
+  optionName = Tagged "certs"
+  optionHelp = Tagged "runfiles path to the certificates directory"
+
+withTools :: (IO Tools -> TestTree) -> TestTree
+withTools tests = do
+  askOption $ \(DamlOption damlPath) -> do
+  askOption $ \(SandboxOption sandboxPath) -> do
+  askOption $ \(SandboxArgsOption sandboxArgs) -> do
+  askOption $ \(CertificatesOption certificatesPath) -> do
+  let createRunfiles :: IO (FilePath -> FilePath)
+      createRunfiles = do
+        runfiles <- Bazel.Runfiles.create
+        mainWorkspace <- fromMaybe "compatibility" <$> lookupEnv "TEST_WORKSPACE"
+        pure (\path -> Bazel.Runfiles.rlocation runfiles $ mainWorkspace </> path)
+  withResource createRunfiles (\_ -> pure ()) $ \locateRunfiles -> do
+  let tools = do
+        daml <- locateRunfiles <*> pure damlPath
+        sandboxBinary <- locateRunfiles <*> pure sandboxPath
+        sandboxCertificates <- locateRunfiles <*> pure certificatesPath
+        let sandboxConfig = defaultSandboxConf
+              { sandboxBinary
+              , sandboxArgs
+              , sandboxCertificates
+              }
+        pure Tools
+          { daml
+          , sandboxConfig
+          }
+  tests tools
+
+newtype SdkVersion = SdkVersion String
+instance IsOption SdkVersion where
+  defaultValue = SdkVersion "1.0.0"
+  parseValue = Just . SdkVersion
+  optionName = Tagged "sdk-version"
+  optionHelp = Tagged "The SDK version number"
 
 main :: IO ()
 main = do
   -- We manipulate global state via the working directory
   -- so running tests in parallel will cause trouble.
   setEnv "TASTY_NUM_THREADS" "1" True
-  damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
-  damlHelper <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "daml-helper" </> exe "daml-helper")
-  let tools = Tools {..}
-  defaultMain $ testGroup "Deployment"
-    [ authenticatedUploadTest tools
-    , fetchTest tools
-    ]
+  let options =
+        [ Option @DamlOption Proxy
+        , Option @SandboxOption Proxy
+        , Option @SandboxArgsOption Proxy
+        , Option @CertificatesOption Proxy
+        , Option @SdkVersion Proxy
+        ]
+  let ingredients = defaultIngredients ++ [includingOptions options]
+  defaultMainWithIngredients ingredients $
+    withTools $ \getTools -> do
+    askOption $ \sdkVersion -> do
+    testGroup "Deployment"
+      [ authenticatedUploadTest sdkVersion getTools
+      , fetchTest sdkVersion getTools
+      ]
 
 -- | Test `daml ledger upload-dar --access-token-file`
-authenticatedUploadTest :: Tools -> TestTree
-authenticatedUploadTest Tools{..} = do
+authenticatedUploadTest :: SdkVersion -> IO Tools -> TestTree
+authenticatedUploadTest sdkVersion getTools = do
   let sharedSecret = "TheSharedSecret"
-  withSandbox defaultSandboxConf { mbSharedSecret = Just sharedSecret } $ \getSandboxPort ->
+  let getSandboxConfig = do
+        cfg <- sandboxConfig <$> getTools
+        pure cfg { mbSharedSecret = Just sharedSecret }
+  withSandbox getSandboxConfig $ \getSandboxPort ->
     testCaseSteps "authenticatedUploadTest" $ \step -> do
+    Tools{..} <- getTools
     port <- getSandboxPort
     withTempDir $ \deployDir -> do
       withCurrentDirectory deployDir $ do
-        writeMinimalProject
+        writeMinimalProject sdkVersion
         step "build"
-        callProcessSilent damlc ["build"]
+        callProcessSilent daml ["damlc", "build"]
         let dar = ".daml/dist/proj1-0.0.1.dar"
         let tokenFile = deployDir </> "secretToken.jwt"
         step "upload"
         -- The trailing newline is not required but we want to test that it is supported.
         writeFileUTF8 tokenFile ("Bearer " <> makeSignedJwt sharedSecret <> "\n")
-        callProcessSilent damlHelper
+        callProcessSilent daml
           [ "ledger", "upload-dar"
           , "--access-token-file", tokenFile
           , "--host", "localhost", "--port", show port
@@ -72,44 +156,72 @@ makeSignedJwt sharedSecret = do
   T.unpack text
 
 -- | Test `daml ledger fetch-dar`
-fetchTest :: Tools -> TestTree
-fetchTest Tools{..} = do
-  withSandbox defaultSandboxConf $ \getSandboxPort ->
+fetchTest :: SdkVersion -> IO Tools -> TestTree
+fetchTest sdkVersion getTools = do
+  let getSandboxConfig = sandboxConfig <$> getTools
+  withSandbox getSandboxConfig $ \getSandboxPort ->
     testCaseSteps "fetchTest" $ \step -> do
+    Tools{..} <- getTools
     port <- getSandboxPort
     withTempDir $ \fetchDir -> do
       withCurrentDirectory fetchDir $ do
-        writeMinimalProject
+        writeMinimalProject sdkVersion
         let origDar = ".daml/dist/proj1-0.0.1.dar"
         step "build/upload"
-        callProcessSilent damlc ["build"]
-        callProcessSilent damlHelper
+        callProcessSilent daml ["damlc", "build"]
+        callProcessSilent daml
           [ "ledger", "upload-dar"
           , "--host", "localhost" , "--port" , show port
           , origDar
           ]
-        pid <- getMainPidOfDar origDar
+        pid <- getMainPidOfDar daml origDar
         step "fetch/validate"
         let fetchedDar = "fetched.dar"
-        callProcessSilent damlHelper
+        callProcessSilent daml
           [ "ledger", "fetch-dar"
           , "--host", "localhost" , "--port", show port
           , "--main-package-id", pid
           , "-o", fetchedDar
           ]
-        callProcessSilent damlc ["validate-dar", fetchedDar]
+        callProcessSilent daml ["damlc", "validate-dar", fetchedDar]
 
 -- | Discover the main package-identifier of a dar.
-getMainPidOfDar :: FilePath -> IO String
-getMainPidOfDar fp = do
-  archive <- Zip.toArchive <$> BSL.readFile fp
-  Dalfs mainDalf _ <- either fail pure $ readDalfs archive
-  Right pkgId <- pure $ LFArchive.decodeArchivePackageId $ BSL.toStrict mainDalf
-  return $ T.unpack $ LF.unPackageId pkgId
+--
+-- Parses the output of damlc inspect-dar. Unfortunately, this output is not
+-- currently optimized for machine readability. This function expects the
+-- following format.
+--
+-- @
+--   ...
+--
+--   DAR archive contains the following packages:
+--
+--   ...
+--   proj1-0.0.1-... "<package-id>"
+--   ...
+-- @
+getMainPidOfDar :: FilePath -> FilePath -> IO String
+getMainPidOfDar daml fp = do
+  darContents <- callProcessForStdout daml ["damlc", "inspect-dar", fp]
+  let packageName = takeBaseName fp
+  let mbPackageLine =
+        darContents
+        & lines
+        & dropWhile (not . List.isInfixOf "DAR archive contains the following packages")
+        & drop 1
+        & List.find (List.isPrefixOf packageName)
+  let mbPackageId = do
+        line <- mbPackageLine
+        [_, quoted] <- pure $ words line
+        let stripQuotes = takeWhile (/= '"') . dropWhile (== '"')
+        pure $ stripQuotes quoted
+  case mbPackageId of
+    Nothing -> fail $ "Couldn't determine package ID for " ++ fp
+    Just pkgId -> pure pkgId
 
 -- | Write `daml.yaml` and `Main.daml` files in the current directory.
-writeMinimalProject :: IO ()
-writeMinimalProject = do
+writeMinimalProject :: SdkVersion -> IO ()
+writeMinimalProject (SdkVersion sdkVersion) = do
   writeFileUTF8 "daml.yaml" $ unlines
       [ "sdk-version: " <> sdkVersion
       , "name: proj1"
@@ -124,3 +236,21 @@ writeMinimalProject = do
     , "module Main where"
     , "template T with p : Party where signatory p"
     ]
+
+callProcessSilent :: FilePath -> [String] -> IO ()
+callProcessSilent cmd args =
+  void $ run (proc cmd args)
+
+callProcessForStdout :: FilePath -> [String] -> IO String
+callProcessForStdout cmd args =
+  run (proc cmd args)
+
+run :: CreateProcess -> IO String
+run cp = do
+  (exitCode, out, err) <- readCreateProcessWithExitCode cp ""
+  unless (exitCode == ExitSuccess) $ do
+    hPutStrLn stderr $ "Failure: Command \"" <> show cp <> "\" exited with " <> show exitCode
+    hPutStrLn stderr $ unlines ["stdout: ", out]
+    hPutStrLn stderr $ unlines ["stderr: ", err]
+    exitFailure
+  return out

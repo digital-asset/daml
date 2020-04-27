@@ -1,26 +1,29 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- | Tasty resource for starting sandbox
-module DA.Test.Sandbox
-    ( SandboxConfig(..)
-    , SandboxResource(..)
-    , ClientAuth(..)
-    , TimeMode(..)
-    , defaultSandboxConf
-    , withSandbox
-    , createSandbox
-    , destroySandbox
-    ) where
+module Sandbox
+  ( SandboxConfig (..)
+  , SandboxResource (..)
+  , ClientAuth (..)
+  , TimeMode (..)
+  , defaultSandboxConf
+  , withSandbox
+  , createSandbox
+  , destroySandbox
+  ) where
 
-import Control.Exception
-import DA.Bazel.Runfiles
-import DA.PortFile
-import DA.Test.Util
-import System.FilePath
-import System.IO.Extra
+import Control.Concurrent (threadDelay)
+import Control.Exception.Safe (catchJust, mask, onException)
+import Control.Monad (guard)
+import qualified Data.Text.IO as T
+import Safe (readMay)
+import System.Exit (exitFailure)
+import System.FilePath ((</>))
+import System.IO.Error (isDoesNotExistError)
+import System.IO.Extra (Handle, IOMode (..), hClose, newTempFile, openBinaryFile, stderr)
+import System.Info.Extra (isWindows)
 import System.Process
-import Test.Tasty
+import Test.Tasty (TestTree, withResource)
 
 data ClientAuth
     = None
@@ -32,7 +35,15 @@ data TimeMode
     | Static
 
 data SandboxConfig = SandboxConfig
-    { enableTls :: Bool
+    { sandboxBinary :: FilePath
+      -- ^ Path to the sandbox executable.
+    , sandboxArgs :: [String]
+      -- ^ Extra arguments required to run the sandbox.
+    , sandboxCertificates :: FilePath
+      -- ^ Path to the directory holding the certificates.
+      --
+      -- Should contain @ca.crt@, @server.pem@, and @server.crt@.
+    , enableTls :: Bool
     , dars :: [FilePath]
     , timeMode :: TimeMode
     , mbClientAuth :: Maybe ClientAuth
@@ -42,7 +53,10 @@ data SandboxConfig = SandboxConfig
 
 defaultSandboxConf :: SandboxConfig
 defaultSandboxConf = SandboxConfig
-    { enableTls = False
+    { sandboxBinary = "sandbox"
+    , sandboxArgs = []
+    , sandboxCertificates = ""
+    , enableTls = False
     , dars = []
     , timeMode = WallClock
     , mbClientAuth = Nothing
@@ -52,18 +66,17 @@ defaultSandboxConf = SandboxConfig
 
 getSandboxProc :: SandboxConfig -> FilePath -> IO CreateProcess
 getSandboxProc SandboxConfig{..} portFile = do
-    sandbox <- locateRunfiles (mainWorkspace </> "ledger" </> "sandbox" </> exe "sandbox-binary")
     tlsArgs <- if enableTls
         then do
-            certDir <- locateRunfiles (mainWorkspace </> "ledger" </> "test-common" </> "test-certificates")
             pure
-                [ "--cacrt", certDir </> "ca.crt"
-                , "--pem", certDir </> "server.pem"
-                , "--crt", certDir </> "server.crt"
+                [ "--cacrt", sandboxCertificates </> "ca.crt"
+                , "--pem", sandboxCertificates </> "server.pem"
+                , "--crt", sandboxCertificates </> "server.crt"
                 ]
         else pure []
-    pure $ proc sandbox $ concat
-        [ [ "--port=0", "--port-file", portFile ]
+    pure $ proc sandboxBinary $ concat
+        [ sandboxArgs
+        , [ "--port=0", "--port-file", portFile ]
         , tlsArgs
         , [ timeArg ]
         , [ "--client-auth=" <> clientAuthArg auth | Just auth <- [mbClientAuth] ]
@@ -89,13 +102,14 @@ createSandbox portFile sandboxOutput conf = do
                 pure (SandboxResource ph port)
         unmask (waitForStart `onException` cleanupProcess ph)
 
-withSandbox :: SandboxConfig -> (IO Int -> TestTree) -> TestTree
-withSandbox conf f =
+withSandbox :: IO SandboxConfig -> (IO Int -> TestTree) -> TestTree
+withSandbox getConf f =
     withResource (openBinaryFile nullDevice ReadWriteMode) hClose $ \getDevNull ->
     withResource newTempFile snd $ \getPortFile ->
         let createSandbox' = do
                 (portFile, _) <- getPortFile
                 devNull <- getDevNull
+                conf <- getConf
                 createSandbox portFile devNull conf
         in withResource createSandbox' destroySandbox (f . fmap sandboxPort)
 
@@ -107,3 +121,27 @@ data SandboxResource = SandboxResource
 
 destroySandbox :: SandboxResource -> IO ()
 destroySandbox = cleanupProcess . sandboxProcess
+
+nullDevice :: FilePath
+nullDevice
+    -- taken from typed-process
+    | isWindows = "\\\\.\\NUL"
+    | otherwise =  "/dev/null"
+
+readPortFile :: Int -> String -> IO Int
+readPortFile 0 _file = do
+  T.hPutStrLn stderr "Port file was not written to in time."
+  exitFailure
+readPortFile n file = do
+  fileContent <- catchJust (guard . isDoesNotExistError) (readFile file) (const $ pure "")
+  case readMay fileContent of
+    Nothing -> do
+      threadDelay (1000 * retryDelayMillis)
+      readPortFile (n-1) file
+    Just p -> pure p
+
+retryDelayMillis :: Int
+retryDelayMillis = 50
+
+maxRetries :: Int
+maxRetries = 120 * (1000 `div` retryDelayMillis)

@@ -1,0 +1,44 @@
+load(
+    "@daml//bazel_tools:haskell.bzl",
+    "da_haskell_binary",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "sandbox-helper",
+    srcs = ["Sandbox.hs"],
+    hackage_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "safe",
+        "safe-exceptions",
+        "tasty",
+        "text",
+    ],
+)
+
+da_haskell_binary(
+    name = "runner",
+    srcs = ["Main.hs"],
+    hackage_deps = [
+        "aeson",
+        "base",
+        "containers",
+        "extra",
+        "filepath",
+        "jwt",
+        "process",
+        "tagged",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@rules_haskell//tools/runfiles",
+        ":sandbox-helper",
+    ],
+)
