@@ -447,10 +447,10 @@ class OrderingSpec
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
-    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
+    "match SValue Ordering" in forAll(genAddend, minSuccessful(20)) { va =>
       import va.{injarb, injshrink}
       implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
-      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      forAll(minSuccessful(5)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
         import va.injord
         val ta = va.inj(a)
         val tb = va.inj(b)
