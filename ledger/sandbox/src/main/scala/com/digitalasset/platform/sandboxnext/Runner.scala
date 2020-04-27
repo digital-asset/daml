@@ -127,12 +127,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   case TimeProviderType.WallClock =>
                     None
                 }
+                isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
                   metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
-                  resetOnStartup = startupMode == StartupMode.ResetAndStart,
+                  resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   seedService = SeedService(seeding),
                   stateValueCache = caching.Cache.from(
@@ -144,18 +145,18 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                _ <- if (startupMode == StartupMode.MigrateAndStart) {
+                _ <- if (isReset) {
+                  ResourceOwner.unit
+                } else {
                   ResourceOwner.forFuture(() =>
                     Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))).map(_ => ())
-                } else {
-                  ResourceOwner.unit
                 }
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
-                    startupMode = if (startupMode == StartupMode.MigrateAndStart) IndexerStartupMode.MigrateAndStart else IndexerStartupMode.ResetAndStart,
+                    startupMode = if (isReset) IndexerStartupMode.ResetAndStart else IndexerStartupMode.MigrateAndStart,
                     eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),
@@ -181,7 +182,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 apiServer <- new StandaloneApiServer(
                   config = ApiServerConfig(
                     participantId = ParticipantId,
-                    archiveFiles = config.damlPackages,
+                    archiveFiles = if (isReset) List.empty else config.damlPackages,
                     // Re-use the same port when resetting the server.
                     port = currentPort.getOrElse(config.port),
                     address = config.address,

@@ -66,6 +66,9 @@ final class StandaloneApiServer(
   val participantId: ParticipantId = config.participantId
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServer] = {
+    val packageStore = loadDamlPackages()
+    preloadPackages(packageStore)
+
     val owner = for {
       initialConditions <- ResourceOwner.forFuture(() =>
         readService.getLedgerInitialConditions().runWith(Sink.head))
@@ -133,10 +136,7 @@ final class StandaloneApiServer(
     owner.acquire()
   }
 
-  // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
-    // [[ScenarioLoader]] needs all the packages to be already compiled --
-    // make sure that that's the case
     for {
       (pkgId, _) <- packageContainer.listLfPackagesSync()
       pkg <- packageContainer.getLfPackageSync(pkgId)
