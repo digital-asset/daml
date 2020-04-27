@@ -174,12 +174,27 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - job: compatibility
+  - job: compatibility_linux
     dependsOn:
       - check_for_release
     timeoutInMinutes: 60
     pool:
-      name: 'linux-pool'
+      name: linux-pool
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: compatibility_macos
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: macos-pool
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -361,6 +376,8 @@ jobs:
       - release
       - write_ledger_dump
       - git_sha
+      - compatibility_macos
+      - compatibility_linux
     pool:
       name: "linux-pool"
     variables:
@@ -384,6 +401,14 @@ jobs:
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
       dump.status: $[ dependencies.write_ledger_dump.result ]
+      compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+      compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+      compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+      compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+      compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+      compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+      compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+      compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
@@ -422,7 +447,15 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"}},
+                                "status": "$(release.status)"},
+                    "compatibility_linux": {"start": "$(compatibility_linux.start)",
+                                            "machine": "$(compatibility_linux.machine)",
+                                            "end": "$(compatibility_linux.end)",
+                                            "status": "$(compatibility_linux.status)"},
+                    "compatibility_macos": {"start": "$(compatibility_macos.start)",
+                                            "machine": "$(compatibility_macos.machine)",
+                                            "end": "$(compatibility_macos.end)",
+                                            "status": "$(compatibility_macos.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
@@ -470,6 +503,8 @@ jobs:
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
+              || "$(compatibility_linux.status)" != "Succeeded"
+              || "$(compatibility_macos.status)" != "Succeeded"
               || "$(dump.status)" == "Canceled"
               || "$(release.status)" == "Canceled" ]]; then
               exit 1

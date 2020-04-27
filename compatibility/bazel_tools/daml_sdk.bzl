@@ -24,9 +24,12 @@ def _daml_sdk_impl(ctx):
         ctx.download_and_extract(
             output = "extracted-sdk",
             # TODO (MK) Make this work on other platforms.
-            url =
-                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-linux.tar.gz".format(ctx.attr.version, ctx.attr.version),
-            sha256 = ctx.attr.sdk_sha256,
+            url = "https://github.com/digital-asset/daml/releases/download/v{version}/daml-sdk-{version}-{os}.tar.gz"
+                .format(
+                version = ctx.attr.version,
+                os = ctx.attr.os_name,
+            ),
+            sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
     else:
@@ -118,10 +121,11 @@ _daml_sdk = repository_rule(
     implementation = _daml_sdk_impl,
     attrs = {
         "version": attr.string(mandatory = True),
-        "sdk_sha256": attr.string(mandatory = False),
+        "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "test_tool_sha256": attr.string(mandatory = False),
         "test_tool": attr.label(allow_single_file = True, mandatory = False),
+        "os_name": attr.string(mandatory = True),
     },
 )
 
