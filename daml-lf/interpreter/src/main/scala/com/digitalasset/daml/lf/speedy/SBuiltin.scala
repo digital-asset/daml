@@ -971,7 +971,7 @@ object SBuiltin {
         // (see below).
         crash(s"Relative contract $coid ($templateId) not found from partial transaction")
       } else {
-        machine.ctrl = CtrlTranslateValue(coinst.arg.value)
+        CtrlTranslateValue(coinst.arg.value).execute(machine)
       }
     }
   }
