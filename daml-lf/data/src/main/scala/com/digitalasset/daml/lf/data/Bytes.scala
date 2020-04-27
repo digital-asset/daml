@@ -22,8 +22,6 @@ final class Bytes private (protected val value: ByteString) extends AnyVal {
 
   def isEmpty: Boolean = value.isEmpty
 
-  def nonEmpty: Boolean = !value.isEmpty
-
   def toHexString: Ref.HexString = Ref.HexString.encode(this)
 
   def startsWith(prefix: Bytes): Boolean = value.startsWith(prefix.value)

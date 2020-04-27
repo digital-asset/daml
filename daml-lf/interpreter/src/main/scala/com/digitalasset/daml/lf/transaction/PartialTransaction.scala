@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
-import com.daml.lf.data.{BackStack, Bytes, ImmArray, Time}
+import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction => Tx}
 import com.daml.lf.value.Value
 
@@ -110,7 +110,6 @@ object PartialTransaction {
     aborted = None,
     keys = Map.empty,
     localContracts = Map.empty,
-    globalContracts = Map.empty,
   )
 
 }
@@ -143,11 +142,6 @@ object PartialTransaction {
   *              we archive. This is not an optimization and is required for
   *              correct semantics, since otherwise lookups for keys for
   *              locally archived absolute contract ids will succeed wrongly.
-  * @param localContracts A map that associates to each contract created the
-  *                      node in which it was created.
-  * @param globalContracts A map that associates to each fetched AbsoluteContractId.V1
-  *                       contract id its respective contract instance.
-  *                       other format of contract ids are not cached.
   */
 case class PartialTransaction(
     submissionTime: Time.Timestamp,
@@ -159,8 +153,7 @@ case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
-    localContracts: Map[Value.ContractId, Value.NodeId],
-    globalContracts: Map[crypto.Hash, Map[Bytes, Tx.ContractInst[Value.ContractId]]],
+    localContracts: Map[Value.ContractId, Value.NodeId]
 ) {
 
   import PartialTransaction._
@@ -221,9 +214,13 @@ case class PartialTransaction(
       this
     )
 
-  private def lookupLocalContract(
+  /** Lookup the contract associated to 'Value.RelativeContractId'.
+    * Return the contract instance and the node in which it was
+    * consumed if any.
+    */
+  def lookupLocalContract(
       lcoid: Value.ContractId,
-  ): Option[Tx.ContractInst[Value.ContractId]] =
+  ): Option[Value.ContractInst[Tx.Value[Value.ContractId]]] =
     for {
       nid <- localContracts.get(lcoid)
       node <- nodes.get(nid)
@@ -236,45 +233,11 @@ case class PartialTransaction(
       }
     } yield coinst
 
-  private def lookupGlobalContract(
-      gcoid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    gcoid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        globalContracts.get(discriminator).flatMap(_.get(suffix))
-      case _ =>
-        None
-    }
-
-  def lookupCachedContract(
-      coid: Value.ContractId
-  ): Option[Tx.ContractInst[Value.ContractId]] =
-    lookupLocalContract(coid).orElse(lookupGlobalContract(coid))
-
-  /** Update the globalContract if coid is an `Value.AbsoluteContractId.V1`,
-    *  idempotent otherwise.
-    */
-  def cachedContract(
-      coid: Value.ContractId,
-      contract: Tx.ContractInst[Value.ContractId]
-  ): PartialTransaction =
-    coid match {
-      case Value.AbsoluteContractId.V1(discriminator, suffix) =>
-        copy(
-          globalContracts = globalContracts.updated(
-            discriminator,
-            globalContracts.getOrElse(discriminator, Map.empty).updated(suffix, contract)
-          )
-        )
-      case _ =>
-        this
-    }
-
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
   def insertCreate(
-      coinst: Tx.ContractInst[Value.ContractId],
+      coinst: Value.ContractInst[Tx.Value[Value.ContractId]],
       optLocation: Option[Location],
       signatories: Set[Party],
       stakeholders: Set[Party],
