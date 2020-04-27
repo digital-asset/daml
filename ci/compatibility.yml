@@ -5,6 +5,10 @@ parameters:
   - name: test_flags
     type: string
     default: ''
+  - name: os
+    type: string
+  - name: push_generic
+    type: boolean
 
 steps:
   - bash: ci/dev-env-install.sh
@@ -34,14 +38,15 @@ steps:
   - task: PublishPipelineArtifact@0
     inputs:
       targetPath: $(Build.StagingDirectory)/sdk-release-tarball.tar.gz
-      artifactName: sdk-release-tarball.tar.gz
-  - task: PublishPipelineArtifact@0
-    inputs:
-      targetPath: $(Build.StagingDirectory)/ledger-api-test-tool_deploy.jar
-      artifactName: ledger-api-test-tool_deploy.jar
+      artifactName: sdk-release-tarball-${{ parameters.os }}.tar.gz
+  - ${{ if parameters.push_generic }}:
+      - task: PublishPipelineArtifact@0
+        inputs:
+          targetPath: $(Build.StagingDirectory)/ledger-api-test-tool_deploy.jar
+          artifactName: ledger-api-test-tool_deploy.jar
   - task: DownloadPipelineArtifact@0
     inputs:
-      artifactName: sdk-release-tarball.tar.gz
+      artifactName: sdk-release-tarball-${{ parameters.os }}.tar.gz
       targetPath: compatibility/head_sdk
   - task: DownloadPipelineArtifact@0
     inputs:
