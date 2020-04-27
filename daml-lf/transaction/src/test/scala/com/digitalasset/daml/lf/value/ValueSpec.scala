@@ -150,13 +150,9 @@ class ValueSpec
       val EmptyScope: Value.LookupVariantEnum = _ => None
       implicit val ord: Order[T] = Tag unsubst Value.orderInstance(EmptyScope)
 
-      "obeys order laws" in forAll(genAddend, minSuccessful(100)) { va =>
+      "obeys order laws" in forAll(genAddend, minSuccessful(10)) { va =>
         implicit val arb: Arbitrary[T] = va.injarb[Cid] map (va.inj(_))
         checkLaws(SzP.order.laws[T])
-      }
-
-      "preserves base order" in forAll(genAddend, minSuccessful(100)) { va =>
-        checkOrderPreserved[Cid](va, EmptyScope)
       }
     }
 
@@ -194,7 +190,7 @@ class ValueSpec
           implicit val ord: Order[T] = Tag unsubst Value.orderInstance(scope)
           forEvery(Table("va", details.values.toSeq: _*)) { ea =>
             implicit val arb: Arbitrary[T] = ea.injarb[Cid] map (ea.inj(_))
-            forAll(minSuccessful(5)) { (a: T, b: T) =>
+            forAll(minSuccessful(20)) { (a: T, b: T) =>
               inside((a, b)) {
                 case (ValueEnum(_, ac), ValueEnum(_, bc)) =>
                   (a ?|? b) should ===((ea.values indexOf ac) ?|? (ea.values indexOf bc))
