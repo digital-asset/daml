@@ -86,6 +86,8 @@ concatUpdateSet :: UpdateSet -> UpdateSet -> UpdateSet
 concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2 vals2) =
   UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
 
+-- TODO: when a renamed var gets renamed again, it might overlap again.
+-- We should have an additional field in VarName to denote it's number.
 genRenamedVar :: MonadEnv m => ExprVarName -> m ExprVarName
 genRenamedVar (ExprVarName x) = ExprVarName . T.append x . T.pack <$> fresh
 
@@ -131,7 +133,8 @@ concatEnv (Env vars1 vals1 chs1 dats1 cids1) (Env vars2 vals2 chs2 dats2 cids2) 
   Env (vars1 ++ vars2) (vals1 `HM.union` vals2) (chs1 `HM.union` chs2)
     (dats1 `HM.union` dats2) (cids1 `HM.union` cids2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
-  -- (and just uses the first)
+  -- (and just uses the first). `unionWith concatUpdateSet` would indeed be better,
+  -- but this still makes me nervous as the expr and exprvarnames wouldn't be merged.
 
 fieldName2VarName :: FieldName -> ExprVarName
 fieldName2VarName = ExprVarName . unFieldName
@@ -210,9 +213,6 @@ extRecEnvLvl1 = mapM_ step
       `catchError` (\_ -> return ())
 
 lookupVar :: MonadEnv m => ExprVarName -> m ()
--- TODO: This should be skolemised in the template instead of hardcoding here
-lookupVar (ExprVarName "self") = return ()
-lookupVar (ExprVarName "this") = return ()
 lookupVar x = getEnv >>= \ env -> unless (elem (SkolVar x) $ _envskol env)
   (throwError $ UnboundVar x)
 

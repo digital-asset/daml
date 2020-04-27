@@ -9,6 +9,7 @@ module DA.Daml.LF.Verify.Generate
 
 import Control.Monad.Error.Class (catchError, throwError)
 import qualified Data.NameMap as NM
+import Debug.Trace
 
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
@@ -18,38 +19,38 @@ data Phase
   = ValuePhase
   | TemplatePhase
 
-data GenOutput = GenOutput
-  { _goExp :: Expr
+data Output = Output
+  { _oExpr :: Expr
     -- ^ The expression, evaluated as far as possible.
-  , _goUpd :: UpdateSet
+  , _oUpdate :: UpdateSet
     -- ^ The updates, performed by this expression.
   }
 
-emptyGO :: Expr -> GenOutput
-emptyGO expr = GenOutput expr emptyUpdateSet
+emptyOut :: Expr -> Output
+emptyOut expr = Output expr emptyUpdateSet
 
 -- | Extend a generator output with the updates of the second generator output.
 -- Note that the end result will contain the first expression.
-combineGO :: GenOutput -> GenOutput -> GenOutput
-combineGO genOut1 genOut2 = extendGOUpds (_goUpd genOut2) genOut1
+combineOut :: Output -> Output -> Output
+combineOut out1 out2 = extendOutUpds (_oUpdate out2) out1
 
-updateGOExpr :: Expr
+updateOutExpr :: Expr
   -- ^ The new output expression.
-  -> GenOutput
+  -> Output
   -- ^ The current generator output.
-  -> GenOutput
-updateGOExpr expr gout = gout{_goExp = expr}
+  -> Output
+updateOutExpr expr out = out{_oExpr = expr}
 
-extendGOUpds :: UpdateSet
+extendOutUpds :: UpdateSet
   -- ^ The extension of the update set.
-  -> GenOutput
+  -> Output
   -- ^ The current generator output.
-  -> GenOutput
-extendGOUpds upds gout@GenOutput{..} = gout{_goUpd = concatUpdateSet upds _goUpd}
+  -> Output
+extendOutUpds upds out@Output{..} = out{_oUpdate = concatUpdateSet upds _oUpdate}
 
-addArchiveUpd :: Qualified TypeConName -> [(FieldName, Expr)] -> GenOutput -> GenOutput
-addArchiveUpd temp fs (GenOutput expr upd@UpdateSet{..}) =
-  GenOutput expr upd{_usArc = UpdArchive temp fs : _usArc}
+addArchiveUpd :: Qualified TypeConName -> [(FieldName, Expr)] -> Output -> Output
+addArchiveUpd temp fs (Output expr upd@UpdateSet{..}) =
+  Output expr upd{_usArc = UpdArchive temp fs : _usArc}
 
 genPackages :: MonadEnv m => Phase -> [(PackageId, (Package, Maybe PackageName))] -> m ()
 genPackages ph inp = mapM_ (genPackage ph) inp
@@ -68,12 +69,12 @@ genValue :: MonadEnv m => PackageRef -> ModuleName -> DefValue -> m ()
 genValue pac mod val = do
   expOut <- genExpr ValuePhase (dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
-  extValEnv qname (_goExp expOut) (_goUpd expOut)
+  extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
 -- TODO: Handle annotated choices, by returning a set of annotations.
-genChoice :: MonadEnv m => Qualified TypeConName -> ExprVarName -> [FieldName]
-  -> TemplateChoice -> m ()
-genChoice tem this temFs TemplateChoice{..} = do
+genChoice :: MonadEnv m => Qualified TypeConName -> (ExprVarName,ExprVarName)
+  -> [FieldName] -> TemplateChoice -> m ()
+genChoice tem (this',this) temFs TemplateChoice{..} = do
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
   self <- genRenamedVar self'
@@ -83,11 +84,11 @@ genChoice tem this temFs TemplateChoice{..} = do
   argFs <- recTypFields (snd chcArgBinder)
   extRecEnv arg argFs
   expOut <- genExpr TemplatePhase
-    $ substituteTmTm (createExprSubst [(self',EVar self),(arg',EVar arg)]) chcUpdate
-  let go = if chcConsuming
+    $ substituteTmTm (createExprSubst [(self',EVar self),(this',EVar this),(arg',EVar arg)]) chcUpdate
+  let out = if chcConsuming
         then addArchiveUpd tem fields expOut
         else expOut
-  extChEnv tem chcName self this arg (_goUpd go)
+  extChEnv tem chcName self this arg (_oUpdate out)
   where
     fields = map (\f -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
 
@@ -97,13 +98,11 @@ genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
   fields <- recTypConFields tplTypeCon
   let fs = map fst fields
-      xs = map fieldName2VarName fs
-  -- TODO: if daml indead translates into `amount = this.amount`, this can be dropped.
-  mapM_ extVarEnv xs
-  -- TODO: refresh tplParam (this)
-  extRecEnv tplParam fs
+  this <- genRenamedVar tplParam
+  extVarEnv this
+  extRecEnv this fs
   extRecEnvLvl1 fields
-  mapM_ (genChoice name tplParam fs) (archive : NM.toList tplChoices)
+  mapM_ (genChoice name (tplParam,this) fs) (archive : NM.toList tplChoices)
   where
     archive :: TemplateChoice
     archive = TemplateChoice Nothing (ChoiceName "Archive") True
@@ -111,7 +110,7 @@ genTemplate pac mod Template{..} = do
       (ExprVarName "arg", TStruct []) (TBuiltin BTUnit)
       (EUpdate $ UPure (TBuiltin BTUnit) (EBuiltin BEUnit))
 
-genExpr :: MonadEnv m => Phase -> Expr -> m GenOutput
+genExpr :: MonadEnv m => Phase -> Expr -> m Output
 genExpr ph = \case
   ETmApp fun arg -> genForTmApp ph fun arg
   ETyApp expr typ -> genForTyApp ph expr typ
@@ -125,60 +124,60 @@ genExpr ph = \case
   EUpdate (UBind bind expr) -> genForBind ph bind expr
   EUpdate (UPure _ expr) -> genExpr ph expr
   -- TODO: Extend additional cases
-  e -> return $ emptyGO e
+  e -> return $ emptyOut e
 
-genForTmApp :: MonadEnv m => Phase -> Expr -> Expr -> m GenOutput
+genForTmApp :: MonadEnv m => Phase -> Expr -> Expr -> m Output
 genForTmApp ph fun arg = do
   funOut <- genExpr ph fun
-  argOut <- genExpr ph arg
-  case _goExp funOut of
+  arout <- genExpr ph arg
+  case _oExpr funOut of
     -- TODO: Should we rename here?
     ETmLam bndr body -> do
-      let subst = singleExprSubst (fst bndr) (_goExp argOut)
+      let subst = singleExprSubst (fst bndr) (_oExpr arout)
           resExpr = substituteTmTm subst body
       resOut <- genExpr ph resExpr
-      return $ combineGO resOut
-        $ combineGO funOut argOut
-    fun' -> return $ updateGOExpr (ETmApp fun' (_goExp argOut))
-      $ combineGO funOut argOut
+      return $ combineOut resOut
+        $ combineOut funOut arout
+    fun' -> return $ updateOutExpr (ETmApp fun' (_oExpr arout))
+      $ combineOut funOut arout
 
-genForTyApp :: MonadEnv m => Phase -> Expr -> Type -> m GenOutput
+genForTyApp :: MonadEnv m => Phase -> Expr -> Type -> m Output
 genForTyApp ph expr typ = do
   exprOut <- genExpr ph expr
-  case _goExp exprOut of
+  case _oExpr exprOut of
     ETyLam bndr body -> do
       let subst = singleTypeSubst (fst bndr) typ
           resExpr = substituteTyTm subst body
       resOut <- genExpr ph resExpr
-      return $ combineGO resOut exprOut
-    expr' -> return $ updateGOExpr (ETyApp expr' typ) exprOut
+      return $ combineOut resOut exprOut
+    expr' -> return $ updateOutExpr (ETyApp expr' typ) exprOut
 
-genForLet :: MonadEnv m => Phase -> Binding -> Expr -> m GenOutput
+genForLet :: MonadEnv m => Phase -> Binding -> Expr -> m Output
 genForLet ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
-  let subst = singleExprSubst (fst $ bindingBinder bind) (_goExp bindOut)
+  let subst = singleExprSubst (fst $ bindingBinder bind) (_oExpr bindOut)
       resExpr = substituteTmTm subst body
   resOut <- genExpr ph resExpr
-  return $ combineGO resOut bindOut
+  return $ combineOut resOut bindOut
 
-genForVar :: MonadEnv m => Phase -> ExprVarName -> m GenOutput
-genForVar _ph name = lookupVar name >> return (emptyGO (EVar name))
+genForVar :: MonadEnv m => Phase -> ExprVarName -> m Output
+genForVar _ph name = lookupVar name >> return (emptyOut (EVar name))
 
-genForVal :: MonadEnv m => Phase -> Qualified ExprValName -> m GenOutput
+genForVal :: MonadEnv m => Phase -> Qualified ExprValName -> m Output
 genForVal ValuePhase w
-  = return $ GenOutput (EVal w) (emptyUpdateSet{_usVal = [w]})
+  = return $ Output (EVal w) (emptyUpdateSet{_usVal = [w]})
 genForVal TemplatePhase w
-  = lookupVal w >>= \ (expr, upds) -> return (GenOutput expr upds)
+  = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
 
-genForRecProj :: MonadEnv m => Phase -> TypeConApp -> FieldName -> Expr -> m GenOutput
+genForRecProj :: MonadEnv m => Phase -> TypeConApp -> FieldName -> Expr -> m Output
 genForRecProj ph tc f body = do
   bodyOut <- genExpr ph body
-  case _goExp bodyOut of
+  case _oExpr bodyOut of
     -- TODO: I think we can reduce duplication a bit more here
     EVar x -> do
       skol <- lookupRec x f
       if skol
-        then return $ updateGOExpr (ERecProj tc f (EVar x)) bodyOut
+        then return $ updateOutExpr (ERecProj tc f (EVar x)) bodyOut
         else error ("Impossible: expected skolem record: " ++ show x ++ "." ++ show f)
     expr -> do
       fs <- recExpFields expr
@@ -186,36 +185,36 @@ genForRecProj ph tc f body = do
         Just expr -> genExpr ph expr
         Nothing -> throwError $ UnknownRecField f
 
-genForCreate :: MonadEnv m => Phase -> Qualified TypeConName -> Expr -> m GenOutput
+genForCreate :: MonadEnv m => Phase -> Qualified TypeConName -> Expr -> m Output
 genForCreate ph tem arg = do
-  argOut <- genExpr ph arg
-  fs <- recExpFields (_goExp argOut)
-  return (GenOutput (EUpdate (UCreate tem $ _goExp argOut)) emptyUpdateSet{_usCre = [UpdCreate tem fs]})
+  arout <- genExpr ph arg
+  fs <- recExpFields (_oExpr arout)
+  return (Output (EUpdate (UCreate tem $ _oExpr arout)) emptyUpdateSet{_usCre = [UpdCreate tem fs]})
   -- TODO: We could potentially filter here to only store the interesting fields?
 
 genForExercise :: MonadEnv m => Phase -> Qualified TypeConName -> ChoiceName
-  -> Expr -> Maybe Expr -> Expr -> m GenOutput
+  -> Expr -> Maybe Expr -> Expr -> m Output
 genForExercise ph tem ch cid par arg = do
   cidOut <- genExpr ph cid
-  argOut <- genExpr ph arg
+  arout <- genExpr ph arg
   updSubst <- lookupChoice tem ch
   -- TODO: Temporary solution
-  this <- lookupCid (_goExp cidOut) `catchError` (\_ -> return $ ExprVarName "this")
+  this <- lookupCid (_oExpr cidOut) `catchError` (\_ -> trace ("Not found: " ++ show (_oExpr cidOut)) $ return $ ExprVarName "this")
   -- TODO: Should we further eval after subst? But how to eval an update set?
-  let updSet = updSubst (_goExp cidOut) (EVar this) (_goExp argOut)
-  return (GenOutput (EUpdate (UExercise tem ch (_goExp cidOut) par (_goExp argOut))) updSet)
+  let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
+  return (Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet)
 
 -- TODO: Handle arbitrary update outputs, not just simple fetches
-genForBind :: MonadEnv m => Phase -> Binding -> Expr -> m GenOutput
+genForBind :: MonadEnv m => Phase -> Binding -> Expr -> m Output
 genForBind ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
-  case _goExp bindOut of
+  case _oExpr bindOut of
     EUpdate (UFetch tc cid) -> do
       fs <- recTypConFields $ qualObject tc
       extRecEnv (fst $ bindingBinder bind) (map fst fs)
       cidOut <- genExpr ph cid
-      extCidEnv (_goExp cidOut) (fst $ bindingBinder bind)
+      extCidEnv (_oExpr cidOut) (fst $ bindingBinder bind)
     _ -> return ()
   extVarEnv (fst $ bindingBinder bind)
   bodyOut <- genExpr ph body
-  return $ combineGO bodyOut bindOut
+  return $ combineOut bodyOut bindOut
