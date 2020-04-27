@@ -1253,6 +1253,57 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                   ExpectedChoiceDetails {expectedConsuming = True
                                         , expectedName = "Delete"})
                 ])
+        -- test case taken from #5726
+        , testCase' "ExerciseByKey should add an edge" $ do
+            exerciseByKeyTest <- makeModule "F"
+                [ "template Ping"
+                , "  with"
+                , "    party : Party"
+                , "  where"
+                , "    signatory party"
+                , "    key party: Party"
+                , "    maintainer key"
+                , ""
+                , "    controller party can"
+                , "      nonconsuming ArchivePong : ()"
+                , "        with"
+                , "          pong : ContractId Pong"
+                , "        do"
+                , "          exercise pong Archive"
+                , ""
+                , "template Pong"
+                , "  with"
+                , "    party : Party"
+                , "  where"
+                , "    signatory party"
+                , ""
+                , "    controller party can"
+                , "      nonconsuming ArchivePing : ()"
+                , "        with"
+                , "          pingParty : Party"
+                , "        do"
+                , "          exerciseByKey @Ping pingParty Archive"
+                ]
+            setFilesOfInterest [exerciseByKeyTest]
+            expectNoErrors
+            expectedGraph exerciseByKeyTest (ExpectedGraph
+                [ ExpectedSubGraph { expectedNodes = ["Create", "ArchivePong", "Archive"]
+                                   , expectedTplFields = ["party"]
+                                   , expectedTemplate = "Ping"
+                                    }
+                , ExpectedSubGraph { expectedNodes = ["Create", "Archive", "ArchivePing"]
+                                   , expectedTplFields = ["party"]
+                                   , expectedTemplate = "Pong"}
+                ]
+                [ (ExpectedChoiceDetails {expectedConsuming = False
+                                         , expectedName = "ArchivePong"},
+                   ExpectedChoiceDetails {expectedConsuming = True
+                                         , expectedName = "Archive"})
+                , (ExpectedChoiceDetails {expectedConsuming = False
+                                         , expectedName = "ArchivePing"},
+                   ExpectedChoiceDetails {expectedConsuming = True
+                                         , expectedName = "Archive"})
+                ])
         , testCase' "Create on other template should be edge" $ do
             createTest <- makeModule "F"
                 [ "template TT"

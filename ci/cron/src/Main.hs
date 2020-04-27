@@ -26,7 +26,7 @@ import qualified Network.HTTP.Client.TLS as TLS
 import qualified Network.HTTP.Types.Status as Status
 import qualified System.Directory as Directory
 import qualified System.Exit as Exit
-import qualified System.IO.Extra as Temp
+import qualified System.IO.Extra as IO
 import qualified System.Process as System
 import qualified Text.Regex.TDFA as Regex
 
@@ -325,6 +325,8 @@ same_versions s3_versions gh_versions =
 
 main :: IO ()
 main = do
+    Control.forM_ [IO.stdout, IO.stderr] $
+        \h -> IO.hSetBuffering h IO.LineBuffering
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
@@ -333,7 +335,7 @@ main = do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
-        Temp.withTempDir $ \temp_dir -> do
+        IO.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
             docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."

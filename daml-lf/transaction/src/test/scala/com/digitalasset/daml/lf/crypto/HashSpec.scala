@@ -18,6 +18,9 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HashSpec extends WordSpec with Matchers {
 
+  @com.github.ghik.silencer.silent // dead code. Well, yeah
+  private implicit val ordNo: scalaz.Order[Nothing] = (a, _) => a // principle of explosion
+
   private val packageId0 = Ref.PackageId.assertFromString("package")
 
   private val complexRecordT =
@@ -313,38 +316,42 @@ class HashSpec extends WordSpec with Matchers {
         Ref.Name.assertFromString(s)
 
       val units = List(ValueUnit)
-      val bools = List(true, false).map(VA.bool.inj)
-      val ints = List(-1L, 0L, 1L).map(VA.int64.inj)
+      val bools = List(true, false).map(VA.bool.inj(_))
+      val ints = List(-1L, 0L, 1L).map(VA.int64.inj(_))
       val decimals = List("-10000.0000000000", "0.0000000000", "10000.0000000000")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Decimal.scale).inj)
+        .map(VA.numeric(Decimal.scale).inj(_))
       val numeric0s = List("-10000.", "0.", "10000.")
         .map(Numeric.assertFromString)
-        .map(VA.numeric(Numeric.Scale.MinValue).inj)
-      val texts = List("", "someText", "a¶‱😂").map(VA.text.inj)
+        .map(VA.numeric(Numeric.Scale.MinValue).inj(_))
+      val texts = List("", "someText", "a¶‱😂").map(VA.text.inj(_))
       val dates =
         List(
           Time.Date.assertFromDaysSinceEpoch(0),
           Time.Date.assertFromString("1969-07-21"),
           Time.Date.assertFromString("2019-12-16"),
-        ).map(VA.date.inj)
+        ).map(VA.date.inj(_))
       val timestamps =
         List(
           Time.Timestamp.assertFromLong(0),
           Time.Timestamp.assertFromString("1969-07-21T02:56:15.000000Z"),
           Time.Timestamp.assertFromString("2019-12-16T11:17:54.940779363Z"),
-        ).map(VA.timestamp.inj)
+        ).map(VA.timestamp.inj(_))
       val parties =
         List(
           Ref.Party.assertFromString("alice"),
           Ref.Party.assertFromString("bob"),
-        ).map(VA.party.inj)
+        ).map(VA.party.inj(_))
       val contractIds =
         List(
           "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5",
           "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b",
-        ).map(AbsoluteContractId.V1.assertFromString)
-          .map(VA.contractId.inj)
+        ).map { str =>
+          // irrelevant in this context, never sorted
+          implicit val ordV1: VA.contractId.IntroCtx[AbsoluteContractId.V1] =
+            (_, _) => scalaz.Ordering.LT
+          VA.contractId.inj(AbsoluteContractId.V1 assertFromString str)
+        }
 
       val enumT1 = VA.enum("Color", List("Red", "Green"))._2
       val enumT2 = VA.enum("ColorBis", List("Red", "Green"))._2
@@ -411,8 +418,8 @@ class HashSpec extends WordSpec with Matchers {
       )
 
       val optionals =
-        List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj) ++
-          List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj)
+        List(None, Some(false), Some(true)).map(VA.optional(VA.bool).inj(_)) ++
+          List(Some(None), Some(Some(false))).map(VA.optional(VA.optional(VA.bool)).inj(_))
 
       val testCases: List[V] =
         units ++ bools ++ ints ++ decimals ++ numeric0s ++ dates ++ timestamps ++ texts ++ parties ++ contractIds ++ optionals ++ lists ++ textMaps ++ enums ++ records0 ++ records2 ++ variants

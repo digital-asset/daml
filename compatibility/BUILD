@@ -5,7 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
-load("@os_info//:os_info.bzl", "is_linux")
+load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools:testing.bzl", "sdk_platform_test")
 
 config_setting(
@@ -49,7 +49,7 @@ platform_versions = [
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
-] if is_linux else None
+] if not is_windows else None
 
 test_suite(
     name = "head-quick",

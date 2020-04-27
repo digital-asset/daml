@@ -54,7 +54,12 @@ withPostgres f =
     -- com.daml.testing.postgresql.Tool.
     callProcess
         "external/postgresql_nix/bin/initdb"
-        ["--username=" <> T.unpack dbUser, dataDir]
+        [ "--username=" <> T.unpack dbUser
+        , dataDir
+        , "--locale=en_US.UTF-8"
+        , "-E", "UNICODE"
+        , "-A", "trust"
+        ]
     writeFileUTF8 (dataDir </> "postgresql.conf") (T.unpack $ postgresConfig dbPort)
     bracket_ (startPostgres dataDir logFile) (stopPostgres dataDir) $ do
       createDatabase

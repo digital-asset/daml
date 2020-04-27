@@ -150,6 +150,8 @@ object ValueGenerators {
   private val genAbsCidV0: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
 
+  def absCoidGen: Gen[AbsoluteContractId] = genAbsCidV0 // TODO SC gen V1
+
   def coidGen: Gen[ContractId] =
     Gen.frequency((1, genRel), (3, genAbsCidV0))
 
