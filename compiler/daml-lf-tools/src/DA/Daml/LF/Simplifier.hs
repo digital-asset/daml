@@ -50,6 +50,19 @@ data Info = Info
   , tcinfo   :: TypeClassInfo
   }
 
+-- NOTE(MH): Inverse free variables and safety of let-expressions
+--
+-- Given the free variables and safety of a let-expression `let x = e1 in e2`,
+-- we can over-approximate the free variables and under-approximate the safety
+-- of `e1` and `e2` as follows:
+--
+-- * If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and `fv(e2) ⊆ V ∪ {x}`.
+--
+-- * If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is k-safe.
+--
+-- We use these approximations at various places below, which reference this
+-- comment by its title.
+
 decrSafety :: Safety -> Safety
 decrSafety = \case
   Unsafe        -> Unsafe
@@ -347,16 +360,41 @@ simplifyExpr world = fst . cata go
         , not (isFreeExprVar x (freeVars (snd e2))) -> e2
 
       -- (let x = e1 in e2).f    ==>    let x = e1 in e2.f
-      -- NOTE(MH): The reason for the choice of `s1` and `s2` is as follows:
-      -- - If `fv(let x = e1 in e2) ⊆ V`, then `fv(e1) ⊆ V` and
-      --   `fv(e2) ⊆ V ∪ {x}`.
-      -- - If `let x = e1 in e2` is k-safe, then `e1` is 0-safe and `e2` is
-      --   k-safe.
+      --
+      -- NOTE(MH): See the note on "Inverse free variables and safety of
+      -- let-expressions" for the reasoning behind the choice of `s1` and `s2`.
       EStructProjF f (ELet (Binding (x, t) e1) e2, Info fv sf _) ->
         go $ ELetF (BindingF (x, t) (e1, s1)) (go $ EStructProjF f (e2, s2))
         where
           s1 = Info fv (sf `min` Safe 0) TCNeither
           s2 = Info (freeExprVar x <> fv) sf TCNeither
+
+      -- (λx1 ... xn. e0) e1 ... en    ==>    let x1 = e2 in ... let xn = en in e0,
+      -- if `xi` is not free in `ej` for any `i < j`
+      --
+      -- This rule is achieved by combining the rules for `(λx. e1) e2` and
+      -- `(let x = e1 in e1) e3`, if `x` is not free in `e3`, repeatedly.
+
+      -- (λx. e1) e2    ==>    let x = e2 in e1
+      --
+      -- NOTE(MH): The reasoning behind the choice of `s1` is as follows:
+      -- - If `fv(λx. e1) ⊆ V`, then `fv(e1) ⊆ V ∪ {x}`.
+      -- - If `λx. e1` is k-safe, then `e1` is (k-1)-safe.
+      ETmAppF (ETmLam (x, t) e1, Info fv sf _) (e2, s2) ->
+        go $ ELetF (BindingF (x, t) (e2, s2)) (e1, s1)
+        where
+          s1 = Info (freeExprVar x <> fv) (decrSafety sf) TCNeither
+
+      -- (let x = e1 in e2) e3    ==>    let x = e1 in e2 e3, if x is not free in e3
+      --
+      -- NOTE(MH): See the note on "Inverse free variables and safety of
+      -- let-expressions" for the reasoning behind the choice of `s1` and `s2`.
+      ETmAppF (ELet (Binding (x, t) e1) e2, Info fv sf _) e3
+        | not (isFreeExprVar x (freeVars (snd e3))) ->
+          go $ ELetF (BindingF (x, t) (e1, s1)) (go $ ETmAppF (e2, s2) e3)
+          where
+            s1 = Info fv (sf `min` Safe 0) TCNeither
+            s2 = Info (freeExprVar x <> fv) sf TCNeither
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
