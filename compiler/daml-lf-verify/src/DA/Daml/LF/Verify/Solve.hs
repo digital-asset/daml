@@ -32,7 +32,10 @@ instance Show ConstraintExpr where
   show (CAdd e1 e2) = show e1 ++ " + " ++ show e2
   show (CSub e1 e2) = show e1 ++ " - " ++ show e2
 
-exp2CExp :: Expr -> ConstraintExpr
+-- | Convert a DAML-LF expression to a constraint expression, if possible.
+exp2CExp :: Expr
+  -- ^ The expression to convert.
+  -> ConstraintExpr
 exp2CExp (EVar x) = CVar x
 exp2CExp (ERecProj _ f (EVar x)) = CVar $ recProj2Var x f
 exp2CExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
@@ -41,11 +44,19 @@ exp2CExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
   _ -> error ("Builtin: " ++ show b)
 exp2CExp e = error ("Conversion: " ++ show e)
 
-skol2var :: Skolem -> [ExprVarName]
+-- | Gather the variable names bound within a skolem variable.
+skol2var :: Skolem
+  -- ^ The skolem variable to handle.
+  -> [ExprVarName]
 skol2var (SkolVar x) = [x]
 skol2var (SkolRec x fs) = map (recProj2Var x) fs
 
-recProj2Var :: ExprVarName -> FieldName -> ExprVarName
+-- | Squash a record projection into a single variable name.
+recProj2Var :: ExprVarName
+  -- ^ The variable on which is being projected.
+  -> FieldName
+  -- ^ The field name which is being projected.
+  -> ExprVarName
 recProj2Var (ExprVarName x) (FieldName f) = ExprVarName (x `T.append` "." `T.append` f)
 
 -- | The set of constraints to be solved.
@@ -62,7 +73,17 @@ data ConstraintSet = ConstraintSet
 -- | Constructs a constraint set from the generator environment, together with
 -- the template name, the choice and field to be verified.
 -- TODO: Take choices into account?
-constructConstr :: Env -> TypeConName -> ChoiceName -> FieldName -> ConstraintSet
+-- TODO: The choice and field don't actually need to be in the same template.
+-- Take two templates as arguments.
+constructConstr :: Env
+  -- ^ The generator environment to convert.
+  -> TypeConName
+  -- ^ The template name to be verified.
+  -> ChoiceName
+  -- ^ The choice name to be verified.
+  -> FieldName
+  -- ^ The field name to be verified.
+  -> ConstraintSet
 constructConstr env tem ch f =
   case lookupChoInHMap (_envchs env) tem ch of
     Just (self, this, arg, updSubst) ->
@@ -75,7 +96,12 @@ constructConstr env tem ch f =
       in ConstraintSet vars creVals arcVals
     Nothing -> error "Choice not found"
 
-cexp2sexp :: [(ExprVarName,S.SExpr)] -> ConstraintExpr -> IO S.SExpr
+-- | Convert a constraint expression into an SMT expression from the solving library.
+cexp2sexp :: [(ExprVarName,S.SExpr)]
+  -- ^ The set of variable names, mapped to their corresponding SMT counterparts.
+  -> ConstraintExpr
+  -- ^ The constraint expression to convert.
+  -> IO S.SExpr
 cexp2sexp vars (CVar x) = case lookup x vars of
   Just exp -> return exp
   Nothing -> error ("Impossible: variable not found " ++ show x)
@@ -88,13 +114,26 @@ cexp2sexp vars (CSub ce1 ce2) = do
   se2 <- cexp2sexp vars ce2
   return $ S.sub se1 se2
 
-declareVars :: S.Solver -> [ExprVarName] -> IO [(ExprVarName,S.SExpr)]
+-- | Declare a list of variables for the SMT solver. Returns a list of the
+-- declared variables, together with their corresponding SMT counterparts.
+declareVars :: S.Solver
+  -- ^ The SMT solver.
+  -> [ExprVarName]
+  -- ^ The variables to be declared.
+  -> IO [(ExprVarName,S.SExpr)]
 declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
   where
     var2str :: ExprVarName -> String
     var2str (ExprVarName x) = T.unpack x
 
-solveConstr :: FilePath -> ConstraintSet -> IO ()
+-- | Solve a give constraint set. Prints 'unsat' when the constraint set is
+-- valid. It asserts that the set of created and archived contracts are not
+-- equal.
+solveConstr :: FilePath
+  -- ^ The path to the constraint solver.
+  -> ConstraintSet
+  -- ^ The constraint set to solve.
+  -> IO ()
 solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)

@@ -15,10 +15,14 @@ import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Context
 import DA.Daml.LF.Verify.Subst
 
+-- | Data type denoting the phase of the constraint generator.
 data Phase
   = ValuePhase
+  -- ^ The value phase gathers all value and data type definitions across modules.
   | TemplatePhase
+  -- ^ The template phase gathers the updates performed by choices.
 
+-- | Data type denoting the output of the constraint generator.
 data Output = Output
   { _oExpr :: Expr
     -- ^ The expression, evaluated as far as possible.
@@ -26,54 +30,113 @@ data Output = Output
     -- ^ The updates, performed by this expression.
   }
 
-emptyOut :: Expr -> Output
+-- | Construct an output with no updates.
+emptyOut :: Expr
+  -- ^ The evaluated expression.
+  -> Output
 emptyOut expr = Output expr emptyUpdateSet
 
 -- | Extend a generator output with the updates of the second generator output.
--- Note that the end result will contain the first expression.
+-- Note that the end result will contain only the first expression.
 combineOut :: Output -> Output -> Output
 combineOut out1 out2 = extendOutUpds (_oUpdate out2) out1
 
+-- | Update an output with a new evaluated expression.
 updateOutExpr :: Expr
   -- ^ The new output expression.
   -> Output
-  -- ^ The current generator output.
+  -- ^ The generator output to be updated.
   -> Output
 updateOutExpr expr out = out{_oExpr = expr}
 
+-- | Update an output with additional updates.
 extendOutUpds :: UpdateSet
   -- ^ The extension of the update set.
   -> Output
-  -- ^ The current generator output.
+  -- ^ The generator output to be updated.
   -> Output
 extendOutUpds upds out@Output{..} = out{_oUpdate = concatUpdateSet upds _oUpdate}
 
-addArchiveUpd :: Qualified TypeConName -> [(FieldName, Expr)] -> Output -> Output
+-- | Update an output with an additional Archive update.
+addArchiveUpd :: Qualified TypeConName
+  -- ^ The template to be archived.
+  -> [(FieldName, Expr)]
+  -- ^ The fields to be archived, with their respective values.
+  -> Output
+  -- ^ The generator output to be updated.
+  -> Output
 addArchiveUpd temp fs (Output expr upd@UpdateSet{..}) =
   Output expr upd{_usArc = UpdArchive temp fs : _usArc}
 
-genPackages :: MonadEnv m => Phase -> [(PackageId, (Package, Maybe PackageName))] -> m ()
+-- | Generate an environment for a given list of packages.
+-- Depending on the generator phase, this either adds all value and data type
+-- definitions to the environment, or all template definitions with their
+-- respective choices.
+genPackages :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> [(PackageId, (Package, Maybe PackageName))]
+  -- ^ The list of packages, as produced by `readPackages`.
+  -> m ()
 genPackages ph inp = mapM_ (genPackage ph) inp
 
-genPackage :: MonadEnv m => Phase -> (PackageId, (Package, Maybe PackageName)) -> m ()
+-- | Generate an environment for a given package.
+-- Depending on the generator phase, this either adds all value and data type
+-- definitions to the environment, or all template definitions with their
+-- respective choices.
+genPackage :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> (PackageId, (Package, Maybe PackageName))
+  -- ^ The package, as produced by `readPackages`.
+  -> m ()
 genPackage ph (id, (pac, _)) = mapM_ (genModule ph (PRImport id)) (NM.toList $ packageModules pac)
 
-genModule :: MonadEnv m => Phase -> PackageRef -> Module -> m ()
+-- | Generate an environment for a given module.
+-- Depending on the generator phase, this either adds all value and data type
+-- definitions to the environment, or all template definitions with their
+-- respective choices.
+genModule :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> PackageRef
+  -- ^ A reference to the package in which this module is defined.
+  -> Module
+  -- ^ The module to analyse.
+  -> m ()
 genModule ValuePhase pac mod = do
   extDatsEnv (NM.toHashMap (moduleDataTypes mod))
   mapM_ (genValue pac (moduleName mod)) (NM.toList $ moduleValues mod)
 genModule TemplatePhase pac mod =
   mapM_ (genTemplate pac (moduleName mod)) (NM.toList $ moduleTemplates mod)
 
-genValue :: MonadEnv m => PackageRef -> ModuleName -> DefValue -> m ()
+-- | Analyse a value definition and add to the environment.
+genValue :: MonadEnv m
+  => PackageRef
+  -- ^ A reference to the package in which this value is defined.
+  -> ModuleName
+  -- ^ The name of the module in which this value is defined.
+  -> DefValue
+  -- ^ The value to be analysed and added.
+  -> m ()
 genValue pac mod val = do
   expOut <- genExpr ValuePhase (dvalBody val)
   let qname = Qualified pac mod (fst $ dvalBinder val)
   extValEnv qname (_oExpr expOut) (_oUpdate expOut)
 
+-- | Analyse a choice definition and add to the environment.
 -- TODO: Handle annotated choices, by returning a set of annotations.
-genChoice :: MonadEnv m => Qualified TypeConName -> (ExprVarName,ExprVarName)
-  -> [FieldName] -> TemplateChoice -> m ()
+genChoice :: MonadEnv m
+  => Qualified TypeConName
+  -- ^ The template in which this choice is defined.
+  -> (ExprVarName,ExprVarName)
+  -- ^ The original and renamed variable `this` referencing the contract on
+  -- which this choice is called.
+  -> [FieldName]
+  -- ^ The list of fields available in the template.
+  -> TemplateChoice
+  -- ^ The choice to be analysed and added.
+  -> m ()
 genChoice tem (this',this) temFs TemplateChoice{..} = do
   let self' = chcSelfBinder
       arg' = fst chcArgBinder
@@ -92,8 +155,16 @@ genChoice tem (this',this) temFs TemplateChoice{..} = do
   where
     fields = map (\f -> (f, ERecProj (TypeConApp tem []) f (EVar this))) temFs
 
-genTemplate :: MonadEnv m => PackageRef -> ModuleName -> Template -> m ()
--- TODO: Take precondition into account?
+-- | Analyse a template definition and add all choices to the environment.
+genTemplate :: MonadEnv m
+  => PackageRef
+  -- ^ A reference to the package in which this template is defined.
+  -> ModuleName
+  -- ^ The module in which this template is defined.
+  -> Template
+  -- ^ The template to be analysed and added.
+  -> m ()
+-- TODO: Take preconditions into account?
 genTemplate pac mod Template{..} = do
   let name = Qualified pac mod tplTypeCon
   fields <- recTypConFields tplTypeCon
@@ -110,7 +181,14 @@ genTemplate pac mod Template{..} = do
       (ExprVarName "arg", TStruct []) (TBuiltin BTUnit)
       (EUpdate $ UPure (TBuiltin BTUnit) (EBuiltin BEUnit))
 
-genExpr :: MonadEnv m => Phase -> Expr -> m Output
+-- | Analyse an expression, and produce an Output storing its (partial)
+-- evaluation result and the set of performed updates.
+genExpr :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Expr
+  -- ^ The expression to be analysed.
+  -> m Output
 genExpr ph = \case
   ETmApp fun arg -> genForTmApp ph fun arg
   ETyApp expr typ -> genForTyApp ph expr typ
@@ -126,7 +204,15 @@ genExpr ph = \case
   -- TODO: Extend additional cases
   e -> return $ emptyOut e
 
-genForTmApp :: MonadEnv m => Phase -> Expr -> Expr -> m Output
+-- | Analyse a term application expression.
+genForTmApp :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Expr
+  -- ^ The function expression.
+  -> Expr
+  -- ^ The argument expression.
+  -> m Output
 genForTmApp ph fun arg = do
   funOut <- genExpr ph fun
   arout <- genExpr ph arg
@@ -141,7 +227,15 @@ genForTmApp ph fun arg = do
     fun' -> return $ updateOutExpr (ETmApp fun' (_oExpr arout))
       $ combineOut funOut arout
 
-genForTyApp :: MonadEnv m => Phase -> Expr -> Type -> m Output
+-- | Analyse a type application expression.
+genForTyApp :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Expr
+  -- ^ The function expression.
+  -> Type
+  -- ^ The argument type.
+  -> m Output
 genForTyApp ph expr typ = do
   exprOut <- genExpr ph expr
   case _oExpr exprOut of
@@ -152,7 +246,15 @@ genForTyApp ph expr typ = do
       return $ combineOut resOut exprOut
     expr' -> return $ updateOutExpr (ETyApp expr' typ) exprOut
 
-genForLet :: MonadEnv m => Phase -> Binding -> Expr -> m Output
+-- | Analyse a let binding expression.
+genForLet :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Binding
+  -- ^ The binding to be bound.
+  -> Expr
+  -- ^ The expression in which the binding should be available.
+  -> m Output
 genForLet ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
   let subst = singleExprSubst (fst $ bindingBinder bind) (_oExpr bindOut)
@@ -160,16 +262,38 @@ genForLet ph bind body = do
   resOut <- genExpr ph resExpr
   return $ combineOut resOut bindOut
 
-genForVar :: MonadEnv m => Phase -> ExprVarName -> m Output
+-- | Analyse an expression variable.
+genForVar :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> ExprVarName
+  -- ^ The expression variable to be analysed.
+  -> m Output
 genForVar _ph name = lookupVar name >> return (emptyOut (EVar name))
 
-genForVal :: MonadEnv m => Phase -> Qualified ExprValName -> m Output
+-- | Analyse a value reference.
+genForVal :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Qualified ExprValName
+  -- ^ The value reference to be analysed.
+  -> m Output
 genForVal ValuePhase w
   = return $ Output (EVal w) (emptyUpdateSet{_usVal = [w]})
 genForVal TemplatePhase w
   = lookupVal w >>= \ (expr, upds) -> return (Output expr upds)
 
-genForRecProj :: MonadEnv m => Phase -> TypeConApp -> FieldName -> Expr -> m Output
+-- | Analyse a record projection expression.
+genForRecProj :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> TypeConApp
+  -- ^ The type constructor of the record which is projected.
+  -> FieldName
+  -- ^ The field which is projected.
+  -> Expr
+  -- ^ The record expression which is projected.
+  -> m Output
 genForRecProj ph tc f body = do
   bodyOut <- genExpr ph body
   case _oExpr bodyOut of
@@ -185,15 +309,36 @@ genForRecProj ph tc f body = do
         Just expr -> genExpr ph expr
         Nothing -> throwError $ UnknownRecField f
 
-genForCreate :: MonadEnv m => Phase -> Qualified TypeConName -> Expr -> m Output
+-- | Analyse a create update expression.
+genForCreate :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Qualified TypeConName
+  -- ^ The template of which a new instance is being created.
+  -> Expr
+  -- ^ The argument expression.
+  -> m Output
 genForCreate ph tem arg = do
   arout <- genExpr ph arg
   fs <- recExpFields (_oExpr arout)
   return (Output (EUpdate (UCreate tem $ _oExpr arout)) emptyUpdateSet{_usCre = [UpdCreate tem fs]})
   -- TODO: We could potentially filter here to only store the interesting fields?
 
-genForExercise :: MonadEnv m => Phase -> Qualified TypeConName -> ChoiceName
-  -> Expr -> Maybe Expr -> Expr -> m Output
+-- | Analyse an exercise update expression.
+genForExercise :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Qualified TypeConName
+  -- ^ The template on which a choice is being exercised.
+  -> ChoiceName
+  -- ^ The choice which is being exercised.
+  -> Expr
+  -- ^ The contract id on which the choice is being exercised.
+  -> Maybe Expr
+  -- ^ The party which exercises the choice.
+  -> Expr
+  -- ^ The arguments with which the choice is being exercised.
+  -> m Output
 genForExercise ph tem ch cid par arg = do
   cidOut <- genExpr ph cid
   arout <- genExpr ph arg
@@ -204,8 +349,16 @@ genForExercise ph tem ch cid par arg = do
   let updSet = updSubst (_oExpr cidOut) (EVar this) (_oExpr arout)
   return (Output (EUpdate (UExercise tem ch (_oExpr cidOut) par (_oExpr arout))) updSet)
 
+-- | Analyse a bind update expression.
 -- TODO: Handle arbitrary update outputs, not just simple fetches
-genForBind :: MonadEnv m => Phase -> Binding -> Expr -> m Output
+genForBind :: MonadEnv m
+  => Phase
+  -- ^ The current generator phase.
+  -> Binding
+  -- ^ The binding being bound with this update.
+  -> Expr
+  -- ^ The expression in which this binding is being made available.
+  -> m Output
 genForBind ph bind body = do
   bindOut <- genExpr ph (bindingBound bind)
   case _oExpr bindOut of

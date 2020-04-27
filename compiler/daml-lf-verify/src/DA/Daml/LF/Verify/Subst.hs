@@ -19,23 +19,43 @@ import DA.Daml.LF.Ast.Type
 -- | Substitution of expressions for expression variables.
 type ExprSubst = Map.Map ExprVarName Expr
 
-singleExprSubst :: ExprVarName -> Expr -> ExprSubst
+-- | Create an expression substitution from a single variable and expression.
+singleExprSubst :: ExprVarName
+  -- ^ The expression variable to substitute.
+  -> Expr
+  -- ^ The expression to substitute with.
+  -> ExprSubst
 singleExprSubst = Map.singleton
 
-singleTypeSubst :: TypeVarName -> Type -> Subst
+-- | Create a type substitution from a single type variable and type.
+singleTypeSubst :: TypeVarName
+  -- ^ The type variable to substitute.
+  -> Type
+  -- ^ The type to substitute with.
+  -> Subst
 singleTypeSubst = Map.singleton
 
-createExprSubst :: [(ExprVarName,Expr)] -> ExprSubst
+-- | Create an expression substitution from a list of variables and expressions.
+createExprSubst :: [(ExprVarName,Expr)]
+  -- ^ The variables to substitute, together with the expressions to replace them with.
+  -> ExprSubst
 createExprSubst = Map.fromList
 
-substDom :: ExprSubst -> [ExprVarName]
+-- | Get the domain from an expression substitution.
+substDom :: ExprSubst
+  -- ^ The substitution to analyse.
+  -> [ExprVarName]
 substDom = Map.keys
 
 -- | Apply an expression substitution to an expression.
 -- TODO: We assume that for any substitution x |-> e : x notin e
 -- and a |-> t : a notin t.
 -- TODO: I can't help but feel there has to be a nicer way to write this function
-substituteTmTm :: ExprSubst -> Expr -> Expr
+substituteTmTm :: ExprSubst
+  -- ^ The expression substitution to apply.
+  -> Expr
+  -- ^ The expression to apply the substitution to.
+  -> Expr
 substituteTmTm s = \case
   EVar x
     | Just e <- Map.lookup x s -> e
@@ -66,7 +86,11 @@ substituteTmTm s = \case
   e -> e
 
 -- | Apply an expression substitution to an update.
-substituteTmUpd :: ExprSubst -> Update -> Update
+substituteTmUpd :: ExprSubst
+  -- ^ The expression substitution to apply.
+  -> Update
+  -- ^ The update to apply the substitution to.
+  -> Update
 substituteTmUpd s = \case
   UPure t e -> UPure t $ substituteTmTm s e
   UBind Binding{..} e -> UBind (Binding bindingBinder $ substituteTmTm s bindingBound)
@@ -78,7 +102,11 @@ substituteTmUpd s = \case
   u -> u
 
 -- | Apply a type substitution to an expression.
-substituteTyTm :: Subst -> Expr -> Expr
+substituteTyTm :: Subst
+  -- ^ The type substitution to apply.
+  -> Expr
+  -- ^ The expression to apply the substitution to.
+  -> Expr
 substituteTyTm s = \case
   ERecCon t fs -> ERecCon (substituteTyTCApp s t) $ map (over _2 (substituteTyTm s)) fs
   ERecProj t f e -> ERecProj (substituteTyTCApp s t) f $ substituteTyTm s e
@@ -107,7 +135,11 @@ substituteTyTm s = \case
   e -> e
 
 -- | Apply a type substitution to an update.
-substituteTyUpd :: Subst -> Update -> Update
+substituteTyUpd :: Subst
+  -- ^ The type substitution to apply.
+  -> Update
+  -- ^ The update to apply the substitution to.
+  -> Update
 substituteTyUpd s = \case
   UPure t e -> UPure (substitute s t) (substituteTyTm s e)
   UBind Binding{..} e -> UBind (Binding (over _2 (substitute s) bindingBinder) (substituteTyTm s bindingBound))
@@ -118,8 +150,18 @@ substituteTyUpd s = \case
   UEmbedExpr t e -> UEmbedExpr (substitute s t) (substituteTyTm s e)
   u -> u
 
-substituteTyTCApp :: Subst -> TypeConApp -> TypeConApp
+-- | Apply a type substitution to an applied type constructor.
+substituteTyTCApp :: Subst
+  -- ^ The type substitution to apply.
+  -> TypeConApp
+  -- ^ The applied type constructor to apply the substitution to.
+  -> TypeConApp
 substituteTyTCApp s (TypeConApp n ts) = TypeConApp n (map (substitute s) ts)
 
-substituteTyCaseAlt :: Subst -> CaseAlternative -> CaseAlternative
+-- | Apply a type substitution to a case alternative.
+substituteTyCaseAlt :: Subst
+  -- ^ The type substitution to apply.
+  -> CaseAlternative
+  -- ^ The case alternative to apply the substitution to.
+  -> CaseAlternative
 substituteTyCaseAlt s (CaseAlternative p e) = CaseAlternative p (substituteTyTm s e)
