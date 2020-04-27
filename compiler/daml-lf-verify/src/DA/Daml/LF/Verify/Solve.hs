@@ -89,8 +89,7 @@ cexp2sexp vars (CSub ce1 ce2) = do
   return $ S.sub se1 se2
 
 declareVars :: S.Solver -> [ExprVarName] -> IO [(ExprVarName,S.SExpr)]
--- TODO: This should be a float instead of an int
-declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tInt) xs
+declareVars s xs = zip xs <$> mapM (\x -> S.declare s (var2str x) S.tReal) xs
   where
     var2str :: ExprVarName -> String
     var2str (ExprVarName x) = T.unpack x
@@ -100,8 +99,8 @@ solveConstr spath ConstraintSet{..} = do
   log <- S.newLogger 1
   sol <- S.newSolver spath ["-in"] (Just log)
   vars <- declareVars sol $ filterDups _cVars
-  cre <- foldl S.add (S.int 0) <$> mapM (cexp2sexp vars) _cCres
-  arc <- foldl S.add (S.int 0) <$> mapM (cexp2sexp vars) _cArcs
+  cre <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cCres
+  arc <- foldl S.add (S.real 0) <$> mapM (cexp2sexp vars) _cArcs
   S.assert sol (S.not (cre `S.eq` arc))
   S.check sol >>= print
   where
