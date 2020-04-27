@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.config
+package com.daml.navigator.config
 
 import java.io.File
 import java.nio.file.{Path, Paths}
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.navigator.time.TimeProviderType
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.navigator.time.TimeProviderType
 import scopt.{OptionDef, OptionParser}
 
 import scala.util.Try
@@ -99,6 +99,8 @@ object Arguments {
           .mkString(", ")}. Default: ${Arguments.default.time.name}")
         .action((t, arguments) => arguments.copy(time = t))
 
+      // TODO: the 4 following TLS options can be defined by TlsConfigurationCli instead
+
       opt[String]("pem")
         .optional()
         .text("TLS: The pem file to be used as the private key.")
@@ -110,7 +112,7 @@ object Arguments {
 
       opt[String]("crt")
         .optional()
-        .text("TLS: The crt file to be used as the cert chain. Required if any other TLS parameters are set.")
+        .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
         .validate(path => validatePath(path, "The file specified via --crt does not exist"))
         .action(crtConfig)
 
@@ -123,6 +125,13 @@ object Arguments {
             Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
 
+      opt[Unit]("tls")
+        .optional()
+        .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+        .action((path, arguments) =>
+          arguments.copy(tlsConfig =
+            arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
+
       opt[Unit]("database")
         .hidden()
         .text("EXPERIMENTAL: use an SQLite data store")
@@ -133,15 +142,17 @@ object Arguments {
           ))
 
       opt[Int]("ledger-api-inbound-message-size-max")
-        .hidden()
         .text(
           s"Maximum message size in bytes from the ledger API. Default is ${Arguments.default.ledgerInboundMessageSizeMax}.")
         .valueName("<bytes>")
         .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
-        .action((x, arguments) =>
-          arguments.copy(
-            ledgerInboundMessageSizeMax = x
-        ))
+        .action(
+          (ledgerInboundMessageSizeMax, arguments) => {
+            arguments.copy(
+              ledgerInboundMessageSizeMax = ledgerInboundMessageSizeMax,
+            )
+          }
+        )
 
       cmd("server")
         .text("serve data from platform")
@@ -154,7 +165,7 @@ object Arguments {
         .children(hostname, port)
 
       cmd("console")
-        .text("start the console")
+        .text("start the console (early access)")
         .action(
           (_, arguments) =>
             arguments.copy(

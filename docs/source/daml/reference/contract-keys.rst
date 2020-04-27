@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
    
@@ -11,7 +11,7 @@ You can use contract keys to stably refer to a contract, even through iterations
 
 Here's an example of setting up a contract key for a bank account, to act as a bank account ID:
 
-.. literalinclude:: ../code-snippets/ContractKeys.daml
+.. literalinclude:: ../code-snippets/Account.daml
    :language: daml
    :start-after: -- start contract key setup snippet
    :end-before: -- end contract key setup snippet
@@ -61,8 +61,6 @@ the submitter.
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that you can't see one.
 
-Moreover, future versions of DAML will enforce that when using ``fetchByKey`` the submitter of the transaction is one of the maintainers. It's therefore advised to write your contract key workflows with this future limitation in mind.
-
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 
 .. _lookupbykey:
@@ -83,8 +81,6 @@ If the lookup fails (ie returns ``None``), this guarantees that no contract has 
 Unlike ``fetchByKey``, the transaction **does not fail** if a contract with the key doesn't exist: instead, ``lookupByKey`` just returns ``None``.
 
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
-
-Moreover, like ``fetchByKey``, future versions of DAML will enforce the submitter of the transaction is one of the maintainers. It's therefore advised to write your contract key workflows with this future limitation in mind.
 
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 

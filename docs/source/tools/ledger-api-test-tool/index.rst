@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Ledger API Test Tool
@@ -20,13 +20,8 @@ Ledger Model </concepts/ledger-model/index>`.
 Downloading the tool
 ====================
 
-Run the following command to fetch the tool:
-
-.. code-block:: shell
-
-     curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool/$latest/ledger-api-test-tool-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar
-
-This will create a file ``ledger-api-test-tool.jar`` in your current directory.
+Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 Extracting ``.dar`` files required to run the tests
 ======================================================
@@ -120,7 +115,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ daml sandbox -- *.dar
+     $ daml sandbox *.dar
      $ java -jar ledger-api-test-tool.jar localhost:6865
 
 This should always succeed, as the Sandbox is tested to correctly implement the
@@ -142,18 +137,13 @@ will still print information about failed tests.
 Tuning the testing behaviour of the tool
 ========================================
 
-Use the command line options ``--timeout-scale-factor`` and
-``--command-submission-ttl-scale-factor`` to tune timeouts applied by the tool.
+Use the command line option ``--timeout-scale-factor`` to tune timeouts applied
+  by the tool.
 
 - Set ``--timeout-scale-factor`` to a floating point value higher than 1.0 to make
   the tool wait longer for expected events coming from the DAML ledger
   implementation under test. Conversely use values smaller than 1.0 to make it
   wait shorter.
-- Set ``--command-submission-ttl-scale-factor`` to adjust the time-to-live of
-  commands as represented by the MRT (Maximum Record Time) on the Ledger API.
-  The default value is 1.0 and will be applied to the default TTL, which is the
-  maximum TTL as returned by the LedgerConfigurationService. In any case,
-  the used TTL value will be clipped to stay between the minimum and maximum TTL.
 
 Verbose output
 ==============

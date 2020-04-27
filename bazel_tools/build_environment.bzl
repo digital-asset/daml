@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 def _impl(ctx):
@@ -16,8 +16,6 @@ def _impl(ctx):
         ghc = semver[:-9].replace("-snapshot.", ".")
     else:
         ghc = semver
-    major = semver[0:semver.find(".")]
-    mvn = str(int(major) + 100) + semver[semver.find("."):]
     ctx.file(
         "configuration.bzl",
         content =
@@ -29,7 +27,7 @@ sdk_version = "{SDK_VERSION}"
 """.format(
                 SDK_VERSION = semver,
                 NPM_VERSION = semver,
-                MVN_VERSION = mvn,
+                MVN_VERSION = semver,
                 GHC_VERSION = ghc,
             ),
         executable = False,

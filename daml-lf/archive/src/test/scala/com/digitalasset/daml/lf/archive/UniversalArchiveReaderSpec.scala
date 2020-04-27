@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
+import com.daml.bazeltools.BazelRunfiles._
 import org.scalatest.{FlatSpec, Matchers, TryValues}
 
 class UniversalArchiveReaderSpec extends FlatSpec with Matchers with TryValues {

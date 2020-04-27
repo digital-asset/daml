@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.lf
+package com.daml.codegen.lf
 
-import com.digitalasset.{codegen => parent}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.{codegen => parent}
+import com.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import parent.dependencygraph.DependencyGraph
 import parent.exception.UnsupportedDamlTypeException
-import com.digitalasset.daml.lf.iface
+import com.daml.lf.iface
 import iface.{PrimType => PT, Type => IType, _}
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.iface.reader.InterfaceType
 import java.io.File
 
 import scalaz._
@@ -369,11 +369,11 @@ object LFUtil {
   val higherKindsImport: Tree =
     q"import _root_.scala.language.higherKinds"
   val domainApiImport: Tree =
-    q"import _root_.com.digitalasset.ledger.client.{binding => ` lfdomainapi`}"
+    q"import _root_.com.daml.ledger.client.{binding => ` lfdomainapi`}"
   val rpcValueImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{value => ` rpcvalue`}"
+    q"import _root_.com.daml.ledger.api.v1.{value => ` rpcvalue`}"
   val rpcEventImport: Tree =
-    q"import _root_.com.digitalasset.ledger.api.v1.{event => ` rpcevent`}"
+    q"import _root_.com.daml.ledger.api.v1.{event => ` rpcevent`}"
   val primitiveObject: Tree = q"$domainApiAlias.Primitive"
   val stdMapType = tq"_root_.scala.collection.immutable.Map"
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"

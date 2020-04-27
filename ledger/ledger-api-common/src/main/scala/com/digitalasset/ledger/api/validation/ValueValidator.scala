@@ -1,17 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.{value => api}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
-import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
+import com.daml.lf.data._
+import com.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.{value => api}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.FieldValidations.{requirePresence, _}
 import io.grpc.StatusRuntimeException
+
+import scalaz.syntax.bifunctor._
+import scalaz.std.either._
 
 object ValueValidator {
 
@@ -41,11 +44,9 @@ object ValueValidator {
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, domain.Value] = v0.sum match {
     case Sum.ContractId(cId) =>
-      Ref.ContractIdString
+      AbsoluteContractId
         .fromString(cId)
-        .left
-        .map(invalidArgument)
-        .map(coid => Lf.ValueContractId(Lf.AbsoluteContractId(coid)))
+        .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
       def err = invalidArgument(s"""Could not read Numeric string "$value"""")
       if (validNumericString.matcher(value).matches())

@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
 import brave.propagation
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.messages.transaction
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.messages.transaction
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import org.scalatest._

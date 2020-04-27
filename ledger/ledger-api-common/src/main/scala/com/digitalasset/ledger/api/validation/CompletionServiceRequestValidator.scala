@@ -1,20 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.{ApplicationId, LedgerId}
-import com.digitalasset.ledger.api.messages.command.completion
-import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.domain.{ApplicationId, LedgerId}
+import com.daml.ledger.api.messages.command.completion
+import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionStreamRequest => GrpcCompletionStreamRequest
 }
-import com.digitalasset.platform.server.api.validation.FieldValidations
-import com.digitalasset.platform.server.util.context.TraceContextConversions.toBrave
+import com.daml.platform.server.api.validation.FieldValidations
+import com.daml.platform.server.util.context.TraceContextConversions.toBrave
 import io.grpc.StatusRuntimeException
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
+import com.daml.platform.server.api.validation.ErrorFactories._
 
 class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker)
     extends FieldValidations {

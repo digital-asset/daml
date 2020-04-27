@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _deploy-generic-ledger:
@@ -66,6 +66,6 @@ various commands. If your ledger supports or requires mutual
 authentication you can pass your client key and certificate chain
 files via ``--pem client_key.pem --crt client.crt``. Finally, you can
 use a custom certificate authority for validating the server
-certificate by passing ``--cacrt server.crt``. If ``--pem``, ``-crt``
+certificate by passing ``--cacrt server.crt``. If ``--pem``, ``--crt``
 or ``--cacrt`` are specified TLS is enabled automatically so ``--tls``
 is redundant.

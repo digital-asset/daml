@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.testing.postgresql.PostgresAroundAll
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.testing.postgresql.PostgresAroundAll
 import io.circe.parser._
 import org.scalatest._
 import scalaz.Scalaz._

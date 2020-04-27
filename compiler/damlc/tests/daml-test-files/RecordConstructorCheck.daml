@@ -1,9 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @WARN Record type X has constructor Y with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to X
+-- @ERROR range=10:0-10:13; Record type X has constructor Y with different name. Possible solution: Change the constructor name to X
 
--- @WARN Record type A has constructor B with different name. This may cause problems with cross-SDK upgrades. Possible solution: Change the constructor name to A
+-- @ERROR range=12:0-12:26; Record type A has constructor B with different name. Possible solution: Change the constructor name to A
 
 module RecordConstructorCheck where
 

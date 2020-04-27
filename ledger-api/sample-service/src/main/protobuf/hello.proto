@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
-package com.digitalasset.platform;
+package com.daml.platform;
 
-option java_package = "com.digitalasset.platform";
+option java_package = "com.daml.platform";
 
 
 message HelloRequest {

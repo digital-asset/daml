@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -81,6 +81,8 @@ data Transaction = Transaction
  }
 
 -- | An event in a transaction.
+-- This definition should be kept consistent with the object `EventVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
 data Event
   = CreatedEvent Created
   | ArchivedEvent Archived
@@ -116,6 +118,8 @@ fromArchived Archived {eventId, contractId}
   = None
 
 -- | Either a transaction or a completion.
+-- This definition should be kept consistent with the object `MessageVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
 data Message
   = MTransaction Transaction
   | MCompletion Completion
@@ -125,11 +129,15 @@ data Message
 -- Note that you will only get completions for commands emitted from the trigger.
 -- Contrary to the ledger API completion stream, this also includes
 -- synchronous failures.
+
 data Completion = Completion
   { commandId : CommandId
   , status : CompletionStatus
   } deriving Show
 
+
+-- This definition should be kept consistent with the object `CompletionStatusVariant` defined in
+-- triggers/runner/src/main/scala/com/digitalasset/daml/lf/engine/trigger/Converter.scala
 data CompletionStatus
   = Failed { status : Int, message : Text }
   | Succeeded { transactionId : TransactionId }

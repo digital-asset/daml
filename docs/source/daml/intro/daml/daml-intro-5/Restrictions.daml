@@ -1,9 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
 module Restrictions where
 
+import DA.Assert
 import DA.Date
 import DA.Text as T
 import DA.Time
@@ -284,18 +285,19 @@ nonPerformedAbort = scenario do
 
 -- OPTIONAL_POW_BEGIN
 optPow : Int -> Int -> Optional Int
-optPow x y 
- | y == 0 = Some 1
- | y > 0 = let Some z = optPow x (y - 1)
-           in Some (y * z)
+optPow base exponent
+ | exponent == 0 = Some 1
+ | exponent > 0 =
+   let Some result = optPow base (exponent - 1)
+   in Some (base * result)
  | otherwise = None
 -- OPTIONAL_POW_END
 
 -- ERROR_POW_BEGIN
 errPow : Int -> Int -> Int
-errPow x y 
- | y == 0 = 1
- | y > 0 = y * errPow x (y - 1)
+errPow base exponent
+ | exponent == 0 = 1
+ | exponent > 0 = base * errPow base (exponent - 1)
  | otherwise = error "Negative exponent not supported"
 -- ERROR_POW_END
 
@@ -308,3 +310,9 @@ nonPerformedError = scenario do
   return if causeError then failingComputation else successfulComputation
 -- NON_PERFORMED_ERROR_END
 -}
+
+test = scenario do
+  optPow 2 5 === Some 32
+  optPow 5 2 === Some 25
+  errPow 2 5 === 32
+  errPow 5 2 === 25

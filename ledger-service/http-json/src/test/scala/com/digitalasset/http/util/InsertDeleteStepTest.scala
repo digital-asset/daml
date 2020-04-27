@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
+import com.daml.lf.data.FlatSpecCheckLaws
 
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{FlatSpec, Matchers}
@@ -22,11 +22,11 @@ class InsertDeleteStepTest
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)
 
-  behavior of "InsertDeleteStep append monoid"
+  behavior of "append monoid"
 
   checkLaws(ScalazProperties.monoid.laws[IDS])
 
-  behavior of "InsertDeleteStep.appendWithCid"
+  behavior of "append"
 
   it should "never insert a deleted item" in forAll { (x: IDS, y: IDS) =>
     val xy = x |+| y.copy(inserts = y.inserts filterNot Cid.subst(x.deletes.keySet))

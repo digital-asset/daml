@@ -1,21 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.http.domain
-import com.digitalasset.http.json.JsValueToApiValueConverter.LfTypeLookup
-import com.digitalasset.http.json.JsonProtocol.LfValueCodec
-import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.platform.participant.util.LfEngineToApi
+import com.daml.lf
+import com.daml.lf.iface
+import com.daml.http.domain
+import com.daml.http.json.JsValueToApiValueConverter.LfTypeLookup
+import com.daml.http.json.JsonProtocol.LfValueCodec
+import com.daml.ledger.api.{v1 => lav1}
+import com.daml.platform.participant.util.LfEngineToApi
 import scalaz.std.string._
 import scalaz.{-\/, \/, \/-}
 import spray.json.JsValue
 
 class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
-  import com.digitalasset.http.util.ErrorOps._
+  import com.daml.http.util.ErrorOps._
 
   def jsValueToLfValue(
       lfId: lf.data.Ref.Identifier,
@@ -39,7 +39,7 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 }
 
 object JsValueToApiValueConverter {
-  import com.digitalasset.http.util.ErrorOps._
+  import com.daml.http.util.ErrorOps._
 
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]
 

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -8,13 +8,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Util (
-    releaseToBintray,
     runFastLoggingT,
 
     Artifact(..),
     ArtifactLocation(..),
     BazelLocations(..),
     BazelTarget(..),
+    PomData(..),
 
     artifactFiles,
     mavenArtifactCoords,
@@ -41,7 +41,6 @@ import qualified Data.Conduit as C
 import qualified Data.Conduit.Process as Proc
 import qualified Data.Conduit.Text as CT
 import qualified System.Process
-import Data.Foldable
 import Data.Maybe
 import           Data.Text (Text, unpack)
 import qualified Data.Text as T
@@ -64,7 +63,7 @@ data ReleaseType
     = TarGz
     | Zip
     | Jar JarType
-    deriving Show
+    deriving (Eq, Show)
 
 data JarType
     = Plain
@@ -95,9 +94,6 @@ instance FromJSON ReleaseType where
 data Artifact c = Artifact
     { artTarget :: !BazelTarget
     , artReleaseType :: !ReleaseType
-    -- ^ Defaults to sdk-components if not specified
-    , artMavenUpload :: MavenUpload
-    -- ^ Defaults to False if not specified
     , artJavadocJar :: !(Maybe (Path Rel File))
     , artSourceJar :: !(Maybe (Path Rel File))
     -- artJavadocJar and artSourceJar can be used to specify the path to
@@ -113,7 +109,6 @@ instance FromJSON (Artifact (Maybe ArtifactLocation)) where
     parseJSON = withObject "Artifact" $ \o -> Artifact
         <$> o .: "target"
         <*> o .: "type"
-        <*> (fromMaybe (MavenUpload True) <$> o .:? "mavenUpload")
         <*> o .:? "javadoc-jar"
         <*> o .:? "src-jar"
         <*> o .:? "location"
@@ -350,13 +345,6 @@ copyToReleaseDir BazelLocations{..} releaseDir inp out = do
     createDirIfMissing True (parent absOut)
     copyFile absIn absOut
 
--- | the function below takes a text representation since we can can pass
--- various stuff when releasing versions locally
--- --------------------------------------------------------------------
-
--- release files data for artifactory
-type ReleaseDir = Path Abs Dir
-
 isJar :: ReleaseType -> Bool
 isJar t =
     case t of
@@ -368,30 +356,6 @@ isDeployJar t =
     case t of
         Jar Deploy -> True
         _ -> False
-
-bintrayTargetLocation :: Version -> Text
-bintrayTargetLocation (Version version) =
-    let pkgName = "sdk-components"
-    in "digitalassetsdk/DigitalAssetSDK/" # pkgName # "/" # version
-
-releaseToBintray ::
-     MonadCI m
-  => ReleaseDir
-  -> [(Artifact PomData, Path Rel File)]
-  -> m ()
-releaseToBintray releaseDir artifacts = do
-  for_ artifacts $ \(Artifact{..}, location) -> do
-    let sourcePath = pathToText (releaseDir </> location)
-    let targetLocation = bintrayTargetLocation (Version $ pomVersion artMetadata)
-    let targetPath = pathToText location
-    let msg = "Uploading "# sourcePath #" to target location "# targetLocation #" and target path "# targetPath
-    $logInfo msg
-    let args = ["bt", "upload", "--flat=false", "--publish=true", sourcePath, targetLocation, targetPath]
-    mbErr <- E.try (loggedProcess_ "jfrog" args)
-    case mbErr of
-      Left (err :: Proc.ProcessExitedUnsuccessfully) ->
-        $logError ("jfrog failed, assuming it's because the artifact was already there: "# tshow err)
-      Right () -> return ()
 
 osName ::  Text
 osName

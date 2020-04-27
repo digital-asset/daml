@@ -1,110 +1,170 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.sql.PreparedStatement
+import java.time.Instant
+import java.util.Date
 
-import anorm.{
-  Column,
-  MetaDataItem,
-  ParameterMetaData,
-  RowParser,
-  SqlMappingError,
-  SqlParser,
-  ToStatement
-}
-import com.digitalasset.daml.lf.data.Ref
+import anorm._
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value
 
 object Conversions {
 
-  private def stringColumnToX[X](f: String => Either[String, X])(c: Column[String]): Column[X] =
+  private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>
-      c(value, meta).toEither.flatMap(x => f(x).left.map(SqlMappingError)))
+      Column.columnToString(value, meta).toEither.flatMap(x => f(x).left.map(SqlMappingError)))
 
-  private def subStringToStatement[T <: String](c: ToStatement[String]): ToStatement[T] =
-    (s: PreparedStatement, index: Int, v: T) => c.set(s, index, v)
-
-  private def subStringMetaParameter[T <: String](
-      strParamMetaData: ParameterMetaData[String]): ParameterMetaData[T] =
-    new ParameterMetaData[T] {
-      def sqlType: String = strParamMetaData.sqlType
-      def jdbcType: Int = strParamMetaData.jdbcType
-    }
-
-  // Parties
-
-  implicit def columnToParty(implicit c: Column[String]): Column[Ref.Party] =
-    stringColumnToX(Ref.Party.fromString)(c)
-
-  implicit def partyToStatement(implicit strToStm: ToStatement[String]): ToStatement[Ref.Party] =
-    subStringToStatement(strToStm)
-
-  def party(columnName: String)(implicit c: Column[String]): RowParser[Ref.Party] =
-    SqlParser.get[Ref.Party](columnName)(columnToParty(c))
-
-  // PackageIds
-
-  implicit def columnToPackageId(implicit c: Column[String]): Column[Ref.PackageId] =
-    stringColumnToX(Ref.PackageId.fromString)(c)
-
-  implicit def packageIdToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[Ref.PackageId] =
-    subStringToStatement(strToStm)
-
-  def packageId(columnName: String)(implicit c: Column[String]): RowParser[Ref.PackageId] =
-    SqlParser.get[Ref.PackageId](columnName)(columnToPackageId(c))
-
-  // LedgerStrings
-
-  implicit def columnToLedgerString(implicit c: Column[String]): Column[Ref.LedgerString] =
-    stringColumnToX(Ref.LedgerString.fromString)(c)
-
-  implicit def ledgerStringToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[Ref.LedgerString] =
-    subStringToStatement(strToStm)
-
-  implicit def columnToParticipantId(implicit c: Column[String]): Column[Ref.ParticipantId] =
-    stringColumnToX(Ref.ParticipantId.fromString)(c)
-
-  implicit def participantToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[Ref.ParticipantId] =
-    subStringToStatement(strToStm)
-
-  implicit def columnToContractId(implicit c: Column[String]): Column[Ref.ContractIdString] =
-    stringColumnToX(Ref.ContractIdString.fromString)(c)
-
-  implicit def contractIdToStatement(
-      implicit strToStm: ToStatement[String]): ToStatement[Ref.ContractIdString] =
-    subStringToStatement(strToStm)
-
-  def emptyStringToNullColumn(implicit c: Column[String]): Column[String] = new Column[String] {
-    override def apply(value: Any, meta: MetaDataItem) = value match {
-      case "" => c(null, meta)
-      case x => c(x, meta)
-    }
+  private final class SubTypeOfStringToStatement[S <: String] extends ToStatement[S] {
+    override def set(s: PreparedStatement, i: Int, v: S): Unit =
+      ToStatement.stringToStatement.set(s, i, v)
   }
 
-  def ledgerString(columnName: String)(implicit c: Column[String]): RowParser[Ref.LedgerString] =
-    SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString(c))
+  private final class ToStringToStatement[A] extends ToStatement[A] {
+    override def set(s: PreparedStatement, i: Int, v: A): Unit =
+      ToStatement.stringToStatement.set(s, i, v.toString)
+  }
 
-  implicit def ledgerStringMetaParameter(
-      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[Ref.LedgerString] =
-    subStringMetaParameter(strParamMetaData)
+  private final class SubTypeOfStringMetaParameter[S <: String] extends ParameterMetaData[S] {
+    override val sqlType: String = ParameterMetaData.StringParameterMetaData.sqlType
+    override val jdbcType: Int = ParameterMetaData.StringParameterMetaData.jdbcType
+  }
 
-  def participantId(columnName: String)(implicit c: Column[String]): RowParser[Ref.ParticipantId] =
-    SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId(c))
+  // Party
 
-  implicit def participantIdMetaParameter(
-      implicit strParamMetaData: ParameterMetaData[String]): ParameterMetaData[Ref.ParticipantId] =
-    subStringMetaParameter(strParamMetaData)
+  implicit val columnToParty: Column[Ref.Party] =
+    stringColumnToX(Ref.Party.fromString)
 
-  def contractIdString(columnName: String)(
-      implicit c: Column[String]): RowParser[Ref.ContractIdString] =
-    SqlParser.get[Ref.ContractIdString](columnName)(columnToContractId(c))
+  implicit val partyToStatement: ToStatement[Ref.Party] =
+    new SubTypeOfStringToStatement[Ref.Party]
 
-  implicit def contractIdStringMetaParameter(implicit strParamMetaData: ParameterMetaData[String])
-    : ParameterMetaData[Ref.ContractIdString] =
-    subStringMetaParameter(strParamMetaData)
+  implicit val partyMetaParameter: ParameterMetaData[Ref.Party] =
+    new SubTypeOfStringMetaParameter[Ref.Party]
+
+  def party(columnName: String): RowParser[Ref.Party] =
+    SqlParser.get[Ref.Party](columnName)(columnToParty)
+
+  // PackageId
+
+  implicit val columnToPackageId: Column[Ref.PackageId] =
+    stringColumnToX(Ref.PackageId.fromString)
+
+  implicit val packageIdToStatement: ToStatement[Ref.PackageId] =
+    new SubTypeOfStringToStatement[Ref.PackageId]
+
+  def packageId(columnName: String): RowParser[Ref.PackageId] =
+    SqlParser.get[Ref.PackageId](columnName)(columnToPackageId)
+
+  // LedgerString
+
+  implicit val columnToLedgerString: Column[Ref.LedgerString] =
+    stringColumnToX(Ref.LedgerString.fromString)
+
+  implicit val ledgerStringToStatement: ToStatement[Ref.LedgerString] =
+    new SubTypeOfStringToStatement[Ref.LedgerString]
+
+  def ledgerString(columnName: String): RowParser[Ref.LedgerString] =
+    SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString)
+
+  implicit val ledgerStringMetaParameter: ParameterMetaData[Ref.LedgerString] =
+    new SubTypeOfStringMetaParameter[Ref.LedgerString]
+
+  // ParticipantId
+
+  implicit val columnToParticipantId: Column[Ref.ParticipantId] =
+    stringColumnToX(Ref.ParticipantId.fromString)
+
+  implicit val participantToStatement: ToStatement[Ref.ParticipantId] =
+    new SubTypeOfStringToStatement[Ref.ParticipantId]
+
+  implicit val participantIdMetaParameter: ParameterMetaData[Ref.ParticipantId] =
+    new SubTypeOfStringMetaParameter[Ref.ParticipantId]
+
+  def participantId(columnName: String): RowParser[Ref.ParticipantId] =
+    SqlParser.get[Ref.ParticipantId](columnName)(columnToParticipantId)
+
+  // AbsoluteContractId
+
+  implicit val columnToContractId: Column[Value.AbsoluteContractId] =
+    stringColumnToX(Value.AbsoluteContractId.fromString)
+
+  implicit object ContractIdToStatement extends ToStatement[Value.AbsoluteContractId] {
+    override def set(s: PreparedStatement, index: Int, v: Value.AbsoluteContractId): Unit =
+      ToStatement.stringToStatement.set(s, index, v.coid)
+  }
+
+  def contractId(columnName: String): RowParser[Value.AbsoluteContractId] =
+    SqlParser.get[Value.AbsoluteContractId](columnName)(columnToContractId)
+
+  // ContractIdString
+
+  implicit val contractIdStringMetaParameter: ParameterMetaData[Ref.ContractIdString] =
+    new SubTypeOfStringMetaParameter[Ref.ContractIdString]
+
+  // ChoiceName
+
+  implicit val columnToChoiceName: Column[Ref.ChoiceName] =
+    stringColumnToX(Ref.ChoiceName.fromString)
+
+  implicit val choiceNameToStatement: ToStatement[Ref.ChoiceName] =
+    new SubTypeOfStringToStatement[Ref.ChoiceName]
+
+  implicit val choiceNameMetaParameter: ParameterMetaData[Ref.ChoiceName] =
+    new SubTypeOfStringMetaParameter[Ref.ChoiceName]
+
+  // QualifiedName
+
+  implicit val qualifiedNameToStatement: ToStatement[Ref.QualifiedName] =
+    new ToStringToStatement[Ref.QualifiedName]
+
+  // Identifier
+
+  implicit val IdentifierToStatement: ToStatement[Ref.Identifier] =
+    new ToStringToStatement[Ref.Identifier]
+
+  implicit val columnToIdentifier: Column[Ref.Identifier] =
+    stringColumnToX(Ref.Identifier.fromString)
+
+  def identifier(columnName: String): RowParser[Ref.Identifier] =
+    SqlParser.get[Ref.Identifier](columnName)(columnToIdentifier)
+
+  // Offset
+
+  implicit object OffsetToStatement extends ToStatement[Offset] {
+    override def set(s: PreparedStatement, index: Int, v: Offset): Unit =
+      s.setBytes(index, v.toByteArray)
+  }
+
+  def offset(name: String): RowParser[Offset] =
+    SqlParser.get[Array[Byte]](name).map(Offset.fromByteArray)
+
+  implicit val columnToOffset: Column[Offset] =
+    Column.nonNull((value: Any, meta) =>
+      Column.columnToByteArray(value, meta).toEither.map(Offset.fromByteArray))
+
+  // Instant
+
+  def instant(name: String): RowParser[Instant] =
+    SqlParser.get[Date](name).map(_.toInstant)
+
+  // Hash
+
+  implicit object HashToStatement extends ToStatement[Hash] {
+    override def set(s: PreparedStatement, i: Int, v: Hash): Unit =
+      s.setBytes(i, v.bytes.toByteArray)
+  }
+
+  implicit val columnToHash: Column[Hash] =
+    Column.nonNull((value: Any, meta) =>
+      Column.columnToByteArray(value, meta).toEither.map(Hash.assertFromByteArray))
+
+  implicit object HashMetaParameter extends ParameterMetaData[Hash] {
+    override val sqlType: String = ParameterMetaData.ByteArrayParameterMetaData.sqlType
+    override val jdbcType: Int = ParameterMetaData.ByteArrayParameterMetaData.jdbcType
+  }
 
 }

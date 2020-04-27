@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.ledger.api.domain.TransactionFilter
-import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.api.v1.event.EventOps.EventOps
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.Party
+import com.daml.ledger.api.domain.TransactionFilter
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.api.v1.event.EventOps.EventOps
 
 object EventFilter {
 

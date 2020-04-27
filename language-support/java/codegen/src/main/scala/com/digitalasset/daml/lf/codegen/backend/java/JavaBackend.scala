@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
-import com.digitalasset.daml.lf.codegen.backend.Backend
-import com.digitalasset.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.Interface
+import com.daml.lf.codegen.backend.Backend
+import com.daml.lf.codegen.backend.java.inner.{ClassForType, DecoderClass}
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.{InterfaceTrees, ModuleWithContext, NodeWithContext}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.Interface
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.MDC

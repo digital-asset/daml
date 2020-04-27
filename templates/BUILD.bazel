@@ -1,5 +1,7 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+exports_files(glob(["create-daml-app-test-resources/*"]))
 
 genrule(
     name = "templates-tarball",
@@ -7,11 +9,13 @@ genrule(
         "default-gitignore",
         "default-dlint-yaml",
         "skeleton/**",
+        "create-daml-app/**",
         "quickstart-java/**",
         "quickstart-scala/**",
     ]) + [
         "//docs:quickstart-java.tar.gz",
         "//docs:daml-intro-templates",
+        "//docs:daml-patterns",
         "//docs:copy-trigger-template",
         "//docs:script-example-template",
         "//language-support/scala/examples:quickstart-scala-dir",
@@ -22,11 +26,22 @@ genrule(
         OUT=templates-tarball
 
         # templates in templates dir
-        for d in skeleton quickstart-scala quickstart-java; do
+        for d in skeleton create-daml-app quickstart-scala quickstart-java; do
             mkdir -p $$OUT/$$d
             cp -rL $$SRC/$$d/* $$OUT/$$d/
-            cp $$SRC/default-gitignore $$OUT/$$d/.gitignore
-            cp $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
+            # use default .gitignore and .dlint.yaml if they don't exist in the template
+            cp -n $$SRC/default-gitignore $$OUT/$$d/.gitignore
+            cp -n $$SRC/default-dlint-yaml $$OUT/$$d/.dlint.yaml
+            # We avoid introducing infix syntax in the GSG so we disable
+            # the lint there.
+            if [ "$$d" = "create-daml-app" ]; then
+              cat >> $$OUT/$$d/.dlint.yaml <<EOF
+
+# This rule is enabled by default but we avoid
+# infix syntax here to keep things simple.
+- ignore: {name: Use infix }
+EOF
+            fi
         done
 
         ## special cases we should work to remove
@@ -49,7 +64,12 @@ genrule(
         mkdir -p $$OUT/script-example
         tar xf $(location //docs:script-example-template) -C $$OUT/script-example
 
-        tar zcf $(location :templates-tarball.tar.gz) templates-tarball
+        mkdir -p $$OUT/daml-patterns
+        tar xf $(location //docs:daml-patterns) --strip-components=1 -C $$OUT/daml-patterns
+
+        tar c templates-tarball \
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          | gzip -n >$(location :templates-tarball.tar.gz)
     """,
     visibility = ["//visibility:public"],
 )

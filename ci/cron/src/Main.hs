@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main (main) where
@@ -60,11 +60,13 @@ shell_ :: String -> IO ()
 shell_ cmd = do
     Control.void $ shell cmd
 
-robustly_download_nix_packages :: IO ()
-robustly_download_nix_packages = do
+robustly_download_nix_packages :: String -> IO ()
+robustly_download_nix_packages v = do
     h (10 :: Integer)
     where
-        cmd = "nix-build nix -A tools -A ci-cached"
+        cmd = if to_v v < to_v "0.13.55"
+              then "nix-build nix -A tools -A cached"
+              else "nix-build nix -A tools -A ci-cached"
         h n = do
             (exit, out, err) <- shell_exit_code cmd
             case (exit, n) of
@@ -87,18 +89,24 @@ http_get url = do
       _ -> Exit.die $ unlines ["GET \"" <> url <> "\" returned status code " <> show status <> ".",
                                show $ HTTP.responseBody response]
 
-newtype Version = Version (Int, Int, Int)
+newtype Version = Version (Int, Int, Int, Maybe String)
   deriving (Eq, Ord)
 
 instance Show Version where
-    show (Version (a, b, c)) = show a <> "." <> show b <> "." <> show c
+    show (Version (a, b, c, q)) = show a <> "." <> show b <> "." <> show c <> Maybe.maybe "" (\qual -> "-" <> qual) q
 
 to_v :: String -> Version
-to_v s = case map read $ Split.splitOn "." s of
-    [major, minor, patch] -> Version (major, minor, patch)
+to_v s = case Split.splitOn "-" s of
+    [prefix, qualifier] -> let (major, minor, patch) = parse_stable prefix
+                           in Version (major, minor, patch, Just qualifier)
+    [stable] -> let (major, minor, patch) = parse_stable stable
+                in Version (major, minor, patch, Nothing)
     _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
+    where parse_stable s = case map read $ Split.splitOn "." s of
+              [major, minor, patch] -> (major, minor, patch)
+              _ -> error $ "Invalid data, needs manual repair. Got this for a version string: " <> s
 
-build_docs_folder :: String -> [String] -> String -> IO String
+build_docs_folder :: String -> [GitHubVersion] -> String -> IO String
 build_docs_folder path versions latest = do
     restore_sha $ do
         let old = path </> "old"
@@ -106,7 +114,8 @@ build_docs_folder path versions latest = do
         shell_ $ "mkdir -p " <> new
         shell_ $ "mkdir -p " <> old
         download_existing_site_from_s3 old
-        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\version -> do
+        documented_versions <- Maybe.catMaybes <$> Traversable.for versions (\gh_version -> do
+            let version = name gh_version
             putStrLn $ "Building " <> version <> "..."
             putStrLn "  Checking for existing folder..."
             old_version_exists <- exists $ old </> version
@@ -119,7 +128,7 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. Too old to rebuild, copying over..."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Too old to rebuild and no existing version. Skipping."
                     return Nothing
@@ -134,11 +143,11 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Found. No reliable checksum; copying over and hoping for the best..."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Not found. Building..."
                     build version new
-                    return $ Just version
+                    return $ Just gh_version
             else if old_version_exists
             then do
                 -- Note: this checks for upload errors; this is NOT in any way
@@ -150,19 +159,21 @@ build_docs_folder path versions latest = do
                 then do
                     putStrLn "  Checks, reusing existing."
                     copy (old </> version) $ new </> version
-                    return $ Just version
+                    return $ Just gh_version
                 else do
                     putStrLn "  Check failed. Rebuilding..."
                     build version new
-                    return $ Just version
+                    return $ Just gh_version
             else do
                 putStrLn "  Not found. Building..."
                 build version new
-                return $ Just version)
+                return $ Just gh_version)
         putStrLn $ "Copying latest (" <> latest <> ") to top-level..."
         copy (new </> latest </> "*") (new <> "/")
         putStrLn "Creating versions.json..."
-        create_versions_json documented_versions new
+        let (releases, snapshots) = List.partition (not . prerelease) documented_versions
+        create_versions_json releases (new </> "versions.json")
+        create_versions_json snapshots (new </> "snapshots.json")
         return new
     where
         restore_sha io =
@@ -210,8 +221,8 @@ build_docs_folder path versions latest = do
                     (\_ -> shell_ "git reset --hard")
                     (\_ -> build_helper version path)
         build_helper version path = do
-            robustly_download_nix_packages
-            shell_ "bazel build //docs:docs"
+            robustly_download_nix_packages version
+            shell_ $ "DAML_SDK_RELEASE_VERSION=" <> version <> " bazel build //docs:docs"
             shell_ $ "mkdir -p  " <> path </> version
             shell_ $ "tar xzf bazel-bin/docs/html.tar.gz --strip-components=1 -C" <> path </> version
             checksums <- shell $ "cd " <> path </> version <> "; find . -type f -exec sha256sum {} \\;"
@@ -220,15 +231,16 @@ build_docs_folder path versions latest = do
             -- Not going through Aeson because it represents JSON objects as
             -- unordered maps, and here order matters.
             let versions_json = versions
+                                & map name
                                 & List.sortOn (Data.Ord.Down . to_v)
                                 & map (\s -> "\"" <> s <> "\": \"" <> s <> "\"")
                                 & List.intercalate ", "
                                 & \s -> "{" <> s <> "}"
-            writeFile (path </> "versions.json") versions_json
+            writeFile path versions_json
 
 find_commit_for_version :: String -> IO String
 find_commit_for_version version = do
-    release_commits <- lines <$> shell "git log --format=%H origin/master -- LATEST"
+    release_commits <- lines <$> shell "git log --format=%H --all -- LATEST"
     ver_sha <- init <$> (shell $ "git rev-parse v" <> version)
     let expected = ver_sha <> " " <> version
     matching <- Maybe.catMaybes <$> Traversable.for release_commits (\sha -> do
@@ -240,16 +252,20 @@ find_commit_for_version version = do
       [sha] -> return sha
       _ -> error $ "Expected single commit to match release " <> version <> ", but instead found: " <> show matching
 
-fetch_s3_versions :: IO (Set.Set Version)
+fetch_s3_versions :: IO (Set.Set Version, Set.Set Version)
 fetch_s3_versions = do
-    temp <- shell "mktemp"
-    shell_ $ "aws s3 cp s3://docs-daml-com/versions.json " <> temp
-    s3_raw <- shell $ "cat " <> temp
-    let type_annotated_value :: Maybe JSON.Object
-        type_annotated_value = JSON.decode $ LBS.fromString s3_raw
-    case type_annotated_value of
-      Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
-      Nothing -> Exit.die "Failed to get versions from s3"
+    releases <- fetch "versions.json"
+    snapshots <- fetch "snapshots.json"
+    return (releases, snapshots)
+    where fetch file = do
+              temp <- shell "mktemp"
+              shell_ $ "aws s3 cp s3://docs-daml-com/" <> file <> " " <> temp
+              s3_raw <- shell $ "cat " <> temp
+              let type_annotated_value :: Maybe JSON.Object
+                  type_annotated_value = JSON.decode $ LBS.fromString s3_raw
+              case type_annotated_value of
+                  Just s3_json -> return $ Set.fromList $ map (to_v . Text.unpack) $ H.keys s3_json
+                  Nothing -> Exit.die "Failed to get versions from s3"
 
 push_to_s3 :: String -> IO ()
 push_to_s3 doc_folder = do
@@ -264,29 +280,6 @@ push_to_s3 doc_folder = do
     shell_ $ "aws cloudfront create-invalidation"
              <> " --distribution-id E1U753I56ERH55"
              <> " --paths '/*'"
-
-data BlogId = BlogId { blog_id :: Integer } deriving Show
-instance JSON.FromJSON BlogId where
-    parseJSON = JSON.withObject "BlogId" $ \v -> BlogId
-        <$> v JSON..: Text.pack "id"
-
-data SubmitBlog = SubmitBlog {
-                      body :: String,
-                      date :: Integer,
-                      summary :: String,
-                      version :: String
-                  } deriving Show
-instance JSON.ToJSON SubmitBlog where
-    toJSON SubmitBlog{body, date, summary, version} =
-    -- content_group_id and blog_author_id reference existing items in HubSpot
-        JSON.object ["name" JSON..= ("Release of DAML SDK " <> version),
-                     "post_body" JSON..= body,
-                     "content_group_id" JSON..= (11411412838 :: Integer),
-                     "publish_date" JSON..= date,
-                     "post_summary" JSON..= summary,
-                     "slug" JSON..= version,
-                     "blog_author_id" JSON..= (11513309969 :: Integer),
-                     "meta_description" JSON..= summary]
 
 data GitHubVersion = GitHubVersion { prerelease :: Bool, tag_name :: String, notes :: String, published_at :: String } deriving Show
 instance JSON.FromJSON GitHubVersion where
@@ -318,32 +311,34 @@ fetch_gh_paginated url = do
                 (_, _, _, [url, rel]) -> (rel, url)
                 _ -> error $ "Assumption violated: link header entry did not match regex.\nEntry: " <> l
 
-fetch_gh_versions :: IO (Set.Set Version, GitHubVersion)
+fetch_gh_versions :: IO ([GitHubVersion], GitHubVersion)
 fetch_gh_versions = do
     resp <- fetch_gh_paginated "https://api.github.com/repos/digital-asset/daml/releases"
-    let releases = filter (not . prerelease) resp
-    let versions = Set.fromList $ map (to_v . name) releases
-    let latest = List.maximumOn (to_v . name) releases
-    return (versions, latest)
+    let latest = List.maximumOn (to_v . name) $ filter (not . prerelease) resp
+    return (resp, latest)
+
+same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
+same_versions s3_versions gh_versions =
+    let gh_releases = Set.fromList $ map (to_v . name) $ filter (not . prerelease) gh_versions
+        gh_snapshots = Set.fromList $ map (to_v . name) $ filter prerelease gh_versions
+    in s3_versions == (gh_releases, gh_snapshots)
 
 main :: IO ()
 main = do
-    robustly_download_nix_packages
     putStrLn "Checking for new version..."
     (gh_versions, gh_latest) <- fetch_gh_versions
     s3_versions_before <- fetch_s3_versions
-    let prev_latest = List.maximum $ Set.toList s3_versions_before
-    if prev_latest == to_v (name gh_latest)
+    if same_versions s3_versions_before gh_versions
     then do
         putStrLn "No new version found, skipping."
         Exit.exitSuccess
     else do
         Temp.withTempDir $ \temp_dir -> do
             putStrLn "Building docs listing"
-            docs_folder <- build_docs_folder temp_dir (map show $ Set.toList gh_versions) $ name gh_latest
+            docs_folder <- build_docs_folder temp_dir gh_versions $ name gh_latest
             putStrLn "Done building docs bundle. Checking versions again to avoid race condition..."
             s3_versions_after <- fetch_s3_versions
-            if s3_versions_after == gh_versions
+            if same_versions s3_versions_after gh_versions
             then do
                 putStrLn "No more new version, another process must have pushed already."
                 Exit.exitSuccess

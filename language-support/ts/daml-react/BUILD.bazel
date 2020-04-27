@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -10,11 +10,17 @@ load("//language-support/ts:jest.bzl", "jest_test")
 load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
+sources = [
+    "index.ts",
+    "index.test.ts",
+    "context.ts",
+    "hooks.ts",
+    "DamlLedger.ts",
+]
+
 da_ts_library(
     name = "daml-react",
-    srcs = glob([
-        "**/*.ts",
-    ]),
+    srcs = sources,
     module_name = "@daml/react",
     visibility = ["//visibility:public"],
     deps = [
@@ -38,9 +44,7 @@ ts_docs("daml-react")
 
 eslint_test(
     name = "lint",
-    srcs = glob([
-        "**/*.ts",
-    ]),
+    srcs = sources,
 )
 
 pkg_npm(
@@ -68,7 +72,6 @@ jest_test(
         "//language-support/ts/daml-ledger",
         "//language-support/ts/daml-types",
         "@language_support_ts_deps//@testing-library/react-hooks",
-        "@language_support_ts_deps//immutable",
         "@language_support_ts_deps//react",
         "@language_support_ts_deps//react-test-renderer",
     ],

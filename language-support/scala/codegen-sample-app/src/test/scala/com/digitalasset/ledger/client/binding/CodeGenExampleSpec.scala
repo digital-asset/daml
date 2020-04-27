@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.util.UUID
 
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.sample.MyMain.PayOut
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.sample.MyMain.PayOut
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 class CodeGenExampleSpec extends WordSpec with Matchers {
@@ -15,7 +15,7 @@ class CodeGenExampleSpec extends WordSpec with Matchers {
   val charlie = P.Party("Charlie")
 
   "create CallablePayout contract should compile" in {
-    import com.digitalasset.sample.MyMain.CallablePayout
+    import com.daml.sample.MyMain.CallablePayout
 
     val createCommand: P.Update[P.ContractId[CallablePayout]] =
       CallablePayout(giver = alice, receiver = bob).create
@@ -23,7 +23,7 @@ class CodeGenExampleSpec extends WordSpec with Matchers {
   }
 
   "exercise Call choice should compile" in {
-    import com.digitalasset.sample.MyMain.CallablePayout
+    import com.daml.sample.MyMain.CallablePayout
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[PayOut]] =
@@ -32,7 +32,7 @@ class CodeGenExampleSpec extends WordSpec with Matchers {
   }
 
   "exercise Transfer choice should compile" in {
-    import com.digitalasset.sample.MyMain.CallablePayout
+    import com.daml.sample.MyMain.CallablePayout
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[CallablePayout]] =
@@ -41,7 +41,7 @@ class CodeGenExampleSpec extends WordSpec with Matchers {
   }
 
   "create contract with tuple should compile" in {
-    import com.digitalasset.sample.{MyMain, DA}
+    import com.daml.sample.{MyMain, DA}
     val ct = MyMain.Twoples(alice, DA.Types.Tuple2(1, 2))
     val createCommand = ct.create
     sendCommand(createCommand)

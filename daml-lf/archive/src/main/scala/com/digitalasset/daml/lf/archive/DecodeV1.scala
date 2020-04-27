@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.util
 
-import com.digitalasset.daml.lf.archive.Decode.ParseError
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
+import com.daml.lf.archive.Decode.ParseError
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{Decimal, ImmArray, Numeric, Time}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml_lf_dev.{DamlLf1 => PLF}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.daml_lf_dev.{DamlLf1 => PLF}
 import com.google.protobuf.CodedInputStream
 
 import scala.collection.JavaConverters._
@@ -552,7 +552,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         consuming = lfChoice.getConsuming,
         controllers = decodeExpr(lfChoice.getControllers, s"$tpl:$chName:controller"),
         selfBinder = selfBinder,
-        argBinder = Some(v) -> t,
+        argBinder = v -> t,
         returnType = decodeType(lfChoice.getRetType),
         update = decodeExpr(lfChoice.getUpdate, s"$tpl:$chName:choice")
       )
@@ -1404,50 +1404,142 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(GENMAP_SIZE, BGenMapSize, minVersion = genMap),
       BuiltinFunctionInfo(APPEND_TEXT, BAppendText),
       BuiltinFunctionInfo(ERROR, BError),
-      BuiltinFunctionInfo(LEQ_INT64, BLessEqInt64),
+      BuiltinFunctionInfo(
+        LEQ_INT64,
+        BLessEq,
+        implicitParameters = List(TInt64),
+        maxVersion = Some(genComparison),
+      ),
       BuiltinFunctionInfo(
         LEQ_DECIMAL,
-        BLessEqNumeric,
+        BLessEq,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LEQ_NUMERIC, BLessEqNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(LEQ_TEXT, BLessEqText),
-      BuiltinFunctionInfo(LEQ_TIMESTAMP, BLessEqTimestamp),
-      BuiltinFunctionInfo(LEQ_PARTY, BLessEqParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(GEQ_INT64, BGreaterEqInt64),
+      BuiltinFunctionInfo(
+        LEQ_NUMERIC,
+        BLessEqNumeric,
+        maxVersion = Some(genComparison),
+        minVersion = numeric,
+      ),
+      BuiltinFunctionInfo(
+        LEQ_TEXT,
+        BLessEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        LEQ_TIMESTAMP,
+        BLessEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        LEQ_PARTY,
+        BLessEq,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty)),
+      BuiltinFunctionInfo(
+        GEQ_INT64,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         GEQ_DECIMAL,
-        BGreaterEqNumeric,
+        BGreaterEq,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GEQ_NUMERIC, BGreaterEqNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(GEQ_TEXT, BGreaterEqText),
-      BuiltinFunctionInfo(GEQ_TIMESTAMP, BGreaterEqTimestamp),
-      BuiltinFunctionInfo(GEQ_PARTY, BGreaterEqParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(LESS_INT64, BLessInt64),
+      BuiltinFunctionInfo(
+        GEQ_NUMERIC,
+        BGreaterEqNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        GEQ_TEXT,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        GEQ_TIMESTAMP,
+        BGreaterEq,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        GEQ_PARTY,
+        BGreaterEq,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty),
+      ),
+      BuiltinFunctionInfo(
+        LESS_INT64,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         LESS_DECIMAL,
-        BLessNumeric,
+        BLess,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(LESS_NUMERIC, BLessNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(LESS_TEXT, BLessText),
-      BuiltinFunctionInfo(LESS_TIMESTAMP, BLessTimestamp),
-      BuiltinFunctionInfo(LESS_PARTY, BLessParty, minVersion = partyOrdering),
-      BuiltinFunctionInfo(GREATER_INT64, BGreaterInt64),
+      BuiltinFunctionInfo(
+        LESS_NUMERIC,
+        BLessNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        LESS_TEXT,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        LESS_TIMESTAMP,
+        BLess,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        LESS_PARTY,
+        BLess,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty)
+      ),
+      BuiltinFunctionInfo(
+        GREATER_INT64,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         GREATER_DECIMAL,
-        BGreaterNumeric,
+        BGreater,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
-      BuiltinFunctionInfo(GREATER_NUMERIC, BGreaterNumeric, minVersion = numeric),
-      BuiltinFunctionInfo(GREATER_TEXT, BGreaterText),
-      BuiltinFunctionInfo(GREATER_TIMESTAMP, BGreaterTimestamp),
-      BuiltinFunctionInfo(GREATER_PARTY, BGreaterParty, minVersion = partyOrdering),
+      BuiltinFunctionInfo(
+        GREATER_NUMERIC,
+        BGreaterNumeric,
+        minVersion = numeric,
+        maxVersion = Some(genComparison),
+      ),
+      BuiltinFunctionInfo(
+        GREATER_TEXT,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TText)),
+      BuiltinFunctionInfo(
+        GREATER_TIMESTAMP,
+        BGreater,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TTimestamp)),
+      BuiltinFunctionInfo(
+        GREATER_PARTY,
+        BGreater,
+        minVersion = partyOrdering,
+        maxVersion = Some(genComparison),
+        implicitParameters = List(TParty),
+      ),
       BuiltinFunctionInfo(TO_TEXT_INT64, BToTextInt64),
       BuiltinFunctionInfo(
         TO_TEXT_DECIMAL,
@@ -1475,28 +1567,33 @@ private[lf] object DecodeV1 {
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
-      BuiltinFunctionInfo(GEQ_DATE, BGreaterEqDate),
-      BuiltinFunctionInfo(LEQ_DATE, BLessEqDate),
-      BuiltinFunctionInfo(LESS_DATE, BLessDate),
+      BuiltinFunctionInfo(GEQ_DATE, BGreaterEq, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(LEQ_DATE, BLessEq, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(LESS_DATE, BLess, implicitParameters = List(TDate)),
       BuiltinFunctionInfo(TIMESTAMP_TO_UNIX_MICROSECONDS, BTimestampToUnixMicroseconds),
       BuiltinFunctionInfo(TO_TEXT_DATE, BToTextDate),
       BuiltinFunctionInfo(UNIX_DAYS_TO_DATE, BUnixDaysToDate),
       BuiltinFunctionInfo(UNIX_MICROSECONDS_TO_TIMESTAMP, BUnixMicrosecondsToTimestamp),
-      BuiltinFunctionInfo(GREATER_DATE, BGreaterDate),
-      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genMap),
+      BuiltinFunctionInfo(GREATER_DATE, BGreater, implicitParameters = List(TDate)),
+      BuiltinFunctionInfo(EQUAL, BEqual, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS, BLess, minVersion = genComparison),
+      BuiltinFunctionInfo(LESS_EQ, BLessEq, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER, BGreater, minVersion = genComparison),
+      BuiltinFunctionInfo(GREATER_EQ, BGreaterEq, minVersion = genComparison),
       BuiltinFunctionInfo(EQUAL_LIST, BEqualList),
       BuiltinFunctionInfo(EQUAL_INT64, BEqual, implicitParameters = List(TInt64)),
       BuiltinFunctionInfo(
         EQUAL_DECIMAL,
-        BEqualNumeric,
+        BEqual,
         maxVersion = Some(numeric),
-        implicitParameters = List(TNat.Decimal)
+        implicitParameters = List(TDecimal)
       ),
       BuiltinFunctionInfo(
         EQUAL_NUMERIC,
         BEqualNumeric,
         minVersion = numeric,
-        maxVersion = Some(genMap)),
+        maxVersion = Some(genComparison)
+      ),
       BuiltinFunctionInfo(
         EQUAL_TEXT,
         BEqual,

@@ -1,19 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
 import com.codahale.metrics
 import com.codahale.metrics.Timer
-import com.daml.ledger.participant.state.kvutils.DamlStateMap
+import com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlLogEntryId,
   DamlStateKey,
-  DamlStateValue,
+  DamlStateValue
 }
+import com.daml.ledger.participant.state.kvutils.DamlStateMap
+import com.daml.ledger.participant.state.kvutils.committer.Committer._
 import com.daml.ledger.participant.state.v1.ParticipantId
-import com.digitalasset.daml.lf.data.Time
+import com.daml.lf.data.Time
+import com.daml.metrics.MetricName
 import org.slf4j.{Logger, LoggerFactory}
 
 /** A committer processes a submission, with its inputs into an ordered set of output state and a log entry.
@@ -35,27 +38,28 @@ import org.slf4j.{Logger, LoggerFactory}
   * e.g. `kvutils.PackageCommitter`. An overall run time is measured in `kvutils.PackageCommitter.run-timer`,
   * and each step is measured separately under `step-timers.<step>`, e.g. `kvutils.PackageCommitter.step-timers.validateEntry`.
   */
-private[kvutils] trait Committer[Submission, PartialResult] {
-  type StepInfo = String
-  type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
-  def steps: Iterable[(StepInfo, Step)]
-  lazy val committerName: String = this.getClass.getSimpleName.toLowerCase
+private[committer] trait Committer[Submission, PartialResult] {
+  protected final type Step = (CommitContext, PartialResult) => StepResult[PartialResult]
+
+  protected final val logger: Logger = LoggerFactory.getLogger(getClass)
+
+  protected val committerName: String
+
+  protected def steps: Iterable[(StepInfo, Step)]
 
   /** The initial internal state passed to first step. */
-  def init(ctx: CommitContext, subm: Submission): PartialResult
+  protected def init(ctx: CommitContext, subm: Submission): PartialResult
 
-  val logger: Logger = LoggerFactory.getLogger(this.getClass)
+  protected val metricRegistry: metrics.MetricRegistry
 
-  //TODO: Replace with metrics registry object passed in constructor
-  val metricsRegistry: metrics.MetricRegistry =
-    metrics.SharedMetricRegistries.getOrCreate("kvutils")
-  def metricsName(metric: String): String =
-    metrics.MetricRegistry.name("kvutils.committer", committerName, metric)
-  private val runTimer: Timer = metricsRegistry.timer(metricsName("run_timer"))
+  // These are lazy because they rely on `committerName`, which is defined in the subclass and
+  // therefore not set at object initialization.
+  protected final lazy val metricPrefix: MetricName = MetricPrefix :+ committerName
+  private lazy val runTimer: Timer = metricRegistry.timer(metricPrefix :+ "run_timer")
   private lazy val stepTimers: Map[StepInfo, Timer] =
     steps.map {
       case (info, _) =>
-        info -> metricsRegistry.timer(metricsName(s"step_timers.${info}"))
+        info -> metricRegistry.timer(metricPrefix :+ "step_timers" :+ info)
     }.toMap
 
   /** A committer can `run` a submission and produce a log entry and output states. */
@@ -86,6 +90,14 @@ private[kvutils] trait Committer[Submission, PartialResult] {
             return logEntry -> ctx.getOutputs.toMap
         }
       }
-      sys.error(s"Internal error: Committer ${this.getClass} did not produce a result!")
+      sys.error(s"Internal error: Committer $committerName did not produce a result!")
     }
+}
+
+object Committer {
+
+  type StepInfo = String
+
+  private val MetricPrefix = kvutils.MetricPrefix :+ "committer"
+
 }

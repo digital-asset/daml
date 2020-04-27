@@ -1,18 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandboxnext.services.reset
+package com.daml.platform.sandboxnext.services.reset
 
-import com.digitalasset.platform.sandbox.services.reset.ResetServiceITBase
-import com.digitalasset.platform.sandboxnext.SandboxNextFixture
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.services.reset.ResetServiceITBase
+import com.daml.platform.sandboxnext.SandboxNextFixture
 import org.scalatest.Ignore
 
 @Ignore
-final class ResetServiceOnPostgresqlIT extends ResetServiceITBase with SandboxNextFixture {
+final class ResetServiceOnPostgresqlIT
+    extends ResetServiceITBase
+    with SandboxNextFixture
+    with SandboxBackend.Postgresql {
   override def spanScaleFactor: Double = super.spanScaleFactor * 4
-
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
 }

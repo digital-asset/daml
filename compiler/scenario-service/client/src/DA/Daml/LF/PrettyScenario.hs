@@ -1,6 +1,6 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
+{-# LANGUAGE PatternSynonyms #-}
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
@@ -18,6 +18,7 @@ import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
 import qualified DA.Daml.LF.Ast             as LF
+import DA.Daml.LF.Mangling
 import Control.Applicative
 import Text.Read hiding (parens)
 import           DA.Pretty as Pretty
@@ -45,6 +46,23 @@ data Error = ErrorMissingNode NodeId
 type M = ExceptT Error (Reader (MS.Map NodeId Node, LF.World))
 
 type ModuleRef = LF.Qualified ()
+
+unmangleQualifiedName :: T.Text -> (LF.ModuleName, T.Text)
+unmangleQualifiedName t = case T.splitOn ":" t of
+    [modName, defName] -> (unmangleModuleName modName, unmangle defName)
+    _ -> error "Bad definition"
+
+unmangleModuleName :: T.Text -> LF.ModuleName
+unmangleModuleName t = LF.ModuleName (map unmangle $ T.splitOn "." t)
+
+unmangle :: T.Text -> T.Text
+unmangle s = case unmangleIdentifier s of
+    Left err -> error err
+    Right (UnmangledIdentifier s) -> s
+
+{-# COMPLETE UnmangledQualifiedName #-}
+pattern UnmangledQualifiedName :: LF.ModuleName -> T.Text -> TL.Text
+pattern UnmangledQualifiedName mod def <- (unmangleQualifiedName . TL.toStrict -> (mod, def))
 
 runM :: V.Vector Node -> LF.World -> M (Doc SyntaxClass) -> Doc SyntaxClass
 runM nodes world =
@@ -82,16 +100,6 @@ lookupModule world mbPkgId modName = do
          LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
        _ -> LF.PRSelf
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
-
-lookupModuleFromQualifiedName ::
-     LF.World -> Maybe PackageIdentifier -> T.Text
-  -> Maybe (LF.ModuleName, T.Text, LF.Module)
-lookupModuleFromQualifiedName world mbPkgId qualName = do
-  let (modName, defName) = case T.splitOn ":" qualName of
-        [modNm, defNm] -> (LF.ModuleName (T.splitOn "." modNm), defNm)
-        _ -> error "Bad definition"
-  modu <- lookupModule world mbPkgId modName
-  return (modName, defName, modu)
 
 parseNodeId :: NodeId -> [Integer]
 parseNodeId =
@@ -262,13 +270,6 @@ prettyScenarioErrorError (Just err) =  do
         , label_ "Disclosed to:"
             $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
-    ScenarioErrorErrorSubmitterNotInMaintainers (ScenarioError_SubmitterNotInMaintainers templateId submitter maintainers) ->
-      pure $ vcat
-        [ "When looking up or fetching a contract of type" <->
-            prettyMay "<missing template id>" (prettyDefName world) templateId <-> "by key, submitter:" <->
-            prettyMay "<missing submitter>" prettyParty submitter
-        , "is not in maintainers:" <-> prettyParties maintainers
-        ]
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
@@ -428,12 +429,12 @@ prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
 prettyMayLocation world = maybe (text "unknown source") (prettyLocation world)
 
 prettyLocation :: LF.World -> Location -> Doc SyntaxClass
-prettyLocation world (Location mbPkgId modName sline scol eline _ecol _definition) =
+prettyLocation world (Location mbPkgId (unmangleModuleName . TL.toStrict -> modName) sline scol eline _ecol _definition) =
       maybe id (\path -> linkSC (url path) title)
-        (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
+        (lookupModule world mbPkgId modName >>= LF.moduleSource)
     $ text title
   where
-    modName' = TL.toStrict modName
+    modName' = LF.moduleNameString modName
     encodeURI = Network.URI.Encode.encodeText
     title = modName' <> lineNum
     url fp = "command:daml.revealLocation?"
@@ -710,15 +711,15 @@ prettyPackageIdentifier (PackageIdentifier psum) = case psum of
   (Just (PackageIdentifierSumPackageId pid)) -> char '@' <> ltext pid
 
 prettyDefName :: LF.World -> Identifier -> Doc SyntaxClass
-prettyDefName world (Identifier mbPkgId (TL.toStrict -> qualName))
-  | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+prettyDefName world (Identifier mbPkgId (UnmangledQualifiedName modName defName))
+  | Just mod0 <- lookupModule world mbPkgId modName
   , Just fp <- LF.moduleSource mod0
   , Just (LF.SourceLoc _mref sline _scol eline _ecol) <- lookupDefLocation mod0 defName =
       linkSC (revealLocationUri fp sline eline) name ppName
   | otherwise =
       ppName
   where
-    name = qualName
+    name = LF.moduleNameString modName <> ":" <> defName
     ppName = text name <> ppPkgId
     ppPkgId = maybe mempty prettyPackageIdentifier mbPkgId
 
@@ -726,8 +727,8 @@ prettyChoiceId
   :: LF.World -> Maybe Identifier -> TL.Text
   -> Doc SyntaxClass
 prettyChoiceId _ Nothing choiceId = ltext choiceId
-prettyChoiceId world (Just (Identifier mbPkgId (TL.toStrict -> qualName))) (TL.toStrict -> choiceId)
-  | Just (_modName, defName, mod0) <- lookupModuleFromQualifiedName world mbPkgId qualName
+prettyChoiceId world (Just (Identifier mbPkgId (UnmangledQualifiedName modName defName))) (TL.toStrict -> choiceId)
+  | Just mod0 <- lookupModule world mbPkgId modName
   , Just fp <- LF.moduleSource mod0
   , Just tpl <- NM.lookup (LF.TypeConName [defName]) (LF.moduleTemplates mod0)
   , Just chc <- NM.lookup (LF.ChoiceName choiceId) (LF.tplChoices tpl)

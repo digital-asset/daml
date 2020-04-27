@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.{Numeric, Ref}
-import com.digitalasset.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.data.Ref.Identifier
 import scalaz.Monoid
 import scalaz.syntax.foldable._
 import scalaz.syntax.monoid._
@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
   * yet another?
   *
   * The reason we have chosen to use the [[Core.Type]] in the
-  * `typeDecls` field of [[com.digitalasset.daml.core.Package.PackageInterface]]
+  * `typeDecls` field of [[com.daml.core.Package.PackageInterface]]
   * is because other programs besides the DAML Scala code generator inspect
   * this data structure. (e.g. Integration Adapter as of 07 Sep 2017).
   *
@@ -37,7 +37,7 @@ import scala.collection.JavaConverters._
   * polymorphic Scala data structures.
   *
   * Only a subset of [[Core.Type]] values can be translated to [[Type]] values.
-  * The method [[com.digitalasset.daml.core.Package#validTypeSynonymRHS]]
+  * The method [[com.daml.core.Package#validTypeSynonymRHS]]
   * returns {{{true}}} when a [[Core.Type]] value can be translated.
   */
 sealed abstract class Type extends Product with Serializable {

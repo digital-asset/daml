@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset
+package com.daml
 
 import java.math.BigDecimal
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, ZoneOffset}
 
 import com.daml.ledger.javaapi.data.{Unit => DamlUnit}
-import com.digitalasset.daml.lf.data.Numeric
+import com.daml.lf.data.Numeric
 import org.scalatest.{AsyncFlatSpec, Matchers}
 import wolpertinger.color.Grey
 import wolpertinger.{Color, Wolpertinger}

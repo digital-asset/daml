@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
@@ -8,12 +8,12 @@ package db.migration.h2database
 import java.sql.Connection
 
 import anorm.{BatchSql, NamedParameter}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.EventId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.TransactionSerializer
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.Node.NodeCreate
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.EventId
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.serialization.TransactionSerializer
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V5_1__Populate_Event_Data extends BaseJavaMigration {
@@ -55,7 +55,7 @@ class V5_1__Populate_Event_Data extends BaseJavaMigration {
     val data = txs.flatMap {
       case (txId, tx) =>
         tx.nodes.collect {
-          case (eventId, NodeCreate(nodeSeed @ _, cid, _, _, signatories, stakeholders, _)) =>
+          case (eventId, NodeCreate(cid, _, _, signatories, stakeholders, _)) =>
             (cid, eventId, signatories, stakeholders -- signatories)
         }
     }

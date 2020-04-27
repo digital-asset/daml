@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.events
+package com.daml.platform.events
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.platform.events.EventIdFormatter.TransactionIdWithIndex
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.Transaction
+import com.daml.platform.events.EventIdFormatter.TransactionIdWithIndex
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}
 

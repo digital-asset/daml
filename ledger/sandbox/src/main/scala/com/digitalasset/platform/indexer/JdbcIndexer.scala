@@ -1,112 +1,109 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.time.Instant
 
 import akka.NotUsed
-import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import com.codahale.metrics.{Gauge, MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.LedgerString
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.metrics.timedFuture
-import com.digitalasset.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.digitalasset.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.digitalasset.platform.store.{FlywayMigrations, PersistenceEntry}
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.engine.Blinding
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{MetricName, Timed}
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
+import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.{FlywayMigrations, PersistenceEntry}
+import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 final class JdbcIndexerFactory(
-    jdbcUrl: String,
+    serverRole: ServerRole,
+    config: IndexerConfig,
+    readService: ReadService,
     metrics: MetricRegistry,
-)(implicit logCtx: LoggingContext) {
+)(implicit materializer: Materializer, logCtx: LoggingContext) {
+
+  private val logger = ContextualizedLogger.get(this.getClass)
+
   def validateSchema()(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
-    new FlywayMigrations(jdbcUrl)
+  ): Future[ResourceOwner[JdbcIndexer]] =
+    new FlywayMigrations(config.jdbcUrl)
       .validate()
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
+      .map(_ => initialized())
 
   def migrateSchema(allowExistingSchema: Boolean)(
       implicit executionContext: ExecutionContext
-  ): Future[InitializedJdbcIndexerFactory] =
-    new FlywayMigrations(jdbcUrl)
+  ): Future[ResourceOwner[JdbcIndexer]] =
+    new FlywayMigrations(config.jdbcUrl)
       .migrate(allowExistingSchema)
-      .map(_ => new InitializedJdbcIndexerFactory(jdbcUrl, metrics))
-}
+      .map(_ => initialized())
 
-class InitializedJdbcIndexerFactory private[indexer] (
-    jdbcUrl: String,
-    metrics: MetricRegistry,
-)(implicit executionContext: ExecutionContext, logCtx: LoggingContext) {
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  def owner(
-      participantId: ParticipantId,
-      actorSystem: ActorSystem,
-      readService: ReadService,
-      jdbcUrl: String,
-  ): ResourceOwner[JdbcIndexer] = {
-    val materializer: Materializer = Materializer(actorSystem)
-
-    def fetchInitialState(dao: LedgerDao): Future[(dao.LedgerOffset, Option[LedgerString])] =
-      for {
-        initialConditions <- readService
-          .getLedgerInitialConditions()
-          .runWith(Sink.head)(materializer)
-        existingLedgerId <- dao.lookupLedgerId()
-        providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
-        _ <- initializeLedger(existingLedgerId, providedLedgerId, dao)
-        ledgerEnd <- dao.lookupLedgerEnd()
-        externalOffset <- dao.lookupExternalLedgerEnd()
-      } yield (ledgerEnd, externalOffset)
-
+  private def initialized()(
+      implicit executionContext: ExecutionContext
+  ): ResourceOwner[JdbcIndexer] =
     for {
-      ledgerDao <- JdbcLedgerDao.owner(jdbcUrl, metrics, actorSystem.dispatcher)
-      (ledgerEnd, externalOffset) <- ResourceOwner.forFuture(() => fetchInitialState(ledgerDao))
-    } yield
-      new JdbcIndexer(ledgerEnd, externalOffset, participantId, ledgerDao, metrics)(materializer)
-  }
+      ledgerDao <- JdbcLedgerDao.writeOwner(
+        serverRole,
+        config.jdbcUrl,
+        config.eventsPageSize,
+        metrics,
+      )
+      initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
+    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
 
-  private def initializeLedger(
-      existingLedgerId: Option[domain.LedgerId],
+  private def initializeLedger(dao: LedgerDao)(
+      implicit executionContext: ExecutionContext,
+  ): Future[Option[Offset]] =
+    for {
+      initialConditions <- readService.getLedgerInitialConditions().runWith(Sink.head)
+      existingLedgerId <- dao.lookupLedgerId()
+      providedLedgerId = domain.LedgerId(initialConditions.ledgerId)
+      _ <- existingLedgerId.fold(initializeLedgerData(providedLedgerId, dao))(
+        checkLedgerIds(_, providedLedgerId))
+      initialLedgerEnd <- dao.lookupInitialLedgerEnd()
+    } yield initialLedgerEnd
+
+  private def checkLedgerIds(
+      existingLedgerId: domain.LedgerId,
+      providedLedgerId: domain.LedgerId,
+  ): Future[Unit] =
+    if (existingLedgerId == providedLedgerId) {
+      logger.info(s"Found existing ledger with ID: $existingLedgerId")
+      Future.unit
+    } else {
+      Future.failed(new LedgerIdMismatchException(existingLedgerId, providedLedgerId))
+    }
+
+  private def initializeLedgerData(
       providedLedgerId: domain.LedgerId,
       ledgerDao: LedgerDao,
-  ): Future[Unit] =
-    existingLedgerId match {
-      case Some(foundLedgerId) if foundLedgerId == providedLedgerId =>
-        logger.info(s"Found existing ledger with ID: $foundLedgerId")
-        Future.unit
-      case Some(foundLedgerId) =>
-        Future.failed(new LedgerIdMismatchException(foundLedgerId, providedLedgerId))
-      case None =>
-        logger.info(s"Initializing ledger with ID: $providedLedgerId")
-        ledgerDao.initializeLedger(providedLedgerId, ledgerEnd = 0)
-    }
+  ): Future[Unit] = {
+    logger.info(s"Initializing ledger with ID: $providedLedgerId")
+    ledgerDao.initializeLedger(providedLedgerId, Offset.begin)
+  }
 }
 
 /**
-  * @param initialInternalOffset The last offset internal to the indexer stored in the database.
-  * @param beginAfterExternalOffset The last offset received from the read service.
-  *                                 This offset has inclusive semantics,
+  * @param startExclusive The last offset received from the read service.
   */
 class JdbcIndexer private[indexer] (
-    initialInternalOffset: Long,
-    beginAfterExternalOffset: Option[LedgerString],
+    startExclusive: Option[Offset],
     participantId: ParticipantId,
     ledgerDao: LedgerDao,
     metrics: MetricRegistry,
@@ -114,20 +111,18 @@ class JdbcIndexer private[indexer] (
     extends Indexer {
 
   @volatile
-  private var headRef = initialInternalOffset
-
-  @volatile
-  private var lastReceivedRecordTime = Instant.now()
+  private var lastReceivedRecordTime: Long = Instant.now().toEpochMilli
 
   @volatile
   private var lastReceivedOffset: LedgerString = _
 
   object Metrics {
+    private val prefix = MetricName.DAML :+ "indexer"
 
-    val processedStateUpdatesName = "daml.indexer.processed_state_updates"
-    val lastReceivedRecordTimeName = "daml.indexer.last_received_record_time"
-    val lastReceivedOffsetName = "daml.indexer.last_received_offset"
-    val currentRecordTimeLagName = "daml.indexer.current_record_time_lag"
+    private val processedStateUpdatesName = prefix :+ "processed_state_updates"
+    private val lastReceivedRecordTimeName = prefix :+ "last_received_record_time"
+    private val lastReceivedOffsetName = prefix :+ "last_received_offset"
+    private val currentRecordTimeLagName = prefix :+ "current_record_time_lag"
 
     val stateUpdateProcessingTimer: Timer = metrics.timer(processedStateUpdatesName)
 
@@ -141,7 +136,7 @@ class JdbcIndexer private[indexer] (
         lastReceivedRecordTimeName,
         () =>
           new Gauge[Long] {
-            override def getValue: Long = lastReceivedRecordTime.toEpochMilli
+            override def getValue: Long = lastReceivedRecordTime
         })
 
       metrics.gauge(
@@ -156,7 +151,7 @@ class JdbcIndexer private[indexer] (
         () =>
           new Gauge[Long] {
             override def getValue: Long =
-              Instant.now().toEpochMilli - lastReceivedRecordTime.toEpochMilli
+              Instant.now().toEpochMilli - lastReceivedRecordTime
         })
       ()
     }
@@ -166,20 +161,11 @@ class JdbcIndexer private[indexer] (
     new SubscriptionResourceOwner(readService)
 
   private def handleStateUpdate(offset: Offset, update: Update): Future[Unit] = {
-    lastReceivedOffset = offset.toLedgerString
-    lastReceivedRecordTime = update.recordTime.toInstant
+    lastReceivedOffset = offset.toApiString
+    lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-    val externalOffset = Some(offset.toLedgerString)
-    update match {
-      case Heartbeat(recordTime) =>
-        ledgerDao
-          .storeLedgerEntry(
-            headRef,
-            headRef + 1,
-            externalOffset,
-            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
-          .map(_ => headRef = headRef + 1)(DEC)
-
+    val externalOffset = offset
+    val result = update match {
       case PartyAddedToParticipant(
           party,
           displayName,
@@ -188,8 +174,6 @@ class JdbcIndexer private[indexer] (
           submissionId) =>
         ledgerDao
           .storePartyEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             PartyLedgerEntry.AllocationAccepted(
               submissionId,
@@ -198,7 +182,6 @@ class JdbcIndexer private[indexer] (
               domain
                 .PartyDetails(party, Some(displayName), this.participantId == hostingParticipantId))
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAllocationRejected(
           submissionId,
@@ -207,8 +190,6 @@ class JdbcIndexer private[indexer] (
           rejectionReason) =>
         ledgerDao
           .storePartyEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             PartyLedgerEntry.AllocationRejected(
               submissionId,
@@ -217,7 +198,6 @@ class JdbcIndexer private[indexer] (
               rejectionReason
             )
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUpload(archives, optSourceDescription, recordTime, optSubmissionId) =>
         val recordTimeInstant = recordTime.toInstant
@@ -232,13 +212,10 @@ class JdbcIndexer private[indexer] (
             PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
         ledgerDao
           .storePackageEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             packages,
             optEntry
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case PublicPackageUploadRejected(submissionId, recordTime, rejectionReason) =>
         val entry: PackageLedgerEntry =
@@ -249,13 +226,10 @@ class JdbcIndexer private[indexer] (
           )
         ledgerDao
           .storePackageEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             List.empty,
             Some(entry)
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
@@ -292,14 +266,11 @@ class JdbcIndexer private[indexer] (
           divulgedContracts.map(c => c.contractId -> c.contractInst)
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, externalOffset, pt)
-          .map(_ => headRef = headRef + 1)(DEC)
+          .storeLedgerEntry(externalOffset, pt)
 
       case config: ConfigurationChanged =>
         ledgerDao
           .storeConfigurationEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             config.recordTime.toInstant,
             config.submissionId,
@@ -307,13 +278,10 @@ class JdbcIndexer private[indexer] (
             config.newConfiguration,
             None
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case configRejection: ConfigurationChangeRejected =>
         ledgerDao
           .storeConfigurationEntry(
-            headRef,
-            headRef + 1,
             externalOffset,
             configRejection.recordTime.toInstant,
             configRejection.submissionId,
@@ -321,7 +289,6 @@ class JdbcIndexer private[indexer] (
             configRejection.proposedConfiguration,
             Some(configRejection.rejectionReason)
           )
-          .map(_ => headRef = headRef + 1)(DEC)
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
@@ -334,10 +301,9 @@ class JdbcIndexer private[indexer] (
           )
         )
         ledgerDao
-          .storeLedgerEntry(headRef, headRef + 1, externalOffset, rejection)
-          .map(_ => ())(DEC)
-          .map(_ => headRef = headRef + 1)(DEC)
+          .storeLedgerEntry(externalOffset, rejection)
     }
+    result.map(_ => ())(DEC)
   }
 
   private def toDomainRejection(
@@ -346,13 +312,13 @@ class JdbcIndexer private[indexer] (
     case RejectionReason.Inconsistent =>
       domain.RejectionReason.Inconsistent(RejectionReason.Inconsistent.description)
     case RejectionReason.Disputed(_) => domain.RejectionReason.Disputed(state.description)
-    case RejectionReason.MaximumRecordTimeExceeded =>
-      domain.RejectionReason.TimedOut(state.description)
     case RejectionReason.ResourcesExhausted => domain.RejectionReason.OutOfQuota(state.description)
     case RejectionReason.PartyNotKnownOnLedger =>
       domain.RejectionReason.PartyNotKnownOnLedger(state.description)
     case RejectionReason.SubmitterCannotActViaParticipant(_) =>
       domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
+    case RejectionReason.InvalidLedgerTime(_) =>
+      domain.RejectionReason.InvalidLedgerTime(state.description)
   }
 
   private class SubscriptionResourceOwner(readService: ReadService)
@@ -364,11 +330,11 @@ class JdbcIndexer private[indexer] (
         Metrics.setup()
 
         val (killSwitch, completionFuture) = readService
-          .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
+          .stateUpdates(startExclusive)
           .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
           .mapAsync(1) {
             case (offset, update) =>
-              timedFuture(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
+              Timed.future(Metrics.stateUpdateProcessingTimer, handleStateUpdate(offset, update))
           }
           .toMat(Sink.ignore)(Keep.both)
           .run()

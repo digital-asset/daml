@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.CompiledPackages
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Transaction._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.transaction.Node.GlobalKey
 
 /** The result from small-step evaluation.
   * If the result is not Done or Continue, then the machine
@@ -40,8 +39,8 @@ object SResult {
     * initialized. The caller must retrieve the definition and fill it in
     * the packages cache it had provided to initialize the machine.
     */
-  final case class SResultMissingDefinition(
-      ref: SDefinitionRef,
+  final case class SResultNeedPackage(
+      pkg: PackageId,
       callback: CompiledPackages => Unit,
   ) extends SResult
 
@@ -84,9 +83,19 @@ object SResult {
   final case class SResultNeedKey(
       key: GlobalKey,
       committers: Set[Party],
-      // Callback to signal that the key was not present.
-      // returns true if this was recoverable.
-      cbMissing: Unit => Boolean,
-      cbPresent: AbsoluteContractId => Unit,
+      // Callback.
+      // returns true if machine can continue with the given result.
+      cb: SKeyLookupResult => Boolean,
   ) extends SResult
+
+  sealed abstract class SKeyLookupResult
+  object SKeyLookupResult {
+    final case class Found(coid: AbsoluteContractId) extends SKeyLookupResult
+    final case object NotFound extends SKeyLookupResult
+    final case object NotVisible extends SKeyLookupResult
+
+    def apply(coid: Option[AbsoluteContractId]): SKeyLookupResult =
+      coid.fold[SKeyLookupResult](NotFound)(Found)
+  }
+
 }

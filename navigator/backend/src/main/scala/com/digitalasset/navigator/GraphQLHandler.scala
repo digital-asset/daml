@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import akka.actor.ActorRef
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes._
-import com.digitalasset.navigator.graphql._
-import com.digitalasset.navigator.graphql.SprayMarshallers._
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.navigator.store.Store.StoreException
+import com.daml.navigator.graphql._
+import com.daml.navigator.graphql.SprayMarshallers._
+import com.daml.navigator.model.PartyState
+import com.daml.navigator.store.Store.StoreException
 import com.typesafe.scalalogging.LazyLogging
 import sangria.ast.Document
 import sangria.execution._

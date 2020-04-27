@@ -1,0 +1,65 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2 module Test where
+
+import qualified DA.Next.Set as S
+import DA.Next.Set (Set)
+
+template BasicKey
+  with
+    owners: Set Party
+  where
+    signatory owners
+    key owners: Set Party
+    maintainer key
+
+template KeyOps
+  with
+    signatories: Set Party
+    counterParty: Party
+
+  where
+    signatory signatories
+
+    controller counterParty can
+      Accept: ContractId (KeyOps)
+        do
+          create this with signatories = S.insert counterParty signatories
+
+    nonconsuming choice
+      LookupGivenKey: Optional (ContractId BasicKey)
+        with
+          actor: Party
+          keyMaintainers: Set Party
+        controller actor
+          do
+            assert $ S.member actor signatories
+            lookupByKey @BasicKey keyMaintainers
+
+run = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+
+  let
+    salice = S.singleton alice
+    aliceAndBob = S.insert bob salice
+
+  proposal <- submit alice $ create KeyOps with signatories = salice, counterParty = bob
+  accepted <- submit bob $ exercise proposal Accept
+
+  lookupA1 <- submit alice $ exercise accepted LookupGivenKey with actor = alice, keyMaintainers = salice
+  assert $ lookupA1 == None
+
+  lookupB1 <- submit bob $ exercise accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+  assert $ lookupB1 == None
+
+  cid <- submit alice $ create BasicKey with owners = salice
+
+  lookupA2 <- submit alice $ exercise accepted LookupGivenKey with actor = alice, keyMaintainers = salice
+  assert $ lookupA2 == Some cid
+
+  _ <- submitMustFail bob $ exercise accepted LookupGivenKey with actor = bob, keyMaintainers = salice
+
+  pure ()
+

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import java.time.{Instant, LocalDate}
 
@@ -10,7 +10,7 @@ import org.scalatest.{WordSpec, Matchers}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import shapeless.test.illTyped
 
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.client.binding.{Primitive => P}
 
 class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
   import PrimitiveSpec._
@@ -78,7 +78,7 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
 
     "preapprove values for TimestampConversion.instantToMicros" in forAll(anyInstantGen) { i =>
       P.Timestamp.discardNanos(i) foreach { t =>
-        noException should be thrownBy com.digitalasset.api.util.TimestampConversion
+        noException should be thrownBy com.daml.api.util.TimestampConversion
           .instantToMicros(t)
       }
     }

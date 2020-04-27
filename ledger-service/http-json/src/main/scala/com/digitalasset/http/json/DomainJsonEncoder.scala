@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.json
+package com.daml.http.json
 
-import com.digitalasset.http.domain
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.domain
+import com.daml.ledger.api.{v1 => lav1}
 import scalaz.\/
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.show._
@@ -16,7 +16,7 @@ class DomainJsonEncoder(
     val apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue
 ) {
 
-  import com.digitalasset.http.util.ErrorOps._
+  import com.daml.http.util.ErrorOps._
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def encodeExerciseCommand(

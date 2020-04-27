@@ -1,19 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
-import com.digitalasset.daml.lf.types.Ledger._
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data._
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises, NodeFetch, NodeLookupByKey}
+import com.daml.lf.transaction.{BlindingInfo, GenTransaction, Transaction}
+import com.daml.lf.types.Ledger._
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 
@@ -128,7 +123,8 @@ object Blinding {
             go(filteredRoots :+ root, remainingRoots)
           } else {
             tx.nodes(root) match {
-              case _: NodeFetch[Cid] | _: NodeCreate[Cid, Val] | _: NodeLookupByKey[Cid, Val] =>
+              case _: NodeFetch[Cid, Val] | _: NodeCreate[Cid, Val] |
+                  _: NodeLookupByKey[Cid, Val] =>
                 go(filteredRoots, remainingRoots)
               case ne: NodeExercises[Nid, Cid, Val] =>
                 go(filteredRoots, ne.children ++: remainingRoots)

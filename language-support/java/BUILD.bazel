@@ -1,13 +1,14 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 
 # FIXME: `javadoc_library` rule fails to find sources on Windows
 javadoc_library(
     name = "javadoc",
     srcs = [
+        "//language-support/java/bindings:ledger-api-java-lib-for-javadocs",
         "//language-support/java/bindings:sources",
         "//language-support/java/bindings-rxjava:sources",
     ],
@@ -18,6 +19,8 @@ javadoc_library(
         "com.daml.ledger.rxjava.components.helpers",
         "com.daml.ledger.rxjava.grpc",
         "com.daml.ledger.rxjava.util",
+        "com.daml.ledger.api.v1",
+        "com.daml.ledger.api.v1.testing",
     ],
     visibility = [
         "//visibility:public",
@@ -30,6 +33,7 @@ javadoc_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_core",
         "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_handler",
         "@maven//:io_reactivex_rxjava2_rxjava",

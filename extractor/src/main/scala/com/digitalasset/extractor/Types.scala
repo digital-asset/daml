@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor
+package com.daml.extractor
 
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.iface.{Enum, TypeConName}
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.daml.lf.iface
+import com.daml.lf.iface.{Enum, TypeConName}
+import com.daml.ledger.service.LedgerReader.PackageStore
 import doobie.util.fragment.Fragment
 
 import scala.util.control.NoStackTrace

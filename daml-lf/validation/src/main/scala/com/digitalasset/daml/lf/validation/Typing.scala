@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.validation.AlphaEquiv._
-import com.digitalasset.daml.lf.validation.Util._
-import com.digitalasset.daml.lf.validation.traversable.TypeTraversable
+import com.daml.lf.data.{ImmArray, Numeric}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.Util._
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.validation.AlphaEquiv._
+import com.daml.lf.validation.Util._
+import com.daml.lf.validation.traversable.TypeTraversable
 
 import scala.annotation.tailrec
 
@@ -55,7 +55,7 @@ private[validation] object Typing {
           TForall(gamma.name -> KNat, TNumeric(alpha) ->: TNumeric(beta) ->: TNumeric(gamma))))
     val tNumConversion =
       TForall(alpha.name -> KNat, TForall(beta.name -> KNat, TNumeric(alpha) ->: TNumeric(beta)))
-    def tComparison(bType: BuiltinType): Type = TBuiltin(bType) ->: TBuiltin(bType) ->: TBool
+    val tComparison: Type = TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool)
     val tNumComparison = TForall(alpha.name -> KNat, TNumeric(alpha) ->: TNumeric(alpha) ->: TBool)
 
     Map[BuiltinFunction, Type](
@@ -189,30 +189,10 @@ private[validation] object Typing {
       BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
-      BLessInt64 -> tComparison(BTInt64),
       BLessNumeric -> tNumComparison,
-      BLessText -> tComparison(BTText),
-      BLessTimestamp -> tComparison(BTTimestamp),
-      BLessDate -> tComparison(BTDate),
-      BLessParty -> tComparison(BTParty),
-      BLessEqInt64 -> tComparison(BTInt64),
       BLessEqNumeric -> tNumComparison,
-      BLessEqText -> tComparison(BTText),
-      BLessEqTimestamp -> tComparison(BTTimestamp),
-      BLessEqDate -> tComparison(BTDate),
-      BLessEqParty -> tComparison(BTParty),
-      BGreaterInt64 -> tComparison(BTInt64),
       BGreaterNumeric -> tNumComparison,
-      BGreaterText -> tComparison(BTText),
-      BGreaterTimestamp -> tComparison(BTTimestamp),
-      BGreaterDate -> tComparison(BTDate),
-      BGreaterParty -> tComparison(BTParty),
-      BGreaterEqInt64 -> tComparison(BTInt64),
       BGreaterEqNumeric -> tNumComparison,
-      BGreaterEqText -> tComparison(BTText),
-      BGreaterEqTimestamp -> tComparison(BTTimestamp),
-      BGreaterEqDate -> tComparison(BTDate),
-      BGreaterEqParty -> tComparison(BTParty),
       BImplodeText -> (TList(TText) ->: TText),
       BEqualNumeric -> tNumComparison,
       BEqualList ->
@@ -221,7 +201,11 @@ private[validation] object Typing {
           (alpha ->: alpha ->: TBool) ->: TList(alpha) ->: TList(alpha) ->: TBool),
       BEqualContractId ->
         TForall(alpha.name -> KStar, TContractId(alpha) ->: TContractId(alpha) ->: TBool),
-      BEqual -> TForall(alpha.name -> KStar, alpha ->: alpha ->: TBool),
+      BEqual -> tComparison,
+      BLess -> tComparison,
+      BLessEq -> tComparison,
+      BGreater -> tComparison,
+      BGreaterEq -> tComparison,
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,
@@ -359,7 +343,8 @@ private[validation] object Typing {
           if (supportsFlexibleControllers) {
             introExprVar(param, paramType).checkExpr(controllers, TParties)
           } else {
-            param.filter(eVars.isDefinedAt).foreach(x => throw EIllegalShadowingExprVar(ctx, x))
+            if (eVars.isDefinedAt(param))
+              throw EIllegalShadowingExprVar(ctx, param)
             checkExpr(controllers, TParties)
           }
           introExprVar(selfBinder, TContractId(TTyCon(tplName)))

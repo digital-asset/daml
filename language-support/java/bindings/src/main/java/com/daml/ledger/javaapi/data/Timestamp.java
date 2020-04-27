@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.javaapi.data;
 
-import com.digitalasset.ledger.api.v1.ValueOuterClass;
+import com.daml.ledger.api.v1.ValueOuterClass;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.time.Instant;
@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * A Timestamp value is represented as microseconds since the UNIX epoch.
  *
- * @see com.digitalasset.ledger.api.v1.ValueOuterClass.Value#getTimestamp()
+ * @see com.daml.ledger.api.v1.ValueOuterClass.Value#getTimestamp()
  */
 public class Timestamp extends Value {
 

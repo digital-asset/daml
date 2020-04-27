@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- file that contains the declarations used in the sandbox tests
@@ -353,6 +353,15 @@ template TextKeyOperations
           mbCid2 <- lookupByKey @TextKey keyToLookup
           assertMsg "does not get contract after exercise" (mbCid2 == None)
 
+    controller tkoParty can
+      nonconsuming TKOFetchAndRecreate : ()
+        with
+          keyToFetch: (Party, Text)
+        do
+          (cid, contract) <- fetchByKey @TextKey keyToFetch
+          exercise cid TextKeyChoice
+          cid2 <- create TextKey with tkParty = contract.tkParty, tkKey = contract.tkKey, tkDisclosedTo = contract.tkDisclosedTo
+          return ()
 
 -- dummy contract to be divulged out-of-band
 template Divulgence1
@@ -460,20 +469,18 @@ template Delegation
         with
           p: Party
           k: Text
-          expected: Optional (ContractId Delegated)
         do
-          (cid, _) <- fetchByKey @Delegated (p, k)
-          assertMsg "fetch matches" (expected == Some cid)
+          _ <- fetchByKey @Delegated (p, k)
+          pure ()
 
     controller delegate can
       nonconsuming LookupByKeyDelegated: ()
         with
           p: Party
           k: Text
-          expected: Optional (ContractId Delegated)
         do
-          actual <- lookupByKey @Delegated (p, k)
-          assertMsg "lookup matches" (expected == actual)
+          _ <- lookupByKey @Delegated (p, k)
+          pure ()
 
 
 template ShowDelegated

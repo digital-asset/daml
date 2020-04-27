@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyDetails
-import com.digitalasset.ledger.client.binding
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
+import com.daml.ledger.client.binding
 import scalaz.Tag
 
 import scala.util.Random
@@ -130,6 +130,7 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         partyDetails <- ledger.getParties(
           Seq(party1, party2, binding.Primitive.Party("non-existent")))
         noPartyDetails <- ledger.getParties(Seq(binding.Primitive.Party("non-existent")))
+        zeroPartyDetails <- ledger.getParties(Seq.empty)
       } yield {
         assert(
           partyDetails.sortBy(_.displayName) == Seq(
@@ -149,6 +150,9 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
         assert(
           noPartyDetails.isEmpty,
           s"Retrieved some parties when the party specified did not exist: $noPartyDetails")
+        assert(
+          zeroPartyDetails.isEmpty,
+          s"Retrieved some parties when no parties were requested: $zeroPartyDetails")
       }
   }
 

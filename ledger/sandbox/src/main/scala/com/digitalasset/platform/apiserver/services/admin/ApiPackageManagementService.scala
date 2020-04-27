@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.admin
+package com.daml.platform.apiserver.services.admin
 
 import java.io.ByteArrayInputStream
 import java.util.UUID
@@ -12,16 +12,16 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, IndexTransactionsService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePackagesService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.ledger.api.domain.{LedgerOffset, PackageEntry}
-import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
-import com.digitalasset.ledger.api.v1.admin.package_management_service._
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.api.util.TimeProvider
+import com.daml.lf.archive.DarReader
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.ledger.api.domain.{LedgerOffset, PackageEntry}
+import com.daml.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.daml.ledger.api.v1.admin.package_management_service._
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ServerServiceDefinition
 

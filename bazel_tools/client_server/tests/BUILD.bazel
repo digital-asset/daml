@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -25,7 +25,7 @@ exports_files(["client_input_file"])
 da_scala_binary(
     name = "server",
     srcs = ["server.scala"],
-    main_class = "com.digitalasset.bazeltools.clientservertest.tests.Main",
+    main_class = "com.daml.bazeltools.clientservertest.tests.Main",
     deps = [
         "@maven//:com_github_scopt_scopt_2_12",
     ],

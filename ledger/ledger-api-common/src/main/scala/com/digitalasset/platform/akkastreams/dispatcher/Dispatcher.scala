@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -25,9 +25,9 @@ trait Dispatcher[Index] extends AutoCloseable {
 
   /** Returns a stream of elements with the next index from start (inclusive) to end (exclusive) */
   def startingAt[T](
-      startInclusive: Index,
+      startExclusive: Index,
       subSource: SubSource[Index, T],
-      endExclusive: Option[Index] = None): Source[(Index, T), NotUsed]
+      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed]
 }
 
 object Dispatcher {

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -6,7 +6,6 @@ load(
     "scala_binary",
     "scala_library",
     "scala_library_suite",
-    "scala_macro_library",
     "scala_test",
     "scala_test_suite",
 )
@@ -120,6 +119,44 @@ plugin_scalacopts = [
 lf_scalacopts = [
     "-Ywarn-unused",
 ]
+
+default_compile_arguments = {
+    "unused_dependency_checker_mode": "error",
+}
+
+default_initial_heap_size = "128m"
+default_max_heap_size = "1g"
+default_scalac_stack_size = "2m"
+
+def _jvm_flags(initial_heap_size, max_heap_size):
+    return ["-Xms{}".format(initial_heap_size), "-Xmx{}".format(max_heap_size)]
+
+def _set_compile_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
+    result = {}
+    result.update(arguments)
+    result.update({
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+    })
+    return result
+
+def _set_jvm_flags(
+        arguments,
+        initial_heap_size = default_initial_heap_size,
+        max_heap_size = default_max_heap_size,
+        scalac_stack_size = default_scalac_stack_size):
+    jvm_flags = _jvm_flags(initial_heap_size, max_heap_size)
+    result = {}
+    result.update(arguments)
+    result.update({
+        "scalac_jvm_flags": arguments.get("scalac_jvm_flags", []) + ["-Xss{}".format(scalac_stack_size)] + jvm_flags,
+        "jvm_flags": arguments.get("jvm_flags", []) + jvm_flags,
+    })
+    return result
 
 def _wrap_rule(rule, name = "", scalacopts = [], plugins = [], generated_srcs = [], **kwargs):
     rule(
@@ -408,7 +445,7 @@ def _create_scaladoc_jar(**kwargs):
             tags = ["scaladoc"],
         )
 
-def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_library(name, **kwargs):
     """
     Define a Scala library.
 
@@ -418,13 +455,16 @@ def da_scala_library(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_library_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library.md
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_library, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_library, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -442,30 +482,20 @@ def da_scala_library_suite(name, **kwargs):
 
     [rules_scala_library_suite_docs]: https://github.com/bazelbuild/rules_scala/blob/master/docs/scala_library_suite.md
     """
-    _wrap_rule(scala_library_suite, name, **kwargs)
-    _create_scala_source_jar(name = name, **kwargs)
-    _create_scaladoc_jar(name = name, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_compile_jvm_flags(arguments)
+    _wrap_rule(scala_library_suite, name, **arguments)
+    _create_scala_source_jar(name = name, **arguments)
+    _create_scaladoc_jar(name = name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 fail("Usage of maven_coordinates in da_scala_library_suite is NOT supported", "tags")
                 break
 
-def da_scala_macro_library(**kwargs):
-    """
-    Define a Scala library that contains macros.
-
-    Applies common Scala options defined in `bazel_tools/scala.bzl`.
-    And forwards to `scala_macro_library` from `rules_scala`.
-    Refer to the [`rules_scala` documentation][rules_scala_docs].
-
-    [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_library
-    """
-    _wrap_rule(scala_macro_library, **kwargs)
-    _create_scala_source_jar(**kwargs)
-
-def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_binary(name, initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable.
 
@@ -475,11 +505,14 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_binary
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_binary, name, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_binary, name, **arguments)
 
-    if "tags" in kwargs:
-        for tag in kwargs["tags"]:
+    if "tags" in arguments:
+        for tag in arguments["tags"]:
             if tag.startswith("maven_coordinates="):
                 pom_file(
                     name = name + "_pom",
@@ -499,7 +532,7 @@ def da_scala_binary(name, unused_dependency_checker_mode = "error", **kwargs):
                 )
                 break
 
-def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
+def da_scala_test(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala executable that runs the unit tests in the given source files.
 
@@ -509,10 +542,13 @@ def da_scala_test(unused_dependency_checker_mode = "error", **kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test
     """
-    kwargs["unused_dependency_checker_mode"] = unused_dependency_checker_mode
-    _wrap_rule(scala_test, **kwargs)
+    arguments = {}
+    arguments.update(default_compile_arguments)
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_test, **arguments)
 
-def da_scala_test_suite(**kwargs):
+def da_scala_test_suite(initial_heap_size = default_initial_heap_size, max_heap_size = default_max_heap_size, **kwargs):
     """
     Define a Scala test executable for each source file and bundle them into one target.
 
@@ -522,7 +558,10 @@ def da_scala_test_suite(**kwargs):
 
     [rules_scala_docs]: https://github.com/bazelbuild/rules_scala#scala_test_suite
     """
-    _wrap_rule(scala_test_suite, use_short_names = is_windows, **kwargs)
+    arguments = {}
+    arguments.update(kwargs)
+    arguments = _set_jvm_flags(arguments, initial_heap_size = initial_heap_size, max_heap_size = max_heap_size)
+    _wrap_rule(scala_test_suite, use_short_names = is_windows, **arguments)
 
 # TODO make the jmh rule work with plugins -- probably
 # just a matter of passing the flag in

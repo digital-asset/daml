@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc
+package com.daml.grpc
 
-import com.digitalasset.grpc.GrpcStatus.SpecificGrpcStatus
+import com.daml.grpc.GrpcStatus.SpecificGrpcStatus
 import io.grpc.{Metadata, Status, StatusException, StatusRuntimeException}
 
 object GrpcException {

@@ -14,7 +14,7 @@ The Sandbox logs at `INFO` level to standard out and to the file `sandbox.log` i
 
 ### Log levels
 
-As most Java libraries and frameworks, the Sandbox and Ledger API Server use INFO as the default logging level. This level is for minimal 
+As most Java libraries and frameworks, the Sandbox and Ledger API Server use INFO as the default logging level. This level is for minimal
 and important information (usually only startup and normal shutdown events). INFO level logging should not produce
 increasing volume of logging during normal operation.
 
@@ -33,9 +33,9 @@ The Ledger API Server exposes basic metrics for all gRPC services and some addit
 <table>
 <thead><tr><td>Metric Name</td><td>Description</td></tr>
 <tbody>
-<tr><td><pre>LedgerApi.com.digitalasset.ledger.api.v1.$SERVICE.$METHOD</pre></td><td>A <i>meter</i> that tracks the number of calls to the respective service and method.
+<tr><td><pre>LedgerApi.com.daml.ledger.api.v1.$SERVICE.$METHOD</pre></td><td>A <i>meter</i> that tracks the number of calls to the respective service and method.
 <tr><td><pre>CommandSubmission.failedCommandInterpretations</pre></td><td>A <i>meter</i> that tracks the failed command interpretations.
-<tr><td><pre>CommandSubmission.submittedTransactions</pre></td><td>A <i>timer</i> that tracks the commands submitted to the backing ledger. 
+<tr><td><pre>CommandSubmission.submittedTransactions</pre></td><td>A <i>timer</i> that tracks the commands submitted to the backing ledger.
 </tbody>
 </table>
 
@@ -52,9 +52,9 @@ The Ledger API Server exposes basic metrics for all gRPC services and some addit
 
 ### Metrics Reporting
 
-The Sandbox automatically makes all metrics available via JMX under the JMX domain `com.digitalasset.platform.sandbox`. 
+The Sandbox automatically makes all metrics available via JMX under the JMX domain `com.daml.platform.sandbox`.
 
-When building an Indexer or Ledger API Server the implementer/ledger integrator is responsible to set up 
+When building an Indexer or Ledger API Server the implementer/ledger integrator is responsible to set up
 a `MetricRegistry` and a suitable metric reporting strategy that fits their needs.
 
 ## Health Checks

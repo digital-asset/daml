@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
@@ -14,8 +14,8 @@ import io.grpc.Metadata
   */
 final class AuthServiceStatic(claims: PartialFunction[String, Claims]) extends AuthService {
   override def decodeMetadata(headers: Metadata): CompletionStage[Claims] = {
-    if (headers.containsKey(AuthServiceStatic.AUTHORIZATION_KEY)) {
-      val authorizationValue = headers.get(AuthServiceStatic.AUTHORIZATION_KEY)
+    if (headers.containsKey(AUTHORIZATION_KEY)) {
+      val authorizationValue = headers.get(AUTHORIZATION_KEY).stripPrefix("Bearer ")
       CompletableFuture.completedFuture(claims.lift(authorizationValue).getOrElse(Claims.empty))
     } else {
       CompletableFuture.completedFuture(Claims.empty)
@@ -24,8 +24,5 @@ final class AuthServiceStatic(claims: PartialFunction[String, Claims]) extends A
 }
 
 object AuthServiceStatic {
-  private val AUTHORIZATION_KEY: Metadata.Key[String] =
-    Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
-
   def apply(claims: PartialFunction[String, Claims]) = new AuthServiceStatic(claims)
 }

@@ -1,30 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import akka.NotUsed
+import akka.http.scaladsl.model.StatusCodes
 import akka.stream.scaladsl._
 import akka.stream.Materializer
-import com.digitalasset.daml.lf
-import com.digitalasset.http.LedgerClientJwt.Terminates
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
-import com.digitalasset.http.json.JsonProtocol.LfValueCodec
-import com.digitalasset.http.query.ValuePredicate
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.FutureUtil.toFuture
+import com.daml.lf
+import com.daml.http.LedgerClientJwt.Terminates
+import com.daml.http.dbbackend.ContractDao
+import com.daml.http.domain.{GetActiveContractsRequest, JwtPayload, TemplateId}
+import com.daml.http.json.JsonProtocol.LfValueCodec
+import com.daml.http.query.ValuePredicate
+import com.daml.http.util.ApiValueToLfValueConverter
+import com.daml.http.util.FutureUtil.toFuture
 import util.Collections._
 import util.{ContractStreamStep, InsertDeleteStep}
-import com.digitalasset.jwt.domain.Jwt
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => api}
-import com.digitalasset.util.ExceptionOps._
+import com.daml.jwt.domain.Jwt
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.{v1 => api}
+import com.daml.util.ExceptionOps._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, OneAnd, Show, Tag, \/, \/-}
 import spray.json.JsValue
 
 import scala.collection.breakOut
@@ -155,9 +156,8 @@ class ContractsService(
       jwt: Jwt,
       party: domain.Party,
   ): SearchResult[Error \/ domain.ActiveContract[LfValue]] =
-    SearchResult(
-      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty)),
-      Set.empty,
+    domain.OkResponse(
+      Source(allTemplateIds()).flatMapConcat(x => searchInMemoryOneTpId(jwt, party, x, Map.empty))
     )
 
   def search(
@@ -170,19 +170,30 @@ class ContractsService(
   def search(
       jwt: Jwt,
       party: domain.Party,
-      templateIds: Set[domain.TemplateId.OptionalPkg],
+      templateIds: OneAnd[Set, domain.TemplateId.OptionalPkg],
       queryParams: Map[String, JsValue],
   ): SearchResult[Error \/ domain.ActiveContract[JsValue]] = {
 
     val (resolvedTemplateIds, unresolvedTemplateIds) = resolveTemplateIds(templateIds)
 
-    val source = daoAndFetch.cata(
-      x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
-      searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
-        .map(_.flatMap(lfAcToJsAc)),
-    )
+    val warnings: Option[domain.UnknownTemplateIds] =
+      if (unresolvedTemplateIds.isEmpty) None
+      else Some(domain.UnknownTemplateIds(unresolvedTemplateIds.toList))
 
-    SearchResult(source, unresolvedTemplateIds)
+    if (resolvedTemplateIds.isEmpty) {
+      domain.ErrorResponse(
+        errors = List(ErrorMessages.cannotResolveAnyTemplateId),
+        warnings = warnings,
+        status = StatusCodes.BadRequest
+      )
+    } else {
+      val source = daoAndFetch.cata(
+        x => searchDb(x._1, x._2)(jwt, party, resolvedTemplateIds, queryParams),
+        searchInMemory(jwt, party, resolvedTemplateIds, queryParams)
+          .map(_.flatMap(lfAcToJsAc)),
+      )
+      domain.OkResponse(source, warnings)
+    }
   }
 
   // we store create arguments as JSON in DB, that is why it is `domain.ActiveContract[JsValue]` in the result
@@ -272,27 +283,35 @@ class ContractsService(
   ): Source[Error \/ domain.ActiveContract[LfValue], NotUsed] =
     searchInMemory(jwt, party, Set(templateId), queryParams)
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def insertDeleteStepSource(
       jwt: Jwt,
       party: lar.Party,
       templateIds: List[domain.TemplateId.RequiredPkg],
+      startOffset: Option[domain.StartingOffset] = None,
       terminates: Terminates = Terminates.AtLedgerEnd,
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
 
     val txnFilter = util.Transactions.transactionFilterFor(party, templateIds)
-    val source = getActiveContracts(jwt, txnFilter, true)
+    def source = getActiveContracts(jwt, txnFilter, true)
 
     val transactionsSince
       : api.ledger_offset.LedgerOffset => Source[api.transaction.Transaction, NotUsed] =
       getCreatesAndArchivesSince(jwt, txnFilter, _: api.ledger_offset.LedgerOffset, terminates)
 
-    import ContractsFetch.acsFollowingAndBoundary, ContractsFetch.GraphExtensions._
-    val contractsAndBoundary = acsFollowingAndBoundary(transactionsSince).divertToHead
-    source
-      .viaMat(contractsAndBoundary) { (nu, fob) =>
-        fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
-        nu
-      }
+    import ContractsFetch.{acsFollowingAndBoundary, transactionsFollowingBoundary},
+    ContractsFetch.GraphExtensions._
+    val contractsAndBoundary = startOffset.cata(
+      so =>
+        Source
+          .single(Tag unsubst util.AbsoluteBookmark(so.offset))
+          .viaMat(transactionsFollowingBoundary(transactionsSince).divertToHead)(Keep.right),
+      source.viaMat(acsFollowingAndBoundary(transactionsSince).divertToHead)(Keep.right)
+    )
+    contractsAndBoundary mapMaterializedValue { fob =>
+      fob.foreach(a => logger.debug(s"contracts fetch completed at: ${a.toString}"))
+      NotUsed
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -318,10 +337,14 @@ class ContractsService(
     \/.fromTryCatchNonFatal(LfValueCodec.apiValueToJsValue(a)).leftMap(e =>
       Error('lfValueToJsValue, e.description))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private[http] def resolveTemplateIds[Tid <: domain.TemplateId.OptionalPkg](
-      xs: Set[Tid],
+      xs: OneAnd[Set, Tid]
   ): (Set[domain.TemplateId.RequiredPkg], Set[Tid]) = {
-    xs.partitionMap { x =>
+    import scalaz.std.iterable._
+    import scalaz.syntax.foldable._
+
+    xs.toSet.partitionMap { x =>
       resolveTemplateId(x) toLeftDisjunction x
     }
   }
@@ -340,8 +363,5 @@ object ContractsService {
     }
   }
 
-  final case class SearchResult[A](
-      source: Source[A, NotUsed],
-      unresolvedTemplateIds: Set[domain.TemplateId.OptionalPkg],
-  )
+  type SearchResult[A] = domain.SyncResponse[Source[A, NotUsed]]
 }

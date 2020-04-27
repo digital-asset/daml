@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
@@ -40,16 +40,6 @@ object RejectionReason {
     override def description: String = "Resources exhausted"
   }
 
-  /** The transaction submission exceeded its maximum record time.
-    *
-    * This means the 'maximumRecordTime' was smaller than the record time
-    * in the ledger state at which the transaction was sequenced.
-    */
-  final case object MaximumRecordTimeExceeded extends RejectionReason {
-    override def description: String =
-      "The maximum record time of the command exceeded"
-  }
-
   /** A party mentioned as a stakeholder or actor has not been on-boarded on
     * the ledger.
     *
@@ -72,5 +62,17 @@ object RejectionReason {
     */
   final case class SubmitterCannotActViaParticipant(details: String) extends RejectionReason {
     override def description: String = "Submitter cannot act via participant: " + details
+  }
+
+  /** The ledger time of the transaction submission violated one of the
+    *  following constraints on ledger time:
+    *  - The difference between the ledger time and the record time
+    *    in the ledger state at which the transaction was sequenced must
+    *    stay within bounds defined by the ledger.
+    *  - The ledger time of the transaction must be greater than or equal
+    *    to the ledger time of any contract used by the transaction.
+    */
+  final case class InvalidLedgerTime(reason: String) extends RejectionReason {
+    override def description: String = "Invalid ledger time: " + reason
   }
 }

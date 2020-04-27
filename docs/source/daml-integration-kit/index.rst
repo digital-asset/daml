@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Integration Kit - ALPHA
@@ -118,7 +118,7 @@ Before you can decide on an appropriate architecture and implement your own
 server and validator, you need a significant amount of context about DAML.
 To acquire this context, you should:
 
-1. Complete the :doc:`/getting-started/quickstart`.
+1. Complete the :doc:`/app-dev/bindings-java/quickstart`.
 2. Get an in-depth understanding of the :doc:`/concepts/ledger-model/index`.
 3. Build a mental model of how the :doc:`Ledger API </app-dev/ledger-api>`
    is used to :doc:`build DAML Applications </app-dev/app-arch>`.
@@ -342,20 +342,20 @@ Authorization
 To implement authorization on your ledger,
 do the following modifications to your code:
 
-- Implement the ``com.digitalasset.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
+- Implement the ``com.daml.ledger.api.auth.AuthService`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthService.scala>`__) interface.
   An AuthService receives all HTTP headers attached to a gRPC ledger API request
   and returns a set of ``Claims`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/Claims.scala>`__), which describe the authorization of the request.
-- Instantiate a ``com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
+- Instantiate a ``com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/interceptor/AuthorizationInterceptor.scala>`__),
   and pass it an instance of your AuthService implementation.
   This interceptor will be responsible for storing the decoded Claims in a place where ledger API services can access them.
-- When starting the ``com.digitalasset.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/LedgerApiServer.scala>`__),
+- When starting the ``com.daml.platform.apiserver.LedgerApiServer`` (`source code <https://github.com/digital-asset/daml/blob/master/ledger/sandbox/src/main/scala/com/digitalasset/platform/apiserver/LedgerApiServer.scala>`__),
   add the above AuthorizationInterceptor to the list of interceptors (see ``interceptors`` parameter of ``LedgerApiServer.create``).
 
 For reference, you can have a look at how authorization is implemented in the sandbox:
 
-- The ``com.digitalasset.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWT`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWT.scala>`__)
   reads a `JWT <https://jwt.io/>`__ token from HTTP headers.
-- The ``com.digitalasset.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
+- The ``com.daml.ledger.api.auth.AuthServiceJWTPayload`` class (`source code <https://github.com/digital-asset/daml/blob/master/ledger/ledger-api-auth/src/main/scala/com/digitalasset/ledger/api/auth/AuthServiceJWTPayload.scala>`__)
   defines the format of the token payload.
 - The token signature algorithm and the corresponding public key is specified as a sandbox command line parameter.
 
@@ -372,9 +372,8 @@ there are consistency or conformance problem with your implementation.
 
 Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:
 
-#. Obtain the tool:
-
-   ``curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar``
+#. Download the Ledger API Test Tool from :ledger-api-test-tool-maven:`Maven <ledger-api-test-tool>`
+   and save it as ``ledger-api-test-tool.jar`` in your current directory.
 
 #. Obtain the DAML archives required to run the tests:
 

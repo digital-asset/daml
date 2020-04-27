@@ -1,34 +1,34 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.{CommandId, EventId, TransactionId}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.event.Event
-import com.digitalasset.ledger.api.v1.transaction.{
+import com.daml.api.util.TimestampConversion
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.engine.Blinding
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.{CommandId, EventId, TransactionId}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.v1.event.Event
+import com.daml.ledger.api.v1.transaction.{
   TreeEvent,
   Transaction => ApiTransaction,
   TransactionTree => ApiTransactionTree
 }
-import com.digitalasset.platform.api.v1.event.EventOps.EventOps
-import com.digitalasset.platform.api.v1.event.EventOps.TreeEventOps
-import com.digitalasset.platform.events.EventIdFormatter.{fromTransactionId, split}
-import com.digitalasset.platform.participant.util.LfEngineToApi.{
+import com.daml.platform.api.v1.event.EventOps.EventOps
+import com.daml.platform.api.v1.event.EventOps.TreeEventOps
+import com.daml.platform.events.EventIdFormatter.{fromTransactionId, split}
+import com.daml.platform.participant.util.LfEngineToApi.{
   assertOrRuntimeEx,
   lfNodeCreateToEvent,
   lfNodeCreateToTreeEvent,
   lfNodeExercisesToEvent,
   lfNodeExercisesToTreeEvent
 }
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.platform.store.entries.LedgerEntry
 
 import scala.annotation.tailrec
 
@@ -76,7 +76,7 @@ object TransactionConversion {
     }
   }
 
-  private[index] def removeTransient(events: Vector[Event]): Vector[Event] = {
+  private[platform] def removeTransient(events: Vector[Event]): Vector[Event] = {
     val toKeep = permanent(events)
     events.filter(event => toKeep(event.contractId))
   }
@@ -96,7 +96,7 @@ object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = commandId,
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         events = filtered,
         offset = offset.value,
       )).filter(tx => tx.events.nonEmpty || tx.commandId.nonEmpty)
@@ -199,7 +199,7 @@ object TransactionConversion {
         transactionId = entry.transactionId,
         commandId = maskCommandId(entry.commandId, entry.submittingParty, requestingParties),
         workflowId = entry.workflowId.getOrElse(""),
-        effectiveAt = Some(TimestampConversion.fromInstant(entry.recordedAt)),
+        effectiveAt = Some(TimestampConversion.fromInstant(entry.ledgerEffectiveTime)),
         offset = offset.value,
       ))
   }

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.validation
+package com.daml.ledger.api.validation
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.platform.server.api.validation.ErrorFactories.invalidArgument
-import com.digitalasset.platform.server.api.validation.FieldValidations.requireParty
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.server.api.validation.ErrorFactories.invalidArgument
+import com.daml.platform.server.api.validation.FieldValidations.requireParty
 import io.grpc.StatusRuntimeException
 
 class PartyValidator(partyNameChecker: PartyNameChecker) {

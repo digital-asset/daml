@@ -1,29 +1,34 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
+import com.daml.api.util.TimeProvider
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.auth.services._
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.api.v1.command_completion_service.CompletionEndRequest
+import com.daml.ledger.client.services.commands.CommandSubmissionFlow
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v1.{Configuration, SeedService, WriteService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine._
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.auth.services._
-import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.services.admin.{
+import com.daml.ledger.participant.state.v1.{SeedService, WriteService}
+import com.daml.lf.data.Ref
+import com.daml.lf.engine._
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.execution.{
+  LedgerTimeAwareCommandExecutor,
+  StoreBackedCommandExecutor,
+  TimedCommandExecutor
+}
+import com.daml.platform.apiserver.services.admin.{
   ApiConfigManagementService,
   ApiPackageManagementService,
   ApiPartyManagementService
 }
-import com.digitalasset.platform.apiserver.services.transaction.ApiTransactionService
-import com.digitalasset.platform.apiserver.services.{
+import com.daml.platform.apiserver.services.transaction.ApiTransactionService
+import com.daml.platform.apiserver.services.{
   ApiActiveContractsService,
   ApiCommandCompletionService,
   ApiCommandService,
@@ -33,12 +38,14 @@ import com.digitalasset.platform.apiserver.services.{
   ApiSubmissionService,
   ApiTimeService
 }
-import com.digitalasset.platform.configuration.{
+import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.server.api.services.grpc.GrpcHealthService
+import com.daml.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import scalaz.syntax.tag._
@@ -76,7 +83,8 @@ object ApiServices {
       authorizer: Authorizer,
       engine: Engine,
       timeProvider: TimeProvider,
-      defaultLedgerConfiguration: Configuration,
+      timeProviderType: TimeProviderType,
+      ledgerConfiguration: LedgerConfiguration,
       commandConfig: CommandConfiguration,
       partyConfig: PartyConfiguration,
       submissionConfig: SubmissionConfiguration,
@@ -104,23 +112,38 @@ object ApiServices {
     val submissionService: IndexSubmissionService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
-      val apiSubmissionService =
-        ApiSubmissionService.create(
-          ledgerId,
-          contractStore,
-          writeService,
-          submissionService,
-          partyManagementService,
-          defaultLedgerConfiguration.timeModel,
-          timeProvider,
-          seedService,
-          new CommandExecutorImpl(engine, packagesService.getLfPackage, participantId),
-          ApiSubmissionService.Configuration(
-            submissionConfig.maxDeduplicationTime,
-            partyConfig.implicitPartyAllocation,
+      val commandExecutor = new TimedCommandExecutor(
+        new LedgerTimeAwareCommandExecutor(
+          new StoreBackedCommandExecutor(
+            engine,
+            participantId,
+            packagesService,
+            contractStore,
+            metrics,
           ),
+          contractStore,
+          maxRetries = 3,
           metrics,
-        )
+        ),
+        metrics,
+      )
+      val apiSubmissionService = ApiSubmissionService.create(
+        ledgerId,
+        contractStore,
+        writeService,
+        submissionService,
+        partyManagementService,
+        ledgerConfiguration.initialConfiguration.timeModel,
+        timeProvider,
+        timeProviderType,
+        seedService,
+        commandExecutor,
+        ApiSubmissionService.Configuration(
+          submissionConfig.maxDeduplicationTime,
+          partyConfig.implicitPartyAllocation,
+        ),
+        metrics,
+      )
 
       logger.info(EngineInfo.show)
 
@@ -146,16 +169,17 @@ object ApiServices {
           commandConfig.maxCommandsInFlight,
           commandConfig.limitMaxCommandsInFlight,
           commandConfig.retentionPeriod,
-          submissionConfig.maxDeduplicationTime
+          submissionConfig.maxDeduplicationTime,
         ),
         // Using local services skips the gRPC layer, improving performance.
-        ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
+        ApiCommandService.LocalServices(
           CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxParallelSubmissions),
           r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
-        )
+        ),
+        timeProvider,
       )
 
       val apiActiveContractsService =
@@ -186,7 +210,7 @@ object ApiServices {
             configManagementService,
             writeService,
             timeProvider,
-            defaultLedgerConfiguration)
+            ledgerConfiguration)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 

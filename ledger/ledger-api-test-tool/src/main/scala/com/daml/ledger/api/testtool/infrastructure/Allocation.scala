@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.digitalasset.ledger.client.binding.Primitive.Party
+import com.daml.ledger.client.binding.Primitive.Party
 
 private[testtool] object Allocation {
   def allocate(firstPartyCount: PartyCount, partyCounts: PartyCount*): ParticipantAllocation =

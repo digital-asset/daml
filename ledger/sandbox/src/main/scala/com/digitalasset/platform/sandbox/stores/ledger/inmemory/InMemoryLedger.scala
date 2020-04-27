@@ -1,9 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.inmemory
+package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -20,43 +21,56 @@ import com.daml.ledger.participant.state.v1.{
   TransactionId => _,
   _
 }
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.data.Ref.{LedgerString, PackageId, Party}
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.transaction.Node
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger
+import com.daml.ledger.api.domain.{
   ApplicationId,
+  CommandId,
+  Filters,
+  InclusiveFilters,
   LedgerId,
+  LedgerOffset,
   PartyDetails,
   RejectionReason,
-  TransactionFilter,
-  TransactionId
+  TransactionFilter
 }
-import com.digitalasset.ledger.api.health.{HealthStatus, Healthy}
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.platform.index
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveLedgerState
-import com.digitalasset.platform.sandbox.stores.ledger.Ledger
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
-import com.digitalasset.platform.store.Contract.ActiveContract
-import com.digitalasset.platform.store.entries.{
+import com.daml.ledger.api.health.{HealthStatus, Healthy}
+import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.transaction_service.{
+  GetFlatTransactionResponse,
+  GetTransactionResponse,
+  GetTransactionTreesResponse,
+  GetTransactionsResponse
+}
+import com.daml.platform.index.TransactionConversion
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.participant.util.LfEngineToApi
+import com.daml.platform.sandbox.stores.InMemoryActiveLedgerState
+import com.daml.platform.sandbox.stores.ledger.Ledger
+import com.daml.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.{CompletionFromTransaction, LedgerSnapshot}
+import com.daml.platform.store.CompletionFromTransaction
+import com.daml.platform.{ApiOffset, index}
 import org.slf4j.LoggerFactory
-import scalaz.Tag
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.Try
 
 sealed trait InMemoryEntry extends Product with Serializable
 final case class InMemoryLedgerEntry(entry: LedgerEntry) extends InMemoryEntry
@@ -78,13 +92,21 @@ class InMemoryLedger(
     timeProvider: TimeProvider,
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
-    ledgerEntries: ImmArray[LedgerEntryOrBump])
-    extends Ledger {
+    ledgerEntries: ImmArray[LedgerEntryOrBump],
+    initialConfig: Configuration,
+) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
+    l.publish(
+      InMemoryConfigEntry(
+        ConfigurationEntry.Accepted(
+          submissionId = UUID.randomUUID.toString,
+          participantId = participantId,
+          configuration = initialConfig,
+        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -101,39 +123,126 @@ class InMemoryLedger(
   override def currentHealth(): HealthStatus = Healthy
 
   override def ledgerEntries(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed] =
     entries
-      .getSource(beginInclusive, endExclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) => offset -> entry }
+      .getSource(startExclusive, endInclusive)
+      .collect {
+        case (offset, InMemoryLedgerEntry(entry)) => offset -> entry
+      }
+
+  override def flatTransactions(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionsResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToFlatTransaction(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                TransactionFilter(filter.map {
+                  case (party, templates) =>
+                    party -> Filters(
+                      if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+                }),
+                verbose
+              )
+              .map(tx => offset -> GetTransactionsResponse(Seq(tx)))
+              .toList
+          )
+        case _ =>
+          Source.empty
+      }
+
+  override def transactionTrees(
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
+      requestingParties: Set[Party],
+      verbose: Boolean,
+  ): Source[(Offset, GetTransactionTreesResponse), NotUsed] =
+    entries
+      .getSource(startExclusive, endInclusive)
+      .flatMapConcat {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) =>
+          Source(
+            TransactionConversion
+              .ledgerEntryToTransactionTree(
+                LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+                tx,
+                requestingParties,
+                verbose)
+              .map(tx => offset -> GetTransactionTreesResponse(Seq(tx)))
+              .toList)
+        case _ =>
+          Source.empty
+      }
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = None
+  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
   override def completions(
-      beginInclusive: Option[Long],
-      endExclusive: Option[Long],
+      startExclusive: Option[Offset],
+      endInclusive: Option[Offset],
       applicationId: ApplicationId,
-      parties: Set[Party]): Source[(Long, CompletionStreamResponse), NotUsed] =
+      parties: Set[Party]): Source[(Offset, CompletionStreamResponse), NotUsed] =
     entries
-      .getSource(beginInclusive, endExclusive)
-      .collect { case (offset, InMemoryLedgerEntry(entry)) => (offset + 1, entry) }
+      .getSource(startExclusive, endInclusive)
+      .collect {
+        case (offset, InMemoryLedgerEntry(entry)) => (offset, entry)
+      }
       .collect(CompletionFromTransaction(applicationId.unwrap, parties))
 
-  override def ledgerEnd: Long = entries.ledgerEnd
+  override def ledgerEnd: Offset = entries.ledgerEnd
 
-  // need to take the lock to make sure the two pieces of data are consistent.
-  override def snapshot(filter: TransactionFilter): Future[LedgerSnapshot] =
-    Future.successful(this.synchronized {
-      LedgerSnapshot(
-        entries.ledgerEnd,
-        Source
-          .fromIterator[ActiveContract](() =>
-            acs.activeContracts.valuesIterator.flatMap(index.EventFilter(_)(filter).toList)))
-    })
+  override def activeContracts(
+      activeAt: Offset,
+      filter: Map[Party, Set[Ref.Identifier]],
+      verbose: Boolean,
+  ): Source[GetActiveContractsResponse, NotUsed] =
+    Source
+      .fromIterator[ActiveContract](() =>
+        acs.activeContracts.valuesIterator.flatMap(index
+          .EventFilter(_)(TransactionFilter(filter.map {
+            case (party, templates) =>
+              party -> Filters(if (templates.nonEmpty) Some(InclusiveFilters(templates)) else None)
+          }))
+          .toList))
+      .map { contract =>
+        GetActiveContractsResponse(
+          workflowId = contract.workflowId.getOrElse(""),
+          activeContracts = List(
+            CreatedEvent(
+              contract.eventId,
+              contract.id.coid,
+              Some(LfEngineToApi.toApiIdentifier(contract.contract.template)),
+              contractKey = contract.key.map(
+                ck =>
+                  LfEngineToApi.assertOrRuntimeEx(
+                    "converting stored contract",
+                    LfEngineToApi
+                      .lfContractKeyToApiValue(verbose = verbose, ck))),
+              createArguments = Some(
+                LfEngineToApi.assertOrRuntimeEx(
+                  "converting stored contract",
+                  LfEngineToApi
+                    .lfValueToApiRecord(verbose = verbose, contract.contract.arg.value))),
+              contract.signatories.union(contract.observers).intersect(filter.keySet).toSeq,
+              signatories = contract.signatories.toSeq,
+              observers = contract.observers.toSeq,
+              agreementText = Some(contract.agreementText)
+            )
+          )
+        )
+      }
 
   override def lookupContract(
       contractId: AbsoluteContractId,
@@ -151,11 +260,26 @@ class InMemoryLedger(
       acs.keys.get(key).filter(acs.isVisibleForStakeholders(_, forParty))
     })
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    Future.successful(this.synchronized[Unit] {
-      entries.publish(InMemoryLedgerEntry(LedgerEntry.Checkpoint(time)))
-      ()
-    })
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId]): Future[Option[Instant]] =
+    if (contractIds.isEmpty) {
+      Future.failed(
+        new IllegalArgumentException(
+          "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
+        )
+      )
+    } else {
+      Future.fromTry(Try(this.synchronized {
+        contractIds.foldLeft[Option[Instant]](Some(Instant.MIN))((acc, id) => {
+          val let = acs.activeContracts
+            .getOrElse(
+              id,
+              sys.error(s"Contract $id not found while looking for maximum ledger time"))
+            .let
+          acc.map(acc => if (let.isAfter(acc)) let else acc)
+        })
+      }))
+    }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
@@ -163,7 +287,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
-        handleSuccessfulTx(entries.toLedgerString, submitterInfo, transactionMeta, transaction)
+        handleSuccessfulTx(entries.nextTransactionId, submitterInfo, transactionMeta, transaction)
         SubmissionResult.Acknowledged
       }
     )
@@ -173,58 +297,56 @@ class InMemoryLedger(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
+    val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
-      // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
-      // than the time window between LET and MRT allows for.
-      // See https://github.com/digital-asset/daml/issues/987
-      handleError(
-        submitterInfo,
-        RejectionReason.TimedOut(
-          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
-    } else {
-      val (transactionForIndex, disclosureForIndex, globalDivulgence) =
-        Ledger.convertToCommittedTransaction(transactionId, transaction)
-      // 5b. modify the ActiveContracts, while checking that we do not have double
-      // spends or timing issues
-      val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime.toInstant,
-        transactionId,
-        transactionMeta.workflowId,
-        Some(submitterInfo.submitter),
-        transactionForIndex,
-        disclosureForIndex,
-        globalDivulgence,
-        List.empty
+    val timeModel = ledgerConfiguration.get.timeModel
+    timeModel
+      .checkTime(ledgerTime, recordTime)
+      .fold(
+        reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
+        _ => {
+          val (transactionForIndex, disclosureForIndex, globalDivulgence) =
+            Ledger.convertToCommittedTransaction(transactionId, transaction)
+          val acsRes = acs.addTransaction(
+            transactionMeta.ledgerEffectiveTime.toInstant,
+            transactionId,
+            transactionMeta.workflowId,
+            Some(submitterInfo.submitter),
+            transactionForIndex,
+            disclosureForIndex,
+            globalDivulgence,
+            List.empty
+          )
+          acsRes match {
+            case Left(err) =>
+              handleError(
+                submitterInfo,
+                RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+            case Right(newAcs) =>
+              acs = newAcs
+              val entry = LedgerEntry
+                .Transaction(
+                  Some(submitterInfo.commandId),
+                  transactionId,
+                  Some(submitterInfo.applicationId),
+                  Some(submitterInfo.submitter),
+                  transactionMeta.workflowId,
+                  transactionMeta.ledgerEffectiveTime.toInstant,
+                  recordTime,
+                  transactionForIndex,
+                  disclosureForIndex
+                )
+              entries.publish(InMemoryLedgerEntry(entry))
+              ()
+          }
+        }
       )
-      acsRes match {
-        case Left(err) =>
-          handleError(
-            submitterInfo,
-            RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
-        case Right(newAcs) =>
-          acs = newAcs
-          val entry = LedgerEntry
-            .Transaction(
-              Some(submitterInfo.commandId),
-              transactionId,
-              Some(submitterInfo.applicationId),
-              Some(submitterInfo.submitter),
-              transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime.toInstant,
-              recordTime,
-              transactionForIndex,
-              disclosureForIndex
-            )
-          entries.publish(InMemoryLedgerEntry(entry))
-          ()
-      }
-    }
 
   }
 
   private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
+    stopDeduplicatingCommand(CommandId(submitterInfo.commandId), submitterInfo.submitter)
     entries.publish(
       InMemoryLedgerEntry(
         LedgerEntry.Rejection(
@@ -240,22 +362,53 @@ class InMemoryLedger(
 
   override def close(): Unit = ()
 
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+  private def filterFor(requestingParties: Set[Party]): TransactionFilter =
+    TransactionFilter(requestingParties.map(p => p -> Filters.noFilter).toMap)
 
-    Try(Tag.unwrap(transactionId).toLong) match {
-      case Failure(_) =>
-        Future.successful(None)
-      case Success(n) =>
-        Future.successful(
-          entries
-            .getEntryAt(n)
-            .collect {
-              case InMemoryLedgerEntry(t: LedgerEntry.Transaction) =>
-                (n, t) // the transaction id is also the offset
-            })
+  private def lookupTransactionEntry(
+      id: ledger.TransactionId,
+  ): Option[(Offset, LedgerEntry.Transaction)] =
+    entries.items
+      .collectFirst {
+        case (offset, InMemoryLedgerEntry(tx: LedgerEntry.Transaction)) if tx.transactionId == id =>
+          (offset, tx)
+      }
+
+  override def lookupFlatTransactionById(
+      transactionId: ledger.TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetFlatTransactionResponse]] =
+    Future.successful {
+      lookupTransactionEntry(transactionId).flatMap {
+        case (offset, entry) =>
+          TransactionConversion
+            .ledgerEntryToFlatTransaction(
+              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              entry = entry,
+              filter = filterFor(requestingParties),
+              verbose = true,
+            )
+            .map(tx => GetFlatTransactionResponse(Some(tx)))
+      }
     }
-  }
+
+  override def lookupTransactionTreeById(
+      transactionId: ledger.TransactionId,
+      requestingParties: Set[Party],
+  ): Future[Option[GetTransactionResponse]] =
+    Future.successful {
+      lookupTransactionEntry(transactionId).flatMap {
+        case (offset, entry) =>
+          TransactionConversion
+            .ledgerEntryToTransactionTree(
+              offset = LedgerOffset.Absolute(ApiOffset.toApiString(offset)),
+              entry = entry,
+              requestingParties = requestingParties,
+              verbose = true,
+            )
+            .map(tx => GetTransactionResponse(Some(tx)))
+      }
+    }
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
     Future.successful(this.synchronized {
@@ -295,8 +448,8 @@ class InMemoryLedger(
       SubmissionResult.Acknowledged
     })
 
-  override def partyEntries(beginOffset: Long): Source[(Long, PartyLedgerEntry), NotUsed] = {
-    entries.getSource(Some(beginOffset), None).collect {
+  override def partyEntries(startExclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPartyEntry(partyEntry)) => (offset, partyEntry)
     }
   }
@@ -310,8 +463,9 @@ class InMemoryLedger(
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
     packageStoreRef.get.getLfPackage(packageId)
 
-  override def packageEntries(beginOffset: Long): Source[(Long, PackageLedgerEntry), NotUsed] =
-    entries.getSource(Some(beginOffset), None).collect {
+  override def packageEntries(
+      startExclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] =
+    entries.getSource(Some(startExclusive), None).collect {
       case (offset, InMemoryPackageEntry(entry)) => (offset, entry)
     }
 
@@ -380,43 +534,65 @@ class InMemoryLedger(
       }
     }
 
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
     Future.successful(this.synchronized {
       ledgerConfiguration.map(config => ledgerEnd -> config)
     })
 
   override def configurationEntries(
-      startInclusive: Option[Long]): Source[(Long, ConfigurationEntry), NotUsed] =
+      startExclusive: Option[Offset]): Source[(Offset, ConfigurationEntry), NotUsed] =
     entries
-      .getSource(startInclusive, None)
-      .collect { case (offset, InMemoryConfigEntry(entry)) => offset -> entry }
+      .getSource(startExclusive, None)
+      .collect {
+        case (offset, InMemoryConfigEntry(entry)) => offset -> entry
+      }
+
+  private def deduplicationKey(
+      commandId: CommandId,
+      submitter: Ref.Party,
+  ): String = commandId.unwrap + "%" + submitter
 
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     Future.successful {
       this.synchronized {
-        val entry = commands.get(deduplicationKey)
+        val key = deduplicationKey(commandId, submitter)
+        val entry = commands.get(key)
         if (entry.isEmpty) {
           // No previous entry - new command
-          commands += (deduplicationKey -> CommandDeduplicationEntry(
-            deduplicationKey,
-            deduplicateUntil))
+          commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
           CommandDeduplicationNew
         } else {
           val previousDeduplicateUntil = entry.get.deduplicateUntil
           if (submittedAt.isAfter(previousDeduplicateUntil)) {
             // Previous entry expired - new command
-            commands += (deduplicationKey -> CommandDeduplicationEntry(
-              deduplicationKey,
-              deduplicateUntil))
+            commands += (key -> CommandDeduplicationEntry(key, deduplicateUntil))
             CommandDeduplicationNew
           } else {
             // Existing previous entry - deduplicate command
             CommandDeduplicationDuplicate(previousDeduplicateUntil)
           }
         }
+      }
+    }
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    Future.successful {
+      this.synchronized {
+        commands.retain((_, v) => v.deduplicateUntil.isAfter(currentTime))
+        ()
+      }
+    }
+
+  override def stopDeduplicatingCommand(commandId: CommandId, submitter: Party): Future[Unit] =
+    Future.successful {
+      val key = deduplicationKey(commandId, submitter)
+      this.synchronized {
+        commands.remove(key)
+        ()
       }
     }
 }

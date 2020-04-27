@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -7,22 +7,18 @@ import java.time.{Duration, Instant}
 
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{PackageId, SubmitterInfo}
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, LedgerString, Party}
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractId,
-  RelativeContractId,
-  VersionedValue
-}
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
+import com.daml.lf.crypto
+import com.daml.lf.data
+import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.data.Ref.{Identifier, LedgerString, Party}
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction._
+import com.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId, VersionedValue}
+import com.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
 import com.google.common.io.BaseEncoding
-import com.google.protobuf.{ByteString, Empty}
+import com.google.protobuf.Empty
 
 /** Utilities for converting between protobuf messages and our scala
   * data structures.
@@ -43,7 +39,7 @@ private[state] object Conversions {
       BaseEncoding.base16.encode(txId.getEntryId.toByteArray)
     // NOTE(JM): Must be in sync with [[absoluteContractIdToLogEntryId]] and
     // [[absoluteContractIdToStateKey]].
-    Ref.ContractIdString.assertFromString(s"$hexTxId:${coid.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"#$hexTxId:${coid.txnid.index}")
   }
 
   def contractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
@@ -52,7 +48,7 @@ private[state] object Conversions {
       .build
 
   def decodeContractId(coid: String): AbsoluteContractId =
-    AbsoluteContractId(Ref.ContractIdString.assertFromString(coid))
+    AbsoluteContractId.assertFromString(coid)
 
   def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId =
     decodeContractId(key.getContractId)
@@ -60,7 +56,7 @@ private[state] object Conversions {
   def encodeGlobalKey(key: GlobalKey): DamlContractKey = {
     DamlContractKey.newBuilder
       .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
-      .setHash(ByteString.copyFrom(key.hash.toByteArray))
+      .setHash(key.hash.bytes.toByteString)
       .build
   }
 
@@ -81,7 +77,6 @@ private[state] object Conversions {
     DamlStateKey.newBuilder
       .setCommandDedup(
         DamlCommandDedupKey.newBuilder
-          .setApplicationId(subInfo.getApplicationId)
           .setCommandId(subInfo.getCommandId)
           .setSubmitter(subInfo.getSubmitter)
           .build
@@ -130,7 +125,8 @@ private[state] object Conversions {
       .setSubmitter(subInfo.submitter)
       .setApplicationId(subInfo.applicationId)
       .setCommandId(subInfo.commandId)
-      .setMaximumRecordTime(buildTimestamp(subInfo.maxRecordTime))
+      .setDeduplicateUntil(
+        buildTimestamp(Time.Timestamp.assertFromInstant(subInfo.deduplicateUntil)))
       .build
 
   def parseSubmitterInfo(subInfo: DamlSubmitterInfo): SubmitterInfo =
@@ -138,7 +134,6 @@ private[state] object Conversions {
       submitter = Party.assertFromString(subInfo.getSubmitter),
       applicationId = LedgerString.assertFromString(subInfo.getApplicationId),
       commandId = LedgerString.assertFromString(subInfo.getCommandId),
-      maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime),
       deduplicateUntil = parseTimestamp(subInfo.getDeduplicateUntil).toInstant,
     )
 
@@ -154,13 +149,13 @@ private[state] object Conversions {
     Time.Timestamp.assertFromInstant(Instant.ofEpochSecond(ts.getSeconds, ts.getNanos.toLong))
 
   def parseHash(bytes: com.google.protobuf.ByteString): crypto.Hash =
-    crypto.Hash.assertFromBytes(bytes.toByteArray)
+    crypto.Hash.assertFromBytes(data.Bytes.fromByteString(bytes))
 
   def parseOptHash(a: com.google.protobuf.ByteString): Option[crypto.Hash] =
     if (a.isEmpty)
       None
     else
-      Some(crypto.Hash.assertFromBytes(a.toByteArray))
+      Some(crypto.Hash.assertFromBytes(data.Bytes.fromByteString(a)))
 
   def buildDuration(dur: Duration): com.google.protobuf.Duration = {
     com.google.protobuf.Duration.newBuilder

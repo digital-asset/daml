@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Azure Pipelines file, see https://aka.ms/yaml
@@ -11,6 +11,7 @@ trigger:
   branches:
     include:
       - master
+      - release/*
 
 # Enable PR triggers that target the master branch
 pr:
@@ -18,6 +19,7 @@ pr:
   branches:
     include:
       - master
+      - release/*
 
 jobs:
   - job: git_sha
@@ -38,6 +40,11 @@ jobs:
         name: out
 
   - job: check_standard_change_label
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
+      branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
@@ -47,7 +54,7 @@ jobs:
           set -euo pipefail
 
           has_changed_infra_folder () {
-              git diff origin/master --name-only | grep -q '^infra/'
+              git diff $(fork_sha) $(branch_sha) --name-only | grep -q '^infra/'
           }
 
           fail_if_missing_std_change_label () {
@@ -61,12 +68,16 @@ jobs:
           PR: $(System.PullRequest.PullRequestNumber)
 
   - job: check_changelog_entry
+    dependsOn:
+      - git_sha
+    variables:
+      fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
     condition: eq(variables['Build.Reason'], 'PullRequest')
     pool:
       name: 'linux-pool'
     steps:
       - checkout: self
-      - bash: ci/check-changelog.sh
+      - bash: ci/check-changelog.sh $(fork_sha)
 
   - job: Linux
     dependsOn:
@@ -100,6 +111,8 @@ jobs:
           ./bazel-bin/release/release --release-dir "$(mktemp -d)"
         condition: and(succeeded(), ne(variables['is_release'], 'true'))
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: macOS
@@ -107,10 +120,8 @@ jobs:
       - check_for_release
     timeoutInMinutes: 360
     pool:
-      vmImage: 'macOS-10.14'
+      name: 'macOS-pool'
     variables:
-      bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
-      bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
       trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
@@ -124,20 +135,14 @@ jobs:
           git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
         name: checkout_release
         condition: eq(variables.is_release, 'true')
-      - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
-        displayName: bazel repo cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(bazel-repo-cache-key)
-          path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
           release_tag: $(release_tag)
           name: macos
           is_release: variables.is_release
-      - bash: mkdir -p $(bazel-repo-cache-path)
-        displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: Windows
@@ -164,6 +169,23 @@ jobs:
         parameters:
           release_tag: $(release_tag)
           is_release: variables.is_release
+      - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
+      - template: ci/report-end.yml
+
+  - job: compatibility
+    dependsOn:
+      - check_for_release
+    timeoutInMinutes: 60
+    pool:
+      name: 'linux-pool'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - template: ci/compatibility.yml
+        parameters:
+          test_flags: '--quick'
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -202,7 +224,8 @@ jobs:
     dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
     condition: and(succeeded(),
                    eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     pool:
       vmImage: "Ubuntu-16.04"
     variables:
@@ -210,8 +233,10 @@ jobs:
       macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
       windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
       windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
+      protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
@@ -242,6 +267,11 @@ jobs:
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(windows-installer)
+          targetPath: $(Build.StagingDirectory)/release
+        condition: not(eq(variables['skip-github'], 'TRUE'))
+      - task: DownloadPipelineArtifact@0
+        inputs:
+          artifactName: $(protos-zip)
           targetPath: $(Build.StagingDirectory)/release
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - bash: |
@@ -277,6 +307,8 @@ jobs:
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: write_ledger_dump
@@ -284,10 +316,12 @@ jobs:
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   eq(variables['Build.SourceBranchName'], 'master'))
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
     variables:
       release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
       release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
     steps:
       - checkout: self
       - bash: |
@@ -315,6 +349,8 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
     condition: always()
@@ -322,9 +358,7 @@ jobs:
       - Linux
       - macOS
       - Windows
-      - check_for_release
       - release
-      - check_standard_change_label
       - write_ledger_dump
       - git_sha
     pool:
@@ -342,18 +376,10 @@ jobs:
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      check_for_release.start: $[ dependencies.check_for_release.outputs['start.time'] ]
-      check_for_release.machine: $[ dependencies.check_for_release.outputs['start.machine'] ]
-      check_for_release.end: $[ dependencies.check_for_release.outputs['end.time'] ]
-      check_for_release.status: $[ dependencies.check_for_release.result ]
       release.start: $[ dependencies.release.outputs['start.time'] ]
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
-      std_change.start: $[ dependencies.check_standard_change_label.outputs['start.time'] ]
-      std_change.machine: $[ dependencies.check_standard_change_label.outputs['start.machine'] ]
-      std_change.end: $[ dependencies.check_standard_change_label.outputs['end.time'] ]
-      std_change.status: $[ dependencies.check_standard_change_label.result ]
       dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
       dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
       dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
@@ -370,36 +396,8 @@ jobs:
       pr.num: $[ variables['System.PullRequest.PullRequestNumber'] ]
       pr.branch: $[ variables['System.PullRequest.SourceBranch'] ]
     steps:
-      # some change in Azure configuration makes this fail recently (2020-01).
-      # Azure runs PR builds not on the PR commit, but on the GitHub-provided
-      # commit that would be the result of merging the PR. Recently, it looks
-      # like when it reaches the point of running this job (which has to run
-      # after the macOS one, which sometimes takes up to an hour), if master
-      # has changed in the meantime, Azure cannot find the commit it wants to
-      # build anymore. Therefore, we tell it not to checkout anything, and
-      # manually checkout the PR commit.
-      - checkout: none
       - bash: |
           set -euo pipefail
-          # Note: this is going to get the PR branch commit, not the
-          # result of the merge (i.e. this is not using the same commit as the
-          # other jobs in this build).
-          tell_gary() {
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
-                   $(Slack.team-daml-ci)
-          }
-          if ! git fetch origin $(branch_sha); then
-              tell_gary
-              echo "Failed to fetch commit: $(branch_sha) from origin."
-              echo "Remotes:"
-              git remote -v
-              echo "Job status: $(Agent.JobStatus)."
-              exit 1
-          fi
-          git checkout $(branch_sha)
 
           eval "$(./dev-env/bin/dade-assist)"
 
@@ -417,14 +415,6 @@ jobs:
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
                                 "status": "$(Windows.status)"},
-                    "check_for_release": {"start": "$(check_for_release.start)",
-                                          "machine": "$(check_for_release.machine)",
-                                          "end": "$(check_for_release.end)",
-                                          "status": "$(check_for_release.status)"},
-                    "check_standard_change_label": {"start": "$(std_change.start)",
-                                                    "machine": "$(std_change.machine)",
-                                                    "end": "$(std_change.end)",
-                                                    "status": "$(std_change.status)"},
                     "write_ledger_dump": {"start": "$(dump.start)",
                                           "machine": "$(dump.machine)",
                                           "end": "$(dump.end)",
@@ -472,11 +462,11 @@ jobs:
               cat $REPORT
           fi
 
-          # Linux, macOS, check_std_change_label and Windows are always
-          # required and should always succeed.
+          # Linux, macOS and Windows are always required and should always
+          # succeed.
           #
-          # windows_signing, release and write_ledger_dump only run on releases
-          # and are skipped otherwise.
+          # release and write_ledger_dump only run on releases and are skipped
+          # otherwise.
           if [[ "$(Linux.status)" != "Succeeded"
               || "$(macOS.status)" != "Succeeded"
               || "$(Windows.status)" != "Succeeded"
@@ -506,27 +496,8 @@ jobs:
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       status: $[ dependencies.collect_build_data.result ]
     steps:
-      - checkout: none
       - bash: |
           set -euo pipefail
-
-          tell_gary() {
-              curl -XPOST \
-                   -i \
-                   -H 'Content-Type: application/json' \
-                   --data "{\"text\":\"<@UEHSF89AQ> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for <https://github.com/digital-asset/daml/pull/$(pr.num)|PR $(pr.num)> has failed to fetch its commit $(branch_sha). Job status is $(Agent.JobStatus).\"}" \
-                   $(Slack.team-daml-ci)
-          }
-          if ! git fetch origin $(branch_sha); then
-              tell_gary
-              echo "Failed to fetch commit: $(branch_sha) from origin."
-              echo "Remotes:"
-              git remote -v
-              echo "Job status: $(Agent.JobStatus)."
-              exit 1
-          fi
-          git checkout $(branch_sha)
-
 
           tell_slack() {
               local MESSAGE=$1
@@ -538,7 +509,7 @@ jobs:
                    $(Slack.team-daml-ci)
           }
 
-          EMAIL=$(git log -n 1 --format=%ae)
+          EMAIL=$(git log -n 1 --format=%ae $(branch_sha))
           user_registered() {
               cat ci/slack_user_ids | grep $EMAIL
           }

@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChildProcess, spawn } from 'child_process';
+import { promises as fs } from 'fs';
 import waitOn from 'wait-on';
 import { encode } from 'jwt-simple';
-import Ledger, { CreateEvent, ArchiveEvent, Event, Stream } from  '@daml/ledger';
+import Ledger, { Event, Stream } from  '@daml/ledger';
 import pEvent from 'p-event';
 
-import buildAndLint from '@daml.js/build-and-lint-1.0.0'
+import * as buildAndLint from '@daml.js/build-and-lint-1.0.0'
 
 const LEDGER_ID = 'build-and-lint-test';
 const APPLICATION_ID = 'build-and-lint-test';
@@ -23,9 +24,11 @@ const ALICE_TOKEN = computeToken(ALICE_PARTY);
 const BOB_PARTY = 'Bob';
 const BOB_TOKEN = computeToken(BOB_PARTY);
 
-const SANDBOX_PORT = 6865;
-const JSON_API_PORT = 7575;
-const HTTP_BASE_URL = `http://localhost:${JSON_API_PORT}/`;
+let sandboxPort: number | undefined = undefined;
+const SANDBOX_PORT_FILE = 'sandbox.port';
+let jsonApiPort: number | undefined = undefined;
+const JSON_API_PORT_FILE = 'json-api.port';
+const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 let jsonApiProcess: ChildProcess | undefined = undefined;
@@ -38,28 +41,33 @@ const getEnv = (variable: string): string => {
   return result;
 }
 
-const spawnJvmAndWaitOnPort = async (jar: string, args: string[], port: number): Promise<ChildProcess> => {
+const spawnJvmAndWaitOn = async (jar: string, args: string[], resource: string): Promise<ChildProcess> => {
   const java = getEnv('JAVA');
   const proc = spawn(java, ['-jar', jar, ...args], {stdio: "inherit",});
-  await waitOn({resources: [`tcp:localhost:${port}`]})
+  await waitOn({resources: [resource]})
   return proc;
 }
 
 beforeAll(async () => {
   console.log ('build-and-lint-1.0.0 (' + buildAndLint.packageId + ") loaded");
   const darPath = getEnv('DAR');
-  sandboxProcess = await spawnJvmAndWaitOnPort(
+  sandboxProcess = await spawnJvmAndWaitOn(
     getEnv('SANDBOX'),
-    ['--port', `${SANDBOX_PORT}`, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
-    SANDBOX_PORT,
+    ['--port', "0", '--port-file', SANDBOX_PORT_FILE, '--ledgerid', LEDGER_ID, '--wall-clock-time', darPath],
+    `file:${SANDBOX_PORT_FILE}`,
   );
-  console.log('Sandbox up');
-  jsonApiProcess = await spawnJvmAndWaitOnPort(
+  const sandboxPortData = await fs.readFile(SANDBOX_PORT_FILE, { encoding: 'utf8' });
+  sandboxPort = parseInt(sandboxPortData);
+  console.log('Sandbox listening on port ' + sandboxPort.toString());
+
+  jsonApiProcess = await spawnJvmAndWaitOn(
     getEnv('JSON_API'),
-    ['--ledger-host', 'localhost', '--ledger-port', `${SANDBOX_PORT}`,'--http-port', `${JSON_API_PORT}`, '--websocket-config', 'heartBeatPer=1'],
-    JSON_API_PORT,
+    ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`, '--port-file', JSON_API_PORT_FILE, '--http-port', "0", '--websocket-config', 'heartBeatPer=1'],
+    `file:${JSON_API_PORT_FILE}`,
   )
-  console.log('JSON API up');
+  const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });
+  jsonApiPort = parseInt(jsonApiPortData);
+  console.log('JSON API listening on port ' + jsonApiPort.toString());
 });
 
 afterAll(() => {
@@ -92,10 +100,16 @@ function promisifyStream<T extends object, K, I extends string, State>(
 }
 
 test('create + fetch & exercise', async () => {
-  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: HTTP_BASE_URL});
-  const aliceStream = promisifyStream(aliceLedger.streamQuery(buildAndLint.Main.Person, {party: ALICE_PARTY}));
-  expect(await aliceStream.next()).toEqual([[], []]);
+  const aliceLedger = new Ledger({token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const bobLedger = new Ledger({token: BOB_TOKEN, httpBaseUrl: httpBaseUrl()});
+  const aliceRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person, {party: ALICE_PARTY});
+  const aliceStream = promisifyStream(aliceRawStream);
+  // TODO(MH): Move this live marker into `promisifyStream`. Unfortunately,
+  // it didn't work the straightforward way and we need to spend more time
+  // figuring out what's going wrong before we can do it. There are two more
+  // instances of this pattern below.
+  const aliceStreamLive = pEvent(aliceRawStream, 'live');
+  expect(await aliceStreamLive).toEqual([]);
 
   const alice5: buildAndLint.Main.Person = {
     name: 'Alice from Wonderland',
@@ -141,8 +155,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice5Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const alice6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice5Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const alice6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice5Archived.contractId).toEqual(alice5Contract.contractId);
   expect(alice6Contract.contractId).toEqual(result);
   expect(alice6Contract.payload).toEqual({...alice5, age: '6'});
@@ -156,15 +170,19 @@ test('create + fetch & exercise', async () => {
   expect(personContracts).toEqual([alice6Contract]);
 
   const alice6Key = {...alice5Key, _2: '6'};
-  const alice6KeyStream = promisifyStream(aliceLedger.streamFetchByKey(buildAndLint.Main.Person, alice6Key));
+  const alice6KeyRawStream = aliceLedger.streamFetchByKey(buildAndLint.Main.Person, alice6Key)
+  const alice6KeyStream = promisifyStream(alice6KeyRawStream);
+  const alice6KeyStreamLive = pEvent(alice6KeyRawStream, 'live');
   expect(await alice6KeyStream.next()).toEqual([alice6Contract, [{created: alice6Contract}]]);
 
-  const personStream = promisifyStream(aliceLedger.streamQuery(buildAndLint.Main.Person));
+  const personRawStream = aliceLedger.streamQuery(buildAndLint.Main.Person);
+  const personStream = promisifyStream(personRawStream);
+  const personStreamLive = pEvent(personRawStream, 'live');
   expect(await personStream.next()).toEqual([[alice6Contract], [{created: alice6Contract}]]);
 
   // end of non-live data, first offset
-  expect(await personStream.next()).toEqual([[alice6Contract], []]);
-  expect(await alice6KeyStream.next()).toEqual([alice6Contract, []]);
+  expect(await personStreamLive).toEqual([alice6Contract]);
+  expect(await alice6KeyStreamLive).toEqual(alice6Contract);
 
   // Bob enters the scene.
   const bob4Contract = await bobLedger.create(buildAndLint.Main.Person, bob4);
@@ -179,8 +197,8 @@ test('create + fetch & exercise', async () => {
   expect(events).toHaveLength(2);
   expect(events[0]).toHaveProperty('archived');
   expect(events[1]).toHaveProperty('created');
-  const alice6Archived = (events[0] as {archived: ArchiveEvent<buildAndLint.Main.Person>}).archived;
-  const cooper6Contract = (events[1] as {created: CreateEvent<buildAndLint.Main.Person, buildAndLint.Main.Person.Key>}).created;
+  const alice6Archived = (events[0] as {archived: buildAndLint.Main.Person.ArchiveEvent}).archived;
+  const cooper6Contract = (events[1] as {created: buildAndLint.Main.Person.CreateEvent}).created;
   expect(alice6Archived.contractId).toEqual(alice6Contract.contractId);
   expect(cooper6Contract.contractId).toEqual(result);
   expect(cooper6Contract.payload).toEqual({...alice5, name: 'Alice Cooper', age: '6'});
@@ -238,6 +256,10 @@ test('create + fetch & exercise', async () => {
     tuple: {_1: '12', _2: 'mmm'},
     enum: buildAndLint.Main.Color.Red,
     enumList: [buildAndLint.Main.Color.Red, buildAndLint.Main.Color.Blue, buildAndLint.Main.Color.Yellow],
+    enumList2: ['Red', 'Blue', 'Yellow'],
+    optcol1: {tag: 'Transparent1', value: {}},
+    optcol2: {tag: 'Color2', value: {color2: 'Red'}}, // 'Red' is of type Color
+    optcol3: {tag: 'Color2', value: {color2: buildAndLint.Main.Color.Blue}}, // Color.Blue is of type 'Color'
     variant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     optionalVariant: {tag: 'Add', value: {_1:{tag: 'Lit', value: '1'}, _2:{tag: 'Lit', value: '2'}}},
     sumProd: {tag: 'Corge', value: {x:'1', y:'Garlpy'}},

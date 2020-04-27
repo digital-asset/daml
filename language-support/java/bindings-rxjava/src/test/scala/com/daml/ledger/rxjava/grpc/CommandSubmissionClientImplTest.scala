@@ -1,8 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc
 
+import java.util.Optional
 import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier, Record}
@@ -23,6 +24,10 @@ class CommandSubmissionClientImplTest
 
   val ledgerServices = new LedgerServices("command-submission-service-ledger")
 
+  implicit class JavaOptionalAsScalaOption[A](opt: Optional[A]) {
+    def asScala: Option[A] = if (opt.isPresent) Some(opt.get()) else None
+  }
+
   behavior of "[3.1] CommandSubmissionClientImpl.submit"
 
   it should "send a commands to the ledger" in {
@@ -35,8 +40,9 @@ class CommandSubmissionClientImplTest
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands
           )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -46,10 +52,14 @@ class CommandSubmissionClientImplTest
         receivedCommands.applicationId shouldBe commands.getApplicationId
         receivedCommands.workflowId shouldBe commands.getWorkflowId
         receivedCommands.commandId shouldBe commands.getCommandId
-        receivedCommands.getLedgerEffectiveTime.seconds shouldBe commands.getLedgerEffectiveTime.getEpochSecond
-        receivedCommands.getLedgerEffectiveTime.nanos shouldBe commands.getLedgerEffectiveTime.getNano
-        receivedCommands.getMaximumRecordTime.seconds shouldBe commands.getMaximumRecordTime.getEpochSecond
-        receivedCommands.getMaximumRecordTime.nanos shouldBe commands.getMaximumRecordTime.getNano
+        receivedCommands.minLedgerTimeAbs.map(_.seconds) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+          .map(_.getEpochSecond)
+        receivedCommands.minLedgerTimeAbs.map(_.nanos) shouldBe commands.getMinLedgerTimeAbsolute.asScala
+          .map(_.getNano)
+        receivedCommands.minLedgerTimeRel.map(_.seconds) shouldBe commands.getMinLedgerTimeRelative.asScala
+          .map(_.getSeconds)
+        receivedCommands.minLedgerTimeRel.map(_.nanos) shouldBe commands.getMinLedgerTimeRelative.asScala
+          .map(_.getNano)
         receivedCommands.party shouldBe commands.getParty
         receivedCommands.commands.size shouldBe commands.getCommands.size()
     }
@@ -75,8 +85,9 @@ class CommandSubmissionClientImplTest
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands
           ))(
         client
@@ -85,8 +96,9 @@ class CommandSubmissionClientImplTest
             commands.getApplicationId,
             commands.getCommandId,
             commands.getParty,
-            commands.getLedgerEffectiveTime,
-            commands.getMaximumRecordTime,
+            commands.getMinLedgerTimeAbsolute,
+            commands.getMinLedgerTimeRelative,
+            commands.getDeduplicationTime,
             commands.getCommands,
             _
           ))

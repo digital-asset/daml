@@ -1,35 +1,43 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.sql.Connection
-import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.{Executor, Executors, TimeUnit}
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.digitalasset.ledger.api.health.{HealthStatus, ReportsHealth}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.api.health.{HealthStatus, ReportsHealth}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.MetricName
+import com.daml.platform.configuration.ServerRole
+import com.daml.resources.ResourceOwner
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
-final class DbDispatcher(
+final class DbDispatcher private (
     val maxConnections: Int,
     connectionProvider: HikariJdbcConnectionProvider,
-    sqlExecutor: ExecutorService,
+    executor: Executor,
     metrics: MetricRegistry,
 )(implicit logCtx: LoggingContext)
     extends ReportsHealth {
 
   private val logger = ContextualizedLogger.get(this.getClass)
 
-  private val sqlExecution = ExecutionContext.fromExecutorService(sqlExecutor)
+  private val executionContext = ExecutionContext.fromExecutor(executor)
 
   object Metrics {
-    val waitAllTimer: Timer = metrics.timer("daml.index.db.all.wait")
-    val execAllTimer: Timer = metrics.timer("daml.index.db.all.exec")
+    private val prefix = MetricName.DAML :+ "index" :+ "db"
+
+    def waitTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "wait")
+
+    def execTimer(description: String): Timer = metrics.timer(prefix :+ description :+ "exec")
+
+    val waitAllTimer: Timer = waitTimer("all")
+    val execAllTimer: Timer = execTimer("all")
   }
 
   override def currentHealth(): HealthStatus = connectionProvider.currentHealth()
@@ -39,15 +47,16 @@ final class DbDispatcher(
     * The isolation level by default is the one defined in the JDBC driver, it can be however overridden per query on
     * the Connection. See further details at: https://docs.oracle.com/cd/E19830-01/819-4721/beamv/index.html
     */
-  def executeSql[T](description: String, extraLog: Option[String] = None)(
+  def executeSql[T](description: String, extraLog: => Option[String] = None)(
       sql: Connection => T
   ): Future[T] = {
-    val waitTimer = metrics.timer(s"daml.index.db.$description.wait")
-    val execTimer = metrics.timer(s"daml.index.db.$description.exec")
+    lazy val extraLogMemoized = extraLog
+    val waitTimer = Metrics.waitTimer(description)
+    val execTimer = Metrics.execTimer(description)
     val startWait = System.nanoTime()
     Future {
       val waitNanos = System.nanoTime() - startWait
-      extraLog.foreach(log =>
+      extraLogMemoized.foreach(log =>
         logger.trace(s"$description: $log wait ${(waitNanos / 1E6).toLong} ms"))
       waitTimer.update(waitNanos, TimeUnit.NANOSECONDS)
       Metrics.waitAllTimer.update(waitNanos, TimeUnit.NANOSECONDS)
@@ -70,7 +79,7 @@ final class DbDispatcher(
         // decouple metrics updating from sql execution above
         try {
           val execNanos = System.nanoTime() - startExec
-          extraLog.foreach(log =>
+          extraLogMemoized.foreach(log =>
             logger.trace(s"$description: $log exec ${(execNanos / 1E6).toLong} ms"))
           execTimer.update(execNanos, TimeUnit.NANOSECONDS)
           Metrics.execAllTimer.update(execNanos, TimeUnit.NANOSECONDS)
@@ -80,30 +89,34 @@ final class DbDispatcher(
               .error(s"$description: Got an exception while updating timer metrics. Ignoring.", t)
         }
       }
-    }(sqlExecution)
+    }(executionContext)
   }
 }
 
 object DbDispatcher {
   private val logger = ContextualizedLogger.get(this.getClass)
+
   def owner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       maxConnections: Int,
       metrics: MetricRegistry,
-  )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] = {
+  )(implicit logCtx: LoggingContext): ResourceOwner[DbDispatcher] =
     for {
-      connectionProvider <- HikariJdbcConnectionProvider.owner(jdbcUrl, maxConnections, metrics)
-      sqlExecutor <- ResourceOwner.forExecutorService(
+      connectionProvider <- HikariJdbcConnectionProvider.owner(
+        serverRole,
+        jdbcUrl,
+        maxConnections,
+        metrics)
+      executor <- ResourceOwner.forExecutorService(
         () =>
           Executors.newFixedThreadPool(
             maxConnections,
             new ThreadFactoryBuilder()
-              .setDaemon(true)
-              .setNameFormat("sql-executor-%d")
+              .setNameFormat(s"daml.index.db.connection.${serverRole.threadPoolSuffix}-%d")
               .setUncaughtExceptionHandler((_, e) =>
-                logger.error("Got an uncaught exception in SQL executor!", e))
+                logger.error("Uncaught exception in the SQL executor.", e))
               .build()
         ))
-    } yield new DbDispatcher(maxConnections, connectionProvider, sqlExecutor, metrics)
-  }
+    } yield new DbDispatcher(maxConnections, connectionProvider, executor, metrics)
 }

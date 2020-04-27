@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to
@@ -8,11 +8,11 @@ package db.migration.postgres
 import java.sql.{Connection, ResultSet}
 
 import anorm.{BatchSql, NamedParameter}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.serialization.{KeyHasher, ValueSerializer}
+import com.daml.lf.data.Ref
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.serialization.{KeyHasher, ValueSerializer}
 import org.flywaydb.core.api.migration.{BaseJavaMigration, Context}
 
 class V3__Recompute_Key_Hash extends BaseJavaMigration {
@@ -49,8 +49,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
       var hasNext: Boolean = rows.next()
 
       def next(): (AbsoluteContractId, GlobalKey) = {
-        val contractId = AbsoluteContractId(
-          Ref.ContractIdString.assertFromString(rows.getString("contract_id")))
+        val contractId = AbsoluteContractId.assertFromString(rows.getString("contract_id"))
         val templateId = Ref.Identifier(
           packageId = Ref.PackageId.assertFromString(rows.getString("package_id")),
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))

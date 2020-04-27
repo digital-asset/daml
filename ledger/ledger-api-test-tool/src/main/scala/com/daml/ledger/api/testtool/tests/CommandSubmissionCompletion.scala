@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -8,9 +8,9 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.Dummy
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.platform.testing.{TimeoutException, WithTimeout}
+import com.daml.ledger.test_stable.Test.Dummy
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 
 import scala.concurrent.duration.DurationInt
@@ -23,8 +23,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
         completions <- ledger.firstCompletions(party)
       } yield {
@@ -43,8 +43,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
         invalidRequest = ledger
           .completionStreamRequest()(party)
@@ -61,8 +61,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     allocate(TwoParties),
   ) {
     case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
+      val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
         _ <- ledger.submit(request)
         failed <- WithTimeout(5.seconds)(ledger.firstCompletions(notTheSubmittingParty)).failed
       } yield {
@@ -81,7 +81,7 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
         dummy <- ledger.create(party, Dummy(party))
         exercise = dummy.exerciseDummyChoice1(party).command
         wrongExercise = exercise.update(_.exercise.choice := badChoice)
-        wrongRequest <- ledger.submitRequest(party, wrongExercise)
+        wrongRequest = ledger.submitRequest(party, wrongExercise)
         failure <- ledger.submit(wrongRequest).failed
       } yield {
         assertGrpcError(
@@ -99,10 +99,11 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
   ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
+      val request = ledger
+        .submitRequest(party, Dummy(party).create.command)
+        .update(_.commands.ledgerId := invalidLedgerId)
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-        failure <- ledger.submit(badLedgerId).failed
+        failure <- ledger.submit(request).failed
       } yield
         assertGrpcError(
           failure,
@@ -117,8 +118,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val emptyRequest = ledger.submitRequest(party)
       for {
-        emptyRequest <- ledger.submitRequest(party)
         failure <- ledger.submit(emptyRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Missing field: commands")
@@ -133,9 +134,9 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     case Participants(Participant(ledger, alice, bob)) =>
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
+      val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
+      val bobRequest = ledger.submitRequest(bob, Dummy(bob).create.command)
       for {
-        aliceRequest <- ledger.submitRequest(alice, Dummy(alice).create.command)
-        bobRequest <- ledger.submitRequest(bob, Dummy(bob).create.command)
         _ <- ledger.submit(aliceRequest.update(_.commands.commandId := a))
         _ <- ledger.submit(bobRequest.update(_.commands.commandId := b))
         _ <- WithTimeout(5.seconds)(ledger.findCompletion(alice, bob)(_.commandId == a))

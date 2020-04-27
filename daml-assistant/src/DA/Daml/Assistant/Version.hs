@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -12,6 +12,8 @@ module DA.Daml.Assistant.Version
     , getAvailableSdkVersionsCached
     , refreshAvailableSdkVersions
     , getLatestSdkVersionCached
+    , getAvailableSdkSnapshotVersions
+    , getLatestSdkSnapshotVersion
     ) where
 
 import DA.Daml.Assistant.Types
@@ -109,7 +111,7 @@ getDefaultSdkVersion damlPath = do
     required "There are no installed SDK versions." $
         maximumMay installedVersions
 
--- | Get the list of available versions afresh. This will fetch.
+-- | Get the list of available versions afresh. This will fetch
 -- https://docs.daml.com/versions.json and parse the obtained list
 -- of versions.
 getAvailableSdkVersions :: IO [SdkVersion]
@@ -126,6 +128,27 @@ getAvailableSdkVersions = wrapErr "Fetching list of available SDK versions" $ do
     versionsMap :: M.HashMap Text Text <-
         fromRightM
             (throwIO . assistantErrorBecause "Versions list from docs.daml.com does not contain valid JSON" . pack)
+            (eitherDecodeStrict' (getResponseBody response))
+
+    pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
+
+-- | Get the list of available snapshot versions. This will fetch
+-- https://docs.daml.com/snapshots.json and parse the obtained list
+-- of versions.
+getAvailableSdkSnapshotVersions :: IO [SdkVersion]
+getAvailableSdkSnapshotVersions = wrapErr "Fetching list of available SDK snapshot versions" $ do
+    response <- requiredAny "HTTP connection to docs.daml.com failed" $ do
+        request <- parseRequest "GET http://docs.daml.com/snapshots.json"
+        httpBS request { responseTimeout = responseTimeoutMicro 2000000 }
+
+    when (getResponseStatusCode response /= 200) $ do
+        throwIO $ assistantErrorBecause
+            "Fetching list of available SDK snapshot versions from docs.daml.com failed"
+            (pack . show $ getResponseStatus response)
+
+    versionsMap :: M.HashMap Text Text <-
+        fromRightM
+            (throwIO . assistantErrorBecause "Snapshot versions list from docs.daml.com does not contain valid JSON" . pack)
             (eitherDecodeStrict' (getResponseBody response))
 
     pure . sort $ mapMaybe (eitherToMaybe . parseVersion) (M.keys versionsMap)
@@ -147,6 +170,14 @@ getAvailableSdkVersionsCached damlPath =
 getLatestSdkVersionCached :: DamlPath -> IO (Maybe SdkVersion)
 getLatestSdkVersionCached damlPath = do
     versionsE <- tryAssistant $ getAvailableSdkVersionsCached damlPath
+    pure $ do
+        versions <- eitherToMaybe versionsE
+        maximumMay versions
+
+-- | Get the latest snapshot SDK version.
+getLatestSdkSnapshotVersion :: IO (Maybe SdkVersion)
+getLatestSdkSnapshotVersion = do
+    versionsE <- tryAssistant getAvailableSdkSnapshotVersions
     pure $ do
         versions <- eitherToMaybe versionsE
         maximumMay versions

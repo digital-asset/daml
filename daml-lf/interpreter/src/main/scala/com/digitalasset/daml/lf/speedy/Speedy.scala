@@ -1,25 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr._
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.{Value => V}
-
-import scala.collection.JavaConverters._
 import java.util
 
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Ref, Time}
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
+import scala.collection.JavaConverters._
 import scala.util.control.NoStackTrace
 
 object Speedy {
@@ -42,17 +40,6 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
-      /* Whether we check if the submitter is in contract key maintainers
-       * when looking up / fetching keys. This was introduced in #1866.
-       * We derive this from the "submission version", which is the scenario
-       * definition DAML-LF version for scenarios, and the command version for
-       * a Ledger API submission.
-       *
-       * We store a specific flag rather than the DAML-LF version mostly here because
-       * we want to avoid the risk of future implementors misusing the DAML-LF
-       * version to influence the operational semantics of DAML-LF.
-       */
-      var checkSubmitterInMaintainers: Boolean,
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -154,35 +141,34 @@ object Speedy {
 
     def lookupVal(eval: SEVal): Ctrl = {
       eval.cached match {
-        case Some((v, stack_trace)) => {
+        case Some((v, stack_trace)) =>
           pushStackTrace(stack_trace)
           CtrlValue(v)
-        }
+
         case None =>
           val ref = eval.ref
-          kont.add(KCacheVal(eval, Nil))
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
+              kont.add(KCacheVal(eval, Nil))
               CtrlExpr(body)
             case None =>
-              throw SpeedyHungry(
-                SResultMissingDefinition(
-                  ref, { packages =>
-                    this.compiledPackages = packages
-                    compiledPackages.getDefinition(ref) match {
-                      case Some(body) =>
-                        this.ctrl = CtrlExpr(body)
-                      case None =>
-                        crash(
-                          s"definition $ref not found even after caller provided new set of packages",
-                        )
+              if (compiledPackages.getPackage(ref.packageId).isDefined)
+                crash(
+                  s"definition $ref not found even after caller provided new set of packages",
+                )
+              else
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    ref.packageId, { packages =>
+                      this.compiledPackages = packages
+                      // To avoid infinite loop in case the packages are not updated properly by the caller
+                      assert(compiledPackages.getPackage(ref.packageId).isDefined)
+                      this.ctrl = lookupVal(eval)
                     }
-                  },
-                ),
-              )
+                  ),
+                )
           }
       }
-
     }
 
     /** Returns true when the machine has finished evaluation.
@@ -233,6 +219,23 @@ object Speedy {
       }
       println("============================================================")
     }
+
+    // fake participant to generate a new transactionSeed when running scenarios
+    private val scenarioServiceParticipant = Ref.ParticipantId.assertFromString("scenario-service")
+
+    // reinitialize the state of the machine with a new fresh submission seed.
+    // Should be used only when running scenario
+    def clearCommit: Unit = {
+      val freshSeed = ptx.context.nextChildrenSeed
+        .map(crypto.Hash.deriveTransactionSeed(_, scenarioServiceParticipant, ptx.submissionTime))
+      committers = Set.empty
+      commitLocation = None
+      ptx = PartialTransaction.initial(
+        submissionTime = ptx.submissionTime,
+        InitialSeeding(freshSeed),
+      )
+    }
+
   }
 
   object Machine {
@@ -240,66 +243,74 @@ object Speedy {
     private val damlTraceLog = LoggerFactory.getLogger("daml.tracelog")
 
     private def initial(
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)],
+        submissionTime: Time.Timestamp,
+        initialSeeding: InitialSeeding,
     ) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new util.ArrayList[Kont](128),
         lastLocation = None,
-        ptx = PartialTransaction.initial(seedWithTime),
+        ptx = PartialTransaction.initial(submissionTime, initialSeeding),
         committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(damlTraceLog, 100),
         compiledPackages = compiledPackages,
-        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
         dependsOnTime = false,
       )
 
     def newBuilder(
         compiledPackages: CompiledPackages,
-    ): Either[SError, (Boolean, Expr) => Machine] = {
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
+    ): Either[SError, Expr => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
-        fromSExpr(
-          SEApp(compiler.compile(expr), Array(SEValue.Token)),
-          checkSubmitterInMaintainers,
-          compiledPackages,
-        )
-      })
+      Right(
+        (expr: Expr) =>
+          fromSExpr(
+            SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
+            compiledPackages,
+            submissionTime,
+            InitialSeeding(transactionSeed)
+        ))
     }
 
     def build(
-        checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages,
-        transactionSeedAndSubmissionTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        seeds: InitialSeeding,
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
-        checkSubmitterInMaintainers,
         compiledPackages,
-        transactionSeedAndSubmissionTime,
+        submissionTime,
+        seeds,
       )
 
     // Used from repl.
     def fromExpr(
         expr: Expr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean,
+        submissionTime: Time.Timestamp,
+        transactionSeed: Option[crypto.Hash],
     ): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
-          SEApp(compiler.compile(expr), Array(SEValue.Token))
+          SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token))
         else
-          compiler.compile(expr)
+          compiler.unsafeCompile(expr)
 
-      fromSExpr(sexpr, checkSubmitterInMaintainers, compiledPackages)
+      fromSExpr(
+        sexpr,
+        compiledPackages,
+        submissionTime,
+        InitialSeeding(transactionSeed),
+      )
     }
 
     // Construct a machine from an SExpr. This is useful when you don’t have
@@ -307,12 +318,11 @@ object Speedy {
     // a token is not appropriate.
     def fromSExpr(
         sexpr: SExpr,
-        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
-        seedWithTime: Option[(crypto.Hash, Time.Timestamp)] = None,
+        submissionTime: Time.Timestamp,
+        seeding: InitialSeeding,
     ): Machine =
-      initial(checkSubmitterInMaintainers, compiledPackages, seedWithTime).copy(
-        ctrl = CtrlExpr(sexpr))
+      initial(compiledPackages, submissionTime, seeding).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -399,7 +409,7 @@ object Speedy {
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
   type Env = util.ArrayList[SValue]
-  def emptyEnv(): Env = new util.ArrayList[SValue](512)
+  def emptyEnv: Env = new util.ArrayList[SValue](512)
 
   //
   // Kontinuation
@@ -426,8 +436,12 @@ object Speedy {
     def execute(v: SValue, machine: Machine) = {
       v match {
         case SPAP(prim, args, arity) =>
-          val args2 = args.clone.asInstanceOf[util.ArrayList[SValue]]
-          val missing = arity - args2.size
+          val missing = arity - args.size
+          val newArgsLimit = Math.min(missing, newArgs.length)
+
+          // Keep some space free, because both `KFun` and `KPushTo` will add to the list.
+          val extendedArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
+          extendedArgs.addAll(args)
 
           // Stash away over-applied arguments, if any.
           val othersLength = newArgs.length - missing
@@ -437,14 +451,13 @@ object Speedy {
             machine.kont.add(KArg(others))
           }
 
-          machine.kont.add(KFun(prim, args2, arity))
+          machine.kont.add(KFun(prim, extendedArgs, arity))
 
-          // start evaluating the arguments
-          val newArgsLimit = Math.min(missing, newArgs.length)
+          // Start evaluating the arguments.
           var i = 1
           while (i < newArgsLimit) {
             val arg = newArgs(newArgsLimit - i)
-            machine.kont.add(KPushTo(args2, arg))
+            machine.kont.add(KPushTo(extendedArgs, arg))
             i = i + 1
           }
           machine.ctrl = CtrlExpr(newArgs(0))
@@ -478,10 +491,10 @@ object Speedy {
               case _ => false
             }
           }
-        case SVariant(_, con1, arg) =>
+        case SVariant(_, _, rank1, arg) =>
           alts.find { alt =>
             alt.pattern match {
-              case SCPVariant(_, con2) if con1 == con2 =>
+              case SCPVariant(_, _, rank2) if rank1 == rank2 =>
                 machine.kont.add(KPop(1))
                 machine.env.add(arg)
                 true
@@ -489,11 +502,10 @@ object Speedy {
               case _ => false
             }
           }
-        case SEnum(_, con1) =>
+        case SEnum(_, _, rank1) =>
           alts.find { alt =>
             alt.pattern match {
-              case SCPEnum(_, con2) =>
-                con1 == con2
+              case SCPEnum(_, _, rank2) => rank1 == rank2
               case SCPDefault => true
               case _ => false
             }
@@ -548,6 +560,7 @@ object Speedy {
           .body,
       )
     }
+
   }
 
   /** Push the evaluated value to the array 'to', and start evaluating the expression 'next'.
@@ -597,5 +610,13 @@ object Speedy {
 
   /** Internal exception thrown when a continuation result needs to be returned. */
   final case class SpeedyHungry(result: SResult) extends RuntimeException with NoStackTrace
+
+  def deriveTransactionSeed(
+      submissionSeed: Option[crypto.Hash],
+      participant: Ref.ParticipantId,
+      submissionTime: Time.Timestamp,
+  ): InitialSeeding =
+    InitialSeeding(
+      submissionSeed.map(crypto.Hash.deriveTransactionSeed(_, participant, submissionTime)))
 
 }

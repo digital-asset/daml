@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.digitalasset.daml.lf.data.BackStack
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.BlindingInfo
-import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, Transaction}
+import com.daml.lf.data.BackStack
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.BlindingInfo
+import com.daml.lf.transaction.Transaction.{NodeId, Transaction}
 
 final case class ProjectionRoots(
     party: Party,

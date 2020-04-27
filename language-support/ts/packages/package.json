@@ -4,18 +4,17 @@
     "@testing-library/react-hooks": "^3.2.1",
     "cross-fetch": "^3.0.4",
     "events": "^3.1.0",
-    "immutable": "^4.0.0-rc.12",
     "isomorphic-ws": "^4.0.1",
     "jwt-simple": "^0.5.6",
     "react": "^16.12.0",
     "react-test-renderer": "^16.12.0",
-    "typescript": "3.7.4",
+    "typescript": "~3.8.3",
     "ws": "^7.2.1"
   },
   "devDependencies": {
     "@bazel/bazel": "1.1.0",
-    "@bazel/hide-bazel-files": "1.1.0",
-    "@bazel/typescript": "1.1.0",
+    "@bazel/hide-bazel-files": "1.6.0",
+    "@bazel/typescript": "1.6.0",
     "@types/jest": "^24.9.0",
     "@types/react": "^16.9.20",
     "@types/ws": "^7.2.1",
@@ -24,6 +23,7 @@
     "eslint": "^6.8.0",
     "jest": "^24.9.0",
     "jest-cli": "^24.9.0",
+    "jest-mock-console": "^1.0.0",
     "ts-jest": "^24.3.0",
     "typedoc": "^0.16.11"
   }

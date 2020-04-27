@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.operation
+package com.daml.grpc.adapter.operation
 
 import akka.actor.ActorSystem
 import akka.stream.scaladsl.Sink
 import akka.stream.{Materializer, ThrottleMode}
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.ResultAssertions
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.platform.hello.HelloRequest
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloServiceStub
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.ResultAssertions
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.platform.hello.HelloRequest
+import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import io.grpc.{ClientCall, MethodDescriptor}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{Matchers, WordSpec}

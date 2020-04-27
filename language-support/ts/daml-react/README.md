@@ -4,7 +4,7 @@
 
 ## Documentation
 
-Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/app-dev/bindings-ts/daml-react/index.html).
+Comprehensive documentation for `@daml/react` can be found [here](https://docs.daml.com/0.0.0-SDKVERSION/app-dev/bindings-ts/daml-react/index.html).
 
 ## Usage
 
@@ -34,7 +34,7 @@ const App: React.FC = () => {
     >
       <MainScreen />
     </DamlLedger>
-}
+};
 ```
 
 Now you can use the following React hooks to interact with a DAML ledger:
@@ -44,35 +44,33 @@ Now you can use the following React hooks to interact with a DAML ledger:
 `useParty` returns the party, for which commands are currently send to the ledger.
 
 ```typescript
-const party = useParty()
+const party = useParty();
 ```
 
-`useExercise`
+`useLedger`
 -------------
-`useExercise` returns a function to exercise a choice by contract id.
+`useLedger` returns an instance of the `Ledger` class of [@daml/ledger](https://docs.daml.com/app-dev/bindings-ts/daml-ledger/index.html) to interact with the DAML
+ledger.
 
 ```typescript
-const [exerciseChoice] = useExercise(ContractTemplate.ChoiceName)
-const onClick = () => exerciseChoice(contractId, argument)
+const ledger = useLedger();
+const newContract = await ledger.create(ContractTemplate, arguments);
+const archiveEvent = await Ledger.archive(ContractTemplate, contractId);
+const [choiceReturnValue, events] = await ledger.exercise(ContractChoice, contractId, choiceArguments);
 ```
 
-`useExerciseByKey`
-------------------
-`useExerciseByKey` returns a function to exercise a choice by contract key.
-
-```typescript
-const [exerciseByKey] = useExerciseByKey(ContractTemplate.ChoiceName)
-const onClick = () => exerciseByKey(key, argument)
-```
 
 `useQuery`
 ----------
 `useQuery` returns the contracts matching a given query. The query matches for a given contract
-template and specified field values of the contracts of that template.
+template and specified field values of the contracts of that template. If the query is omitted, all
+visible contracts of the given template are returned.
 
 ```typescript
-const {contracts, isLoading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
-dependency2, ...])
+const {contracts, loading} = useQuery(ContractTemplate, () => {field: value}, [dependency1,
+dependency2, ...]);
+
+const {allContracts, isLoading} = useQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useReload`
@@ -80,8 +78,8 @@ dependency2, ...])
 `useReload` returns a function to reload the results of queries.
 
 ```typescript
-const reload = useReload()
-const onClick = reload
+const reload = useReload();
+const onClick = reload;
 ```
 
 `useStreamQuery`
@@ -89,8 +87,10 @@ const onClick = reload
 `useStreamQuery` has the same signature as `useQuery`, but it constantly refreshes the results.
 
 ```typescript
-const {contracts, isLoading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
-dependency2, ...])
+const {contracts, loading} = useStreamQuery(ContractTemplate, () => {field: value}, [dependency1,
+dependency2, ...]);
+
+const {allContracts, isLoading} = useStreamQuery(ContractTemplate, [dependency1, dependency2, ...]);
 ```
 
 `useFetchByKey`
@@ -98,7 +98,7 @@ dependency2, ...])
 `useFetchByKey` returns the unique contract of a given template and a given contract key.
 
 ```typescript
-const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])
+const {contract, loading} = useFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 `useStreamFetchByKey`
@@ -107,7 +107,7 @@ const {contract, isLoading} = useFetchByKey(ContractTemplate, () => key, [depend
 the result.
 
 ```typescript
-const {contract, isLoading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...])
+const {contract, loading} = useStreamFetchByKey(ContractTemplate, () => key, [dependency1, dependency2, ...]);
 ```
 
 

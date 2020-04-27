@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -18,7 +18,7 @@ TEST_FILES = \
 [
     daml_compile(
         name = name,
-        main_src = "%s.daml" % name,
+        srcs = ["%s.daml" % name],
         visibility = ["//daml-lf:__subpackages__"],
     )
     for name in TEST_FILES
@@ -26,7 +26,7 @@ TEST_FILES = \
 
 daml_compile(
     name = "Optional",
-    main_src = "Optional.daml",
+    srcs = ["Optional.daml"],
     visibility = ["//daml-lf:__subpackages__"],
 )
 

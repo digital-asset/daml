@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -80,17 +80,17 @@ final class DispatcherImpl[Index: Ordering](
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
   override def startingAt[T](
-      start: Index,
+      startExclusive: Index,
       subsource: SubSource[Index, T],
-      requestedEnd: Option[Index] = None): Source[(Index, T), NotUsed] =
-    if (indexIsBeforeZero(start))
+      endInclusive: Option[Index] = None): Source[(Index, T), NotUsed] =
+    if (indexIsBeforeZero(startExclusive))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid start index: '$start' before zero index '$zeroIndex'"))
-    else if (requestedEnd.exists(Ordering[Index].gt(start, _)))
+          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"))
+    else if (endInclusive.exists(Ordering[Index].gt(startExclusive, _)))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid index section: start '$start' is after end '$requestedEnd'"))
+          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"))
     else {
       val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
         _.subscribe(signalOnSubscribe = true)
@@ -98,7 +98,7 @@ final class DispatcherImpl[Index: Ordering](
           .map(_ => getHead()))
 
       val withOptionalEnd =
-        requestedEnd.fold(subscription)(
+        endInclusive.fold(subscription)(
           maxLedgerEnd =>
             // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
             // we can complete the stream from the upstream direction and are not dependent on doing the filtering
@@ -108,10 +108,12 @@ final class DispatcherImpl[Index: Ordering](
             // accept ledger end signals until the signal exceeds the requested max ledger end.
             // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
             // because here we only know that the Index type is order-able.
-              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true))
+              .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
+              .map(Ordering[Index].min(_, maxLedgerEnd))
+        )
 
       withOptionalEnd
-        .statefulMapConcat(() => new ContinuousRangeEmitter(start))
+        .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
         .flatMapConcat {
           case (previousHead, head) => subsource(previousHead, head)
         }

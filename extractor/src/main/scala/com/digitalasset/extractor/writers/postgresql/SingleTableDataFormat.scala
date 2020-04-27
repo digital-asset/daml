@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types.{CreatedEvent, ExercisedEvent, TransactionTree}
-import com.digitalasset.extractor.writers.Writer
-import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.SingleTableState
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types.{CreatedEvent, ExercisedEvent, TransactionTree}
+import com.daml.extractor.writers.Writer
+import com.daml.extractor.writers.postgresql.DataFormat.TemplateInfo
+import com.daml.extractor.writers.postgresql.DataFormatState.SingleTableState
 
 import cats.implicits._
 import doobie.implicits._

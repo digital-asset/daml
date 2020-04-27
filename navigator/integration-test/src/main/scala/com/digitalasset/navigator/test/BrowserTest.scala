@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test
+package com.daml.navigator.test
 
 import java.net.URL
 import java.util.UUID
 
-import com.digitalasset.navigator.test.config.Arguments
+import com.daml.navigator.test.config.Arguments
 import com.typesafe.scalalogging.LazyLogging
 import org.openqa.selenium.{JavascriptExecutor, WebDriver}
 import org.openqa.selenium.remote.DesiredCapabilities

@@ -1,29 +1,30 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.commands
+package com.daml.ledger.client.services.commands
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionServiceStub
+import com.daml.ledger.api.v1.command_completion_service.{
   CompletionEndRequest,
   CompletionEndResponse,
   CompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
-import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.util.Ctx
-import com.digitalasset.util.akkastreams.MaxInFlight
+import com.daml.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.CommandClientConfiguration
+import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.util.Ctx
+import com.daml.util.akkastreams.MaxInFlight
+import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import org.slf4j.LoggerFactory
 
@@ -51,9 +52,6 @@ final class CommandClient(
     config: CommandClientConfiguration,
     timeProviderO: Option[TimeProvider] = None)(implicit esf: ExecutionSequencerFactory) {
 
-  private val commandUpdater =
-    new CommandUpdater(timeProviderO, config.ttl, config.overrideTtl)
-
   private val logger = LoggerFactory.getLogger(getClass)
 
   /**
@@ -65,8 +63,7 @@ final class CommandClient(
       token: Option[String] = None): Future[Empty] =
     LedgerClient
       .stub(commandSubmissionService, token)
-      .submit(
-        submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
+      .submit(submitRequest)
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
@@ -118,7 +115,8 @@ final class CommandClient(
             LedgerClient.stub(commandSubmissionService, token).submit,
             config.maxParallelSubmissions),
           offset => completionSource(parties, offset, token),
-          ledgerEnd.getOffset
+          ledgerEnd.getOffset,
+          () => config.defaultDeduplicationTime,
         ))(Keep.right)
     }
 
@@ -154,7 +152,9 @@ final class CommandClient(
         else if (commands.applicationId != applicationId)
           throw new IllegalArgumentException(
             s"Failing fast on submission request of command ${commands.commandId} with invalid application ID ${commands.applicationId} (client expected $applicationId)")
-        r.copy(commands = r.commands.map(commandUpdater.applyOverrides))
+        val updateDedupTime = commands.deduplicationTime.orElse(Some(Duration
+          .of(config.defaultDeduplicationTime.getSeconds, config.defaultDeduplicationTime.getNano)))
+        r.copy(commands = Some(commands.copy(deduplicationTime = updateDedupTime)))
       })
 
   def submissionFlow[Context](token: Option[String] = None)

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -11,14 +11,14 @@ import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.test_stable.DA.Types.Tuple2
-import com.digitalasset.ledger.test_stable.Test.Delegated._
-import com.digitalasset.ledger.test_stable.Test.Delegation._
-import com.digitalasset.ledger.test_stable.Test.ShowDelegated._
-import com.digitalasset.ledger.test_stable.Test.TextKey._
-import com.digitalasset.ledger.test_stable.Test.TextKeyOperations._
-import com.digitalasset.ledger.test_stable.Test._
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.test_stable.DA.Types.Tuple2
+import com.daml.ledger.test_stable.Test.Delegated._
+import com.daml.ledger.test_stable.Test.Delegation._
+import com.daml.ledger.test_stable.Test.ShowDelegated._
+import com.daml.ledger.test_stable.Test.TextKey._
+import com.daml.ledger.test_stable.Test.TextKeyOperations._
+import com.daml.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
@@ -47,18 +47,18 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // fetch by key should fail during interpretation
         // Reason: Only stakeholders see the result of fetchByKey, beta is neither stakeholder nor divulgee
         fetchFailure <- beta
-          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
           .failed
 
         // lookup by key delegation is should fail during validation
         // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
         // but validation determined that this result is wrong as the contract is there.
         lookupByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
           .failed
       } yield {
         assertGrpcError(fetchFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
   }
 
@@ -85,14 +85,14 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // fetch by key should fail
         // Reason: Only stakeholders see the result of fetchByKey, beta is only a divulgee
         fetchByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseFetchByKeyDelegated(_, owner, key))
           .failed
 
         // lookup by key should fail
         // Reason: During command interpretation, the lookup did not find anything due to privacy rules,
         // but validation determined that this result is wrong as the contract is there.
         lookupByKeyFailure <- beta
-          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key, None))
+          .exercise(delegate, delegation.exerciseLookupByKeyDelegated(_, owner, key))
           .failed
       } yield {
         assertGrpcError(
@@ -101,7 +101,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           "dependency error: couldn't find contract",
         )
         assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
-        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "InvalidLookup")
+        assertGrpcError(lookupByKeyFailure, Status.Code.INVALID_ARGUMENT, "Disputed")
       }
   }
 
@@ -193,9 +193,10 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         delegated1TxTree <- ledger
-          .submitAndWaitRequest(owner, Delegated(owner, key).create.command)
-          .flatMap(ledger.submitAndWaitForTransactionTree)
-        delegated1Id = com.digitalasset.ledger.client.binding.Primitive
+          .submitAndWaitForTransactionTree(
+            ledger.submitAndWaitRequest(owner, Delegated(owner, key).create.command)
+          )
+        delegated1Id = com.daml.ledger.client.binding.Primitive
           .ContractId[Delegated](delegated1TxTree.eventsById.head._2.getCreated.contractId)
 
         delegated2TxTree <- ledger.exercise(owner, delegated1Id.exerciseRecreate)
@@ -228,7 +229,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         delegated <- ledger.create(owner, Delegated(owner, key))
 
         failedFetch <- ledger
-          .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2, None))
+          .exercise(owner, delegation.exerciseFetchByKeyDelegated(_, owner, key2))
           .failed
 
         // Create a transient contract with a key that is created and archived in same transaction.

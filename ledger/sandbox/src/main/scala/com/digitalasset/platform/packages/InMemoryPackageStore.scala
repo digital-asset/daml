@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.packages
+package com.daml.platform.packages
 
 import java.io.File
 import java.time.Instant
 
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.archive.{DarReader, Decode}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.language.Ast
+import com.daml.daml_lf_dev.DamlLf.Archive
 import org.slf4j.LoggerFactory
 import scalaz.std.either._
 import scalaz.std.list._

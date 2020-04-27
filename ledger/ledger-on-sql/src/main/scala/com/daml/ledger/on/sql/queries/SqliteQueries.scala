@@ -1,10 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql.queries
 
 import java.sql.Connection
-import java.time.Instant
 
 import anorm.SqlParser._
 import anorm._
@@ -28,13 +27,6 @@ final class SqliteQueries(override protected implicit val connection: Connection
   override def insertRecordIntoLog(key: Key, value: Value): Try[Index] =
     Try {
       SQL"INSERT INTO #$LogTable (entry_id, envelope) VALUES ($key, $value)"
-        .executeInsert()
-      ()
-    }.flatMap(_ => lastInsertId())
-
-  override def insertHeartbeatIntoLog(timestamp: Instant): Try[Index] =
-    Try {
-      SQL"INSERT INTO #$LogTable (heartbeat_timestamp) VALUES (${timestamp.toEpochMilli})"
         .executeInsert()
       ()
     }.flatMap(_ => lastInsertId())

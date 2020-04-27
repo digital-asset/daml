@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
 import shapeless._
 import scalaz.{Lens => _, _}
 import Scalaz._
 
 /** Lens to extract actually required values from `Option`al fields
-  * as in the types like `com.digitalasset.ledger.api.v1.value.RecordField`,
+  * as in the types like `com.daml.ledger.api.v1.value.RecordField`,
   * and display meaningful information about the field and the container value
   * when it's not possible because of a `None` value.
   *
@@ -43,7 +43,7 @@ import Scalaz._
   *   ReqFieldLens.create[Person, Int]('age)     -> will compile \o/
   *
   *   scala> val ageLens = ReqFieldLens.create[Person, Int]('age)
-  *   ageLens: com.digitalasset.extractor.ledger.types.ReqFieldLens[Person,Int] = [...]
+  *   ageLens: com.daml.extractor.ledger.types.ReqFieldLens[Person,Int] = [...]
   *
   *   scala> ageLens(Person("Alice", None))
   *   res1: String \/ Int = -\/(Required field `age` is empty in value: Person(Alice,None))

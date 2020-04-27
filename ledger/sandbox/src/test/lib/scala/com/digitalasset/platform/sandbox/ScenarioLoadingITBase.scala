@@ -1,34 +1,27 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
-
-import java.time.Instant
-import java.time.temporal.ChronoUnit
+package com.daml.platform.sandbox
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.testing.utils.MockMessages.transactionFilter
-import com.digitalasset.ledger.api.testing.utils.{
-  SuiteResourceManagementAroundEach,
-  MockMessages => M
-}
-import com.digitalasset.ledger.api.v1.active_contracts_service.{
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.MockMessages.transactionFilter
+import com.daml.ledger.api.testing.utils.{SuiteResourceManagementAroundEach, MockMessages => M}
+import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsResponse
 }
-import com.digitalasset.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter._
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
-import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.google.protobuf.timestamp.Timestamp
+import com.daml.ledger.api.v1.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
+import com.daml.ledger.api.v1.event.CreatedEvent
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter._
+import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.services.acs.ActiveContractSetClient
+import com.daml.ledger.client.services.commands.SynchronousCommandClient
+import com.daml.ledger.client.services.transactions.TransactionClient
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, Suite, WordSpec}
@@ -38,7 +31,6 @@ import scala.concurrent.Future
 @SuppressWarnings(
   Array(
     "org.wartremover.warts.Any",
-    "org.wartremover.warts.Option2Iterable",
     "org.wartremover.warts.StringPlusAny"
   ))
 abstract class ScenarioLoadingITBase
@@ -97,17 +89,7 @@ abstract class ScenarioLoadingITBase
   private def extractEvents(response: GetActiveContractsResponse) =
     response.activeContracts.toSet
 
-  lazy val dummyRequest = {
-    // we need to adjust the time of the request because we pass 10
-    // days in the test scenario.
-    val letInstant = Instant.EPOCH.plus(10, ChronoUnit.DAYS)
-    val let = Timestamp(letInstant.getEpochSecond, letInstant.getNano)
-    val mrt = Timestamp(let.seconds + 30L, let.nanos)
-    dummyCommands(ledgerId(), "commandId1").update(
-      _.commands.ledgerEffectiveTime := let,
-      _.commands.maximumRecordTime := mrt
-    )
-  }
+  lazy val dummyRequest = dummyCommands(ledgerId(), "commandId1")
 
   implicit val ec = DirectExecutionContext
 
@@ -129,17 +111,20 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummyFactory)
           lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("8", "", Seq.empty, None))
+          val GetActiveContractsResponse(offset, workflowId, activeContracts, _) = resp.last
+          offset should not be empty
+          workflowId shouldBe empty
+          activeContracts shouldBe empty
         }
       }
 
       "return them in an transaction service" in {
 
-        val beginOffset =
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val resultsF =
           newTransactionClient(ledgerId())
-            .getTransactions(beginOffset, None, transactionFilter)
+            .getTransactions(startExclusive, None, transactionFilter)
             .take(4)
             .runWith(Sink.seq)
 
@@ -166,7 +151,7 @@ abstract class ScenarioLoadingITBase
         }
       }
 
-      "event ids can be used to load transactions (ACS)" in {
+      "event ids from the active contracts service can be used to load transactions" in {
         val client = newTransactionClient(ledgerId())
         whenReady(submitRequest(SubmitAndWaitRequest(commands = dummyRequest.commands))) { _ =>
           whenReady(getSnapshot()) { resp =>
@@ -185,12 +170,12 @@ abstract class ScenarioLoadingITBase
         }
       }
 
-      "event ids are the same as contract ids (transaction service)" in {
-        val beginOffset =
+      "event ids from the transaction service can be used to load transactions" in {
+        val startExclusive =
           LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         val client = newTransactionClient(ledgerId())
         val resultsF = client
-          .getTransactions(beginOffset, None, transactionFilter)
+          .getTransactions(startExclusive, None, transactionFilter)
           .take(4)
           .runWith(Sink.seq)
 

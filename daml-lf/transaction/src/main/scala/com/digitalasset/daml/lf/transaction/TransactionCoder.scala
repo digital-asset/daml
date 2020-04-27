@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.{BackStack, Ref}
-import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
-import com.digitalasset.daml.lf.data.Ref.{Name, Party}
-import com.digitalasset.daml.lf.transaction.Node._
+import com.daml.lf.data.{BackStack, Ref}
+import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
+import com.daml.lf.data.Ref.{Name, Party}
+import com.daml.lf.transaction.Node._
 import VersionTimeline.Implicits._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedValue}
-import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{ContractId, VersionedValue}
+import com.daml.lf.value.{ValueCoder, ValueOuterClass, ValueVersion}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.google.protobuf.ProtocolStringList
 
 import scala.collection.JavaConverters._
@@ -130,6 +130,7 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return protocol buffer format node
     */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def encodeNode[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
@@ -144,9 +145,10 @@ object TransactionCoder {
       minExerciseResult,
       minContractKeyInExercise,
       minMaintainersInExercise,
+      minContractKeyInFetch,
     }
     node match {
-      case nc @ NodeCreate(_, _, _, _, _, _, _) =>
+      case nc @ NodeCreate(_, _, _, _, _, _) =>
         val createBuilder =
           TransactionOuterClass.NodeCreate
             .newBuilder()
@@ -174,7 +176,7 @@ object TransactionCoder {
           nodeBuilder.setCreate(createBuilder).build()
         }
 
-      case nf @ NodeFetch(_, _, _, _, _, _) =>
+      case nf @ NodeFetch(_, _, _, _, _, _, _) =>
         val (vversion, etid) = ValueCoder.encodeIdentifier(
           nf.templateId,
           valueVersion1Only(transactionVersion) option ValueVersion("1"),
@@ -193,13 +195,24 @@ object TransactionCoder {
             nf.actingParties.getOrElse(Set.empty),
             EncodeError(transactionVersion, isTooOldFor = "NodeFetch actors")
           )
+          optKey <- nf.key match {
+            case None => Right(None)
+            case Some(key) =>
+              if (transactionVersion precedes minContractKeyInFetch)
+                Left(EncodeError(transactionVersion, isTooOldFor = "NodeFetch's `key` field"))
+              else
+                encodeKeyWithMaintainers(encodeCid, key).map(Some(_))
+          }
         } yield {
           encodedCid.fold(fetchBuilder.setContractId, fetchBuilder.setContractIdStruct)
           actors.foreach(fetchBuilder.addActors)
+          optKey.foreach {
+            case (_, encodedKey) => fetchBuilder.setKeyWithMaintainers(encodedKey)
+          }
           nodeBuilder.setFetch(fetchBuilder).build()
         }
 
-      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+      case ne @ NodeExercises(_, _, _, _, _, _, _, _, _, _, _, _, _) =>
         for {
           argValue <- encodeValue(encodeCid, ne.chosenValue)
           (vversion, arg) = argValue
@@ -312,6 +325,7 @@ object TransactionCoder {
       minExerciseResult,
       minContractKeyInExercise,
       minMaintainersInExercise,
+      minContractKeyInFetch,
     }
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
@@ -331,7 +345,7 @@ object TransactionCoder {
           else if (txVersion precedes minKeyOrLookupByKey)
             Left(DecodeError(s"$txVersion is too old to support NodeCreate's `key` field"))
           else decodeKeyWithMaintainers(decodeCid, protoCreate.getKeyWithMaintainers).map(Some(_))
-        } yield (ni, NodeCreate(None, c, ci, None, signatories, stakeholders, key))
+        } yield (ni, NodeCreate(c, ci, None, signatories, stakeholders, key))
       case NodeTypeCase.FETCH =>
         val protoFetch = protoNode.getFetch
         for {
@@ -346,7 +360,12 @@ object TransactionCoder {
           else Right(Some(actingPartiesSet))
           stakeholders <- toPartySet(protoFetch.getStakeholdersList)
           signatories <- toPartySet(protoFetch.getSignatoriesList)
-        } yield (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders))
+          key <- if (protoFetch.getKeyWithMaintainers == TransactionOuterClass.KeyWithMaintainers.getDefaultInstance)
+            Right(None)
+          else if (txVersion precedes minContractKeyInFetch)
+            Left(DecodeError(s"$txVersion is too old to support NodeFetch's `key` field"))
+          else decodeKeyWithMaintainers(decodeCid, protoFetch.getKeyWithMaintainers).map(Some(_))
+        } yield (ni, NodeFetch(c, templateId, None, actingParties, signatories, stakeholders, key))
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
@@ -416,7 +435,6 @@ object TransactionCoder {
           (
             ni,
             NodeExercises(
-              None,
               targetCoid = targetCoid,
               templateId = templateId,
               choiceId = choiceName,

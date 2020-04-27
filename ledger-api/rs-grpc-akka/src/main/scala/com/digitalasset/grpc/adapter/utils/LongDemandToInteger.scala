@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.utils
+package com.daml.grpc.adapter.utils
 
 object LongDemandToInteger {
   private val intMaxAsLong = Int.MaxValue.toLong

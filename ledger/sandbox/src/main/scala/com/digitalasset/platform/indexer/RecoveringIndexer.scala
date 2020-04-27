@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.time.temporal.ChronoUnit
 import java.time.{Clock, Instant}
@@ -9,9 +9,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 import akka.actor.Scheduler
 import akka.pattern.after
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.resources.Resource
+import com.daml.dec.DirectExecutionContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.resources.Resource
 
 import scala.concurrent.duration.{Duration, DurationLong, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}

@@ -1,15 +1,16 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
-  , ScenarioServiceConfig
+  , ScenarioServiceConfig(..)
   , defaultScenarioServiceConfig
   , readScenarioServiceConfig
   , LowLevel.TimeoutSeconds
   , LowLevel.findServerJar
   , Handle
   , withScenarioService
+  , withScenarioService'
   , Context(..)
   , LowLevel.SkipValidation(..)
   , LowLevel.ContextId
@@ -34,14 +35,18 @@ import Data.IORef
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.Set as S
+import qualified Data.Text as T
 import System.Directory
 
+import DA.Daml.Options.Types (EnableScenarioService(..))
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
+
+import qualified DA.Service.Logger as Logger
 
 data Options = Options
   { optServerJar :: FilePath
@@ -58,6 +63,7 @@ toLowLevelOpts Options{..} =
     where
         optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
         optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
+        optJvmOptions = cnfJvmOptions optScenarioServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -76,8 +82,9 @@ data Handle = Handle
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScenarioService :: Options -> (Handle -> IO a) -> IO a
-withScenarioService hOptions f = do
+withScenarioService :: Logger.Handle IO -> ScenarioServiceConfig -> (Handle -> IO a) -> IO a
+withScenarioService loggerH scenarioConfig f = do
+  hOptions <- getOptions
   LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
@@ -90,16 +97,39 @@ withScenarioService hOptions f = do
              f Handle {..} `finally`
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
+  where getOptions = do
+            serverJar <- LowLevel.findServerJar
+            let ssLogHandle = Logger.tagHandle loggerH "ScenarioService"
+            let wrapLog f = f ssLogHandle . T.pack
+            pure Options
+                { optMaxConcurrency = 5
+                , optServerJar = serverJar
+                , optScenarioServiceConfig = scenarioConfig
+                , optLogInfo = wrapLog Logger.logInfo
+                , optLogError = wrapLog Logger.logError
+                }
+
+withScenarioService'
+    :: EnableScenarioService
+    -> Logger.Handle IO
+    -> ScenarioServiceConfig
+    -> (Maybe Handle -> IO a)
+    -> IO a
+withScenarioService' (EnableScenarioService enable) loggerH conf f
+    | enable = withScenarioService loggerH conf (f . Just)
+    | otherwise = f Nothing
 
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
     , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    , cnfJvmOptions :: [String]
     } deriving Show
 
 defaultScenarioServiceConfig :: ScenarioServiceConfig
 defaultScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize = Nothing
     , cnfGrpcTimeout = Nothing
+    , cnfJvmOptions = []
     }
 
 readScenarioServiceConfig :: IO ScenarioServiceConfig
@@ -115,6 +145,7 @@ parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServic
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
     cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
+    cnfJvmOptions <- fromMaybe [] <$> queryProjectConfig ["scenario-service", "jvm-options"] conf
     pure ScenarioServiceConfig {..}
 
 data Context = Context

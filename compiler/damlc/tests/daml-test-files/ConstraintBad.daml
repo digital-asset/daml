@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR Constructors with type constraints must give explicit field names
+-- @ERROR range=11:13-11:28; Constructors with type constraints must give explicit field names
 
 {-# LANGUAGE ExistentialQuantification #-}
 

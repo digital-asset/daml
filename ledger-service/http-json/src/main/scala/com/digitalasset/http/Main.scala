@@ -1,17 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import java.nio.file.Paths
+import java.io.File
+import java.nio.file.{Path, Paths}
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.Statement.discard
+import com.daml.http.dbbackend.ContractDao
+import com.daml.ledger.api.tls.TlsConfigurationCli
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import scalaz.std.option._
@@ -44,13 +46,14 @@ object Main extends StrictLogging {
     logger.info(
       s"Config(ledgerHost=${config.ledgerHost: String}, ledgerPort=${config.ledgerPort: Int}" +
         s", address=${config.address: String}, httpPort=${config.httpPort: Int}" +
+        s", portFile=${config.portFile: Option[Path]}" +
         s", applicationId=${config.applicationId.unwrap: String}" +
         s", packageReloadInterval=${config.packageReloadInterval.toString}" +
         s", maxInboundMessageSize=${config.maxInboundMessageSize: Int}" +
+        s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
-        s", defaultTtl=${config.defaultTtl.toString}" +
         ")")
 
     implicit val asys: ActorSystem = ActorSystem("http-json-ledger-api")
@@ -86,13 +89,14 @@ object Main extends StrictLogging {
         applicationId = config.applicationId,
         address = config.address,
         httpPort = config.httpPort,
+        portFile = config.portFile,
+        tlsConfig = config.tlsConfig,
         wsConfig = config.wsConfig,
         accessTokenFile = config.accessTokenFile,
         contractDao = contractDao,
         staticContentConfig = config.staticContentConfig,
         packageReloadInterval = config.packageReloadInterval,
         maxInboundMessageSize = config.maxInboundMessageSize,
-        defaultTtl = config.defaultTtl,
       )
 
     discard {
@@ -157,7 +161,19 @@ object Main extends StrictLogging {
       opt[Int]("http-port")
         .action((x, c) => c.copy(httpPort = x))
         .required()
-        .text("HTTP JSON API service port number")
+        .text(
+          "HTTP JSON API service port number. " +
+            "A port number of 0 will let the system pick an ephemeral port. " +
+            "Consider specifying `--port-file` option with port number 0.")
+
+      opt[File]("port-file")
+        .action((x, c) => c.copy(portFile = Some(x.toPath)))
+        .optional()
+        .text(
+          "Optional unique file name where to write the allocated HTTP port number. " +
+            "If process terminates gracefully, this file will be deleted automatically. " +
+            "Used to inform clients in CI about which port HTTP JSON API listens on. " +
+            "Defaults to none, that is, no file gets created.")
 
       opt[String]("application-id")
         .action((x, c) => c.copy(applicationId = ApplicationId(x)))
@@ -165,19 +181,15 @@ object Main extends StrictLogging {
         .text(
           s"Optional application ID to use for ledger registration. Defaults to ${Config.Empty.applicationId.unwrap: String}")
 
+      TlsConfigurationCli.parse(this, colSpacer = "        ")((f, c) =>
+        c copy (tlsConfig = f(c.tlsConfig)))
+
       opt[Duration]("package-reload-interval")
         .action((x, c) => c.copy(packageReloadInterval = FiniteDuration(x.length, x.unit)))
         .optional()
         .text(
           s"Optional interval to poll for package updates. Examples: 500ms, 5s, 10min, 1h, 1d. " +
             s"Defaults to ${Config.Empty.packageReloadInterval.toString}")
-
-      opt[Duration]("default-ttl")
-        .action((x, c) => c.copy(defaultTtl = FiniteDuration(x.length, x.unit)))
-        .optional()
-        .text(
-          s"Optional Time to Live interval to set if not provided in the command. Examples: 30s, 1min, 1h. " +
-            s"Defaults to ${Config.Empty.defaultTtl.toString}")
 
       opt[Int]("max-inbound-message-size")
         .action((x, c) => c.copy(maxInboundMessageSize = x))

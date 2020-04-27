@@ -36,6 +36,7 @@ load(
     "nixpkgs_cc_configure",
     "nixpkgs_local_repository",
     "nixpkgs_package",
+    "nixpkgs_python_configure",
 )
 load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
@@ -104,6 +105,8 @@ nixpkgs_cc_configure(
     repositories = dev_env_nix_repos,
 )
 
+nixpkgs_python_configure(repository = "@nixpkgs") if not is_windows else None
+
 # Curl system dependency
 nixpkgs_package(
     name = "curl_nix",
@@ -157,9 +160,12 @@ dev_env_tool(
     nix_label = "@openssl_nix",
     nix_paths = ["bin/openssl"],
     tools = ["openssl"],
-    win_include = ["bin"],
-    win_paths = ["bin/openssl.exe"],
-    win_tool = "openssl",
+    win_include = [
+        "usr/bin",
+        "usr/ssl",
+    ],
+    win_paths = ["usr/bin/openssl.exe"],
+    win_tool = "msys2",
 )
 
 # Tar & gzip dependency
@@ -200,6 +206,26 @@ dev_env_tool(
     tools = ["gzip"],
     win_include = ["usr/bin/gzip.exe"],
     win_paths = ["usr/bin/gzip.exe"],
+    win_tool = "msys2",
+)
+
+nixpkgs_package(
+    name = "patch_nix",
+    attribute_path = "gnupatch",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "patch_dev_env",
+    nix_include = ["bin/patch"],
+    nix_label = "@patch_nix",
+    nix_paths = ["bin/patch"],
+    tools = ["patch"],
+    win_include = ["usr/bin/patch.exe"],
+    win_paths = ["usr/bin/patch.exe"],
     win_tool = "msys2",
 )
 
@@ -265,17 +291,6 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
-
-dev_env_tool(
-    name = "zip_dev_env",
-    nix_include = ["bin/zip"],
-    nix_label = "@zip_nix",
-    nix_paths = ["bin/zip"],
-    tools = ["zip"],
-    win_include = ["usr/bin/zip.exe"],
-    win_paths = ["usr/bin/zip.exe"],
-    win_tool = "msys2",
 )
 
 load(
@@ -723,19 +738,6 @@ yarn_install(
     },
 )
 
-# Bazel Skydoc - Build rule documentation generator
-load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
-
-rules_sass_dependencies()
-
-load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
-
-sass_repositories()
-
-load("@io_bazel_skydoc//skylark:skylark.bzl", "skydoc_repositories")
-
-skydoc_repositories()
-
 # We usually use the _deploy_jar target to produce self-contained jars, but here we're using jar_jar because the size
 # of codegen tool is substantially reduced (as shown below) and that the presence of JVM internal com.sun classes could
 # theoretically stop the codegen running against JVMs other the OpenJDK 8 (the current JVM used for building).
@@ -785,16 +787,6 @@ cc_library(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 )
-
-nixpkgs_package(
-    name = "python3_nix",
-    attribute_path = "python3",
-    nix_file = "//nix:bazel.nix",
-    nix_file_deps = common_nix_file_deps,
-    repositories = dev_env_nix_repos,
-)
-
-register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",
@@ -857,7 +849,7 @@ java_import(
     jars = glob(["lib/**"]),
 )
 """,
-    sha256 = "3ffcdf350157700b76392c951342781b771f534a594fdab638fbc34ed46b2328",
-    strip_prefix = "canton-0.9.0",
-    urls = ["https://www.canton.io/releases/canton-0.9.0.tar.gz"],
+    sha256 = "2b9062eb029b12aa25b197cbe1862ac95fb7dd43d65b96121bd17a5c89fb3a19",
+    strip_prefix = "canton-0.11.0",
+    urls = ["https://www.canton.io/releases/canton-0.11.0.tar.gz"],
 )

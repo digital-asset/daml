@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.nio.file.Path
 
@@ -10,33 +10,35 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.settings.ServerSettings
 import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.Statement.discard
-import com.digitalasset.http.dbbackend.ContractDao
-import com.digitalasset.http.json.{
+import com.daml.api.util.TimeProvider
+import com.daml.auth.TokenHolder
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.http.Statement.discard
+import com.daml.http.dbbackend.ContractDao
+import com.daml.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.util.ExceptionOps._
-import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
-import com.digitalasset.jwt.JwtDecoder
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.http.util.ApiValueToLfValueConverter
+import com.daml.util.ExceptionOps._
+import com.daml.http.util.FutureUtil._
+import com.daml.http.util.IdentifierConverters.apiLedgerId
+import com.daml.jwt.JwtDecoder
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.refinements.{ApiTypes => lar}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.pkg.PackageClient
-import com.digitalasset.ledger.service.LedgerReader
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
+import com.daml.ledger.client.services.pkg.PackageClient
+import com.daml.ledger.service.LedgerReader
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.ports.{Port, PortFiles}
 import com.typesafe.scalalogging.StrictLogging
 import io.grpc.netty.NettyChannelBuilder
 import scalaz.Scalaz._
@@ -49,7 +51,6 @@ import scala.util.control.NonFatal
 object HttpService extends StrictLogging {
 
   val DefaultPackageReloadInterval: FiniteDuration = FiniteDuration(5, "s")
-  val DefaultTimeToLive: FiniteDuration = FiniteDuration(30, "s")
   val DefaultMaxInboundMessageSize: Int = 4194304
 
   private type ET[A] = EitherT[Future, Error, A]
@@ -62,13 +63,14 @@ object HttpService extends StrictLogging {
       applicationId: ApplicationId,
       address: String,
       httpPort: Int,
+      portFile: Option[Path],
+      tlsConfig: TlsConfiguration,
       wsConfig: Option[WebsocketConfig],
       accessTokenFile: Option[Path],
       contractDao: Option[ContractDao] = None,
       staticContentConfig: Option[StaticContentConfig] = None,
       packageReloadInterval: FiniteDuration = DefaultPackageReloadInterval,
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
-      defaultTtl: FiniteDuration = DefaultTimeToLive,
       validateJwt: EndpointsCompanion.ValidateJwt = decodeJwt,
   )(
       implicit asys: ActorSystem,
@@ -85,7 +87,7 @@ object HttpService extends StrictLogging {
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
       commandClient = CommandClientConfiguration.default,
-      sslContext = None,
+      sslContext = tlsConfig.client,
       token = tokenHolder.flatMap(_.token),
     )
 
@@ -113,7 +115,6 @@ object HttpService extends StrictLogging {
         LedgerClientJwt.submitAndWaitForTransaction(client),
         LedgerClientJwt.submitAndWaitForTransactionTree(client),
         TimeProvider.UTC,
-        defaultTtl
       )
 
       contractsService = new ContractsService(
@@ -126,7 +127,19 @@ object HttpService extends StrictLogging {
         contractDao,
       )
 
-      partiesService = new PartiesService(LedgerClientJwt.listKnownParties(client))
+      partiesService = new PartiesService(
+        LedgerClientJwt.listKnownParties(client),
+        LedgerClientJwt.getParties(client),
+        LedgerClientJwt.allocateParty(client)
+      )
+
+      packageManagementService = new PackageManagementService(
+        LedgerClientJwt.listPackages(client),
+        LedgerClientJwt.getPackage(client),
+        uploadDarAndReloadPackages(
+          LedgerClientJwt.uploadDar(client),
+          () => packageService.reload(ec))
+      )
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageService)
 
@@ -136,6 +149,7 @@ object HttpService extends StrictLogging {
         commandService,
         contractsService,
         partiesService,
+        packageManagementService,
         encoder,
         decoder,
       )
@@ -155,16 +169,18 @@ object HttpService extends StrictLogging {
         websocketService,
       )
 
+      defaultEndpoints = jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound
+
       allEndpoints = staticContentConfig.cata(
-        c =>
-          StaticContentEndpoints
-            .all(c) orElse jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
-        jsonEndpoints.all orElse websocketEndpoints.transactionWebSocket orElse EndpointsCompanion.notFound,
+        c => StaticContentEndpoints.all(c) orElse defaultEndpoints,
+        defaultEndpoints
       )
 
       binding <- liftET[Error](
         Http().bindAndHandleAsync(allEndpoints, address, httpPort, settings = settings),
       )
+
+      _ <- either(portFile.cata(f => createPortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield binding
 
@@ -283,4 +299,17 @@ object HttpService extends StrictLogging {
         case NonFatal(e) =>
           \/.left(Error(s"Cannot connect to the ledger server, error: ${e.description}"))
       }
+
+  private def createPortFile(
+      file: Path,
+      binding: akka.http.scaladsl.Http.ServerBinding): Error \/ Unit = {
+    import util.ErrorOps._
+    PortFiles.write(file, Port(binding.localAddress.getPort)).liftErr(Error)
+  }
+
+  private def uploadDarAndReloadPackages(
+      f: LedgerClientJwt.UploadDarFile,
+      g: () => Future[PackageService.Error \/ Unit])(
+      implicit ec: ExecutionContext): LedgerClientJwt.UploadDarFile =
+    (x, y) => f(x, y).flatMap(_ => g().flatMap(toFuture(_): Future[Unit]))
 }

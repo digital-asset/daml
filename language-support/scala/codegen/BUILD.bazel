@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -11,10 +11,6 @@ load(
 common_scalacopts = [
     "-Xelide-below",
     "CONFIG",
-]
-
-common_jvm_flags = [
-    "-Xmx2G",
 ]
 
 da_scala_library(
@@ -32,9 +28,8 @@ da_scala_library(
         # Plugins have to be specified as JARs.
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
-    scalac_jvm_flags = common_jvm_flags,
     scalacopts = common_scalacopts,
-    tags = ["maven_coordinates=com.daml.scala:codegen:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-scala:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -59,8 +54,8 @@ da_scala_binary(
     srcs = [
         "src/main/scala/com/digitalasset/codegen/Main.scala",
     ],
-    main_class = "com.digitalasset.codegen.Main",
-    tags = ["maven_coordinates=com.daml.scala:codegen-main:__VERSION__"],
+    main_class = "com.daml.codegen.Main",
+    tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -79,7 +74,6 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    jvm_flags = common_jvm_flags,
     scalacopts = common_scalacopts,
     deps = [
         ":codegen",

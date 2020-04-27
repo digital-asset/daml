@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.value.ValueVersion
+import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.value.ValueVersion
 import scalaz.std.map._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.order._
@@ -57,6 +57,7 @@ object VersionTimeline {
       Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
       This(That(TransactionVersion("9"))),
       That(LanguageVersion(LMV.V1, "8")),
+      This(That(TransactionVersion("10"))),
       // FIXME https://github.com/digital-asset/daml/issues/2256
       //  * change the following line when LF 1.9 is frozen.
       //  * do not insert line after this once until 1.9 is frozen.
@@ -169,6 +170,7 @@ object VersionTimeline {
     import scalaz.std.anyVal._
     import scalaz.std.iterable._
     // None means "after the end"
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val latestIndex: Option[Int] = OneAnd(A.inject(minimum), as)
       .maximumOf1(sv => index.get(sv).cata(\/.left, \/-(())))
       .swap
@@ -177,11 +179,6 @@ object VersionTimeline {
       .flatMap(li =>
         inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract))
       .getOrElse(minimum)
-  }
-
-  def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
-    import Implicits._
-    !(lfVers precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion)
   }
 
 }

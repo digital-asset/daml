@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 
 /**
   * A claim is a single statement about what an authenticated user can do with the ledger API.

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -20,7 +20,7 @@ import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
-import DA.Daml.Compiler.Scenario as SS
+import DA.Daml.LF.ScenarioServiceClient as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
@@ -28,12 +28,13 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
-main = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+main = SS.withScenarioService Logger.makeNopHandle scenarioConfig $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate
   -- service for each test, we launch a single service that is shared across all tests.
   Tasty.deterministicMain (ideTests (Just scenarioService))
+  where scenarioConfig = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
 
 ideTests :: Maybe SS.Handle -> Tasty.TestTree
 ideTests mbScenarioService =
@@ -245,6 +246,25 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             setOpenVirtualResources [va, vb]
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
+
+    , testCase' "Scenario with mangled names" $ do
+            a <- makeFile "foo/MangledScenario'.daml" $ T.unlines
+                [ "module MangledScenario' where"
+                , "template T' with"
+                , "    p : Party"
+                , "  where"
+                , "    signatory p"
+                , "mangled' = scenario do"
+                , "  alice <- getParty \"Alice\""
+                , "  t' <- submit alice (create (T' alice))"
+                , "  submit alice (exercise t' Archive)"
+                ]
+            setFilesOfInterest [a]
+            expectNoErrors
+            let va = VRScenario a "mangled'"
+            setOpenVirtualResources [va]
+            expectVirtualResource va "title=\"MangledScenario':T'\""
+
 
     ,   testCaseFails' "Modules must match their filename DEL-7175" $ do
             a <- makeFile "Foo/Test.daml" "daml 1.2 module Test where"
@@ -669,9 +689,9 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "data X = Y {}"
+                , "data X = X {}"
                 , "foo : X"
-                , "foo = Y"
+                , "foo = X"
                 ]
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,3,[6]) (At (foo,2,0))
@@ -680,9 +700,9 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "data X = Y {}"
+                , "data X = X {}"
                 , "foo : X"
-                , "foo = Y : X"
+                , "foo = X : X"
                 ]
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,4,[10]) (At (foo,2,0))

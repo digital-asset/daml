@@ -1,26 +1,23 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.quickstart.iou
-
-import java.time.Instant
+package com.daml.quickstart.iou
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.quickstart.iou.ClientUtil.workflowIdFromParty
-import com.digitalasset.quickstart.iou.DecodeUtil.decodeCreatedEvent
-import com.digitalasset.quickstart.iou.FutureUtil.toFuture
+import com.daml.quickstart.iou.ClientUtil.workflowIdFromParty
+import com.daml.quickstart.iou.DecodeUtil.decodeCreatedEvent
+import com.daml.quickstart.iou.FutureUtil.toFuture
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._
@@ -58,8 +55,6 @@ object IouMain extends App with StrictLogging {
 
   private val applicationId = ApplicationId("IOU Example")
 
-  private val timeProvider = TimeProvider.Constant(Instant.EPOCH)
-
   private val clientConfig = LedgerClientConfiguration(
     applicationId = ApplicationId.unwrap(applicationId),
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
@@ -71,7 +66,7 @@ object IouMain extends App with StrictLogging {
     LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf)
 
   private val clientUtilF: Future[ClientUtil] =
-    clientF.map(client => new ClientUtil(client, applicationId, 30.seconds, timeProvider))
+    clientF.map(client => new ClientUtil(client, applicationId))
 
   private val offset0F: Future[LedgerOffset] = clientUtilF.flatMap(_.ledgerEnd)
 

@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.types.Ledger
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.Time
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.transaction.Transaction.Transaction
+import com.daml.lf.types.Ledger
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 
 object SError {
 
@@ -61,15 +61,6 @@ object SError {
   /** Error during an operation on the update transaction. */
   final case class DamlETransactionError(
       reason: String,
-  ) extends SErrorDamlException
-
-  /** The submitter was not in the key maintainers on lookup.
-    * See <https://github.com/digital-asset/daml/issues/1866>.
-    */
-  final case class DamlESubmitterNotInMaintainers(
-      templateId: TypeConName,
-      submitter: Party,
-      maintainers: Set[Party],
   ) extends SErrorDamlException
 
   /** Errors from scenario interpretation. */

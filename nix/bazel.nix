@@ -20,6 +20,7 @@ let shared = rec {
     netcat-gnu
     nodejs
     openssl
+    gnupatch
     patchelf
     postgresql_9_6
     protobuf3_8

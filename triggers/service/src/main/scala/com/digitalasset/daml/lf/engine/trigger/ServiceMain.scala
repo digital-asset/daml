@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Scheduler}
 import akka.actor.typed.scaladsl.AskPattern._
@@ -10,12 +10,17 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.directives.FileInfo
 import akka.http.scaladsl.server.Route
 import akka.stream.{KillSwitch, KillSwitches, Materializer}
-import akka.util.Timeout
+import akka.stream.scaladsl.{Source}
+import akka.util.{ByteString, Timeout}
+import java.io.ByteArrayInputStream
 import java.time.Duration
 import java.util.UUID
+import java.util.zip.ZipInputStream
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.io.StdIn
@@ -25,23 +30,31 @@ import scalaz.syntax.traverse._
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, Decode}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent}
-import com.digitalasset.ledger.api.v1.ledger_offset.{LedgerOffset}
-import com.digitalasset.ledger.api.v1.transaction_filter.{TransactionFilter}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.lf.CompiledPackages
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.archive.Reader.ParseError
+import com.daml.lf.data.Ref._
+import com.daml.lf.engine.{
+  ConcurrentCompiledPackages,
+  MutableCompiledPackages,
+  Result,
+  ResultDone,
+  ResultNeedPackage
+}
+import com.daml.lf.language.Ast._
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.grpc.adapter.AkkaExecutionSequencerPool
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
+import com.daml.ledger.api.v1.event.{CreatedEvent}
+import com.daml.ledger.api.v1.ledger_offset.{LedgerOffset}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement,
 }
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.platform.services.time.TimeProviderType
 
 case class LedgerConfig(
     host: String,
@@ -57,18 +70,14 @@ object TriggerActor {
   final case class QueryACSFailed(cause: Throwable) extends Message
   final case class QueriedACS(
       runner: Runner,
-      filter: TransactionFilter,
       acs: Seq[CreatedEvent],
       offset: LedgerOffset,
   ) extends Message
 
   case class Config(
+      compiledPackages: CompiledPackages,
+      trigger: Trigger,
       ledgerConfig: LedgerConfig,
-      // TODO We should really not pass in the DAR for each package.
-      // The right way to approach this is to store the CompiledPackages
-      // deduplicated and shared between all triggers.
-      dar: Dar[(PackageId, Package)],
-      triggerId: Identifier,
       party: String,
   )
 
@@ -82,8 +91,8 @@ object TriggerActor {
       val clientConfig = LedgerClientConfiguration(
         applicationId = appId.unwrap,
         ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
-        commandClient =
-          CommandClientConfiguration.default.copy(ttl = config.ledgerConfig.commandTtl),
+        commandClient = CommandClientConfiguration.default.copy(
+          defaultDeduplicationTime = config.ledgerConfig.commandTtl),
         sslContext = None,
       )
 
@@ -91,15 +100,10 @@ object TriggerActor {
       // TODO We should handle being stopped while querying the ACS.
       def queryingACS() = Behaviors.receiveMessagePartial[Message] {
         case QueryACSFailed(cause) => throw new RuntimeException("ACS query failed", cause)
-        case QueriedACS(runner, filter, acs, offset) =>
-          val heartbeat = runner.getTriggerHeartbeat(config.triggerId)
+        case QueriedACS(runner, acs, offset) =>
           val (killSwitch, trigger) = runner.runWithACS(
-            config.triggerId,
-            config.ledgerConfig.timeProvider,
-            heartbeat,
             acs,
             offset,
-            filter,
             msgFlow = KillSwitches.single[TriggerMsg],
           )
           // TODO If we are stopped we will end up causing the future to complete which will trigger
@@ -128,11 +132,19 @@ object TriggerActor {
         LedgerClient
           .singleHost(config.ledgerConfig.host, config.ledgerConfig.port, clientConfig)
           .flatMap { client =>
-            val runner = new Runner(client, appId, config.party, config.dar)
-            val filter = runner.getTriggerFilter(config.triggerId)
+            val runner = new Runner(
+              config.compiledPackages,
+              config.trigger,
+              client,
+              config.ledgerConfig.timeProvider,
+              appId,
+              config.party)
             runner
-              .queryACS(client, filter)
-              .map({ case (acs, offset) => QueriedACS(runner, filter, acs, offset) })
+              .queryACS()
+              .map({
+                case (acs, offset) =>
+                  QueriedACS(runner, acs, offset)
+              })
           }
       context.pipeToSelf(acsQuery) {
         case Success(msg) => msg
@@ -175,11 +187,28 @@ object Server {
   }
   implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
 
+  private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
+    val darMap = dar.all.toMap
+    darMap.foreach {
+      case (pkgId, pkg) =>
+        // If packages are not in topological order, we will get back ResultNeedPackage.
+        // The way the code is structured here we will still call addPackage even if we
+        // already fed the package via the callback but this is harmless and not expensive.
+        def go(r: Result[Unit]): Unit = r match {
+          case ResultDone(()) => ()
+          case ResultNeedPackage(pkgId, resume) =>
+            go(resume(darMap.get(pkgId)))
+          case _ => throw new RuntimeException(s"Unexpected engine result $r")
+        }
+        go(compiledPackages.addPackage(pkgId, pkg))
+    }
+  }
+
   def apply(
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      dar: Dar[(PackageId, Package)],
+      dar: Option[Dar[(PackageId, Package)]],
   ): Behavior[Message] = Behaviors.setup { ctx =>
     // http doesn't know about akka typed so provide untyped system
     implicit val untypedSystem: akka.actor.ActorSystem = ctx.system.toClassic
@@ -188,22 +217,64 @@ object Server {
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
     var triggers: Map[UUID, ActorRef[TriggerActor.Message]] = Map.empty
+    // Mutable in preparation for dynamic package upload.
+    val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
+    dar.foreach(addDar(compiledPackages, _))
 
+    // fileUpload seems to trigger that warning and I couldn't find
+    // a way to fix it so we disable the warning.
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     val route = concat(
       post {
-        // Start a new trigger given its identifier and the party it should be running as.
-        // Returns a UUID for the newly started trigger.
-        path("start") {
-          entity(as[TriggerParams]) { params =>
-            val uuid = UUID.randomUUID
-            val ref = ctx.spawn(
-              TriggerActor(TriggerActor.Config(ledgerConfig, dar, params.identifier, params.party)),
-              uuid.toString,
-            )
-            triggers = triggers + (uuid -> ref)
-            complete(uuid.toString)
+        concat(
+          // Start a new trigger given its identifier and the party it should be running as.
+          // Returns a UUID for the newly started trigger.
+          path("start") {
+            entity(as[TriggerParams]) {
+              params =>
+                Trigger.fromIdentifier(compiledPackages, params.identifier) match {
+                  case Left(err) =>
+                    complete((StatusCodes.UnprocessableEntity, err))
+                  case Right(trigger) =>
+                    val uuid = UUID.randomUUID
+                    val ref = ctx.spawn(
+                      TriggerActor(
+                        TriggerActor.Config(compiledPackages, trigger, ledgerConfig, params.party)),
+                      uuid.toString,
+                    )
+                    triggers = triggers + (uuid -> ref)
+                    complete(uuid.toString)
+
+                }
+            }
+          },
+          // upload a DAR as a multi-part form request with a single field called
+          // "dar".
+          path("upload_dar") {
+            fileUpload("dar") {
+              case (metadata: FileInfo, byteSource: Source[ByteString, Any]) =>
+                val byteStringF: Future[ByteString] = byteSource.runFold(ByteString(""))(_ ++ _)
+                onSuccess(byteStringF) {
+                  byteString =>
+                    val inputStream = new ByteArrayInputStream(byteString.toArray)
+                    DarReader()
+                      .readArchive("package-upload", new ZipInputStream(inputStream)) match {
+                      case Failure(err) => complete((StatusCodes.UnprocessableEntity, err))
+                      case Success(encodedDar) =>
+                        try {
+                          val dar = encodedDar.map {
+                            case (pkgId, payload) => Decode.readArchivePayload(pkgId, payload)
+                          }
+                          addDar(compiledPackages, dar)
+                          complete(s"DAR uploaded, main package id: ${dar.main._1}")
+                        } catch {
+                          case e: ParseError => complete((StatusCodes.UnprocessableEntity, e))
+                        }
+                    }
+                }
+            }
           }
-        }
+        )
       },
       // Stop a trigger given its UUID
       delete {
@@ -275,7 +346,8 @@ object ServiceMain {
       host: String,
       port: Int,
       ledgerConfig: LedgerConfig,
-      dar: Dar[(PackageId, Package)]): Future[(ServerBinding, ActorSystem[Server.Message])] = {
+      dar: Option[Dar[(PackageId, Package)]])
+    : Future[(ServerBinding, ActorSystem[Server.Message])] = {
     val system: ActorSystem[Server.Message] =
       ActorSystem(Server(host, port, ledgerConfig, dar), "TriggerService")
     // timeout chosen at random, change freely if you see issues
@@ -289,10 +361,16 @@ object ServiceMain {
     ServiceConfig.parse(args) match {
       case None => sys.exit(1)
       case Some(config) =>
-        val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
-          DarReader().readArchiveFromFile(config.darPath.toFile).get
-        val dar: Dar[(PackageId, Package)] = encodedDar.map {
-          case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+        val dar: Option[Dar[(PackageId, Package)]] = config.darPath.map {
+          case darPath =>
+            val encodedDar: Dar[(PackageId, DamlLf.ArchivePayload)] =
+              DarReader().readArchiveFromFile(darPath.toFile) match {
+                case Failure(err) => sys.error(s"Failed to read archive: $err")
+                case Success(dar) => dar
+              }
+            encodedDar.map {
+              case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
+            }
         }
         val ledgerConfig =
           LedgerConfig(

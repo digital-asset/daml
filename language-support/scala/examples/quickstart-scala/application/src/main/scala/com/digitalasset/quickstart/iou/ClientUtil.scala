@@ -1,35 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.quickstart.iou
+package com.daml.quickstart.iou
 
 import java.util.UUID
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.quickstart.iou.FutureUtil.toFuture
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.binding.{Primitive => P}
+import com.daml.quickstart.iou.FutureUtil.toFuture
 import com.google.protobuf.empty.Empty
 
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ClientUtil(
     client: LedgerClient,
     applicationId: ApplicationId,
-    ttl: Duration,
-    timeProvider: TimeProvider) {
+) {
 
   import ClientUtil._
 
@@ -51,15 +47,12 @@ class ClientUtil(
       party: P.Party,
       workflowId: WorkflowId,
       seq: P.Update[P.ContractId[T]]*): SubmitRequest = {
-    val now = timeProvider.getCurrentTime
     val commands = Commands(
       ledgerId = ledgerId.unwrap,
       workflowId = WorkflowId.unwrap(workflowId),
       applicationId = ApplicationId.unwrap(applicationId),
       commandId = uniqueId,
       party = P.Party.unwrap(party),
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plusNanos(ttl.toNanos))),
       commands = seq.map(_.command)
     )
     SubmitRequest(Some(commands), None)

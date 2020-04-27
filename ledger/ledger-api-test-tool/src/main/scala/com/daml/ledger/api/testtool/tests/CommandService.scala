@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -8,15 +8,15 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.Synchronize.synchronize
 import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.commands.Command
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.client.binding.Value.encode
-import com.digitalasset.ledger.test_stable.Test.CallablePayout._
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.DummyFactory._
-import com.digitalasset.ledger.test_stable.Test.WithObservers._
-import com.digitalasset.ledger.test_stable.Test.{Dummy, _}
+import com.daml.ledger.api.v1.commands.Command
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.client.binding.Value.encode
+import com.daml.ledger.test_stable.Test.CallablePayout._
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test_stable.Test.DummyFactory._
+import com.daml.ledger.test_stable.Test.WithObservers._
+import com.daml.ledger.test_stable.Test.{Dummy, _}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
@@ -27,8 +27,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWait(request)
         active <- ledger.activeContracts(party)
       } yield {
@@ -44,8 +44,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         transactionId <- ledger.submitAndWaitForTransactionId(request)
         retrievedTransaction <- ledger.transactionTreeById(transactionId, party)
         transactions <- ledger.flatTransactions(party)
@@ -93,8 +93,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         transaction <- ledger.submitAndWaitForTransaction(request)
       } yield {
         assert(
@@ -123,8 +123,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         transactionTree <- ledger.submitAndWaitForTransactionTree(request)
       } yield {
         assert(
@@ -153,8 +153,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWait(request)
         failure <- ledger.submitAndWait(request).failed
       } yield {
@@ -168,8 +168,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWaitForTransactionId(request)
         failure <- ledger.submitAndWaitForTransactionId(request).failed
       } yield {
@@ -183,8 +183,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWaitForTransaction(request)
         failure <- ledger.submitAndWaitForTransaction(request).failed
       } yield {
@@ -198,8 +198,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     allocate(SingleParty),
   ) {
     case Participants(Participant(ledger, party)) =>
+      val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
         _ <- ledger.submitAndWaitForTransactionTree(request)
         failure <- ledger.submitAndWaitForTransactionTree(request).failed
       } yield {
@@ -214,10 +214,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
+      val request = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(_.commands.ledgerId := invalidLedgerId)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-        failure <- ledger.submitAndWaitForTransactionId(badLedgerId).failed
+        failure <- ledger.submitAndWaitForTransactionId(request).failed
       } yield
         assertGrpcError(
           failure,
@@ -233,10 +234,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
+      val request = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(_.commands.ledgerId := invalidLedgerId)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-        failure <- ledger.submitAndWaitForTransaction(badLedgerId).failed
+        failure <- ledger.submitAndWaitForTransaction(request).failed
       } yield
         assertGrpcError(
           failure,
@@ -252,10 +254,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   ) {
     case Participants(Participant(ledger, party)) =>
       val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
+      val request = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(_.commands.ledgerId := invalidLedgerId)
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        badLedgerId = request.update(_.commands.ledgerId := invalidLedgerId)
-        failure <- ledger.submitAndWaitForTransactionTree(badLedgerId).failed
+        failure <- ledger.submitAndWaitForTransactionTree(request).failed
       } yield
         assertGrpcError(
           failure,
@@ -272,8 +275,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     case Participants(Participant(ledger, party)) =>
       val createWithBadArgument = Dummy(party).create.command
         .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
+      val badRequest = ledger.submitAndWaitRequest(party, createWithBadArgument)
       for {
-        badRequest <- ledger.submitAndWaitRequest(party, createWithBadArgument)
         failure <- ledger.submitAndWait(badRequest).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, s"Missing record label")
@@ -373,8 +376,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     case Participants(Participant(ledger, party)) =>
       val target = 15
       val commands = Vector.fill(target)(Dummy(party).create.command)
+      val request = ledger.submitAndWaitRequest(party, commands: _*)
       for {
-        request <- ledger.submitAndWaitRequest(party, commands: _*)
         _ <- ledger.submitAndWait(request)
         acs <- ledger.activeContracts(party)
       } yield {
@@ -433,12 +436,15 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       val positiveOutOfBounds = "10000000000000000000000000000.0000000000"
       val negativeOutOfBounds = "-10000000000000000000000000000.0000000000"
       for {
-        r1 <- ledger.submitAndWaitRequest(party, rounding(wouldLosePrecision))
-        e1 <- ledger.submitAndWait(r1).failed
-        r2 <- ledger.submitAndWaitRequest(party, rounding(positiveOutOfBounds))
-        e2 <- ledger.submitAndWait(r2).failed
-        r3 <- ledger.submitAndWaitRequest(party, rounding(negativeOutOfBounds))
-        e3 <- ledger.submitAndWait(r3).failed
+        e1 <- ledger
+          .submitAndWait(ledger.submitAndWaitRequest(party, rounding(wouldLosePrecision)))
+          .failed
+        e2 <- ledger
+          .submitAndWait(ledger.submitAndWaitRequest(party, rounding(positiveOutOfBounds)))
+          .failed
+        e3 <- ledger
+          .submitAndWait(ledger.submitAndWaitRequest(party, rounding(negativeOutOfBounds)))
+          .failed
       } yield {
         assertGrpcError(e1, Status.Code.INVALID_ARGUMENT, "Cannot represent")
         assertGrpcError(e2, Status.Code.INVALID_ARGUMENT, "Out-of-bounds (Numeric 10)")
@@ -449,8 +455,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   test("CSCreateAndExercise", "Implement create-and-exercise correctly", allocate(SingleParty)) {
     case Participants(Participant(ledger, party)) =>
       val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1(party).command
+      val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
-        request <- ledger.submitAndWaitRequest(party, createAndExercise)
         _ <- ledger.submitAndWait(request)
         transactions <- ledger.flatTransactions(party)
         trees <- ledger.transactionTrees(party)
@@ -483,8 +489,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         .exerciseDummyChoice1(party)
         .command
         .update(_.createAndExercise.createArguments := Record())
+      val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
-        request <- ledger.submitAndWaitRequest(party, createAndExercise)
         failure <- ledger.submitAndWait(request).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "Expecting 1 field for record")
@@ -501,8 +507,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         .exerciseDummyChoice1(party)
         .command
         .update(_.createAndExercise.choiceArgument := Value(Value.Sum.Bool(false)))
+      val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
-        request <- ledger.submitAndWaitRequest(party, createAndExercise)
         failure <- ledger.submitAndWait(request).failed
       } yield {
         assertGrpcError(failure, Status.Code.INVALID_ARGUMENT, "mismatching type")
@@ -520,8 +526,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
         .exerciseDummyChoice1(party)
         .command
         .update(_.createAndExercise.choice := missingChoice)
+      val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
-        request <- ledger.submitAndWaitRequest(party, createAndExercise)
         failure <- ledger.submitAndWait(request).failed
       } yield {
         assertGrpcError(

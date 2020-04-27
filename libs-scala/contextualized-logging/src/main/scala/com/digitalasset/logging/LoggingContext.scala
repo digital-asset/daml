@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.logging
+package com.daml.logging
 
 import net.logstash.logback.argument.StructuredArgument
 import net.logstash.logback.marker.MapEntriesAppendingMarker

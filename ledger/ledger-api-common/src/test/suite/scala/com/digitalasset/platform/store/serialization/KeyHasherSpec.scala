@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.security.MessageDigest
 
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
@@ -404,11 +404,11 @@ class KeyHasherSpec extends WordSpec with Matchers {
       val contractIds =
         List[Value](
           ValueContractId(
-            AbsoluteContractId(Ref.ContractIdString.assertFromString(
-              "07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"))),
+            AbsoluteContractId.assertFromString(
+              "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5")),
           ValueContractId(
-            AbsoluteContractId(Ref.ContractIdString.assertFromString(
-              "59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b")))
+            AbsoluteContractId.assertFromString(
+              "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"))
         )
 
       val enums =
@@ -525,10 +525,10 @@ class KeyHasherSpec extends WordSpec with Matchers {
           | e3e40cc57896dcdac6731f60cb1748bd34b45ac0a6e42aa517d41dfea2ff8a88
           |ValueParty(bob)
           | 492f3783b824fb976eac36c0623337a7fd7440b95095581eb81687c71e802943
-          |ValueContractId(AbsoluteContractId(07e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
-          | fa24d4f2cd646f7e6d7f4e43813e93106d52df42b4272b007d36ba7c9bf21f6b
-          |ValueContractId(AbsoluteContractId(59b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
-          | 65b079e97a8b4804622173ef0c7c86e6bc3b4dbedef9ab7508391b8283279df7
+          |ValueContractId(AbsoluteContractId(0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5))
+          | a03a7ce4c418622a2187d068208c5ad32460eb62a56797975f39988e959ca377
+          |ValueContractId(AbsoluteContractId(0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b))
+          | 01540890e0cd14209bcc408d019266b711ec85a16dac2e8eb3567f6e041cb86b
           |ValueOptional(None)
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
           |ValueOptional(Some(ValueBool(false)))
@@ -567,31 +567,31 @@ class KeyHasherSpec extends WordSpec with Matchers {
           | 91e247b396cea58ab670b0767940d360cf1fd541b52444d5b1dcb4d74132d0f9
           |ValueTextMap(SortedLookupList((a,ValueBool(false)),(c,ValueBool(false))))
           | 10e757f68e9e602f8780440193064fec42a7e2f85bec983d416d171079b7240e
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Red)
+          |ValueEnum(Some(pkgId:Mod:Color),Red)
           | 3bf7245f74973e912a49c95a28e77d59594f73c78ede8683663d4bf9eca5c37c
-          |ValueEnum(Some(Identifier(pkgId,Mod:Color)),Green)
+          |ValueEnum(Some(pkgId:Mod:Color),Green)
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueEnum(Some(Identifier(pkgId,Mod:ColorBis)),Green)
+          |ValueEnum(Some(pkgId:Mod:ColorBis),Green)
           | 181bfc4e71007c1dc5406594346ae45a52c2a0bb377800b04e26ce09d8b66004
-          |ValueRecord(Some(Identifier(pkgId,Mod:Unit)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:Unit),ImmArray())
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:UnitBis)),ImmArray())
+          |ValueRecord(Some(pkgId:Mod:UnitBis),ImmArray())
           | df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(true)),(Some(_2),ValueBool(false))))
           | 06cb0843c56b268bd5fc5373f450e9ee50c49705f3d8d8e33356af5d54ab0315
-          |ValueRecord(Some(Identifier(pkgId,Mod:Tuple)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
+          |ValueRecord(Some(pkgId:Mod:Tuple),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(true))))
           | 4f1366f56ad5b2ebd9738248a63d9d90bbb3b4b2eac3b74713c6bfd852477802
-          |ValueRecord(Some(Identifier(pkgId,Mod:TupleBis)),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
+          |ValueRecord(Some(pkgId:Mod:TupleBis),ImmArray((Some(_1),ValueBool(false)),(Some(_2),ValueBool(false))))
           | e44728408fa247053c017f791d5d2fe87752119c5010006ffc4e098efbaea679
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Left,ValueBool(true))
+          |ValueVariant(Some(pkgId:Mod:Either),Left,ValueBool(true))
           | bd43854d7f0bfe9fc246492fe783c5e1600a764195152cc240dc1750f7c5ce16
-          |ValueVariant(Some(Identifier(pkgId,Mod:Either)),Right,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:Either),Right,ValueBool(false))
           | 635185b1cff7ebfdbde5045291955d39af1d3c392b30c53d36c06615e5479b24
-          |ValueVariant(Some(Identifier(pkgId,Mod:EitherBis)),Left,ValueBool(false))
+          |ValueVariant(Some(pkgId:Mod:EitherBis),Left,ValueBool(false))
           | 7ac33585fca214756dfe4b2c4de9283d7682f5a47ae8a78acf7abe266d5f41bc
           |""".stripMargin
 

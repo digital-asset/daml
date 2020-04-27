@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing
+package com.daml.lf.testing
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Module, Type}
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast.{Expr, Kind, Module, Type}
+import com.daml.lf.language.LanguageVersion
 
 package object parser {
 

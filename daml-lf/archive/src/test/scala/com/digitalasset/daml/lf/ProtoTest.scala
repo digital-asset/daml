@@ -1,13 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.ZipFile
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8, daml_lf_dev}
+import com.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.{daml_lf_1_6, daml_lf_1_7, daml_lf_1_8}
+import com.daml.daml_lf_dev
 import com.google.protobuf.CodedInputStream
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}

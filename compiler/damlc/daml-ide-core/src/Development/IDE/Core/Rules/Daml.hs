@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
@@ -10,6 +10,7 @@ import TcIface (typecheckIface)
 import LoadIface (readIface)
 import TidyPgm
 import DynFlags
+import SrcLoc
 import qualified GHC
 import qualified Module as GHC
 import GhcMonad
@@ -34,6 +35,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.GHC.Util
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options
+import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
 import Development.IDE.Types.Location as Base
@@ -95,7 +97,6 @@ import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
 import SdkVersion (damlStdlib)
 
-import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
@@ -140,7 +141,7 @@ uriToVirtualResource uri = do
             let decoded = queryString uri
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario (toNormalizedFilePath file) (T.pack topLevelDecl)
+            pure $ VRScenario (toNormalizedFilePath' file) (T.pack topLevelDecl)
         _ -> Nothing
 
   where
@@ -162,7 +163,7 @@ sendFileDiagnostics diags =
 -- TODO: Move this to ghcide, perhaps.
 sendDiagnostics :: NormalizedFilePath -> [Diagnostic] -> Action ()
 sendDiagnostics fp diags = do
-    let uri = filePathToUri (fromNormalizedFilePath fp)
+    let uri = fromNormalizedUri (filePathToUri' fp)
         event = LSP.NotPublishDiagnostics $
             LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
             LSP.PublishDiagnosticsParams uri (List diags)
@@ -194,19 +195,24 @@ ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 finalPackageCheck :: NormalizedFilePath -> LF.Package -> Action (Maybe ())
 finalPackageCheck fp pkg = do
-    case LF.nameCheckPackage pkg of
-        Left e -> do
-            sendFileDiagnostics [ideErrorPretty fp e]
-            pure Nothing
+    sendFileDiagnostics diags
+    pure r
+    where (diags, r) = diagsToIdeResult fp (LF.nameCheckPackage pkg)
 
-        Right () ->
-            pure $ Just ()
+diagsToIdeResult :: NormalizedFilePath -> [Diagnostic] -> IdeResult ()
+diagsToIdeResult fp diags = (map (fp, ShowDiag,) diags, r)
+    where r = if any ((Just DsError ==) . _severity) diags then Nothing else Just ()
+
+-- | Dependencies on other packages excluding stable DALFs.
+getUnstableDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
+getUnstableDalfDependencies files = do
+    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
+    pkgMap <- Map.unions <$> usesE GeneratePackageMap files
+    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 getDalfDependencies :: [NormalizedFilePath] -> MaybeT Action (Map.Map UnitId LF.DalfPackage)
 getDalfDependencies files = do
-    unitIds <- concatMap transitivePkgDeps <$> usesE GetDependencies files
-    pkgMap <- Map.unions <$> usesE GeneratePackageMap files
-    let actualDeps = Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+    actualDeps <- getUnstableDalfDependencies files
     -- For now, we unconditionally include all stable packages.
     -- Given that they are quite small and it is pretty much impossible to not depend on them
     -- this is fine. We might want to try being more clever here in the future.
@@ -236,7 +242,7 @@ generateRawDalfRule :: Rules ()
 generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
-        (coreDiags, mbCore) <- generateCore file
+        (coreDiags, mbCore) <- generateCore (RunSimplifier False) file
         fmap (first (coreDiags ++)) $
             case mbCore of
                 Nothing -> return ([], Nothing)
@@ -271,12 +277,11 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
-        pure $ toIdeResult $ do
-            let liftError e = [ideErrorPretty file e]
-            dalf <- mapLeft liftError $
-                Serializability.inferModule world lfVersion rawDalf
-            mapLeft liftError $ LF.checkModule world lfVersion dalf
-            pure dalf
+        pure $! case Serializability.inferModule world lfVersion rawDalf of
+            Left err -> ([ideErrorPretty file err], Nothing)
+            Right dalf ->
+                let diags = LF.checkModule world lfVersion dalf
+                in second (dalf <$) (diagsToIdeResult file diags)
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.
@@ -400,17 +405,15 @@ generateSerializedDalfRule options =
                                     rawDalf <- pure $ LF.simplifyModule rawDalf
                                     pkgs <- getExternalPackages file
                                     let world = LF.initWorldSelf pkgs (buildPackage (optMbPackageName options) (optMbPackageVersion options) lfVersion dalfDeps)
-                                    let liftError e = [ideErrorPretty file e]
-                                    let dalfOrErr = do
-                                            dalf <- mapLeft liftError $
-                                                Serializability.inferModule world lfVersion rawDalf
-                                            mapLeft liftError $ LF.checkModule world lfVersion dalf
-                                            pure dalf
-                                    case dalfOrErr of
-                                        Left diags -> pure (diags, Nothing)
+                                    case Serializability.inferModule world lfVersion rawDalf of
+                                        Left err -> pure ([ideErrorPretty file err], Nothing)
                                         Right dalf -> do
-                                            writeDalfFile (dalfFileName file) dalf
-                                            pure ([], Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
+                                            let (diags, checkResult) = diagsToIdeResult file $ LF.checkModule world lfVersion dalf
+                                            fmap (diags,) $ case checkResult of
+                                                Nothing -> pure Nothing
+                                                Just () -> do
+                                                    writeDalfFile (dalfFileName file) dalf
+                                                    pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
 readSerializedDalfRule :: Rules ()
@@ -449,8 +452,7 @@ generateDocTestModuleRule =
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
-generatePackageMap ::
-     LF.Version -> Maybe FilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
+generatePackageMap :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId LF.DalfPackage)
 generatePackageMap version mbProjRoot userPkgDbs = do
     versionedPackageDbs <- getPackageDbs version mbProjRoot userPkgDbs
     (diags, pkgs) <-
@@ -496,7 +498,7 @@ readDalfPackage dalf = do
     bs <- BS.readFile dalf
     pure $ do
         (pkgId, package) <-
-            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
+            mapLeft (ideErrorPretty $ toNormalizedFilePath' dalf) $ Archive.decodeArchive Archive.DecodeAsDependency bs
         Right (LF.DalfPackage pkgId (LF.ExternalPackage pkgId package) bs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -505,7 +507,9 @@ generatePackageMapRule opts = do
         f <- liftIO $ do
             findProjectRoot <- memoIO findProjectRoot
             generatePackageMap <- memoIO $ \mbRoot -> generatePackageMap (optDamlLfVersion opts) mbRoot (optPackageDbs opts)
-            pure $ \file -> liftIO $ generatePackageMap =<< findProjectRoot file
+            pure $ \file -> do
+                mbProjectRoot <- liftIO (findProjectRoot file)
+                liftIO $ generatePackageMap (LSP.toNormalizedFilePath <$> mbProjectRoot)
         pure (GeneratePackageMapFun f)
     defineEarlyCutoff $ \GeneratePackageMap file -> do
         GeneratePackageMapFun fun <- useNoFile_ GeneratePackageMapIO
@@ -518,6 +522,33 @@ generatePackageMapRule opts = do
                 "Errors:\n" ++ unlines (map show errs)
         let hash = BS.concat $ map (T.encodeUtf8 . LF.unPackageId . LF.dalfPackageId) $ Map.elems res
         return (Just hash, ([], Just res))
+
+damlGhcSessionRule :: Options -> Rules ()
+damlGhcSessionRule opts@Options{..} = do
+    -- The file path here is optional so we go for defineNoFile
+    -- (or the equivalent thereof for rules with cut off).
+    defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        let base = mkBaseUnits (optUnitId opts)
+        inferredPackages <- liftIO $ case mbProjectRoot of
+            Just projectRoot | getInferDependantPackages optInferDependantPackages ->
+                -- We catch doesNotExistError which could happen if the
+                -- package db has never been initialized. In that case, we simply
+                -- infer no extra packages.
+                catchJust
+                    (guard . isDoesNotExistError)
+                    (directDependencies <$> readMetadata projectRoot)
+                    (const $ pure [])
+            _ -> pure []
+        optPackageImports <- pure $ map mkPackageFlag (base ++ inferredPackages) ++ optPackageImports
+        env <- liftIO $ runGhcFast $ do
+            setupDamlGHC opts
+            GHC.getSession
+        pkg <- liftIO $ generatePackageState optDamlLfVersion mbProjectRoot optPackageDbs optPackageImports
+        dflags <- liftIO $ checkDFlags opts $ setPackageDynFlags pkg $ hsc_dflags env
+        hscEnv <- liftIO $ newHscEnvEq env{hsc_dflags = dflags}
+        -- In the IDE we do not care about the cache value here but for
+        -- incremental builds we need an early cutoff.
+        pure (Just "", ([], Just hscEnv))
 
 generateStablePackages :: LF.Version -> FilePath -> IO ([FileDiagnostic], Map.Map (UnitId, LF.ModuleName) LF.DalfPackage)
 generateStablePackages lfVersion fp = do
@@ -616,12 +647,12 @@ buildDir = ".daml/build"
 -- | Path to the dalf file used in incremental builds.
 dalfFileName :: NormalizedFilePath -> NormalizedFilePath
 dalfFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "dalf"
 
 -- | Path to the interface file used in incremental builds.
 hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
-    toNormalizedFilePath $ buildDir </> fromNormalizedFilePath file -<.> "hi"
+    toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
 readDalfFromFile :: NormalizedFilePath -> Action LF.Module
 readDalfFromFile dalfFile = do
@@ -708,7 +739,7 @@ createScenarioContextRule =
                 pure
                 ctxIdOrErr
         scenarioContextsVar <- envScenarioContexts <$> getDamlServiceEnv
-        liftIO $ modifyVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
+        liftIO $ modifyMVar_ scenarioContextsVar $ pure . HashMap.insert file ctxId
         pure ([], Just ctxId)
 
 -- | This helper should be used instead of GenerateDalf/GenerateRawDalf
@@ -737,6 +768,7 @@ runScenariosRule =
               , _source = Just "Scenario"
               , _message = Pretty.renderPlain $ formatScenarioError world err
               , _code = Nothing
+              , _tags = Nothing
               , _relatedInformation = Nothing
               }
             where scenarioName = LF.qualObject scenario
@@ -756,7 +788,7 @@ encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
       Just file
-        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath file
+        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath' file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScenarioRootsRule :: Rules ()
@@ -910,15 +942,48 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `HashSet.union`
-                    (HashSet.insert "" $ HashSet.fromList $ concatMap reachableModules depInfos)
+                    (HashSet.insert emptyFilePath $ HashSet.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`HashSet.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
-              ctxRoots <- modifyVar envScenarioContexts $ \ctxs -> do
-                  let gcdCtxs = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
-                  pure (gcdCtxs, HashMap.elems gcdCtxs)
-              prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
-              when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
+              mask $ \restore -> do
+                  ctxs <- takeMVar envScenarioContexts
+                  -- Filter down to contexts of files of interest.
+                  let gcdCtxsMap :: HashMap.HashMap NormalizedFilePath SS.ContextId
+                      gcdCtxsMap = HashMap.filterWithKey (\k _ -> k `HashSet.member` roots) ctxs
+                      gcdCtxs = HashMap.elems gcdCtxsMap
+                  -- Note (MK) We don’t want to keep sending GC grpc requests if nothing
+                  -- changed. We used to keep track of the last GC request and GC if that was
+                  -- different. However, that causes an issue in the folllowing scenario.
+                  -- This scenario is exactly what we hit in the integration tests.
+                  --
+                  -- 1. A is the only file of interest.
+                  -- 2. We run GC, no scenario context has been allocated.
+                  --    No scenario contexts will be garbage collected.
+                  -- 3. Now the scenario context is allocated.
+                  -- 4. B is set to the only file of interest.
+                  -- 5. We run GC, the scenario context for B has not been allocated yet.
+                  --    A is not a file of interest so gcdCtxs is still empty.
+                  --    Therefore the old and current contexts are identical.
+                  --
+                  -- We now GC under the following condition:
+                  --
+                  -- > gcdCtxs is different from ctxs or the last GC was different from gcdCtxs
+                  --
+                  -- The former covers the above scenario, the latter covers the case where
+                  -- a scenario context changed but the files of interest did not.
+                  prevCtxRoots <- takeMVar envPreviousScenarioContexts
+                  when (gcdCtxs /= HashMap.elems ctxs || prevCtxRoots /= gcdCtxs) $
+                      -- We want to avoid updating the maps if gcCtxs throws an exception
+                      -- so we do some custom masking. We could still end up GC’ing on the
+                      -- server and getting an exception afterwards. This is fine, at worst
+                      -- we will just GC again.
+                      restore (void $ SS.gcCtxs scenarioService gcdCtxs) `onException`
+                          (putMVar envPreviousScenarioContexts prevCtxRoots >>
+                           putMVar envScenarioContexts ctxs)
+                  -- We are masked so this is atomic.
+                  putMVar envPreviousScenarioContexts gcdCtxs
+                  putMVar envScenarioContexts gcdCtxsMap
 
 getOpenVirtualResourcesRule :: Rules ()
 getOpenVirtualResourcesRule = do
@@ -1005,14 +1070,22 @@ getDlintDiagnosticsRule =
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
-      srcSpanToRange span = Range {
+      srcSpanToRange :: SrcSpan -> LSP.Range
+      srcSpanToRange (RealSrcSpan span) = Range {
           _start = LSP.Position {
-                _line = HSE.srcSpanStartLine span - 1
-              , _character  = HSE.srcSpanStartColumn span - 1}
+                _line = srcSpanStartLine span - 1
+              , _character  = srcSpanStartCol span - 1}
         , _end   = LSP.Position {
-                _line = HSE.srcSpanEndLine span - 1
-             , _character = HSE.srcSpanEndColumn span - 1}
+                _line = srcSpanEndLine span - 1
+             , _character = srcSpanEndCol span - 1}
+        }
+      srcSpanToRange (UnhelpfulSpan _) = Range {
+          _start = LSP.Position {
+                _line = -1
+              , _character  = -1}
+        , _end   = LSP.Position {
+                _line = -1
+             , _character = -1}
         }
       diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
       diagnostic file i =
@@ -1023,6 +1096,7 @@ getDlintDiagnosticsRule =
             , _source = Just "linter"
             , _message = T.pack $ show i
             , _relatedInformation = Nothing
+            , _tags = Nothing
       })
 
 --
@@ -1082,11 +1156,12 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getDlintDiagnosticsRule
-    ofInterestRule opts
     encodeModuleRule opts
     createScenarioContextRule
     getOpenVirtualResourcesRule
     getDlintSettingsRule (optDlintUsage opts)
+    damlGhcSessionRule opts
+    when (optEnableOfInterestRule opts) (ofInterestRule opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

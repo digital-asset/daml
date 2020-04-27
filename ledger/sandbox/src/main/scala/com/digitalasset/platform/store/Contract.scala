@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
-import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 
 /** A contract that is part of the [[ActiveLedgerState]].
   * Depending on where the contract came from, other metadata may be available.

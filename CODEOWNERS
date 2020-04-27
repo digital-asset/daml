@@ -4,6 +4,7 @@
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
 CODEOWNERS  @hurryabit @gerolf-da
+LATEST      @hurryabit @gerolf-da @bame-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -20,6 +21,7 @@ azure-cron.yml      @garyverhaegen-da
 /daml-script/       @cocreature @hurryabit @aherrmann-da
 /triggers/          @cocreature @hurryabit @aherrmann-da
 /ghc-lib/           @shayne-fletcher @cocreature
+/compatibility/     @garyverhaegen-da @aherrmann-da @cocreature
 
 # Runtime
 /daml-lf/governance.rst @gerolf-da @S11001001
@@ -30,13 +32,16 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/data-scalacheck/  @S11001001
 /daml-lf/transaction-scalacheck/  @S11001001
 /daml-lf/validation/    @remyhaemmerle-da
-/daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/transaction/ @S11001001
-/daml-lf/transaction/src/main/scala/com/digitalasset/daml/lf/value/       @S11001001
+/daml-lf/transaction/src/main/scala/com/daml/lf/transaction/ @S11001001
+/daml-lf/transaction/src/main/scala/com/daml/lf/value/       @S11001001
 
 /ledger-service/    @leo-da @S11001001
 
-/ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
-/ledger-api/  @gerolf-da @rautenrieth-da @stefanobaghino-da @SamirTalwar-DA
+/ledger/      @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+/ledger-api/  @gerolf-da @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
+
+# DAML-on-X
+/ledger/participant-state/kvutils/  @dajmaki @dasormeter @fabiotudone-da @gerolf-da @miklos-da @mziolekda @rautenrieth-da @SamirTalwar-DA @stefanobaghino-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
@@ -50,3 +55,4 @@ azure-cron.yml      @garyverhaegen-da
 
 # Misc
 /docs/              @bame-da @nemanja-da @hurryabit
+/libs-scala/        @stefanobaghino-da @SamirTalwar-DA

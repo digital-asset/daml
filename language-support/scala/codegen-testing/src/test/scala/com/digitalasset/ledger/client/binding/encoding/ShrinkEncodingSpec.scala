@@ -1,8 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+package com.daml.ledger.client.binding.encoding
+import com.daml.ledger.client.binding.{Primitive => P}
 import org.scalatest.WordSpec
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 
@@ -12,7 +12,7 @@ class ShrinkEncodingSpec extends WordSpec with GeneratorDrivenPropertyChecks {
     GenEncoding.primitive.valueParty) { p: P.Party =>
     import EqualityEncoding.Implicits._
     import ShowEncoding.Implicits._
-    import com.digitalasset.scalatest.CustomMatcher._
+    import com.daml.scalatest.CustomMatcher._
     import scalaz.std.AllInstances._
 
     val list: List[P.Party] = ShrinkEncoding.primitive.valueParty.shrink(p).toList

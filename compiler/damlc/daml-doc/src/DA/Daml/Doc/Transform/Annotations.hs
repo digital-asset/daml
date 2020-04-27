@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Transform.Annotations
@@ -6,6 +6,7 @@ module DA.Daml.Doc.Transform.Annotations
     ) where
 
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Anchor
 
 import qualified Data.Text as T
 import Data.List.Extra
@@ -20,7 +21,7 @@ applyAnnotations = applyMove . applyHide
 applyMove :: [ModuleDoc] -> [ModuleDoc]
 applyMove
     = map (foldr1 combineModules)
-    . groupSortOn (modulePriorityKey . md_name)
+    . groupSortOn md_name
     . map renameModule
   where
     -- | Rename module according to its MOVE annotation, if present.
@@ -30,6 +31,8 @@ applyMove
     renameModule md@ModuleDoc{..}
         | Just new <- isMove md_descr = md
             { md_name = new
+            , md_anchor = Just (moduleAnchor new)
+                -- ^ Update the module anchor
             , md_descr = Nothing
                 -- ^ Drop the renamed module's description.
             }
@@ -50,11 +53,6 @@ applyMove
         , md_classes = md_classes m1 ++ md_classes m2
         , md_instances = md_instances m1 ++ md_instances m2
         }
-
-    -- | We sort by name, but we also bring the Prelude module
-    -- to the front so it always comes before other modules.
-    modulePriorityKey :: Modulename -> (Int,Modulename)
-    modulePriorityKey m = (if m == "Prelude" then 0 else 1, m)
 
 -- | Apply the HIDE annotation, which removes the current subtree from
 -- the docs. This can be applied to an entire module, or to a specific

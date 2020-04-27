@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml_lf_dev.DamlLf.{Archive, HashFunction}
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
+import com.daml.lf.data.Ref
+import com.daml.daml_lf_dev.DamlLf.{Archive, HashFunction}
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.package_service.HashFunction.{
   SHA256 => APISHA256,
   Unrecognized => APIUnrecognized
 }
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.PackageServiceValidation
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
+import com.daml.ledger.api.v1.package_service.{HashFunction => APIHashFunction, _}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.PackageServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition, Status}
 
 import scala.concurrent.Future

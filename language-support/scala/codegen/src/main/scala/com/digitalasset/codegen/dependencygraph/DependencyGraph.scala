@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.dependencygraph
+package com.daml.codegen.dependencygraph
 
-import com.digitalasset.daml.lf.iface._
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.codegen.{Util, lf}
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.iface._
+import com.daml.lf.iface.reader.InterfaceType
+import com.daml.lf.data.Ref.Identifier
+import com.daml.codegen.{Util, lf}
+import com.daml.lf.data.ImmArray.ImmArraySeq
 import lf.DefTemplateWithRecord
 import scalaz.std.list._
 import scalaz.syntax.bifoldable._

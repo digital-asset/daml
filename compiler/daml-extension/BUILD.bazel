@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 package(default_visibility = ["//visibility:public"])
@@ -66,8 +66,9 @@ genrule(
             cp ../$$f $$dir/$$file
         done
         cd ..
-        tar czf node_modules.tar.gz node_modules
-        cp node_modules.tar.gz $@
+        tar c node_modules \
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          | gzip -n > $@
     """,
 )
 

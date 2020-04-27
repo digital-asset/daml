@@ -1,12 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
 
 import java.io.File
+import java.nio.file.{Path, Paths}
 
 import com.daml.ledger.api.testtool.infrastructure.PartyAllocationConfiguration
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.buildinfo.BuildInfo
+import com.daml.ledger.api.tls.TlsConfiguration
 import scopt.Read
 import scopt.Read.{intRead, stringRead}
 
@@ -49,6 +51,8 @@ object Cli {
       )(c => Some(c.copy(trustCertCollectionFile = Some(new File(path))))),
   )
 
+  private[this] implicit val pathRead: Read[Path] = Read.reads(Paths.get(_))
+
   private val argParser = new scopt.OptionParser[Config]("ledger-api-test-tool") {
     head("""The Ledger API Test Tool is a command line tool for testing the correctness of
         |ledger implementations based on DAML and Ledger API.""".stripMargin)
@@ -80,16 +84,6 @@ object Cli {
       .optional()
       .text("TLS: The crt file to be used as the the trusted root CA. Applied to all endpoints.")
       .action(cacrtConfig)
-
-    opt[Double](name = "command-submission-ttl-scale-factor")
-      .optional()
-      .action((v, c) => c.copy(commandSubmissionTtlScaleFactor = v))
-      .text("""Scale factor for time-to-live of commands sent for ledger processing
-              |(captured as Maximum Record Time in submitted transactions) for
-              |all test suites. Regardless the output of multiplying by this factor
-              |the TTL will always be clipped by the minimum and maximum value as defined
-              |by the LedgerConfigurationService, with the maximum being the default
-              |(which means that any value above 1.0 won't have any effect.""".stripMargin)
 
     opt[Double](name = "timeout-scale-factor")
       .optional()
@@ -144,6 +138,16 @@ object Cli {
       .unbounded()
       .text("""A comma-separated list of tests that should be run.""")
 
+    opt[Seq[String]]("perf-tests")
+      .action((inc, c) => c.copy(performanceTests = c.performanceTests ++ inc))
+      .unbounded()
+      .text("""A comma-separated list of performance tests that should be run.""")
+
+    opt[Path]("perf-tests-report")
+      .action((inc, c) => c.copy(performanceTestsReport = Some(inc)))
+      .optional()
+      .text("""The path of the the benchmark report file produced by performance tests (default: stdout).""")
+
     opt[Unit]("all-tests")
       .action((_, c) => c.copy(allTests = true))
       .text("""Run all default and optional tests. Respects the --exclude flag.""")
@@ -167,6 +171,11 @@ object Cli {
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))
       .text("""Lists all available tests that can be used in the include and exclude options.""")
+
+    opt[Unit]("version")
+      .optional()
+      .action((_, _) => { println(BuildInfo.Version); sys.exit(0) })
+      .text("Prints the version on stdout and exit.")
 
     help("help").text("Prints this usage text")
 

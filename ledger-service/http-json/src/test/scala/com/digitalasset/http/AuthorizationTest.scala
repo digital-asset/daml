@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
 import java.nio.file.Files
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.digitalasset.auth.TokenHolder
-import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.util.TestUtil.requiredFile
-import com.digitalasset.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.auth.TokenHolder
+import com.daml.bazeltools.BazelRunfiles.rlocation
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.http.util.TestUtil.requiredFile
+import com.daml.ledger.api.auth.{AuthServiceStatic, Claim, ClaimPublic, Claims}
+import com.daml.ledger.client.LedgerClient
 import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import org.slf4j.LoggerFactory
 

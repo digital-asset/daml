@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package types
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref
+import com.daml.lf.data.{ImmArray, Time}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.Transaction
+import com.daml.lf.value.Value
 import Value._
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 import scala.collection.generic.CanBuildFrom
@@ -27,7 +27,6 @@ object Ledger {
   private object ScenarioNodeId {
     def apply(commitPrefix: LedgerString, txnid: Transaction.NodeId): ScenarioNodeId =
       txNodeIdToScenarioNodeId(commitPrefix, txnid.index)
-
   }
 
   /** This is the function that we use to turn relative contract ids (which are made of
@@ -64,7 +63,7 @@ object Ledger {
     cid match {
       case acoid: AbsoluteContractId => acoid
       case rcoid: RelativeContractId =>
-        AbsoluteContractId(relativeToScenarioNodeId(commitPrefix, rcoid))
+        AbsoluteContractId.V0.assertFromString(relativeToScenarioNodeId(commitPrefix, rcoid))
     }
 
   def contractIdToAbsoluteContractId(
@@ -183,7 +182,8 @@ object Ledger {
       effectiveAt: Time.Timestamp,
       enrichedTx: EnrichedTransaction,
   ): RichTransaction = {
-    def makeAbs(cid: Value.RelativeContractId) = relativeToContractIdString(commitPrefix, cid)
+    def makeAbs(cid: Value.RelativeContractId) =
+      Ref.ContractIdString.assertFromString(relativeToContractIdString(commitPrefix, cid))
     RichTransaction(
       committer = committer,
       effectiveAt = effectiveAt,
@@ -351,6 +351,7 @@ object Ledger {
         scenarioSteps = newIMS,
         scenarioStepId = scenarioStepId.next,
       )
+
     }
 
     /** Focusing on a specific view of the ledger, lookup the
@@ -383,20 +384,25 @@ object Ledger {
               else
                 LookupOk(coid, create.coinst)
 
-            case _: NodeExercises[_, _, _] | _: NodeFetch[_] | _: NodeLookupByKey[_, _] =>
+            case _: NodeExercises[_, _, _] | _: NodeFetch[_, _] | _: NodeLookupByKey[_, _] =>
               LookupContractNotFound(coid)
           }
       }
     }
+
+    // Given a ledger and the node index of a node in a partial transaction
+    // turn it into a node it that can be used in scenario error messages.
+    def ptxNodeId(nodeIdx: NodeId): ScenarioNodeId =
+      ScenarioNodeId(scenarioStepId.makeCommitPrefix, nodeIdx)
   }
 
   sealed trait CommitError
   object CommitError {
     final case class FailedAuthorizations(
-        errors: com.digitalasset.daml.lf.types.Ledger.FailedAuthorizations,
+        errors: com.daml.lf.types.Ledger.FailedAuthorizations,
     ) extends CommitError
     final case class UniqueKeyViolation(
-        error: com.digitalasset.daml.lf.types.Ledger.UniqueKeyViolation,
+        error: com.daml.lf.types.Ledger.UniqueKeyViolation,
     ) extends CommitError
   }
 
@@ -680,7 +686,7 @@ object Ledger {
 
     def authorizeFetch(
         nodeId: Transaction.NodeId,
-        fetch: NodeFetch[ContractId],
+        fetch: NodeFetch.WithTxValue[ContractId],
         stakeholders: Set[Party],
         authorization: Authorization,
     ): EnrichState = {
@@ -862,7 +868,7 @@ object Ledger {
             .discloseNode(parentExerciseWitnesses, nodeId, create)
             ._2
 
-        case fetch: NodeFetch[ContractId] =>
+        case fetch: NodeFetch.WithTxValue[ContractId] =>
           // ------------------------------------------------------------------
           // witnesses            : parent exercise witnesses
           // divulge              : referenced contract to witnesses of parent exercise node
@@ -1164,7 +1170,7 @@ object Ledger {
                       }
                       processNodes(mbNewCache2, idsToProcess)
 
-                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _) =>
+                    case NodeFetch(referencedCoid, templateId @ _, optLoc @ _, _, _, _, _) =>
                       val newCacheP =
                         newCache.updateLedgerNodeInfo(referencedCoid)(info =>
                           info.copy(referencedBy = info.referencedBy + nodeId))
@@ -1231,7 +1237,7 @@ object Ledger {
 
     mbCacheAfterProcess.map { cacheAfterProcess =>
       val globalImplicitDisclosure = richTr.globalImplicitDisclosure.map {
-        case (cid, parties) => ledgerData.coidToNodeId(cid) -> parties
+        case (cid, parties) => cacheAfterProcess.coidToNodeId(cid) -> parties
       }
       Relation
         .union(
@@ -1245,4 +1251,5 @@ object Ledger {
         }
     }
   }
+
 }

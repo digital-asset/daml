@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.admin.config_management_service.TimeModel
+import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
@@ -19,9 +19,9 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
 
     case Participants(Participant(ledger)) =>
       val newTimeModel = TimeModel(
-        minTransactionLatency = Some(Duration(0, 1)),
-        maxClockSkew = Some(Duration(60, 0)),
-        maxTtl = Some(Duration(120, 0)),
+        avgTransactionLatency = Some(Duration(0, 1)),
+        minSkew = Some(Duration(60, 0)),
+        maxSkew = Some(Duration(120, 0)),
       )
       for {
         // Get the current time model

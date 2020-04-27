@@ -1,14 +1,24 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+
+parameters:
+  trigger_sha: ''
 
 steps:
   - bash: |
       set -euo pipefail
-      MESSAGE=$(git log --pretty=format:%s -n1)
+      COMMIT_TITLE=$(git log --pretty=format:%s -n1 ${{ parameters.trigger_sha }})
+      COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$COMMIT_TITLE>"
+      if [ -z "${{ parameters.trigger_sha }}" ]; then
+          WARNING="<!here> *FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK"
+      else
+          WARNING=":fire: :fire: :fire: :fire: :fire:\n<!here> *RELEASE FAILED* $(Build.SourceBranchName)/$(Agent.JobName): $COMMIT_LINK\n:fire: :fire: :fire: :fire: :fire:"
+      fi
       curl -XPOST \
            -i \
            -H 'Content-type: application/json' \
-           --data "{\"text\":\"<!here> *FAILED* $(Agent.JobName): <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+           --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.team-daml)
-    condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
-
+    condition: and(failed(),
+                   or(eq(variables['Build.SourceBranchName'], 'master'),
+                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))

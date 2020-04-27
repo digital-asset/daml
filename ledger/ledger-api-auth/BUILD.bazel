@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -10,9 +10,9 @@ load(
 
 da_scala_library(
     name = "ledger-api-auth",
-    srcs = glob(["src/main/scala/com/digitalasset/ledger/api/auth/**/*.scala"]),
+    srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-auth:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-auth:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -37,7 +37,7 @@ da_scala_library(
 da_scala_binary(
     name = "ledger-api-auth-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.ledger.api.auth.Main",
+    main_class = "com.daml.ledger.api.auth.Main",
     deps = [
         "//daml-lf/data",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",

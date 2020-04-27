@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.daml.lf.archive
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml_lf_dev.DamlLf1
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.language.LanguageMajorVersion
+import com.daml.daml_lf_dev.DamlLf1
 import org.scalatest._
 
 import scala.collection.JavaConverters._

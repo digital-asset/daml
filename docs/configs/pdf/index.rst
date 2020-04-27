@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML SDK Documentation
@@ -12,7 +12,8 @@ Getting started
    :maxdepth: 2
 
    Installing the SDK <getting-started/installation>
-   Quickstart Guide <getting-started/quickstart>
+   Building Your App <getting-started/index>
+   getting-started/testing
 
 Writing DAML
 ------------
@@ -36,15 +37,13 @@ Building applications
    :maxdepth: 2
 
    app-dev/app-arch
-   app-dev/authentication
-   app-dev/ledger-api
-   app-dev/bindings-java/index
-   app-dev/bindings-scala/index
-   app-dev/bindings-js
-   app-dev/grpc/index
-   app-dev/bindings-x-lang/index
+   daml2js/index
+   app-dev/bindings-ts/index
+   json-api/index
    DAML Script <daml-script/index>
    upgrade/index
+   app-dev/authentication
+   app-dev/ledger-api
 
 Deploying to DAML ledgers
 -------------------------
@@ -78,7 +77,6 @@ Background concepts
    concepts/glossary
    concepts/ledger-model/index
 
-
 Examples
 --------
 
@@ -88,21 +86,19 @@ Examples
 
    examples/examples
 
-Experimental features
+Early Access Features
 ---------------------
 
 .. toctree::
    :titlesonly:
    :maxdepth: 2
 
-   experimental/warning
+   tools/navigator/console
+   tools/extractor
    daml-integration-kit/index
-   json-api/index
    triggers/index
    daml-repl/index
    tools/visual
-   daml2ts/index
-   getting-started/index
 
 Support and updates
 -------------------

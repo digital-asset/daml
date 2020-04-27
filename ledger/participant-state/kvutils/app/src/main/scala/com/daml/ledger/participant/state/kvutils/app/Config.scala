@@ -1,25 +1,33 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.app
 
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
 
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ProgramResource.SuppressedStartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.platform.configuration.Readers._
+import com.daml.platform.configuration.{IndexConfiguration, MetricsReporter}
+import com.daml.ports.Port
+import com.daml.resources.ProgramResource.SuppressedStartupException
+import com.daml.resources.ResourceOwner
 import scopt.OptionParser
 
-case class Config[Extra](
+final case class Config[Extra](
     ledgerId: Option[String],
     archiveFiles: Seq[Path],
     tlsConfig: Option[TlsConfiguration],
     participants: Seq[ParticipantConfig],
+    eventsPageSize: Int,
+    stateValueCache: caching.Configuration,
     seeding: Seeding,
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
     extra: Extra,
 ) {
   def withTlsConfig(modify: TlsConfiguration => TlsConfiguration): Config[Extra] =
@@ -51,7 +59,11 @@ object Config {
       archiveFiles = Vector.empty,
       tlsConfig = None,
       participants = Vector.empty,
+      eventsPageSize = IndexConfiguration.DefaultEventsPageSize,
+      stateValueCache = caching.Configuration.none,
       seeding = Seeding.Strong,
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
       extra = extra,
     )
 
@@ -77,7 +89,7 @@ object Config {
       name: String,
       extraOptions: OptionParser[Config[Extra]] => Unit,
   ): OptionParser[Config[Extra]] = {
-    val parser = new OptionParser[Config[Extra]](name) {
+    val parser: OptionParser[Config[Extra]] = new OptionParser[Config[Extra]](name) {
       head(name)
 
       opt[Map[String, String]]("participant")
@@ -126,8 +138,22 @@ object Config {
         .text("DAR files to load. Scenarios are ignored. The server starts with an empty ledger by default.")
         .action((file, config) => config.copy(archiveFiles = config.archiveFiles :+ file.toPath))
 
+      opt[Int]("events-page-size")
+        .optional()
+        .text(
+          s"Number of events fetched from the index for every round trip when serving streaming calls. Default is ${IndexConfiguration.DefaultEventsPageSize}.")
+        .action((eventsPageSize, config) => config.copy(eventsPageSize = eventsPageSize))
+
+      opt[Long]("max-state-value-cache-size")
+        .optional()
+        .text(
+          s"The maximum size of the cache used to deserialize state values, in MB. By default, nothing is cached.")
+        .action((maximumStateValueCacheSize, config) =>
+          config.copy(stateValueCache =
+            config.stateValueCache.copy(maximumWeight = maximumStateValueCacheSize * 1024 * 1024)))
+
       private val seedingMap =
-        Map[String, Seeding]("weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
+        Map[String, Seeding]("testing-weak" -> Seeding.Weak, "strong" -> Seeding.Strong)
 
       opt[String]("contract-id-seeding")
         .optional()
@@ -140,6 +166,16 @@ object Config {
               (),
               s"seeding must be ${seedingMap.keys.mkString(",")}"))
         .action((text, config) => config.copy(seeding = seedingMap(text)))
+        .hidden()
+
+      opt[MetricsReporter]("metrics-reporter")
+        .optional()
+        .action((reporter, config) => config.copy(metricsReporter = Some(reporter)))
+        .hidden()
+
+      opt[Duration]("metrics-reporting-interval")
+        .optional()
+        .action((interval, config) => config.copy(metricsReportingInterval = interval))
         .hidden()
 
       help("help").text(s"$name as a service.")

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,7 +14,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-data-scalacheck:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:daml-lf-data-scalacheck:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",

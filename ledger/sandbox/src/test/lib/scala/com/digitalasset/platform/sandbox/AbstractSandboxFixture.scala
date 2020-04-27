@@ -1,73 +1,41 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import java.io.File
 import java.net.InetAddress
-import java.util.concurrent.Executors
 
-import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.v1.TimeModel
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+import com.daml.api.util.TimeProvider
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.client.LedgerCallCredentials
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
 }
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.ResourceOwner
-import com.google.common.util.concurrent.ThreadFactoryBuilder
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.DbInfo
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
+import com.daml.resources.ResourceOwner
 import io.grpc.Channel
-import org.scalatest.{BeforeAndAfterAll, Suite}
-import org.slf4j.LoggerFactory
+import org.scalatest.Suite
 import scalaz.syntax.tag._
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-trait AbstractSandboxFixture extends BeforeAndAfterAll {
+trait AbstractSandboxFixture extends AkkaBeforeAndAfterAll {
   self: Suite =>
-
-  private[this] val logger = LoggerFactory.getLogger(getClass)
-
-  private[this] val actorSystemName = this.getClass.getSimpleName
-
-  protected lazy val sandboxExecutionContext: ExecutionContext =
-    ExecutionContext.fromExecutorService(
-      Executors.newCachedThreadPool(
-        new ThreadFactoryBuilder()
-          .setDaemon(true)
-          .setNameFormat(s"$actorSystemName-thread-pool-worker-%d")
-          .setUncaughtExceptionHandler((thread, _) =>
-            logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
-          .build()))
-
-  protected implicit val system: ActorSystem =
-    ActorSystem(actorSystemName, defaultExecutionContext = Some(sandboxExecutionContext))
-
-  protected implicit val materializer: Materializer = Materializer(system)
-
-  protected implicit val executionSequencerFactory: ExecutionSequencerFactory =
-    new AkkaExecutionSequencerPool("esf-" + this.getClass.getSimpleName)(system)
-
-  override protected def afterAll(): Unit = {
-    executionSequencerFactory.close()
-    materializer.shutdown()
-    Await.result(system.terminate(), 30.seconds)
-    super.afterAll()
-  }
 
   protected def darFile = new File(rlocation("ledger/test-common/Test-stable.dar"))
 
@@ -93,7 +61,6 @@ trait AbstractSandboxFixture extends BeforeAndAfterAll {
       port = Port.Dynamic,
       damlPackages = packageFiles,
       timeProviderType = Some(TimeProviderType.Static),
-      timeModel = TimeModel.reasonableDefault,
       scenario = scenario,
       ledgerIdMode = LedgerIdMode.Static(LedgerId("sandbox-server")),
     )
@@ -102,7 +69,7 @@ trait AbstractSandboxFixture extends BeforeAndAfterAll {
 
   protected def scenario: Option[String] = None
 
-  protected def database: Option[ResourceOwner[String]] = None
+  protected def database: Option[ResourceOwner[DbInfo]] = None
 
   protected def serverHost: String = InetAddress.getLoopbackAddress.getHostName
 

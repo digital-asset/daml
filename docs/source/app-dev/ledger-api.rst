@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 The Ledger API
@@ -8,7 +8,15 @@ The Ledger API
    :hidden:
 
    services
+   grpc/index
+   grpc/proto-docs
+   grpc/daml-to-ledger-api
    daml-lf-translation
+   bindings-java/index
+   bindings-scala/index
+   bindings-js
+   bindings-x-lang/index
+
 
 To write an application around a DAML ledger, you'll need to interact with the **Ledger API** from
 another language. Every ledger that DAML can run on exposes this same API.
@@ -32,7 +40,7 @@ all cases, the Ledger API exposes the same services:
 
   - Use the :ref:`package service <package-service>` to query the DAML packages deployed to the ledger.
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
-  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like minimum and maximum TTL for commands.
+  - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like maximum deduplication time for commands.
 - Testing services (on Sandbox only, *not* for production ledgers)
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.

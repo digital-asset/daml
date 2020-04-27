@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.ledger.types
+package com.daml.extractor.ledger.types
 
-import com.digitalasset.ledger.api.{v1 => api}
+import com.daml.ledger.api.{v1 => api}
 import api.value.Value.Sum
 import RecordField._
 
 import scalaz.{Optional => _, _}
 import Scalaz._
-import com.digitalasset.daml.lf.{data => lfdata}
+import com.daml.lf.{data => lfdata}
 import lfdata.{FrontStack, ImmArray, Ref, SortedLookupList}
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.value.{Value => V}
 
 object LedgerValue {
 

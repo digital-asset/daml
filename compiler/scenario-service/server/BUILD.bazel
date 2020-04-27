@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -17,7 +17,7 @@ genrule(
 da_scala_binary(
     name = "scenario-service-raw",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.daml.lf.scenario.ScenarioServiceMain",
+    main_class = "com.daml.lf.scenario.ScenarioServiceMain",
     resources = glob(["src/main/resources/*"]),
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",

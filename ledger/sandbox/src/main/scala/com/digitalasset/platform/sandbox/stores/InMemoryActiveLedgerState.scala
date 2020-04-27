@@ -1,29 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores
+package com.daml.platform.sandbox.stores
 
 import java.time.Instant
 
+import com.daml.ledger.api.domain.{PartyDetails, RejectionReason}
 import com.daml.ledger.participant.state.v1.AbsoluteContractInst
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.PartyDetails
-import com.digitalasset.ledger.{EventId, TransactionId, WorkflowId}
-import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
-import com.digitalasset.platform.store.{
-  ActiveLedgerState,
-  ActiveLedgerStateManager,
-  Contract,
-  Let,
-  LetLookup,
-  LetUnknown,
-  SequencingError
-}
+import com.daml.ledger.{EventId, TransactionId, WorkflowId}
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.platform.store.Contract.{ActiveContract, DivulgedContract}
+import com.daml.platform.store._
 import scalaz.syntax.std.map._
 
 case class InMemoryActiveLedgerState(
@@ -163,7 +155,7 @@ case class InMemoryActiveLedgerState(
       disclosure: Relation[EventId, Party],
       globalDivulgence: Relation[AbsoluteContractId, Party],
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
-  ): Either[Set[SequencingError], InMemoryActiveLedgerState] =
+  ): Either[Set[RejectionReason], InMemoryActiveLedgerState] =
     acManager.addTransaction(
       let,
       transactionId,

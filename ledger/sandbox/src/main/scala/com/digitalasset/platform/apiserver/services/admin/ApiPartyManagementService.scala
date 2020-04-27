@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.admin
+package com.daml.platform.apiserver.services.admin
 
 import java.util.UUID
 
@@ -14,17 +14,17 @@ import com.daml.ledger.participant.state.index.v2.{
 }
 import com.daml.ledger.participant.state.v1
 import com.daml.ledger.participant.state.v1.{SubmissionId, SubmissionResult, WritePartyService}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
-import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyEntry}
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
-import com.digitalasset.ledger.api.v1.admin.party_management_service._
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.lf.data.Ref
+import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.PartyEntry.{AllocationAccepted, AllocationRejected}
+import com.daml.ledger.api.domain.{LedgerOffset, PartyEntry}
+import com.daml.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.daml.ledger.api.v1.admin.party_management_service._
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
@@ -57,7 +57,7 @@ final class ApiPartyManagementService private (
   }
 
   private[this] def mapPartyDetails(
-      details: com.digitalasset.ledger.api.domain.PartyDetails
+      details: com.daml.ledger.api.domain.PartyDetails
   ): PartyDetails =
     PartyDetails(details.party, details.displayName.getOrElse(""), details.isLocal)
 

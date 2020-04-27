@@ -1,21 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.messages.command.completion.{
+import com.daml.dec.DirectExecutionContext
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.messages.command.completion.{
   CompletionStreamRequest => ValidatedCompletionStreamRequest
 }
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
-import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
+import com.daml.ledger.api.v1.command_completion_service._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.validation.{CompletionServiceRequestValidator, PartyNameChecker}
+import com.daml.platform.server.api.services.domain.CommandCompletionService
 
 import scala.concurrent.Future
 

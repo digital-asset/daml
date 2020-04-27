@@ -1,10 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import java.nio.file.Path
+
+import com.daml.ledger.api.testtool
+import com.daml.ledger.api.testtool.infrastructure.{
+  BenchmarkReporter,
+  LedgerSession,
+  LedgerTestSuite
+}
 import com.daml.ledger.api.testtool.tests._
+import org.slf4j.LoggerFactory
 
 object Tests {
   type Tests = Map[String, LedgerSession => LedgerTestSuite]
@@ -19,7 +27,6 @@ object Tests {
     "CommandSubmissionCompletionIT" -> (new CommandSubmissionCompletion(_)),
     "CommandDeduplicationIT" -> (new CommandDeduplication(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
-    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "DivulgenceIT" -> (new Divulgence(_)),
     "HealthServiceIT" -> (new HealthService(_)),
     "IdentityIT" -> (new Identity(_)),
@@ -48,4 +55,49 @@ object Tests {
   )
 
   val all: Tests = default ++ optional
+
+  /**
+    * These are performance envelope tests that also provide benchmarks and are always run
+    * sequentially; they also must be specified explicitly with --perf-tests and will exclude
+    * all other tests.
+    */
+  def performanceTests(path: Option[Path]): Tests = {
+    val reporter =
+      (key: String, value: Double) =>
+        path
+          .map(BenchmarkReporter.toFile)
+          .getOrElse(BenchmarkReporter.toStream(System.out))
+          .addReport(key, value)
+
+    Envelope.values.flatMap { envelope =>
+      {
+        val throughputKey: String = performanceEnvelopeThroughputTestKey(envelope)
+        val latencyKey: String = performanceEnvelopeLatencyTestKey(envelope)
+        List(
+          throughputKey -> (new testtool.tests.PerformanceEnvelope.ThroughputTest(
+            logger = LoggerFactory.getLogger(throughputKey),
+            envelope = envelope,
+            reporter = reporter,
+          )(_)),
+          latencyKey -> (new testtool.tests.PerformanceEnvelope.LatencyTest(
+            logger = LoggerFactory.getLogger(latencyKey),
+            envelope = envelope,
+            reporter = reporter,
+          )(_)),
+        )
+      }
+    }
+  }.toMap
+
+  private[this] def performanceEnvelopeThroughputTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.Throughput"
+  private[this] def performanceEnvelopeLatencyTestKey(envelope: Envelope): String =
+    s"PerformanceEnvelope.${envelope.name}.Latency"
+
+  private[testtool] val PerformanceTestsKeys =
+    Envelope.values.flatMap { envelope =>
+      List(
+        performanceEnvelopeThroughputTestKey(envelope),
+        performanceEnvelopeLatencyTestKey(envelope))
+    }
 }

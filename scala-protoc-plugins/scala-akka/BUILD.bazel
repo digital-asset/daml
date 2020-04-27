@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
@@ -6,7 +6,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
-    main_class = "com.digitalasset.protoc.plugins.akka.AkkaStreamCompilerPlugin",
+    main_class = "com.daml.protoc.plugins.akka.AkkaStreamCompilerPlugin",
     visibility = ["//visibility:public"],
     deps = [
         "@maven//:com_google_protobuf_protobuf_java",

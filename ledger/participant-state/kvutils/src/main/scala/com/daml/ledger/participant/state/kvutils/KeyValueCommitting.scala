@@ -1,9 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import com.codahale.metrics
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committer.{
@@ -13,28 +14,39 @@ import com.daml.ledger.participant.state.kvutils.committer.{
 }
 import com.daml.ledger.participant.state.kvutils.committing._
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.ValueOuterClass
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.platform.common.metrics.VarGauge
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.transaction.{TransactionCoder, TransactionOuterClass}
+import com.daml.lf.value.ValueOuterClass
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.platform.common.metrics.VarGauge
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-object KeyValueCommitting {
+// Added inStaticTimeMode to indicate whether the ledger uses static time mode or not.
+// This has an impact on command deduplication and needs to be threaded through ProcessTransactionSubmission.
+// See that class for more comments.
+//
+// The primary constructor is private to the daml package, because we don't expect any ledger other
+// than sandbox to actually support static time.
+class KeyValueCommitting private[daml] (metricRegistry: MetricRegistry, inStaticTimeMode: Boolean) {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  def this(metricRegistry: MetricRegistry) = this(metricRegistry, false)
+
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
+
   def unpackDamlStateKey(bytes: ByteString): DamlStateKey =
     DamlStateKey.parseFrom(bytes)
 
   def packDamlStateValue(value: DamlStateValue): ByteString = value.toByteString
+
   def unpackDamlStateValue(bytes: Array[Byte]): DamlStateValue =
     DamlStateValue.parseFrom(bytes)
+
   def unpackDamlStateValue(bytes: ByteString): DamlStateValue =
     DamlStateValue.parseFrom(bytes)
 
@@ -133,7 +145,7 @@ object KeyValueCommitting {
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        PackageCommitter(engine).run(
+        new PackageCommitter(engine, metricRegistry).run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -144,7 +156,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        PartyAllocationCommitter.run(
+        new PartyAllocationCommitter(metricRegistry).run(
           entryId,
           //TODO replace this call with an explicit maxRecordTime from the request once available
           estimateMaximumRecordTime(recordTime),
@@ -155,7 +167,7 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
-        ConfigCommitter(defaultConfig).run(
+        new ConfigCommitter(defaultConfig, metricRegistry).run(
           entryId,
           parseTimestamp(submission.getConfigurationSubmission.getMaximumRecordTime),
           recordTime,
@@ -165,15 +177,14 @@ object KeyValueCommitting {
         )
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
-        ProcessTransactionSubmission(
-          engine,
-          entryId,
-          recordTime,
-          defaultConfig,
-          participantId,
-          submission.getTransactionEntry,
-          inputState,
-        ).run
+        new ProcessTransactionSubmission(defaultConfig, engine, metricRegistry, inStaticTimeMode)
+          .run(
+            entryId,
+            recordTime,
+            participantId,
+            submission.getTransactionEntry,
+            inputState,
+          )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidSubmission("DamlSubmission payload not set")
@@ -300,7 +311,7 @@ object KeyValueCommitting {
       .setContractKey(
         DamlContractKey.newBuilder
           .setTemplateId(templateId)
-          .setHash(ByteString.copyFrom(contractKey.hash.toByteArray)))
+          .setHash(contractKey.hash.bytes.toByteString))
       .build
   }
 
@@ -319,30 +330,29 @@ object KeyValueCommitting {
   }
 
   private object Metrics {
-    //TODO: Replace with metrics registry object passed in constructor
-    private val registry = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-    private val prefix = "kvutils.committer"
+    private val prefix = MetricPrefix :+ "committer"
+    private val lastPrefix = prefix :+ "last"
 
     // Timer (and count) of how fast submissions have been processed.
-    val runTimer: metrics.Timer = registry.timer(s"$prefix.run_timer")
+    val runTimer: metrics.Timer = metricRegistry.timer(prefix :+ "run_timer")
 
     // Number of exceptions seen.
-    val exceptions: metrics.Counter = registry.counter(s"$prefix.exceptions")
+    val exceptions: metrics.Counter = metricRegistry.counter(prefix :+ "exceptions")
 
     // Counter to monitor how many at a time and when kvutils is processing a submission.
-    val processing: metrics.Counter = registry.counter(s"$prefix.processing")
+    val processing: metrics.Counter = metricRegistry.counter(prefix :+ "processing")
 
     val lastRecordTimeGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.record_time", lastRecordTimeGauge)
+    metricRegistry.register(lastPrefix :+ "record_time", lastRecordTimeGauge)
 
     val lastEntryIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.entry_id", lastEntryIdGauge)
+    metricRegistry.register(lastPrefix :+ "entry_id", lastEntryIdGauge)
 
     val lastParticipantIdGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.participant_id", lastParticipantIdGauge)
+    metricRegistry.register(lastPrefix :+ "participant_id", lastParticipantIdGauge)
 
     val lastExceptionGauge = new VarGauge[String]("<none>")
-    registry.register(s"$prefix.last.exception", lastExceptionGauge)
+    metricRegistry.register(lastPrefix :+ "exception", lastExceptionGauge)
   }
 
 }

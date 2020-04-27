@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.health
+package com.daml.ledger.api.health
 
-import com.digitalasset.ledger.api.health.HealthChecks._
+import com.daml.ledger.api.health.HealthChecks._
 
 class HealthChecks(private val components: Components) {
   def this(components: Component*) = this(components.toMap)

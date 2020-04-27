@@ -1,15 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.digitalasset.http.Generators.{
-  genDomainTemplateId,
-  genDuplicateDomainTemplateIdR,
-  nonEmptySet
-}
-import com.digitalasset.http.PackageService.TemplateIdMap
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.http.Generators.{genDomainTemplateId, genDuplicateDomainTemplateIdR, nonEmptySet}
+import com.daml.http.PackageService.TemplateIdMap
+import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen.nonEmptyListOf
 import org.scalacheck.Shrink
 import org.scalatest.prop.GeneratorDrivenPropertyChecks

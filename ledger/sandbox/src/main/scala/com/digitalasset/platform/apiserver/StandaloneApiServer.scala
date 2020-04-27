@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
 import java.io.File
 import java.nio.file.Files
@@ -11,27 +11,30 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.v1.SeedService.Seeding
+import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.digitalasset.ledger.api.auth.{AuthService, Authorizer}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.health.HealthChecks
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.StandaloneApiServer._
-import com.digitalasset.platform.configuration.{
-  BuildInfo,
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.lf.engine.Engine
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.auth.{AuthService, Authorizer}
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.health.HealthChecks
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.StandaloneApiServer._
+import com.daml.platform.configuration.{
   CommandConfiguration,
+  LedgerConfiguration,
   PartyConfiguration,
+  ServerRole,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.index.JdbcIndex
-import com.digitalasset.platform.packages.InMemoryPackageStore
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.platform.index.JdbcIndex
+import com.daml.platform.packages.InMemoryPackageStore
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
 import io.grpc.{BindableService, ServerInterceptor}
 
 import scala.collection.JavaConverters._
@@ -45,12 +48,13 @@ final class StandaloneApiServer(
     commandConfig: CommandConfiguration,
     partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
+    ledgerConfig: LedgerConfiguration,
     readService: ReadService,
     writeService: WriteService,
     authService: AuthService,
+    transformIndexService: IndexService => IndexService = identity,
     metrics: MetricRegistry,
     timeServiceBackend: Option[TimeServiceBackend] = None,
-    seeding: Seeding,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
     engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
@@ -73,17 +77,25 @@ final class StandaloneApiServer(
         () => java.time.Clock.systemUTC.instant(),
         initialConditions.ledgerId,
         participantId)
-      indexService <- JdbcIndex.owner(
-        initialConditions.config.timeModel,
-        domain.LedgerId(initialConditions.ledgerId),
-        participantId,
-        config.jdbcUrl,
-        metrics,
-      )
+      indexService <- JdbcIndex
+        .owner(
+          ServerRole.ApiServer,
+          initialConditions.config,
+          domain.LedgerId(initialConditions.ledgerId),
+          participantId,
+          config.jdbcUrl,
+          config.eventsPageSize,
+          metrics,
+        )
+        .map(transformIndexService)
       healthChecks = new HealthChecks(
         "index" -> indexService,
         "read" -> readService,
         "write" -> writeService,
+      )
+      ledgerConfiguration = ledgerConfig.copy(
+        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
+        initialConfiguration = initialConditions.config,
       )
       apiServer <- new LedgerApiServer(
         (mat: Materializer, esf: ExecutionSequencerFactory) => {
@@ -95,14 +107,16 @@ final class StandaloneApiServer(
               authorizer = authorizer,
               engine = engine,
               timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-              defaultLedgerConfiguration = initialConditions.config,
+              timeProviderType = timeServiceBackend.fold[TimeProviderType](
+                TimeProviderType.WallClock)(_ => TimeProviderType.Static),
+              ledgerConfiguration = ledgerConfiguration,
               commandConfig = commandConfig,
               partyConfig = partyConfig,
               submissionConfig = submissionConfig,
               optTimeServiceBackend = timeServiceBackend,
               metrics = metrics,
               healthChecks = healthChecks,
-              seedService = Some(SeedService(seeding)),
+              seedService = config.seeding.map(SeedService(_)),
             )(mat, esf, logCtx)
             .map(_.withServices(otherServices))
         },
@@ -162,5 +176,5 @@ final class StandaloneApiServer(
 }
 
 object StandaloneApiServer {
-  private val sharedEngine = Engine()
+  private val sharedEngine: Engine = Engine()
 }

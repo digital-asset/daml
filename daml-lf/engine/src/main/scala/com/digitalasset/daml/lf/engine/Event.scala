@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
-import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.daml.lf.transaction.GenTransaction
+import com.daml.lf.data.Relation.Relation
 
 import scala.annotation.tailrec
 
@@ -189,7 +189,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
       scala.collection.mutable.Map[Nid, Event[Nid, Cid, Val]]()
 
     def isIrrelevantNode(nid: Nid): Boolean = tx.nodes(nid) match {
-      case _: NodeFetch[Cid] => true
+      case _: NodeFetch[_, _] => true
       case _: NodeLookupByKey[_, _] => true
       case _ => false
 
@@ -235,7 +235,7 @@ object Event extends value.CidContainer3WithDefaultCidResolver[Event] {
               )
               evts += (nodeId -> evt)
               go(relevantChildren ++: remaining)
-            case nf: NodeFetch[Cid] =>
+            case nf: NodeFetch[Cid, Val] =>
               throw new RuntimeException(
                 s"Unexpected fetch node $nf, we purge them before we get here!")
             case nlbk: NodeLookupByKey[Cid, Val] =>

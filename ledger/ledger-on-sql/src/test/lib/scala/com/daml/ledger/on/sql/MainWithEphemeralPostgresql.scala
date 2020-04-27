@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
 
 import com.daml.ledger.participant.state.kvutils.app.{Config, Runner}
-import com.digitalasset.resources.ProgramResource
-import com.digitalasset.testing.postgresql.PostgresAround
+import com.daml.resources.ProgramResource
+import com.daml.testing.postgresql.PostgresAround
 
 object MainWithEphemeralPostgresql extends PostgresAround {
   def main(args: Array[String]): Unit = {

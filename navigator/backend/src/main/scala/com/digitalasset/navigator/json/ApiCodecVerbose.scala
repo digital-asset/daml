@@ -1,21 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.daml.navigator.json
 
-import com.digitalasset.daml.lf.data.{
-  Decimal => LfDecimal,
-  FrontStack,
-  ImmArray,
-  Ref,
-  SortedLookupList
-}
-import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
-import com.digitalasset.navigator.json.Util._
-import com.digitalasset.navigator.model.DamlLfIdentifier
+import com.daml.lf.data.{Decimal => LfDecimal, FrontStack, ImmArray, Ref, SortedLookupList}
+import com.daml.navigator.{model => Model}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.ApiValueImplicits._
+import com.daml.navigator.json.DamlLfCodec.JsonImplicits._
+import com.daml.navigator.json.Util._
+import com.daml.navigator.model.DamlLfIdentifier
 import spray.json._
 
 /**

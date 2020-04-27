@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset
+package com.daml
 package codegen
 
-import daml.lf.data.ImmArray.ImmArraySeq
-import daml.lf.data.Ref.Identifier
-import daml.lf.iface._
-import daml.lf.value.ValueGenerators.idGen
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.iface._
+import com.daml.lf.value.ValueGenerators.idGen
 
 import org.scalatest.{WordSpec, Matchers}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks

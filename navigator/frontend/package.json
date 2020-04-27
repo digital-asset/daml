@@ -20,7 +20,7 @@
     "lint": "tslint --project tslint.json"
   },
   "devDependencies": {
-    "@bazel/hide-bazel-files": "1.1.0",
+    "@bazel/hide-bazel-files": "1.6.0",
     "@types/async": "2.0.39",
     "@types/babel-core": "^6.25.3",
     "@types/classnames": "0.0.32",

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -36,13 +36,11 @@ da_haskell_library(
 daml_compile(
     name = "for-tests",
     srcs = glob(["test/daml/for-tests/*.daml"]),
-    main_src = "test/daml/for-tests/Main.daml",
 )
 
 daml_compile(
     name = "for-upload",
-    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
-    main_src = "test/daml/for-upload/ExtraModule.daml",
+    srcs = ["test/daml/for-upload/ExtraModule.daml"],
 )
 
 da_haskell_test(
@@ -87,6 +85,7 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
     ],
 )
 

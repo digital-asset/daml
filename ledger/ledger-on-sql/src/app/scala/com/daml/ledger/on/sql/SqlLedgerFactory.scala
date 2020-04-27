@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -11,8 +11,10 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ParticipantConfig,
   ReadWriteService
 }
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.participant.state.kvutils.caching
+import com.daml.ledger.participant.state.v1.SeedService
+import com.daml.logging.LoggingContext
+import com.daml.resources.{Resource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
@@ -37,21 +39,30 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
   override def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig
-  )(
-      implicit executionContext: ExecutionContext,
-      materializer: Materializer,
-      logCtx: LoggingContext,
-  ): ResourceOwner[ReadWriteService] = {
-    val jdbcUrl = config.extra.jdbcUrl.getOrElse {
-      throw new IllegalStateException("No JDBC URL provided.")
-    }
-    for {
-      ledgerReadWriter <- SqlLedgerReaderWriter.owner(
+  )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[ReadWriteService] =
+    new Owner(config, participantConfig)
+
+  class Owner(
+      config: Config[ExtraConfig],
+      participantConfig: ParticipantConfig
+  )(implicit materializer: Materializer, logCtx: LoggingContext)
+      extends ResourceOwner[KeyValueParticipantState] {
+    override def acquire()(
+        implicit executionContext: ExecutionContext
+    ): Resource[KeyValueParticipantState] = {
+      val jdbcUrl = config.extra.jdbcUrl.getOrElse {
+        throw new IllegalStateException("No JDBC URL provided.")
+      }
+      val metrics = metricRegistry(participantConfig, config)
+      new SqlLedgerReaderWriter.Owner(
         config.ledgerId,
         participantConfig.participantId,
+        metrics,
         jdbcUrl,
-        SqlLedgerReaderWriter.DefaultTimeProvider
-      )
-    } yield new KeyValueParticipantState(ledgerReadWriter, ledgerReadWriter)
+        stateValueCache = caching.Cache.from(config.stateValueCache),
+        seedService = SeedService(config.seeding),
+      ).acquire()
+        .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
+    }
   }
 }

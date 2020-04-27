@@ -1,20 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf
+package speedy
 
 import java.util
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.{FrontStack, Ref}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SError.SError
-import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.validation.Validation
+import com.daml.lf.data.Ref._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.{FrontStack, Ref, Time}
+import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SError.SError
+import com.daml.lf.speedy.SResult.{SResultContinue, SResultError}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.validation.Validation
 import org.scalactic.Equality
 import org.scalatest.{Matchers, WordSpec}
 
@@ -247,12 +248,15 @@ class SpeedyTest extends WordSpec with Matchers {
 
 object SpeedyTest {
 
+  private val txSeed = crypto.Hash.hashPrivateKey("SpeedyTest")
+
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
       expr = e,
-      checkSubmitterInMaintainers = true,
       compiledPackages = packages,
       scenario = false,
+      submissionTime = Time.Timestamp.now(),
+      transactionSeed = Some(txSeed),
     )
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {

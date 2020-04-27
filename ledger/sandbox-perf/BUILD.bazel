@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -46,7 +46,7 @@ da_scala_library(
 
 daml_compile(
     name = "LargeTransaction",
-    main_src = "src/perf/resources/damls/LargeTransaction.daml",
+    srcs = ["src/perf/resources/damls/LargeTransaction.daml"],
     visibility = ["//visibility:public"],
 )
 

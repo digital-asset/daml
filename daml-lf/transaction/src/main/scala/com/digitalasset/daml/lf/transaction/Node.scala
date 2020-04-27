@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, ScalazEqual}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.daml.lf.crypto.Hash
+import com.daml.lf.data.{ImmArray, Ref, ScalazEqual}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -60,7 +60,6 @@ object Node {
         f3: A3 => B3,
     ): GenNode[A1, A2, A3] => GenNode[B1, B2, B3] = {
       case NodeCreate(
-          nodeSeed,
           coid,
           coinst,
           optLocation,
@@ -69,7 +68,6 @@ object Node {
           key,
           ) =>
         NodeCreate(
-          nodeSeed = nodeSeed,
           coid = f2(coid),
           coinst = value.Value.ContractInst.map1(f3)(coinst),
           optLocation = optLocation,
@@ -84,6 +82,7 @@ object Node {
           actingParties,
           signatories,
           stakeholders,
+          key,
           ) =>
         NodeFetch(
           coid = f2(coid),
@@ -92,9 +91,9 @@ object Node {
           actingParties = actingParties,
           signatories = signatories,
           stakeholders = stakeholders,
+          key = key.map(KeyWithMaintainers.map1(f3)),
         )
       case NodeExercises(
-          nodeSeed,
           targetCoid,
           templateId,
           choiceId,
@@ -110,7 +109,6 @@ object Node {
           key,
           ) =>
         NodeExercises(
-          nodeSeed = nodeSeed,
           targetCoid = f2(targetCoid),
           templateId = templateId,
           choiceId = choiceId,
@@ -147,7 +145,6 @@ object Node {
 
   /** Denotes the creation of a contract instance. */
   final case class NodeCreate[+Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       coid: Cid,
       coinst: ContractInst[Val],
       optLocation: Option[Location], // Optional location of the create expression
@@ -160,15 +157,18 @@ object Node {
   object NodeCreate extends WithTxValue2[NodeCreate]
 
   /** Denotes that the contract identifier `coid` needs to be active for the transaction to be valid. */
-  final case class NodeFetch[+Cid](
+  final case class NodeFetch[+Cid, +Val](
       coid: Cid,
       templateId: Identifier,
       optLocation: Option[Location], // Optional location of the fetch expression
       actingParties: Option[Set[Party]],
       signatories: Set[Party],
       stakeholders: Set[Party],
-  ) extends LeafOnlyNode[Cid, Nothing]
+      key: Option[KeyWithMaintainers[Val]],
+  ) extends LeafOnlyNode[Cid, Val]
       with NodeInfo.Fetch {}
+
+  object NodeFetch extends WithTxValue2[NodeFetch]
 
   /** Denotes a transaction node for an exercise.
     * We remember the `children` of this `NodeExercises`
@@ -176,7 +176,6 @@ object Node {
     * ledgers.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
-      nodeSeed: Option[crypto.Hash],
       targetCoid: Cid,
       templateId: Identifier,
       choiceId: ChoiceName,
@@ -205,7 +204,6 @@ object Node {
       * apply method enforces it.
       */
     def apply[Nid, Cid, Val](
-        nodeSeed: Option[crypto.Hash] = None,
         targetCoid: Cid,
         templateId: Identifier,
         choiceId: ChoiceName,
@@ -220,7 +218,6 @@ object Node {
         key: Option[KeyWithMaintainers[Val]],
     ): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
-        nodeSeed,
         targetCoid,
         templateId,
         choiceId,
@@ -282,7 +279,7 @@ object Node {
   ): Boolean =
     ScalazEqual.match2[recorded.type, isReplayedBy.type, Boolean](fallback = false) {
       case nc: NodeCreate[Cid, Val] => {
-        case NodeCreate(_, coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
+        case NodeCreate(coid2, coinst2, optLocation2 @ _, signatories2, stakeholders2, key2) =>
           import nc._
           // NOTE(JM): Do not compare location annotations as they may differ due to
           // differing update expression constructed from the root node.
@@ -290,7 +287,7 @@ object Node {
           signatories == signatories2 && stakeholders == stakeholders2 && key === key2
         case _ => false
       }
-      case nf: NodeFetch[Cid] => {
+      case nf: NodeFetch[Cid, Val] => {
         case NodeFetch(
             coid2,
             templateId2,
@@ -298,15 +295,16 @@ object Node {
             actingParties2,
             signatories2,
             stakeholders2,
+            key2,
             ) =>
           import nf._
           coid === coid2 && templateId == templateId2 &&
           actingParties.forall(_ => actingParties == actingParties2) &&
           signatories == signatories2 && stakeholders == stakeholders2
+          key.forall(_ => key == key2)
       }
       case ne: NodeExercises[Nothing, Cid, Val] => {
         case NodeExercises(
-            _,
             targetCoid2,
             templateId2,
             choiceId2,

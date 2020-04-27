@@ -1,10 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 
-import com.daml.ledger.javaapi.data.Generators.instantGen
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNumber, JsObject, JsString, JsValue}
@@ -128,9 +127,7 @@ object Generators {
   def metaGen: Gen[domain.CommandMeta] =
     for {
       commandId <- Gen.option(Gen.identifier.map(domain.CommandId(_)))
-      let <- Gen.option(instantGen)
-      mrt <- Gen.option(instantGen)
-    } yield domain.CommandMeta(commandId, let, mrt)
+    } yield domain.CommandMeta(commandId)
 
   private def genJsObj: Gen[JsObject] =
     Gen.listOf(genJsValPair).map(xs => JsObject(xs.toMap))
@@ -147,15 +144,19 @@ object Generators {
   )
 
   def absoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    Gen.oneOf(IntAbsoluteLedgerOffsetVal, CompositeAbsoluteLedgerOffsetVal)
+    Gen.posNum[Long].map(n => lav1.ledger_offset.LedgerOffset.Value.Absolute(n.toString))
 
-  def IntAbsoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    Gen.posNum[Int].map(n => lav1.ledger_offset.LedgerOffset.Value.Absolute(n.toString))
+  def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
+    Gen
+      .listOf(genDomainTemplateIdO(OptionalPackageIdGen))
+      .map(domain.UnknownTemplateIds)
 
-  def CompositeAbsoluteLedgerOffsetVal: Gen[lav1.ledger_offset.LedgerOffset.Value.Absolute] =
-    for {
-      a1 <- Gen.identifier
-      a2 <- Gen.posNum[Int]
-      a3 <- Gen.posNum[Int]
-    } yield lav1.ledger_offset.LedgerOffset.Value.Absolute(s"${a1: String}-${a2: Int}-${a3: Int}")
+  def genUnknownParties: Gen[domain.UnknownParties] =
+    Gen.listOf(partyGen).map(domain.UnknownParties)
+
+  def genServiceWarning: Gen[domain.ServiceWarning] =
+    Gen.oneOf(genUnknownTemplateIds, genUnknownParties)
+
+  def genWarningsWrapper: Gen[domain.AsyncWarningsWrapper] =
+    genServiceWarning.map(domain.AsyncWarningsWrapper)
 }

@@ -1,62 +1,152 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver
+package com.daml.platform.apiserver
 
-import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceGrpc
-import org.scalatest.{FlatSpec, Matchers}
+import java.net.{InetAddress, InetSocketAddress}
 
-final class MetricsInterceptorSpec extends FlatSpec with Matchers {
+import akka.pattern.after
+import akka.stream.Materializer
+import akka.stream.scaladsl.{Flow, Source}
+import com.codahale.metrics.MetricRegistry
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.server.akka.ServerAdapter
+import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
+import com.daml.grpc.sampleservice.Responding
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.platform.apiserver.MetricsInterceptorSpec._
+import com.daml.platform.hello.HelloServiceGrpc.HelloService
+import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
+import com.daml.platform.sandbox.services.GrpcClientResource
+import com.daml.platform.testing.StreamConsumer
+import com.daml.ports.Port
+import com.daml.resources.{Resource, ResourceOwner}
+import io.grpc.netty.NettyServerBuilder
+import io.grpc.stub.StreamObserver
+import io.grpc.{BindableService, Channel, Server, ServerInterceptor, ServerServiceDefinition}
+import org.scalatest.concurrent.Eventually
+import org.scalatest.time.{Second, Span}
+import org.scalatest.{AsyncFlatSpec, Matchers}
 
-  behavior of "MetricsInterceptor.camelCaseToSnakeCase"
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
-  import MetricsInterceptor.camelCaseToSnakeCase
+final class MetricsInterceptorSpec
+    extends AsyncFlatSpec
+    with AkkaBeforeAndAfterAll
+    with Matchers
+    with Eventually {
 
-  it should "leave an empty string unchanged" in {
-    camelCaseToSnakeCase("") shouldBe ""
+  implicit override val patienceConfig: PatienceConfig =
+    PatienceConfig(timeout = scaled(Span(1, Second)))
+
+  behavior of "MetricsInterceptor"
+
+  it should "count the number of calls to a given endpoint" in {
+    val metrics = new MetricRegistry
+    serverWithMetrics(metrics, new AkkaImplementation).use { channel =>
+      for {
+        _ <- Future.sequence(
+          (1 to 3).map(reqInt => HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt))))
+      } yield {
+        eventually {
+          metrics.timer("daml.lapi.hello_service.single").getCount shouldBe 3
+        }
+      }
+    }
   }
 
-  it should "leave a snake_cased string unchanged" in {
-    camelCaseToSnakeCase("snake_cased") shouldBe "snake_cased"
+  it should "time calls to an endpoint" in {
+    val metrics = new MetricRegistry
+    serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
+      for {
+        _ <- HelloServiceGrpc.stub(channel).single(HelloRequest(reqInt = 7))
+      } yield {
+        eventually {
+          val metric = metrics.timer("daml.lapi.hello_service.single")
+          metric.getCount should be > 0L
+
+          val snapshot = metric.getSnapshot
+          val values = Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)
+          all(values) should (be >= 1.second.toNanos and be <= 3.seconds.toNanos)
+        }
+      }
+    }
   }
 
-  it should "remove the capitalization of the first letter" in {
-    camelCaseToSnakeCase("Camel") shouldBe "camel"
+  it should "time calls to a streaming endpoint" in {
+    val metrics = new MetricRegistry
+    serverWithMetrics(metrics, new DelayedHelloService(1.second)).use { channel =>
+      for {
+        _ <- new StreamConsumer[HelloResponse](observer =>
+          HelloServiceGrpc.stub(channel).serverStreaming(HelloRequest(reqInt = 3), observer)).all()
+      } yield {
+        eventually {
+          val metric = metrics.timer("daml.lapi.hello_service.server_streaming")
+          metric.getCount should be > 0L
+
+          val snapshot = metric.getSnapshot
+          val values = Seq(snapshot.getMin, snapshot.getMean.toLong, snapshot.getMax)
+          all(values) should (be >= 3.seconds.toNanos and be <= 6.seconds.toNanos)
+        }
+      }
+    }
   }
+}
 
-  it should "turn a single capital letter into a an underscore followed by a lower case letter" in {
-    camelCaseToSnakeCase("CamelCase") shouldBe "camel_case"
-    camelCaseToSnakeCase("camelCase") shouldBe "camel_case"
-  }
+object MetricsInterceptorSpec {
 
-  it should "keep acronyms together and change their capitalization as a single unit" in {
-    camelCaseToSnakeCase("DAML") shouldBe "daml"
-    camelCaseToSnakeCase("DAMLFactory") shouldBe "daml_factory"
-    camelCaseToSnakeCase("AbstractDAML") shouldBe "abstract_daml"
-    camelCaseToSnakeCase("AbstractDAMLFactory") shouldBe "abstract_daml_factory"
-    camelCaseToSnakeCase("AbstractDAMLProxyJVMFactory") shouldBe "abstract_daml_proxy_jvm_factory"
-  }
+  def serverWithMetrics(metrics: MetricRegistry, service: BindableService): ResourceOwner[Channel] =
+    for {
+      server <- serverOwner(new MetricsInterceptor(metrics), service)
+      channel <- GrpcClientResource.owner(Port(server.getPort))
+    } yield channel
 
-  it should "treat single letter words intelligently" in {
-    camelCaseToSnakeCase("ATeam") shouldBe "a_team"
-    camelCaseToSnakeCase("TeamA") shouldBe "team_a"
-    camelCaseToSnakeCase("BustAMove") shouldBe "bust_a_move"
+  private def serverOwner(
+      interceptor: ServerInterceptor,
+      service: BindableService,
+  ): ResourceOwner[Server] =
+    new ResourceOwner[Server] {
+      def acquire()(implicit executionContext: ExecutionContext): Resource[Server] =
+        Resource(Future {
+          val server =
+            NettyServerBuilder
+              .forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress, 0))
+              .directExecutor()
+              .intercept(interceptor)
+              .addService(service)
+              .build()
+          server.start()
+          server
+        })(server => Future(server.shutdown().awaitTermination()))
+    }
 
-    // the following is mostly to document a reasonable short-coming:
-    // a single letter word followed by an acronym will be detected as a single acronym
-    camelCaseToSnakeCase("AJVMHeap") shouldBe "ajvm_heap"
-  }
+  private final class DelayedHelloService(delay: FiniteDuration)(
+      implicit executionSequencerFactory: ExecutionSequencerFactory,
+      materializer: Materializer,
+  ) extends HelloService
+      with Responding
+      with BindableService {
+    private implicit val executionContext: ExecutionContext = materializer.executionContext
 
-  behavior of "MetricsInterceptor.nameFor"
+    override def bindService(): ServerServiceDefinition =
+      HelloServiceGrpc.bindService(this, executionContext)
 
-  import MetricsInterceptor.nameFor
+    override def single(request: HelloRequest): Future[HelloResponse] =
+      after(delay, materializer.system.scheduler)(Future.successful(response(request)))
 
-  it should "produce the expected name for a selection of services" in {
-    nameFor(CommandServiceGrpc.METHOD_SUBMIT_AND_WAIT.getFullMethodName) shouldBe "daml.lapi.command_service.submit_and_wait"
-    nameFor(CommandSubmissionServiceGrpc.METHOD_SUBMIT.getFullMethodName) shouldBe "daml.lapi.command_submission_service.submit"
-    nameFor(ActiveContractsServiceGrpc.METHOD_GET_ACTIVE_CONTRACTS.getFullMethodName) shouldBe "daml.lapi.active_contracts_service.get_active_contracts"
+    override def serverStreaming(
+        request: HelloRequest,
+        responseObserver: StreamObserver[HelloResponse],
+    ): Unit = {
+      Source
+        .single(request)
+        .via(Flow[HelloRequest].mapConcat(responses))
+        .mapAsync(1)(response =>
+          after(delay, materializer.system.scheduler)(Future.successful(response)))
+        .runWith(ServerAdapter.toSink(responseObserver))
+      ()
+    }
   }
 
 }

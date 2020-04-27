@@ -1,24 +1,25 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.config
+package com.daml.platform.sandbox.config
 
 import java.io.File
 import java.nio.file.Path
+import java.time.Duration
 
 import ch.qos.logback.classic.Level
+import com.daml.ledger.api.auth.AuthService
+import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
-import com.daml.ledger.participant.state.v1.TimeModel
-import com.digitalasset.ledger.api.auth.AuthService
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.{
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.{
   CommandConfiguration,
-  PartyConfiguration,
+  LedgerConfiguration,
+  MetricsReporter,
   SubmissionConfiguration
 }
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.ports.Port
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.ports.Port
 
 /**
   * Defines the basic configuration for running sandbox
@@ -29,12 +30,12 @@ final case class SandboxConfig(
     portFile: Option[Path],
     damlPackages: List[File],
     timeProviderType: Option[TimeProviderType],
-    timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
-    partyConfig: PartyConfiguration,
     submissionConfig: SubmissionConfiguration,
+    ledgerConfig: LedgerConfiguration,
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
+    implicitPartyAllocation: Boolean,
     ledgerIdMode: LedgerIdMode,
     maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
@@ -42,12 +43,19 @@ final case class SandboxConfig(
     logLevel: Option[Level],
     authService: Option[AuthService],
     seeding: Option[Seeding],
+    metricsReporter: Option[MetricsReporter],
+    metricsReportingInterval: Duration,
+    eventsPageSize: Int,
 )
 
 object SandboxConfig {
   val DefaultPort: Port = Port(6865)
 
   val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024
+
+  val DefaultEventsPageSize: Int = 1000
+
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
 
   lazy val nextDefault: SandboxConfig =
     SandboxConfig(
@@ -56,14 +64,12 @@ object SandboxConfig {
       portFile = None,
       damlPackages = Nil,
       timeProviderType = None,
-      timeModel = TimeModel.reasonableDefault,
       commandConfig = CommandConfiguration.default,
-      partyConfig = PartyConfiguration.default.copy(
-        implicitPartyAllocation = true,
-      ),
       submissionConfig = SubmissionConfiguration.default,
+      ledgerConfig = LedgerConfiguration.default,
       tlsConfig = None,
       scenario = None,
+      implicitPartyAllocation = true,
       ledgerIdMode = LedgerIdMode.Dynamic,
       maxInboundMessageSize = DefaultMaxInboundMessageSize,
       jdbcUrl = None,
@@ -71,15 +77,13 @@ object SandboxConfig {
       logLevel = None, // the default is in logback.xml
       authService = None,
       seeding = Some(Seeding.Strong),
+      metricsReporter = None,
+      metricsReportingInterval = Duration.ofSeconds(10),
+      eventsPageSize = DefaultEventsPageSize,
     )
 
   lazy val default: SandboxConfig =
     nextDefault.copy(
-      partyConfig = nextDefault.partyConfig.copy(
-        // In Sandbox, parties are always allocated implicitly. Enabling this would result in an
-        // extra `writeService.allocateParty` call, which is unnecessary and bad for performance.
-        implicitPartyAllocation = false,
-      ),
       seeding = None,
     )
 }

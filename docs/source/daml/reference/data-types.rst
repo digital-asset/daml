@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: data types
@@ -277,7 +277,7 @@ An example is the built-in data type ``Bool``. This is defined by ``data Bool = 
 Please note that all types which you intend to use as template or choice arguments need to derive at least from `(Eq, Show)`.
 
 A very useful sum type is ``data Optional a = None | Some a deriving (Eq,Show)``. It is part of
-the :doc:`DAML standard library </daml/reference/base>`.
+the :doc:`DAML standard library </daml/stdlib/index>`.
 
 ``Optional`` captures the concept of a box, which can be empty or contain a value of type ``a``.
 

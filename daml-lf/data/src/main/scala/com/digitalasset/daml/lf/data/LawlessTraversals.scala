@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import scala.collection.IterableLike
 import scala.collection.generic.CanBuildFrom
 import scala.annotation.tailrec
 
-private[digitalasset] object LawlessTraversals {
+private[daml] object LawlessTraversals {
   implicit final class `Lawless iterable traversal`[A, This](private val seq: IterableLike[A, This])
       extends AnyVal {
     def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(

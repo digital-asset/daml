@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
@@ -13,8 +13,8 @@ import com.daml.ledger.participant.state.kvutils.app.{
   ReadWriteService,
   Runner
 }
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.resources.{ProgramResource, ResourceOwner}
+import com.daml.logging.LoggingContext
+import com.daml.resources.{ProgramResource, Resource, ResourceOwner}
 import scopt.OptionParser
 
 import scala.concurrent.ExecutionContext
@@ -39,15 +39,29 @@ object MainWithEphemeralDirectory {
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig
     )(
-        implicit executionContext: ExecutionContext,
-        materializer: Materializer,
-        logCtx: LoggingContext,
-    ): ResourceOwner[ReadWriteService] = {
-      val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
-      val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
-      SqlLedgerFactory.readWriteServiceOwner(
-        config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
-        participantConfig)
+        implicit materializer: Materializer,
+        logCtx: LoggingContext
+    ): ResourceOwner[ReadWriteService] =
+      new Owner(config, participantConfig)
+
+    class Owner(
+        config: Config[ExtraConfig],
+        participantConfig: ParticipantConfig
+    )(implicit materializer: Materializer, logCtx: LoggingContext)
+        extends ResourceOwner[ReadWriteService] {
+      override def acquire()(
+          implicit executionContext: ExecutionContext
+      ): Resource[ReadWriteService] = {
+        val directory = Files.createTempDirectory("ledger-on-sql-ephemeral-")
+        val jdbcUrl = config.extra.jdbcUrl.map(_.replace(DirectoryPattern, directory.toString))
+        SqlLedgerFactory
+          .readWriteServiceOwner(
+            config.copy(extra = config.extra.copy(jdbcUrl = jdbcUrl)),
+            participantConfig,
+          )
+          .acquire()
+      }
     }
+
   }
 }

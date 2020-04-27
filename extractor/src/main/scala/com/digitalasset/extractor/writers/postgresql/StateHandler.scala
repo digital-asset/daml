@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting, TemplateConfig}
-import com.digitalasset.extractor.json.JsonConverters._
-import com.digitalasset.extractor.targets.PostgreSQLTarget
-import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.extractor.config.{ExtractorConfig, SnapshotEndSetting, TemplateConfig}
+import com.daml.extractor.json.JsonConverters._
+import com.daml.extractor.targets.PostgreSQLTarget
+import com.daml.extractor.writers.postgresql.DataFormatState.MultiTableState
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import doobie._
 import doobie.implicits._
 import cats.data.OptionT

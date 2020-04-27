@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -35,6 +35,7 @@ import DA.Pretty
 import Data.Maybe
 import qualified Data.Text as T
 import Development.IDE.GHC.Util (prettyPrint)
+import Development.IDE.Types.Location
 import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
@@ -94,6 +95,10 @@ data Options = Options
   -- ^ Whether to do an incremental on-disk build as opposed to keeping everything in memory.
   , optInferDependantPackages :: InferDependantPackages
   -- ^ Whether to infer --package flags from deps/data-deps contained in daml.yaml
+  , optEnableOfInterestRule :: Bool
+  -- ^ Whether we should enable the of interest rule that automatically compiles all
+  -- modules to DALFs or not. This is required in the IDE but we can disable it
+  -- in other cases, e.g., daml-docs.
   } deriving Show
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -137,16 +142,16 @@ basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
 -- | Find the builtin package dbs if the exist.
-locateBuiltinPackageDbs :: Maybe FilePath -> IO [FilePath]
+locateBuiltinPackageDbs :: Maybe NormalizedFilePath -> IO [FilePath]
 locateBuiltinPackageDbs mbProjRoot = do
     -- package db for daml-stdlib and daml-prim
     internalPackageDb <- fmap (</> "pkg-db_dir") $ locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     -- If these directories do not exist, we just discard them.
-    filterM Dir.doesDirectoryExist (internalPackageDb : [projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
+    filterM Dir.doesDirectoryExist (internalPackageDb : [fromNormalizedFilePath projRoot </> projectPackageDatabase | Just projRoot <- [mbProjRoot]])
 
 -- Given the target LF version and the package dbs specified by the user, return the versioned package dbs
 -- including builtin package dbs.
-getPackageDbs :: LF.Version -> Maybe FilePath -> [FilePath] -> IO [FilePath]
+getPackageDbs :: LF.Version -> Maybe NormalizedFilePath -> [FilePath] -> IO [FilePath]
 getPackageDbs version mbProjRoot userPkgDbs = do
     builtinPkgDbs <- locateBuiltinPackageDbs mbProjRoot
     pure $ map (</> renderPretty version) (builtinPkgDbs ++ userPkgDbs)
@@ -176,6 +181,7 @@ defaultOptions mbVersion =
         , optCppPath = Nothing
         , optIncrementalBuild = IncrementalBuild False
         , optInferDependantPackages = InferDependantPackages True
+        , optEnableOfInterestRule = True
         }
 
 getBaseDir :: IO FilePath

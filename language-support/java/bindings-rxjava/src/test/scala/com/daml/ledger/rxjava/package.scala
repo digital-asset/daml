@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger
@@ -6,8 +6,8 @@ package com.daml.ledger
 import java.time.Clock
 import java.util.UUID
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.auth.{
+import com.daml.lf.data.Ref
+import com.daml.ledger.api.auth.{
   AuthServiceStatic,
   Authorizer,
   Claim,

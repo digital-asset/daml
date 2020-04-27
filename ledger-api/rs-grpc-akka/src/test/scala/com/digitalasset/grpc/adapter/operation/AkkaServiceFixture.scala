@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.grpc.adapter.operation
+package com.daml.grpc.adapter.operation
 
-import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, TestExecutionSequencerFactory}
-import com.digitalasset.grpc.adapter.utils.implementations.AkkaImplementation
-import com.digitalasset.ledger.api.testing.utils._
-import com.digitalasset.platform.hello.HelloServiceGrpc
-import com.digitalasset.platform.hello.HelloServiceGrpc.HelloServiceStub
+import com.daml.grpc.adapter.{ExecutionSequencerFactory, TestExecutionSequencerFactory}
+import com.daml.grpc.adapter.utils.implementations.AkkaImplementation
+import com.daml.ledger.api.testing.utils._
+import com.daml.platform.hello.HelloServiceGrpc
+import com.daml.platform.hello.HelloServiceGrpc.HelloServiceStub
 import java.net.SocketAddress
 import java.util.concurrent.TimeUnit
 

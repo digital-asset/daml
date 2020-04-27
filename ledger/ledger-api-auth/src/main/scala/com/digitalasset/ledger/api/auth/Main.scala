@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -9,8 +9,8 @@ import java.nio.file.Files
 import java.security.interfaces.RSAPublicKey
 import java.time.Instant
 
-import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.jwt.{JwtSigner, KeyUtils}
+import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{JwtSigner, KeyUtils}
 import scalaz.syntax.show._
 
 object Main {
@@ -133,7 +133,7 @@ object Main {
 
         Files.write(
           changeExtension(outputFile, "-bearer.txt").toPath,
-          s"Bearer ${signed.value}".getBytes(StandardCharsets.UTF_8))
+          signed.value.getBytes(StandardCharsets.UTF_8))
 
         Files.write(
           changeExtension(outputFile, "-payload.json").toPath,

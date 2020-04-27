@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -11,7 +11,7 @@ import Utilities
 import DA.List
 
 -- start snippet: agreement template
-template ContractPlaceholder
+template Agreement
   with
     signatories: [Party]
   where
@@ -24,7 +24,7 @@ template ContractPlaceholder
 -- start snippet: first half pending template
 template Pending
   with
-    finalContract: ContractPlaceholder
+    finalContract: Agreement
     alreadySigned: [Party]
   where
     signatory alreadySigned
@@ -45,7 +45,7 @@ template Pending
           create this with alreadySigned = signer :: alreadySigned
     -- end snippet: first half pending template
     -- start snippet: second half pending template
-    choice Finalize : ContractId ContractPlaceholder with
+    choice Finalize : ContractId Agreement with
         signer : Party
       controller signer
         do
@@ -54,12 +54,12 @@ template Pending
           create finalContract
     -- end snippet: second half pending template
 
-multiplePartyAgreementTest : Scenario (ContractId ContractPlaceholder)  -- test
+multiplePartyAgreementTest : Scenario (ContractId Agreement)  -- test
 multiplePartyAgreementTest = do
 
   -- start snippet: testing setup
   parties@[person1, person2, person3, person4] <- makePartiesFrom ["Alice", "Bob", "Clare", "Dave"]
-  let finalContract = ContractPlaceholder with signatories = parties
+  let finalContract = Agreement with signatories = parties
 
   -- Parties cannot create a contract already signed by someone else
   initialFailTest <- person1 `submitMustFail` do

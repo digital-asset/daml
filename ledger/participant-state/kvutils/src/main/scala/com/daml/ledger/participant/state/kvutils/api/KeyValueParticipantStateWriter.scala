@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.api
@@ -6,19 +6,20 @@ package com.daml.ledger.participant.state.kvutils.api
 import java.util.UUID
 import java.util.concurrent.CompletionStage
 
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.DamlSubmission
 import com.daml.ledger.participant.state.kvutils.{Envelope, KeyValueSubmission}
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.health.HealthStatus
+import com.daml.lf.data.{Ref, Time}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.health.HealthStatus
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.ExecutionContext
 
-class KeyValueParticipantStateWriter(writer: LedgerWriter)(
-    implicit executionContext: ExecutionContext)
+class KeyValueParticipantStateWriter(writer: LedgerWriter, metricRegistry: MetricRegistry)
     extends WriteService {
+
+  private val keyValueSubmission = new KeyValueSubmission(metricRegistry)
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -26,7 +27,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       transaction: SubmittedTransaction,
   ): CompletionStage[SubmissionResult] = {
     val submission =
-      KeyValueSubmission.transactionToSubmission(
+      keyValueSubmission.transactionToSubmission(
         submitterInfo,
         transactionMeta,
         transaction.assertNoRelCid(cid => s"Unexpected relative contract id: $cid"),
@@ -39,7 +40,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       submissionId: SubmissionId,
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String]): CompletionStage[SubmissionResult] = {
-    val submission = KeyValueSubmission
+    val submission = keyValueSubmission
       .archivesToSubmission(
         submissionId,
         archives,
@@ -53,7 +54,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       submissionId: SubmissionId,
       config: Configuration): CompletionStage[SubmissionResult] = {
     val submission =
-      KeyValueSubmission
+      keyValueSubmission
         .configurationToSubmission(maxRecordTime, submissionId, writer.participantId, config)
     commit(submissionId, submission)
   }
@@ -64,7 +65,7 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
       submissionId: SubmissionId): CompletionStage[SubmissionResult] = {
     val party = hint.getOrElse(generateRandomParty())
     val submission =
-      KeyValueSubmission.partyToSubmission(
+      keyValueSubmission.partyToSubmission(
         submissionId,
         Some(party),
         displayName,
@@ -82,5 +83,5 @@ class KeyValueParticipantStateWriter(writer: LedgerWriter)(
   private def commit(
       correlationId: String,
       submission: DamlSubmission): CompletionStage[SubmissionResult] =
-    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission).toByteArray))
+    FutureConverters.toJava(writer.commit(correlationId, Envelope.enclose(submission)))
 }

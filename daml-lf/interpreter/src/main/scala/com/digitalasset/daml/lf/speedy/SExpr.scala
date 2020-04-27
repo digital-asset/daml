@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
 /**
   * The simplified AST for the speedy interpreter.
@@ -9,12 +9,12 @@ package com.digitalasset.daml.lf.speedy
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
   */
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.Speedy._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SBuiltin._
+import com.daml.lf.language.Ast._
+import com.daml.lf.data.Ref._
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.Speedy._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SBuiltin._
 import java.util.ArrayList
 
 /** The speedy expression:
@@ -99,6 +99,8 @@ object SExpr {
     // Helper for constructing abstraction expressions:
     // SEAbs(1) { ... }
     def apply(arity: Int)(body: SExpr): SExpr = SEAbs(arity, body)
+
+    val identity: SEAbs = SEAbs(1, SEVar(1))
   }
 
   /** Closure creation. Create a new closure object storing the free variables
@@ -215,10 +217,10 @@ object SExpr {
   sealed trait SCasePat
 
   /** Match on a variant. On match the value is unboxed and pushed to environment. */
-  final case class SCPVariant(id: Identifier, variant: Name) extends SCasePat
+  final case class SCPVariant(id: Identifier, variant: Name, constructorRank: Int) extends SCasePat
 
   /** Match on a variant. On match the value is unboxed and pushed to environment. */
-  final case class SCPEnum(id: Identifier, constructor: Name) extends SCasePat
+  final case class SCPEnum(id: Identifier, constructor: Name, constructorRank: Int) extends SCasePat
 
   /** Match on a primitive constructor, that is on true, false or unit. */
   final case class SCPPrimCon(pc: PrimCon) extends SCasePat
@@ -305,15 +307,15 @@ object SExpr {
                 SEApp(
                   SEVar(5),
                   Array(
-                    SEVar(4) /* z */,
-                    SEVar(2), /* y */
-                  ),
+                    SEVar(4), /* z */
+                    SEVar(2) /* y */
+                  )
                 ),
-                SEVar(1), /* ys */
-              ),
-            ),
+                SEVar(1) /* ys */
+              )
+            )
           )
-        ),
+        )
       )
 
     private val foldRBody: SExpr =
@@ -339,12 +341,12 @@ object SExpr {
                   /* foldr f z ys */
                   SEVar(5), /* f */
                   SEVar(4), /* z */
-                  SEVar(1), /* ys */
-                ),
-              ),
-            ),
-          ),
-        )),
+                  SEVar(1) /* ys */
+                )
+              )
+            )
+          )
+        ))
       )
 
     private val equalListBody: SExpr =
@@ -361,7 +363,7 @@ object SExpr {
             //   nil -> True
             //   default -> False
             SECase(SEVar(1)) of (SCaseAlt(SCPNil, SEValue.True),
-            SCaseAlt(SCPDefault, SEValue.False)),
+            SCaseAlt(SCPDefault, SEValue.False))
           ),
           // cons x xss ->
           SCaseAlt(
@@ -382,11 +384,11 @@ object SExpr {
                     SEApp(EqualList, Array(SEVar(7), SEVar(1), SEVar(3))),
                   ),
                   SCaseAlt(SCPPrimCon(PCFalse), SEValue.False)
-                ),
+                )
               )
-            ),
+            )
           )
-        ),
+        )
       )
   }
 

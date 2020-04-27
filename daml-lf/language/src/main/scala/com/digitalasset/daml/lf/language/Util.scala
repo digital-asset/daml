@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.daml.lf.language
 
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray}
-import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.language.Ast._
+import com.daml.lf.data.{Decimal, ImmArray, Ref}
+import com.daml.lf.language.Ast._
 
 import scala.annotation.tailrec
+import scala.collection.immutable.HashMap
 
 object Util {
 
   object TTyConApp {
-    def apply(con: TypeConName, args: ImmArray[Type]): Type =
+    def apply(con: Ref.TypeConName, args: ImmArray[Type]): Type =
       args.foldLeft[Type](TTyCon(con))((typ, arg) => TApp(typ, arg))
-    def unapply(typ: Type): Option[(TypeConName, ImmArray[Type])] = {
+    def unapply(typ: Type): Option[(Ref.TypeConName, ImmArray[Type])] = {
       @tailrec
-      def go(typ: Type, targs: List[Type]): Option[(TypeConName, ImmArray[Type])] =
+      def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
           case TTyCon(con) => Some((con, ImmArray(targs)))
@@ -83,5 +83,41 @@ object Util {
   val CPUnit = CPPrimCon(PCUnit)
   val CPTrue = CPPrimCon(PCTrue)
   val CPFalse = CPPrimCon(PCFalse)
+
+  // Returns the `pkgIds` and all its dependencies in topological order.
+  // A package undefined w.r.t. the function `packages` is treated as a sink.
+  def dependenciesInTopologicalOrder(
+      pkgIds: List[Ref.PackageId],
+      packages: Ref.PackageId PartialFunction Package,
+  ): List[Ref.PackageId] = {
+
+    @tailrec
+    def buildGraph(
+        toProcess0: List[Ref.PackageId],
+        seen0: Set[Ref.PackageId],
+        graph0: Graphs.Graph[Ref.PackageId],
+    ): Graphs.Graph[Ref.PackageId] =
+      toProcess0 match {
+        case pkgId :: toProcess1 =>
+          val deps = packages.lift(pkgId).fold(Set.empty[Ref.PackageId])(_.directDeps)
+          val newDeps = deps.filterNot(seen0)
+          buildGraph(
+            newDeps.foldLeft(toProcess1)(_.::(_)),
+            seen0 ++ newDeps,
+            graph0.updated(pkgId, deps)
+          )
+        case Nil => graph0
+      }
+
+    Graphs
+      .topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty))
+      .fold(
+        // If we get a cycle in package dependencies, there is something very wrong
+        // (i.e. we find a collision in SHA256), so we crash.
+        cycle =>
+          throw new Error(s"cycle in package definitions ${cycle.vertices.mkString(" -> ")}"),
+        identity
+      )
+  }
 
 }

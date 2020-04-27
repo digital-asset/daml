@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Script
@@ -9,7 +9,7 @@ DAML Script
 
    daml-script-docs
 
-DAML scenarios provide a simple API for experimenting with DAML models
+DAML scenarios provide a simple API for testing DAML models
 and getting quick feedback in DAML studio. However, scenarios are run
 in a special process and do not interact with an actual ledger. This
 means that you cannot use scenarios to test other ledger clients,
@@ -176,7 +176,7 @@ To run our script, we first build it with ``daml build`` and then run
 it by pointing to the DAR, the name of our script, the host and
 port our ledger is running on and the time mode of the ledger.
 
-``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865 --static-time``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:test --ledger-host localhost --ledger-port 6865``
 
 Up to now, we have worked with parties that we have allocated in the
 test. We can also pass in the path to a file containing
@@ -187,9 +187,14 @@ the input in the :doc:`/json-api/lf-value-specification`.
 
 We can then initialize our ledger passing in the json file via ``--input-file``.
 
-``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json --static-time``
+``daml script --dar .daml/dist/script-example-0.0.1.dar --script-name ScriptExample:initialize --ledger-host localhost --ledger-port 6865 --input-file ledger-parties.json``
 
 If you open Navigator, you can now see the contracts that have been created.
+
+While we will not use it here, there is also an ``--output-file``
+option that you can use to write the result of a script to a file
+using the DAML-LF JSON encoding. This is particularly useful if you need to consume
+the result from another program.
 
 .. _script-ledger-initialization:
 
@@ -260,3 +265,31 @@ using a party with an unspecified participant is an error.
 want to allocate a party on a specific participant, you can use
 ``allocatePartyOn`` which accepts the participant name as an extra
 argument.
+
+.. daml-script-json-api
+
+Running DAML Script against the HTTP JSON API
+=============================================
+
+In some cases, you only have access to the :doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on `project:DABL <https://projectdabl.com>`_. For this usecase, DAML script can be run against the JSON API. Note that if you do have access to the gRPC API, running DAML script against the JSON API does not have any advantages.
+
+To run DAML script against the JSON API you have to pass the ``--json-api`` parameter to ``daml script``. There are a few differences and limitations compared to running DAML Script against the gRPC API:
+
+#. When running against the JSON API, the ``--host`` argument has to
+   contain an ``http://`` or ``https://`` prefix, e.g., ``daml
+   script --host http://localhost --port 7575 --json-api``.
+#. The JSON API only supports single-command submissions. This means
+   that within a single call to ``submit`` you can only execute one
+   ledger API command, e.g., one ``createCmd`` or one ``exerciseCmd``.
+#. The JSON API requires an authentication token even when it is run
+   against an unauthenticated ledger. The authentication token must be
+   a JWT token so the ``--access-token-file`` passed to
+   ``daml script`` should contain the actual JWT token.
+#. The token must contain exactly one party in ``actAs`` and/or
+   ``readAs``. This party will be used for ``submit`` and
+   ``query``. Passing a party as the argument to ``submit`` and
+   ``query`` that is different from the party in the token is an
+   error.
+#. Since DAML Script only accepts a single token and the party is
+   inferred from the token, this means that you can only use a single
+   party within a DAML script when running against the JSON API.

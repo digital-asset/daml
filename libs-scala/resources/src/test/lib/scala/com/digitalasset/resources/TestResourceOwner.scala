@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.resources.TestResourceOwner._
+import com.daml.resources.TestResourceOwner._
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model
+import com.daml.lf.value.{Value => V}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}

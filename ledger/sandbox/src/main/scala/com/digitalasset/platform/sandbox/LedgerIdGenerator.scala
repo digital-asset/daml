@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import java.util.UUID
 
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.daml.ledger.api.domain.LedgerId
 
 object LedgerIdGenerator {
   def generateRandomId(): LedgerId =

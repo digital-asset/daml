@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.SessionTelemetry
@@ -30,7 +30,7 @@ initSessionState gcpLogger = do
     lastActive <- newVar =<< getTime Monotonic
     pure SessionState{..}
 
-setSessionHandlers :: SessionState -> PartialHandlers
+setSessionHandlers :: SessionState -> PartialHandlers a
 setSessionHandlers SessionState{..} = PartialHandlers  $ \WithMessage{..} handlers -> pure handlers
     { LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler handlers) $
         \_ _ _ -> touch
@@ -42,7 +42,7 @@ setSessionHandlers SessionState{..} = PartialHandlers  $ \WithMessage{..} handle
     where
         touch = writeVar lastActive =<< getTime Monotonic
 
-withSessionPings :: Lgr.Handle IO -> (PartialHandlers -> IO a) -> IO a
+withSessionPings :: Lgr.Handle IO -> (PartialHandlers b -> IO a) -> IO a
 withSessionPings lgr f = do
     sessionState <- initSessionState lgr
     withAsync (pingThread sessionState) $ const (f $ setSessionHandlers sessionState)

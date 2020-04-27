@@ -1,10 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
--- | Automatically imported qualified in every module.
+-- | HIDE Automatically imported qualified in every module.
 module DA.Internal.Desugar (
     module DA.Internal.Template,
     module DA.Internal.Template.Functions,

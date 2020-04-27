@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.auth
+package com.daml.platform.sandbox.auth
 
-import com.digitalasset.ledger.api.v1.active_contracts_service.{
+import com.daml.ledger.api.v1.active_contracts_service.{
   ActiveContractsServiceGrpc,
   GetActiveContractsRequest,
   GetActiveContractsResponse
 }
-import com.digitalasset.platform.testing.StreamConsumer
+import com.daml.platform.testing.StreamConsumer
 
 import scala.concurrent.Future
 

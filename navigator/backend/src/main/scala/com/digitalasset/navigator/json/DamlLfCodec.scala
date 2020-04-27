@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.daml.navigator.json
 
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef, Numeric => DamlLfNumeric}
-import com.digitalasset.navigator.json.Util._
-import com.digitalasset.navigator.{model => Model}
+import com.daml.lf.data.{Ref => DamlLfRef, Numeric => DamlLfNumeric}
+import com.daml.navigator.json.Util._
+import com.daml.navigator.{model => Model}
 import spray.json._
 
 /**

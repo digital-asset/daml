@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
@@ -6,6 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("//compiler/damlc:util.bzl", "ghc_pkg")
 
 # Tests for the lax CLI parser
 da_haskell_test(
@@ -70,6 +71,7 @@ da_haskell_test(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -86,6 +88,7 @@ da_haskell_test(
     data = [
         ":daml-test-files",
         "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
     ],
     hackage_deps = [
         "base",
@@ -111,6 +114,7 @@ da_haskell_test(
         "base",
         "data-default",
         "extra",
+        "filepath",
         "ghcide",
         "haskell-lsp-types",
         "tasty",
@@ -123,6 +127,7 @@ da_haskell_test(
     deps = [
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-doctest",
+        "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//libs-haskell/da-hs-base",
@@ -178,6 +183,7 @@ da_haskell_test(
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//compiler/damlc/daml-visual",
+        "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -203,7 +209,10 @@ da_haskell_test(
     main_function = "DA.Test.IncrementalBuilds.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = ["//libs-haskell/bazel-runfiles"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/test-utils",
+    ],
 )
 
 # Tests for packaging
@@ -215,11 +224,9 @@ da_haskell_test(
         "//compiler/damlc",
         "//compiler/damlc/tests:generate-simple-dalf",
         "//daml-lf/repl",
-        "@davl//:released/davl-v3.dar",
-        # Note that this will break if we make incompatible changes to 1.dev (which we might).
-        # In that case, feel free to replace it by a newer DAR, ideally built against a stable
-        # LF version.
-        ":dars/old-proj-0.13.51-1.dev.dar",
+        "@davl-v3//:released/davl-v3.dar",
+        # Feel free to update this to 0.13.55 once that is frozen.
+        ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",
     ],
     hackage_deps = [
         "base",
@@ -243,6 +250,7 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -282,17 +290,24 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//ledger/sandbox:sandbox-binary",
+        "//ledger/test-common/test-certificates",
     ],
     hackage_deps = [
+        "aeson",
         "base",
+        "bytestring",
+        "containers",
         "extra",
         "filepath",
+        "jwt",
         "process",
         "regex-tdfa",
         "safe",
         "safe-exceptions",
         "tasty",
         "tasty-hunit",
+        "text",
+        "unordered-containers",
     ],
     main_function = "DA.Test.Repl.main",
     src_strip_prefix = "src",
@@ -300,6 +315,53 @@ da_haskell_test(
     deps = [
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
+    ],
+)
+
+da_haskell_test(
+    name = "repl-functests",
+    srcs = ["src/DA/Test/Repl/FuncTests.hs"],
+    data = [
+        ":repl-test.dar",
+        ghc_pkg,
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "//compiler/repl-service/server:repl_service_jar",
+        "//daml-script/daml:daml-script.dar",
+        "//ledger/sandbox:sandbox-binary",
+    ],
+    hackage_deps = [
+        "async",
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "ghcide",
+        "hspec",
+        "process",
+        "regex-tdfa",
+        "safe",
+        "safe-exceptions",
+        "silently",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DA.Test.Repl.FuncTests.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/damlc/daml-package-config",
+        "//compiler/repl-service/client",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 
@@ -399,27 +461,28 @@ sh_test(
     ],
 )
 
-sh_test(
+da_haskell_test(
     name = "unstable-types",
-    srcs = ["src/unstable-types.sh"],
-    args = [
-        "$(location @jq_dev_env//:jq)",
-        "$(location :src/query-lf-interned.jq)",
-        "$(location //compiler/damlc/pkg-db)",
-        "$(location //compiler/damlc)",
-        "$(POSIX_DIFF)",
-    ],
+    srcs = ["src/DA/Test/UnstableTypes.hs"],
     data = [
-        ":src/query-lf-interned.jq",
-        "//compiler/damlc",
         "//compiler/damlc/pkg-db",
-        "@jq_dev_env//:jq",
     ],
-    toolchains = [
-        "@rules_sh//sh/posix:make_variables",
+    hackage_deps = [
+        "base",
+        "bytestring",
+        "directory",
+        "extra",
+        "filepath",
+        "process",
+        "tasty",
+        "tasty-hunit",
     ],
+    main_function = "DA.Test.UnstableTypes.main",
     deps = [
-        "@bazel_tools//tools/bash/runfiles",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
 )
 

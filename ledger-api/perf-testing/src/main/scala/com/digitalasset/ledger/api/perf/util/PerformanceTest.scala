@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.perf.util
+package com.daml.ledger.api.perf.util
 
-import com.digitalasset.ledger.api.perf.util.reporter.JMeterReporter
+import com.daml.ledger.api.perf.util.reporter.JMeterReporter
 import org.scalameter.api._
 import org.scalameter.execution.{LocalExecutor, SeparateJvmsExecutor}
 import org.scalameter.picklers.Implicits._

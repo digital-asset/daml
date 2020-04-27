@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.quickstart.iou
+package com.daml.quickstart.iou
 
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.api.v1.{value => V}
-import com.digitalasset.ledger.client.binding.{Contract, Template, ValueDecoder, Primitive => P}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.api.v1.{value => V}
+import com.daml.ledger.client.binding.{Contract, Template, ValueDecoder, Primitive => P}
 
 object DecodeUtil {
   def decodeAllCreated[A <: Template[A]: ValueDecoder](transaction: Transaction): Seq[Contract[A]] =

@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.digitalasset.ledger.api.refinements.ApiTypes._
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
-import com.digitalasset.ledger.api.v1.transaction.Transaction
-import com.digitalasset.ledger.client.binding.DomainTransactionMapper.DecoderType
+import com.daml.ledger.api.refinements.ApiTypes._
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created, Empty}
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
+import com.daml.ledger.api.v1.transaction.Transaction
+import com.daml.ledger.client.binding.DomainTransactionMapper.DecoderType
 import com.typesafe.scalalogging.LazyLogging
 import scalaz.std.either._
 import scalaz.std.list._

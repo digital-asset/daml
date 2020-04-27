@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.store
+package com.daml.navigator.store
 
 import java.time.Instant
 
-import com.digitalasset.navigator.model._
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.time.TimeProviderWithType
+import com.daml.navigator.model._
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.time.TimeProviderWithType
 
 trait ActorStatus
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
@@ -23,7 +23,7 @@ def install_java_deps():
             "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.9.9",
             "com.fasterxml.jackson.module:jackson-module-parameter-names:2.9.9",
             "com.fasterxml.jackson.module:jackson-module-scala_2.12:2.9.9",
-            "com.github.blemale:scaffeine_2.12:2.5.0",
+            "com.github.ben-manes.caffeine:caffeine:2.8.0",
             "com.github.ghik:silencer-lib_2.12:1.3.1",
             "com.github.ghik:silencer-plugin_2.12:1.3.1",
             "com.github.mpilquist:simulacrum_2.12:0.10.0",
@@ -68,6 +68,7 @@ def install_java_deps():
             "io.circe:circe-parser_2.12:0.10.0",
             "io.circe:circe-yaml_2.12:0.10.0",
             "io.dropwizard.metrics:metrics-core:4.1.2",
+            "io.dropwizard.metrics:metrics-graphite:4.1.2",
             "io.dropwizard.metrics:metrics-jmx:4.1.2",
             "io.dropwizard.metrics:metrics-jvm:4.1.2",
             "io.grpc:grpc-api:1.22.1",

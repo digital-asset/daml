@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.data.{Time => LfTime}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.extractor.json.JsonConverters._
-import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.ledger.types._
+import com.daml.lf.data.{Time => LfTime}
+import com.daml.lf.value.{Value => V}
+import com.daml.extractor.json.JsonConverters._
+import com.daml.extractor.Types._
+import com.daml.extractor.ledger.types._
 import doobie._
 import doobie.implicits._
 import java.time.{Instant, LocalDate}

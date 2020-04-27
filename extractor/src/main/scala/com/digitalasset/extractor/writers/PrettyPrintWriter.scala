@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.daml.lf.iface.Interface
-import com.digitalasset.extractor.ledger.types.Event
-import com.digitalasset.extractor.targets.PrettyPrintTarget
+import com.daml.lf.iface.Interface
+import com.daml.extractor.ledger.types.Event
+import com.daml.extractor.targets.PrettyPrintTarget
 import _root_.pprint.PPrinter
 
 class PrettyPrintWriter(val target: PrettyPrintTarget) extends PrinterFunctionWriter with Writer {

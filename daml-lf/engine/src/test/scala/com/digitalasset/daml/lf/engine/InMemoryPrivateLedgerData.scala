@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, Ref}
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.{FrontStack, FrontStackCons, Ref}
+import com.daml.lf.transaction.Node._
+import com.daml.lf.transaction.{GenTransaction, Transaction => Tx}
+import com.daml.lf.value.Value._
 
 import scala.annotation.tailrec
 
@@ -31,7 +31,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
 
   def toContractIdString(txCounter: Int)(r: RelativeContractId): Ref.ContractIdString =
     // It is safe to concatenate numbers and "-" to form a valid ContractId
-    Ref.ContractIdString.assertFromString(s"$txCounter-${r.txnid.index}")
+    Ref.ContractIdString.assertFromString(s"#$txCounter-${r.txnid.index}")
 
   def updateWithAbsoluteContractId(
       tx: GenTransaction.WithTxValue[NodeId, AbsoluteContractId]): Unit =
@@ -48,7 +48,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
               go(nodeIds)
             case ne: NodeExercises.WithTxValue[Tx.NodeId, AbsoluteContractId] =>
               go(ne.children ++: nodeIds)
-            case _: NodeLookupByKey[_, _] | _: NodeFetch[_] =>
+            case _: NodeLookupByKey[_, _] | _: NodeFetch[_, _] =>
               go(nodeIds)
           }
       }

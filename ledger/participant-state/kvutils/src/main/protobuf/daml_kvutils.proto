@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 //
@@ -16,10 +16,9 @@ option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/duration.proto";
-import "com/digitalasset/daml_lf_dev/daml_lf.proto";
-import "com/digitalasset/daml/lf/transaction.proto";
-import "com/digitalasset/daml/lf/value.proto";
+import "com/daml/daml_lf_dev/daml_lf.proto";
+import "com/daml/lf/transaction.proto";
+import "com/daml/lf/value.proto";
 import "com/daml/ledger/participant/state/ledger_configuration.proto";
 
 
@@ -32,6 +31,7 @@ message Envelope {
     SUBMISSION = 0;
     LOG_ENTRY = 1;
     STATE_VALUE = 2;
+    SUBMISSION_BATCH = 3;
   }
 
   enum CompressionSchema {
@@ -64,6 +64,16 @@ message DamlSubmission {
     DamlPartyAllocationEntry party_allocation_entry = 5;
   }
   bytes submission_seed = 6;
+}
+
+// A batch of enveloped [[DamlSubmission]]'s.
+message DamlSubmissionBatch {
+  message CorrelatedSubmission {
+    bytes submission = 1;
+    string correlation_id = 2;
+  }
+
+  repeated CorrelatedSubmission submissions = 2;
 }
 
 // A log entry for a committed DAML submission.
@@ -121,7 +131,7 @@ message DamlSubmitterInfo {
   string submitter = 1;
   string command_id = 2;
   string application_id = 3;
-  google.protobuf.Timestamp maximum_record_time = 4;
+  reserved 4; // was maximum_record_time
   google.protobuf.Timestamp deduplicate_until = 5;
 }
 
@@ -131,7 +141,7 @@ message DamlSubmitterInfo {
 // their source).
 message DamlTransactionEntry {
   // The original submitted transaction, with relative identifiers.
-  com.digitalasset.daml.lf.transaction.Transaction transaction = 1;
+  com.daml.lf.transaction.Transaction transaction = 1;
 
   // The submitting party and metadata about the submitted command.
   // The submitting party is authorized against the submitting participant
@@ -163,14 +173,16 @@ message DamlTransactionEntry {
 message DamlTransactionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
+  reserved 5; // was reason.maximum_record_time_exceeded
+
   oneof reason {
     Inconsistent inconsistent = 2;
     Disputed disputed = 3;
     ResourcesExhausted resources_exhausted = 4;
-    MaximumRecordTimeExceeded maximum_record_time_exceeded = 5;
     Duplicate duplicate_command = 6;
     PartyNotKnownOnLedger party_not_known_on_ledger = 7;
     SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
+    InvalidLedgerTime invalid_ledger_time = 9;
   }
 }
 
@@ -336,13 +348,16 @@ message DamlStateValue {
 
 message DamlCommandDedupKey {
   string submitter = 1;
-  string application_id = 2;
+  reserved 2; // was application_id
   string command_id = 3;
 }
 
 message DamlCommandDedupValue {
   // record time will be used in the future for pruning
   google.protobuf.Timestamp record_time = 1;
+  // the time until when future commands with the same
+  // deduplication key will be rejected due to a duplicate submission
+  google.protobuf.Timestamp deduplicated_until = 2;
 }
 
 message DamlSubmissionDedupKey {
@@ -372,6 +387,8 @@ message DamlSubmissionDedupValue {
 // instance storage.
 message DamlContractState {
   // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
   google.protobuf.Timestamp active_at = 1;
 
   // Optional, if set the contract has been archived.
@@ -393,12 +410,12 @@ message DamlContractState {
   DamlContractKey contract_key = 6;
 
   // The contract instance.
-  com.digitalasset.daml.lf.transaction.ContractInstance contract_instance = 7;
+  com.daml.lf.transaction.ContractInstance contract_instance = 7;
 }
 
 message DamlContractKey {
   // The DAML template identifier of the contract that created this key.
-  com.digitalasset.daml.lf.value.Identifier template_id = 1;
+  com.daml.lf.value.Identifier template_id = 1;
 
   reserved 2; // This was key serialized as a VersionedValue. Replaced by hash.
 
@@ -423,6 +440,11 @@ message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
   string contract_id = 1;
+
+  // The time from which the contract is active.
+  // This is the same value as the ledger_effective_time of the transaction
+  // that created this contract.
+  google.protobuf.Timestamp active_at = 2;
 }
 
 // A dump of a "kvutils" ledger, including submissions. Used by the integrity checker to test
@@ -470,6 +492,11 @@ message ResourcesExhausted {
 
 // The transaction submission exceeded its maximum record time.
 message MaximumRecordTimeExceeded {
+  string details = 1;
+}
+
+// The ledger time of the transaction submission violates some constraint.
+message InvalidLedgerTime {
   string details = 1;
 }
 

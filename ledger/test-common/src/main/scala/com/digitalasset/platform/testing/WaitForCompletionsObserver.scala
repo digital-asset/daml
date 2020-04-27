@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.daml.platform.testing
 
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
 

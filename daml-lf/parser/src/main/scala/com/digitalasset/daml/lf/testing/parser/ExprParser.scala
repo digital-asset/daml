@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.Ref.Name
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.Parsers._
-import com.digitalasset.daml.lf.testing.parser.Token._
+import com.daml.lf.data.Ref.Name
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.language.Ast._
+import com.daml.lf.testing.parser.Parsers._
+import com.daml.lf.testing.parser.Token._
 
 @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
 private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
@@ -261,30 +261,18 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "FROM_TEXT_NUMERIC" -> BFromTextNumeric,
     "TEXT_TO_CODE_POINTS" -> BFromTextCodePoints,
     "ERROR" -> BError,
-    "LESS_INT64" -> BLessInt64,
     "LESS_NUMERIC" -> BLessNumeric,
-    "LESS_TEXT" -> BLessText,
-    "LESS_TIMESTAMP" -> BLessTimestamp,
-    "LESS_DATE" -> BLessDate,
-    "LESS_EQ_INT64" -> BLessEqInt64,
     "LESS_EQ_NUMERIC" -> BLessEqNumeric,
-    "LESS_EQ_TEXT" -> BLessEqText,
-    "LESS_EQ_TIMESTAMP" -> BLessEqTimestamp,
-    "LESS_EQ_DATE" -> BLessEqDate,
-    "GREATER_INT64" -> BGreaterInt64,
     "GREATER_NUMERIC" -> BGreaterNumeric,
-    "GREATER_TEXT" -> BGreaterText,
-    "GREATER_TIMESTAMP" -> BGreaterTimestamp,
-    "GREATER_DATE" -> BGreaterDate,
-    "GREATER_EQ_INT64" -> BGreaterEqInt64,
     "GREATER_EQ_NUMERIC" -> BGreaterEqNumeric,
-    "GREATER_EQ_TEXT" -> BGreaterEqText,
-    "GREATER_EQ_TIMESTAMP" -> BGreaterEqTimestamp,
-    "GREATER_EQ_DATE" -> BGreaterEqDate,
     "EQUAL_NUMERIC" -> BEqualNumeric,
     "EQUAL_LIST" -> BEqualList,
     "EQUAL_CONTRACT_ID" -> BEqualContractId,
     "EQUAL" -> BEqual,
+    "LESS" -> BLess,
+    "LESS_EQ" -> BLessEq,
+    "GREATER" -> BGreater,
+    "GREATER_EQ" -> BGreaterEq,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
   )
 

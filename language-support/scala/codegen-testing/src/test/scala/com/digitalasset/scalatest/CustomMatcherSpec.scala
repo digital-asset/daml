@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.scalatest
+package com.daml.scalatest
 
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.Gen
@@ -15,7 +15,7 @@ class CustomMatcherSpec extends WordSpec with GeneratorDrivenPropertyChecks {
     PropertyCheckConfiguration(minSuccessful = 10000)
 
   "make sure it works comparing ints" in {
-    import com.digitalasset.scalatest.CustomMatcher._
+    import com.daml.scalatest.CustomMatcher._
     import scalaz.std.anyVal._
 
     CustomMatcherOps(10) should_=== 10
@@ -50,7 +50,7 @@ class CustomMatcherSpec extends WordSpec with GeneratorDrivenPropertyChecks {
   "make sure it works comparing case classes with custom Show and Equal" in forAll(
     genPairOfNonEqualDummies) {
     case (a, b) =>
-      import com.digitalasset.scalatest.CustomMatcher._
+      import com.daml.scalatest.CustomMatcher._
 
       a should_=== a
       a should_=== a.copy()

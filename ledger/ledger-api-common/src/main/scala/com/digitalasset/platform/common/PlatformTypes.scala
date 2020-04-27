@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.common
+package com.daml.platform.common
 
-import com.digitalasset.daml.lf.transaction.{Node => N}
-import com.digitalasset.daml.lf.value.{ValueVersions, Value => V}
-import com.digitalasset.daml.lf.{transaction => T}
-import com.digitalasset.daml.lf.{engine => E}
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.transaction.{Node => N}
+import com.daml.lf.value.{ValueVersions, Value => V}
+import com.daml.lf.{transaction => T}
+import com.daml.lf.{engine => E}
+import com.daml.lf.data.Ref
 import scala.collection.breakOut
 
 object PlatformTypes {
@@ -23,7 +23,7 @@ object PlatformTypes {
   type NodeLookupByKey[Cid] = N.NodeLookupByKey.WithTxValue[Cid]
   val NodeLookupByKey: N.NodeLookupByKey.type = N.NodeLookupByKey
 
-  type NodeFetch[Cid] = N.NodeFetch[Cid]
+  type NodeFetch[Cid] = N.NodeFetch.WithTxValue[Cid]
   val NodeFetch: N.NodeFetch.type = N.NodeFetch
 
   type NodeExercises[Nid, Cid] = N.NodeExercises.WithTxValue[Nid, Cid]

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package util
 
 import Collections._
@@ -74,6 +74,12 @@ private[http] sealed abstract class ContractStreamStep[+D, +C] extends Product w
     case Acs(inserts) => inserts.nonEmpty
     case LiveBegin(_) => true // unnatural wrt `toInsertDelete`, but what nonEmpty is used for here
     case Txn(step, _) => step.nonEmpty
+  }
+
+  def bookmark: Option[BeginBookmark[domain.Offset]] = this match {
+    case Acs(_) => Option.empty
+    case LiveBegin(bookmark) => Some(bookmark)
+    case Txn(_, offset) => Some(AbsoluteBookmark(offset))
   }
 }
 

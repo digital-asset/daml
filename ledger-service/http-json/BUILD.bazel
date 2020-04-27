@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -22,7 +22,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
     ],
     scalacopts = hj_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:http-json:__VERSION__"],
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -33,6 +33,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-service/cli-opts",
         "//ledger-service/db-backend",
         "//ledger-service/jwt",
         "//ledger-service/lf-value-json",
@@ -40,6 +41,7 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/ports",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
         "@maven//:com_lihaoyi_sourcecode_2_12",
@@ -60,10 +62,10 @@ da_scala_library(
 
 da_scala_binary(
     name = "http-json-binary",
-    main_class = "com.digitalasset.http.Main",
+    main_class = "com.daml.http.Main",
     scalacopts = hj_scalacopts,
     tags = [
-        "maven_coordinates=com.digitalasset.ledger-service:http-json-deploy:__VERSION__",
+        "maven_coordinates=com.daml:http-json-deploy:__VERSION__",
         "no_scala_version_suffix",
     ],
     visibility = ["//visibility:public"],
@@ -81,6 +83,7 @@ da_scala_binary(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//libs-scala/auth-utils",
+        "//libs-scala/ports",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_chuusai_shapeless_2_12",
         "@maven//:com_github_scopt_scopt_2_12",
@@ -104,16 +107,19 @@ da_scala_binary(
 
 daml_compile(
     name = "Account",
-    main_src = "src/test/daml/Account.daml",
+    srcs = ["src/test/daml/Account.daml"],
 )
 
+# TODO(Leo): #5108, split tests into two targets: unit and integration
 da_scala_test(
     name = "tests",
-    size = "medium",
+    size = "large",
     srcs = glob(["src/test/scala/**/*.scala"]),
     data = [
         ":Account.dar",
         "//docs:quickstart-model.dar",
+        "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
     ],
     plugins = [
         "@maven//:org_spire_math_kind_projector_2_12",
@@ -128,7 +134,6 @@ da_scala_test(
         "//daml-lf/interface",
         "//daml-lf/transaction",
         "//daml-lf/transaction-scalacheck",
-        "//language-support/java/bindings:bindings-java-tests-lib",
         "//language-support/scala/bindings-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-service/db-backend",

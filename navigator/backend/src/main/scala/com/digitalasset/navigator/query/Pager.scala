@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.query
+package com.daml.navigator.query
 
-import com.digitalasset.navigator.model._
+import com.daml.navigator.model._
 
 case class Page[N <: Node[_]](offset: Int, total: Int, rows: Seq[N], sortedLike: Seq[SortCriterion])
 

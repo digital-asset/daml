@@ -1,15 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
-import com.digitalasset.daml.lf.archive.{DarReader, Decode}
+import com.daml.lf.archive.{Dar, DarReader, Decode}
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast.Package
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.util.ByteString
-import akka.stream.scaladsl.Sink
-import java.time.Instant
+import akka.stream.scaladsl.{FileIO, Sink, Source}
+import java.io.File
 import java.util.UUID
 import org.scalatest._
 import org.scalatest.concurrent.Eventually
@@ -20,21 +22,15 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaz.syntax.tag._
 import scalaz.syntax.traverse._
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.bazeltools.BazelRunfiles.requiredResource
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.command_service._
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  TransactionFilter,
-  InclusiveFilters
-}
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
+import com.daml.bazeltools.BazelRunfiles.requiredResource
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.v1.commands._
+import com.daml.ledger.api.v1.command_service._
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, InclusiveFilters}
+import com.daml.ledger.client.LedgerClient
 
-class ServiceTest extends AsyncFlatSpec with Eventually {
+class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -46,23 +42,16 @@ class ServiceTest extends AsyncFlatSpec with Eventually {
     case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
   }
 
-  val updater = new CommandUpdater(
-    timeProviderO = Some(TimeProvider.Constant(Instant.EPOCH)),
-    ttl = java.time.Duration.ofSeconds(30),
-    overrideTtl = true)
-
   def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
       Some(
-        updater.applyOverrides(Commands(
+        Commands(
           party = party,
           applicationId = testId,
           ledgerId = client.ledgerId.unwrap,
           commandId = UUID.randomUUID.toString,
-          ledgerEffectiveTime = None,
-          maximumRecordTime = None,
           commands = Seq(cmd)
-        ))))
+        )))
     client.commandServiceClient.submitAndWait(req)
   }
 
@@ -71,9 +60,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually {
   implicit val esf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(system)
   implicit val ec: ExecutionContext = system.dispatcher
 
-  def withHttpService[A]: ((Uri, LedgerClient) => Future[A]) => Future[A] =
+  def withHttpService[A](triggerDar: Option[Dar[(PackageId, Package)]])
+    : ((Uri, LedgerClient) => Future[A]) => Future[A] =
     TriggerServiceFixture
-      .withTriggerService[A](testId, List(darPath), dar)
+      .withTriggerService[A](testId, List(darPath), triggerDar)
 
   def startTrigger(uri: Uri, id: String, party: String) = {
     val req = HttpRequest(
@@ -95,30 +85,73 @@ class ServiceTest extends AsyncFlatSpec with Eventually {
     Http().singleRequest(req)
   }
 
-  it should "should enable a trigger on http request" in withHttpService { (uri: Uri, client) =>
-    // start the trigger
+  def uploadDar(uri: Uri, file: File) = {
+    val fileContentsSource: Source[ByteString, Any] = FileIO.fromPath(file.toPath)
+    val multipartForm = Multipart.FormData(
+      Multipart.FormData.BodyPart(
+        "dar",
+        HttpEntity.IndefiniteLength(ContentTypes.`application/octet-stream`, fileContentsSource),
+        Map("filename" -> file.toString)))
+    val req = HttpRequest(
+      method = HttpMethods.POST,
+      uri = uri.withPath(Uri.Path(s"/upload_dar")),
+      entity = multipartForm.toEntity
+    )
+    Http().singleRequest(req)
+  }
+
+  it should "should fail for non-existent trigger" in withHttpService(Some(dar)) {
+    (uri: Uri, client) =>
+      for {
+        resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:foobar", "Alice")
+        body <- {
+          assert(resp.status == StatusCodes.UnprocessableEntity)
+          resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+        }
+      } yield assert(body == "Could not find name foobar in module TestTrigger")
+  }
+
+  it should "find a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
     for {
+      // attempt to start trigger before uploading which fails.
       resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
-      triggerId <- {
-        assert(resp.status.isSuccess)
-        resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
-      }
-      // Trigger is running, create an A contract
-      _ <- {
-        val cmd = Command().withCreate(
-          CreateCommand(
-            templateId = Some(Identifier(dar.main._1, "TestTrigger", "A")), // template id
-            createArguments = Some(
-              Record(
-                None,
-                Seq(
-                  RecordField(value = Some(Value().withParty("Alice"))),
-                  RecordField(value = Some(Value().withInt64(42)))))),
-          ))
-        submitCmd(client, "Alice", cmd)
-      }
-      // Query ACS until we see a B contract
-      // format: off
+      _ <- assert(resp.status == StatusCodes.UnprocessableEntity)
+      resp <- uploadDar(uri, darPath)
+      body <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      _ <- body should startWith("DAR uploaded")
+      resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
+      _ <- assert(resp.status.isSuccess)
+      triggerId <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      resp <- stopTrigger(uri, triggerId)
+      _ <- assert(resp.status.isSuccess)
+    } yield succeed
+  }
+
+  it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
+    (uri: Uri, client) =>
+      // start the trigger
+      for {
+        resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
+        triggerId <- {
+          assert(resp.status.isSuccess)
+          resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+        }
+        // Trigger is running, create an A contract
+        _ <- {
+          val cmd = Command().withCreate(
+            CreateCommand(
+              templateId = Some(Identifier(dar.main._1, "TestTrigger", "A")),
+              createArguments = Some(
+                Record(
+                  None,
+                  Seq(
+                    RecordField(value = Some(Value().withParty("Alice"))),
+                    RecordField(value = Some(Value().withInt64(42)))))),
+            ))
+          submitCmd(client, "Alice", cmd)
+        }
+        // Query ACS until we see a B contract
+        // format: off
       _ <- Future {
         val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(dar.main._1, "TestTrigger", "B"))))))).toMap)
         eventually {
@@ -131,7 +164,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually {
         }
       }
       // format: on
-      resp <- stopTrigger(uri, triggerId)
-    } yield (assert(resp.status.isSuccess))
+        resp <- stopTrigger(uri, triggerId)
+      } yield (assert(resp.status.isSuccess))
   }
 }

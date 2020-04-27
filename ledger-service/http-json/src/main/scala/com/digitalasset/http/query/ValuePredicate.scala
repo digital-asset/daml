@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http
+package com.daml.http
 package query
 
 import util.IdentifierConverters.lfIdentifier
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref, SortedLookupList, Time, Utf8}
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Time, Utf8}
 import ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual._
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.value.json.JsonVariant
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.iface
+import com.daml.lf.value.json.JsonVariant
+import com.daml.lf.value.{Value => V}
 import iface.{Type => Ty}
 import dbbackend.Queries.{concatFragment, contractColumnName}
 import json.JsonProtocol.LfValueDatabaseCodec.{apiValueToJsValue => dbApiValueToJsValue}
@@ -44,28 +44,6 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             cq zip fields.toSeq forall {
               case (None, _) => true
               case (Some(fp), (_, lfv)) => fp(lfv)
-            }
-          case _ => false
-        }
-
-      case MapMatch(q) =>
-        val cq = (q mapValue go).toImmArray;
-        {
-          case V.ValueTextMap(v) if cq.length == v.toImmArray.length =>
-            // the sort-by-key is the same for cq and v, so if equal, the keys
-            // are at equal indices
-            cq.iterator zip v.toImmArray.iterator forall {
-              case ((qk, qp), (vk, vv)) => qk == vk && qp(vv)
-            }
-          case _ => false
-        }
-
-      case ListMatch(qs) =>
-        val cqs = qs map go;
-        {
-          case V.ValueList(vs) if cqs.length == vs.length =>
-            cqs.iterator zip vs.iterator forall {
-              case (q, v) => q(v)
             }
           case _ => false
         }
@@ -148,30 +126,6 @@ sealed abstract class ValuePredicate extends Product with Serializable {
             v_@> map (jv => JsonVariant(dc, jv))
           )
 
-        case MapMatch(qs) =>
-          val cqs = qs.toImmArray.toSeq map {
-            case (k, eq) => (k, go(path ++ sql"->$k", eq))
-          }
-          val recordLike = goObject(path, cqs, qs.toImmArray.length)
-          recordLike.copy(
-            raw = (sql"(SELECT count(*) FROM jsonb_object_keys(" ++ path ++ sql")) = ${cqs.length}")
-              +: recordLike.raw)
-
-        case ListMatch(qs) =>
-          val (cqs, flushed_@>) = qs.zipWithIndex.map {
-            case (eq, k) =>
-              val kpath = path ++ sql"->$k"
-              val krec = go(kpath, eq)
-              (krec, (krec flush_@> kpath).toList)
-          }.unzip
-          val allSafe_== = cqs collect Function.unlift(_.safe_==)
-          Rec(
-            (sql"jsonb_array_length(" ++ path ++ sql") = ${qs.length}")
-              +: (cqs.flatMap(_.raw) ++ flushed_@>.flatten),
-            (cqs.length == allSafe_==.length) option JsArray(allSafe_==),
-            None
-          )
-
         case OptionalMatch(None) =>
           Rec(Vector.empty, Some(JsNull), Some(JsNull))
 
@@ -236,8 +190,6 @@ object ValuePredicate {
       extends ValuePredicate
   final case class RecordSubset(fields: ImmArraySeq[Option[(Ref.Name, ValuePredicate)]])
       extends ValuePredicate
-  final case class MapMatch(elems: SortedLookupList[ValuePredicate]) extends ValuePredicate
-  final case class ListMatch(elems: Vector[ValuePredicate]) extends ValuePredicate
   final case class VariantMatch(elem: (Ref.Name, ValuePredicate)) extends ValuePredicate
   final case class OptionalMatch(elem: Option[ValuePredicate]) extends ValuePredicate
   final case class Range[A](
@@ -353,11 +305,6 @@ object ValuePredicate {
           case jq @ JsString(q) =>
             Literal({ case V.ValueContractId(v) if q == (v.coid: String) => }, jq)
         }
-        case List => {
-          case JsArray(as) =>
-            val elemTy = soleTypeArg("List")
-            ListMatch(as.map(a => fromValue(a, elemTy)))
-        }
         case Unit => {
           case jq @ JsObject(q) if q.isEmpty =>
             // `jq` is technically @>-ambiguous, but only {} can occur in a Unit-typed
@@ -369,14 +316,8 @@ object ValuePredicate {
             val elemTy = soleTypeArg("Optional")
             fromOptional(q, elemTy)
         }
-        case TextMap => {
-          case JsObject(q) =>
-            val elemTy = soleTypeArg("Map")
-            MapMatch(SortedLookupList(q) mapValue (fromValue(_, elemTy)))
-        }
-        case GenMap =>
-          // FIXME https://github.com/digital-asset/daml/issues/2256
-          predicateParseError("GenMap not supported")
+        case List | TextMap | GenMap =>
+          predicateParseError(s"${typ.typ} not supported")
       }(fallback = illTypedQuery(it, typ))
     }
 

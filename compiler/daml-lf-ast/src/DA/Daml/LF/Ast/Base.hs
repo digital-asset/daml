@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds          #-}
@@ -233,6 +233,10 @@ data BuiltinExpr
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
   | BEEqualGeneric               -- :: ∀t. t -> t -> Bool
+  | BELessGeneric                -- :: ∀t. t -> t -> Bool   
+  | BELessEqGeneric              -- :: ∀t. t -> t -> Bool   
+  | BEGreaterGeneric             -- :: ∀t. t -> t -> Bool
+  | BEGreaterEqGeneric           -- :: ∀t. t -> t -> Bool
   | BEEqual      !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELess       !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type
   | BELessEq     !BuiltinType    -- :: t -> t -> Bool, where t is the builtin type

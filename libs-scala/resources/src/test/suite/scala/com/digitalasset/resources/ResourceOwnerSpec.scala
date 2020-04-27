@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.CompletableFuture.completedFuture
 import java.util.concurrent.{Executors, RejectedExecutionException}
 import java.util.{Timer, TimerTask}
 
-import com.digitalasset.resources.FailingResourceOwner.FailingResourceFailedToOpen
+import com.daml.resources.FailingResourceOwner.FailingResourceFailedToOpen
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.collection.mutable

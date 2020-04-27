@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.service
+package com.daml.ledger.service
 
-import com.digitalasset.daml.lf.archive.Reader
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId}
-import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.iface.{DefDataType, Interface}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
-import com.digitalasset.ledger.client.services.pkg.PackageClient
+import com.daml.lf.archive.Reader
+import com.daml.lf.data.Ref.{Identifier, PackageId}
+import com.daml.lf.iface.reader.InterfaceReader
+import com.daml.lf.iface.{DefDataType, Interface}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.v1.package_service.GetPackageResponse
+import com.daml.ledger.client.services.pkg.PackageClient
 import scalaz.Scalaz._
 import scalaz._
 

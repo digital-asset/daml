@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc.helpers
@@ -9,12 +9,12 @@ import java.util.{Collections, Optional}
 
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava.grpc.helpers.TransactionsServiceImpl.LedgerItem
-import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.digitalasset.ledger.api.v1.value
-import com.digitalasset.ledger.api.v1.value.Value.Sum
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
+import com.daml.ledger.api.v1.event.Event.Event.{Archived, Created}
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v1.value
+import com.daml.ledger.api.v1.value.Value.Sum
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.{Timestamp => ScalaTimestamp}
 import org.scalacheck.{Arbitrary, Gen, Shrink}

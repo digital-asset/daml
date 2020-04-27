@@ -1,12 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.trigger
+package com.daml.lf.engine.trigger
 
+import java.io.File
 import java.nio.file.{Path, Paths}
 import java.time.Duration
+import scala.util.Try
 
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.platform.services.time.TimeProviderType
 
 case class RunnerConfig(
     darPath: Path,
@@ -16,12 +19,22 @@ case class RunnerConfig(
     ledgerHost: String,
     ledgerPort: Int,
     ledgerParty: String,
-    timeProviderType: TimeProviderType,
+    // optional so we can detect if both --static-time and --wall-clock-time are passed.
+    timeProviderType: Option[TimeProviderType],
     commandTtl: Duration,
     accessTokenFile: Option[Path],
+    tlsConfig: Option[TlsConfiguration],
 )
 
 object RunnerConfig {
+
+  val DefaultTimeProviderType: TimeProviderType = TimeProviderType.WallClock
+
+  private def validatePath(path: String, message: String): Either[String, Unit] = {
+    val readable = Try(Paths.get(path).toFile.canRead).getOrElse(false)
+    if (readable) Right(()) else Left(message)
+  }
+
   private val parser = new scopt.OptionParser[RunnerConfig]("trigger-runner") {
     head("trigger-runner")
 
@@ -47,14 +60,14 @@ object RunnerConfig {
       .text("Ledger party")
 
     opt[Unit]('w', "wall-clock-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.WallClock)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.WallClock)
       }
       .text("Use wall clock time (UTC).")
 
     opt[Unit]('s', "static-time")
-      .action { (t, c) =>
-        c.copy(timeProviderType = TimeProviderType.Static)
+      .action { (_, c) =>
+        setTimeProviderType(c, TimeProviderType.Static)
       }
       .text("Use static time.")
 
@@ -69,6 +82,40 @@ object RunnerConfig {
         c.copy(accessTokenFile = Some(Paths.get(f)))
       }
       .text("File from which the access token will be read, required to interact with an authenticated ledger")
+
+    opt[String]("pem")
+      .optional()
+      .text("TLS: The pem file to be used as the private key.")
+      .validate(path => validatePath(path, "The file specified via --pem does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+          Some(c.copy(keyFile = Some(new File(path)))))))
+
+    opt[String]("crt")
+      .optional()
+      .text("TLS: The crt file to be used as the cert chain. Required for client authentication.")
+      .validate(path => validatePath(path, "The file specified via --crt does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, Some(new File(path)), None)))(c =>
+          Some(c.copy(keyFile = Some(new File(path)))))))
+
+    opt[String]("cacrt")
+      .optional()
+      .text("TLS: The crt file to be used as the the trusted root CA.")
+      .validate(path => validatePath(path, "The file specified via --cacrt does not exist"))
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig = arguments.tlsConfig.fold(
+          Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
+          Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+    opt[Unit]("tls")
+      .optional()
+      .text("TLS: Enable tls. This is redundant if --pem, --crt or --cacrt are set")
+      .action((path, arguments) =>
+        arguments.copy(tlsConfig =
+          arguments.tlsConfig.fold(Some(TlsConfiguration(true, None, None, None)))(Some(_))))
 
     help("help").text("Print this usage text")
 
@@ -91,13 +138,23 @@ object RunnerConfig {
           failure("Missing option --ledger-port")
         } else if (c.ledgerParty == null) {
           failure("Missing option --ledger-party")
-        } else if (c.timeProviderType == null) {
-          failure("Must specify either --wall-clock-time or --static-time")
         } else {
           success
         }
     })
   }
+
+  private def setTimeProviderType(
+      config: RunnerConfig,
+      timeProviderType: TimeProviderType,
+  ): RunnerConfig = {
+    if (config.timeProviderType.exists(_ != timeProviderType)) {
+      throw new IllegalStateException(
+        "Static time mode (`-s`/`--static-time`) and wall-clock time mode (`-w`/`--wall-clock-time`) are mutually exclusive. The time mode must be unambiguous.")
+    }
+    config.copy(timeProviderType = Some(timeProviderType))
+  }
+
   def parse(args: Array[String]): Option[RunnerConfig] =
     parser.parse(
       args,
@@ -108,9 +165,10 @@ object RunnerConfig {
         ledgerHost = null,
         ledgerPort = 0,
         ledgerParty = null,
-        timeProviderType = null,
+        timeProviderType = None,
         commandTtl = Duration.ofSeconds(30L),
         accessTokenFile = None,
+        tlsConfig = None,
       )
     )
 }

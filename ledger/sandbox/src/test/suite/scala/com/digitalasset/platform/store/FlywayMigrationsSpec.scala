@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
 import java.math.BigInteger
 import java.nio.charset.Charset
 import java.security.MessageDigest
 
-import com.digitalasset.platform.store.FlywayMigrationsSpec._
+import com.daml.platform.store.FlywayMigrationsSpec._
 import org.apache.commons.io.IOUtils
 import org.flywaydb.core.api.configuration.FluentConfiguration
 import org.flywaydb.core.api.migration.JavaMigration
@@ -73,10 +73,15 @@ object FlywayMigrationsSpec {
       digestFile: String,
       resourceScanner: Scanner[_],
   ) =
-    IOUtils.toString(Option(resourceScanner.getResource(digestFile))
-      .getOrElse(sys.error(
-        s"Missing sha-256 file $digestFile! Are you introducing a new Flyway migration step? You need to create a sha-256 digest file by running this under the db/migration folder: shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile"))
-      .read())
+    IOUtils.toString(
+      Option(resourceScanner.getResource(digestFile))
+        .getOrElse(sys.error(s"""Missing sha-256 file $digestFile!
+           |Are you introducing a new Flyway migration step?
+           |You need to create a sha-256 digest file by either running:
+           | - shasum -a 256 $sourceFile | awk '{print $$1}' > $digestFile (under the db/migration folder)
+           | - or ledger/sandbox/src/main/resources/db/migration/recompute-sha256sums.sh
+           |""".stripMargin))
+        .read())
 
   private def getCurrentDigest(res: LoadableResource, encoding: Charset) = {
     val digest = digester.digest(IOUtils.toByteArray(res.read(), encoding))

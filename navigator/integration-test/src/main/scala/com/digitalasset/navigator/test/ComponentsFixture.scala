@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.test
+package com.daml.navigator.test
 
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.navigator.test.config.Arguments
-import com.digitalasset.navigator.test.runner.{HeadNavigator, PackagedDamlc, PackagedSandbox}
+import com.daml.navigator.test.config.Arguments
+import com.daml.navigator.test.runner.{HeadNavigator, PackagedDamlc, PackagedSandbox}
 import com.typesafe.scalalogging.LazyLogging
 
 import scala.io.Source

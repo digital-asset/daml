@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script.test
+package com.daml.lf.engine.script.test
 
 import akka.actor.ActorSystem
 import akka.stream._
 import ch.qos.logback.core.AppenderBase
 import ch.qos.logback.classic.spi.ILoggingEvent
+import java.io.File
 import java.time.Instant
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -15,21 +16,21 @@ import scala.util.{Success, Failure}
 import scalaz.syntax.tag._
 import spray.json._
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId}
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.api.util.TimeProvider
+import com.daml.lf.archive.Dar
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.speedy.SValue
+import com.daml.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.daml.ledger.api.refinements.ApiTypes.{ApplicationId}
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 
-import com.digitalasset.daml.lf.engine.script._
+import com.daml.lf.engine.script._
 
 object LogCollector {
   val events = new ArrayBuffer[ILoggingEvent]
@@ -68,21 +69,22 @@ class TestRunner(
     val participantParams: Participants[ApiParameters],
     val dar: Dar[(PackageId, Package)],
     val wallclockTime: Boolean,
-    val token: Option[String]) {
+    val token: Option[String],
+    val rootCa: Option[File],
+) {
   val applicationId = ApplicationId("DAML Script Test Runner")
 
   val clientConfig = LedgerClientConfiguration(
     applicationId = applicationId.unwrap,
     ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
     commandClient = CommandClientConfiguration.default,
-    sslContext = None,
+    sslContext = rootCa.flatMap(file =>
+      TlsConfiguration.Empty.copy(trustCertCollectionFile = Some(file)).client),
     token = token,
   )
   val ttl = java.time.Duration.ofSeconds(30)
   val timeProvider: TimeProvider =
     if (wallclockTime) TimeProvider.UTC else TimeProvider.Constant(Instant.EPOCH)
-  val commandUpdater =
-    new CommandUpdater(timeProviderO = Some(timeProvider), ttl = ttl, overrideTtl = true)
 
   def genericTest[A](
       // test name
@@ -106,11 +108,9 @@ class TestRunner(
 
     val clientsF = Runner.connect(participantParams, clientConfig)
 
-    val runner = new Runner(dar, applicationId, commandUpdater, timeProvider)
-
     val testFlow: Future[Unit] = for {
       clients <- clientsF
-      result <- runner.run(clients, scriptId, inputValue)
+      result <- Runner.run(dar, scriptId, inputValue, clients, applicationId, timeProvider)
       _ <- expectedLog match {
         case None => Future.unit
         case Some(expectedLogs) =>

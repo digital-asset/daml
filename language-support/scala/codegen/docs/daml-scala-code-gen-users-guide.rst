@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Scala Code Generator User's Guide
@@ -22,7 +22,7 @@ of the DAML language.
 
 All generated code builds against something we call the Domain API support
 library which is part of the Ledger Client API and has the Scala namespace
-``com.digitalasset.platform.domainapi``.
+``com.daml.platform.domainapi``.
 
 How to use it
 -------------
@@ -46,7 +46,7 @@ help for the tool.
     -i, --input-file <value>
                              input top-level DAML module
     -p, --package name <value>
-                             package name e.g. com.digitalasset.mypackage
+                             package name e.g. com.daml.mypackage
     -o, --output-dir <value>
                              output directory for Scala files
 
@@ -54,14 +54,14 @@ We can now generate code by:
 
 .. code-block:: console
 
-  $ sbt "project daml-codegen" "run -i Main.daml.sdaml -o /path/to/dir -p com.digitalasset.sample"
+  $ sbt "project daml-codegen" "run -i Main.daml.sdaml -o /path/to/dir -p com.daml.sample"
 
 This will produce a bunch of ``.scala`` files in ``path/to/dir`` that mirror
 the module structure of the library. e.g. If the library contains
 a module called ``Main.Account.Setup`` which further contains a contract template
 called ``onboardParty`` then a file called
 ``/path/to/dir/main/account/setup/OnboardPartyContract.scala`` will be generated.
-It will be defined in the namespace ``com.digitalasset.sample.main.account.setup``
+It will be defined in the namespace ``com.daml.sample.main.account.setup``
 
 What it generates
 -----------------
@@ -317,7 +317,7 @@ The Domain API support library
 ------------------------------
 
 The Domain API support library is part of the Ledger Client API (in namespace
-``com.digitalasset.platform.domainapi``)
+``com.daml.platform.domainapi``)
 
 It contains (among other things):
 
@@ -333,7 +333,7 @@ The Domain API
 ~~~~~~~~~~~~~~
 
 There is also a ``DomainApi`` object
-(in a *different* namespace ``com.digitalasset.platform.client.api``) that is
+(in a *different* namespace ``com.daml.platform.client.api``) that is
 used to simplify working with the Reflection API.
 
 For now, the best place to see an example of the how one would use the Domain
@@ -369,7 +369,7 @@ In a freshly checked out DAML repository to the following:
   > daml-codegen-sample-app/compile
 
 The generated files will now be found in
-``.../daml-codegen-sample-app/src/main/scala/generated-sources/com/digitalasset/sample``
+``.../daml-codegen-sample-app/src/main/scala/generated-sources/com/daml/sample``
 and subdirectories thereof.
 
 You can find the DAML code at ``.../daml-codegen-sample-app/src/main/daml/Main.daml``
@@ -427,17 +427,17 @@ The generated variant for the ``Option`` type
 
 .. code-block:: Scala
 
-  package com.digitalasset.sample.main {
+  package com.daml.sample.main {
     object OptionType {
       sealed trait Value extends DamlValue;
-      final case class Call(value: com.digitalasset.sample.main.OptionPriceType.Value)
+      final case class Call(value: com.daml.sample.main.OptionPriceType.Value)
         extends Value;
-      final case class Put(value: com.digitalasset.sample.main.OptionPriceType.Value)
+      final case class Put(value: com.daml.sample.main.OptionPriceType.Value)
         extends Value;
       object Value {
-        def call(value: com.digitalasset.sample.main.OptionPriceType.Value): Value =
+        def call(value: com.daml.sample.main.OptionPriceType.Value): Value =
           Call(value);
-        def put(value: com.digitalasset.sample.main.OptionPriceType.Value): Value =
+        def put(value: com.daml.sample.main.OptionPriceType.Value): Value =
           Put(value)
       };
       object ArgumentValueProtocol {
@@ -454,9 +454,9 @@ generated in a straightforward idiomatic way in Scala. A (scoped) ``Value``
 trait is defined along with two *case classes* which extend it. It extends
 the ``DamlValue`` trait which is defined in the Ledger Client API package
 (in directory ``da-java/platform/client/ledger-client_2.12``)
-in the namespace ``com.digitalasset.platform.domainapi``.
+in the namespace ``com.daml.platform.domainapi``.
 
-A value of this type is referred to with the fully qualified name ``com.digitalasset.sample.main.Option.Value``
+A value of this type is referred to with the fully qualified name ``com.daml.sample.main.Option.Value``
 
 The inner ``object Value`` contains two convenience methods which automatically
 up-cast to the ``Value`` type.
@@ -471,7 +471,7 @@ The generated record code for the ``OptionPrice`` type
 
 .. code-block:: Scala
 
-  package com.digitalasset.sample.main {
+  package com.daml.sample.main {
     object OptionPriceType {
       case class Value(symbol: DamlText, price: DamlDecimal) extends DamlValue;
       object ArgumentValueProtocol {
@@ -495,18 +495,18 @@ The generated contract template code for ``buyOption``
 .. code-block:: scala
 
   ... imports ...
-  package com.digitalasset.sample.main {
+  package com.daml.sample.main {
     object BuyOptionContract extends DamlContract {
       val template: TemplateId = Tag("buyOption_t2@Main_8");
 
       def createFromArgs(args: Args): CreateCmd = ...
 
       def create(owner: DamlParty, seller: DamlParty,
-                 option: com.digitalasset.sample.main.OptionType.Value): CreateCmd = ...
+                 option: com.daml.sample.main.OptionType.Value): CreateCmd = ...
 
 
       case class Args(owner: DamlParty, seller: DamlParty,
-                      option: com.digitalasset.sample.main.OptionType.Value)
+                      option: com.daml.sample.main.OptionType.Value)
                  extends ContractArgs {
         def toNamedArguments: NamedArguments = ...
       };

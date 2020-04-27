@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import com.daml.ledger.participant.state.v1.ReadService
-import com.digitalasset.resources.ResourceOwner
+import com.daml.resources.ResourceOwner
 
 import scala.concurrent.Future
 

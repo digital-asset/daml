@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -6,8 +6,8 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -194,8 +194,6 @@ object KeyValueConsumption {
         wrap(RejectionReason.Inconsistent)
       case DamlTransactionRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
         wrap(RejectionReason.ResourcesExhausted)
-      case DamlTransactionRejectionEntry.ReasonCase.MAXIMUM_RECORD_TIME_EXCEEDED =>
-        wrap(RejectionReason.MaximumRecordTimeExceeded)
       case DamlTransactionRejectionEntry.ReasonCase.DUPLICATE_COMMAND =>
         List()
       case DamlTransactionRejectionEntry.ReasonCase.PARTY_NOT_KNOWN_ON_LEDGER =>
@@ -205,6 +203,8 @@ object KeyValueConsumption {
           RejectionReason.SubmitterCannotActViaParticipant(
             rejEntry.getSubmitterCannotActViaParticipant.getDetails
           ))
+      case DamlTransactionRejectionEntry.ReasonCase.INVALID_LEDGER_TIME =>
+        wrap(RejectionReason.InvalidLedgerTime(rejEntry.getInvalidLedgerTime.getDetails))
       case DamlTransactionRejectionEntry.ReasonCase.REASON_NOT_SET =>
         //TODO: Replace with "Unknown reason" error code or something similar
         throw Err.InternalError("transactionRejectionEntryToUpdate: REASON_NOT_SET!")
@@ -232,6 +232,8 @@ object KeyValueConsumption {
         submissionTime = parseTimestamp(txEntry.getSubmissionTime),
         submissionSeed = parseOptHash(txEntry.getSubmissionSeed),
         optUsedPackages = None,
+        optNodeSeeds = None,
+        optByKeyNodes = None,
       ),
       transaction = transaction,
       transactionId = hexTxId,

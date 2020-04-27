@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.daml.navigator.model
 
 import java.time.{Instant, LocalDate}
 
 import org.scalatest.{Matchers, WordSpec}
 
-import com.digitalasset.daml.lf.data.{Time => LfTime}
-import com.digitalasset.daml.lf.value.Value.{ValueDate, ValueTimestamp}
-import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
+import com.daml.lf.data.{Time => LfTime}
+import com.daml.lf.value.Value.{ValueDate, ValueTimestamp}
+import com.daml.lf.value.json.ApiValueImplicits._
 
 class ApiValueSpec extends WordSpec with Matchers {
 

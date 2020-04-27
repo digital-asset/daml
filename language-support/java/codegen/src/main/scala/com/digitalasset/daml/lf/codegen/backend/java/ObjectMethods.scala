@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend.java
+package com.daml.lf.codegen.backend.java
 
 import com.squareup.javapoet.{ClassName, MethodSpec, TypeName}
 import com.typesafe.scalalogging.StrictLogging
 import javax.lang.model.element.Modifier
-import com.digitalasset.daml.lf.codegen.backend.java.inner.ClassNameExtensions
+import com.daml.lf.codegen.backend.java.inner.ClassNameExtensions
 
 private[codegen] object ObjectMethods extends StrictLogging {
 

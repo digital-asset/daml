@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DataKinds #-}
@@ -27,6 +27,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ) where
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Either
 import Data.Maybe
 import Data.IORef
 import GHC.Generics
@@ -37,6 +38,7 @@ import Control.DeepSeq
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -65,6 +67,7 @@ import qualified ScenarioService as SS
 
 data Options = Options
   { optServerJar :: FilePath
+  , optJvmOptions :: [String]
   , optRequestTimeout :: TimeoutSeconds
   , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
@@ -199,7 +202,7 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
-  cp <- javaProc (["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  cp <- javaProc (optJvmOptions <> ["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   exitExpected <- newIORef False
   let closeStdin hdl = do
           atomicWriteIORef exitExpected True
@@ -304,11 +307,16 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
       SS.UpdateContextRequest_UpdatePackages
         (V.fromList (map snd updLoadPackages))
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
-    encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
+    encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScenarioModule
     convModule (_, bytes) =
         case updDamlLfVersion of
             LF.V1 minor -> SS.ScenarioModule bytes (TL.pack $ LF.renderMinorVersion minor)
+
+mangleModuleName :: LF.ModuleName -> T.Text
+mangleModuleName (LF.ModuleName modName) =
+    T.intercalate "." $
+    map (fromRight (error "Failed to mangle scenario module name") . mangleIdentifier) modName
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
@@ -328,10 +336,14 @@ runScenario Handle{..} (ContextId ctxId) name = do
       let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
             LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
             LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+          mangledDefn =
+              fromRight (error "Failed to mangle scenario name") $
+              mangleIdentifier (LF.unExprValName defn)
+          mangledModName = mangleModuleName modName
       in
         SS.Identifier
           (Just ssPkgId)
-          (TL.fromStrict $ T.intercalate "." (LF.unModuleName modName) <> ":" <> LF.unExprValName defn)
+          (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))

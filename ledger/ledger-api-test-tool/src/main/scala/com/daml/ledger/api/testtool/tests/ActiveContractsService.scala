@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -7,13 +7,13 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.api.v1.event.Event.Event.Created
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
-import com.digitalasset.ledger.client.binding.Primitive.{Party, TemplateId}
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.Witnesses._
-import com.digitalasset.ledger.test_stable.Test.Divulgence2._
-import com.digitalasset.ledger.test_stable.Test.{
+import com.daml.ledger.api.v1.event.Event.Event.Created
+import com.daml.ledger.api.v1.event.{CreatedEvent, Event}
+import com.daml.ledger.client.binding.Primitive.{Party, TemplateId}
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test_stable.Test.Witnesses._
+import com.daml.ledger.test_stable.Test.Divulgence2._
+import com.daml.ledger.test_stable.Test.{
   Divulgence1,
   Divulgence2,
   Dummy,

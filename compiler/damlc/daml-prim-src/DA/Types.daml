@@ -1,10 +1,10 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 
 
--- | A module containing all the standard types from the base libraries,
+-- | MOVE Prelude A module containing all the standard types from the base libraries,
 --   so they have nice names when used from Java or similar.
 module DA.Types
   ( Either (..)

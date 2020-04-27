@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package archive
 
 import java.io.InputStream
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref._
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageMajorVersion._
+import com.daml.lf.language.LanguageVersion
+import com.daml.daml_lf_dev.DamlLf
 import com.google.protobuf.CodedInputStream
 
 sealed class Decode(onlySerializableDataDefs: Boolean)

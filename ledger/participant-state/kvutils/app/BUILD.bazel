@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -13,7 +13,7 @@ da_scala_library(
     name = "app",
     srcs = glob(["src/main/scala/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-app:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:participant-state-kvutils-app:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -31,7 +31,10 @@ da_scala_library(
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
+        "//ledger/participant-state-metrics",
         "//ledger/participant-state/kvutils",
         "//ledger/sandbox",
         "//libs-scala/contextualized-logging",

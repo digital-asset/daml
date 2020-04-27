@@ -1,8 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.value.Value._
+package com.daml.lf.engine
+import com.daml.lf.value.Value._
 
 //TODO: Errors
 sealed trait Error {

@@ -1,21 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.time
+package com.daml.platform.sandbox.services.time
 
 import java.io.File
 import java.lang
 import java.util.concurrent.Callable
 
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{
-  IsStatusException,
-  SuiteResourceManagementAroundAll
-}
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
-import com.digitalasset.platform.sandbox.services.SandboxFixture
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.testing.utils.{IsStatusException, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
+import com.daml.ledger.client.services.testing.time.StaticTime
+import com.daml.platform.sandbox.services.SandboxFixture
 import io.grpc.Status
 import org.awaitility.Awaitility
 import org.scalatest.concurrent.ScalaFutures

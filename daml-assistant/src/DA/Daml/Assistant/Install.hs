@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Assistant.Install
@@ -17,6 +17,7 @@ import DA.Daml.Assistant.Util
 import qualified DA.Daml.Assistant.Install.Github as Github
 import DA.Daml.Assistant.Install.Path
 import DA.Daml.Assistant.Install.Completion
+import DA.Daml.Assistant.Version (getLatestSdkSnapshotVersion)
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Config
 import Safe
@@ -170,6 +171,7 @@ activateDaml env@InstallEnv{..} targetPath = do
         damlBinarySourcePath = unwrapSdkPath targetPath </> "daml" </> damlSourceName
         damlBinaryTargetPath = installedAssistantPath damlPath
         damlBinaryTargetDir = takeDirectory damlBinaryTargetPath
+        damlBinaryRelativeSourcePath = ".." </> makeRelative (unwrapDamlPath damlPath) damlBinarySourcePath
 
     unlessM (doesFileExist damlBinarySourcePath) $
         throwIO $ assistantErrorBecause
@@ -188,7 +190,7 @@ activateDaml env@InstallEnv{..} targetPath = do
                      [ "@echo off"
                      , "\"" <> damlBinarySourcePath <> "\" %*"
                      ]
-            else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
+            else createSymbolicLink damlBinaryRelativeSourcePath damlBinaryTargetPath
 
     updatePath options (\s -> unlessQuiet env (output s)) damlBinaryTargetDir
     installBashCompletions options damlPath (\s -> unlessQuiet env (output s))
@@ -355,10 +357,14 @@ versionInstall env@InstallEnv{..} version = do
             "Activating assistant version " <> versionToString version
         activateDaml env (SdkPath path)
 
--- | Install the latest stable version of the SDK.
+-- | Install the latest version of the SDK.
 latestInstall :: InstallEnv -> IO ()
-latestInstall env = do
-    version <- getLatestVersion
+latestInstall env@InstallEnv{..} = do
+    version1 <- getLatestVersion
+    version2M <- if iSnapshots options
+        then getLatestSdkSnapshotVersion
+        else pure Nothing
+    let version = maybe version1 (max version1) version2M
     versionInstall env version
 
 -- | Get the latest stable version.

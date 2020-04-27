@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Node._
-import com.digitalasset.daml.lf.value.Value
+import com.daml.lf.data.Ref._
+import com.daml.lf.data._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Node._
+import com.daml.lf.value.Value
 import scalaz.Equal
 
 import scala.annotation.tailrec
@@ -207,10 +207,24 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
   def localContracts[Cid2 >: Cid]: Map[Cid2, Nid] =
     fold(Map.empty[Cid2, Nid]) {
-      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _, _))) =>
+      case (acc, (nid, create @ Node.NodeCreate(_, _, _, _, _, _))) =>
         acc.updated(create.coid, nid)
       case (acc, _) => acc
     }
+
+  /**
+    * Returns the IDs of all input contracts that are used by this transaction.
+    */
+  def inputContracts[Cid2 >: Cid]: Set[Cid2] =
+    fold(Set.empty[Cid2]) {
+      case (acc, (_, Node.NodeExercises(coid, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeFetch(coid, _, _, _, _, _, _))) =>
+        acc + coid
+      case (acc, (_, Node.NodeLookupByKey(_, _, _, Some(coid)))) =>
+        acc + coid
+      case (acc, _) => acc
+    } -- localContracts.keySet
 
   /**
     * Compares two Transactions up to renaming of Nids. You most likely want to use this rather than ==, since the
@@ -234,9 +248,9 @@ final case class GenTransaction[Nid, +Cid, +Val](
           val node1 = nodes(nid1)
           val node2 = other.nodes(nid2)
           node1 match {
-            case nf1: NodeFetch[Cid] =>
+            case nf1: NodeFetch[Cid, Val] =>
               node2 match {
-                case nf2: NodeFetch[Cid2] => compare(nf1, nf2) && go(rest)
+                case nf2: NodeFetch[Cid2, Val2] => compare(nf1, nf2) && go(rest)
                 case _ => false
               }
             case nc1: NodeCreate[Cid, Val] =>
@@ -286,7 +300,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
     fold(BackStack.empty[String]) {
       case (errs, (_, node)) =>
         node match {
-          case _: NodeFetch[Cid] => errs
+          case _: NodeFetch[Cid, Val] => errs
           case nc: NodeCreate[Cid, Val] =>
             errs :++ f(nc.coinst.arg) :++ (nc.key match {
               case None => ImmArray.empty
@@ -310,7 +324,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
               case Some(k) => f(z1, k.key)
             }
             z2
-          case _: Node.NodeFetch[_] => z
+          case nf: Node.NodeFetch[_, Val] => nf.key.fold(z)(k => f(z, k.key))
           case e: Node.NodeExercises[_, _, Val] => f(z, e.chosenValue)
           case lk: Node.NodeLookupByKey[_, Val] => f(z, lk.key.key)
         }
@@ -352,6 +366,8 @@ object Transaction {
 
   type Value[+Cid] = Value.VersionedValue[Cid]
 
+  type ContractInst[+Cid] = Value.ContractInst[Value[Cid]]
+
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
   type LeafNode = LeafOnlyNode.WithTxValue[TContractId]
@@ -366,19 +382,30 @@ object Transaction {
     */
   type Transaction = GenTransaction.WithTxValue[NodeId, TContractId]
 
-  /* Transaction meta data
-   * @param submissionTime: submission time
-   * @param usedPackages The set of packages used during command processing.
-   *        This is a hint for what packages are required to validate
-   *        the transaction using the current interpreter.
-   *        The used packages are not serialized using [[TransactionCoder]].
-   * @dependsOnTime: indicate the transaction computation depends on ledger
-   *        time.
-   */
+  /** Transaction meta data
+    * @param submissionSeed: the submission seed used to derive the contract IDs.
+    *        If undefined no seed has been used (the legacy contract ID scheme
+    *        have been used) or it is unknown (output of partial reinterpretation).
+    * @param submissionTime: the submission time
+    * @param usedPackages The set of packages used during command processing.
+    *        This is a hint for what packages are required to validate
+    *        the transaction using the current interpreter.
+    *        If set to `empty` the package dependency have not be computed.
+    * @param dependsOnTime: indicate the transaction computation depends on ledger
+    *        time.
+    * @param nodeSeeds: An association list that maps to each ID of create and exercise
+    *        nodes its seeds.
+    * @param byKeyNodes: The list of the IDs of each node that corresponds to a FetchByKey,
+    *        LookupByKey, or ExerciseByKey commands. Empty in case of validation or
+    *        reinterpretation
+    */
   final case class Metadata(
+      submissionSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       usedPackages: Set[PackageId],
-      dependsOnTime: Boolean
+      dependsOnTime: Boolean,
+      nodeSeeds: ImmArray[(Value.NodeId, crypto.Hash)],
+      byKeyNodes: ImmArray[Value.NodeId],
   )
 
   type AbsTransaction = GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId]

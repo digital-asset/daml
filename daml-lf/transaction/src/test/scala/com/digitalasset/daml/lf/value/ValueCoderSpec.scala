@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.value
+package com.daml.lf.value
 
-import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.daml.lf.value.{ValueOuterClass => proto}
+import com.daml.lf.EitherAssertions
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data._
+import com.daml.lf.value.Value._
+import com.daml.lf.value.ValueCoder.DecodeError
+import com.daml.lf.value.{ValueOuterClass => proto}
 import org.scalacheck.Shrink
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Assertion, Matchers, WordSpec}

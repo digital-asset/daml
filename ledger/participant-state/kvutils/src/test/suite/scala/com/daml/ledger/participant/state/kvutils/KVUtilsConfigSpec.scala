@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import java.time.Duration
 
-import com.codahale.metrics
+import com.codahale.metrics.MetricRegistry
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.Configuration
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.Ref
 import org.scalatest.{Matchers, WordSpec}
 
 class KVUtilsConfigSpec extends WordSpec with Matchers {
@@ -18,8 +18,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
   "configuration" should {
 
     "be able to build, pack, unpack and parse" in {
-      val subm = KeyValueSubmission.unpackDamlSubmission(
-        KeyValueSubmission.packDamlSubmission(KeyValueSubmission.configurationToSubmission(
+      val keyValueSubmission = new KeyValueSubmission(new MetricRegistry)
+      val subm = keyValueSubmission.unpackDamlSubmission(
+        keyValueSubmission.packDamlSubmission(keyValueSubmission.configurationToSubmission(
           maxRecordTime = theRecordTime,
           submissionId = Ref.LedgerString.assertFromString("foobar"),
           participantId = Ref.ParticipantId.assertFromString("participant"),
@@ -162,10 +163,9 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
         }, submissionId = Ref.LedgerString.assertFromString("submission-id-1"))
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.config.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.config.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.config.run_timer").getCount should be >= 1L
+        metricRegistry.counter("daml.kvutils.committer.config.accepts").getCount should be >= 1L
+        metricRegistry.counter("daml.kvutils.committer.config.rejections").getCount should be >= 1L
+        metricRegistry.timer("daml.kvutils.committer.config.run_timer").getCount should be >= 1L
       }
     }
   }

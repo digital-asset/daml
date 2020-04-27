@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import encoding.ExerciseOn
-import com.digitalasset.daml.lf.data.InsertOrdMap
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
+import com.daml.lf.data.InsertOrdMap
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.ledger.api.v1.{commands => rpccmd, value => rpcvalue}
 import scalaz.Id.Id
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.tag._
@@ -167,7 +167,7 @@ private[client] object OnlyPrimitive extends Primitive {
   override val Map = TextMap
 
   object Date extends DateApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     private val UTC = TimeZone.getTimeZone("UTC")
     override val MIN = LocalDateTime.ofInstant(TimestampConversion.MIN, UTC.toZoneId).toLocalDate
     override val MAX = LocalDateTime.ofInstant(TimestampConversion.MAX, UTC.toZoneId).toLocalDate
@@ -182,7 +182,7 @@ private[client] object OnlyPrimitive extends Primitive {
   }
 
   object Timestamp extends TimeApi {
-    import com.digitalasset.api.util.TimestampConversion
+    import com.daml.api.util.TimestampConversion
     override val MIN = TimestampConversion.MIN
     override val MAX = TimestampConversion.MAX
 

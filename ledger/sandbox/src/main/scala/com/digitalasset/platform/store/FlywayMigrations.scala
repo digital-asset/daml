@@ -1,12 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store
+package com.daml.platform.store
 
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.store.FlywayMigrations._
-import com.digitalasset.platform.store.dao.HikariConnection
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.FlywayMigrations._
+import com.daml.platform.store.dao.HikariConnection
+import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationVersion
@@ -57,7 +58,14 @@ class FlywayMigrations(jdbcUrl: String)(implicit logCtx: LoggingContext) {
     }
 
   private def dataSource: ResourceOwner[HikariDataSource] =
-    HikariConnection.owner(jdbcUrl, "daml.index.db.migration", 2, 2, 250.millis, None)
+    HikariConnection.owner(
+      serverRole = ServerRole.IndexMigrations,
+      jdbcUrl = jdbcUrl,
+      minimumIdle = 2,
+      maxPoolSize = 2,
+      connectionTimeout = 250.millis,
+      metrics = None,
+    )
 }
 
 object FlywayMigrations {

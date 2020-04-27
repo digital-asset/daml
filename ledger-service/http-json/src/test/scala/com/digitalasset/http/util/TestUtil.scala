@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
 import java.io.{BufferedWriter, File, FileWriter}
 
@@ -19,7 +19,7 @@ import akka.http.scaladsl.model.{
 }
 import akka.stream.Materializer
 import akka.util.ByteString
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+import com.daml.lf.data.TryOps.Bracket.bracket
 import com.typesafe.scalalogging.LazyLogging
 import spray.json._
 

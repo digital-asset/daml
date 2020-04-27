@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
@@ -16,7 +16,7 @@ contains_changelog () {
     [[ 2 == $(git show -s --format=%B $1 | awk "$awk_script") ]]
 }
 
-for sha in $(git rev-list origin/master..); do
+for sha in $(git rev-list ${1:-origin/master}..); do
     if contains_changelog $sha; then
         echo "Commit $sha contains a changelog entry."
         exit 0

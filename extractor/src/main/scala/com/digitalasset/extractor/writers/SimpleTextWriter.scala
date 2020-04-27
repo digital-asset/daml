@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.daml.lf.iface.Interface
-import com.digitalasset.extractor.ledger.types.Event
+import com.daml.lf.iface.Interface
+import com.daml.extractor.ledger.types.Event
 
 class SimpleTextWriter(val printer: Any => Unit) extends PrinterFunctionWriter with Writer {
   def handlePackage(id: String, interface: Interface): Unit = {

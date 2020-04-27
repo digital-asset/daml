@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DerivingStrategies #-}
@@ -9,12 +9,14 @@ module DA.Daml.Doc.Render.Monoid
     ) where
 
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Render.Types
 import Control.Monad
 import Data.Foldable
 import Data.Maybe
 import Data.List.Extra
 import System.FilePath
 import qualified Data.Map.Strict as Map
+import qualified Data.HashMap.Strict as HMS
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Network.URI as URI
@@ -29,6 +31,7 @@ data RenderOut
     | RenderRecordFields [(RenderText, RenderText, RenderText)]
     | RenderParagraph RenderText
     | RenderDocs DocText
+    | RenderIndex [Modulename]
 
 data RenderText
     = RenderConcat [RenderText]
@@ -67,7 +70,9 @@ renderUnwords = renderIntercalate " "
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv
-    { re_localAnchors :: Set.Set Anchor
+    { re_separateModules :: Bool
+        -- ^ are modules being rendered separately, one per page?
+    , re_localAnchors :: Set.Set Anchor
         -- ^ anchors defined in the same file
     , re_globalAnchors :: Map.Map Anchor FilePath
         -- ^ anchors defined in the same folder
@@ -114,7 +119,9 @@ packageURI (Packagename "daml-stdlib") = Just damlBaseURI
 packageURI _ = Nothing
 
 damlBaseURI :: URI.URI
-damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/reference/base.html"
+damlBaseURI = fromJust $ URI.parseURI "https://docs.daml.com/daml/stdlib/index.html"
+    -- TODO (sofia): Make this configurable, and don't include index.html,
+    -- need a way to supply (or recreate) anchor list.
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
 
@@ -129,13 +136,15 @@ getRenderAnchors = \case
     RenderRecordFields _ -> Set.empty
     RenderParagraph _ -> Set.empty
     RenderDocs _ -> Set.empty
+    RenderIndex _ -> Set.empty
 
 renderPage :: RenderFormatter -> RenderOut -> T.Text
 renderPage formatter output =
     T.unlines (formatter renderEnv output)
   where
     renderEnv = RenderEnv
-        { re_localAnchors = getRenderAnchors output
+        { re_separateModules = False
+        , re_localAnchors = getRenderAnchors output
         , re_globalAnchors = Map.empty
         }
 
@@ -143,20 +152,61 @@ renderPage formatter output =
 renderFolder ::
     RenderFormatter
     -> Map.Map Modulename RenderOut
-    -> Map.Map Modulename T.Text
+    -> (T.Text, Map.Map Modulename T.Text)
 renderFolder formatter fileMap =
     let moduleAnchors = Map.map getRenderAnchors fileMap
+        re_separateModules = True
         re_globalAnchors = Map.fromList
             [ (anchor, moduleNameToFileName moduleName <.> "html")
             | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
-    in flip Map.mapWithKey fileMap $ \moduleName output ->
-        let re_localAnchors = fromMaybe Set.empty $
-                Map.lookup moduleName moduleAnchors
-            renderEnv = RenderEnv {..}
-        in T.unlines (formatter renderEnv output)
+        moduleMap =
+            flip Map.mapWithKey fileMap $ \moduleName output ->
+                let re_localAnchors = fromMaybe Set.empty $
+                        Map.lookup moduleName moduleAnchors
+                in T.unlines (formatter RenderEnv{..} output)
+        index =
+            let re_localAnchors = Set.empty
+                output = RenderIndex (Map.keys fileMap)
+            in T.unlines (formatter RenderEnv{..} output)
+    in (index, moduleMap)
 
 moduleNameToFileName :: Modulename -> FilePath
 moduleNameToFileName =
     T.unpack . T.replace "." "-" . unModulename
+
+buildAnchorTable :: RenderOptions -> Map.Map Modulename RenderOut -> HMS.HashMap Anchor T.Text
+buildAnchorTable RenderOptions{..} outputs
+    | Just baseURL <- ro_baseURL
+    = HMS.fromList
+        [ (anchor, buildURL baseURL moduleName anchor)
+        | (moduleName, output) <- Map.toList outputs
+        , anchor <- Set.toList (getRenderAnchors output)
+        ]
+    where
+        stripTrailingSlash :: T.Text -> T.Text
+        stripTrailingSlash x = fromMaybe x (T.stripSuffix "/" x)
+
+        buildURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildURL = case ro_mode of
+            RenderToFile _ -> buildFileURL
+            RenderToFolder _ -> buildFolderURL
+
+        buildFileURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildFileURL baseURL _ anchor = T.concat
+            [ baseURL
+            , "#"
+            , unAnchor anchor
+            ]
+
+        buildFolderURL :: T.Text -> Modulename -> Anchor -> T.Text
+        buildFolderURL baseURL moduleName anchor = T.concat
+            [ stripTrailingSlash baseURL
+            , "/"
+            , T.pack (moduleNameToFileName moduleName <.> "html")
+            , "#"
+            , unAnchor anchor
+            ]
+
+buildAnchorTable _ _ = HMS.empty

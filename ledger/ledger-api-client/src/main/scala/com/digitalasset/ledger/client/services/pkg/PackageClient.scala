@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.pkg
+package com.daml.ledger.client.services.pkg
 
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.package_service._
-import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.package_service._
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
+import com.daml.ledger.client.LedgerClient
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future

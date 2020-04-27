@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Copied from https://github.com/ghc/ghc/blob/master/libraries/base/GHC/Generics.hs
@@ -23,7 +23,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE DamlSyntax                 #-}
 
-
+-- | HIDE Partial implementation of DeriveGeneric. Note that this is not supported in cross-SDK dependencies.
 module DA.Generics (
 
   -- * Generic representation types

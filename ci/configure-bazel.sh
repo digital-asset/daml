@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -39,6 +39,10 @@ esac
 cd "$(dirname "$0")"/..
 
 step "configuring bazel"
+
+if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
+    cd "$BAZEL_CONFIG_DIR"
+fi
 
 if is_windows; then
   echo "build --config windows" > .bazelrc.local

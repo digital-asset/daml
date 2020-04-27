@@ -1,26 +1,28 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.on.sql
 
 import java.sql.Connection
 
+import com.codahale.metrics.{MetricRegistry, Timer}
 import com.daml.ledger.on.sql.queries.{
   H2Queries,
   PostgresqlQueries,
   Queries,
   ReadQueries,
-  SqliteQueries
+  SqliteQueries,
+  TimedQueries
 }
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.metrics.{MetricName, Timed}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 import com.zaxxer.hikari.HikariDataSource
 import javax.sql.DataSource
 import org.flywaydb.core.Flyway
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -28,63 +30,48 @@ final class Database(
     queries: Connection => Queries,
     readerConnectionPool: DataSource,
     writerConnectionPool: DataSource,
+    metricRegistry: MetricRegistry,
 ) {
-  private val logger = ContextualizedLogger.get(this.getClass)
-
-  def inReadTransaction[T](message: String)(
+  def inReadTransaction[T](name: String)(
       body: ReadQueries => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, readerConnectionPool)(connection => body(queries(connection)))
-  }
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
+    inTransaction(name, readerConnectionPool)(connection =>
+      body(new TimedQueries(queries(connection), metricRegistry)))
 
-  def inWriteTransaction[T](message: String)(
+  def inWriteTransaction[T](name: String)(
       body: Queries => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    inTransaction(message, writerConnectionPool)(connection => body(queries(connection)))
-  }
+  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] =
+    inTransaction(name, writerConnectionPool)(connection =>
+      body(new TimedQueries(queries(connection), metricRegistry)))
 
-  private def inTransaction[T](message: String, connectionPool: DataSource)(
+  private def inTransaction[T](name: String, connectionPool: DataSource)(
       body: Connection => Future[T],
   )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    val connection =
-      time(s"$message: acquiring connection")(connectionPool.getConnection())
-    timeFuture(message) {
-      body(connection)
-        .andThen {
-          case Success(_) => connection.commit()
-          case Failure(_) => connection.rollback()
-        }
-        .andThen {
-          case _ => connection.close()
-        }
-    }
+    val connection = Timed.value(Metrics.acquireConnection(name), connectionPool.getConnection())
+    Timed.future(
+      Metrics.run(name), {
+        body(connection)
+          .andThen {
+            case Success(_) => connection.commit()
+            case Failure(_) => connection.rollback()
+          }
+          .andThen {
+            case _ => connection.close()
+          }
+      }
+    )
   }
 
-  private def time[T](message: String)(body: => T)(implicit logCtx: LoggingContext): T = {
-    val startTime = timeStart(message)
-    val result = body
-    timeEnd(message, startTime)
-    result
+  private object Metrics {
+    private val prefix = MetricName.DAML :+ "ledger" :+ "database" :+ "transactions"
+
+    def acquireConnection(name: String): Timer =
+      metricRegistry.timer(prefix :+ name :+ "acquire_connection")
+
+    def run(name: String): Timer =
+      metricRegistry.timer(prefix :+ name :+ "run")
   }
 
-  private def timeFuture[T](message: String)(
-      body: => Future[T],
-  )(implicit executionContext: ExecutionContext, logCtx: LoggingContext): Future[T] = {
-    val startTime = timeStart(message)
-    body.andThen {
-      case _ => timeEnd(message, startTime)
-    }
-  }
-
-  private def timeStart(message: String)(implicit logCtx: LoggingContext): Long = {
-    logger.trace(s"$message: starting")
-    System.nanoTime()
-  }
-
-  private def timeEnd(message: String, startTime: Long)(implicit logCtx: LoggingContext): Unit = {
-    val endTime = System.nanoTime()
-    logger.trace(s"$message: finished in ${Duration.fromNanos(endTime - startTime).toMillis}ms")
-  }
 }
 
 object Database {
@@ -101,7 +88,7 @@ object Database {
   // entries missing.
   private val MaximumWriterConnectionPoolSize: Int = 1
 
-  def owner(jdbcUrl: String)(
+  def owner(jdbcUrl: String, metricRegistry: MetricRegistry)(
       implicit logCtx: LoggingContext,
   ): ResourceOwner[UninitializedDatabase] =
     (jdbcUrl match {
@@ -110,17 +97,17 @@ object Database {
           "Unnamed in-memory H2 databases are not supported. Please name the database using the format \"jdbc:h2:mem:NAME\".",
         )
       case url if url.startsWith("jdbc:h2:mem:") =>
-        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, metricRegistry)
       case url if url.startsWith("jdbc:h2:") =>
-        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl)
+        MultipleConnectionDatabase.owner(RDBMS.H2, jdbcUrl, metricRegistry)
       case url if url.startsWith("jdbc:postgresql:") =>
-        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl)
+        MultipleConnectionDatabase.owner(RDBMS.PostgreSQL, jdbcUrl, metricRegistry)
       case url if url.startsWith("jdbc:sqlite::memory:") =>
         throw new InvalidDatabaseException(
           "Unnamed in-memory SQLite databases are not supported. Please name the database using the format \"jdbc:sqlite:file:NAME?mode=memory&cache=shared\".",
         )
       case url if url.startsWith("jdbc:sqlite:") =>
-        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl)
+        SingleConnectionDatabase.owner(RDBMS.SQLite, jdbcUrl, metricRegistry)
       case _ =>
         throw new InvalidDatabaseException(s"Unknown database: $jdbcUrl")
     }).map { database =>
@@ -132,6 +119,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
+        metricRegistry: MetricRegistry,
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerConnectionPool <- ResourceOwner.forCloseable(() =>
@@ -145,6 +133,7 @@ object Database {
           readerConnectionPool,
           writerConnectionPool,
           adminConnectionPool,
+          metricRegistry,
         )
   }
 
@@ -152,6 +141,7 @@ object Database {
     def owner(
         system: RDBMS,
         jdbcUrl: String,
+        metricRegistry: MetricRegistry,
     ): ResourceOwner[UninitializedDatabase] =
       for {
         readerWriterConnectionPool <- ResourceOwner.forCloseable(() =>
@@ -163,6 +153,7 @@ object Database {
           readerWriterConnectionPool,
           readerWriterConnectionPool,
           adminConnectionPool,
+          metricRegistry,
         )
   }
 
@@ -210,6 +201,7 @@ object Database {
       readerConnectionPool: DataSource,
       writerConnectionPool: DataSource,
       adminConnectionPool: DataSource,
+      metricRegistry: MetricRegistry,
   ) {
     private val flyway: Flyway =
       Flyway
@@ -225,7 +217,7 @@ object Database {
 
     def migrate(): Database = {
       flyway.migrate()
-      new Database(system.queries, readerConnectionPool, writerConnectionPool)
+      new Database(system.queries, readerConnectionPool, writerConnectionPool, metricRegistry)
     }
 
     def clear(): this.type = {

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -24,6 +24,8 @@ object Envelope {
 
   final case class StateValueMessage(value: Proto.DamlStateValue) extends Message
 
+  final case class SubmissionBatchMessage(value: Proto.DamlSubmissionBatch) extends Message
+
   private def enclose(
       kind: Proto.Envelope.MessageKind,
       bytes: ByteString,
@@ -41,17 +43,21 @@ object Envelope {
       .build
       .toByteString
 
-  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, true)
+  def enclose(sub: Proto.DamlSubmission): ByteString = enclose(sub, compression = true)
   def enclose(sub: Proto.DamlSubmission, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.SUBMISSION, sub.toByteString, compression)
 
-  def enclose(logEntry: Proto.DamlLogEntry): ByteString = enclose(logEntry, true)
+  def enclose(logEntry: Proto.DamlLogEntry): ByteString = enclose(logEntry, compression = true)
   def enclose(logEntry: Proto.DamlLogEntry, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.LOG_ENTRY, logEntry.toByteString, compression)
 
-  def enclose(stateValue: Proto.DamlStateValue): ByteString = enclose(stateValue, true)
+  def enclose(stateValue: Proto.DamlStateValue): ByteString =
+    enclose(stateValue, compression = true)
   def enclose(stateValue: Proto.DamlStateValue, compression: Boolean): ByteString =
     enclose(Proto.Envelope.MessageKind.STATE_VALUE, stateValue.toByteString, compression)
+
+  def enclose(batch: Proto.DamlSubmissionBatch): ByteString =
+    enclose(Proto.Envelope.MessageKind.SUBMISSION_BATCH, batch.toByteString, compression = false)
 
   def open(envelopeBytes: ByteString): Either[String, Message] =
     openWithParser(() => Proto.Envelope.parseFrom(envelopeBytes))
@@ -84,6 +90,9 @@ object Envelope {
         case Proto.Envelope.MessageKind.STATE_VALUE =>
           parseMessageSafe(() => Proto.DamlStateValue.parseFrom(uncompressedMessage)).right
             .map(StateValueMessage)
+        case Proto.Envelope.MessageKind.SUBMISSION_BATCH =>
+          parseMessageSafe(() => Proto.DamlSubmissionBatch.parseFrom(uncompressedMessage)).right
+            .map(SubmissionBatchMessage)
         case Proto.Envelope.MessageKind.UNRECOGNIZED =>
           Left(s"Unrecognized message kind: ${envelope.getKind}")
       }

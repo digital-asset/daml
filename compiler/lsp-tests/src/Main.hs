@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
@@ -57,6 +57,7 @@ main = do
         , executeCommandTests run runScenarios
         , regressionTests run runScenarios
         , multiPackageTests damlcPath
+        , completionTests run runScenarios
         ]
 
 conf :: SessionConfig
@@ -157,12 +158,12 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               , "add : Int -> Int -> Int"
               , "add a b = ab + b"
               , "succ : Int -> Int"
-              , "succ a = abdd 1 a"
+              , "succ = abdd 1"
               ]
           expectDiagnostics
               [ ( "Main.daml"
                 , [ (DsError, (3, 10), "Variable not in scope: ab")
-                  , (DsError, (5, 9), "Variable not in scope: abdd")
+                  , (DsError, (5, 7), "Variable not in scope: abdd")
                   ]
                 )
               ]
@@ -472,7 +473,7 @@ scenarioTests run = testGroup "scenarios"
 executeCommandTests :: (forall a. Session a -> IO a) -> (Session () -> IO ()) -> TestTree
 executeCommandTests run _ = testGroup "execute command"
     [ testCase "execute commands" $ run $ do
-        main' <- openDoc' "Main.daml" damlId $ T.unlines
+        main' <- openDoc' "Coin.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Coin where"
             , "template Coin"
@@ -491,7 +492,7 @@ executeCommandTests run _ = testGroup "execute command"
         liftIO $ assertEqual "Visulization command" (Just expectedDotString) (_result actualDotString)
         closeDoc main'
     , testCase "Invalid commands result in error"  $ run $ do
-        main' <- openDoc' "Main.daml" damlId $ T.unlines
+        main' <- openDoc' "Empty.daml" damlId $ T.unlines
             [ "daml 1.2"
             , "module Empty where"
             ]
@@ -626,17 +627,67 @@ regressionTests run _runScenarios = testGroup "regression"
         completions <- getCompletions foo (Position 3 1)
         liftIO $
             assertBool ("DA.List and DA.Internal.RebindableSyntax should be in " <> show completions) $
-            mkCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
-            mkCompletion "DA.List" `elem` completions
+            mkModuleCompletion "DA.Internal.RebindableSyntax" `elem` completions &&
+            mkModuleCompletion "DA.List" `elem` completions
         changeDoc foo [TextDocumentContentChangeEvent (Just (Range (Position 3 0) (Position 3 1))) Nothing "Syntax"]
         expectDiagnostics [("Foo.daml", [(DsError, (3,0), "Parse error")])]
         completions <- getCompletions foo (Position 3 6)
-        liftIO $ completions @?= [mkCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
+        liftIO $ completions @?= [mkModuleCompletion "DA.Internal.RebindableSyntax" & detail .~ Nothing]
   ]
-  where mkCompletion mod = CompletionItem
-          { _label = mod
-          , _kind = Just CiModule
-          , _detail = Just mod
+
+completionTests
+    :: (Session () -> IO ())
+    -> (Session () -> IO ())
+    -> TestTree
+completionTests run _runScenarios = testGroup "completion"
+    [ testCase "type signature" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f : Part"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 8)
+          liftIO $
+              map (set documentation Nothing) completions @?=
+              [ mkTypeCompletion "Party"
+              , mkTypeCompletion "IsParties"
+              ]
+    , testCase "with keyword" $ run $ do
+          foo <- openDoc' "Foo.daml" damlId $ T.unlines
+              [ "module Foo where"
+              ]
+          -- Request completions to ensure that the module has been typechecked
+          _ <- getCompletions foo (Position 0 1)
+          changeDoc foo
+              [ TextDocumentContentChangeEvent Nothing Nothing $ T.unlines
+                    [ "module Foo where"
+                    , "f = R wit"
+                    ]
+              ]
+          completions <- getCompletions foo (Position 1 9)
+          liftIO $ assertBool ("`with` should be in " <> show completions) $
+              mkKeywordCompletion "with" `elem` completions
+    , testCase "no prefix" $ run $ do
+            foo <- openDoc' "Foo.daml" damlId $ T.unlines
+                [ "module Foo where" ]
+            completions <- getCompletions foo (Position 0 0)
+            -- We just want to verify that this no longer results in a
+            -- crash (before haskell-lsp 0.21 it did crash).
+            liftIO $ assertBool "Expected completions to be non-empty"
+                (not $ null completions)
+    ]
+
+defaultCompletion :: T.Text -> CompletionItem
+defaultCompletion label = CompletionItem
+          { _label = label
+          , _kind = Nothing
+          , _detail = Nothing
           , _documentation = Nothing
           , _deprecated = Nothing
           , _preselect = Nothing
@@ -649,7 +700,25 @@ regressionTests run _runScenarios = testGroup "regression"
           , _commitCharacters = Nothing
           , _command = Nothing
           , _xdata = Nothing
+          , _tags = List []
           }
+
+mkTypeCompletion :: T.Text -> CompletionItem
+mkTypeCompletion label =
+    defaultCompletion label &
+    insertTextFormat ?~ PlainText &
+    kind ?~ CiStruct
+
+mkModuleCompletion :: T.Text -> CompletionItem
+mkModuleCompletion label =
+    defaultCompletion label &
+    kind ?~ CiModule &
+    detail ?~ label
+
+mkKeywordCompletion :: T.Text -> CompletionItem
+mkKeywordCompletion label =
+    defaultCompletion label &
+    kind ?~ CiKeyword
 
 multiPackageTests :: FilePath -> TestTree
 multiPackageTests damlc = testGroup "multi-package"

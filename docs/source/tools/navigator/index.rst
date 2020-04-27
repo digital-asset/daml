@@ -1,17 +1,17 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Navigator
 #########
 
-The Navigator is a front-end that you can use to connect to any Digital Asset ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
+The Navigator is a front-end that you can use to connect to any DAML Ledger and inspect and modify the ledger. You can use it during DAML development to explore the flow and implications of the DAML models.
 
 The first sections of this guide cover use of the Navigator with the DAML SDK. Refer to :ref:`navigator-manual-advanced-usage` for information on using Navigator outside the context of the SDK.
 
 Navigator functionality
 ***********************
 
-Connect Navigator to any Digital Asset ledger and use it to:
+Connect Navigator to any DAML Ledger and use it to:
 
 - View templates
 - View active and archived contracts
@@ -233,7 +233,7 @@ You will see the loading and confirmation indicators, as pictured above in Creat
 Advancing time
 ==============
 
-It is possible to advance time against the DAML Sandbox. (This is not true of the Digital Asset ledger.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
+It is possible to advance time against the DAML Sandbox. (This is not true of all DAML Ledgers.) This advance-time functionality can be useful when testing, for example, when entering a trade on one date and settling it on a later date.
 
 To advance time:
 
@@ -391,11 +391,11 @@ respective parties is sufficient to configure the Navigator. Example::
       OPERATOR { party = "OPERATOR" }
   }
 
-Using Navigator with the Digital Asset ledger
-=============================================
+Using Navigator with a DAML Ledger
+==================================
 
 By default, Navigator is configured to use an unencrypted connection to the ledger.
-To run Navigator against a secured Digital Asset Ledger,
+To run Navigator against a secured DAML Ledger,
 configure TLS certificates using the ``--pem``, ``--crt``, and ``--cacrt`` command line parameters.
 Details of these parameters are explained in the command line help::
 

@@ -1,20 +1,29 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # TODO Once daml_compile uses build instead of package we should use
 # daml_compile instead of a genrule.
 load("@build_environment//:configuration.bzl", "sdk_version")
 
-genrule(
-    name = "daml-script",
-    srcs = glob(["**/*.daml"]),
-    outs = ["daml-script.dar"],
-    cmd = """
-      set -eou pipefail
-      TMP_DIR=$$(mktemp -d)
-      mkdir -p $$TMP_DIR/daml/Daml
-      cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml
-      cat << EOF > $$TMP_DIR/daml.yaml
+DAML_LF_VERSIONS = [
+    "1.7",
+    "1.8",
+    "1.dev",
+]
+
+# Build one DAR per LF version to bundle with the SDK.
+# Also build one DAR with the default LF version for test-cases.
+[
+    genrule(
+        name = "daml-script{}".format(suffix),
+        srcs = glob(["**/*.daml"]),
+        outs = ["daml-script{}.dar".format(suffix)],
+        cmd = """
+          set -eou pipefail
+          TMP_DIR=$$(mktemp -d)
+          mkdir -p $$TMP_DIR/daml/Daml
+          cp -L $(location Daml/Script.daml) $$TMP_DIR/daml/Daml
+          cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
 name: daml-script
 source: daml
@@ -22,12 +31,33 @@ version: 0.0.1
 dependencies:
   - daml-stdlib
   - daml-prim
-build-options: ["--ghc-option", "-Werror"]
+build-options: {build_options}
 EOF
-      $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$(location daml-script.dar)
-      rm -rf $$TMP_DIR
-    """.format(sdk = sdk_version),
-    tools = ["//compiler/damlc"],
+          $(location //compiler/damlc) build --project-root=$$TMP_DIR -o $$PWD/$@
+          rm -rf $$TMP_DIR
+        """.format(
+            build_options = str([
+                "--ghc-option",
+                "-Werror",
+            ] + [
+                "--target",
+                lf_version,
+            ] if lf_version else []),
+            sdk = sdk_version,
+        ),
+        tools = ["//compiler/damlc"],
+        visibility = ["//visibility:public"],
+    )
+    for lf_version in DAML_LF_VERSIONS + [""]
+    for suffix in [("-" + lf_version) if lf_version else ""]
+]
+
+filegroup(
+    name = "daml-script-dars",
+    srcs = [
+        "daml-script-{}.dar".format(lf_version)
+        for lf_version in DAML_LF_VERSIONS
+    ],
     visibility = ["//visibility:public"],
 )
 

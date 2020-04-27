@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import scalaz.{@@, Tag}
-import com.digitalasset.daml.lf.{data => DamlLfData}
-import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.value.json.NavigatorModelAliases
-import com.digitalasset.ledger.api.{v1 => ApiV1}
-import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.daml.lf.{data => DamlLfData}
+import com.daml.lf.data.{Ref => DamlLfRef}
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.value.json.NavigatorModelAliases
+import com.daml.ledger.api.{v1 => ApiV1}
+import com.daml.ledger.api.refinements.ApiTypes
 
 package object model extends NavigatorModelAliases[String] {
 

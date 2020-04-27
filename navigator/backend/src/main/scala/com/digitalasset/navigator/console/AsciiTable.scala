@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import java.io.{ByteArrayOutputStream, PrintWriter}
 
-import com.digitalasset.navigator.console.AsciiTable._
-import com.digitalasset.navigator.console.Maths._
+import com.daml.navigator.console.AsciiTable._
+import com.daml.navigator.console.Maths._
 
 import scala.collection.immutable.Stream.StreamBuilder
 import scala.language.postfixOps
@@ -71,8 +71,7 @@ object Maths {
   *    &lt;- 7 ->
   * </pre>
   */
-@SuppressWarnings(
-  Array("org.wartremover.warts.Option2Iterable", "org.wartremover.warts.StringPlusAny"))
+@SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
 final class AsciiTable {
   private var header: Option[Seq[String]] = None
   private val streamBuilder = new StreamBuilder[Seq[String]]

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.reflection
+package com.daml.platform.sandbox.services.reflection
 
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.platform.testing.StreamConsumer
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.testing.StreamConsumer
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,

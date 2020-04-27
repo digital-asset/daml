@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -43,7 +43,7 @@ genrule(
 dar_to_scala(
     name = "quickstart-scala-codegen",
     srcs = ["//docs:quickstart-model.dar"],
-    package_prefix = "com.digitalasset.quickstart.iou.model",
+    package_prefix = "com.daml.quickstart.iou.model",
     srcjar_out = "quickstart-scala-codegen.srcjar",
     verbosity = 2,
 )
@@ -57,7 +57,7 @@ da_scala_library(
 da_scala_binary(
     name = "quickstart-scala-bin",
     srcs = glob(["quickstart-scala/application/src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    main_class = "com.daml.quickstart.iou.IouMain",
     resources = glob(["quickstart-scala/application/src/main/resources/**/*"]),
     scalacopts = ["-Xsource:2.13"],
     deps = [
@@ -71,7 +71,7 @@ da_scala_binary(
 da_scala_binary(
     name = "iou-no-codegen-bin",
     srcs = glob(["iou-no-codegen/application/src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    main_class = "com.daml.quickstart.iou.IouMain",
     resources = glob(["iou-no-codegen/application/src/main/resources/**/*"]),
     scalacopts = ["-Xsource:2.13"],
     deps = [

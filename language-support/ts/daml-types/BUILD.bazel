@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
@@ -11,14 +11,20 @@ load("//language-support/ts:jest.bzl", "jest_test")
 load("//language-support/ts:typedoc.bzl", "ts_docs")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
+sources = [
+    "index.ts",
+    "index.test.ts",
+]
+
 da_ts_library(
     name = "daml-types",
-    srcs = ["index.ts"],
+    srcs = sources,
     module_name = "@daml/types",
     tsconfig = ":tsconfig.json",
     visibility = ["//visibility:public"],
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
+        "@language_support_ts_deps//@types/jest",
     ],
 ) if not is_windows else None
 
@@ -35,10 +41,7 @@ ts_docs("daml-types")
 
 eslint_test(
     name = "lint",
-    srcs = glob(
-        ["**/*.ts"],
-        exclude = ["lib/**/*"],
-    ),
+    srcs = sources,
     data = ["tsconfig.json"],
     tsconfig = "tsconfig.eslint.json",
 )
@@ -60,7 +63,7 @@ pkg_npm(
 
 jest_test(
     name = "test",
-    srcs = glob(["**/*.ts"]),
+    srcs = sources,
     deps = [
         "@language_support_ts_deps//@mojotech/json-type-validation",
     ],

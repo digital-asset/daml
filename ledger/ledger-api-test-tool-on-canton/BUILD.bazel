@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//ledger/ledger-api-test-tool:conformance.bzl", "conformance_test")
@@ -6,7 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 java_binary(
     name = "canton",
-    main_class = "com.digitalasset.canton.CantonApp",
+    main_class = "com.daml.canton.CantonApp",
     runtime_deps = ["@canton//:lib"],
 )
 
@@ -69,4 +69,8 @@ conformance_test(
         "--verbose",
         "--include=SemanticTests",
     ],
-) if not is_windows else None
+    # temporarily disabling canton tests, because the api server
+    # in the canton release still requires old time model fields.
+    # Enable the tests again, once canton is upgraded.
+) if False else None
+#) if not is_windows else None

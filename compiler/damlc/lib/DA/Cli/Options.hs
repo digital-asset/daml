@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -268,6 +268,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = do
     let optHaddock = Haddock False
     let optIncrementalBuild = IncrementalBuild False
     let optInferDependantPackages = InferDependantPackages True
+    let optEnableOfInterestRule = True
     optCppPath <- optCppPath
 
     return Options{..}

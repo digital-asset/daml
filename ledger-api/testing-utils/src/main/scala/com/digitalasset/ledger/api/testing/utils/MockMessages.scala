@@ -1,23 +1,20 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
+package com.daml.ledger.api.testing.utils
 
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.ledger.api.v1.event._
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
-  LEDGER_BEGIN,
-  LEDGER_END
-}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.api.v1.trace_context.TraceContext
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.Value.Sum.Text
-import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.commands.Commands
+import com.daml.ledger.api.v1.event._
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{LEDGER_BEGIN, LEDGER_END}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
+import com.daml.ledger.api.v1.trace_context.TraceContext
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v1.value.Value.Sum.Text
+import com.daml.ledger.api.v1.value.{Identifier, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random
@@ -34,17 +31,8 @@ object MockMessages {
   val party = "party"
   val party2 = "party2"
   val ledgerEffectiveTime = Timestamp(0L, 0)
-  val maximumRecordTime = ledgerEffectiveTime.copy(seconds = ledgerEffectiveTime.seconds + 30L)
 
-  val commands = Commands(
-    ledgerId,
-    workflowId,
-    applicationId,
-    commandId,
-    party,
-    Some(ledgerEffectiveTime),
-    Some(maximumRecordTime),
-    Nil)
+  val commands = Commands(ledgerId, workflowId, applicationId, commandId, party, Nil)
 
   val submitRequest = SubmitRequest(Some(commands), None)
 

@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
 import data.ImmArray
@@ -16,27 +16,43 @@ import scala.collection.immutable.HashMap
 class TransactionVersionSpec extends WordSpec with Matchers {
   import TransactionVersionSpec._
 
+  import VersionTimeline.maxVersion
+
+  // FIXME: https://github.com/digital-asset/daml/issues/5164
+  // Currently the engine uses `TransactionVersions.minOutputVersion` or latter.
+  // #5164 should provide a more granular way to control the versioning.
+  // Once #5164 is resolved, update those tests with different values for `minOutputVersion`.
+  val minOutputVersion = TransactionVersions.minOutputVersion
+
   "assignVersion" should {
     "prefer picking an older version" in {
-      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe TransactionVersion("1")
+      assignVersion(assignValueVersions(dummyCreateTransaction)) shouldBe maxVersion(
+        minOutputVersion,
+        TransactionVersion("1"))
     }
 
     "pick version 2 when confronted with newer data" in {
       val usingOptional = dummyCreateTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(usingOptional)) shouldBe TransactionVersion("2")
+        ValueOptional(Some(v)): Value[Value.ContractId])
+      assignVersion(assignValueVersions(usingOptional)) shouldBe maxVersion(
+        minOutputVersion,
+        TransactionVersion("2"))
     }
 
     "pick version 7 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseWithResultTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("7")
+        ValueOptional(Some(v)): Value[Value.ContractId])
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
+        minOutputVersion,
+        TransactionVersion("7"))
     }
 
     "pick version 2 when confronted with exercise result" in {
       val hasExerciseResult = dummyExerciseTransaction map3 (identity, identity, v =>
-        ValueOptional(Some(v)): Value[Value.AbsoluteContractId])
-      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe TransactionVersion("2")
+        ValueOptional(Some(v)): Value[Value.ContractId])
+      assignVersion(assignValueVersions(hasExerciseResult)) shouldBe maxVersion(
+        minOutputVersion,
+        TransactionVersion("2"))
     }
 
   }
@@ -50,15 +66,17 @@ class TransactionVersionSpec extends WordSpec with Matchers {
 }
 
 object TransactionVersionSpec {
-  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, StringTransaction}
-  private[this] val singleId = "a"
+  import TransactionSpec.{dummyCreateNode, dummyExerciseNode, mkTransaction}
+  private[this] val singleId = Value.NodeId(0)
   private val dummyCreateTransaction =
-    StringTransaction(HashMap(singleId -> dummyCreateNode), ImmArray(singleId))
+    mkTransaction(HashMap(singleId -> dummyCreateNode("cid1")), ImmArray(singleId))
   private val dummyExerciseWithResultTransaction =
-    StringTransaction(HashMap(singleId -> dummyExerciseNode(ImmArray.empty)), ImmArray(singleId))
+    mkTransaction(
+      HashMap(singleId -> dummyExerciseNode("cid2", ImmArray.empty)),
+      ImmArray(singleId))
   private val dummyExerciseTransaction =
-    StringTransaction(
-      HashMap(singleId -> dummyExerciseNode(ImmArray.empty, false)),
+    mkTransaction(
+      HashMap(singleId -> dummyExerciseNode("cid3", ImmArray.empty, false)),
       ImmArray(singleId),
     )
 

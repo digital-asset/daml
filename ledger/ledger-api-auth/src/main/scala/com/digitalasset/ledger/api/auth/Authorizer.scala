@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.auth.interceptor.AuthorizationInterceptor
-import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
-import com.digitalasset.platform.server.api.validation.ErrorFactories.permissionDenied
+import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.daml.ledger.api.v1.transaction_filter.TransactionFilter
+import com.daml.platform.server.api.validation.ErrorFactories.permissionDenied
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 
 import scala.concurrent.Future

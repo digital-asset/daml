@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
@@ -114,9 +114,11 @@ genrule(
       --env.bazel_out_dir="{WP_OUT_ESCAPED}"
 
     # Package result (.TGZ)
-    # To debug, change 'czf' to 'czfv'.
+    # To debug, change 'c' to 'cv'.
     echo "Packaging result from $$OUT to $(@D)/frontend.tgz"
-    tar czf "$(@D)/frontend.tgz" -C $$OUT .
+    tar c -C $$OUT . \
+        --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+        | gzip -n > "$(@D)/frontend.tgz"
 
     # Package result (.JAR)
     echo "Packaging result from $$OUT to $(@D)/frontend.jar"

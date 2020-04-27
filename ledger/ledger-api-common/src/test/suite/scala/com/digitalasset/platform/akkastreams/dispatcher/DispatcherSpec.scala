@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.Random
 import java.util.concurrent.atomic.AtomicReference
@@ -9,9 +9,9 @@ import java.util.concurrent.{Executors, TimeUnit}
 
 import akka.stream.DelayOverflowStrategy
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.platform.akkastreams.FutureTimeouts
-import com.digitalasset.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, RangeSource}
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.platform.akkastreams.FutureTimeouts
+import com.daml.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, RangeSource}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
@@ -57,7 +57,7 @@ class DispatcherSpec
   val r = new Random()
   private val store = new AtomicReference(TreeMap.empty[Index, Value])
   private val genesis = Index(0)
-  private val latest = new AtomicReference(genesis)
+  private val nextIndex = new AtomicReference(genesis.next)
   private val publishedHead = new AtomicReference(genesis)
 
   implicit val ec: ExecutionContext =
@@ -69,7 +69,7 @@ class DispatcherSpec
 
   def clearUp() = {
     store.set(TreeMap.empty)
-    latest.set(genesis)
+    nextIndex.set(genesis.next)
     publishedHead.set(genesis)
   }
 
@@ -85,20 +85,20 @@ class DispatcherSpec
       } else {
         val next = Stream
           .iterate(i)(i => i.next)
-          .filter(i => i != latest.get() && store.get().get(i).isEmpty)
+          .filter(i => i != nextIndex.get() && store.get().get(i).isEmpty)
           .head
         val v = valueGenerator(i)
         store.updateAndGet(_ + (i -> v))
-        latest.set(next)
+        nextIndex.set(next)
         publishTo foreach { d =>
-          d.signalNewHead(next)
+          d.signalNewHead(i)
         }
         Thread.sleep(r.nextInt(meanDelayMs + 1).toLong * 2)
         Stream.cons((i, v), genManyHelper(next, count - 1))
       }
     }
 
-    genManyHelper(latest.get(), count).toIndexedSeq.map { case (i, v) => (i, v) }
+    genManyHelper(nextIndex.get(), count).toIndexedSeq.map { case (i, v) => (i, v) }
   }
 
   def publish(head: Index, dispatcher: Dispatcher[Index], meanDelayMs: Int = 0): Unit = {
@@ -116,26 +116,25 @@ class DispatcherSpec
       stop: Index,
       src: Dispatcher[Index],
       subSrc: SubSource[Index, Value],
-      delayMs: Int = 0) =
+      delayMs: Int = 0) = {
     if (delayMs > 0) {
       src
-        .startingAt(start, subSrc)
+        .startingAt(start, subSrc, Some(stop))
         .delay(Duration(delayMs.toLong, TimeUnit.MILLISECONDS), DelayOverflowStrategy.backpressure)
-        .takeWhile(_._1 != stop, inclusive = true)
         .runWith(Sink.collection)
     } else {
       src
-        .startingAt(start, subSrc)
-        .takeWhile(_._1 != stop, inclusive = true)
+        .startingAt(start, subSrc, Some(stop))
         .runWith(Sink.collection)
     }
+  }
 
   private val oneAfterAnotherSteppingMode =
-    OneAfterAnother[Index, Value]((i, _) => i.next, i => successful(store.get()(i)))
+    OneAfterAnother[Index, Value](_.next, i => successful(store.get()(i)))
 
   private def slowOneAfterAnotherSteppingMode(delayMs: Int) =
     OneAfterAnother[Index, Value](
-      (i, _) => {
+      i => {
         Thread.sleep(r.nextInt(delayMs + 1).toLong * 2)
         i.next
       },
@@ -145,13 +144,15 @@ class DispatcherSpec
           store.get()(i)
       })
 
+  import Index.ordering._
   private val rangeQuerySteppingMode = RangeSource[Index, Value](
-    (startInclusive, endExclusive) => Source(store.get().range(startInclusive, endExclusive))
+    (startExclusive, endInclusive) =>
+      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
   )
 
   private def slowRangeQuerySteppingMode(delayMs: Int) = RangeSource[Index, Value](
-    (startInclusive, endExclusive) =>
-      Source(store.get().range(startInclusive, endExclusive))
+    (startExclusive, endInclusive) =>
+      Source(store.get().from(startExclusive).to(endInclusive).dropWhile(_._1 <= startExclusive))
         .throttle(1, delayMs.milliseconds * 2)
   )
 
@@ -196,7 +197,7 @@ class DispatcherSpec
         val dispatcher = newDispatcher()
         val pairs = gen(100)
         val out = collect(genesis, pairs.last._1, dispatcher, subSrc)
-        publish(latest.get(), dispatcher)
+        publish(pairs.last._1, dispatcher)
         out.map(_ shouldEqual pairs)
       }
     }
@@ -206,12 +207,12 @@ class DispatcherSpec
         val dispatcher = newDispatcher()
         val pairs50 = gen(50)
         val pairs100 = gen(50)
-        val i49 = pairs50.last._1
+        val i50 = pairs50.last._1
+        val i100 = pairs100.last._1
 
-        publish(i49.next, dispatcher)
-        // latest.get() will never be published
-        val out = collect(i49.next, latest.get(), dispatcher, subSrc)
-        publish(latest.get(), dispatcher)
+        publish(i50, dispatcher)
+        val out = collect(i50, i100, dispatcher, subSrc)
+        publish(i100, dispatcher)
 
         dispatcher.close()
 
@@ -225,11 +226,12 @@ class DispatcherSpec
 
         val pairs50 = gen(50)
         val pairs100 = gen(50)
-        val i49 = pairs50.last._1
+        val i50 = pairs50.last._1
+        val i100 = pairs100.last._1
 
-        publish(i49.next, dispatcher)
-        val out = collect(i49.next, pairs100.last._1, dispatcher, subSrc)
-        publish(latest.get(), dispatcher)
+        publish(i50, dispatcher)
+        val out = collect(i50, i100, dispatcher, subSrc)
+        publish(i100, dispatcher)
 
         out.map(_ shouldEqual pairs100)
       }
@@ -260,15 +262,16 @@ class DispatcherSpec
         val i25 = pairs25.last._1
         val i50 = pairs50.last._1
         val i75 = pairs75.last._1
+        val i100 = pairs100.last._1
 
         val outF = collect(genesis, i50, dispatcher, subSrc)
-        publish(i25.next, dispatcher)
-        val out25F = collect(i25.next, i75, dispatcher, subSrc)
-        publish(i50.next, dispatcher)
-        val out50F = collect(i50.next, latest.get(), dispatcher, subSrc)
-        publish(i75.next, dispatcher)
-        val out75F = collect(i75.next, latest.get(), dispatcher, subSrc)
-        publish(latest.get(), dispatcher)
+        publish(i25, dispatcher)
+        val out25F = collect(i25, i75, dispatcher, subSrc)
+        publish(i50, dispatcher)
+        val out50F = collect(i50, i100, dispatcher, subSrc)
+        publish(i75, dispatcher)
+        val out75F = collect(i75, i100, dispatcher, subSrc)
+        publish(i100, dispatcher)
 
         dispatcher.close()
 
@@ -288,15 +291,16 @@ class DispatcherSpec
           val i25 = pairs25.last._1
           val i50 = pairs50.last._1
           val i75 = pairs75.last._1
+          val i100 = pairs100.last._1
 
           val outF = collect(genesis, i50, dispatcher, subSrc, delayMs = 10)
-          publish(i25.next, dispatcher)
-          val out25F = collect(i25.next, i75, dispatcher, subSrc, delayMs = 10)
-          publish(i50.next, dispatcher)
-          val out50F = collect(i50.next, latest.get(), dispatcher, subSrc, delayMs = 10)
-          publish(i75.next, dispatcher)
-          val out75F = collect(i75.next, latest.get(), dispatcher, subSrc, delayMs = 10)
-          publish(latest.get(), dispatcher)
+          publish(i25, dispatcher)
+          val out25F = collect(i25, i75, dispatcher, subSrc, delayMs = 10)
+          publish(i50, dispatcher)
+          val out50F = collect(i50, i100, dispatcher, subSrc, delayMs = 10)
+          publish(i75, dispatcher)
+          val out75F = collect(i75, i100, dispatcher, subSrc, delayMs = 10)
+          publish(i100, dispatcher)
 
           dispatcher.close()
 
@@ -313,7 +317,7 @@ class DispatcherSpec
         val i25 = pairs25.last._1
 
         val resultsF = collect(Index(startIndex), i25, dispatcher, subSrc)
-        publish(i25.next, dispatcher)
+        publish(i25, dispatcher)
         for {
           results <- resultsF
         } yield {

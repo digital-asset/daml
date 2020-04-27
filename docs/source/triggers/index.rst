@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Triggers - Off-Ledger Automation in DAML
@@ -9,7 +9,7 @@ DAML Triggers - Off-Ledger Automation in DAML
 
    trigger-docs
 
-**WARNING:** DAML Triggers are an experimental feature that is actively
+**WARNING:** DAML Triggers are an early access feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about DAML triggers on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new?milestone=DAML+Triggers>`_
@@ -240,7 +240,7 @@ Now we are ready to run the trigger using ``daml trigger``:
 
 .. code-block:: sh
 
-    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice --static-time
+    daml trigger --dar .daml/dist/copy-trigger-0.0.1.dar --trigger-name CopyTrigger:copyTrigger --ledger-host localhost --ledger-port 6865 --ledger-party Alice
 
 The first argument specifies the ``.dar`` file that we have just
 built. The second argument specifies the identifier of the trigger

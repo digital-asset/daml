@@ -1,18 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.daml.lf.speedy
 
-import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
-import com.digitalasset.daml.lf.speedy.SResult._
-import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.daml.lf.PureCompiledPackages
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{ImmArray, Numeric, Ref, Time}
+import com.daml.lf.language.Ast._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.SError._
+import com.daml.lf.speedy.SResult._
+import com.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 import org.slf4j.LoggerFactory
@@ -24,7 +23,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
   private implicit def id(s: String): Ref.Name = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(e, true, PureCompiledPackages(Map.empty).right.get, false)
+    val machine = Speedy.Machine.fromExpr(
+      expr = e,
+      compiledPackages = PureCompiledPackages(Map.empty).right.get,
+      scenario = false,
+      submissionTime = Time.Timestamp.now(),
+      transactionSeed = None,
+    )
     while (!machine.isFinal) {
       machine.step match {
         case SResultContinue => ()
@@ -119,7 +124,7 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       runExpr(input) shouldBe output
     }
 
-    a[Compiler.CompileError] shouldBe thrownBy(
+    a[Compiler.CompilationError] shouldBe thrownBy(
       runExpr(e"""(/\ (n: nat). /\ (n: *). FROM_TEXT_NUMERIC @n n) @4 @Text"""),
     )
   }
@@ -134,8 +139,13 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine =
-        Speedy.Machine.fromExpr(list, true, PureCompiledPackages(Map.empty).right.get, false)
+      machine = Speedy.Machine.fromExpr(
+        expr = list,
+        compiledPackages = PureCompiledPackages(Map.empty).right.get,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        transactionSeed = None,
+      )
     }
     "interpret" in {
       while (!machine.isFinal) {
@@ -211,12 +221,31 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
             ),
         ),
       ).right.get
+    val pkgs3 = PureCompiledPackages(
+      Map(
+        dummyPkg ->
+          Package(
+            List(
+              Module(
+                modName,
+                Map.empty,
+                LanguageVersion.default,
+                FeatureFlags.default,
+              ),
+            ),
+            Set.empty[PackageId],
+            None,
+          ),
+      ),
+    ).right.get
+
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false,
+        expr = EVal(ref),
+        compiledPackages = pkgs1,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        transactionSeed = None
       )
       var result: SResult = SResultContinue
       def run() = {
@@ -225,8 +254,8 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
       run()
       result match {
-        case SResultMissingDefinition(ref2, cb) =>
-          LfDefRef(ref) shouldBe ref2
+        case SResultNeedPackage(pkgId, cb) =>
+          ref.packageId shouldBe pkgId
           cb(pkgs2)
           result = SResultContinue
           run()
@@ -239,10 +268,11 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
 
     "crashes without definition" in {
       val machine = Speedy.Machine.fromExpr(
-        EVal(ref),
-        true,
-        pkgs1,
-        false,
+        expr = EVal(ref),
+        compiledPackages = pkgs1,
+        scenario = false,
+        submissionTime = Time.Timestamp.now(),
+        transactionSeed = None
       )
       var result: SResult = SResultContinue
       def run() = {
@@ -250,11 +280,11 @@ class InterpreterTest extends WordSpec with Matchers with TableDrivenPropertyChe
       }
       run()
       result match {
-        case SResultMissingDefinition(ref2, cb) =>
-          LfDefRef(ref) shouldBe ref2
+        case SResultNeedPackage(pkgId, cb) =>
+          ref.packageId shouldBe pkgId
           result = SResultContinue
           try {
-            cb(pkgs1)
+            cb(pkgs3)
             sys.error(s"expected crash when definition not provided")
           } catch {
             case _: SErrorCrash => ()

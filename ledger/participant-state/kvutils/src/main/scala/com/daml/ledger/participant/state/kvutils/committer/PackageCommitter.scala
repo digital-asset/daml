@@ -1,41 +1,46 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils.committer
 
 import java.util.concurrent.Executors
 
-import com.codahale.metrics.{Counter, Gauge, Timer}
+import com.codahale.metrics.{Counter, Gauge, MetricRegistry, Timer}
 import com.daml.ledger.participant.state.kvutils.Conversions.{buildTimestamp, packageUploadDedupKey}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.participant.state.kvutils.committer.Committer.StepInfo
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
+import com.daml.lf.language.Ast
+import com.daml.daml_lf_dev.DamlLf.Archive
 
 import scala.collection.JavaConverters._
 
-private[kvutils] case class PackageCommitter(engine: Engine)
-    extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
+private[kvutils] class PackageCommitter(
+    engine: Engine,
+    override protected val metricRegistry: MetricRegistry,
+) extends Committer[DamlPackageUploadEntry, DamlPackageUploadEntry.Builder] {
+
+  override protected val committerName = "package_upload"
+
   private object Metrics {
-    // kvutils.PackageCommitter.*
-    val preloadTimer: Timer = metricsRegistry.timer(metricsName("preload_timer"))
-    val decodeTimer: Timer = metricsRegistry.timer(metricsName("decode_timer"))
-    val accepts: Counter = metricsRegistry.counter(metricsName("accepts"))
-    val rejections: Counter = metricsRegistry.counter(metricsName("rejections"))
-    metricsRegistry.gauge(
-      metricsName("loaded_packages"),
+    val preloadTimer: Timer = metricRegistry.timer(metricPrefix :+ "preload_timer")
+    val decodeTimer: Timer = metricRegistry.timer(metricPrefix :+ "decode_timer")
+    val accepts: Counter = metricRegistry.counter(metricPrefix :+ "accepts")
+    val rejections: Counter = metricRegistry.counter(metricPrefix :+ "rejections")
+    metricRegistry.gauge(
+      metricPrefix :+ "loaded_packages",
       () =>
         new Gauge[Int] {
           override def getValue: Int = engine.compiledPackages().packageIds.size
-      }
-    )
+      })
   }
 
   private def rejectionTraceLog(
       msg: String,
-      packageUploadEntry: DamlPackageUploadEntry.Builder): Unit =
+      packageUploadEntry: DamlPackageUploadEntry.Builder,
+  ): Unit =
     logger.trace(
       s"Package upload rejected, $msg, correlationId=${packageUploadEntry.getSubmissionId}")
 
@@ -152,12 +157,13 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     )
   }
 
-  override def init(
+  override protected def init(
       ctx: CommitContext,
-      uploadEntry: DamlPackageUploadEntry): DamlPackageUploadEntry.Builder =
+      uploadEntry: DamlPackageUploadEntry,
+  ): DamlPackageUploadEntry.Builder =
     uploadEntry.toBuilder
 
-  override val steps: Iterable[(StepInfo, Step)] = Iterable(
+  override protected val steps: Iterable[(StepInfo, Step)] = Iterable(
     "authorize_submission" -> authorizeSubmission,
     "validate_entry" -> validateEntry,
     "deduplicate_submission" -> deduplicateSubmission,
@@ -166,13 +172,11 @@ private[kvutils] case class PackageCommitter(engine: Engine)
     "build_log_entry" -> buildLogEntry
   )
 
-  override lazy val committerName = "package_upload"
-
   private def buildRejectionLogEntry(
       ctx: CommitContext,
       packageUploadEntry: DamlPackageUploadEntry.Builder,
-      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder)
-    : DamlLogEntry = {
+      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder,
+  ): DamlLogEntry = {
     Metrics.rejections.inc()
     DamlLogEntry.newBuilder
       .setRecordTime(buildTimestamp(ctx.getRecordTime))

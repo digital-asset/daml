@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.daml.lf.transaction
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
-import com.digitalasset.daml.lf.{blinding => proto}
+import com.daml.lf.data.Ref._
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.value.ValueCoder.DecodeError
+import com.daml.lf.{blinding => proto}
 import com.google.protobuf.ProtocolStringList
 
 import scala.collection.JavaConverters._
@@ -37,7 +37,7 @@ object BlindingCoder {
         for {
           parties <- toPartySet(n.getPartiesList)
           coid <- toContractId(n.getContractId)
-        } yield AbsoluteContractId(coid) -> parties)
+        } yield coid -> parties)
 
     for {
       explicit <- sequence(explicitDisclosure)
@@ -92,7 +92,7 @@ object BlindingCoder {
     }
   }
 
-  private def toContractId(s: String): Either[DecodeError, ContractIdString] =
-    ContractIdString.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
+  private def toContractId(s: String): Either[DecodeError, AbsoluteContractId] =
+    AbsoluteContractId.fromString(s).left.map(err => DecodeError(s"Cannot decode contractId: $err"))
 
 }

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Scala CodeGen
@@ -56,14 +56,14 @@ will produce Scala code (some implementation details removed for display purpose
 
 .. code-block:: scala
 
-    import com.digitalasset.ledger.client.binding.{
+    import com.daml.ledger.client.binding.{
       Primitive, Template, TemplateCompanion, Value,
       ValueRef, ValueRefCompanion
     }
-    import com.digitalasset.ledger.client.binding.Primitive.{
+    import com.daml.ledger.client.binding.Primitive.{
       ChoiceId, ContractId, Party, Update
     }
-    package com.digitalasset.sample.Main {
+    package com.daml.sample.Main {
 
       final case class CallablePayout(giver: Party,
                                       receiver: Party)
@@ -106,8 +106,8 @@ The following sections describe what is being generated and how to use the gener
 
 .. code-block:: scala
 
-    import com.digitalasset.ledger.client.binding.{Primitive => P}
-    import com.digitalasset.sample.Main.PayOut
+    import com.daml.ledger.client.binding.{Primitive => P}
+    import com.daml.sample.Main.PayOut
 
 ``CallablePayout`` case class is the representation of the contract template:
 
@@ -123,7 +123,7 @@ Create an instance of this contract like this:
 
 .. code-block:: scala
 
-    import com.digitalasset.sample.Main.CallablePayout
+    import com.daml.sample.Main.CallablePayout
 
     val createCommand: P.Update[P.ContractId[CallablePayout]] =
       CallablePayout(giver = alice, receiver = bob).create
@@ -148,7 +148,7 @@ To exercise a ``Call`` choice on a contract ID that was received from the ledger
 
 .. code-block:: scala
 
-    import com.digitalasset.sample.Main.CallablePayout
+    import com.daml.sample.Main.CallablePayout
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[PayOut]] =
@@ -162,7 +162,7 @@ To exercise ``Transfer`` choice, we need to use ``exerciseTransfer`` method, pas
 
 .. code-block:: scala
 
-    import com.digitalasset.sample.Main.CallablePayout
+    import com.daml.sample.Main.CallablePayout
 
     val givenContractId: P.ContractId[CallablePayout] = receiveContractIdFromTheLedger
     val exerciseCommand: P.Update[P.ContractId[CallablePayout]] =

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -16,8 +16,9 @@ import DA.Daml.Doc.Render
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Transform
 
+import DA.Daml.Options.Types
+
 import Development.IDE.Types.Location
-import Development.IDE.Types.Options
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import Control.Monad.Extra
@@ -37,22 +38,27 @@ import qualified Data.Text.Encoding as T
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
-    , do_ideOptions :: IdeOptions
+    , do_compileOptions :: Options
     , do_diagsLogger :: LSP.FromServerMessage -> IO ()
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
+    , do_docIndexTemplate :: Maybe FilePath
+    , do_docHoogleTemplate :: Maybe FilePath
     , do_transformOptions :: TransformOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool
     , do_extractOptions :: ExtractOptions
+    , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
+    , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
+    , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
     }
 
 data InputFormat = InputJson | InputDaml
     deriving (Eq, Show, Read)
 
-data OutputFormat = OutputJson | OutputHoogle | OutputDocs RenderFormat
+data OutputFormat = OutputJson | OutputDocs RenderFormat
     deriving (Eq, Show, Read)
 
 -- | Run damldocs!
@@ -83,12 +89,14 @@ inputDocData DamldocOptions{..} = do
             concatMapM (either printAndExit pure) mbData
 
         InputDaml -> onErrorExit . runMaybeT $
-            extractDocs do_extractOptions do_diagsLogger do_ideOptions do_inputFiles
+            extractDocs do_extractOptions do_diagsLogger do_compileOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
 renderDocData DamldocOptions{..} docData = do
     templateM <- mapM T.readFileUtf8 do_docTemplate
+    indexTemplateM <- mapM T.readFileUtf8 do_docIndexTemplate
+    hoogleTemplateM <- mapM T.readFileUtf8 do_docHoogleTemplate
 
     let prefix = fromMaybe "" templateM
         write file contents = do
@@ -99,8 +107,6 @@ renderDocData DamldocOptions{..} docData = do
     case do_outputFormat of
             OutputJson ->
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
-            OutputHoogle ->
-                write do_outputPath . T.concat $ map renderSimpleHoogle docData
             OutputDocs format -> do
                 let renderOptions = RenderOptions
                         { ro_mode =
@@ -110,5 +116,10 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_format = format
                         , ro_title = do_docTitle
                         , ro_template = templateM
+                        , ro_indexTemplate = indexTemplateM
+                        , ro_hoogleTemplate = hoogleTemplateM
+                        , ro_baseURL = do_baseURL
+                        , ro_hooglePath = do_hooglePath
+                        , ro_anchorPath = do_anchorPath
                         }
                 renderDocs renderOptions docData

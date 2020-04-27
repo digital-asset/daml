@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -9,18 +9,18 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.IndexCompletionsService
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.domain.{LedgerId, LedgerOffset}
-import com.digitalasset.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.ledger.api.v1.command_completion_service._
-import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.services.domain.CommandCompletionService
-import com.digitalasset.platform.server.api.services.grpc.GrpcCommandCompletionService
+import com.daml.dec.DirectExecutionContext
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.{LedgerId, LedgerOffset}
+import com.daml.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.daml.ledger.api.v1.command_completion_service._
+import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.services.domain.CommandCompletionService
+import com.daml.platform.server.api.services.grpc.GrpcCommandCompletionService
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}

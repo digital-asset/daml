@@ -1,0 +1,160 @@
+workspace(name = "compatibility")
+
+# We import the main workspace for nix stuff and some shared Bazel rules.
+# This is mainly so we don’t have to symlink a bunch of files.
+# Note that you should never depend on targets from @daml.
+local_repository(
+    name = "daml",
+    path = "..",
+)
+
+load("@daml//bazel_tools:os_info.bzl", "os_info")
+
+os_info(name = "os_info")
+
+load("@os_info//:os_info.bzl", "is_darwin", "is_linux", "is_windows")
+load("@daml//bazel_tools:build_environment.bzl", "build_environment")
+
+build_environment(name = "build_environment")
+
+load("//:deps.bzl", "daml_deps")
+
+daml_deps()
+
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
+
+rules_haskell_dependencies()
+
+load(
+    "@rules_haskell//haskell:nixpkgs.bzl",
+    "haskell_register_ghc_nixpkgs",
+)
+load(
+    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
+    "nixpkgs_cc_configure",
+    "nixpkgs_local_repository",
+    "nixpkgs_package",
+    "nixpkgs_python_configure",
+)
+
+common_nix_file_deps = [
+    "@daml//nix:bazel.nix",
+    "@daml//nix:nixpkgs.nix",
+    "@daml//nix:nixpkgs/default.nix",
+    "@daml//nix:nixpkgs/default.src.json",
+]
+
+nix_ghc_deps = common_nix_file_deps + [
+    "@daml//nix:ghc.nix",
+    "@daml//nix:with-packages-wrapper.nix",
+    "@daml//nix:overrides/ghc-8.6.5.nix",
+    "@daml//nix:overrides/ghc-8.6.3-binary.nix",
+]
+
+dev_env_nix_repos = {
+    "nixpkgs": "@nixpkgs",
+}
+
+nixpkgs_local_repository(
+    name = "nixpkgs",
+    nix_file = "@daml//nix:nixpkgs.nix",
+    nix_file_deps = [
+        "@daml//nix:nixpkgs/default.nix",
+        "@daml//nix:nixpkgs/default.src.json",
+    ],
+)
+
+nixpkgs_cc_configure(
+    nix_file = "@daml//nix:bazel-cc-toolchain.nix",
+    nix_file_deps = common_nix_file_deps + [
+        "@daml//nix:bazel-cc-toolchain.nix",
+        "@daml//nix:tools/bazel-cc-toolchain/default.nix",
+    ],
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "glibc_locales",
+    attribute_path = "glibcLocales",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "locale-archive",
+    srcs = ["lib/locale/locale-archive"],
+)
+""",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+) if is_linux else None
+
+haskell_register_ghc_nixpkgs(
+    attribute_path = "ghcStatic",
+    build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
+    is_static = True,
+    locale_archive = "@glibc_locales//:locale-archive",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = nix_ghc_deps,
+    repositories = dev_env_nix_repos,
+    version = "8.6.5",
+)
+
+nixpkgs_python_configure(repository = "@nixpkgs")
+
+nixpkgs_package(
+    name = "postgresql_nix",
+    attribute_path = "postgresql_9_6",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+)
+""",
+    fail_not_supported = False,
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "hlint_nix",
+    attribute_path = "hlint",
+    nix_file = "@daml//nix:bazel.nix",
+    nix_file_deps = nix_ghc_deps,
+    repositories = dev_env_nix_repos,
+)
+
+load("//:bazel-haskell-deps.bzl", "daml_haskell_deps")
+
+daml_haskell_deps()
+
+load("//bazel_tools:daml_sdk.bzl", "daml_sdk", "daml_sdk_head")
+
+local_repository(
+    name = "head_sdk",
+    path = "head_sdk",
+)
+
+daml_sdk_head(
+    ledger_api_test_tool = "@head_sdk//:ledger-api-test-tool_deploy.jar",
+    sdk_tarball = "@head_sdk//:sdk-release-tarball.tar.gz",
+)
+
+daml_sdk(
+    sdk_sha256 = "ee7e2f50394d44fb3490068de64d37f4f87534e802717bd7e07e8767df2e4e05",
+    test_tool_sha256 = "cf66efafd9490e1256e825f377b208b8ae90151f56e411b596fbaaef91353e14",
+    version = "1.0.0",
+)
+
+daml_sdk(
+    sdk_sha256 = "aaf832ceda1a66a8469460d5a4b6c14f681ce692d4e9ef6010896febbaf4b6e1",
+    test_tool_sha256 = "762cd4836a8359dca0fb3271ba2e1d0629138f7d8d914298324418a174c5d22a",
+    version = "1.0.1-snapshot.20200417.3908.1.722bac90",
+)
+
+daml_sdk(
+    sdk_sha256 = "d3bddaa903ebaebb6f714a3ac39598ba7fd71e8b80636c1275054ed7b883a0d9",
+    test_tool_sha256 = "649ecf7a7e98caef7dac20082526444b33d85dfe79b4b9b66d069ad67aac74fa",
+    version = "1.1.0-snapshot.20200422.3991.0.6391ee9f",
+)

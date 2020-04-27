@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -35,7 +35,7 @@ proto_library(
 
 pkg_tar(
     name = "ledger-api-protos",
-    srcs = glob(["**/*.proto"]),
+    srcs = glob(["**/*.proto"]) + ["README.md"],
     extension = "tar.gz",
     strip_prefix = "./",
     visibility = [
@@ -125,7 +125,7 @@ genrule(
             --includeDir """ + google_protobuf_src + """ \
             --includeDir """ + google_rpc_src + """ \
             --proto google/rpc/status.proto \
-            --out $$(dirname $$(dirname $(@D))) 
+            --out $$(dirname $$(dirname $(@D)))
                #2x dirname because @D works differently for a single output
     """,
     tools = [
@@ -135,7 +135,7 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg",
-    srcs = glob(["com/digitalasset/ledger/api/v1/*.proto"]),
+    srcs = glob(["com/daml/ledger/api/v1/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
@@ -165,14 +165,14 @@ genrule(
         "@com_github_googleapis_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg",
     ],
-    outs = ["Com/Digitalasset/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
+    outs = ["Com/Daml/Ledger/Api/V1/" + b for b in ledger_api_haskellpb_sources],
     cmd = """
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/digitalasset/ledger/api/v1/$$(basename $$src) \
+                --proto com/daml/ledger/api/v1/$$(basename $$src) \
                 --out $(@D)
         done
     """,
@@ -183,7 +183,7 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg-testing",
-    srcs = glob(["com/digitalasset/ledger/api/v1/testing/*.proto"]),
+    srcs = glob(["com/daml/ledger/api/v1/testing/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
@@ -199,14 +199,14 @@ genrule(
         "@com_github_googleapis_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-testing",
     ],
-    outs = ["Com/Digitalasset/Ledger/Api/V1/Testing/" + b for b in ledger_api_haskellpb_sources_testing],
+    outs = ["Com/Daml/Ledger/Api/V1/Testing/" + b for b in ledger_api_haskellpb_sources_testing],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-testing); do
             $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/digitalasset/ledger/api/v1/testing/$$(basename $$src) \
+                --proto com/daml/ledger/api/v1/testing/$$(basename $$src) \
                 --out $(@D)
         done
     """,
@@ -217,7 +217,7 @@ genrule(
 
 filegroup(
     name = "ledger-api-protos-fg-admin",
-    srcs = glob(["com/digitalasset/ledger/api/v1/admin/*.proto"]),
+    srcs = glob(["com/daml/ledger/api/v1/admin/*.proto"]),
     visibility = ["//visibility:private"],
 )
 
@@ -233,14 +233,14 @@ genrule(
         "@com_github_googleapis_googleapis//google/rpc:status.proto",
         ":ledger-api-protos-fg-admin",
     ],
-    outs = ["Com/Digitalasset/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
+    outs = ["Com/Daml/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
         for src in $(locations :ledger-api-protos-fg-admin); do
             $(location @proto3_suite//:compile-proto-file) \
                 --includeDir """ + google_protobuf_src + """ \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
-                --proto com/digitalasset/ledger/api/v1/admin/$$(basename $$src) \
+                --proto com/daml/ledger/api/v1/admin/$$(basename $$src) \
                 --out $(@D)
         done
     """,
@@ -286,7 +286,7 @@ scala_library(
     name = "ledger-api-scalapb",
     srcs = [":ledger-api-scalapb-sources"],
     tags = [
-        "maven_coordinates=com.digitalasset.ledger-api.grpc-definitions:ledger-api-scalapb:__VERSION__",
+        "maven_coordinates=com.daml:ledger-api-scalapb:__VERSION__",
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],

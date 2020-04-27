@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.components
 
-import java.time.Instant
+import java.time.{Duration, Instant}
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
@@ -16,14 +16,14 @@ import com.daml.ledger.rxjava.components.helpers.{CommandsAndPendingSet, Created
 import com.daml.ledger.rxjava.components.tests.helpers.DummyLedgerClient
 import com.daml.ledger.rxjava.grpc.helpers.{LedgerServices, TransactionsServiceImpl}
 import com.daml.ledger.rxjava.{CommandSubmissionClient, DamlLedgerClient, untestedEndpoint}
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.auth.AuthServiceWildcard
-import com.digitalasset.ledger.api.v1.command_service.{
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.auth.AuthServiceWildcard
+import com.daml.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionIdResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse
 }
-import com.digitalasset.ledger.api.{v1 => scalaAPI}
+import com.daml.ledger.api.{v1 => scalaAPI}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.{Empty => JEmpty}
 import com.google.rpc.Status
@@ -134,8 +134,9 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
                 applicationId: String,
                 commandId: String,
                 party: String,
-                ledgerEffectiveTime: Instant,
-                maximumRecordTime: Instant,
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
                 commands: util.List[Command]): Single[JEmpty] = {
               submitted.append(
                 new SubmitCommandsRequest(
@@ -143,8 +144,9 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
                   applicationId,
                   commandId,
                   party,
-                  ledgerEffectiveTime,
-                  maximumRecordTime,
+                  minLedgerTimeAbs,
+                  minLedgerTimeRel,
+                  deduplicationTime,
                   commands))
               Single.error(new RuntimeException("expected failure"))
             }
@@ -153,11 +155,27 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
                 applicationId: String,
                 commandId: String,
                 party: String,
-                ledgerEffectiveTime: Instant,
-                maximumRecordTime: Instant,
+                minLedgerTimeAbs: Optional[Instant],
+                minLedgerTimeRel: Optional[Duration],
+                deduplicationTime: Optional[Duration],
                 commands: util.List[Command],
                 accessToken: String): Single[JEmpty] =
               untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                commands: util.List[Command]): Single[JEmpty] = untestedEndpoint
+
+            override def submit(
+                workflowId: String,
+                applicationId: String,
+                commandId: String,
+                party: String,
+                commands: util.List[Command],
+                accessToken: String): Single[JEmpty] = untestedEndpoint
           }
       }
 
@@ -194,8 +212,9 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
                 appId,
                 s"commandId_${counter.get()}",
                 party,
-                ZeroTimestamp,
-                ZeroTimestamp,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 commandList
               )
               Flowable.fromArray(
@@ -279,8 +298,9 @@ final class BotTest extends FlatSpec with Matchers with Eventually {
                       appId,
                       s"commandId_${atomicCount.incrementAndGet()}",
                       party,
-                      ZeroTimestamp,
-                      ZeroTimestamp,
+                      Optional.empty(),
+                      Optional.empty(),
+                      Optional.empty(),
                       commandList
                     )
                   logger.debug(s"commands: $commands")

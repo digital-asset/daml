@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.logging
+package com.daml.logging
 
 import akka.NotUsed
 import akka.stream.scaladsl.Flow
-import com.digitalasset.grpc.GrpcException
+import com.daml.grpc.GrpcException
 import io.grpc.Status
 import org.slf4j.{Logger, LoggerFactory}
 

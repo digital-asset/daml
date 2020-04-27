@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
-import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value._
+import com.daml.lf.data.Ref._
+import com.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
+import com.daml.lf.language.Ast._
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value._
 import scalaz.Monad
 
 import scala.annotation.tailrec
@@ -58,6 +58,9 @@ sealed trait Result[+A] extends Product with Serializable {
 }
 
 final case class ResultDone[A](result: A) extends Result[A]
+object ResultDone {
+  val Unit: ResultDone[Unit] = new ResultDone(())
+}
 final case class ResultError(err: Error) extends Result[Nothing]
 
 /**
@@ -204,9 +207,10 @@ object Result {
   }
 
   def assert(assertion: Boolean)(err: Error): Result[Unit] =
-    if (assertion) {
-      ResultDone(())
-    } else ResultError(err)
+    if (assertion)
+      ResultDone.Unit
+    else
+      ResultError(err)
 
   implicit val resultInstance: Monad[Result] = new Monad[Result] {
     override def point[A](a: => A): Result[A] = ResultDone(a)

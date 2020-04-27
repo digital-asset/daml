@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.testing.postgresql
+package com.daml.testing.postgresql
 
 import java.io.StringWriter
 import java.net.InetAddress
@@ -9,8 +9,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.ports.FreePort
-import com.digitalasset.testing.postgresql.PostgresAround._
+import com.daml.testing.postgresql.PostgresAround._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.slf4j.LoggerFactory
 
@@ -28,7 +27,8 @@ trait PostgresAround {
     val tempDir = Files.createTempDirectory("postgres_test")
     val dataDir = tempDir.resolve("data")
     val confFile = Paths.get(dataDir.toString, "postgresql.conf")
-    val port = FreePort.find()
+    val lockedPort = FreePort.find()
+    val port = lockedPort.port
     val jdbcUrl = s"jdbc:postgresql://$hostName:$port/$databaseName?user=$userName"
     val logFile = Files.createFile(tempDir.resolve("postgresql.log"))
     postgresFixture = PostgresFixture(jdbcUrl, port, tempDir, dataDir, confFile, logFile)
@@ -37,10 +37,12 @@ trait PostgresAround {
       initializeDatabase()
       createConfigFile()
       startPostgres()
+      lockedPort.unlock()
       createTestDatabase(databaseName)
       logger.info(s"PostgreSQL has started on port $port.")
     } catch {
       case NonFatal(e) =>
+        lockedPort.unlock()
         stopPostgres()
         deleteRecursively(tempDir)
         postgresFixture = null
@@ -65,8 +67,6 @@ trait PostgresAround {
       run(
         "start PostgreSQL",
         Tool.pg_ctl,
-        "-o",
-        s"-F -p ${postgresFixture.port}",
         "-w",
         "-D",
         postgresFixture.dataDir.toString,
@@ -163,11 +163,11 @@ trait PostgresAround {
         IOUtils.copy(process.getErrorStream, stderr, StandardCharsets.UTF_8)
         val logs = Files.readAllLines(postgresFixture.logFile).asScala
         throw new ProcessFailedException(
-          description,
-          command,
-          Some(stdout.toString),
-          Some(stderr.toString),
-          logs,
+          description = description,
+          command = command,
+          stdout = stdout.toString,
+          stderr = stderr.toString,
+          logs = logs,
         )
       }
     } catch {
@@ -175,7 +175,12 @@ trait PostgresAround {
         throw e
       case NonFatal(e) =>
         val logs = Files.readAllLines(postgresFixture.logFile).asScala
-        throw new ProcessFailedException(description, command, None, None, logs, e)
+        throw new ProcessFailedException(
+          description = description,
+          command = command,
+          logs = logs,
+          cause = e,
+        )
     }
   }
 
@@ -190,31 +195,22 @@ object PostgresAround {
   private val userName = "test"
   private val databaseName = "test"
 
-  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   private class ProcessFailedException(
       description: String,
       command: Seq[String],
-      stdout: Option[String],
-      stderr: Option[String],
-      logs: Seq[String],
-      cause: Throwable,
+      stdout: String = "<none>",
+      stderr: String = "<none>",
+      logs: Seq[String] = Seq.empty,
+      cause: Throwable = null,
   ) extends RuntimeException(
         Seq(
-          Some(s"Failed to $description."),
-          Some(s"Command:"),
-          Some(command.mkString("\n")),
-          stdout.map(output => s"\nSTDOUT:\n$output"),
-          stderr.map(output => s"\nSTDERR:\n$output"),
-          Some(logs).filter(_.nonEmpty).map(lines => s"\nLogs:\n${lines.mkString("\n")}"),
-        ).flatten.mkString("\n"),
+          s"Failed to $description.",
+          s"Command:",
+          command.mkString("\n"),
+          s"\nSTDOUT:\n$stdout",
+          s"\nSTDERR:\n$stderr",
+          if (logs.isEmpty) "\nLogs: <none>" else s"\nLogs:\n${logs.mkString("\n")}",
+        ).mkString("\n"),
         cause,
-      ) {
-    def this(
-        description: String,
-        command: Seq[String],
-        stdout: Option[String],
-        stderr: Option[String],
-        logs: Seq[String],
-    ) = this(description, command, stdout, stderr, logs, null)
-  }
+      )
 }

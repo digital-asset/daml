@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Installing the SDK
@@ -39,7 +39,7 @@ We support running the SDK on Windows 10. To install the SDK on Windows, downloa
 Next steps
 **********
 
-- Follow the :doc:`quickstart guide <quickstart>`.
+- Follow the :doc:`getting started guide </getting-started/index>`.
 - Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
 - If you run into any problems, :doc:`use the support page </support/support>` to get in touch with us.
 
@@ -56,7 +56,7 @@ To do that:
 2. Download the artifact (*Assets* section, after the release notes) for your platform as well as the corresponding signature file. For example, if you are on macOS and want to install release 0.13.27, you would download the files ``daml-sdk-0.13.27-macos.tar.gz`` and ``daml-sdk-0.13.27-macos.tar.gz.asc``. Note that for Windows you can choose between the tarball, which follows the same instructions as the Linux and macOS ones (but assumes you have a number of typical Unix tools installed), or the installer, which ends with ``.exe``. Regardless, the steps to verify the signature are the same.
 3. To verify the signature, you need to have ``gpg`` installed (see https://gnupg.org for more information on that) and the Digital Asset Security Public Key imported into your keychain. Once you have ``gpg`` installed, you can import the key by running::
 
-     gpg --keyserver pgp.key-server.io --search 4911A8DFE976ACDFA07130DBE8372C0C1C734C51
+     gpg --keyserver pool.sks-keyservers.net --search 4911A8DFE976ACDFA07130DBE8372C0C1C734C51
 
    This should come back with a key belonging to ``Digital Asset Holdings, LLC <security@digitalasset.com>``, created on 2019-05-16 and expiring on 2021-05-15. If any of those details are different, something is wrong. In that case please contact Digital Asset immediately.
 4. Once the key is imported, you can ask ``gpg`` to verify that the file you have downloaded has indeed been signed by that key. Continuing with our example of v0.13.27 on macOS, you should have both files in the current directory and run::

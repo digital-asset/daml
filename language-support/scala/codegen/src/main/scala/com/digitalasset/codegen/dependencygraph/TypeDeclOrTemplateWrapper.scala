@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen.dependencygraph
+package com.daml.codegen.dependencygraph
 
 import scala.language.higherKinds
 
-import com.digitalasset.daml.lf.iface.DefDataType
+import com.daml.lf.iface.DefDataType
 
 import scalaz.{Applicative, Traverse}
 import scalaz.syntax.functor._

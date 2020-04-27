@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 
-import com.digitalasset.daml.lf.archive.DarManifestReader
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.codegen.backend.Backend
-import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.archive.DarManifestReader
+import com.daml.lf.archive.DarReader
+import com.daml.lf.codegen.backend.Backend
+import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.StrictLogging
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -33,7 +33,7 @@ object CodeGenRunner extends StrictLogging {
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
     LoggerFactory
-      .getLogger("com.digitalasset.daml.lf.codegen.backend.java.inner")
+      .getLogger("com.daml.lf.codegen.backend.java.inner")
       .asInstanceOf[ch.qos.logback.classic.Logger]
       .setLevel(conf.verbosity)
 

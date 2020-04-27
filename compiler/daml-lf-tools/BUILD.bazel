@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -11,12 +11,14 @@ da_haskell_library(
         "containers",
         "either",
         "extra",
+        "ghcide",
         "hashable",
         "lens",
         "mtl",
         "recursion-schemes",
         "safe",
         "text",
+        "transformers",
         "uniplate",
         "unordered-containers",
     ],

@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams.dispatcher
+package com.daml.platform.akkastreams.dispatcher
 
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream._
 import akka.stream.scaladsl.{Source, SourceQueueWithComplete}
-import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher.Signal
-import com.digitalasset.dec.DirectExecutionContext
+import com.daml.platform.akkastreams.dispatcher.SignalDispatcher.Signal
+import com.daml.dec.DirectExecutionContext
 import org.slf4j.LoggerFactory
 
 /**

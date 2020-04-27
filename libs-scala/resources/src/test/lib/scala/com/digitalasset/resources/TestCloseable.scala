@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.resources
+package com.daml.resources
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.resources.TestCloseable._
+import com.daml.resources.TestCloseable._
 
 final class TestCloseable[T](val value: T, acquired: AtomicBoolean) extends AutoCloseable {
   if (!acquired.compareAndSet(false, true)) {

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.util
+package com.daml.http.util
 
-import com.digitalasset.daml.lf
-import com.digitalasset.ledger.api.validation.ValueValidator
-import com.digitalasset.ledger.api.{v1 => lav1}
+import com.daml.lf
+import com.daml.ledger.api.validation.ValueValidator
+import com.daml.ledger.api.{v1 => lav1}
 import io.grpc.StatusRuntimeException
 import scalaz.{Show, \/}
 
@@ -14,7 +14,7 @@ object ApiValueToLfValueConverter {
 
   object Error {
     implicit val ErrorShow: Show[Error] = Show shows { e =>
-      import com.digitalasset.util.ExceptionOps._
+      import com.daml.util.ExceptionOps._
       s"ApiValueToLfValueConverter.Error: ${e.cause.description}"
     }
   }

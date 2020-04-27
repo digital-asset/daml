@@ -1,43 +1,45 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.ApplicationId
-import com.digitalasset.ledger.api.v1.command_completion_service.CompletionStreamResponse
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.platform.store.CompletionFromTransaction.{toApiCheckpoint, toErrorCode}
-import com.digitalasset.platform.store.entries.LedgerEntry
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.lf.data.Ref
+import com.daml.ledger.ApplicationId
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.platform.store.CompletionFromTransaction.{toApiCheckpoint, toErrorCode}
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 
 object CommandCompletionsTable {
 
-  import SqlParser.{date, int, long, str}
+  import SqlParser.{date, int, str}
 
   private val acceptedCommandParser: RowParser[CompletionStreamResponse] =
-    long("completion_offset") ~ date("record_time") ~ str("command_id") ~ str("transaction_id") map {
+    offset("completion_offset") ~ date("record_time") ~ str("command_id") ~ str("transaction_id") map {
       case offset ~ recordTime ~ commandId ~ transactionId =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
           completions = Seq(Completion(commandId, Some(Status()), transactionId)))
     }
 
   private val rejectedCommandParser: RowParser[CompletionStreamResponse] =
-    long("completion_offset") ~ date("record_time") ~ str("command_id") ~ int("status_code") ~ str(
+    offset("completion_offset") ~ date("record_time") ~ str("command_id") ~ int("status_code") ~ str(
       "status_message") map {
       case offset ~ recordTime ~ commandId ~ statusCode ~ statusMessage =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
           completions = Seq(Completion(commandId, Some(Status(statusCode, statusMessage)))))
     }
 
   private val checkpointParser: RowParser[CompletionStreamResponse] =
-    long("completion_offset") ~ date("record_time") map {
+    offset("completion_offset") ~ date("record_time") map {
       case offset ~ recordTime =>
         CompletionStreamResponse(
-          checkpoint = toApiCheckpoint(recordTime.toInstant, offset + 1),
+          checkpoint = toApiCheckpoint(recordTime.toInstant, offset),
           completions = Seq())
     }
 
@@ -48,8 +50,8 @@ object CommandCompletionsTable {
   // TODO returns rows there the application_id and submitting_party
   // TODO are null. Remove as soon as checkpoints are gone.
   def prepareGet(
-      startInclusive: LedgerDao#LedgerOffset,
-      endExclusive: LedgerDao#LedgerOffset,
+      startExclusive: Offset,
+      endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]): SimpleSql[Row] =
     SQL"""select
@@ -63,7 +65,7 @@ object CommandCompletionsTable {
             status_message
           from participant_command_completions
           where
-            completion_offset >= $startInclusive and completion_offset < $endExclusive and
+            completion_offset > $startExclusive and completion_offset <= $endInclusive and
             (
               (application_id is null and submitting_party is null)
               or
@@ -74,11 +76,8 @@ object CommandCompletionsTable {
 
   // The insert will be prepared only if this entry contains all the information
   // necessary to be rendered as part of the completion service
-  def prepareInsert(offset: LedgerDao#LedgerOffset, entry: LedgerEntry): Option[SimpleSql[Row]] =
+  def prepareInsert(offset: Offset, entry: LedgerEntry): Option[SimpleSql[Row]] =
     entry match {
-      case LedgerEntry.Checkpoint(recordTime) =>
-        Some(
-          SQL"insert into participant_command_completions(completion_offset, record_time) values ($offset, $recordTime)")
       case LedgerEntry.Transaction(
           Some(cmdId),
           txId,

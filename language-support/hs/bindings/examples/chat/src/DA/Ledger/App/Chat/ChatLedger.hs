@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -65,11 +65,9 @@ getTrans party Handle{log,lid} = do
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do
     cid <- randomCid
-    run 5 $ Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,dedupTime=Nothing,coms=[com]})
+    run 5 $ Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,dedupTime=Nothing,coms=[com],minLeTimeAbs=Nothing,minLeTimeRel=Nothing})
     where
         wid = Nothing
-        leTime = Timestamp 0 0
-        mrTime = Timestamp 5 0
         myAid = ApplicationId "chat-console"
 
 randomCid :: IO CommandId

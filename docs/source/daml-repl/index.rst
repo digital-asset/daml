@@ -1,10 +1,10 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML REPL
 ###########
 
-**WARNING:** DAML REPL is an experimental feature that is actively
+**WARNING:** DAML REPL is an early access feature that is actively
 being designed and is *subject to breaking changes*.
 We welcome feedback about the DAML REPL on
 `our issue tracker <https://github.com/digital-asset/daml/issues/new>`_
@@ -60,10 +60,12 @@ two forms:
 1. An expression ``expr`` of type ``Script a`` for some type ``a``. This
    will execute the script ignoring the result.
 
-2. A binding of the form ``x <- expr`` where ``x`` is a variable name
-   and ``expr`` is an expression of type ``Script a``. This will
-   execute the script and bind the result to the variable ``x``. You
-   can then use ``x`` on subsequent lines.
+2. A binding of the form ``pat <- expr`` where ``pat`` is pattern, e.g.,
+   a variable name ``x`` to bind the result to
+   and ``expr`` is an expression of type ``Script a``.
+   This will execute the script and match the result against
+   the pattern ``pat`` bindings the matches to the variables in the pattern.
+   You can then use those variables on subsequent lines.
 
 First create two parties: A party with the display name ``"Alice"``
 and the party id ``"alice"`` and a party with the display name
@@ -118,4 +120,25 @@ In the prompt, all modules from the main dalf of the DAR passed to
 ``daml repl`` are imported. In addition to that the ``Daml.Script``
 module is imported and gives you access to the DAML Script API.
 
-At this point, it is not possible to import more modules.
+You can use import declarations at the prompt to import additional modules.
+
+.. code-block:: none
+
+   daml> import DA.Time
+   daml> debug (days 1)
+
+Connecting via TLS
+==================
+
+You can connect to a ledger that requires TLS by passing ``--tls``.  A
+custom root certificate used for validating the server certificate can
+be set via ``--cacrt``. Finally, you can also enable client
+authentication by passing ``--pem client.key --crt client.crt``. If
+``--cacrt`` or ``--pem`` and ``--crt`` are passed TLS is automatically
+enabled so ``--tls`` is redundant.
+
+Connection to a Ledger with Authentication
+==========================================
+
+If your ledger requires an authentication token you can pass it via
+``--access-token-file``.

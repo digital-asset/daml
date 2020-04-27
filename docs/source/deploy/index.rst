@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _deploy-ref_overview:
@@ -21,11 +21,17 @@ for production use today.
    * - Product
      - Ledger
      - Vendor
+   * - `DAML on Corda <#>`__
+     - `Corda <https://www.corda.net/>`__
+     - `Multiple. Contact Digital Asset <https://digitalasset.com/contact/>`__
    * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
      - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
    * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
      - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+   * - `Sextant for DAML <https://blockchaintp.com/sextant/daml/>`__
+     - `Amazon QLDB <https://aws.amazon.com/qldb/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
    * - `project : DABL <https://projectdabl.com/>`__
      - `Managed cloud enviroment <https://projectdabl.com/>`__
@@ -70,12 +76,12 @@ The following table lists the ledgers that are implementing support for running 
    * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
      - `VMware <https://www.vmware.com/>`__
      - `Press release, April 2019 <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
-   * - `Corda <https://www.corda.net/>`__
-     - `R3 <https://www.corda.net/>`__
-     - `press release, June 2019 <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `QLDB <https://aws.amazon.com/qldb/>`__
+   * - `Hyperledger Besu <https://besu.hyperledger.org/>`__
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `press release, September 2019 <https://blog.daml.com/daml-driven/quantum-daml-amazon-qldb-goes-ga>`__
+     - `Press release, March 2020 <https://hub.digitalasset.com/press-release/ethereum-compatible-hyperledger-besu-now-has-enterprise-grade-daml-smart-contracts>`__
+   * - `FISCO BCOS <http://www.fisco-bcos.org/>`__
+     - `WeBank <https://fintech.webank.com/en/>`__
+     - `Press release, April 2020 <https://hub.digitalasset.com/press-release/topic/fisco-bcos>`__
    * - `Canton <https://www.canton.io/>`__
      - `Digital Asset <https://digitalasset.com/>`__ reference implementation
      - `canton.io <https://www.canton.io/>`__

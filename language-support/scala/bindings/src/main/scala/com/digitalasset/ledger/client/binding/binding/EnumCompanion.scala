@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
-import com.digitalasset.ledger.api.v1.{value => rpcvalue}
-import com.digitalasset.ledger.client.binding.encoding.{LfEncodable, LfTypeEncoding}
+import com.daml.ledger.api.v1.{value => rpcvalue}
+import com.daml.ledger.client.binding.encoding.{LfEncodable, LfTypeEncoding}
 import scalaz.Liskov.<~<
 import scalaz.OneAnd
 import scalaz.syntax.functor._

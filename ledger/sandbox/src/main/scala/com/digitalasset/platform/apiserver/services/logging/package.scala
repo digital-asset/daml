@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services
+package com.daml.platform.apiserver.services
 
-import com.digitalasset.ledger.api.domain.{CommandId, EventId, LedgerOffset, TransactionId}
+import com.daml.ledger.api.domain.{CommandId, EventId, LedgerOffset, TransactionId}
 import net.logstash.logback.argument.StructuredArguments
 import scalaz.syntax.tag.ToTagOps
 
@@ -13,10 +13,10 @@ package object logging {
     "parties" -> StructuredArguments.toString(parties.toArray)
   private[services] def party(party: String): (String, String) =
     "parties" -> StructuredArguments.toString(Array(party))
-  private[services] def begin(o: LedgerOffset): (String, String) =
-    "offset" -> offsetValue(o)
-  private[services] def end(o: Option[LedgerOffset]): (String, String) =
-    "offset" -> nullableOffsetValue(o)
+  private[services] def startExclusive(o: LedgerOffset): (String, String) =
+    "startExclusive" -> offsetValue(o)
+  private[services] def endInclusive(o: Option[LedgerOffset]): (String, String) =
+    "endInclusive" -> nullableOffsetValue(o)
   private[services] def offset(o: Option[LedgerOffset]): (String, String) =
     "offset" -> nullableOffsetValue(o)
   private[this] def nullableOffsetValue(o: Option[LedgerOffset]): String =

@@ -1,9 +1,10 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("util.bzl", "sdk_tarball")
+load("util.bzl", "protos_zip", "sdk_tarball")
 load("@build_environment//:configuration.bzl", "sdk_version")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
     name = "release",
@@ -56,5 +57,10 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [],
 )
+
+# Disabled on Windows since directory outputs can cause issues.
+protos_zip(
+    name = "protobufs",
+) if not is_windows else None
 
 sdk_tarball("sdk-release-tarball", sdk_version)

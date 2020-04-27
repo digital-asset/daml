@@ -1,10 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
-package com.digitalasset.platform.store.dao
+package com.daml.platform.store.dao
 
 import java.io.InputStream
 import java.sql.Connection
 import java.time.Instant
+import java.util.concurrent.Executors
 import java.util.{Date, UUID}
 
 import akka.NotUsed
@@ -19,22 +20,19 @@ import com.daml.ledger.participant.state.index.v2.{
   CommandDeduplicationResult,
   PackageDetails
 }
-import com.daml.ledger.participant.state.v1.{
-  AbsoluteContractInst,
-  Configuration,
-  ParticipantId,
-  TransactionId
-}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, PackageId, Party}
-import com.digitalasset.daml.lf.data.Relation.Relation
-import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain.{
+import com.daml.ledger.participant.state.v1._
+import com.daml.lf.archive.Decode
+import com.daml.lf.data.Ref
+import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.Relation.Relation
+import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.Node.GlobalKey
+import com.daml.lf.value.Value
+import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.domain
+import com.daml.ledger.api.domain.RejectionReason._
+import com.daml.ledger.api.domain.{
   Filters,
   InclusiveFilters,
   LedgerId,
@@ -42,37 +40,33 @@ import com.digitalasset.ledger.api.domain.{
   RejectionReason,
   TransactionFilter
 }
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.store.Contract.{ActiveContract, DivulgedContract}
-import com.digitalasset.platform.store.Conversions._
-import com.digitalasset.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.digitalasset.platform.store.entries.LedgerEntry.Transaction
-import com.digitalasset.platform.store.entries.{
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.ApiOffset.ApiOffsetConverter
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.events.EventIdFormatter.split
+import com.daml.platform.store.Contract.ActiveContract
+import com.daml.platform.store.Conversions._
+import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
+import com.daml.platform.store._
+import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
+import com.daml.platform.store.dao.events.{ContractsReader, TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.entries.LedgerEntry.Transaction
+import com.daml.platform.store.entries.{
   ConfigurationEntry,
   LedgerEntry,
   PackageLedgerEntry,
   PartyLedgerEntry
 }
-import com.digitalasset.platform.store.serialization.{
+import com.daml.platform.store.serialization.{
   ContractSerializer,
   KeyHasher,
   TransactionSerializer,
   ValueSerializer
 }
-import com.digitalasset.platform.store.{
-  ActiveLedgerState,
-  ActiveLedgerStateManager,
-  Contract,
-  DbType,
-  LedgerSnapshot,
-  Let,
-  LetLookup,
-  LetUnknown,
-  PersistenceEntry
-}
-import com.digitalasset.resources.ResourceOwner
+import com.daml.resources.ResourceOwner
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
@@ -92,13 +86,13 @@ private final case class ParsedEntry(
     transaction: Option[InputStream],
     rejectionType: Option[String],
     rejectionDesc: Option[String],
-    offset: Long,
+    offset: Offset,
 )
 
 private final case class ParsedPartyData(
     party: String,
     displayName: Option[String],
-    ledgerOffset: Long,
+    ledgerOffset: Offset,
     explicit: Boolean)
 
 private final case class ParsedPackageData(
@@ -110,12 +104,14 @@ private final case class ParsedPackageData(
 private final case class ParsedCommandData(deduplicateUntil: Instant)
 
 private class JdbcLedgerDao(
+    override val maxConcurrentConnections: Int,
     dbDispatcher: DbDispatcher,
     contractSerializer: ContractSerializer,
     transactionSerializer: TransactionSerializer,
     keyHasher: KeyHasher,
     dbType: DbType,
     executionContext: ExecutionContext,
+    eventsPageSize: Int,
 )(implicit logCtx: LoggingContext)
     extends LedgerDao {
 
@@ -123,6 +119,7 @@ private class JdbcLedgerDao(
     case DbType.Postgres => PostgresQueries
     case DbType.H2Database => H2DatabaseQueries
   }
+
   private val logger = ContextualizedLogger.get(this.getClass)
 
   private val SQL_SELECT_LEDGER_ID = SQL("select ledger_id from parameters")
@@ -138,28 +135,27 @@ private class JdbcLedgerDao(
 
   private val SQL_SELECT_LEDGER_END = SQL("select ledger_end from parameters")
 
-  override def lookupLedgerEnd(): Future[Long] =
+  override def lookupLedgerEnd(): Future[Offset] =
     dbDispatcher.executeSql("get_ledger_end") { implicit conn =>
       SQL_SELECT_LEDGER_END
-        .as(long("ledger_end").single)
+        .as(offset("ledger_end").single)
     }
 
-  private val SQL_SELECT_EXTERNAL_LEDGER_END = SQL("select external_ledger_end from parameters")
+  private val SQL_SELECT_INITIAL_LEDGER_END = SQL("select ledger_end from parameters")
 
-  override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
-    dbDispatcher.executeSql("get_external_ledger_end") { implicit conn =>
-      SQL_SELECT_EXTERNAL_LEDGER_END
-        .as(ledgerString("external_ledger_end").?.single)
+  override def lookupInitialLedgerEnd(): Future[Option[Offset]] =
+    dbDispatcher.executeSql("get_initial_ledger_end") { implicit conn =>
+      SQL_SELECT_INITIAL_LEDGER_END
+        .as(offset("ledger_end").?.single)
     }
 
   private val SQL_INITIALIZE = SQL(
     "insert into parameters(ledger_id, ledger_end) VALUES({LedgerId}, {LedgerEnd})")
 
-  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: LedgerOffset): Future[Unit] =
+  override def initializeLedger(ledgerId: LedgerId, ledgerEnd: Offset): Future[Unit] =
     dbDispatcher.executeSql("initialize_ledger_parameters") { implicit conn =>
       val _ = SQL_INITIALIZE
-        .on("LedgerId" -> ledgerId.unwrap)
-        .on("LedgerEnd" -> ledgerEnd)
+        .on("LedgerId" -> ledgerId.unwrap, "LedgerEnd" -> ledgerEnd)
         .execute()
       ()
     }
@@ -168,12 +164,11 @@ private class JdbcLedgerDao(
   // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
   // is advancing it.
   private val SQL_UPDATE_LEDGER_END = SQL(
-    "update parameters set ledger_end = {LedgerEnd}, external_ledger_end = {ExternalLedgerEnd} where ledger_end < {LedgerEnd}")
+    "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
 
-  private def updateLedgerEnd(ledgerEnd: LedgerOffset, externalLedgerEnd: Option[LedgerString])(
-      implicit conn: Connection): Unit = {
+  private def updateLedgerEnd(ledgerEnd: Offset)(implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
-      .on("LedgerEnd" -> ledgerEnd, "ExternalLedgerEnd" -> externalLedgerEnd)
+      .on("LedgerEnd" -> ledgerEnd)
       .execute()
     ()
   }
@@ -185,7 +180,7 @@ private class JdbcLedgerDao(
     "select ledger_end, configuration from parameters")
 
   private val SQL_GET_CONFIGURATION_ENTRIES = SQL(
-    "select * from configuration_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+    "select * from configuration_entries where ledger_offset > {startExclusive} and ledger_offset <= {endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   private def updateCurrentConfiguration(configBytes: Array[Byte])(
       implicit conn: Connection): Unit = {
@@ -195,8 +190,8 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private val currentConfigurationParser: ResultSetParser[Option[(Long, Configuration)]] =
-    (long("ledger_end") ~
+  private val currentConfigurationParser: ResultSetParser[Option[(Offset, Configuration)]] =
+    (offset("ledger_end") ~
       byteArray("configuration").? map flatten).single
       .map {
         case (_, None) => None
@@ -210,18 +205,18 @@ private class JdbcLedgerDao(
   private def selectLedgerConfiguration(implicit conn: Connection) =
     SQL_SELECT_CURRENT_CONFIGURATION.as(currentConfigurationParser)
 
-  override def lookupLedgerConfiguration(): Future[Option[(Long, Configuration)]] =
+  override def lookupLedgerConfiguration(): Future[Option[(Offset, Configuration)]] =
     dbDispatcher.executeSql("lookup_configuration")(implicit conn => selectLedgerConfiguration)
 
   private val acceptType = "accept"
   private val rejectType = "reject"
 
-  private val configurationEntryParser: RowParser[(Long, ConfigurationEntry)] =
-    (long("ledger_offset") ~
+  private val configurationEntryParser: RowParser[(Offset, ConfigurationEntry)] =
+    (offset("ledger_offset") ~
       str("typ") ~
       str("submission_id") ~
       str("participant_id") ~
-      str("rejection_reason")(emptyStringToNullColumn).? ~
+      str("rejection_reason").map(s => if (s.isEmpty) null else s).? ~
       byteArray("configuration"))
       .map(flatten)
       .map {
@@ -257,20 +252,21 @@ private class JdbcLedgerDao(
       }
 
   override def getConfigurationEntries(
-      startInclusive: Long,
-      endExclusive: Long): Source[(Long, ConfigurationEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_configuration_entries",
-        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_CONFIGURATION_ENTRIES
             .on(
-              "startInclusive" -> startInclusive,
-              "endExclusive" -> endExclusive,
+              "startExclusive" -> startExclusive,
+              "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(configurationEntryParser.*)
+            .asVectorOf(configurationEntryParser)
       }
     }
 
@@ -281,9 +277,7 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storeConfigurationEntry(
-      offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
+      offset: Offset,
       recordedAt: Instant,
       submissionId: String,
       participantId: ParticipantId,
@@ -311,7 +305,7 @@ private class JdbcLedgerDao(
               rejectionReason
           }
 
-        updateLedgerEnd(newLedgerEnd, externalOffset)
+        updateLedgerEnd(offset)
         val configurationBytes = Configuration.encode(configuration).toByteArray
         val typ = if (finalRejectionReason.isEmpty) {
           acceptType
@@ -361,13 +355,11 @@ private class JdbcLedgerDao(
         |""".stripMargin)
 
   override def storePartyEntry(
-      offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
+      offset: Offset,
       partyEntry: PartyLedgerEntry,
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql("store_party_entry") { implicit conn =>
-      updateLedgerEnd(newLedgerEnd, externalOffset)
+      updateLedgerEnd(offset)
 
       partyEntry match {
         case PartyLedgerEntry.AllocationAccepted(
@@ -419,10 +411,10 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_GET_PARTY_ENTRIES = SQL(
-    "select * from party_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+    "select * from party_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  private val partyEntryParser: RowParser[(Long, PartyLedgerEntry)] =
-    (long("ledger_offset") ~
+  private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] =
+    (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
       participantId("participant_id").? ~
@@ -469,20 +461,21 @@ private class JdbcLedgerDao(
       }
 
   override def getPartyEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PartyLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, PartyLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_party_entries",
-        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_PARTY_ENTRIES
             .on(
-              "startInclusive" -> startInclusive,
-              "endExclusive" -> endExclusive,
+              "startExclusive" -> startExclusive,
+              "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(partyEntryParser.*)
+            .asVectorOf(partyEntryParser)
       }
     }
   }
@@ -494,18 +487,6 @@ private class JdbcLedgerDao(
   private val SQL_SELECT_CONTRACT_KEY =
     SQL(
       "select contract_id from contract_keys where package_id={package_id} and name={name} and value_hash={value_hash}")
-
-  private val SQL_SELECT_CONTRACT_KEY_FOR_PARTY =
-    SQL(
-      """select ck.contract_id from contract_keys ck
-        |left join contract_signatories cosi on ck.contract_id = cosi.contract_id and cosi.signatory = {party}
-        |left join contract_observers coob on ck.contract_id = coob.contract_id and coob.observer = {party}
-        |where
-        |  ck.package_id={package_id} and
-        |  ck.name={name} and
-        |  ck.value_hash={value_hash} and
-        |  (cosi.signatory is not null or coob.observer is not null)
-        |""".stripMargin)
 
   private val SQL_REMOVE_CONTRACT_KEY =
     SQL("delete from contract_keys where contract_id={contract_id}")
@@ -537,28 +518,15 @@ private class JdbcLedgerDao(
         "name" -> key.templateId.qualifiedName.toString,
         "value_hash" -> keyHasher.hashKeyString(key)
       )
-      .as(ledgerString("contract_id").singleOpt)
-      .map(AbsoluteContractId)
-
-  private[this] def lookupKeySync(key: Node.GlobalKey, forParty: Party)(
-      implicit connection: Connection): Option[AbsoluteContractId] =
-    SQL_SELECT_CONTRACT_KEY_FOR_PARTY
-      .on(
-        "package_id" -> key.templateId.packageId,
-        "name" -> key.templateId.qualifiedName.toString,
-        "value_hash" -> keyHasher.hashKeyString(key),
-        "party" -> forParty
-      )
-      .as(ledgerString("contract_id").singleOpt)
-      .map(AbsoluteContractId)
+      .as(contractId("contract_id").singleOpt)
 
   override def lookupKey(key: Node.GlobalKey, forParty: Party): Future[Option[AbsoluteContractId]] =
-    dbDispatcher.executeSql("lookup_contract_by_key")(implicit conn => lookupKeySync(key, forParty))
+    contractsReader.lookupContractKey(forParty, key)
 
-  private def storeContract(offset: Long, contract: ActiveContract)(
+  private def storeContract(offset: Offset, contract: ActiveContract)(
       implicit connection: Connection): Unit = storeContracts(offset, List(contract))
 
-  private def archiveContract(offset: Long, cid: AbsoluteContractId)(
+  private def archiveContract(offset: Offset, cid: AbsoluteContractId)(
       implicit connection: Connection): Boolean =
     SQL_ARCHIVE_CONTRACT
       .on(
@@ -604,7 +572,7 @@ private class JdbcLedgerDao(
     }
   }
 
-  private def storeContracts(offset: Long, contracts: immutable.Seq[ActiveContract])(
+  private def storeContracts(offset: Offset, contracts: immutable.Seq[ActiveContract])(
       implicit connection: Connection): Unit = {
 
     // An ACS contract contains several collections (e.g., witnesses or divulgences).
@@ -748,17 +716,13 @@ private class JdbcLedgerDao(
   private val SQL_BATCH_INSERT_DISCLOSURES =
     "insert into disclosures(transaction_id, event_id, party) values({transaction_id}, {event_id}, {party})"
 
-  private val SQL_INSERT_CHECKPOINT =
-    SQL(
-      "insert into ledger_entries(typ, ledger_offset, recorded_at) values('checkpoint', {ledger_offset}, {recorded_at})")
-
   /**
     * Updates the active contract set from the given DAML transaction.
     * Note: This involves checking the validity of the given DAML transaction.
     * Invalid transactions trigger a rollback of the current SQL transaction.
     */
   private def updateActiveContractSet(
-      offset: Long,
+      offset: Offset,
       submitter: Option[Party],
       tx: Transaction,
       globalDivulgence: Relation[AbsoluteContractId, Party],
@@ -858,7 +822,7 @@ private class JdbcLedgerDao(
       }
   }
 
-  private def storeTransaction(offset: Long, tx: LedgerEntry.Transaction, txBytes: Array[Byte])(
+  private def storeTransaction(offset: Offset, tx: LedgerEntry.Transaction, txBytes: Array[Byte])(
       implicit connection: Connection): Unit = {
     SQL_INSERT_TRANSACTION
       .on(
@@ -894,7 +858,7 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def storeRejection(offset: Long, rejection: LedgerEntry.Rejection)(
+  private def storeRejection(offset: Offset, rejection: LedgerEntry.Rejection)(
       implicit connection: Connection): Unit = {
     val (rejectionDescription, rejectionType) = writeRejectionReason(rejection.rejectionReason)
     SQL_INSERT_REJECTION
@@ -912,15 +876,6 @@ private class JdbcLedgerDao(
     ()
   }
 
-  private def storeCheckpoint(offset: Long, checkpoint: LedgerEntry.Checkpoint)(
-      implicit connection: Connection): Unit = {
-    SQL_INSERT_CHECKPOINT
-      .on("ledger_offset" -> offset, "recorded_at" -> checkpoint.recordedAt)
-      .execute()
-
-    ()
-  }
-
   private def serializeTransaction(ledgerEntry: LedgerEntry): Array[Byte] = {
     ledgerEntry match {
       case LedgerEntry.Transaction(transactionId, _, _, _, _, _, _, genTransaction, _) =>
@@ -932,15 +887,16 @@ private class JdbcLedgerDao(
                 s"Failed to serialize transaction! trId: $transactionId. Details: ${err.errorMessage}."),
             identity
           )
-      case _: LedgerEntry.Rejection | _: LedgerEntry.Checkpoint => Array.empty[Byte]
+      case _: LedgerEntry.Rejection => Array.empty[Byte]
     }
   }
 
+  private def splitOrThrow(id: EventId): NodeId =
+    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
   //TODO: test it for failures..
   override def storeLedgerEntry(
-      offset: Long,
-      newLedgerEnd: Long,
-      externalOffset: Option[ExternalOffset],
+      offset: Offset,
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse] = {
     import PersistenceResponse._
 
@@ -977,10 +933,24 @@ private class JdbcLedgerDao(
                     submitter,
                     rejectionReason
                   )
-                  CommandCompletionsTable.prepareInsert(offset + 1, rejection).map(_.execute())
+                  CommandCompletionsTable.prepareInsert(offset, rejection).map(_.execute())
                   insertEntry(PersistenceEntry.Rejection(rejection))
                 }
-              } getOrElse Ok
+              } getOrElse {
+              transactionsWriter.write(
+                applicationId = tx.applicationId,
+                workflowId = tx.workflowId,
+                transactionId = tx.transactionId,
+                commandId = tx.commandId,
+                submitter = tx.submittingParty,
+                roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
+                ledgerEffectiveTime = tx.ledgerEffectiveTime,
+                offset = offset,
+                transaction = tx.transaction.mapNodeId(splitOrThrow),
+                divulgedContracts = divulgedContracts,
+              )
+              Ok
+            }
           }.recover {
             case NonFatal(e) if e.getMessage.contains(queries.DUPLICATE_KEY_ERROR) =>
               logger.warn(
@@ -990,11 +960,8 @@ private class JdbcLedgerDao(
           }.get
 
         case PersistenceEntry.Rejection(rejection) =>
+          stopDeduplicatingCommandSync(domain.CommandId(rejection.commandId), rejection.submitter)
           storeRejection(offset, rejection)
-          Ok
-
-        case PersistenceEntry.Checkpoint(checkpoint) =>
-          storeCheckpoint(offset, checkpoint)
           Ok
       }
 
@@ -1002,15 +969,15 @@ private class JdbcLedgerDao(
       .executeSql("store_ledger_entry", Some(ledgerEntry.getClass.getSimpleName)) { implicit conn =>
         CommandCompletionsTable.prepareInsert(offset, ledgerEntry.entry).map(_.execute())
         val resp = insertEntry(ledgerEntry)
-        updateLedgerEnd(newLedgerEnd, externalOffset)
+        updateLedgerEnd(offset)
         resp
       }
   }
 
   override def storeInitialState(
       activeContracts: immutable.Seq[ActiveContract],
-      ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
-      newLedgerEnd: LedgerOffset
+      ledgerEntries: immutable.Seq[(Offset, LedgerEntry)],
+      newLedgerEnd: Offset
   ): Future[Unit] = {
     // A map to look up offset by transaction ID
     // Needed to store contracts: in the database, we store the offset at which a contract was created,
@@ -1031,11 +998,23 @@ private class JdbcLedgerDao(
           // First, store all ledger entries without updating the ACS
           // We can't use the storeLedgerEntry(), as that one does update the ACS
           ledgerEntries.foreach {
-            case (i, le) =>
-              le match {
-                case tx: LedgerEntry.Transaction => storeTransaction(i, tx, transactionBytes(i))
-                case rj: LedgerEntry.Rejection => storeRejection(i, rj)
-                case cp: LedgerEntry.Checkpoint => storeCheckpoint(i, cp)
+            case (offset, entry) =>
+              entry match {
+                case tx: LedgerEntry.Transaction =>
+                  storeTransaction(offset, tx, transactionBytes(offset))
+                  transactionsWriter.write(
+                    applicationId = tx.applicationId,
+                    workflowId = tx.workflowId,
+                    transactionId = tx.transactionId,
+                    commandId = tx.commandId,
+                    submitter = tx.submittingParty,
+                    roots = tx.transaction.roots.iterator.map(splitOrThrow).toSet,
+                    ledgerEffectiveTime = tx.ledgerEffectiveTime,
+                    offset = offset,
+                    transaction = tx.transaction.mapNodeId(splitOrThrow),
+                    divulgedContracts = Nil,
+                  )
+                case rj: LedgerEntry.Rejection => storeRejection(offset, rj)
               }
           }
 
@@ -1043,7 +1022,7 @@ private class JdbcLedgerDao(
           // consistent with the given list of ledger entries.
           activeContracts.foreach(c => storeContract(transactionIdMap(c.transactionId), c))
 
-          updateLedgerEnd(newLedgerEnd, None)
+          updateLedgerEnd(newLedgerEnd)
       }
   }
 
@@ -1051,28 +1030,25 @@ private class JdbcLedgerDao(
     (rejectionReason.description, rejectionReason match {
       case _: Inconsistent => "Inconsistent"
       case _: OutOfQuota => "OutOfQuota"
-      case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
       case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
       case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
+      case _: InvalidLedgerTime => "InvalidLedgerTime"
     })
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
     rejectionType match {
       case "Inconsistent" => Inconsistent(description)
       case "OutOfQuota" => OutOfQuota(description)
-      case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
       case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
       case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
+      case "InvalidLedgerTime" => InvalidLedgerTime(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 
   private val SQL_SELECT_ENTRY =
     SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
-
-  private val SQL_SELECT_TRANSACTION =
-    SQL("select * from ledger_entries where transaction_id={transaction_id}")
 
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
@@ -1083,130 +1059,84 @@ private class JdbcLedgerDao(
       ledgerString("command_id").? ~
       ledgerString("application_id").? ~
       party("submitter").? ~
-      ledgerString("workflow_id")(emptyStringToNullColumn).? ~
+      ledgerString("workflow_id")
+        .map(s => if (s.isEmpty) null.asInstanceOf[Ref.LedgerString] else s)
+        .? ~
       date("effective_at").? ~
       date("recorded_at").? ~
       binaryStream("transaction").? ~
       str("rejection_type").? ~
       str("rejection_description").? ~
-      long("ledger_offset")
+      offset("ledger_offset")
   ) map flatten map ParsedEntry.tupled
 
   private val DisclosureParser = ledgerString("event_id") ~ party("party") map flatten
 
   private def toLedgerEntry(
       parsedEntry: ParsedEntry,
-      disclosureOpt: Option[Relation[EventId, Party]]): (Long, LedgerEntry) = parsedEntry match {
-    case ParsedEntry(
-        "transaction",
-        Some(transactionId),
-        commandId,
-        applicationId,
-        submitter,
-        workflowId,
-        Some(effectiveAt),
-        Some(recordedAt),
-        Some(transactionStream),
-        None,
-        None,
-        offset) =>
-      offset -> LedgerEntry.Transaction(
-        commandId,
-        transactionId,
-        applicationId,
-        submitter,
-        workflowId,
-        effectiveAt.toInstant,
-        recordedAt.toInstant,
-        transactionSerializer
-          .deserializeTransaction(transactionStream)
-          .fold(
-            err =>
-              sys.error(s"failed to deserialize transaction! trId: $transactionId: error: $err"),
-            identity),
-        disclosureOpt.getOrElse(Map.empty)
-      )
-    case ParsedEntry(
-        "rejection",
-        None,
-        Some(commandId),
-        Some(applicationId),
-        Some(submitter),
-        None,
-        None,
-        Some(recordedAt),
-        None,
-        Some(rejectionType),
-        Some(rejectionDescription),
-        offset) =>
-      val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
-      offset -> LedgerEntry
-        .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
-    case ParsedEntry(
-        "checkpoint",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(recordedAt),
-        None,
-        None,
-        None,
-        offset) =>
-      offset -> LedgerEntry.Checkpoint(recordedAt.toInstant)
-    case invalidRow =>
-      sys.error(s"invalid ledger entry for offset: ${invalidRow.offset}. database row: $invalidRow")
-  }
+      disclosureOpt: Option[Relation[EventId, Party]]): (Offset, LedgerEntry) =
+    parsedEntry match {
+      case ParsedEntry(
+          "transaction",
+          Some(transactionId),
+          commandId,
+          applicationId,
+          submitter,
+          workflowId,
+          Some(effectiveAt),
+          Some(recordedAt),
+          Some(transactionStream),
+          None,
+          None,
+          offset) =>
+        offset -> LedgerEntry.Transaction(
+          commandId,
+          transactionId,
+          applicationId,
+          submitter,
+          workflowId,
+          effectiveAt.toInstant,
+          recordedAt.toInstant,
+          transactionSerializer
+            .deserializeTransaction(transactionStream)
+            .fold(
+              err =>
+                sys.error(s"failed to deserialize transaction! trId: $transactionId: error: $err"),
+              identity),
+          disclosureOpt.getOrElse(Map.empty)
+        )
+      case ParsedEntry(
+          "rejection",
+          None,
+          Some(commandId),
+          Some(applicationId),
+          Some(submitter),
+          None,
+          None,
+          Some(recordedAt),
+          None,
+          Some(rejectionType),
+          Some(rejectionDescription),
+          offset) =>
+        val rejectionReason = readRejectionReason(rejectionType, rejectionDescription)
+        offset -> LedgerEntry
+          .Rejection(recordedAt.toInstant, commandId, applicationId, submitter, rejectionReason)
+      case invalidRow =>
+        sys.error(
+          s"invalid ledger entry for offset: ${invalidRow.offset.toApiString}. database row: $invalidRow")
+    }
 
-  override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] = {
+  override def lookupLedgerEntry(offset: Offset): Future[Option[LedgerEntry]] = {
     dbDispatcher
-      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: $offset")) { implicit conn =>
-        val entry = SQL_SELECT_ENTRY
-          .on("ledger_offset" -> offset)
-          .as(EntryParser.singleOpt)
-        entry.map(e => e -> loadDisclosureOptForEntry(e))
+      .executeSql("lookup_ledger_entry_at_offset", Some(s"offset: ${offset.toApiString}")) {
+        implicit conn =>
+          val entry = SQL_SELECT_ENTRY
+            .on("ledger_offset" -> offset)
+            .as(EntryParser.singleOpt)
+          entry.map(e => e -> loadDisclosureOptForEntry(e))
       }
       .map(_.map((toLedgerEntry _).tupled(_)._2))(executionContext)
   }
-
-  override def lookupTransaction(
-      transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
-    dbDispatcher
-      .executeSql("lookup_transaction", Some(s"tx id: $transactionId")) { implicit conn =>
-        val entry = SQL_SELECT_TRANSACTION
-          .on("transaction_id" -> (transactionId: String))
-          .as(EntryParser.singleOpt)
-        entry.map(e => e -> loadDisclosureOptForEntry(e))
-      }
-      .map(_.map((toLedgerEntry _).tupled)
-        .collect {
-          case (offset, t: LedgerEntry.Transaction) => offset -> t
-        })(executionContext)
-  }
-
-  private val ContractDataParser = (ledgerString("id")
-    ~ ledgerString("transaction_id").?
-    ~ ledgerString("create_event_id").?
-    ~ ledgerString("workflow_id").?
-    ~ date("effective_at").?
-    ~ binaryStream("contract")
-    ~ binaryStream("key").?
-    ~ str("signatories").?
-    ~ str("observers").? map flatten)
-
-  private val SQL_SELECT_CONTRACT =
-    SQL("""select cd.contract
-        |from contract_data cd
-        |left join contracts c on cd.id=c.id
-        |left join contract_witnesses cowi on cowi.contract_id = c.id and witness = {party}
-        |left join contract_divulgences codi on codi.contract_id = cd.id and party = {party}
-        |where
-        |  cd.id={contract_id} and
-        |  c.archive_offset is null and
-        |  (cowi.witness is not null or codi.party is not null)
-        |""".stripMargin)
 
   private val ContractLetParser = date("effective_at").?
 
@@ -1221,20 +1151,6 @@ private class JdbcLedgerDao(
         |  (le.effective_at is null or c.archive_offset is null)
         | """.stripMargin)
 
-  private val SQL_SELECT_WITNESS =
-    SQL("select witness from contract_witnesses where contract_id={contract_id}")
-
-  private val DivulgenceParser = (party("party")
-    ~ long("ledger_offset")
-    ~ ledgerString("transaction_id") map flatten)
-
-  private val SQL_SELECT_DIVULGENCE =
-    SQL(
-      "select party, ledger_offset, transaction_id from contract_divulgences where contract_id={contract_id}")
-
-  private val SQL_SELECT_KEY_MAINTAINERS =
-    SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
-
   private def lookupContractLetSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[LetLookup] =
     SQL_SELECT_CONTRACT_LET
@@ -1245,143 +1161,37 @@ private class JdbcLedgerDao(
         case Some(let) => Let(let.toInstant)
       }
 
+  override def lookupMaximumLedgerTime(
+      contractIds: Set[AbsoluteContractId],
+  ): Future[Option[Instant]] =
+    contractsReader.lookupMaximumLedgerTime(contractIds)
+
   override def lookupActiveOrDivulgedContract(
       contractId: AbsoluteContractId,
       forParty: Party): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
-    dbDispatcher
-      .executeSql("lookup_active_contract") { implicit conn =>
-        SQL_SELECT_CONTRACT
-          .on(
-            "contract_id" -> contractId.coid,
-            "party" -> forParty
-          )
-          .as(binaryStream("contract").singleOpt)
-      }
-      .map(_.map { contractStream =>
-        contractSerializer
-          .deserializeContractInstance(contractStream)
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:${contractId.coid}"))
-      })(executionContext)
-
-  private def mapContractDetails(
-      contractResult: (
-          ContractIdString,
-          Option[LedgerString],
-          Option[EventId],
-          Option[WorkflowId],
-          Option[Date],
-          InputStream,
-          Option[InputStream],
-          Option[String],
-          Option[String]))(implicit conn: Connection): Contract =
-    contractResult match {
-      case (coid, None, None, None, None, contractStream, None, None, None) =>
-        val divulgences = lookupDivulgences(coid)
-        val absoluteCoid = AbsoluteContractId(coid)
-
-        DivulgedContract(
-          absoluteCoid,
-          contractSerializer
-            .deserializeContractInstance(contractStream)
-            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
-          divulgences
-        )
-
-      case (
-          coid,
-          Some(transactionId),
-          Some(eventId),
-          workflowId,
-          Some(ledgerEffectiveTime),
-          contractStream,
-          keyStreamO,
-          Some(signatoriesRaw),
-          observersRaw) =>
-        val witnesses = lookupWitnesses(coid)
-        val divulgences = lookupDivulgences(coid)
-        val absoluteCoid = AbsoluteContractId(coid)
-        val contractInstance = contractSerializer
-          .deserializeContractInstance(contractStream)
-          .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid"))
-
-        val signatories =
-          signatoriesRaw.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString)
-        val observers = observersRaw
-          .map(_.split(JdbcLedgerDao.PARTY_SEPARATOR).toSet.map(Party.assertFromString))
-          .getOrElse(Set.empty)
-
-        ActiveContract(
-          absoluteCoid,
-          ledgerEffectiveTime.toInstant,
-          transactionId,
-          eventId,
-          workflowId,
-          contractInstance,
-          witnesses,
-          divulgences,
-          keyStreamO.map(keyStream => {
-            val keyMaintainers = lookupKeyMaintainers(coid)
-            val keyValue = ValueSerializer
-              .deserializeValue(keyStream, s"Failed to deserialize key for contract $coid")
-              .ensureNoCid
-              .fold(
-                coid => sys.error(s"Found contract ID $coid in a contract key"),
-                identity,
-              )
-            KeyWithMaintainers(keyValue, keyMaintainers)
-          }),
-          signatories,
-          observers,
-          contractInstance.agreementText
-        )
-
-      case (_, _, _, _, _, _, _, _, _) =>
-        sys.error(
-          "mapContractDetails called with partial data, can not map to either active or divulged contract")
-    }
-
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
-    SQL_SELECT_WITNESS
-      .on("contract_id" -> coid)
-      .as(party("witness").*)
-      .toSet
-
-  private def lookupDivulgences(coid: String)(
-      implicit conn: Connection): Map[Party, TransactionId] =
-    SQL_SELECT_DIVULGENCE
-      .on("contract_id" -> coid)
-      .as(DivulgenceParser.*)
-      .map {
-        case (party, _, transaction_id) => party -> transaction_id
-      }
-      .toMap
-
-  private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
-    SQL_SELECT_KEY_MAINTAINERS
-      .on("contract_id" -> coid)
-      .as(party("maintainer").*)
-      .toSet
+    contractsReader.lookupActiveContract(forParty, contractId)
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+    "select * from ledger_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
   private val PageSize = 100
 
   override def getLedgerEntries(
-      startInclusive: Long,
-      endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, LedgerEntry), NotUsed] =
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         s"load_ledger_entries",
-        Some(s"bounds: [$startInclusive, $endExclusive[ query-offset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] query-offset $queryOffset")) {
         implicit conn =>
           val parsedEntries = SQL_GET_LEDGER_ENTRIES
             .on(
-              "startInclusive" -> startInclusive,
-              "endExclusive" -> endExclusive,
+              "startExclusive" -> startExclusive,
+              "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(EntryParser.*)
+            .asVectorOf(EntryParser)
           parsedEntries.map(entry => entry -> loadDisclosureOptForEntry(entry))
       }
     }.map((toLedgerEntry _).tupled)
@@ -1397,16 +1207,8 @@ private class JdbcLedgerDao(
     }
   }
 
-  // this query pre-filters the active contracts. this avoids loading data that anyway will be dismissed later
-  private val SQL_SELECT_ACTIVE_CONTRACTS = SQL(queries.SQL_SELECT_ACTIVE_CONTRACTS)
-
   private def orEmptyStringList(xs: Iterable[String]): List[String] =
     if (xs.nonEmpty) xs.toList else List("")
-
-  private def justByParty(txf: TransactionFilter): List[String] =
-    orEmptyStringList(txf.filtersByParty.collect {
-      case (party, Filters(None)) => party
-    })
 
   // using '&' as a "separator" for the two columns because it is not allowed in either Party or Identifier strings
   // and querying on tuples is basically impossible to do sensibly.
@@ -1418,40 +1220,6 @@ private class JdbcLedgerDao(
             templateIds.map(t => s"${t.qualifiedName.qualifiedName}&$party")
           case _ => Seq.empty
         })
-
-  override def getActiveContractSnapshot(
-      endExclusive: LedgerOffset,
-      filter: TransactionFilter): Future[LedgerSnapshot] = {
-    val contractStream =
-      PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
-        dbDispatcher.executeSql(
-          "load_active_contracts",
-          Some(s"bounds: [0, $endExclusive[ queryOffset $queryOffset")) { implicit conn =>
-          SQL_SELECT_ACTIVE_CONTRACTS
-            .on(
-              "endExclusive" -> endExclusive,
-              "queryOffset" -> queryOffset,
-              "pageSize" -> PageSize,
-              "template_parties" -> byPartyAndTemplate(filter),
-              "wildcard_parties" -> justByParty(filter),
-            )
-            .as(ContractDataParser.*)(conn)
-        }
-      }.mapAsync(1) { contractResult =>
-        dbDispatcher
-          .executeSql("load_contract_details", Some(s"contract details: ${contractResult._1}")) {
-            implicit conn =>
-              mapContractDetails(contractResult) match {
-                case ac: ActiveContract => ac
-                case _: DivulgedContract =>
-                  sys.error("Impossible: SQL_SELECT_ACTIVE_CONTRACTS returned a divulged contract")
-              }
-          }
-
-      }
-
-    Future.successful(LedgerSnapshot(endExclusive, contractStream))
-  }
 
   private val SQL_SELECT_MULTIPLE_PARTIES =
     SQL(
@@ -1469,13 +1237,16 @@ private class JdbcLedgerDao(
     )
 
   override def getParties(parties: Seq[Party]): Future[List[PartyDetails]] =
-    dbDispatcher
-      .executeSql("load_parties") { implicit conn =>
-        SQL_SELECT_MULTIPLE_PARTIES
-          .on("parties" -> parties)
-          .as(PartyDataParser.*)
-      }
-      .map(_.map(constructPartyDetails))(executionContext)
+    if (parties.isEmpty)
+      Future.successful(List.empty)
+    else
+      dbDispatcher
+        .executeSql("load_parties") { implicit conn =>
+          SQL_SELECT_MULTIPLE_PARTIES
+            .on("parties" -> parties)
+            .as(PartyDataParser.*)
+        }
+        .map(_.map(constructPartyDetails))(executionContext)
 
   override def listKnownParties(): Future[List[PartyDetails]] =
     dbDispatcher
@@ -1552,16 +1323,14 @@ private class JdbcLedgerDao(
       |""".stripMargin)
 
   override def storePackageEntry(
-      offset: LedgerOffset,
-      newLedgerEnd: LedgerOffset,
-      externalOffset: Option[ExternalOffset],
+      offset: Offset,
       packages: List[(Archive, PackageDetails)],
       optEntry: Option[PackageLedgerEntry]
   ): Future[PersistenceResponse] = {
     dbDispatcher.executeSql(
       "store_package_entry",
       Some(s"packages: ${packages.map(_._1.getHash).mkString(", ")}")) { implicit conn =>
-      updateLedgerEnd(newLedgerEnd, externalOffset)
+      updateLedgerEnd(offset)
 
       if (packages.nonEmpty) {
         val uploadId = optEntry.map(_.submissionId).getOrElse(UUID.randomUUID().toString)
@@ -1609,10 +1378,10 @@ private class JdbcLedgerDao(
   }
 
   private val SQL_GET_PACKAGE_ENTRIES = SQL(
-    "select * from package_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
+    "select * from package_entries where ledger_offset>{startExclusive} and ledger_offset<={endInclusive} order by ledger_offset asc limit {pageSize} offset {queryOffset}")
 
-  private val packageEntryParser: RowParser[(Long, PackageLedgerEntry)] =
-    (long("ledger_offset") ~
+  private val packageEntryParser: RowParser[(Offset, PackageLedgerEntry)] =
+    (offset("ledger_offset") ~
       date("recorded_at") ~
       ledgerString("submission_id").? ~
       str("typ") ~
@@ -1630,20 +1399,21 @@ private class JdbcLedgerDao(
       }
 
   override def getPackageEntries(
-      startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(Long, PackageLedgerEntry), NotUsed] = {
-    PaginatingAsyncStream(PageSize, executionContext) { queryOffset =>
+      startExclusive: Offset,
+      endInclusive: Offset): Source[(Offset, PackageLedgerEntry), NotUsed] = {
+    PaginatingAsyncStream(PageSize) { queryOffset =>
       dbDispatcher.executeSql(
         "load_package_entries",
-        Some(s"bounds: [$startInclusive, $endExclusive[ queryOffset $queryOffset")) {
+        Some(
+          s"bounds: ]${startExclusive.toApiString}, ${endInclusive.toApiString}] queryOffset $queryOffset")) {
         implicit conn =>
           SQL_GET_PACKAGE_ENTRIES
             .on(
-              "startInclusive" -> startInclusive,
-              "endExclusive" -> endExclusive,
+              "startExclusive" -> startExclusive,
+              "endInclusive" -> endInclusive,
               "pageSize" -> PageSize,
               "queryOffset" -> queryOffset)
-            .as(packageEntryParser.*)
+            .asVectorOf(packageEntryParser)
       }
     }
   }
@@ -1659,15 +1429,22 @@ private class JdbcLedgerDao(
       "deduplicate_until"
     )
 
+  private def deduplicationKey(
+      commandId: domain.CommandId,
+      submitter: Ref.Party,
+  ): String = commandId.unwrap + "%" + submitter
+
   override def deduplicateCommand(
-      deduplicationKey: String,
+      commandId: domain.CommandId,
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant): Future[CommandDeduplicationResult] =
     dbDispatcher.executeSql("deduplicate_command") { implicit conn =>
+      val key = deduplicationKey(commandId, submitter)
       // Insert a new deduplication entry, or update an expired entry
       val updated = SQL(queries.SQL_INSERT_COMMAND)
         .on(
-          "deduplicationKey" -> deduplicationKey,
+          "deduplicationKey" -> key,
           "submittedAt" -> submittedAt,
           "deduplicateUntil" -> deduplicateUntil)
         .executeUpdate()
@@ -1678,34 +1455,60 @@ private class JdbcLedgerDao(
       } else {
         // Deduplication row already exists
         val result = SQL_SELECT_COMMAND
-          .on("deduplicationKey" -> deduplicationKey)
+          .on("deduplicationKey" -> key)
           .as(CommandDataParser.single)
 
         CommandDeduplicationDuplicate(result.deduplicateUntil)
       }
     }
 
-  private val SQL_TRUNCATE_ALL_TABLES =
-    SQL("""
-        |truncate ledger_entries cascade;
-        |truncate disclosures cascade;
-        |truncate contracts cascade;
-        |truncate contract_data cascade;
-        |truncate contract_witnesses cascade;
-        |truncate contract_key_maintainers cascade;
-        |truncate parameters cascade;
-        |truncate contract_keys cascade;
-        |truncate configuration_entries cascade;
-        |truncate package_entries cascade;
-        |truncate participant_command_completions cascade;
-        |truncate participant_command_submissions cascade;
-      """.stripMargin)
+  private val SQL_DELETE_EXPIRED_COMMANDS = SQL("""
+      |delete from participant_command_submissions
+      |where deduplicate_until < {currentTime}
+    """.stripMargin)
+
+  override def removeExpiredDeduplicationData(currentTime: Instant): Future[Unit] =
+    dbDispatcher.executeSql("remove_expired_deduplication_data") { implicit conn =>
+      SQL_DELETE_EXPIRED_COMMANDS
+        .on("currentTime" -> currentTime)
+        .execute()
+      ()
+    }
+
+  private val SQL_DELETE_COMMAND = SQL("""
+     |delete from participant_command_submissions
+     |where deduplication_key = {deduplicationKey}
+    """.stripMargin)
+
+  private[this] def stopDeduplicatingCommandSync(commandId: domain.CommandId, submitter: Party)(
+      implicit conn: Connection): Unit = {
+    val key = deduplicationKey(commandId, submitter)
+    SQL_DELETE_COMMAND
+      .on("deduplicationKey" -> key)
+      .execute()
+    ()
+  }
+
+  override def stopDeduplicatingCommand(
+      commandId: domain.CommandId,
+      submitter: Party): Future[Unit] =
+    dbDispatcher.executeSql("stop_deduplicating_command") { implicit conn =>
+      stopDeduplicatingCommandSync(commandId, submitter)
+    }
 
   override def reset(): Future[Unit] =
     dbDispatcher.executeSql("truncate_all_tables") { implicit conn =>
-      val _ = SQL_TRUNCATE_ALL_TABLES.execute()
-      ()
+      val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
+
+  override val transactionsWriter: TransactionsWriter =
+    new TransactionsWriter(dbType)
+
+  override val transactionsReader: TransactionsReader =
+    new TransactionsReader(dbDispatcher, executionContext, eventsPageSize)
+
+  private val contractsReader: ContractsReader =
+    ContractsReader(dbDispatcher, executionContext, dbType)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
@@ -1713,52 +1516,73 @@ private class JdbcLedgerDao(
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
 
-  override val completions: CommandCompletionsReader[LedgerOffset] =
+  override val completions: CommandCompletionsReader[Offset] =
     CommandCompletionsReader(dbDispatcher)
 }
 
 object JdbcLedgerDao {
 
-  val defaultNumberOfShortLivedConnections = 16
+  private val DefaultNumberOfShortLivedConnections = 16
 
-  def owner(
+  private val ThreadFactory = new ThreadFactoryBuilder().setNameFormat("dao-executor-%d").build()
+
+  def readOwner(
+      serverRole: ServerRole,
       jdbcUrl: String,
+      eventsPageSize: Int,
       metrics: MetricRegistry,
-      executionContext: ExecutionContext,
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerReadDao] = {
+    val maxConnections = DefaultNumberOfShortLivedConnections
+    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, metrics)
+      .map(new MeteredLedgerReadDao(_, metrics))
+  }
+
+  def writeOwner(
+      serverRole: ServerRole,
+      jdbcUrl: String,
+      eventsPageSize: Int,
+      metrics: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] = {
     val dbType = DbType.jdbcType(jdbcUrl)
     val maxConnections =
-      if (dbType.supportsParallelWrites) defaultNumberOfShortLivedConnections else 1
-    for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-    } yield new MeteredLedgerDao(JdbcLedgerDao(dbDispatcher, dbType, executionContext), metrics)
+      if (dbType.supportsParallelWrites) DefaultNumberOfShortLivedConnections else 1
+    owner(serverRole, jdbcUrl, maxConnections, eventsPageSize, metrics)
+      .map(new MeteredLedgerDao(_, metrics))
   }
 
-  def apply(
-      dbDispatcher: DbDispatcher,
-      dbType: DbType,
-      executionContext: ExecutionContext,
-  )(implicit logCtx: LoggingContext): LedgerDao =
-    new JdbcLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      KeyHasher,
-      dbType,
-      executionContext,
-    )
-
-  private val PARTY_SEPARATOR = '%'
+  private def owner(
+      serverRole: ServerRole,
+      jdbcUrl: String,
+      maxConnections: Int,
+      eventsPageSize: Int,
+      metrics: MetricRegistry,
+  )(implicit logCtx: LoggingContext): ResourceOwner[LedgerDao] =
+    for {
+      dbDispatcher <- DbDispatcher.owner(serverRole, jdbcUrl, maxConnections, metrics)
+      executor <- ResourceOwner.forExecutorService(() =>
+        Executors.newCachedThreadPool(ThreadFactory))
+    } yield
+      new JdbcLedgerDao(
+        maxConnections,
+        dbDispatcher,
+        ContractSerializer,
+        TransactionSerializer,
+        KeyHasher,
+        DbType.jdbcType(jdbcUrl),
+        ExecutionContext.fromExecutor(executor),
+        eventsPageSize,
+      )
 
   sealed trait Queries {
 
     // SQL statements using the proprietary Postgres on conflict .. do nothing clause
     protected[JdbcLedgerDao] def SQL_INSERT_CONTRACT_DATA: String
-    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
-    protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
-    protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
-    protected[JdbcLedgerDao] def SQL_SELECT_ACTIVE_CONTRACTS: String
+    protected[JdbcLedgerDao] def SQL_INSERT_PACKAGE: String
+
+    protected[JdbcLedgerDao] def SQL_IMPLICITLY_INSERT_PARTIES: String
+
+    protected[JdbcLedgerDao] def SQL_INSERT_COMMAND: String
 
     // Note: the SQL backend may receive divulgence information for the same (contract, party) tuple
     // more than once through BlindingInfo.globalDivulgence.
@@ -1766,7 +1590,8 @@ object JdbcLedgerDao {
     // stores the offset at which the contract was first disclosed.
     // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
     protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES: String
-    protected[JdbcLedgerDao] def SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String
+
+    protected[JdbcLedgerDao] def SQL_TRUNCATE_TABLES: String
 
     protected[JdbcLedgerDao] def DUPLICATE_KEY_ERROR
       : String // TODO: Avoid brittleness of error message checks
@@ -1802,51 +1627,34 @@ object JdbcLedgerDao {
         |values({contract_id}, {party}, {ledger_offset}, {transaction_id})
         |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String =
-      """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
-        |select {contract_id}, {party}, ledger_offset, {transaction_id}
-        |from ledger_entries
-        |where transaction_id={transaction_id}
-        |on conflict on constraint contract_divulgences_idx do nothing""".stripMargin
-
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String = "duplicate key"
 
-    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
-      // the distinct keyword is required, because a single contract can be visible by 2 parties,
-      // thus resulting in multiple output rows
-      s"""
-         |with stakeholders as (
-         |select signatory as party, contract_id from contract_signatories
-         |  union
-         |  select observer as party, contract_id from contract_observers
-         |)
-         |select distinct
-         |  c.create_offset,
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  string_agg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  string_agg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
-         |from contracts c
-         |inner join contract_data cd on c.id = cd.id
-         |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join stakeholders s on c.id = s.contract_id
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |where create_offset < {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
-         |and
-         |   (
-         |     concat(c.name,'&',s.party) in ({template_parties})
-         |     OR s.party in ({wildcard_parties})
-         |    )
-         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
-         |order by c.create_offset
-         |limit {pageSize} offset {queryOffset}
-         |""".stripMargin
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |truncate table configuration_entries cascade;
+        |truncate table contracts cascade;
+        |truncate table contract_data cascade;
+        |truncate table contract_divulgences cascade;
+        |truncate table contract_keys cascade;
+        |truncate table contract_key_maintainers cascade;
+        |truncate table contract_observers cascade;
+        |truncate table contract_signatories cascade;
+        |truncate table contract_witnesses cascade;
+        |truncate table disclosures cascade;
+        |truncate table ledger_entries cascade;
+        |truncate table package_entries cascade;
+        |truncate table parameters cascade;
+        |truncate table participant_command_completions cascade;
+        |truncate table participant_command_submissions cascade;
+        |truncate table participant_events cascade;
+        |truncate table participant_event_flat_transaction_witnesses cascade;
+        |truncate table participant_event_witnesses_complement cascade;
+        |truncate table participant_contracts cascade;
+        |truncate table participant_contract_witnesses cascade;
+        |truncate table parties cascade;
+        |truncate table party_entries cascade;
+      """.stripMargin
+
   }
 
   object H2DatabaseQueries extends Queries {
@@ -1879,52 +1687,36 @@ object JdbcLedgerDao {
         |when not matched then insert (contract_id, party, ledger_offset, transaction_id)
         |values ({contract_id}, {party}, {ledger_offset}, {transaction_id})""".stripMargin
 
-    override protected[JdbcLedgerDao] val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID: String =
-      """merge into contract_divulgences using dual on contract_id = {contract_id} and party = {party}
-        |when not matched then insert (contract_id, party, ledger_offset, transaction_id)
-        |select {contract_id}, {party}, ledger_offset, {transaction_id}
-        |from ledger_entries
-        |where transaction_id={transaction_id}""".stripMargin
-
     override protected[JdbcLedgerDao] val DUPLICATE_KEY_ERROR: String =
       "Unique index or primary key violation"
 
-    override protected[JdbcLedgerDao] val SQL_SELECT_ACTIVE_CONTRACTS: String =
-      // the distinct keyword is required, because a single contract can be visible by 2 parties,
-      // thus resulting in multiple output rows
-      s"""
-         |with stakeholders as (
-         |select signatory as party, contract_id from contract_signatories
-         |  union
-         |  select observer as party, contract_id from contract_observers
-         |)
-         |select distinct
-         |  c.create_offset,
-         |  cd.id,
-         |  cd.contract,
-         |  c.transaction_id,
-         |  c.create_event_id,
-         |  c.workflow_id,
-         |  c.key,
-         |  le.effective_at,
-         |  listagg(distinct sigs.signatory, '$PARTY_SEPARATOR') as signatories,
-         |  listagg(distinct obs.observer, '$PARTY_SEPARATOR') as observers
-         |from contracts c
-         |inner join contract_data cd on c.id = cd.id
-         |inner join ledger_entries le on c.transaction_id = le.transaction_id
-         |inner join stakeholders s on c.id = s.contract_id
-         |left join contract_signatories sigs on sigs.contract_id = c.id
-         |left join contract_observers obs on obs.contract_id = c.id
-         |where c.create_offset <= {endExclusive} and (archive_offset is null or archive_offset > {endExclusive})
-         |and
-         |   (
-         |     concat(c.name,'&',s.party) in ({template_parties})
-         |     OR s.party in ({wildcard_parties})
-         |    )
-         |group by c.create_offset, cd.id, cd.contract, c.transaction_id, c.create_event_id, c.workflow_id, c.key, le.effective_at
-         |order by c.create_offset
-         |limit {pageSize} offset {queryOffset}
-         |""".stripMargin
+    override protected[JdbcLedgerDao] val SQL_TRUNCATE_TABLES: String =
+      """
+        |set referential_integrity false;
+        |truncate table configuration_entries;
+        |truncate table contracts;
+        |truncate table contract_data;
+        |truncate table contract_divulgences;
+        |truncate table contract_keys;
+        |truncate table contract_key_maintainers;
+        |truncate table contract_observers;
+        |truncate table contract_signatories;
+        |truncate table contract_witnesses;
+        |truncate table disclosures;
+        |truncate table ledger_entries;
+        |truncate table package_entries;
+        |truncate table parameters;
+        |truncate table participant_command_completions;
+        |truncate table participant_command_submissions;
+        |truncate table participant_events;
+        |truncate table participant_event_flat_transaction_witnesses;
+        |truncate table participant_event_witnesses_complement;
+        |truncate table participant_contracts;
+        |truncate table participant_contract_witnesses;
+        |truncate table parties;
+        |truncate table party_entries;
+        |set referential_integrity true;
+      """.stripMargin
 
   }
 }

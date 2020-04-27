@@ -6,10 +6,18 @@
         </encoder>
     </appender>
 
-    <appender name="TEST-LOGGER" class="com.digitalasset.daml.lf.engine.script.test.LogCollector" />
+    <appender name="TEST-LOGGER" class="com.daml.lf.engine.script.test.LogCollector" />
 
     <logger name="io.netty" level="WARN" />
     <logger name="io.grpc.netty" level="WARN" />
+
+    <!-- Disable all logging on submission failures.
+         Otherwise tests for failing submits become a logging mess. -->
+    <logger name="com.daml.http.CommandService" level="OFF" />
+    <logger name="com.daml.http.Endpoints" level="OFF" />
+    <logger name="com.daml.platform.apiserver.services.ApiSubmissionService" level="ERROR" />
+
+    <!-- Redirect tracelogs so we can access them in tests. -->
     <logger name="daml.tracelog" level="DEBUG">
       <appender-ref ref="TEST-LOGGER" />
     </logger>

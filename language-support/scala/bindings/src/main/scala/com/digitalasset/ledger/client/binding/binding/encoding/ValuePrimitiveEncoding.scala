@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 package encoding
 
 import scala.language.higherKinds
 import scala.collection.immutable.Seq
 import scalaz.Isomorphism.<~>
 
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => VSum}
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.ledger.api.v1.value.Value.{Sum => VSum}
+import com.daml.ledger.client.binding.{Primitive => P}
 
 /** Core instances of a typeclass (or other type) that relate all cases of the
-  * [[com.digitalasset.ledger.api.v1.value.Value]] sum type to the [[Primitive]]
+  * [[com.daml.ledger.api.v1.value.Value]] sum type to the [[Primitive]]
   * types.  All other instances, such as those for record, sum, and template
   * types, are derived from these ones, which thus form the "axioms" of any
   * typeclass relating gRPC values to custom DAML data types built upon Scala

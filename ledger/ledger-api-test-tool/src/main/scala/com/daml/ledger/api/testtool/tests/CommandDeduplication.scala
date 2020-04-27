@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -8,12 +8,16 @@ import java.util.UUID
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions.assertGrpcError
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.Dummy
-import com.digitalasset.timer.Delayed
+import com.daml.ledger.test_stable.DA.Types.Tuple2
+import com.daml.ledger.test_stable.Test.TextKeyOperations._
+import com.daml.ledger.test_stable.Test._
+import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
+import scala.util.{Failure, Success}
 
 final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
 
@@ -35,13 +39,17 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
+      val requestA = ledger
+        .submitRequest(party, Dummy(party).create.command)
+        .update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := a,
+        )
+      val requestB = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(_.commands.commandId := b)
 
       for {
-        request <- ledger.submitRequest(party, Dummy(party).create.command)
-        requestA = request.update(
-          _.commands.deduplicationTime := deduplicationTime,
-          _.commands.commandId := a)
-
         // Submit command A (first deduplication window)
         _ <- ledger.submit(requestA)
         failure1 <- ledger.submit(requestA).failed
@@ -54,8 +62,7 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
         failure2 <- ledger.submit(requestA).failed
 
         // Submit and wait for command B (to get a unique completion for the end of the test)
-        submitAndWaitRequest <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        _ <- ledger.submitAndWait(submitAndWaitRequest.update(_.commands.commandId := b))
+        _ <- ledger.submitAndWait(requestB)
 
         // Inspect created contracts
         activeContracts <- ledger.activeContracts(party)
@@ -71,6 +78,67 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
   }
 
   test(
+    "CDStopOnSubmissionFailure",
+    "Stop deduplicating commands on submission failure",
+    allocate(TwoParties),
+  ) {
+    case Participants(Participant(ledger, alice, bob)) =>
+      // Do not set the deduplication timeout.
+      // The server will default to the maximum possible deduplication timeout.
+      val requestA = ledger.submitRequest(alice, Dummy(bob).create.command)
+
+      for {
+        // Submit an invalid command (should fail with INVALID_ARGUMENT)
+        failure1 <- ledger.submit(requestA).failed
+
+        // Re-submit the invalid command (should again fail with INVALID_ARGUMENT and not with ALREADY_EXISTS)
+        failure2 <- ledger.submit(requestA).failed
+      } yield {
+        assertGrpcError(failure1, Status.Code.INVALID_ARGUMENT, "")
+        assertGrpcError(failure2, Status.Code.INVALID_ARGUMENT, "")
+      }
+  }
+
+  test(
+    "CDStopOnCompletionFailure",
+    "Stop deduplicating commands on completion failure",
+    allocate(SingleParty),
+  ) {
+    case Participants(Participant(ledger, party)) =>
+      val key = UUID.randomUUID().toString
+      val commandId = UUID.randomUUID().toString
+
+      for {
+        // Create a helper and a text key
+        ko <- ledger.create(party, TextKeyOperations(party))
+        _ <- ledger.create(party, TextKey(party, key, List()))
+
+        // Create two competing requests
+        requestTemplate = ledger.submitAndWaitRequest(
+          party,
+          ko.exerciseTKOFetchAndRecreate(party, Tuple2(party, key)).command)
+        requestA = requestTemplate.update(_.commands.commandId := commandId + "-A")
+        requestB = requestTemplate.update(_.commands.commandId := commandId + "-B")
+
+        // Submit both requests in parallel.
+        // Either both succeed (if one transaction is recorded faster than the other submission starts command interpretation, unlikely)
+        // Or one submission is rejected (if one transaction is recorded during the call of lookupMaximumLedgerTime() in [[LedgerTimeHelper]], unlikely)
+        // Or one transaction is rejected (this is what we want to test)
+        submissionResults <- Future.traverse(List(requestA, requestB))(request =>
+          ledger.submitAndWait(request).transform(result => Success(request -> result)))
+
+        // Resubmit a failed command.
+        // No matter what the rejection reason was (hopefully it was a rejected transaction),
+        // a resubmission of exactly the same command should succeed.
+        _ <- submissionResults
+          .collectFirst { case (request, Failure(_)) => request }
+          .fold(Future.successful(()))(request => ledger.submitAndWait(request))
+      } yield {
+        ()
+      }
+  }
+
+  test(
     "CDSimpleDeduplicationCommandClient",
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
@@ -79,21 +147,22 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
+      val requestA = ledger
+        .submitAndWaitRequest(party, Dummy(party).create.command)
+        .update(
+          _.commands.deduplicationTime := deduplicationTime,
+          _.commands.commandId := a,
+        )
 
       for {
-        request <- ledger.submitAndWaitRequest(party, Dummy(party).create.command)
-        requestA = request.update(
-          _.commands.deduplicationTime := deduplicationTime,
-          _.commands.commandId := a)
-
-        // Submit command A (first TTL window)
+        // Submit command A (first deduplication window)
         _ <- ledger.submitAndWait(requestA)
         failure1 <- ledger.submitAndWait(requestA).failed
 
-        // Wait until the end of first TTL window
+        // Wait until the end of first deduplication window
         _ <- Delayed.by(deduplicationSeconds.seconds)(())
 
-        // Submit command A (second TTL window)
+        // Submit command A (second deduplication window)
         _ <- ledger.submitAndWait(requestA)
         failure2 <- ledger.submitAndWait(requestA).failed
 
@@ -116,16 +185,17 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     allocate(TwoParties),
   ) {
     case Participants(Participant(ledger, alice, bob)) =>
+      val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
+      val bobRequest = ledger
+        .submitRequest(bob, Dummy(bob).create.command)
+        .update(_.commands.commandId := aliceRequest.getCommands.commandId)
+
       for {
         // Submit a command as alice
-        aliceRequest <- ledger.submitRequest(alice, Dummy(alice).create.command)
         _ <- ledger.submit(aliceRequest)
         failure1 <- ledger.submit(aliceRequest).failed
 
         // Submit another command that uses same commandId, but is submitted by Bob
-        bobRequestTemplate <- ledger.submitRequest(bob, Dummy(bob).create.command)
-        bobRequest = bobRequestTemplate
-          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
         _ <- ledger.submit(bobRequest)
         failure2 <- ledger.submit(bobRequest).failed
 
@@ -156,16 +226,17 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     allocate(TwoParties),
   ) {
     case Participants(Participant(ledger, alice, bob)) =>
+      val aliceRequest = ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
+      val bobRequest = ledger
+        .submitAndWaitRequest(bob, Dummy(bob).create.command)
+        .update(_.commands.commandId := aliceRequest.getCommands.commandId)
+
       for {
         // Submit a command as alice
-        aliceRequest <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
         _ <- ledger.submitAndWait(aliceRequest)
         failure1 <- ledger.submitAndWait(aliceRequest).failed
 
         // Submit another command that uses same commandId, but is submitted by Bob
-        bobRequestTemplate <- ledger.submitAndWaitRequest(bob, Dummy(bob).create.command)
-        bobRequest = bobRequestTemplate
-          .update(_.commands.commandId := aliceRequest.getCommands.commandId)
         _ <- ledger.submitAndWait(bobRequest)
         failure2 <- ledger.submitAndWait(bobRequest).failed
 

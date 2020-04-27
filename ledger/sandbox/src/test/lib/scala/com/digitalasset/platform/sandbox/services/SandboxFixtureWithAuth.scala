@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
 import java.time.{Duration, Instant}
 import java.util.UUID
 
-import com.digitalasset.jwt.domain.DecodedJwt
-import com.digitalasset.jwt.{HMAC256Verifier, JwtSigner}
-import com.digitalasset.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
-import com.digitalasset.platform.sandbox.config.SandboxConfig
+import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.{HMAC256Verifier, JwtSigner}
+import com.daml.ledger.api.auth.{AuthServiceJWT, AuthServiceJWTCodec, AuthServiceJWTPayload}
+import com.daml.platform.sandbox.config.SandboxConfig
 import org.scalatest.Suite
 import scalaz.syntax.tag.ToTagOps
 
@@ -63,7 +63,6 @@ trait SandboxFixtureWithAuth extends SandboxFixture { self: Suite =>
       .getOrElse(sys.error("Failed to generate token"))
       .value
 
-  def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret) =
-    s"Bearer ${signed(payload, secret)}"
-
+  def toHeader(payload: AuthServiceJWTPayload, secret: String = jwtSecret): String =
+    signed(payload, secret)
 }

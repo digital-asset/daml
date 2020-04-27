@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -28,7 +28,7 @@ import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import qualified DA.Daml.LF.Proto3.Util as Util
-import qualified Com.Digitalasset.DamlLfDev.DamlLf1 as P
+import qualified Com.Daml.DamlLfDev.DamlLf1 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
 
@@ -361,6 +361,11 @@ encodeBuiltinExpr = \case
         True -> P.PrimConCON_TRUE
 
     BEEqualGeneric -> builtin P.BuiltinFunctionEQUAL
+    BELessGeneric -> builtin P.BuiltinFunctionLESS
+    BELessEqGeneric -> builtin P.BuiltinFunctionLESS_EQ
+    BEGreaterGeneric -> builtin P.BuiltinFunctionGREATER
+    BEGreaterEqGeneric -> builtin P.BuiltinFunctionGREATER_EQ
+
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
       BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL

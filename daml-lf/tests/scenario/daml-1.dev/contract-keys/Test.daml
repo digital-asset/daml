@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -43,6 +43,9 @@ template CreateAndLookup
             disclosedTo = []
           mbCid <- lookupByKey @TextKey (p, k)
           assertMsg ("Some cid == mbCid") (Some cid == mbCid)
+          (fCid, c) <- fetchByKey @TextKey (p, k)
+          assertMsg ("fCid == cid") (fCid == cid)
+          assertMsg ("contract fetched by key has correct values") (c.p == p && c.k == k && c.disclosedTo == [])
 
     controller p can
       nonconsuming Dupe : ()

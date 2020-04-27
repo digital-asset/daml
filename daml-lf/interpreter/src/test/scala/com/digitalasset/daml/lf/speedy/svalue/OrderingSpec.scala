@@ -1,17 +1,31 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy
+package svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, InsertOrdMap, Numeric, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.digitalasset.daml.lf.value.Value
-import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
+import com.daml.lf.crypto
+import com.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, Time}
+import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.testing.parser.Implicits._
+import com.daml.lf.value.Value
+import com.daml.lf.value.TypedValueGenerators.genAddend
+import com.daml.lf.value.ValueGenerators.absCoidGen
+import com.daml.lf.PureCompiledPackages
+import org.scalacheck.Arbitrary
+import org.scalatest.prop.{
+  GeneratorDrivenPropertyChecks,
+  TableDrivenPropertyChecks,
+  TableFor1,
+  TableFor2
+}
 import org.scalatest.{Matchers, WordSpec}
+import scalaz.{Order, Tag}
+import scalaz.syntax.order._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -19,7 +33,11 @@ import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
 import scala.util.Random
 
-class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class OrderingSpec
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   private val pkgId = Ref.PackageId.assertFromString("pkgId")
 
@@ -63,18 +81,21 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     List(
       "1969-07-21T02:56:15.000000Z",
       "1970-01-01T00:00:00.000000Z",
-      "2020-02-02T20:20:02.020000Z")
-      .map(STimestamp compose Time.Timestamp.assertFromString)
+      "2020-02-02T20:20:02.020000Z",
+    ).map(STimestamp compose Time.Timestamp.assertFromString)
   private val parties =
     List("alice", "bob", "carol").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
     List("a", "b", "c")
-      .map(x => SContractId(Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
+      .map(x => SContractId(Value.AbsoluteContractId.assertFromString("#" + x)))
 //  private val relativeContractId =
 //    List(0, 1).map(x => SContractId(Value.RelativeContractId(Value.NodeId(x))))
   private val contractIds = absoluteContractId //++ relativeContractId
 
-  private val enums = List(EnumCon1, EnumCon2, EnumCon3).map(SEnum(EnumTypeCon, _))
+  private val enums =
+    List(EnumCon1, EnumCon2, EnumCon3).zipWithIndex.map {
+      case (con, rank) => SEnum(EnumTypeCon, con, rank)
+    }
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
@@ -198,9 +219,9 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     } yield SRecord(Record2TypeCon, record2Fields, ArrayList(x, y))
 
   private def mkVariant(as: List[SValue], bs: List[SValue]) =
-    as.map(SVariant(VariantTypeCon, VariantCon1, _)) ++
-      as.map(SVariant(VariantTypeCon, VariantCon2, _)) ++
-      bs.map(SVariant(VariantTypeCon, VariantCon3, _))
+    as.map(SVariant(VariantTypeCon, VariantCon1, 0, _)) ++
+      as.map(SVariant(VariantTypeCon, VariantCon2, 1, _)) ++
+      bs.map(SVariant(VariantTypeCon, VariantCon3, 2, _))
 
   private def mkStruct2(fst: List[SValue], snd: List[SValue]) =
     for {
@@ -247,10 +268,9 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     lists.map(xs => STextMap(HashMap(keys zip xs: _*)))
   }
 
-//  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
-//    val skeys = keys.map(SGenMap.Key(_))
-//    lists.map(xs => SGenMap(InsertOrdMap(skeys zip xs: _*)))
-//  }
+  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
+    lists.map(xs => SGenMap(keys.iterator zip xs.iterator))
+  }
 
   private def anys = {
     val wrappedInts = ints.map(SAny(AstUtil.TInt64, _))
@@ -292,7 +312,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table("Optional", mkOptionals(texts): _*),
     Table("Int64 Lists", mkLists(lists(ints)): _*),
     Table("Int64 TextMap", mkTextMaps(lists(ints)): _*),
-//    Table("genMap_1", mkGenMaps(ints, lists(ints)): _*),
+    Table("genMap_1", mkGenMaps(ints, lists(ints)): _*),
     // 2 level nested values
     Table("Int64 Option Records of size 2", mkRecord2(mkOptionals(texts), mkOptionals(texts)): _*),
     Table("Text Option Variants ", mkVariant(mkOptionals(texts), mkOptionals(texts)): _*),
@@ -300,7 +320,7 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     Table("Text Option Option", mkOptionals(mkOptionals(texts)): _*),
     Table("Int64 Option List", mkLists(optLists(ints)): _*),
     Table("Int64 Option TextMap", mkTextMaps(optLists(ints)): _*),
-//    Table("genMap_2", mkGenMaps(mkOptionals(ints), optLists(ints)): _*),
+    Table("genMap_2", mkGenMaps(mkOptionals(ints), optLists(ints)): _*),
     // any
     Table("any", anys: _*),
   )
@@ -357,9 +377,9 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         SList(FrontStack(lfFunction)),
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
-      SGenMap(InsertOrdMap.empty) -> SGenMap(InsertOrdMap(SGenMap.Key(SInt64(0)) -> lfFunction)),
-      SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
-        SVariant(VariantTypeCon, VariantCon2, lfFunction),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
+      SVariant(VariantTypeCon, VariantCon1, 0, SInt64(0)) ->
+        SVariant(VariantTypeCon, VariantCon2, 1, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->
         SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
     )
@@ -418,7 +438,40 @@ class OrderingSpec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   }
 
+  // A problem in this test *usually* indicates changes that need to be made
+  // in Value.orderInstance or TypedValueGenerators, rather than to svalue.Ordering.
+  // The tests are here as this is difficult to test outside daml-lf/interpreter.
+  "txn Value Ordering" should {
+    import Value.{AbsoluteContractId => Cid}
+    implicit val cidArb: Arbitrary[Cid] = Arbitrary(absCoidGen)
+    implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
+    implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
+    val EmptyScope: Value.LookupVariantEnum = _ => None
+    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
+      import va.{injarb, injshrink}
+      implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
+      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+        import va.injord
+        val ta = va.inj(a)
+        val tb = va.inj(b)
+        val bySvalue = translatePrimValue(ta) ?|? translatePrimValue(tb)
+        (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
+      }
+    }
+  }
+
   private def ArrayList[X](as: X*): util.ArrayList[X] =
     new util.ArrayList[X](as.asJava)
 
+  private val txSeed = crypto.Hash.hashPrivateKey("SBuiltinTest")
+  private def dummyMachine = Speedy.Machine fromExpr (
+    expr = e"NA:na ()",
+    compiledPackages = PureCompiledPackages(Map.empty, Map.empty),
+    scenario = false,
+    Time.Timestamp.now(),
+    Some(txSeed),
+  )
+
+  private def translatePrimValue(v: Value[Value.ContractId]) =
+    SBuiltin.translateValue(dummyMachine, v).value
 }

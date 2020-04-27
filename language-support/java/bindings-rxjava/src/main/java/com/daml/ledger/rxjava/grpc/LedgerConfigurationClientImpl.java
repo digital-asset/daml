@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.rxjava.grpc;
@@ -6,9 +6,9 @@ package com.daml.ledger.rxjava.grpc;
 import com.daml.ledger.rxjava.LedgerConfigurationClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
 import com.daml.ledger.rxjava.util.ClientPublisherFlowable;
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory;
-import com.digitalasset.ledger.api.v1.LedgerConfigurationServiceGrpc;
-import com.digitalasset.ledger.api.v1.LedgerConfigurationServiceOuterClass;
+import com.daml.grpc.adapter.ExecutionSequencerFactory;
+import com.daml.ledger.api.v1.LedgerConfigurationServiceGrpc;
+import com.daml.ledger.api.v1.LedgerConfigurationServiceOuterClass;
 import io.grpc.Channel;
 import io.reactivex.Flowable;
 

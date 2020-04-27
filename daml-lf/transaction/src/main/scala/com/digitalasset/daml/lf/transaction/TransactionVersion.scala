@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.value.{Value, ValueVersion}
+import com.daml.lf.transaction.Node.KeyWithMaintainers
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{Value, ValueVersion}
 
 final case class TransactionVersion(protoValue: String)
 
@@ -25,6 +25,12 @@ object TransactionVersions
   private[transaction] val minExerciseResult = TransactionVersion("7")
   private[transaction] val minContractKeyInExercise = TransactionVersion("8")
   private[transaction] val minMaintainersInExercise = TransactionVersion("9")
+  private[transaction] val minContractKeyInFetch = TransactionVersion("10")
+
+  // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
+  // We force output of recent version, but keep reading older version as long as
+  // Sandbox is alive.
+  private[transaction] val minOutputVersion = TransactionVersion("10")
 
   def assignVersion(
       a: GenTransaction[_, Value.ContractId, VersionedValue[Value.ContractId]],
@@ -33,7 +39,7 @@ object TransactionVersions
     import VersionTimeline.Implicits._
 
     VersionTimeline.latestWhenAllPresent(
-      minVersion,
+      minOutputVersion,
       // latest version used by any value
       a.foldValues(ValueVersion("1")) { (z, vv) =>
         VersionTimeline.maxVersion(z, vv.version)
@@ -43,13 +49,13 @@ object TransactionVersions
       if (a.nodes.values.exists {
           case nc: Node.NodeCreate[_, _] => nc.key.isDefined
           case _: Node.NodeLookupByKey[_, _] => true
-          case _: Node.NodeFetch[_] | _: Node.NodeExercises[_, _, _] => false
+          case _: Node.NodeFetch[_, _] | _: Node.NodeExercises[_, _, _] => false
         }) minKeyOrLookupByKey
       else
         minVersion,
       // a NodeFetch with actingParties implies minimum version 5
       if (a.nodes.values
-          .exists { case nf: Node.NodeFetch[_] => nf.actingParties.nonEmpty; case _ => false })
+          .exists { case nf: Node.NodeFetch[_, _] => nf.actingParties.nonEmpty; case _ => false })
         minFetchActors
       else
         minVersion,
@@ -79,6 +85,14 @@ object TransactionVersions
             case _ => false
           })
         minMaintainersInExercise
+      else
+        minVersion,
+      if (a.nodes.values
+          .exists {
+            case nf: Node.NodeFetch[_, _] => nf.key.isDefined
+            case _ => false
+          })
+        minContractKeyInFetch
       else
         minVersion,
     )

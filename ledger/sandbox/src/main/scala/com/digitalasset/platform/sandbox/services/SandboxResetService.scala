@@ -1,16 +1,16 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services
+package com.daml.platform.sandbox.services
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.digitalasset.dec.{DirectExecutionContext => DE}
-import com.digitalasset.ledger.api.auth.Authorizer
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.dec.{DirectExecutionContext => DE}
+import com.daml.ledger.api.auth.Authorizer
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.server.api.validation.ErrorFactories
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerCall.Listener
 import io.grpc._

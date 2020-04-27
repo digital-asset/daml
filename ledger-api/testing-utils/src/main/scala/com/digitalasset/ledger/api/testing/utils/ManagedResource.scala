@@ -1,45 +1,36 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.testing.utils
-
-import java.util.concurrent.atomic.AtomicReference
+package com.daml.ledger.api.testing.utils
 
 import scala.reflect.ClassTag
 
 abstract class ManagedResource[Value: ClassTag] extends Resource[Value] {
-
-  private val resourceRef = new AtomicReference[Value]()
+  private var resource: Option[Value] = None
 
   protected def construct(): Value
 
   protected def destruct(resource: Value): Unit
 
-  final override def value: Value = {
-    val res = resourceRef.get()
-    if (res != null) res
-    else
+  final override def value: Value =
+    resource.getOrElse {
       throw new IllegalStateException(
-        s"Attempted to read non-initialized resource of class ${implicitly[ClassTag[Value]].runtimeClass.getName}")
-  }
+        s"Attempted to read non-initialized resource of ${implicitly[ClassTag[Value]].runtimeClass}")
+    }
 
-  final override def setup(): Unit = {
-    resourceRef.updateAndGet(
-      (resource: Value) =>
-        if (resource == null) construct()
-        else throw new IllegalStateException(s"Resource $resource is already set up"))
-    ()
-  }
-
-  final override def close(): Unit = {
-    resourceRef.updateAndGet { (resource: Value) =>
-      if (resource != null) {
-        destruct(resource)
-        null.asInstanceOf[Value]
-      } else {
-        resource
+  final override def setup(): Unit =
+    synchronized {
+      if (resource.isEmpty) {
+        resource = Some(construct())
       }
     }
-    ()
-  }
+
+  final override def close(): Unit =
+    synchronized {
+      if (resource.isDefined) {
+        destruct(resource.get)
+        resource = None
+        ()
+      }
+    }
 }

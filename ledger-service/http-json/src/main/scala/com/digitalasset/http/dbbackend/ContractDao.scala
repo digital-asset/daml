@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.http.dbbackend
+package com.daml.http.dbbackend
 
 import cats.effect._
 import cats.syntax.apply._
-import com.digitalasset.http.domain
-import com.digitalasset.http.json.JsonProtocol.LfValueDatabaseCodec
+import com.daml.http.domain
+import com.daml.http.json.JsonProtocol.LfValueDatabaseCodec
 import doobie.LogHandler
 import doobie.free.connection.ConnectionIO
 import doobie.free.{connection => fconn}

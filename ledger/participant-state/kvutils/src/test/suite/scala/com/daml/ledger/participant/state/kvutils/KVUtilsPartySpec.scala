@@ -1,9 +1,8 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.codahale.metrics
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlLogEntry,
   DamlPartyAllocationRejectionEntry
@@ -84,10 +83,15 @@ class KVUtilsPartySpec extends WordSpec with Matchers {
         _ <- submitPartyAllocation("submission-1", "bob", p0)
       } yield {
         // Check that we're updating the metrics (assuming this test at least has been run)
-        val reg = metrics.SharedMetricRegistries.getOrCreate("kvutils")
-        reg.counter("kvutils.committer.party_allocation.accepts").getCount should be >= 1L
-        reg.counter("kvutils.committer.party_allocation.rejections").getCount should be >= 1L
-        reg.timer("kvutils.committer.party_allocation.run_timer").getCount should be >= 1L
+        metricRegistry
+          .counter("daml.kvutils.committer.party_allocation.accepts")
+          .getCount should be >= 1L
+        metricRegistry
+          .counter("daml.kvutils.committer.party_allocation.rejections")
+          .getCount should be >= 1L
+        metricRegistry
+          .timer("daml.kvutils.committer.party_allocation.run_timer")
+          .getCount should be >= 1L
       }
     }
   }

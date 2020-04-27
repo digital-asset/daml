@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.retrying
+package com.daml.ledger.client.binding.retrying
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.client.binding.log.Labels.{
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.client.binding.log.Labels.{
   ERROR_CODE,
   ERROR_DETAILS,
   ERROR_MESSAGE,

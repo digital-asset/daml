@@ -1,6 +1,11 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@bazel_skylib//lib:paths.bzl", "paths")
+load(
+    "@build_bazel_rules_nodejs//:providers.bzl",
+    "LinkablePackageInfo",
+)
 load("@language_support_ts_deps//typescript:index.bzl", "tsc")
 
 def _da_ts_library_impl(ctx):
@@ -8,6 +13,14 @@ def _da_ts_library_impl(ctx):
         DefaultInfo(
             files = depset(ctx.files.srcs),
             runfiles = ctx.runfiles(files = ctx.files.srcs),
+        ),
+        LinkablePackageInfo(
+            package_name = ctx.attr.module_name,
+            path = paths.join(
+                ctx.bin_dir.path,
+                ctx.label.workspace_root,
+                ctx.label.package,
+            ),
         ),
     ]
 
@@ -17,7 +30,6 @@ _da_ts_library_rule = rule(
         "srcs": attr.label_list(allow_files = True),
         "deps": attr.label_list(allow_files = True),
         "module_name": attr.string(),
-        "module_root": attr.string(),
     },
 )
 
@@ -27,7 +39,6 @@ def da_ts_library(
         srcs = [],
         deps = [],
         module_name = "",
-        module_root = "",
         **kwargs):
     """Build a typescript library.
 
@@ -41,7 +52,6 @@ def da_ts_library(
         Defines which files are visible to the typescript compiler.
       deps: Typescript library dependencies.
       module_name: The import name of this library. E.g. @daml/types.
-      module_root: Treat sources as rooted under module_name.
     """
     outs = [
         s.replace(".ts", ext)
@@ -73,6 +83,5 @@ def da_ts_library(
         # rules_nodejs's tracking of transitive dependencies.
         deps = deps,
         module_name = module_name,
-        module_root = module_root,
         **kwargs
     )

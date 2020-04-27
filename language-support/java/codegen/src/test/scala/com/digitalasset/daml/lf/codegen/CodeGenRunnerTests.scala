@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen
+package com.daml.lf.codegen
 
 import java.io.File
 import java.nio.file.Files
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
-import com.digitalasset.daml.lf.codegen.conf.Conf
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.DarReader
+import com.daml.lf.codegen.backend.java.JavaBackend
+import com.daml.lf.codegen.conf.Conf
 import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))

@@ -1,9 +1,9 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.akkastreams
+package com.daml.platform.akkastreams
 import akka.actor.ActorSystem
-import com.digitalasset.dec.DirectExecutionContext
+import com.daml.dec.DirectExecutionContext
 import org.scalatest.{Assertion, AsyncWordSpec}
 
 import scala.concurrent.{Future, Promise, TimeoutException}

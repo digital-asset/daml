@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.tracking
+package com.daml.platform.apiserver.services.tracking
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy}
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.client.services.commands.CommandTrackerFlow.Materialized
-import com.digitalasset.platform.server.api.ApiException
-import com.digitalasset.util.Ctx
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.daml.ledger.api.v1.command_submission_service.SubmitRequest
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.client.services.commands.CommandTrackerFlow.Materialized
+import com.daml.platform.server.api.ApiException
+import com.daml.util.Ctx
 import com.google.rpc.code.Code
 import com.google.rpc.status.Status
 import io.grpc.{Status => GrpcStatus}

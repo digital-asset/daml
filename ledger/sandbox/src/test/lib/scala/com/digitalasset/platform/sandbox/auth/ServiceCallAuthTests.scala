@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.auth
+package com.daml.platform.sandbox.auth
 
 import java.time.Duration
 import java.util.UUID
 
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.ledger.api.auth.client.LedgerCallCredentials
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.platform.sandbox.services.SandboxFixtureWithAuth
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.ledger.api.auth.client.LedgerCallCredentials
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.daml.platform.sandbox.services.SandboxFixtureWithAuth
 import io.grpc.Status
 import io.grpc.stub.AbstractStub
 import org.scalatest.{Assertion, AsyncFlatSpec, Matchers}

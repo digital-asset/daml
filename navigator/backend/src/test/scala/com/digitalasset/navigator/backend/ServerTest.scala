@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
@@ -9,19 +9,19 @@ import akka.http.scaladsl.model.headers.{Cookie, `Set-Cookie`}
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import com.digitalasset.api.util.TimeProvider.UTC
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.SessionJsonProtocol._
-import com.digitalasset.navigator.config.{Arguments, Config, UserConfig}
-import com.digitalasset.navigator.model.PartyState
-import com.digitalasset.navigator.store.Store.{
+import com.daml.api.util.TimeProvider.UTC
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.SessionJsonProtocol._
+import com.daml.navigator.config.{Arguments, Config, UserConfig}
+import com.daml.navigator.model.PartyState
+import com.daml.navigator.store.Store.{
   ApplicationStateConnected,
   ApplicationStateConnecting,
   ApplicationStateFailed,
   ApplicationStateInfo
 }
-import com.digitalasset.navigator.time.TimeProviderType.Static
-import com.digitalasset.navigator.time.TimeProviderWithType
+import com.daml.navigator.time.TimeProviderType.Static
+import com.daml.navigator.time.TimeProviderWithType
 import com.typesafe.scalalogging.LazyLogging
 import org.scalatest.{FlatSpec, Matchers, OptionValues}
 import scalaz.syntax.tag._

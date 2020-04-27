@@ -1,34 +1,33 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.completion
+package com.daml.platform.sandbox.services.completion
 
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
-import com.digitalasset.ledger.api.v1.command_completion_service.{
+import com.daml.ledger.api.testing.utils.{MockMessages, SuiteResourceManagementAroundAll}
+import com.daml.ledger.api.v1.command_completion_service.{
   CommandCompletionServiceGrpc,
   CompletionEndRequest,
   CompletionStreamRequest,
   CompletionStreamResponse
 }
-import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
-import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.completion.Completion
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
-import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.{SandboxFixture, TestCommands}
-import com.digitalasset.platform.testing.StreamConsumer
-import com.digitalasset.resources.ResourceOwner
-import com.digitalasset.testing.postgresql.PostgresResource
+import com.daml.ledger.api.v1.command_service.CommandServiceGrpc
+import com.daml.ledger.api.v1.commands.CreateCommand
+import com.daml.ledger.api.v1.completion.Completion
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.value.{Record, RecordField, Value}
+import com.daml.platform.participant.util.ValueConversions._
+import com.daml.platform.sandbox.SandboxBackend
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.{SandboxFixture, TestCommands}
+import com.daml.platform.testing.StreamConsumer
 import com.google.rpc.status.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 import scalaz.syntax.tag._
 
-import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.Future
+import scala.concurrent.duration.FiniteDuration
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CompletionServiceIT
@@ -36,6 +35,7 @@ class CompletionServiceIT
     with Matchers
     with Inspectors
     with SandboxFixture
+    with SandboxBackend.Postgresql
     with TestCommands
     with SuiteResourceManagementAroundAll {
 
@@ -144,9 +144,6 @@ class CompletionServiceIT
       }
     }
   }
-
-  override protected def database: Option[ResourceOwner[String]] =
-    Some(PostgresResource.owner().map(_.jdbcUrl))
 
   override protected def config: SandboxConfig =
     super.config.copy(

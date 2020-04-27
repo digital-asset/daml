@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -24,6 +24,28 @@ proto_gen(
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
         "@com_google_protobuf//:wrappers_proto",
+    ],
+)
+
+# this is only needed for the uber-javadoc in //language-support/java:javadoc
+java_library(
+    name = "ledger-api-java-lib-for-javadocs",
+    srcs = [
+        ":ledger-api-java",
+        ":ledger-api-java-grpc",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = [
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_core",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_protobuf",
+        "@maven//:io_grpc_grpc_stub",
     ],
 )
 
@@ -54,7 +76,7 @@ da_java_library(
     ],
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
-        "maven_coordinates=com.daml.ledger:bindings-java:__VERSION__",
+        "maven_coordinates=com.daml:bindings-java:__VERSION__",
     ],
     visibility = [
         "//visibility:public",

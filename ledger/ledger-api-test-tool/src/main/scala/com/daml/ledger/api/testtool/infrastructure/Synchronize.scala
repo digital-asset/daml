@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
 
 import com.daml.ledger.api.testtool.infrastructure.Eventually.eventually
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
-import com.digitalasset.ledger.test_stable.Test.AgreementFactory
-import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
+import com.daml.ledger.test_stable.Test.AgreementFactory
+import com.daml.ledger.test_stable.Test.AgreementFactory._
 
 import scala.concurrent.{ExecutionContext, Future}
 

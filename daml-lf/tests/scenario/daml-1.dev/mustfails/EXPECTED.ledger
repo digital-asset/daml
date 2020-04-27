@@ -11,7 +11,7 @@ TX #4 1970-01-01T00:00:00Z [Test:108]
 #4:0
 │   known to (since): Alice (#4), Bob (#4)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
 
 pass -100000000
 
@@ -21,7 +21,7 @@ TX #7 1969-12-31T23:58:20Z [Test:115]
 #7:0
 │   known to (since): Alice (#7)
 └─> create Test:TwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Alice' } value-version: 1
+    with: { p = 'Alice', p2 = 'Alice' } value-version: 6
 
 mustFailAt 'Bob' [Test:116]
 
@@ -33,18 +33,18 @@ TX #10 1969-12-31T23:58:20Z [Test:128]
 │   referenced by #11:0
 │   known to (since): Alice (#10), Bob (#10)
 └─> create Test:ToTwoParties@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
 
 TX #11 1969-12-31T23:58:20Z [Test:129]
 #11:0
 │   known to (since): Alice (#11), Bob (#11)
-└─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on #10:0
-    with {  } value-version: 1
+└─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on 00059653cdb8e866d69fac4d5bd0f62bbdaba4c36b01c438b86351fbdbf2cab8b0
+    with {  } value-version: 6
     children:
     #11:1
     │   known to (since): Alice (#11), Bob (#11)
     └─> create Test:TwoParties@XXXXXXXX
-        with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+        with: { p = 'Alice', p2 = 'Bob' } value-version: 6
 
 mustFailAt 'Bob' [Test:130]
 
@@ -52,7 +52,7 @@ TX #13 1969-12-31T23:58:20Z [Test:134]
 #13:0
 │   known to (since): Alice (#13)
 └─> create Test:NoCtrls@XXXXXXXX
-    with: { p = 'Alice', xs = [] } value-version: 1
+    with: { p = 'Alice', xs = [] } value-version: 6
 
 mustFailAt 'Alice' [Test:135]
 
@@ -62,7 +62,7 @@ TX #16 1969-12-31T23:58:20Z [Test:144]
 #16:0
 │   known to (since): Alice (#16), Bob (#16)
 └─> create Test:X@XXXXXXXX
-    with: { p = 'Alice', p2 = 'Bob' } value-version: 1
+    with: { p = 'Alice', p2 = 'Bob' } value-version: 6
 
 mustFailAt 'Alice' [Test:145]
 
@@ -70,7 +70,7 @@ TX #18 1969-12-31T23:58:20Z [Test:151]
 #18:0
 │   known to (since): Alice (#18)
 └─> create Test:Recursive@XXXXXXXX
-    with: { p = 'Alice' } value-version: 1
+    with: { p = 'Alice' } value-version: 6
 
 mustFailAt 'Alice' [Test:154]
 
@@ -80,9 +80,9 @@ TX #21 1969-12-31T23:58:20Z [Test:345]
 #21:0
 │   known to (since): Alice (#21)
 └─> create Test:NestingLimitExercise@XXXXXXXX
-    with: { p = 'Alice' } value-version: 1
+    with: { p = 'Alice' } value-version: 6
 
 mustFailAt 'Alice' [Test:346]
 
 active contracts:
-   #4:0, #7:0, #11:1, #13:0, #16:0, #18:0, #21:0
+   00049c3d61768cf931aa2b97a7ac28002d7673c3f8b996798d87227106e178286e, 00067f889bdf49aa670596cab1a5907d75596d971df3477087c88ca86f281cee85, 00154fe9827fdb40afae4ba484f3f51159d99a27c1463928ec761043c28353b76c, 00746975395efe332ebdb58bd179e9cba3505116fd94e3825297890b34c96cc09f, 007e5c9342585588fff0855b297c6e06bfb6a3d62578a28da860af02a98048bd68, 00945c0656f04cdd9f6a85cb466acb0edcd75ea0f618362e83b92164c4cee523e9, 00e52b332d66bbf5ac835144e35bf339a7ab319e505e005d1ddd9aed313764dd51

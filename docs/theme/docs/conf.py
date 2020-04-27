@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # -*- coding: utf-8 -*-
@@ -22,6 +22,7 @@
 import os
 import sys
 import glob
+sys.path.append(os.path.abspath('../../configs/static'))
 sys.path.append(os.path.abspath('.'))
 sys.path.extend(map(os.path.abspath, glob.glob('packages/*')))
 
@@ -109,6 +110,9 @@ html_show_sphinx = False
 # Don't display the link to the sources
 html_show_sourcelink = False
 
+# Don't display the link for scaled images
+html_scaled_image_link = False
+
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
@@ -168,5 +172,7 @@ texinfo_documents = [
 
 # Import the DAML lexer
 def setup(sphinx):
-    from pygments_daml_lexer_new import DAMLLexer
+    from pygments_daml_lexer import DAMLLexer
     sphinx.add_lexer("daml", DAMLLexer())
+    from typescript import TypeScriptLexer
+    sphinx.add_lexer("tsx", TypeScriptLexer())

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//rules_daml:daml.bzl", "daml_compile")
@@ -32,14 +32,18 @@ compile_deps = [
     "//ledger/ledger-api-domain",
     "//ledger/ledger-api-health",
     "//ledger/ledger-on-sql",
+    "//ledger/metrics",
     "//ledger/participant-state",
     "//ledger/participant-state-index",
+    "//ledger/participant-state-metrics",
     "//ledger/participant-state/kvutils",
+    "//libs-scala/build-info",
     "//libs-scala/contextualized-logging",
     "//libs-scala/direct-execution-context",
     "//libs-scala/ports",
     "//libs-scala/resources",
     "//libs-scala/resources-akka",
+    "//libs-scala/timer-utils",
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
     "@maven//:com_auth0_java_jwt",
@@ -53,6 +57,7 @@ compile_deps = [
     "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
     "@maven//:com_zaxxer_HikariCP",
     "@maven//:io_dropwizard_metrics_metrics_core",
+    "@maven//:io_dropwizard_metrics_metrics_graphite",
     "@maven//:io_dropwizard_metrics_metrics_jmx",
     "@maven//:io_grpc_grpc_netty",
     "@maven//:io_grpc_grpc_services",
@@ -83,10 +88,8 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
-    tags = ["maven_coordinates=com.digitalasset.platform:sandbox:__VERSION__"],
+        ),
+    tags = ["maven_coordinates=com.daml:sandbox:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -103,10 +106,8 @@ da_scala_library(
             # Do not include logback.xml into the library: let the user
             # of the sandbox-as-a-library decide how to log.
             exclude = ["src/main/resources/logback.xml"],
-        ) + [
-            "//:MVN_VERSION",
-        ],
-    tags = ["maven_coordinates=com.daml.ledger:ledger-api-server:__VERSION__"],
+        ),
+    tags = ["maven_coordinates=com.daml:ledger-api-server:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -116,7 +117,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "sandbox-binary",
-    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -126,7 +127,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-next-binary",
-    main_class = "com.digitalasset.platform.sandboxnext.Main",
+    main_class = "com.daml.platform.sandboxnext.Main",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -136,7 +137,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-ephemeral-postgresql",
-    main_class = "com.digitalasset.platform.sandbox.persistence.MainWithEphemeralPostgresql",
+    main_class = "com.daml.platform.sandbox.persistence.MainWithEphemeralPostgresql",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -147,7 +148,7 @@ da_scala_binary(
 
 da_scala_binary(
     name = "sandbox-next-ephemeral-postgresql",
-    main_class = "com.digitalasset.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
+    main_class = "com.daml.platform.sandboxnext.persistence.MainWithEphemeralPostgresql",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     deps = [
@@ -167,7 +168,9 @@ genrule(
         cp -L $(location :sandbox-binary_deploy.jar) sandbox-tarball/sandbox/sandbox-{mvn}.jar
         out=$$(realpath $@)
         cd sandbox-tarball
-        tar zcf $$out sandbox
+        tar c sandbox \
+          --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+          | gzip -n > $$out
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
@@ -185,7 +188,7 @@ container_image(
 java_image(
     name = "sandbox-image",
     base = ":sandbox-image-base",
-    main_class = "com.digitalasset.platform.sandbox.SandboxMain",
+    main_class = "com.daml.platform.sandbox.SandboxMain",
     resources = ["src/main/resources/logback.xml"],
     visibility = ["//visibility:public"],
     runtime_deps = [":sandbox"],
@@ -196,8 +199,6 @@ alias(
     actual = ":historical-dars/Test-1.5.dar",
     visibility = ["//visibility:public"],
 )
-
-#TODO: generate dynamic BuildInfo.scala
 
 da_scala_library(
     name = "sandbox-scala-tests-lib",
@@ -214,8 +215,8 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//daml-lf/data",
+        "//daml-lf/transaction",
         "//language-support/scala/bindings",
-        "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger-service/jwt",
@@ -226,6 +227,7 @@ da_scala_library(
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
         "//ledger/participant-state",
+        "//ledger/participant-state-index",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
@@ -236,10 +238,10 @@ da_scala_library(
         "//libs-scala/timer-utils",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_auth0_java_jwt",
-        "@maven//:com_google_guava_guava",
         "@maven//:com_typesafe_akka_akka_actor_2_12",
         "@maven//:com_typesafe_akka_akka_stream_2_12",
-        "@maven//:com_typesafe_config",
+        "@maven//:com_typesafe_play_anorm_2_12",
+        "@maven//:com_typesafe_play_anorm_tokenizer_2_12",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
         "@maven//:io_dropwizard_metrics_metrics_core",
         "@maven//:io_grpc_grpc_netty",
@@ -259,6 +261,7 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/test-common:Test-stable.dar",
+        "//ledger/test-common/test-certificates",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
@@ -273,7 +276,9 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
+        "//ledger-api/rs-grpc-akka:rs-grpc-akka-tests-lib",
         "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/sample-service",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-auth",
         "//ledger/ledger-api-client",
@@ -281,8 +286,10 @@ da_scala_test_suite(
         "//ledger/ledger-api-common:ledger-api-common-scala-tests-lib",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
+        "//ledger/metrics",
         "//ledger/participant-state",
         "//ledger/participant-state-index",
+        "//ledger/participant-state-metrics",
         "//ledger/test-common",
         "//libs-scala/contextualized-logging",
         "//libs-scala/direct-execution-context",
@@ -300,6 +307,7 @@ da_scala_test_suite(
         "@maven//:com_typesafe_config",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_netty_netty_handler",
         "@maven//:org_awaitility_awaitility",
@@ -307,6 +315,7 @@ da_scala_test_suite(
         "@maven//:org_mockito_mockito_core",
         "@maven//:org_mockito_mockito_scala_2_12",
         "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:org_scalacheck_scalacheck_2_12",
         "@maven//:org_scalactic_scalactic_2_12",
         "@maven//:org_scalatest_scalatest_2_12",
         "@maven//:org_scalaz_scalaz_core_2_12",
@@ -348,26 +357,10 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
-    ],
-)
-
-server_conformance_test(
-    name = "conformance-test-lots-of-parties",
-    flaky = True,
-    server_args = [
-        "--static-time",
-    ],
-    servers = SERVERS,
-    test_tool_args = [
-        "--verbose",
-        "--open-world",
-        "--include=LotsOfPartiesIT",
     ],
 )
 
@@ -378,10 +371,8 @@ server_conformance_test(
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
-        "--exclude=LotsOfPartiesIT",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
     ],
@@ -389,9 +380,11 @@ server_conformance_test(
 
 server_conformance_test(
     name = "conformance-test-config-management",
+    server_args = [
+        "--wall-clock-time",
+    ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
     ],
@@ -399,9 +392,11 @@ server_conformance_test(
 
 server_conformance_test(
     name = "conformance-test-command-deduplication",
+    server_args = [
+        "--wall-clock-time",
+    ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=CommandDeduplicationIT",
     ],
@@ -410,16 +405,15 @@ server_conformance_test(
 server_conformance_test(
     name = "conformance-test-contract-id-seeding",
     server_args = [
-        "--contract-id-seeding=weak",
+        "--wall-clock-time",
+        "--contract-id-seeding=testing-weak",
     ],
     servers = SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ConfigManagementServiceIT",
         "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationIT",
     ],
 )
 
@@ -427,7 +421,7 @@ NEXT_SERVERS = {
     "memory": {
         "binary": ":sandbox-next-binary",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -435,7 +429,7 @@ NEXT_SERVERS = {
     "postgresql": {
         "binary": ":sandbox-next-ephemeral-postgresql",
         "server_args": [
-            "--contract-id-seeding=weak",
+            "--contract-id-seeding=testing-weak",
             "--port=6865",
             "--eager-package-loading",
         ],
@@ -449,11 +443,9 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationIT",
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -465,11 +457,9 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--all-tests",
         "--exclude=ClosedWorldIT",
-        "--exclude=CommandDeduplicationIT",
         "--exclude=ConfigManagementServiceIT",
     ],
 )
@@ -481,9 +471,21 @@ server_conformance_test(
     ],
     servers = NEXT_SERVERS,
     test_tool_args = [
-        "--verbose",
         "--open-world",
         "--include=ConfigManagementServiceIT",
+    ],
+)
+
+server_conformance_test(
+    name = "next-conformance-test-closed-world",
+    server_args = [
+        "--wall-clock-time",
+        "--implicit-party-allocation=false",
+    ],
+    servers = NEXT_SERVERS,
+    test_tool_args = [
+        "--verbose",
+        "--include=ClosedWorldIT",
     ],
 )
 

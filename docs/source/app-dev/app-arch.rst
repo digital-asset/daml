@@ -1,5 +1,7 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _recommended-architecture:
 
 Application architecture
 ########################
@@ -43,7 +45,7 @@ with a JSON API server by running
 
 .. code-block:: bash
 
-  ./daml-start.sh
+  daml start --start-navigator=no
 
 in the root of the project. This is the most simple DAML ledger implementation. Once your
 application matures and becomes ready for production, the ``daml deploy`` command helps you deploy
@@ -59,10 +61,6 @@ JSON <json-api>` endpoints. In addition, we provide support libraries for :ref:`
 <java-bindings>` and :ref:`Scala <scala-bindings>` and you can also interact with the :ref:`gRPC API
 <grpc>` directly.
 
-.. TODO (drsk) add and point to javascript bindings.
-.. If you choose a different Javascript based frontend framework, the packages ``@daml/ledger``,
-.. ``@daml/types`` and the generated ``@daml2ts`` package provide you with the necessary interface code
-.. to connect and issue commands against your ledger.
 
 We provide two libraries to build your React frontend for a DAML application.
 
@@ -78,18 +76,21 @@ You can install any of these libraries by running ``yarn add <library>`` in the 
 your project, e.g. ``yarn add @daml/react``. Please explore the ``create-daml-app`` example project
 to see the usage of these libraries.
 
-To make your life easy when interacting with the ledger, the DAML assistant can generate
-corresponding typescript data definitions for the data types declared in the deployed DAR.
+To make your life easy when interacting with the ledger, the DAML assistant can generate JavaScript
+libraries with TypeScript typings from the data types declared in the deployed DAR.
 
 .. code-block:: bash
 
-  daml codegen ts .daml/dist/<your-project-name.dar> -o daml-ts
+  daml codegen js .daml/dist/<your-project-name.dar> -o daml.js
 
-This command will generate a typescript project in the ``daml-ts`` folder that needs to be connected
-with your frontend code in ``ui``. To do so, navigate to ``daml-ts`` and run ``yarn install`` and
-then ``yarn workspaces run build``.
+This command will generate a JavaScript library for each DALF in you DAR, containing metadata about
+types and templates in the DALF and TypeScript typings them. In ``create-daml-app``, ``ui/package.json`` refers to these
+libraries via the ``"create-daml-app": "file:../daml.js/create-daml-app-0.1.0"`` entry in the
+``dependencies`` field.
 
-.. TODO (drsk) this process is changing right now, make sure it is documented up to date here.
+If you choose a different JavaScript based frontend framework, the packages ``@daml/ledger``,
+``@daml/types`` and the generated ``daml.js`` libraries provide you with the necessary code to
+connect and issue commands against your ledger.
 
 Authentication
 ~~~~~~~~~~~~~~
@@ -146,3 +147,26 @@ To use command deduplication, you should:
 
 
 For more details on command deduplication, see the :ref:`Ledger API Services <command-submission-service-deduplication>` documentation.
+
+.. _dealing-with-time:
+
+Dealing with time
+*****************
+
+The DAML language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”. The notion of time comes with a lot of problems in a distributed setting: different participants might run slightly different clocks, transactions would not be allowed to “overtake” each other during DAML interpretation, i.e., a long-running command could block all other commands, and many more.
+
+To avoid such problems, DAML provides the following concept of *ledger time*:
+
+- As part of command interpretation, each transaction is automatically assigned a *ledger time* by the participant server.
+- All calls to ``getTime`` within a transaction return the *ledger time* assigned to that transaction.
+- *Ledger time* is reasonably close to real time. To avoid transactions being rejected because the assigned *ledger time* does not match the ledger's system time exactly, DAML Ledgers define a tolerance interval around its system time. The system time is part of the ledger synchronization/consensus protocol, but is not known by the participant node at interpretation time. Transactions with a *ledger time* outside this tolerance interval will be rejected.
+- *Ledger time* respects causal monotonicity: if a transaction ``x`` uses a contract created in another transaction ``y``, transaction ``x``\ s ledger time will be greater than or equal to the ledger time of the referenced transaction ``y``.
+
+Some commands might take a long time to process, and by the time the resulting transaction is about to be committed to the ledger, it might violate the condition that *ledger time* should  be reasonably close to real time (even when considering the ledger's tolerance interval). To avoid such problems, applications can set the optional parameters :ref:`min_ledger_time_abs <com.daml.ledger.api.v1.Commands.min_ledger_time_abs>` or :ref:`min_ledger_time_rel <com.daml.ledger.api.v1.Commands.min_ledger_time_rel>` command parameters that specify (in absolute or relative terms) the minimal *ledger time* for the transaction. The ledger will then process the command, but wait with committing the resulting transaction until *ledger time* fits within the ledger's tolerance interval.
+
+How is this used in practice?
+
+- Be aware that ``getTime`` is only reasonably close to real time. Avoid DAML workflows that rely on very accurate time measurements or high frequency time changes.
+- Set ``min_ledger_time_abs`` or ``min_ledger_time_rel`` if the duration of command interpretation and transmission is likely to take a long time relative to the tolerance interval set by the ledger.
+- In some corner cases, the participant node may be unable to determine a suitable ledger time by itself. If you get an error that no ledger time could be found, check whether you have contention on any contract referenced by your command or whether the referenced contracts are sensitive to small changes of ``getTime``.
+

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.io.{File, FileNotFoundException, FileOutputStream}
 
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+import com.daml.lf.data.TryOps.Bracket.bracket
 import scalaz.std.option._
 import scalaz.syntax.applicative._
 

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.entries
+package com.daml.platform.store.entries
 
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.ledger.api.domain
+import com.daml.ledger.api.domain
 
 sealed abstract class ConfigurationEntry extends Product with Serializable {
   def toDomain: domain.ConfigurationEntry

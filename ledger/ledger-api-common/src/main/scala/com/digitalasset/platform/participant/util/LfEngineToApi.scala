@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.participant.util
+package com.daml.platform.participant.util
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.data.{Numeric, Ref}
-import com.digitalasset.daml.lf.data.LawlessTraversals._
-import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
-import com.digitalasset.daml.lf.value.{Value => Lf}
-import com.digitalasset.ledger.EventId
-import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent
-import com.digitalasset.ledger.api.v1.{value => api}
+import com.daml.lf.data.Ref.Identifier
+import com.daml.lf.data.{Numeric, Ref}
+import com.daml.lf.data.LawlessTraversals._
+import com.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
+import com.daml.lf.value.{Value => Lf}
+import com.daml.ledger.EventId
+import com.daml.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
+import com.daml.ledger.api.v1.transaction.TreeEvent
+import com.daml.ledger.api.v1.{value => api}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 

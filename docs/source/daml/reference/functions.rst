@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: functions
@@ -82,6 +82,6 @@ A function is *parametrically polymorphic* if it behaves uniformly for all types
 
 where ``a``, ``b``, and ``c`` are any data types. Both ``compose ((+) 4) ((*) 2) 3 == 10`` and ``compose not ((&&) True) False`` evaluate to ``True``. Note that ``((+) 4)`` has type ``Int -> Int``, whereas ``not`` has type ``Bool -> Bool``.
 
-You can find many other generic functions including this one in the :doc:`DAML standard library </daml/reference/base>`.
+You can find many other generic functions including this one in the :doc:`DAML standard library </daml/stdlib/index>`.
 
 .. note:: DAML currently does not support generic functions for a specific set of types, such as ``Int`` and ``Decimal`` numbers. For example, ``sum (x: a) (y: a) = x + y`` is undefined when ``a`` equals the type ``Party``. *Bounded polymorphism* might be added to DAML in a later version.

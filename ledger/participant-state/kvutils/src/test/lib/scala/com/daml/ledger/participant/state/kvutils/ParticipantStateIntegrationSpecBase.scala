@@ -1,29 +1,30 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
 
 import java.io.File
-import java.time.{Clock, Duration, Instant, LocalDate, ZoneOffset}
+import java.time.{Clock, Duration}
 import java.util.UUID
 
-import akka.NotUsed
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Sink
+import com.codahale.metrics.MetricRegistry
+import com.daml.ledger.participant.state.kvutils.KVOffset.{fromLong => toOffset}
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase._
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml_lf_dev.DamlLf
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.logging.LoggingContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.lf.archive.DarReader
+import com.daml.lf.crypto
+import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.transaction.{GenTransaction, Transaction}
+import com.daml.daml_lf_dev.DamlLf
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.logging.LoggingContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.resources.ResourceOwner
 import org.scalatest.Inside._
 import org.scalatest.Matchers._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfterEach}
@@ -35,12 +36,11 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 //noinspection DuplicatedCode
-abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
-    extends AsyncWordSpec
+abstract class ParticipantStateIntegrationSpecBase(implementationName: String)(
+    implicit testExecutionContext: ExecutionContext = ExecutionContext.global
+) extends AsyncWordSpec
     with BeforeAndAfterEach
     with AkkaBeforeAndAfterAll {
-
-  private implicit val ec: ExecutionContext = ExecutionContext.global
 
   // Can be used by [[participantStateFactory]] to get a stable ID throughout the test.
   // For example, for initializing a database.
@@ -54,14 +54,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
   // This can be overriden by tests for in-memory or otherwise ephemeral ledgers.
   protected val isPersistent: Boolean = true
 
-  // This can be overriden by tests for those that don't support heartbeats.
-  protected val supportsHeartbeats: Boolean = true
-
   protected def participantStateFactory(
       ledgerId: Option[LedgerId],
       participantId: ParticipantId,
       testId: String,
-      heartbeats: Source[Instant, NotUsed],
+      metricRegistry: MetricRegistry,
   )(implicit logCtx: LoggingContext): ResourceOwner[ParticipantState]
 
   private def participantState: ResourceOwner[ParticipantState] =
@@ -69,10 +66,9 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
   private def newParticipantState(
       ledgerId: Option[LedgerId] = None,
-      heartbeats: Source[Instant, NotUsed] = Source.empty,
   ): ResourceOwner[ParticipantState] =
     newLoggingContext { implicit logCtx =>
-      participantStateFactory(ledgerId, participantId, testId, heartbeats)
+      participantStateFactory(ledgerId, participantId, testId, new MetricRegistry)
     }
 
   override protected def beforeEach(): Unit = {
@@ -109,7 +105,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           matchPackageUpload(update, submissionId, List(archives.head))
         }
@@ -125,7 +121,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           matchPackageUpload(update, submissionId, archives)
         }
@@ -151,11 +147,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
           // first upload arrives as head update:
-          offset1 should be(theOffset(0, 0))
+          offset1 should be(toOffset(1))
           matchPackageUpload(update1, subId1, List(archive1))
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           matchPackageUpload(update2, subId2, List())
-          offset3 should be(theOffset(2, 0))
+          offset3 should be(toOffset(3))
           matchPackageUpload(update3, subId3, List(archive2))
         }
       }
@@ -175,7 +171,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           inside(update) {
             case PublicPackageUploadRejected(actualSubmissionId, _, _) =>
@@ -201,7 +197,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
           inside(update2) {
             case PublicPackageUpload(_, _, _, Some(submissionId)) =>
@@ -226,7 +222,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
@@ -248,7 +244,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(0, 0))
+          offset should be(toOffset(1))
           update.recordTime should be >= rt
           inside(update) {
             case PartyAddedToParticipant(party, actualDisplayName, actualParticipantId, _, _) =>
@@ -279,7 +275,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
           inside(update2) {
             case PartyAddedToParticipant(_, displayName, _, _, Some(submissionId)) =>
@@ -304,7 +300,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           update2.recordTime should be >= rt
           inside(update2) {
             case PartyAllocationRejected(_, _, _, rejectionReason) =>
@@ -327,7 +323,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .drop(1)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(1, 0))
+          offset should be(toOffset(2))
         }
       }
 
@@ -368,18 +364,18 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
-          offset1 should be(theOffset(0, 0))
+          offset1 should be(toOffset(1))
           update1 should be(a[PartyAddedToParticipant])
 
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           matchTransaction(update2, commandIds._1)
 
-          offset3 should be(theOffset(3, 0))
+          offset3 should be(toOffset(4))
           matchTransaction(update3, commandIds._2)
         }
       }
 
-      "return the third update with beginAfter=1" in participantState.use { ps =>
+      "return the third update with beginAfter=2" in participantState.use { ps =>
         for {
           result1 <- ps
             .allocateParty(hint = Some(alice), None, newSubmissionId())
@@ -399,11 +395,11 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
           results = Seq(result1, result2, result3)
           _ = all(results) should be(SubmissionResult.Acknowledged)
           (offset, update) <- ps
-            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+            .stateUpdates(beginAfter = Some(toOffset(2)))
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
         } yield {
-          offset should be(theOffset(2, 0))
+          offset should be(toOffset(3))
           update.recordTime should be >= rt
           update should be(a[TransactionAccepted])
         }
@@ -444,7 +440,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
 
           //get the new party off state updates
           newParty <- ps
-            .stateUpdates(beginAfter = Some(theOffset(1, 0)))
+            .stateUpdates(beginAfter = Some(toOffset(2)))
             .idleTimeout(IdleTimeout)
             .runWith(Sink.head)
             .map(_._2.asInstanceOf[PartyAddedToParticipant].party)
@@ -465,19 +461,19 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         } yield {
           all(updates.map(_.recordTime)) should be >= rt
 
-          offset1 should be(theOffset(0, 0))
+          offset1 should be(toOffset(1))
           update1 should be(a[ConfigurationChanged])
 
-          offset2 should be(theOffset(1, 0))
+          offset2 should be(toOffset(2))
           inside(update2) {
             case CommandRejected(_, _, reason) =>
               reason should be(RejectionReason.PartyNotKnownOnLedger)
           }
 
-          offset3 should be(theOffset(2, 0))
+          offset3 should be(toOffset(3))
           update3 should be(a[PartyAddedToParticipant])
 
-          offset4 should be(theOffset(3, 0))
+          offset4 should be(toOffset(4))
           update4 should be(a[TransactionAccepted])
         }
       }
@@ -507,9 +503,6 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
               config = lic.config.copy(
                 generation = lic.config.generation + 1,
                 timeModel = TimeModel(
-                  Duration.ofSeconds(123),
-                  Duration.ofSeconds(123),
-                  Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
                   Duration.ofSeconds(123),
@@ -579,7 +572,7 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
             .take(2)
             .runWith(Sink.seq)
         } yield {
-          offset2 should be(theOffset(2, 0))
+          offset2 should be(toOffset(3))
           update2.recordTime should be >= rt
           inside(update2) {
             case ConfigurationChanged(_, submissionId, _, _) =>
@@ -611,42 +604,13 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
         _ = all(results) should be(SubmissionResult.Acknowledged)
         updates <- updatesF
       } yield {
-        val expectedOffsets = partyIds.map(i => theOffset(i - 1, 0)).toVector
+        val expectedOffsets = partyIds.map(i => toOffset(i)).toVector
         val actualOffsets = updates.map(_._1).sorted.toVector
         actualOffsets should be(expectedOffsets)
 
         val actualNames =
           updates.map(_._2.asInstanceOf[PartyAddedToParticipant].displayName).sorted.toVector
         actualNames should be(partyNames)
-      }
-    }
-
-    if (supportsHeartbeats) {
-      "emit heartbeats if a source is provided" in newLoggingContext { implicit logCtx =>
-        val start = LocalDate.of(2020, 1, 1).atStartOfDay(ZoneOffset.UTC).toInstant
-        val heartbeats =
-          Source
-            .fromIterator(() => Iterator.iterate(start)(_.plusSeconds(1)))
-            // ensure this doesn't keep running forever, past the length of the test
-            // and make sure we correctly dispatch all events
-            .take(3)
-        newParticipantState(heartbeats = heartbeats)
-          .use { ps =>
-            for {
-              updates <- ps
-                .stateUpdates(beginAfter = None)
-                .idleTimeout(IdleTimeout)
-                .take(3)
-                .runWith(Sink.seq)
-            } yield {
-              updates.map(_._2) should be(
-                Seq(
-                  Update.Heartbeat(Timestamp.assertFromInstant(start)),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(1))),
-                  Update.Heartbeat(Timestamp.assertFromInstant(start).add(Duration.ofSeconds(2))),
-                ))
-            }
-          }
       }
     }
 
@@ -720,12 +684,8 @@ abstract class ParticipantStateIntegrationSpecBase(implementationName: String)
       submitter = party,
       applicationId = Ref.LedgerString.assertFromString("tests"),
       commandId = Ref.LedgerString.assertFromString(commandId),
-      maxRecordTime = inTheFuture(10.seconds),
       deduplicateUntil = inTheFuture(10.seconds).toInstant,
     )
-
-  private def theOffset(first: Long, rest: Long*): Offset =
-    Offset(Array(first + startIndex, rest: _*))
 
   private def inTheFuture(duration: FiniteDuration): Timestamp =
     rt.add(Duration.ofNanos(duration.toNanos))
@@ -763,6 +723,8 @@ object ParticipantStateIntegrationSpecBase {
         crypto.Hash.assertFromString(
           "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")),
       optUsedPackages = Some(Set.empty),
+      optNodeSeeds = None,
+      optByKeyNodes = None,
     )
 
   private def matchPackageUpload(
@@ -784,7 +746,7 @@ object ParticipantStateIntegrationSpecBase {
 
   private def matchTransaction(update: Update, expectedCommandId: String): Assertion =
     inside(update) {
-      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _, _)), _, _, _, _, _) =>
+      case TransactionAccepted(Some(SubmitterInfo(_, _, actualCommandId, _)), _, _, _, _, _) =>
         actualCommandId should be(expectedCommandId)
     }
 }

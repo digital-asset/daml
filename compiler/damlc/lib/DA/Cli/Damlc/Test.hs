@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -12,7 +12,6 @@ import Control.Monad.Except
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import DA.Cli.Damlc.Base
-import DA.Cli.Damlc.IdeState
 import qualified Data.HashSet as HashSet
 import Data.Maybe
 import Data.List.Extra
@@ -27,6 +26,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Development.Shake as Shake
 import Development.IDE.Core.API
+import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location

@@ -1,18 +1,18 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.indexer
+package com.daml.platform.indexer
 
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import akka.actor.ActorSystem
 import akka.pattern.after
 import ch.qos.logback.classic.Level
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.indexer.RecoveringIndexerSpec._
-import com.digitalasset.platform.testing.LogCollector
-import com.digitalasset.resources.{Resource, ResourceOwner}
+import com.daml.dec.DirectExecutionContext
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.platform.indexer.RecoveringIndexerSpec._
+import com.daml.platform.testing.LogCollector
+import com.daml.resources.{Resource, ResourceOwner}
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{AsyncWordSpec, BeforeAndAfterEach, Matchers}
 

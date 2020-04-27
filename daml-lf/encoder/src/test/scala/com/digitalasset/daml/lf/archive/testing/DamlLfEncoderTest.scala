@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.daml.lf.testing.archive
 
 import java.io.File
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
-import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId}
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.bazeltools.BazelRunfiles
+import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.data.Ref.{DottedName, PackageId}
+import com.daml.daml_lf_dev.DamlLf
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -36,7 +36,10 @@ class DamlLfEncoderTest
         "ListMod",
         "PartyMod",
         "RecordMod",
-        "VariantMod")
+        "VariantMod",
+        "BuiltinMod",
+        "TemplateMod",
+      )
 
       val modules_1_1 = modules_1_0 + "OptionMod"
       val modules_1_3 = modules_1_1 + "TextMapMod"

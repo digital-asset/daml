@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Doc.Render
@@ -22,8 +22,8 @@ import DA.Daml.Doc.Render.Hoogle
 import DA.Daml.Doc.Render.Output
 import DA.Daml.Doc.Types
 
+import Control.Monad.Extra
 import Data.Maybe
-import Data.List.Extra
 import Data.Foldable
 import System.Directory
 import System.FilePath
@@ -31,7 +31,7 @@ import System.IO
 import System.Exit
 
 import qualified CMarkGFM as GFM
-import qualified Data.Aeson.Types as A
+import qualified Data.Aeson as A
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -45,30 +45,29 @@ jsonConf :: AP.Config
 jsonConf = AP.Config (AP.Spaces 2) (AP.keyOrder ["id"]) AP.Generic True
 
 renderDocs :: RenderOptions -> [ModuleDoc] -> IO ()
-renderDocs RenderOptions{..} mods = do
+renderDocs ro@RenderOptions{..} mods = do
     let (formatter, postProcessing) =
             case ro_format of
                 Rst -> (renderRst, id)
                 Markdown -> (renderMd, id)
                 Html -> (renderMd, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
         templateText = fromMaybe (defaultTemplate ro_format) ro_template
+        renderMap = Map.fromList [(md_name mod, renderModule mod) | mod <- mods]
 
-    template <- compileTemplate templateText
+    template <- compileTemplate "template" templateText
 
     case ro_mode of
         RenderToFile path -> do
             BS.writeFile path
                 . T.encodeUtf8
-                . renderTemplate template
-                    (fromMaybe "Package Docs" ro_title)
+                . renderTemplate ro template
                 . postProcessing
                 . renderPage formatter
-                $ mconcatMap renderModule mods
+                $ fold renderMap
 
         RenderToFolder path -> do
-            let renderMap = Map.fromList
-                    [(md_name mod, renderModule mod) | mod <- mods]
-                outputMap = renderFolder formatter renderMap
+            let
+                (outputIndex, outputMap) = renderFolder formatter renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"
@@ -76,37 +75,68 @@ renderDocs RenderOptions{..} mods = do
                         Html -> "html"
 
                 outputPath mod = path </> moduleNameToFileName mod <.> extension
-                pageTitle mod = T.concat
-                    [ maybe "" (<> " - ") ro_title
-                    , "Module "
-                    , unModulename mod ]
 
             createDirectoryIfMissing True path
             for_ (Map.toList outputMap) $ \ (mod, renderedOutput) -> do
                 BS.writeFile (outputPath mod)
                     . T.encodeUtf8
-                    . renderTemplate template (pageTitle mod)
+                    . renderTemplate ro template
                     . postProcessing
                     $ renderedOutput
 
-compileTemplate :: T.Text -> IO M.Template
-compileTemplate templateText =
+            let indexTemplateText = fromMaybe (defaultTemplate ro_format) ro_indexTemplate
+            indexTemplate <- compileTemplate "index template" indexTemplateText
+
+            BS.writeFile (path </> "index" <.> extension)
+                . T.encodeUtf8
+                . renderTemplate ro indexTemplate
+                . postProcessing
+                $ outputIndex
+
+    let anchorTable = buildAnchorTable ro renderMap
+    whenJust ro_anchorPath $ \anchorPath -> do
+        A.encodeFile anchorPath anchorTable
+    whenJust ro_hooglePath $ \hooglePath -> do
+        let he = HoogleEnv { he_anchorTable = anchorTable }
+        hoogleTemplate <- compileTemplate "hoogle template"
+            (fromMaybe defaultHoogleTemplate ro_hoogleTemplate)
+        BS.writeFile hooglePath
+            . T.encodeUtf8
+            . renderTemplate ro hoogleTemplate
+            . T.concat
+            $ map (renderSimpleHoogle he) mods
+
+compileTemplate :: T.Text -> T.Text -> IO M.Template
+compileTemplate templateName templateText =
     case M.compileMustacheText "daml docs template" templateText of
         Right t -> pure t
         Left e -> do
-            hPutStrLn stderr ("Error with daml docs template: " <> show e)
+            hPutStrLn stderr ("Error with daml docs " <> T.unpack templateName <> ": " <> show e)
             exitFailure
 
 renderTemplate ::
-    M.Template -- ^ template
-    -> T.Text -- ^ page title
+    RenderOptions
+    -> M.Template -- ^ template
     -> T.Text -- ^ page body
     -> T.Text
-renderTemplate template pageTitle pageBody =
+renderTemplate RenderOptions{..} template pageBody =
     TL.toStrict . M.renderMustache template . A.object $
-        [ "title" A..= pageTitle
+        [ "base-url" A..= fromMaybe "" ro_baseURL
+        , "title" A..= fromMaybe "" ro_title
         , "body" A..= pageBody
         ]
+
+defaultHoogleTemplate :: T.Text
+defaultHoogleTemplate = T.unlines
+    [ "-- Hoogle database generated by damlc."
+    , "-- See Hoogle, http://www.haskell.org/hoogle/"
+    , ""
+    , "@url {{{base-url}}}"
+    , "@package {{package-name}}" -- TODO
+    , "@version {{package-version}}" -- TODO
+    , ""
+    , "{{{body}}}"
+    ]
 
 defaultTemplate :: RenderFormat -> T.Text
 defaultTemplate = \case

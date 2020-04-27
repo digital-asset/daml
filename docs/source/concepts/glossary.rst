@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Glossary of concepts
@@ -70,7 +70,7 @@ A `choice <#choice>`__ marked **postconsuming** will not be `archived <#active-c
 Nonconsuming choice
 --------------------
 
-A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract instance <#contract-contract-instance>`__. 
+A **nonconsuming choice** does NOT `archive <#active-contract-archived-contract>`__ the `contract <#contract-contract-instance>`__ it is on when `exercised <#exercise>`__. This means the choice can be exercised more than once on the same `contract instance <#contract-contract-instance>`__.
 
 Disjunction choice, flexible controllers
 ----------------------------------------
@@ -115,7 +115,7 @@ Controllers must be at least an `observer`_, otherwise they can't see the contra
 Stakeholder
 -----------
 
-**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract instance <#contract-contract-instance>`__. 
+**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories <#signatory>`__ and `observers <#observer>`__ collectively. That is, it means all of the `parties <#party>`__ that are interested in a `contract instance <#contract-contract-instance>`__.
 
 Maintainer
 ----------
@@ -169,14 +169,14 @@ Standard library
 
 The **DAML standard library** is a set of `DAML` functions, classes and more that make developing with DAML easier.
 
-For documentation, see :doc:`/daml/reference/base`. 
+For documentation, see :doc:`/daml/stdlib/index`.
 
 Agreement
 =========
 
 An **agreement** is part of a `contract <#contract-contract-instance>`__. It is text that explains what the contract represents.
 
-It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically. 
+It can be used to clarify the legal intent of a contract, but this text isn't evaluated programmatically.
 
 See :doc:`/daml/reference/templates`.
 
@@ -458,4 +458,3 @@ A **trust domain** encompasses a part of the system (in particular, a DAML ledge
 
 .. Conformance
 .. ===========
-

@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 
@@ -92,6 +92,8 @@ For example, you can import ``foo.dar`` as follows:
 When importing packages this way, the DAML compiler will try to reconstruct the original DAML interface from the compiled binaries. However, to allow ``data-dependencies`` to work across SDK versions, the compiler has to abstract over some details which are not compatible across SDK versions. This means that there are some DAML features that cannot be recovered when using ``data-dependencies``. In particular:
 
 #. Export lists cannot be recovered, so imports via ``data-dependencies`` can access definitions that were originally hidden. This means it is up to the importing module to respect the data abstraction of the original module. Note that this is the same for all code that runs on the ledger, since the ledger does not provide special support for data abstraction.
+
+#. If you have a ``dependency`` that limits the modules that can be accessed via ``exposed-modules``, you can get an error if you also have a ``data-dependency`` that references something from the hidden modules (even if it is only reexported). Since ``exposed-modules`` are not available on the ledger in general, we recommend to not make use of them and instead rely on naming conventions (e.g., suffix module names with ``.Internal``) to make it clear which modules are part of the public API.
 
 #. Prior to DAML-LF version 1.8, typeclasses could not be reconstructed. This means if you have a package that is compiled with an older version of DAML-LF, typeclasses and typeclass instances will not be carried over via data-dependencies, and you won't be able to call functions that rely on typeclass instances. This includes the template functions, such as ``create``, ``signatory``, and ``exercise``, as these rely on typeclass instances.
 

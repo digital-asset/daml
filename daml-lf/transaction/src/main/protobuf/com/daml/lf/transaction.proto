@@ -1,0 +1,106 @@
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+// Please refer to the transaction spec (in daml-foundations/daml-lf/spec/transaction.rst)
+// which describes the semantics of DAML-LF transactions in more detail.
+//
+// [one-line] version summary
+// * 1: initial version
+// * 2: new field value_version in NodeFetch
+// * 3: new node type NodeLookupByKey
+// * 4: string contract_id replaced globally by ContractId message
+// * 5: new field actors in NodeFetch
+// * 6: removal of controllers in exercise nodes
+// * 7: new field return_value in NodeExercise
+// * 8: new field contract_key in NodeExercise
+// * 9: new field key_maintainers in NodeExercise
+// * 10: new field key_with_maintainers in NodeFetch
+syntax = "proto3";
+
+package com.daml.lf.transaction;
+
+option java_package = "com.daml.lf.transaction";
+
+import "com/daml/lf/value.proto";
+
+// data structure represent an update to the ledger. executing a DAML-LF action of type
+// Update A produces produces one of these.
+// architecture-handbook-entry-begin: Transaction
+message Transaction {
+    string version = 1;
+    repeated string roots = 2;
+    repeated Node nodes = 3;
+}
+// architecture-handbook-entry-end: Transaction
+
+// architecture-handbook-entry-begin: Contract
+message ContractInstance {
+    com.daml.lf.value.Identifier template_id = 1;
+    com.daml.lf.value.VersionedValue value = 2;
+    string agreement = 3;
+}
+// architecture-handbook-entry-end: Contract
+
+// architecture-handbook-entry-begin: Nodes
+
+message Node {
+    string node_id = 1;
+
+    oneof node_type {
+        NodeCreate create = 3;
+        NodeFetch fetch = 4;
+        NodeExercise exercise = 5;
+        NodeLookupByKey lookup_by_key = 6;
+    }
+}
+
+message KeyWithMaintainers {
+    com.daml.lf.value.VersionedValue key = 1;
+    repeated string maintainers = 2; // the maintainers induced by the key
+}
+
+message NodeCreate {
+    string contract_id = 1;
+    ContractInstance contract_instance = 2;
+    repeated string stakeholders = 3;
+    repeated string signatories = 4;
+    KeyWithMaintainers key_with_maintainers = 5;
+    com.daml.lf.value.ContractId contract_id_struct = 6;
+}
+
+message NodeFetch {
+    string contract_id = 1;
+    com.daml.lf.value.Identifier template_id = 2;
+    repeated string actors = 7;
+    repeated string stakeholders = 3;
+    repeated string signatories = 4;
+    string value_version = 5;
+    com.daml.lf.value.ContractId contract_id_struct = 6;
+    KeyWithMaintainers key_with_maintainers = 8;
+}
+
+message NodeExercise {
+    string contract_id = 1;
+    com.daml.lf.value.Identifier template_id = 2;
+    repeated string actors = 3;
+    string choice = 4;
+    com.daml.lf.value.VersionedValue chosen_value = 5;
+    bool consuming = 6;
+    repeated string children = 7; // node ids
+    repeated string stakeholders = 8;
+    repeated string signatories = 9;
+    repeated string controllers = 10;
+    com.daml.lf.value.ContractId contract_id_struct = 11;
+    com.daml.lf.value.VersionedValue return_value = 12;
+    com.daml.lf.value.VersionedValue contract_key = 13; // optional
+    KeyWithMaintainers key_with_maintainers = 14; // optional
+}
+
+message NodeLookupByKey {
+    com.daml.lf.value.Identifier template_id = 1;
+    KeyWithMaintainers key_with_maintainers = 2;
+    string contract_id = 3; // optional, not present if not found
+    com.daml.lf.value.ContractId contract_id_struct = 4;
+}
+
+// architecture-handbook-entry-end: Nodes

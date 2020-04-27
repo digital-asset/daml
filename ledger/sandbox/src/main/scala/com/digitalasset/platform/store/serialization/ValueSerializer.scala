@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.serialization
+package com.daml.platform.store.serialization
 
 import java.io.InputStream
 
-import com.digitalasset.daml.lf.archive.{Decode, Reader}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
-import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
+import com.daml.lf.archive.{Decode, Reader}
+import com.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
+import com.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 object ValueSerializer {
 

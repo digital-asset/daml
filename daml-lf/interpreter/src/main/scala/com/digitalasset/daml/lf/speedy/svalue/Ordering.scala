@@ -1,15 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package speedy
 package svalue
 
-import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
-import com.digitalasset.daml.lf.data.ScalazEqual._
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.daml.lf.data.{Bytes, FrontStack, FrontStackCons, ImmArray, Ref, Utf8}
+import com.daml.lf.data.ScalazEqual._
+import com.daml.lf.language.Ast
+import com.daml.lf.speedy.SError.SErrorCrash
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -24,10 +26,16 @@ object Ordering extends scala.math.Ordering[SValue] {
     (xs zip ys).to[ImmArray] ++: stack
 
   private def compareIdentifier(name1: Ref.TypeConName, name2: Ref.TypeConName): Int = {
-    val c1 = name1.packageId compareTo name2.packageId
-    lazy val c2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
-    def c3 = name1.qualifiedName.name compareTo name2.qualifiedName.name
-    if (c1 != 0) c1 else if (c2 != 0) c2 else c3
+    val compare1 = name1.packageId compareTo name2.packageId
+    if (compare1 != 0) {
+      compare1
+    } else {
+      val compare2 = name1.qualifiedName.module compareTo name2.qualifiedName.module
+      if (compare2 != 0)
+        compare2
+      else
+        name1.qualifiedName.name compareTo name2.qualifiedName.name
+    }
   }
 
   val builtinTypeIdx =
@@ -60,7 +68,7 @@ object Ordering extends scala.math.Ordering[SValue] {
       case Ast.TStruct(_) => 3
       case Ast.TApp(_, _) => 4
       case Ast.TVar(_) | Ast.TForall(_, _) | Ast.TSynApp(_, _) =>
-        throw new IllegalArgumentException(s"cannot compare types $typ")
+        throw SErrorCrash(s"cannot compare types $typ")
     }
 
   @tailrec
@@ -103,36 +111,24 @@ object Ordering extends scala.math.Ordering[SValue] {
   private def compareText(text1: String, text2: String): Int =
     Utf8.Ordering.compare(text1, text2)
 
-  private def isHexa(s: String): Boolean =
-    s.forall(x => '0' < x && x < '9' || 'a' < x && x < 'f')
-
-  @inline
-  private val underlyingCidDiscriminatorLength = 65
-
-  private def compareCid(cid1: Ref.ContractIdString, cid2: Ref.ContractIdString): Int = {
-    // FIXME https://github.com/digital-asset/daml/issues/2256
-    // cleanup this function
-
-    val lim = cid1.length min cid2.length
-
-    @tailrec
-    def lp(i: Int): Int =
-      if (i < lim) {
-        val x = cid1(i)
-        val y = cid2(i)
-        if (x != y) x compareTo y else lp(i + 1)
-      } else {
-        if (lim == underlyingCidDiscriminatorLength && (//
-          cid1.length != underlyingCidDiscriminatorLength && isHexa(cid2) || //
-          cid2.length != underlyingCidDiscriminatorLength && isHexa(cid1)))
-          throw new IllegalArgumentException(
-            "Conflicting discriminators between a local and global contract id")
+  private def compareAbsCid(cid1: AbsoluteContractId, cid2: AbsoluteContractId): Int =
+    (cid1, cid2) match {
+      case (AbsoluteContractId.V0(s1), AbsoluteContractId.V0(s2)) =>
+        s1 compareTo s2
+      case (AbsoluteContractId.V0(_), AbsoluteContractId.V1(_, _)) =>
+        -1
+      case (AbsoluteContractId.V1(_, _), AbsoluteContractId.V0(_)) =>
+        +1
+      case (AbsoluteContractId.V1(hash1, suffix1), AbsoluteContractId.V1(hash2, suffix2)) =>
+        val c1 = crypto.Hash.ordering.compare(hash1, hash2)
+        if (c1 != 0)
+          c1
+        else if (suffix1.isEmpty != suffix2.isEmpty)
+          Bytes.ordering.compare(suffix1, suffix2)
         else
-          cid1.length compareTo cid2.length
-      }
+          throw SErrorCrash("Conflicting discriminators between a local and global contract id")
+    }
 
-    lp(0)
-  }
   @tailrec
   // Only value of the same type can be compared.
   private[this] def compareValue(stack0: FrontStack[(SValue, SValue)]): Int =
@@ -173,29 +169,25 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SParty(p2) =>
               (compareText(p1, p2)) -> ImmArray.empty
           }
-          case SContractId(AbsoluteContractId(coid1)) => {
-            case SContractId(AbsoluteContractId(coid2)) =>
-              compareCid(coid1, coid2) -> ImmArray.empty
+          case SContractId(coid1: AbsoluteContractId) => {
+            case SContractId(coid2: AbsoluteContractId) =>
+              compareAbsCid(coid1, coid2) -> ImmArray.empty
           }
           case STypeRep(t1) => {
             case STypeRep(t2) =>
               compareType(t1, t2) -> ImmArray.empty
           }
-          case SEnum(_, con1) => {
-            case SEnum(_, con2) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
-              (con1 compareTo con2) -> ImmArray.empty
+          case SEnum(_, _, rank1) => {
+            case SEnum(_, _, rank2) =>
+              (rank1 compareTo rank2) -> ImmArray.empty
           }
           case SRecord(_, _, args1) => {
             case SRecord(_, _, args2) =>
               0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
           }
-          case SVariant(_, con1, arg1) => {
-            case SVariant(_, con2, arg2) =>
-              // FIXME https://github.com/digital-asset/daml/issues/2256
-              // should not compare constructor syntactically
-              (con1 compareTo con2) -> ImmArray((arg1, arg2))
+          case SVariant(_, _, rank1, arg1) => {
+            case SVariant(_, _, rank2, arg2) =>
+              (rank1 compareTo rank2) -> ImmArray((arg1, arg2))
           }
           case SList(FrontStack()) => {
             case SList(l2) =>
@@ -215,6 +207,10 @@ object Ordering extends scala.math.Ordering[SValue] {
             case map2: STextMap =>
               0 -> ImmArray((toList(map1), toList(map2)))
           }
+          case map1: SGenMap => {
+            case map2: SGenMap =>
+              0 -> ImmArray((toList(map1), toList(map2)))
+          }
           case SStruct(_, args1) => {
             case SStruct(_, args2) =>
               0 -> (args1.iterator().asScala zip args2.iterator().asScala).to[ImmArray]
@@ -223,21 +219,22 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SAny(t2, v2) =>
               compareType(t1, t2) -> ImmArray((v1, v2))
           }
-          case SContractId(_) => {
-            case SContractId(_) =>
-              throw new IllegalAccessException("Try to compare relative contract ids")
+          case SContractId(RelativeContractId(_)) => {
+            case SContractId(RelativeContractId(_)) =>
+              throw SErrorCrash("relative contract id are not comparable")
           }
           case SPAP(_, _, _) => {
             case SPAP(_, _, _) =>
-              throw new IllegalAccessException("Try to compare functions")
+              throw SErrorCrash("functions are not comparable")
           }
-        }(fallback = throw new IllegalAccessException("Try to compare unrelated type"))
+        }(fallback = throw SErrorCrash("try to compare unrelated type"))
         if (x != 0)
           x
         else
           compareValue(toPush ++: stack)
     }
 
+  @throws[SErrorCrash]
   def compare(v1: SValue, v2: SValue): Int =
     compareValue(FrontStack((v1, v2)))
 

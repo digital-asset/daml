@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -6,7 +6,7 @@
 module DA.Ledger.Services.CommandSubmissionService (submit) where
 
 import Data.Functor
-import Com.Digitalasset.Ledger.Api.V1.CommandSubmissionService
+import Com.Daml.Ledger.Api.V1.CommandSubmissionService
 import DA.Ledger.Convert (lowerCommands)
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService

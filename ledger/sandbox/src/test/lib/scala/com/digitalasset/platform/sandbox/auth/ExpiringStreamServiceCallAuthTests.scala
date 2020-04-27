@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.auth
+package com.daml.platform.sandbox.auth
 
 import java.time.Duration
 
-import com.digitalasset.grpc.{GrpcException, GrpcStatus}
-import com.digitalasset.platform.sandbox.services.SubmitAndWaitDummyCommand
-import com.digitalasset.platform.testing.StreamConsumer
-import com.digitalasset.timer.Delayed
+import com.daml.grpc.{GrpcException, GrpcStatus}
+import com.daml.platform.sandbox.services.SubmitAndWaitDummyCommand
+import com.daml.platform.testing.StreamConsumer
+import com.daml.timer.Delayed
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 

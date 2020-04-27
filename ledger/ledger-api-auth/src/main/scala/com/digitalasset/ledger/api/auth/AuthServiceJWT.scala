@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.api.auth
+package com.daml.ledger.api.auth
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.jwt.{JwtVerifier, JwtVerifierBase}
-import com.digitalasset.ledger.api.auth.AuthServiceJWT.Error
+import com.daml.lf.data.Ref
+import com.daml.jwt.{JwtVerifier, JwtVerifierBase}
+import com.daml.ledger.api.auth.AuthServiceJWT.Error
 import io.grpc.Metadata
 import org.slf4j.{Logger, LoggerFactory}
 import spray.json._
@@ -43,14 +43,14 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
     for {
       headerValue <- Option
-        .apply(headers.get(AuthServiceJWT.AUTHORIZATION_KEY))
+        .apply(headers.get(AUTHORIZATION_KEY))
         .toRight(Error("Authorization header not found"))
       token <- bearerTokenRegex
         .findFirstMatchIn(headerValue)
         .map(_.group(1))
         .toRight(Error("Authorization header does not use Bearer format"))
       decoded <- verifier
-        .verify(com.digitalasset.jwt.domain.Jwt(token))
+        .verify(com.daml.jwt.domain.Jwt(token))
         .toEither
         .left
         .map(e => Error("Could not verify JWT token: " + e.message))
@@ -84,9 +84,6 @@ class AuthServiceJWT(verifier: JwtVerifierBase) extends AuthService {
 
 object AuthServiceJWT {
   final case class Error(message: String)
-
-  val AUTHORIZATION_KEY: Metadata.Key[String] =
-    Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 
   def apply(verifier: com.auth0.jwt.interfaces.JWTVerifier) =
     new AuthServiceJWT(new JwtVerifier(verifier))

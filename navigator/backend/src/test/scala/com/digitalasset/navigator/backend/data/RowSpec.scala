@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.data
+package com.daml.navigator.data
 
 import java.time.Instant
 
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.model.{
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.model.{
   ChoiceExercised,
   CommandStatusError,
   CommandStatusSuccess,
@@ -23,7 +23,7 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.util.Success
 
 class RowSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+  import com.daml.navigator.{DamlConstants => C}
 
   private val registry: PackageRegistry = PackageRegistry().withPackages(List(C.iface))
 

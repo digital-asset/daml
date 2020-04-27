@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
@@ -193,6 +193,9 @@ newtype Script a = Script { runScript : () -> (Free ScriptF (a, ())) }
 
 instance CanAbort Script where
   abort s = Script (\_ -> error s)
+
+instance ActionFail Script where
+  fail = abort
 
 data LedgerValue = LedgerValue {}
 

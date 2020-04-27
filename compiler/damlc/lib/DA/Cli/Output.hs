@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Output
@@ -60,5 +60,5 @@ diagnosticsLogger = hDiagnosticsLogger stderr
 
 hDiagnosticsLogger :: Handle -> FromServerMessage -> IO ()
 hDiagnosticsLogger handle = \case
-    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath fp,ShowDiag,) diags
+    EventFileDiagnostics fp diags -> printDiagnostics handle $ map (toNormalizedFilePath' fp,ShowDiag,) diags
     _ -> pure ()

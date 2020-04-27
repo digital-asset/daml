@@ -1,22 +1,22 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.codegen
+package com.daml.codegen
 
 import java.io._
 
-import com.digitalasset.codegen.types.Namespace
-import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-import com.digitalasset.codegen.dependencygraph._
-import com.digitalasset.codegen.exception.PackageInterfaceException
+import com.daml.codegen.types.Namespace
+import com.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.daml.lf.iface
+import com.daml.lf.data.Ref
+import com.daml.lf.iface.{Type => _, _}
+import com.daml.lf.iface.reader.{Errors, InterfaceReader}
+import com.daml.codegen.dependencygraph._
+import com.daml.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
-import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
-import com.digitalasset.daml_lf_dev.DamlLf
+import com.daml.lf.data.Ref._
+import com.daml.lf.iface.reader.Errors.ErrorLoc
+import com.daml.daml_lf_dev.DamlLf
 import com.typesafe.scalalogging.Logger
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._

@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy.svalue
 
-import com.digitalasset.daml.lf.speedy.SValue
-import com.digitalasset.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.SValue
+import com.daml.lf.speedy.SValue._
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -64,12 +64,12 @@ private[speedy] object Hasher {
                 loop(cmdsRest, cid.hashCode :: stack)
               case STypeRep(t) =>
                 loop(cmdsRest, t.hashCode() :: stack)
-              case SEnum(_, constructor) =>
-                loop(cmdsRest, constructor.hashCode :: stack)
+              case SEnum(_, _, rank) =>
+                loop(cmdsRest, rank :: stack)
               case SRecord(_, _, values) =>
                 loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
-              case SVariant(_, variant, value) =>
-                loop(Value(value) :: Mix(variant.hashCode) :: cmdsRest, stack)
+              case SVariant(_, _, rank, value) =>
+                loop(Value(value) :: Mix(rank) :: cmdsRest, stack)
               case SStruct(_, values) =>
                 loop(pushOrderedValues(values.size, values.iterator().asScala, cmdsRest), stack)
               case SOptional(opt) =>

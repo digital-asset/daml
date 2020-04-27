@@ -1,10 +1,9 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module DamlcTest
    ( main
    ) where
 
-import Control.Monad
 import Data.List.Extra (isInfixOf)
 import System.Directory
 import System.Environment.Blank
@@ -20,6 +19,8 @@ import qualified Data.ByteString.Lazy.Char8 as BSL (pack)
 import qualified Data.Text.Extended as T
 
 import DA.Bazel.Runfiles
+import DA.Test.Process
+import DA.Test.Util
 import SdkVersion
 
 main :: IO ()
@@ -74,7 +75,7 @@ testsForDamlcValidate damlc = testGroup "damlc validate-dar"
         , "dependencies: [daml-prim, daml-stdlib]"
         ]
       writeFileUTF8 (projDir </> "Good.daml") $ unlines
-        [ "daml 1.2 module ModWithTemplate where"
+        [ "daml 1.2 module Good where"
         , "template MyT"
         , "  with"
         , "    myParty : Party"
@@ -159,24 +160,26 @@ testsForDamlcTest damlc = testGroup "damlc test" $
           assertInfixOf "does not exist" stderr
           exitCode @?= ExitFailure 1
     , testCase "File with compile error" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
               [ "daml 1.2"
               , "module Foo where"
               , "abc"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Parse error" stderr
             exitCode @?= ExitFailure 1
     , testCase "File with failing scenario" $ do
-        withTempFile $ \path -> do
-            T.writeFileUtf8 path $ T.unlines
+        withTempDir $ \dir -> do
+            let file = dir </> "Foo.daml"
+            T.writeFileUtf8 file $ T.unlines
               [ "daml 1.2"
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", path] ""
+            (exitCode, stdout, stderr) <- readProcessWithExitCode damlc ["test", "--files", file] ""
             stdout @?= ""
             assertInfixOf "Scenario execution failed" stderr
             exitCode @?= ExitFailure 1
@@ -234,18 +237,3 @@ modArchiveWith :: FilePath -> FilePath -> (ZA.Archive -> ZA.Archive) -> IO ()
 modArchiveWith inFile outFile f = do
   archive <- ZA.toArchive <$> BSL.readFile inFile
   BSL.writeFile outFile $ ZA.fromArchive (f archive)
-
-
--- | Only displays stdout and stderr on errors
--- TODO Move this in a shared testing-utils library
-callProcessSilent :: FilePath -> [String] -> IO ()
-callProcessSilent cmd args = do
-    (exitCode, out, err) <- readProcessWithExitCode cmd args ""
-    unless (exitCode == ExitSuccess) $ do
-      hPutStrLn stderr $ "Failure: Command \"" <> cmd <> " " <> unwords args <> "\" exited with " <> show exitCode
-      hPutStrLn stderr $ unlines ["stdout:", out]
-      hPutStrLn stderr $ unlines ["stderr: ", err]
-      exitFailure
-
-assertInfixOf :: String -> String -> Assertion
-assertInfixOf needle haystack = assertBool ("Expected " <> show needle <> " in output but but got " <> show haystack) (needle `isInfixOf` haystack)

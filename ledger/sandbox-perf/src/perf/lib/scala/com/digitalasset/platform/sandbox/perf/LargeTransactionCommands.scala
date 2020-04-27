@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.perf
+package com.daml.platform.sandbox.perf
 
-import com.digitalasset.ledger.api.v1.commands.Command.Command
-import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
-import com.digitalasset.ledger.api.v1.value.Value.{Sum => P}
+import com.daml.ledger.api.v1.commands.Command.Command
+import com.daml.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.value.{Identifier, List, Record, RecordField, Value}
+import com.daml.ledger.api.v1.value.Value.{Sum => P}
 
 object LargeTransactionCommands {
 

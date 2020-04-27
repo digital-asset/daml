@@ -1,10 +1,9 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
-load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
-load("//rules_daml:daml-build.bzl", "daml_build_test")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 
@@ -52,6 +51,7 @@ genrule(
         "@npm//browser-resolve",
         "@npm//buffer",
         "@npm//buffer-from",
+        "@npm//bytes",
         "@npm//cached-path-relative",
         "@npm//chalk",
         "@npm//chokidar",
@@ -93,6 +93,7 @@ genrule(
         "@npm//faye-websocket",
         "@npm//figures",
         "@npm//file-sync-cmp",
+        "@npm//finalhandler",
         "@npm//findup-sync",
         "@npm//fresh",
         "@npm//fs.realpath",
@@ -124,6 +125,7 @@ genrule(
         "@npm//has-flag",
         "@npm//hooker",
         "@npm//htmlescape",
+        "@npm//http-errors",
         "@npm//http-parser-js",
         "@npm//https-browserify",
         "@npm//iconv-lite",
@@ -171,7 +173,9 @@ genrule(
         "@npm//pretty-bytes",
         "@npm//process",
         "@npm//process-nextick-args",
+        "@npm//punycode",
         "@npm//querystring-es3",
+        "@npm//raw-body",
         "@npm//readable-stream",
         "@npm//readdirp",
         "@npm//read-only-stream",
@@ -180,7 +184,9 @@ genrule(
         "@npm//safe-buffer",
         "@npm//safe-json-parse",
         "@npm//safer-buffer",
+        "@npm//send",
         "@npm//serve-index",
+        "@npm//serve-static",
         "@npm//shasum",
         "@npm//sprintf-js",
         "@npm//statuses",
@@ -236,16 +242,15 @@ genrule(
             sass:da_theme/static/css
         ../$(location :grunt) build
 
-        tar \
+        tar c da_theme \
             --owner=1000 \
             --group=1000 \
-            --mtime=1337 \
+            --mtime=2000-01-01\ 00:00Z \
             --no-acls \
             --no-xattrs \
             --no-selinux \
             --sort=name \
-            -czf ../$(location da_theme.tar.gz) \
-            da_theme
+            | gzip -n > ../$(location da_theme.tar.gz)
     """,
     tools = [
         ":grunt",
@@ -256,7 +261,7 @@ genrule(
 genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
-        "//compiler/damlc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-rst.tar.gz",
         "//triggers/daml:daml-trigger-rst-docs",
         "//daml-script/daml:daml-script-rst-docs",
         "//ledger-api/grpc-definitions:docs",
@@ -268,7 +273,10 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
+        mkdir -p source/daml/stdlib
+        tar xf $(location //compiler/damlc:daml-base-rst.tar.gz) \
+            --strip-components 1 \
+            -C source/daml/stdlib
 
         # Copy in daml-trigger documentation
         cp -rL $(location //triggers/daml:daml-trigger-rst-docs) source/triggers/trigger-docs.rst
@@ -283,7 +291,9 @@ genrule(
         cp -L $(location //:LICENSE) source/LICENSE
         cp -L $(location //:NOTICES) source/NOTICES
 
-        tar -zcf $(location source.tar.gz) source
+        tar c source \
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+            | gzip -n > $(location source.tar.gz)
     """,
 )
 
@@ -292,6 +302,7 @@ genrule(
     srcs = glob([
         "configs/pdf/**",
         "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
     ]) + [
         ":sources",
     ],
@@ -339,15 +350,18 @@ genrule(
     srcs = glob([
         "configs/html/**",
         "configs/static/pygments_daml_lexer.py",
+        "configs/static/typescript.py",
     ]) + [
         ":sources",
         ":theme",
-        "//compiler/damlc:daml-base-rst-docs",
-        "//compiler/damlc:daml-base-hoogle-docs",
+        "//compiler/damlc:daml-base-hoogle.txt",
         "//language-support/java:javadoc",
         "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
+        "//templates:templates-tarball",
+        "//templates:create-daml-app-test-resources/messaging.patch",
+        "//templates:create-daml-app-test-resources/index.test.ts",
     ],
     outs = ["html-only.tar.gz"],
     cmd = ("""
@@ -361,6 +375,18 @@ genrule(
         # Copy in theme
         mkdir -p build/docs/theme
         tar -zxf $(location :theme) -C build/docs/theme
+
+        # Copy templates for code snippets in getting started guide
+        CODE_DIR=$$PWD/build/docs/source/getting-started/code/
+        mkdir -p $$CODE_DIR
+        tar -zxf $(location //templates:templates-tarball) -C $$CODE_DIR
+        # Copy create-daml-app tests
+        mkdir $$CODE_DIR/testing
+        cp $(location //templates:create-daml-app-test-resources/index.test.ts) $$CODE_DIR/testing
+        # Apply patch for messaging feature (we only need the "after" state)
+        PATCH_TOOL=$$PWD/$(location @patch_dev_env//:patch)
+        MESSAGING_PATCH=$$PWD/$(location //templates:create-daml-app-test-resources/messaging.patch)
+        (cd $$CODE_DIR/templates-tarball; $$PATCH_TOOL -s -p1 < $$MESSAGING_PATCH)
 
         # Build with Sphinx
         cd build
@@ -390,13 +416,16 @@ genrule(
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
-        cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+        cp -rL ../$(location //compiler/damlc:daml-base-hoogle.txt) html/hoogle_db/base.txt
 
-        tar -zcf ../$(location html-only.tar.gz) html
+        tar c html \
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+            | gzip -n > ../$(location html-only.tar.gz)
         """.format(sdk = sdk_version),
-    tools =
-        ["@sphinx_nix//:bin/sphinx-build"] +
-        (["@glibc_locales//:locale-archive"] if is_linux else []),
+    tools = [
+        "@sphinx_nix//:bin/sphinx-build",
+        "@patch_dev_env//:patch",
+    ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
 ) if not is_windows else None
 
 genrule(
@@ -418,7 +447,9 @@ genrule(
                 sed -i -e "s,__URL__,$${to}," redirects/$$from
             fi
         done <docs/redirects.map
-        tar -zcf $(location redirects.tar.gz) redirects
+        tar c redirects \
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+            | gzip -n > $(location redirects.tar.gz)
     """,
 )
 
@@ -453,7 +484,9 @@ genrule(
         cp -L $(location :pdf-docs) html/_downloads
         # Remove Sphinx build products
         rm -rf .buildinfo .doctrees objects.inv
-        tar -zcf $(location html.tar.gz) html
+        tar c html \
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+            | gzip -n > $(location html.tar.gz)
     """.format(
         head = """<?xml version='1.0' encoding='UTF-8'?><urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9' xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xsi:schemaLocation='http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd'>""",
         item = """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
@@ -467,11 +500,11 @@ genrule(
 filegroup(
     name = "daml-assistant-iou-setup",
     srcs = glob(
-        ["source/getting-started/quickstart/template-root/*"],
+        ["source/app-dev/bindings-java/quickstart/template-root/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/getting-started/quickstart/template-root/src",
-            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),
@@ -480,13 +513,15 @@ filegroup(
 
 genrule(
     name = "quickstart-java",
-    srcs = glob(["source/getting-started/quickstart/template-root/**"]),
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/**"]),
     outs = ["quickstart-java.tar.gz"],
     cmd = """
         mkdir -p quickstart-java
-        cp -rL docs/source/getting-started/quickstart/template-root/* quickstart-java/
+        cp -rL docs/source/app-dev/bindings-java/quickstart/template-root/* quickstart-java/
         sed -i "s/__VERSION__/{mvn}/" quickstart-java/pom.xml
-        tar zcf $@ quickstart-java
+        tar c quickstart-java \
+            --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+            | gzip -n > $@
     """.format(mvn = mvn_version),
     visibility = ["//visibility:public"],
 )
@@ -496,10 +531,10 @@ load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 genrule(
     name = "quickstart-model",
     srcs = [
-        "//docs:source/getting-started/quickstart/template-root/daml/Main.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/Iou.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml",
-        "//docs:source/getting-started/quickstart/template-root/daml/Setup.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml",
+        "//docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml",
         "//daml-script/daml:daml-script.dar",
     ],
     outs = ["quickstart-model.dar"],
@@ -507,10 +542,10 @@ genrule(
       set -eou pipefail
       TMP_DIR=$$(mktemp -d)
       mkdir -p $$TMP_DIR/daml
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
-      cp -R -L $(location //docs:source/getting-started/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Main.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Iou.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/IouTrade.daml) $$TMP_DIR/daml/
+      cp -R -L $(location //docs:source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml) $$TMP_DIR/daml/
       cp -L $(location //daml-script/daml:daml-script.dar) $$TMP_DIR/
       cat << EOF > $$TMP_DIR/daml.yaml
 sdk-version: {sdk}
@@ -533,13 +568,13 @@ EOF
 dar_to_java(
     name = "quickstart-model",
     src = "quickstart-model.dar",
-    package_prefix = "com.digitalasset.quickstart.model",
+    package_prefix = "com.daml.quickstart.model",
 )
 
 java_binary(
     name = "quickstart-java-lib",
-    srcs = glob(["source/getting-started/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
-    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    srcs = glob(["source/app-dev/bindings-java/quickstart/template-root/src/main/java/**/*.java"]) + [":quickstart-model-srcjar"],
+    main_class = "com.daml.quickstart.iou.IouMain",
     deps = [
         "//daml-lf/archive:daml_lf_dev_archive_java_proto",
         "//language-support/java/bindings:bindings-java",
@@ -569,6 +604,13 @@ daml_test(
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
 )
 
+pkg_tar(
+    name = "daml-patterns",
+    srcs = glob(["source/daml/patterns/daml/**/*.daml"]) + ["source/daml/patterns/daml.yaml.template"],
+    strip_prefix = "/docs/source/daml/patterns",
+    visibility = ["//visibility:public"],
+)
+
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
@@ -588,10 +630,10 @@ daml_test(
 daml_test(
     name = "quickstart-daml-test",
     srcs = glob(
-        include = ["source/getting-started/quickstart/template-root/daml/**/*.daml"],
+        include = ["source/app-dev/bindings-java/quickstart/template-root/daml/**/*.daml"],
         # excluding Setup.daml, because it doesn't contain any scenarios,
         # and we cannot conveniently add daml-script as a dependency for daml_test
-        exclude = ["source/getting-started/quickstart/template-root/daml/Setup.daml"],
+        exclude = ["source/app-dev/bindings-java/quickstart/template-root/daml/Setup.daml"],
     ),
 )
 
@@ -629,14 +671,36 @@ daml_build_test(
     project_dir = "source/upgrade/example/coin-upgrade",
 )
 
+daml_build_test(
+    name = "daml-upgrade-example-upgrade-script",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        "//daml-script/daml:daml-script.dar": "path/to/daml-script.dar",
+    },
+    project_dir = "source/upgrade/example/coin-initiate-upgrade",
+)
+
+daml_build_test(
+    name = "daml-upgrade-example-upgrade-trigger",
+    dar_dict = {
+        ":daml-upgrade-example-v1": "path/to/coin-1.0.0.dar",
+        ":daml-upgrade-example-v2": "path/to/coin-2.0.0.dar",
+        ":daml-upgrade-example-upgrade": "path/to/coin-upgrade-1.0.0.dar",
+        "//triggers/daml:daml-trigger.dar": "path/to/daml-trigger.dar",
+    },
+    project_dir = "source/upgrade/example/coin-upgrade-trigger",
+)
+
 filegroup(
     name = "daml-intro-1",
     srcs = glob(
         ["source/daml/intro/daml/1_Token/**/*"],
         # excluding quickstart-java stuff
         exclude = [
-            "source/getting-started/quickstart/template-root/src",
-            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/app-dev/bindings-java/quickstart/template-root/src",
+            "source/app-dev/bindings-java/quickstart/template-root/pom.xml",
         ],
         exclude_directories = 0,
     ),

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # HLint configuration file
@@ -53,6 +53,7 @@
 - warn: {lhs: Data.Text.Lazy.readFile, rhs: Data.Text.Extended.readFileUtf8}
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
+- warn: {lhs: toNormalizedFilePath, rhs: toNormalizedFilePath'}
 
 # Hints that do not always make sense
 - ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}

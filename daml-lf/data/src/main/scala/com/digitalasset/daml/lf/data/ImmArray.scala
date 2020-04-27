@@ -1,10 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
+
+import ScalazEqual.{equalBy, orderBy, toIterableForScalazInstances}
 
 import scalaz.syntax.applicative._
-import scalaz.{Applicative, Equal, Foldable, Traverse}
+import scalaz.{Applicative, Equal, Foldable, Order, Traverse}
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
@@ -31,13 +33,16 @@ import scala.reflect.ClassTag
   */
 final class ImmArray[+A] private (
     private val start: Int,
-    private val len: Int,
-    array: mutable.ArraySeq[A]) {
+    val length: Int,
+    array: mutable.ArraySeq[A]
+) {
+  self =>
+
   def iterator: Iterator[A] = {
     var cursor = start
 
     new Iterator[A] {
-      override def hasNext: Boolean = cursor < start + len
+      override def hasNext: Boolean = cursor < start + self.length
 
       override def next(): A = {
         val x = array(cursor)
@@ -48,7 +53,7 @@ final class ImmArray[+A] private (
   }
 
   def reverseIterator: Iterator[A] = {
-    var cursor = start + len - 1
+    var cursor = start + self.length - 1
 
     new Iterator[A] {
       override def hasNext: Boolean = cursor >= start
@@ -63,7 +68,7 @@ final class ImmArray[+A] private (
 
   /** O(1), crashes on out of bounds */
   def apply(idx: Int): A =
-    if (idx >= len) {
+    if (idx >= length) {
       throw new IndexOutOfBoundsException("index out of bounds in ImmArray apply")
     } else {
       uncheckedGet(idx)
@@ -71,42 +76,39 @@ final class ImmArray[+A] private (
 
   private def uncheckedGet(idx: Int): A = array(start + idx)
 
-  /** O(1) */
-  def length: Int = len
-
   /** O(n) */
   def copyToArray[B >: A](dst: Array[B], dstStart: Int, dstLen: Int): Unit = {
-    for (i <- 0 until Math.max(len, dstLen)) {
+    for (i <- 0 until Math.max(length, dstLen)) {
       dst(dstStart + i) = uncheckedGet(i)
     }
   }
 
   /** O(n) */
   def copyToArray[B >: A](xs: Array[B]): Unit = {
-    copyToArray(xs, 0, len)
+    copyToArray(xs, 0, length)
   }
 
   /** O(1), crashes on empty list */
   def head: A = this(0)
 
   /** O(1), crashes on empty list */
-  def last: A = this(this.length - 1)
+  def last: A = this(length - 1)
 
   /** O(1), crashes on empty list */
   def tail: ImmArray[A] = {
-    if (len < 1) {
+    if (length < 1) {
       throw new RuntimeException("tail on empty ImmArray")
     } else {
-      new ImmArray(start + 1, len - 1, array)
+      new ImmArray(start + 1, length - 1, array)
     }
   }
 
   /** O(1), crashes on empty list */
   def init: ImmArray[A] = {
-    if (len < 1) {
+    if (length < 1) {
       throw new RuntimeException("init on empty ImmArray")
     } else {
-      new ImmArray(start, len - 1, array)
+      new ImmArray(start, length - 1, array)
     }
   }
 
@@ -123,9 +125,9 @@ final class ImmArray[+A] private (
     * use `relaxedSlice`.
     */
   def strictSlice(from: Int, until: Int): ImmArray[A] = {
-    if (from < 0 || from >= len || until < 0 || until > len) {
+    if (from < 0 || from >= length || until < 0 || until > length) {
       throw new IndexOutOfBoundsException(
-        s"strictSlice arguments out of bounds for ImmArray. length: $len, from: $from, until: $until")
+        s"strictSlice arguments out of bounds for ImmArray. length: $length, from: $from, until: $until")
     }
 
     relaxedSlice(from, until)
@@ -135,8 +137,8 @@ final class ImmArray[+A] private (
     * as Seq's slice.
     */
   def relaxedSlice(from0: Int, until0: Int): ImmArray[A] = {
-    val from = Math.max(Math.min(from0, len), 0)
-    val until = Math.max(Math.min(until0, len), 0)
+    val from = Math.max(Math.min(from0, length), 0)
+    val until = Math.max(Math.min(until0, length), 0)
 
     val newLen = until - from
     if (newLen <= 0) {
@@ -148,7 +150,7 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def map[B](f: A => B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(len)
+    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length)
     for (i <- indices) {
       newArray(i) = f(uncheckedGet(i))
     }
@@ -157,9 +159,9 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def reverse: ImmArray[A] = {
-    val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(len)
+    val newArray: mutable.ArraySeq[A] = new mutable.ArraySeq(length)
     for (i <- indices) {
-      newArray(i) = array(start + len - (i + 1))
+      newArray(i) = array(start + length - (i + 1))
     }
     ImmArray.unsafeFromArraySeq[A](newArray)
   }
@@ -170,12 +172,12 @@ final class ImmArray[+A] private (
     * since to append ImmArray we must copy both of them.
     */
   def slowAppend[B >: A](other: ImmArray[B]): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(len + other.len)
+    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + other.length)
     for (i <- indices) {
       newArray(i) = uncheckedGet(i)
     }
     for (i <- other.indices) {
-      newArray(len + i) = other.uncheckedGet(i)
+      newArray(length + i) = other.uncheckedGet(i)
     }
     ImmArray.unsafeFromArraySeq(newArray)
   }
@@ -186,7 +188,7 @@ final class ImmArray[+A] private (
     * since to cons an ImmArray we must copy it.
     */
   def slowCons[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(len + 1)
+    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
     newArray(0) = el
     for (i <- indices) {
       newArray(i + 1) = uncheckedGet(i)
@@ -200,17 +202,17 @@ final class ImmArray[+A] private (
     * since to snoc an ImmArray we must copy it.
     */
   def slowSnoc[B >: A](el: B): ImmArray[B] = {
-    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(len + 1)
+    val newArray: mutable.ArraySeq[B] = new mutable.ArraySeq(length + 1)
     for (i <- indices) {
       newArray(i) = uncheckedGet(i)
     }
-    newArray(len) = el
+    newArray(length) = el
     ImmArray.unsafeFromArraySeq(newArray)
   }
 
   /** O(min(n, m)) */
   def zip[B](that: ImmArray[B]): ImmArray[(A, B)] = {
-    val newLen = Math.min(len, that.len)
+    val newLen = Math.min(length, that.length)
     val newArray: mutable.ArraySeq[(A, B)] = new mutable.ArraySeq(newLen)
     for (i <- 0 until newLen) {
       newArray(i) = (uncheckedGet(i), that.uncheckedGet(i))
@@ -219,17 +221,17 @@ final class ImmArray[+A] private (
   }
 
   /** O(1) */
-  def isEmpty: Boolean = len == 0
+  def isEmpty: Boolean = length == 0
 
   /** O(1) */
-  def nonEmpty: Boolean = len != 0
+  def nonEmpty: Boolean = length != 0
 
   /** O(n) */
   def toList: List[A] = toSeq.toList
 
   /** O(n) */
   def toArray[B >: A: ClassTag]: Array[B] = {
-    val arr: Array[B] = new Array(len)
+    val arr: Array[B] = new Array(length)
     for (i <- indices) {
       arr(i) = uncheckedGet(i)
     }
@@ -258,7 +260,7 @@ final class ImmArray[+A] private (
   def collect[B](f: PartialFunction[A, B]): ImmArray[B] = {
     val builder = ImmArray.newBuilder[B]
     var i = 0
-    while (i < len) {
+    while (i < length) {
       val a = uncheckedGet(i)
       if (f.isDefinedAt(a)) builder += f(a)
       i += 1
@@ -268,29 +270,43 @@ final class ImmArray[+A] private (
 
   /** O(n) */
   def foreach(f: A => Unit): Unit = {
-    for (i <- indices) {
-      f(uncheckedGet(i))
-    }
+    @tailrec
+    def go(cursor: Int): Unit =
+      if (cursor < length) {
+        f(uncheckedGet(cursor))
+        go(cursor + 1)
+      }
+    go(0)
   }
 
   /** O(n) */
   def foldLeft[B](z: B)(f: (B, A) => B): B = {
     @tailrec
     def go(cursor: Int, acc: B): B = {
-      if (cursor >= length) {
-        acc
-      } else {
+      if (cursor < length)
         go(cursor + 1, f(acc, uncheckedGet(cursor)))
-      }
+      else
+        acc
     }
     go(0, z)
+  }
+
+  /** O(n) */
+  def foldRight[B](z: B)(f: (A, B) => B): B = {
+    @tailrec
+    def go(cursor: Int, acc: B): B =
+      if (cursor >= 0)
+        go(cursor - 1, f(uncheckedGet(cursor), acc))
+      else
+        acc
+    go(length - 1, z)
   }
 
   /** O(n) */
   def find(f: A => Boolean): Option[A] = {
     @tailrec
     def go(i: Int): Option[A] =
-      if (i < len) {
+      if (i < length) {
         val e = uncheckedGet(i)
         if (f(e)) Some(e)
         else go(i + 1)
@@ -305,14 +321,14 @@ final class ImmArray[+A] private (
     } getOrElse -1
 
   /** O(1) */
-  def indices: Range = 0 until len
+  def indices: Range = 0 until length
 
   /** O(1) */
   def canEqual(that: Any) = that.isInstanceOf[ImmArray[_]]
 
   /** O(n) */
   override def equals(that: Any): Boolean = that match {
-    case thatArr: ImmArray[_] if len == thatArr.len =>
+    case thatArr: ImmArray[_] if length == thatArr.length =>
       indices forall { i =>
         uncheckedGet(i) == thatArr.uncheckedGet(i)
       }
@@ -320,8 +336,8 @@ final class ImmArray[+A] private (
   }
 
   /** O(n) */
-  private def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
-    (len == thatArr.len) && {
+  private[data] def equalz[B >: A](thatArr: ImmArray[B])(implicit B: Equal[B]): Boolean =
+    (length == thatArr.length) && {
       indices forall { i =>
         B.equal(uncheckedGet(i), thatArr.uncheckedGet(i))
       }
@@ -337,7 +353,7 @@ final class ImmArray[+A] private (
   override def hashCode(): Int = toSeq.hashCode()
 }
 
-object ImmArray {
+object ImmArray extends ImmArrayInstances {
   private[this] val emptySingleton: ImmArray[Nothing] =
     ImmArray.unsafeFromArraySeq(new mutable.ArraySeq(0))
   def empty[T]: ImmArray[T] = emptySingleton
@@ -378,8 +394,10 @@ object ImmArray {
     }
   }
 
-  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
-    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
+  implicit def immArrayOrderInstance[A: Order]: Order[ImmArray[A]] = {
+    import scalaz.std.iterable._
+    orderBy(ia => toIterableForScalazInstances(ia.iterator), true)
+  }
 
   private[ImmArray] final class IACanBuildFrom[A]
       extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
@@ -411,8 +429,11 @@ object ImmArray {
     // TODO make this faster by implementing as many methods as possible.
     override def iterator: Iterator[A] = array.iterator
     override def reverseIterator: Iterator[A] = array.reverseIterator
+
     override def apply(idx: Int): A = array(idx)
-    override def length: Int = array.len
+
+    override def length: Int = array.length
+
     override def head: A = array.head
     override def tail: ImmArraySeq[A] = new ImmArraySeq(array.tail)
     override def last: A = array.last
@@ -459,7 +480,7 @@ object ImmArray {
     }
 
     implicit def `immArraySeq Equal instance`[A: Equal]: Equal[ImmArraySeq[A]] =
-      if (Equal[A].equalIsNatural) Equal.equalA else Equal[ImmArray[A]].contramap(_.toImmArray)
+      equalBy(_.toImmArray, true)
 
     private final class IASCanBuildFrom[A] extends GenericCanBuildFrom[A]
 
@@ -469,6 +490,11 @@ object ImmArray {
     override def newBuilder[A]: mutable.Builder[A, ImmArraySeq[A]] =
       ImmArray.newBuilder.mapResult(_.toSeq)
   }
+}
+
+sealed abstract class ImmArrayInstances {
+  implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
+    ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 }
 
 /** We do not provide apply on purpose -- see slowCons on why we want to discourage consing */

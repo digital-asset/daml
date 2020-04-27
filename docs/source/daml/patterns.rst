@@ -1,4 +1,4 @@
-.. Copyright (c) 2020 The DAML Authors. All rights reserved.
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Good design patterns
@@ -6,7 +6,7 @@ Good design patterns
 
 Patterns have been useful in the programming world, as both a source of design inspiration, and a document of good design practices. This document is a catalog of DAML patterns intended to provide the same facility in the DA/DAML application world.
 
-:download:`Download all the example code <patterns/damlpatterns.tar.gz>`
+You can checkout the examples locally via ``daml new daml-patterns daml-patterns``.
 
 :doc:`patterns/initaccept`
     The Initiate and Accept pattern demonstrates how to start a bilateral workflow. One party initiates by creating a proposal or an invite contract. This gives another party the chance to accept, reject or renegotiate.

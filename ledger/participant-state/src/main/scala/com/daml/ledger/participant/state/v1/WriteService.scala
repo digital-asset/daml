@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
-import com.digitalasset.ledger.api.health.ReportsHealth
+import com.daml.ledger.api.health.ReportsHealth
 
 /** An interface to change a ledger via a participant.
   *
@@ -50,9 +50,7 @@ trait WriteService
     * [[Update.CommandRejected]] message referencing the same `submitterInfo` as
     * provided in the submission. There can be failure modes where a
     * transaction submission is lost in transit, and no [[Update.CommandRejected]] is
-    * generated. These failures are communicated via [[Update.Heartbeat]]s signalling
-    * that the `maximumRecordTime` provided in the submitter info has been
-    * exceeded. See the comments on [[ReadService.stateUpdates]] for further details.
+    * generated. See the comments on [[ReadService.stateUpdates]] for further details.
     *
     * A note on ledger effective time and record time: transactions are
     * submitted together with a `ledgerEffectiveTime` provided as part of the

@@ -1,6 +1,5 @@
 package(default_visibility = ["//:__subpackages__"])
 
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load(
     "@rules_haskell//haskell:defs.bzl",
     "haskell_toolchain",
@@ -59,30 +58,6 @@ c2hs_toolchain(
     name = "c2hs-toolchain",
     c2hs = "@c2hs//:c2hs",
 )
-
-#
-# Python toolchain
-#
-
-py_runtime(
-    name = "nix_python3_runtime",
-    interpreter = "@python3_nix//:bin/python",
-    python_version = "PY3",
-) if not is_windows else None
-
-py_runtime_pair(
-    name = "nix_python_runtime_pair",
-    py3_runtime = ":nix_python3_runtime",
-) if not is_windows else None
-
-toolchain(
-    name = "nix_python_toolchain",
-    exec_compatible_with = [
-        "@rules_haskell//haskell/platforms:nixpkgs",
-    ],
-    toolchain = ":nix_python_runtime_pair",
-    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
-) if not is_windows else None
 
 filegroup(
     name = "node_modules",
@@ -199,13 +174,13 @@ alias(
 )
 
 alias(
-    name = "daml2ts",
-    actual = "//language-support/ts/codegen:daml2ts",
+    name = "daml2js",
+    actual = "//language-support/ts/codegen:daml2js",
 )
 
 alias(
-    name = "daml2ts@ghci",
-    actual = "//language-support/ts/codegen:daml2ts@ghci",
+    name = "daml2js@ghci",
+    actual = "//language-support/ts/codegen:daml2js@ghci",
 )
 
 alias(
@@ -271,13 +246,17 @@ da_haskell_repl(
         "//compiler/damlc/tests:daml-doctest",
         "//compiler/damlc/tests:damlc-test",
         "//compiler/damlc/tests:generate-simple-dalf",
+        "//compiler/damlc/tests:incremental",
         "//compiler/damlc/tests:integration-dev",
         "//compiler/damlc/tests:packaging",
         "//daml-assistant:daml",
+        "//daml-assistant:test",
         "//daml-assistant/daml-helper",
+        "//daml-assistant/daml-helper:test-deployment",
+        "//daml-assistant/daml-helper:test-tls",
         "//daml-assistant/integration-tests",
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/hs/bindings:test",
-        "//language-support/ts/codegen:daml2ts",
+        "//language-support/ts/codegen:daml2js",
     ],
 )

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -70,7 +70,7 @@ da_scala_test_suite(
 da_scala_binary(
     name = "encoder_binary",
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/archive/testing/DamlLfEncoder.scala"]),
-    main_class = "com.digitalasset.daml.lf.archive.testing.DamlLfEncoder",
+    main_class = "com.daml.lf.archive.testing.DamlLfEncoder",
     scalacopts = lf_scalacopts,
     visibility = [
         "//daml-lf:__subpackages__",

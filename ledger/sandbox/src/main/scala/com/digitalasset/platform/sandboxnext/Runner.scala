@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandboxnext
+package com.daml.platform.sandboxnext
 
 import java.io.File
 import java.time.{Clock, Instant}
@@ -10,45 +10,40 @@ import java.util.UUID
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.codahale.metrics.SharedMetricRegistries
+import com.daml.api.util.TimeProvider
+import com.daml.buildinfo.BuildInfo
+import com.daml.daml_lf_dev.DamlLf.Archive
+import com.daml.ledger.api.auth.{AuthServiceWildcard, Authorizer}
+import com.daml.ledger.api.domain
 import com.daml.ledger.on.sql.Database.InvalidDatabaseException
 import com.daml.ledger.on.sql.SqlLedgerReaderWriter
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
+import com.daml.ledger.participant.state.kvutils.caching
 import com.daml.ledger.participant.state.v1
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.ledger.api.auth.{AuthServiceWildcard, Authorizer}
-import com.digitalasset.ledger.api.domain
-import com.digitalasset.logging.ContextualizedLogger
-import com.digitalasset.logging.LoggingContext.newLoggingContext
-import com.digitalasset.platform.apiserver.{
-  ApiServer,
-  ApiServerConfig,
-  StandaloneApiServer,
-  TimeServiceBackend
-}
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.configuration.BuildInfo
-import com.digitalasset.platform.indexer.{
-  IndexerConfig,
-  IndexerStartupMode,
-  StandaloneIndexerServer
-}
-import com.digitalasset.platform.sandbox.banner.Banner
-import com.digitalasset.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
-import com.digitalasset.platform.sandbox.services.SandboxResetService
-import com.digitalasset.platform.sandboxnext.Runner._
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.store.FlywayMigrations
-import com.digitalasset.ports.Port
-import com.digitalasset.resources.akka.AkkaResourceOwner
-import com.digitalasset.resources.{ResettableResourceOwner, Resource, ResourceOwner}
+import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
+import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
+import com.daml.lf.archive.DarReader
+import com.daml.lf.data.Ref
+import com.daml.logging.ContextualizedLogger
+import com.daml.logging.LoggingContext.newLoggingContext
+import com.daml.metrics.MetricName
+import com.daml.platform.apiserver._
+import com.daml.platform.common.LedgerIdMode
+import com.daml.platform.configuration.PartyConfiguration
+import com.daml.platform.indexer.{IndexerConfig, IndexerStartupMode, StandaloneIndexerServer}
+import com.daml.platform.sandbox.banner.Banner
+import com.daml.platform.sandbox.config.{InvalidConfigException, SandboxConfig}
+import com.daml.platform.sandbox.metrics.MetricsReporting
+import com.daml.platform.sandbox.services.SandboxResetService
+import com.daml.platform.sandboxnext.Runner._
+import com.daml.platform.services.time.TimeProviderType
+import com.daml.platform.store.FlywayMigrations
+import com.daml.ports.Port
+import com.daml.resources.akka.AkkaResourceOwner
+import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters.CompletionStageOps
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
@@ -88,7 +83,8 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
         ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
     }
 
-  private val timeProviderType = config.timeProviderType.getOrElse(TimeProviderType.Static)
+  private val timeProviderType =
+    config.timeProviderType.getOrElse(SandboxConfig.DefaultTimeProviderType)
 
   private val seeding = config.seeding.getOrElse {
     throw new InvalidConfigException(
@@ -105,22 +101,13 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
 
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Port] =
     newLoggingContext { implicit logCtx =>
-      implicit val system: ActorSystem = ActorSystem("sandbox")
-      implicit val materializer: Materializer = Materializer(system)
-
-      val (timeServiceBackend, heartbeatMechanism) = timeProviderType match {
-        case TimeProviderType.Static =>
-          val backend = TimeServiceBackend.observing(TimeServiceBackend.simple(Instant.EPOCH))
-          (Some(backend), backend.changes)
-        case TimeProviderType.WallClock =>
-          val clock = Clock.systemUTC()
-          (None, new RegularHeartbeat(clock, HeartbeatInterval))
-      }
+      implicit val actorSystem: ActorSystem = ActorSystem("sandbox")
+      implicit val materializer: Materializer = Materializer(actorSystem)
 
       val owner = for {
         // Take ownership of the actor system and materializer so they're cleaned up properly.
         // This is necessary because we can't declare them as implicits within a `for` comprehension.
-        _ <- AkkaResourceOwner.forActorSystem(() => system)
+        _ <- AkkaResourceOwner.forActorSystem(() => actorSystem)
         _ <- AkkaResourceOwner.forMaterializer(() => materializer)
 
         apiServer <- ResettableResourceOwner[ApiServer, (Option[Port], StartupMode)](
@@ -128,6 +115,11 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
           owner = reset => {
             case (currentPort, startupMode) =>
               for {
+                metrics <- new MetricsReporting(
+                  getClass.getName,
+                  config.metricsReporter,
+                  config.metricsReportingInterval,
+                )
                 _ <- startupMode match {
                   case StartupMode.MigrateAndStart =>
                     ResourceOwner.successful(())
@@ -136,29 +128,39 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     // Therefore we don't need to "reset" the KV Ledger and Index separately.
                     ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
                 }
-                heartbeats <- heartbeatMechanism
-                readerWriter <- SqlLedgerReaderWriter.owner(
+                timeServiceBackend = timeProviderType match {
+                  case TimeProviderType.Static =>
+                    Some(TimeServiceBackend.simple(Instant.EPOCH))
+                  case TimeProviderType.WallClock =>
+                    None
+                }
+                readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
+                  metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-                  heartbeats = heartbeats,
+                  seedService = SeedService(seeding),
+                  stateValueCache = caching.Cache.from(
+                    caching.Configuration(maximumWeight = MaximumStateValueCacheSize)),
                 )
-                ledger = new KeyValueParticipantState(readerWriter, readerWriter)
+                ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
+                readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
+                writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>
-                  ledger.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
+                  readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
                 _ <- ResourceOwner.forFuture(() =>
-                  Future.sequence(config.damlPackages.map(uploadDar(_, ledger))))
+                  Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
                 _ <- new StandaloneIndexerServer(
-                  actorSystem = system,
-                  readService = ledger,
+                  readService = readService,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
                     startupMode = IndexerStartupMode.MigrateAndStart,
+                    eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),
-                  metrics = SharedMetricRegistries.getOrCreate(s"indexer-$ParticipantId"),
+                  metrics = metrics,
                 )
                 authService = config.authService.getOrElse(AuthServiceWildcard)
                 promise = Promise[Unit]
@@ -178,7 +180,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   )
                 }
                 apiServer <- new StandaloneApiServer(
-                  ApiServerConfig(
+                  config = ApiServerConfig(
                     participantId = ParticipantId,
                     archiveFiles = config.damlPackages,
                     // Re-use the same port when resetting the server.
@@ -187,17 +189,22 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     jdbcUrl = indexJdbcUrl,
                     tlsConfig = config.tlsConfig,
                     maxInboundMessageSize = config.maxInboundMessageSize,
+                    eventsPageSize = config.eventsPageSize,
                     portFile = config.portFile,
+                    seeding = Some(seeding),
                   ),
                   commandConfig = config.commandConfig,
-                  partyConfig = config.partyConfig,
+                  partyConfig = PartyConfiguration.default.copy(
+                    implicitPartyAllocation = config.implicitPartyAllocation,
+                  ),
                   submissionConfig = config.submissionConfig,
-                  readService = ledger,
-                  writeService = ledger,
+                  ledgerConfig = config.ledgerConfig,
+                  readService = readService,
+                  writeService = writeService,
                   authService = authService,
-                  metrics = SharedMetricRegistries.getOrCreate(s"ledger-api-server-$ParticipantId"),
+                  transformIndexService = new TimedIndexService(_, metrics, IndexServicePrefix),
+                  metrics = metrics,
                   timeServiceBackend = timeServiceBackend,
-                  seeding = seeding,
                   otherServices = List(resetService),
                   otherInterceptors = List(resetService),
                 )
@@ -226,7 +233,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       owner.acquire()
     }
 
-  private def uploadDar(from: File, to: KeyValueParticipantState)(
+  private def uploadDar(from: File, to: WritePackagesService)(
       implicit executionContext: ExecutionContext
   ): Future[Unit] = {
     val submissionId = v1.SubmissionId.assertFromString(UUID.randomUUID().toString)
@@ -250,5 +257,10 @@ object Runner {
   private val InMemoryIndexJdbcUrl =
     "jdbc:h2:mem:index;db_close_delay=-1;db_close_on_exit=false"
 
-  private val HeartbeatInterval: FiniteDuration = 1.second
+  private val MaximumStateValueCacheSize: caching.Size = 128L * 1024 * 1024
+
+  private val ServicePrefix = MetricName.DAML :+ "services"
+  private val IndexServicePrefix = ServicePrefix :+ "index"
+  private val ReadServicePrefix = ServicePrefix :+ "read"
+  private val WriteServicePrefix = ServicePrefix :+ "write"
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -8,8 +8,9 @@ load(
 
 da_haskell_library(
     name = "daml-opts-types",
-    srcs = ["daml-opts-types/DA/Daml/Options/Types.hs"],
+    srcs = glob(["daml-opts-types/**/*.hs"]),
     hackage_deps = [
+        "aeson",
         "base",
         "directory",
         "extra",
@@ -61,6 +62,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/damlc/daml-preprocessor",
+        "//compiler/damlc/daml-rule-types",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

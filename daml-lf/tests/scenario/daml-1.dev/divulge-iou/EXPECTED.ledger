@@ -4,24 +4,24 @@ TX #0 1970-01-01T00:00:00Z [Test:12]
 │   referenced by #2:1
 │   known to (since): Alice (#0), AlicesBank (#0), Bob (#2)
 └─> create Test:Iou@XXXXXXXX
-    with: { payer = 'AlicesBank', owner = 'Alice', amount = Test:Amount@XXXXXXXX{ value = 1.0000000000, currency = "USD" } } value-version: 1
+    with: { payer = 'AlicesBank', owner = 'Alice', amount = Test:Amount@XXXXXXXX{ value = 1.0000000000, currency = "USD" } } value-version: 6
 
 TX #1 1970-01-01T00:00:00Z [Test:17]
 #1:0
 │   referenced by #2:0
 │   known to (since): AlicesBank (#1), Bob (#1)
 └─> create Test:DivulgeIouByExercise@XXXXXXXX
-    with: { payer = 'AlicesBank', divulgee = 'Bob' } value-version: 1
+    with: { payer = 'AlicesBank', divulgee = 'Bob' } value-version: 6
 
 TX #2 1970-01-01T00:00:00Z [Test:20]
 #2:0
 │   known to (since): AlicesBank (#2), Bob (#2)
-└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on #1:0
-    with { ref = #0:0 } value-version: 1
+└─> AlicesBank exercises Divulge:Test:DivulgeIouByExercise@XXXXXXXX on 00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3
+    with { ref = 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835 } value-version: 6
     children:
     #2:1
     │   known to (since): AlicesBank (#2), Bob (#2)
-    └─> ensure active #0:0
+    └─> ensure active 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835
 
 active contracts:
-   #0:0, #1:0
+   00999d35e67dc49f91772eaffd08179f431661a382cd68edc7d25ee2c2508fb6a3, 00a21310a64aec150c16589881ebebc4780fc8e476489ef939a1ebfbfeb1aa3835

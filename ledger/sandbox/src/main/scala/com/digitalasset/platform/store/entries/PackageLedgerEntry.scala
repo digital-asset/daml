@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.store.entries
+package com.daml.platform.store.entries
 
 import java.time.Instant
 
 import com.daml.ledger.participant.state.v1.SubmissionId
-import com.digitalasset.ledger.api.domain.PackageEntry
+import com.daml.ledger.api.domain.PackageEntry
 
 sealed abstract class PackageLedgerEntry extends Product with Serializable {
   def submissionId: SubmissionId

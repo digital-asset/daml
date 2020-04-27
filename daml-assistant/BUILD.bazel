@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
@@ -30,10 +30,6 @@ da_haskell_library(
     name = "daml-lib",
     srcs = glob(
         ["src/**/*.hs"],
-        exclude = [
-            "src/DA/Daml/Assistant.hs",
-            "src/DA/Daml/Assistant/Tests.hs",
-        ],
     ),
     hackage_deps = [
         "aeson",
@@ -134,6 +130,7 @@ da_haskell_test(
         ":daml-lib",
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 

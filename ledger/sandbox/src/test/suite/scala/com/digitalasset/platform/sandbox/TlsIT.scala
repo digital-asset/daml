@@ -1,48 +1,37 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.daml.platform.sandbox
 
 import java.io.File
-import java.nio.file.{Files, Path}
 
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.configuration.{
+import com.daml.bazeltools.BazelRunfiles._
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.client.LedgerClient
+import com.daml.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import org.apache.commons.io.FileUtils
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.SandboxFixture
 import org.scalatest.AsyncWordSpec
 
 import scala.language.implicitConversions
 
 class TlsIT extends AsyncWordSpec with SandboxFixture with SuiteResourceManagementAroundAll {
 
-  private def extractCerts: Path = {
-    val dir = Files.createTempDirectory("TlsIT").toFile
-    dir.deleteOnExit()
-    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").foreach { src =>
-      val target = new File(dir, src)
-      target.deleteOnExit()
-      val stream = getClass.getClassLoader.getResourceAsStream("certificates/" + src)
-      FileUtils.copyInputStreamToFile(stream, target)
+  private val List(
+    certChainFilePath,
+    privateKeyFilePath,
+    trustCertCollectionFilePath,
+    clientCertChainFilePath,
+    clientPrivateKeyFilePath) = {
+    List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
+      new File(rlocation("ledger/test-common/test-certificates/" + src))
     }
-    dir.toPath
   }
-
-  private lazy val certificatesPath = extractCerts
-  private lazy val certificatesDirPrefix: String = certificatesPath.toString + File.separator
-
-  private lazy val certChainFilePath = certificatesDirPrefix + "server.crt"
-  private lazy val privateKeyFilePath = certificatesDirPrefix + "server.pem"
-  private lazy val trustCertCollectionFilePath = certificatesDirPrefix + "ca.crt"
-  private lazy val clientCertChainFilePath = certificatesDirPrefix + "client.crt"
-  private lazy val clientPrivateKeyFilePath = certificatesDirPrefix + "client.pem"
 
   private implicit def str2File(str: String): File = new File(str)
 

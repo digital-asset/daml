@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.encoding
+package com.daml.ledger.client.binding.encoding
 import java.time.{LocalDate, ZoneOffset}
 
-import com.digitalasset.api.util.TimestampConversion
-import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.daml.api.util.TimestampConversion
+import com.daml.ledger.client.binding.{Primitive => P}
 import scalaz.std.stream
 
 object DamlDates {

@@ -1,13 +1,13 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.console
+package com.daml.navigator.console
 
 import akka.actor.ActorRef
-import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.{ApplicationInfo, GraphQLHandler}
-import com.digitalasset.navigator.config.{Arguments, Config}
-import com.digitalasset.navigator.model.PartyState
+import com.daml.ledger.api.refinements.ApiTypes
+import com.daml.navigator.{ApplicationInfo, GraphQLHandler}
+import com.daml.navigator.config.{Arguments, Config}
+import com.daml.navigator.model.PartyState
 import org.jline.reader.{History, LineReader}
 import org.jline.terminal.Terminal
 

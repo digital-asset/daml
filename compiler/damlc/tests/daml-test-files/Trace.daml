@@ -1,12 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @INFO Use <$>
-
-
 module Trace where
 
 main = scenario do
   debug "using traceA in a scenario"
-  alice <- fmap traceId $ getParty "Alice"
+  alice <- traceId <$> getParty "Alice"
   submit alice $ assert $ traceId 1 == trace "custom trace message" 1

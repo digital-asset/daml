@@ -1,15 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy.svalue
+package com.daml.lf.speedy.svalue
 
 import java.util
 
-import com.digitalasset.daml.lf.data.{FrontStack, InsertOrdMap, Numeric, Ref, Time}
-import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
-import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SBuiltin, SExpr, SValue}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
+import com.daml.lf.data.{FrontStack, Numeric, Ref, Time}
+import com.daml.lf.language.{Ast, Util => AstUtil}
+import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
+import com.daml.lf.value.Value.{AbsoluteContractId, NodeId, RelativeContractId}
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1, TableFor2}
 import org.scalatest.{Matchers, WordSpec}
 import scalaz._
@@ -63,13 +63,15 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
   private val parties =
     List("alice", "bob").map(SParty compose Ref.Party.assertFromString)
   private val absoluteContractId =
-    List("a", "b")
-      .map(x => SContractId(AbsoluteContractId(Ref.ContractIdString.assertFromString(x))))
+    List("a", "b").map(x => SContractId(AbsoluteContractId.assertFromString("#" + x)))
   private val relativeContractId =
     List(0, 1).map(x => SContractId(RelativeContractId(NodeId(x))))
   private val contractIds = absoluteContractId ++ relativeContractId
 
-  private val enums = List(EnumCon1, EnumCon2).map(SEnum(EnumTypeCon, _))
+  private val enums = List(
+    SEnum(EnumTypeCon, EnumCon1, 0),
+    SEnum(EnumTypeCon, EnumCon2, 1)
+  )
 
   private val struct0 = List(SStruct(Ref.Name.Array.empty, ArrayList()))
 
@@ -88,8 +90,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     } yield SRecord(Record2TypeCon, record2Fields, ArrayList(x, y))
 
   private def mkVariant(as: List[SValue], bs: List[SValue]) =
-    as.map(SVariant(VariantTypeCon, VariantCon1, _)) ++
-      bs.map(SVariant(VariantTypeCon, VariantCon2, _))
+    as.map(SVariant(VariantTypeCon, VariantCon1, 0, _)) ++
+      bs.map(SVariant(VariantTypeCon, VariantCon2, 1, _))
 
   private def mkStruct2(fst: List[SValue], snd: List[SValue]) =
     for {
@@ -122,10 +124,8 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
     lists.map(xs => STextMap(HashMap(keys zip xs: _*)))
   }
 
-  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] = {
-    val skeys = keys.map(SGenMap.Key(_))
-    lists.map(xs => SGenMap(InsertOrdMap(skeys zip xs: _*)))
-  }
+  private def mkGenMaps(keys: List[SValue], lists: List[List[SValue]]): List[SValue] =
+    lists.map(xs => SGenMap((keys.iterator) zip (xs.iterator)))
 
   private def anys = {
     val wrappedInts = ints.map(SAny(AstUtil.TInt64, _))
@@ -224,9 +224,9 @@ class EqualitySpec extends WordSpec with Matchers with TableDrivenPropertyChecks
         SList(FrontStack(lfFunction)),
       STextMap(HashMap.empty) ->
         STextMap(HashMap("a" -> lfFunction)),
-      SGenMap(InsertOrdMap.empty) -> SGenMap(InsertOrdMap(SGenMap.Key(SInt64(0)) -> lfFunction)),
-      SVariant(VariantTypeCon, VariantCon1, SInt64(0)) ->
-        SVariant(VariantTypeCon, VariantCon2, lfFunction),
+      SGenMap.Empty -> SGenMap(SInt64(0) -> lfFunction),
+      SVariant(VariantTypeCon, VariantCon1, 0, SInt64(0)) ->
+        SVariant(VariantTypeCon, VariantCon2, 1, lfFunction),
       SAny(AstUtil.TInt64, SInt64(1)) ->
         SAny(AstUtil.TFun(AstUtil.TInt64, AstUtil.TInt64), lfFunction),
     )

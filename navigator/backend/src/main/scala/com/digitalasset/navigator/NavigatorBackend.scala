@@ -1,16 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
 import java.nio.file.{Files, Paths}
 import java.util.UUID
 
-import scala.io.Source
-
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import com.daml.buildinfo.BuildInfo
 
 object NavigatorBackend extends UIBackend {
 
@@ -20,7 +19,7 @@ object NavigatorBackend extends UIBackend {
   override def applicationInfo: ApplicationInfo = ApplicationInfo(
     id = s"Navigator-${UUID.randomUUID().toString}",
     name = "Navigator",
-    version = Source.fromResource("MVN_VERSION").mkString("").trim(),
+    version = BuildInfo.Version,
   )
   override def banner: Option[String] =
     Some(

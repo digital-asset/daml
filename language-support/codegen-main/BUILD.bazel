@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -35,7 +35,7 @@ da_scala_library(
 da_scala_binary(
     name = "codegen-main",
     srcs = glob(["src/main/**/*.scala"]),
-    main_class = "com.digitalasset.codegen.CodegenMain",
+    main_class = "com.daml.codegen.CodegenMain",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@maven//:ch_qos_logback_logback_classic",
@@ -54,7 +54,7 @@ jar_jar(
     name = "shaded_binary",
     input_jar = "//language-support/codegen-main:codegen-main_deploy.jar",
     rules = "shade_rule",
-    tags = ["maven_coordinates=com.daml:codegen-main:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:codegen-jvm-main:__VERSION__"],
     visibility = ["//visibility:public"],
 )
 

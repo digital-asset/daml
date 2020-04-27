@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("@os_info//:os_info.bzl", "is_windows")
@@ -14,8 +14,10 @@ def ts_docs(pkg_name):
         cmd = """
           # NOTE: we need the --ignoreCompilerErrors flag because we get errors when tsc is trying to
           # resolve the imported packages.
-          $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md $(SRCS)
-          tar czf $@ docs
+          $(location @language_support_ts_deps//typedoc/bin:typedoc) --out docs --ignoreCompilerErrors --readme README.md --stripInternal $(SRCS)
+          tar -hc docs \
+               --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+               | gzip -n > $@
         """,
         visibility = ["//visibility:public"],
     ) if not is_windows else None

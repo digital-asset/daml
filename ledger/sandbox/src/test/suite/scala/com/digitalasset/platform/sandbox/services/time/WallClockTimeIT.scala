@@ -1,23 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.time
+package com.daml.platform.sandbox.services.time
 
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.digitalasset.api.util.TimestampConversion.fromInstant
-import com.digitalasset.grpc.GrpcException
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.ledger.api.v1.testing.time_service.{
-  GetTimeRequest,
-  SetTimeRequest,
-  TimeServiceGrpc
-}
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.sandbox.services.SandboxFixture
-import com.digitalasset.platform.services.time.TimeProviderType
+import com.daml.api.util.TimestampConversion.fromInstant
+import com.daml.grpc.GrpcException
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
+import com.daml.platform.sandbox.config.SandboxConfig
+import com.daml.platform.sandbox.services.SandboxFixture
+import com.daml.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime

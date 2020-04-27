@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # package-app <binary> <output file> <resources...>
@@ -173,5 +173,6 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
 else
     cp "$SRC" "$WORKDIR/$NAME/$NAME"
 fi
-cd $WORKDIR && tar czf $OUT $NAME
-
+cd $WORKDIR && tar c $NAME \
+    --owner=0 --group=0 --numeric-owner --mtime=2000-01-01\ 00:00Z --sort=name \
+    | gzip -n > $OUT

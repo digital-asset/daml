@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.codegen.backend
+package com.daml.lf.codegen.backend
 
-import com.digitalasset.daml.lf.codegen.conf.Conf
-import com.digitalasset.daml.lf.codegen.{InterfaceTrees, NodeWithContext}
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.Interface
+import com.daml.lf.codegen.conf.Conf
+import com.daml.lf.codegen.{InterfaceTrees, NodeWithContext}
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.iface.Interface
 
 import scala.concurrent.{ExecutionContext, Future}
 

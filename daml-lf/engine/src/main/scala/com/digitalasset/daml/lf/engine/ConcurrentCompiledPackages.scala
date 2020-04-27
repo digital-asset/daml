@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.digitalasset.daml.lf.language.Ast.Package
-import com.digitalasset.daml.lf.speedy
+import com.daml.lf.data.Ref.PackageId
+import com.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
+import com.daml.lf.language.Ast.Package
+import com.daml.lf.speedy
 import scala.collection.JavaConverters._
 
 /** Thread-safe class that can be used when you need to maintain a shared, mutable collection of
@@ -79,9 +79,10 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
           _packages.computeIfAbsent(
             pkgId, { _ =>
               // Compile the speedy definitions for this package.
-              val defns = speedy.Compiler(packages orElse state.packages).compilePackage(pkgId)
-              for ((defnId, defn) <- defns) {
-                _defns.put(defnId, defn)
+              val defns =
+                speedy.Compiler(packages orElse state.packages).unsafeCompilePackage(pkgId)
+              defns.foreach {
+                case (defnId, defn) => _defns.put(defnId, defn)
               }
               // Compute the transitive dependencies of the new package. Since we are adding
               // packages in dependency order we can just union the dependencies of the
@@ -97,7 +98,7 @@ final class ConcurrentCompiledPackages extends MutableCompiledPackages {
         }
       }
 
-      ResultDone(())
+      ResultDone.Unit
     }
 
   def clear(): Unit = this.synchronized[Unit] {

@@ -1,14 +1,14 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
+
+import ScalazEqual.{equalBy, orderBy}
 
 import scala.language.higherKinds
-
-import scalaz.{Applicative, Equal, Traverse}
+import scalaz.{Applicative, Equal, Order, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
-import scalaz.syntax.equal._
 import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
@@ -24,6 +24,8 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
   def keys: ImmArray[String] = entries.map(_._1)
 
   def values: ImmArray[X] = entries.map(_._2)
+
+  def iterator: Iterator[(String, X)] = entries.iterator
 
   def toHashMap: HashMap[String, X] = HashMap(entries.toSeq: _*)
 
@@ -42,7 +44,7 @@ final class SortedLookupList[+X] private (entries: ImmArray[(String, X)]) extend
     s"SortedLookupList(${entries.map { case (k, v) => k -> v }.toSeq.mkString(",")})"
 }
 
-object SortedLookupList {
+object SortedLookupList extends SortedLookupListInstances {
 
   def fromImmArray[X](entries: ImmArray[(String, X)]): Either[String, SortedLookupList[X]] = {
     entries.toSeq
@@ -69,10 +71,8 @@ object SortedLookupList {
 
   def empty[X]: SortedLookupList[X] = new SortedLookupList(ImmArray.empty)
 
-  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
-    ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
-      self.toImmArray === other.toImmArray
-    }
+  implicit def `SLL Order instance`[X: Order]: Order[SortedLookupList[X]] =
+    orderBy(_.toImmArray, true)
 
   implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
     new Traverse[SortedLookupList] {
@@ -81,4 +81,9 @@ object SortedLookupList {
         fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
+}
+
+sealed abstract class SortedLookupListInstances {
+  implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
+    equalBy(_.toImmArray, true)
 }

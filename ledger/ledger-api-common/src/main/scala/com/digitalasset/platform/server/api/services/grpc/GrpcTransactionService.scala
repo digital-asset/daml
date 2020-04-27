@@ -1,24 +1,24 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.services.grpc
+package com.daml.platform.server.api.services.grpc
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
+import com.daml.dec.DirectExecutionContext
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc.{
   TransactionService => ApiTransactionService
 }
-import com.digitalasset.ledger.api.v1.transaction_service._
-import com.digitalasset.ledger.api.validation.TransactionServiceRequestValidator.Result
-import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations}
+import com.daml.ledger.api.v1.transaction_service._
+import com.daml.ledger.api.validation.TransactionServiceRequestValidator.Result
+import com.daml.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
+import com.daml.platform.api.grpc.GrpcApiService
+import com.daml.platform.server.api.services.domain.TransactionService
+import com.daml.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 

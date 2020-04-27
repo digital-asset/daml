@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -14,7 +14,7 @@ da_scala_library(
         "@maven//:org_spire_math_kind_projector_2_12",
         "@maven//:com_github_ghik_silencer_plugin_2_12",
     ],
-    tags = ["maven_coordinates=com.digitalasset.ledger:ledger-api-common:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:ledger-api-common:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
@@ -30,7 +30,7 @@ da_scala_library(
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-health",
-        "//ledger/participant-state",
+        "//ledger/metrics",
         "//libs-scala/direct-execution-context",
         "@maven//:com_github_ghik_silencer_lib_2_12",
         "@maven//:com_typesafe_akka_akka_actor_2_12",

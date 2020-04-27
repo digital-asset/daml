@@ -1,20 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure.participant
 
-import java.time.Duration
-
 import com.daml.ledger.api.testtool.infrastructure.LedgerServices
-import com.daml.ledger.api.testtool.infrastructure.ProtobufConverters._
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
-  GetLedgerConfigurationRequest,
-  GetLedgerConfigurationResponse
-}
-import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
-import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
-import com.digitalasset.platform.testing.StreamConsumer
-import com.digitalasset.timer.RetryStrategy
+import com.daml.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
+import com.daml.ledger.api.v1.transaction_service.GetLedgerEndRequest
+import com.daml.timer.RetryStrategy
 import io.grpc.ManagedChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import org.slf4j.LoggerFactory
@@ -42,31 +34,6 @@ private[participant] final class ParticipantSession(
       services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
     }
 
-  // The time-to-live for commands defaults to the maximum value as defined by the ledger
-  // configuration and can be adjusted down. Regardless the output of the adjustment, the
-  // value is always going to be clipped by the minimum and maximum configured values.
-  // Note that this value is going to never change after it's read the first time, so changing
-  // ledger configuration across tests may have wildly unexpected consequences. In general the
-  // test tool is designed to have tests work in isolation and tests addressing changes to the
-  // global state of the ledger should be isolated in their own test runs.
-  private[this] val ttlF: Future[Duration] =
-    ledgerIdF
-      .flatMap { id =>
-        new StreamConsumer[GetLedgerConfigurationResponse](
-          services.configuration
-            .getLedgerConfiguration(new GetLedgerConfigurationRequest(id), _),
-        ).first()
-          .map(_.get.getLedgerConfiguration)
-      }
-      .map { configuration =>
-        val factor = config.commandTtlFactor
-        val min = configuration.getMinTtl.asScala
-        val max = configuration.getMaxTtl.asScala
-        val ttl = (max * factor).min(max).max(min)
-        logger.info(s"Command TTL is $ttl (min: $min, max: $max, factor: $factor)")
-        Duration.ofNanos(ttl.toNanos)
-      }
-
   private[testtool] def createTestContext(
       endpointId: String,
       applicationId: String,
@@ -74,7 +41,6 @@ private[participant] final class ParticipantSession(
   ): Future[ParticipantTestContext] =
     for {
       ledgerId <- ledgerIdF
-      ttl <- ttlF
       end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(ledgerId)).map(_.getOffset)
     } yield
       new ParticipantTestContext(
@@ -84,7 +50,6 @@ private[participant] final class ParticipantSession(
         identifierSuffix,
         end,
         services,
-        ttl,
         config.partyAllocation,
       )
 

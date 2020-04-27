@@ -1,6 +1,7 @@
 {
   "private": true,
   "workspaces": [
+    "daml2js",
     "build-and-lint-test"
   ],
   "resolutions": {

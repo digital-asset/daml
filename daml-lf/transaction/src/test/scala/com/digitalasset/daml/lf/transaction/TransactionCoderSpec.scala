@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
-import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
-import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
-import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
-import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
-import com.digitalasset.daml.lf.transaction.TransactionVersions._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
+import com.daml.lf.EitherAssertions
+import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
+import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
+import com.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
+import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
+import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
+import com.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
+import com.daml.lf.transaction.TransactionVersions._
+import com.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
@@ -29,7 +29,7 @@ class TransactionCoderSpec
     with EitherAssertions
     with PropertyChecks {
 
-  import com.digitalasset.daml.lf.value.ValueGenerators._
+  import com.daml.lf.value.ValueGenerators._
 
   private[this] val defaultTransactionVersion = TransactionVersions.acceptedVersions.lastOption getOrElse sys
     .error("there are no allowed versions! impossible! but could it be?")
@@ -76,7 +76,7 @@ class TransactionCoderSpec
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
-        (node: NodeFetch[ContractId], valVer: ValueVersion) =>
+        (node: NodeFetch.WithTxValue[Tx.TContractId], valVer: ValueVersion) =>
           val encodedNode =
             TransactionCoder
               .encodeNode(
@@ -304,8 +304,7 @@ class TransactionCoderSpec
     "do tx with a lot of root nodes" in {
       val node =
         Node.NodeCreate[Value.AbsoluteContractId, Value.VersionedValue[Value.AbsoluteContractId]](
-          nodeSeed = None,
-          coid = absCid("test-cid"),
+          coid = absCid("#test-cid"),
           coinst = ContractInst(
             Identifier(
               PackageId.assertFromString("pkg-id"),
@@ -352,7 +351,7 @@ class TransactionCoderSpec
         case _: Node.NodeCreate[_, _] | _: Node.NodeExercises[_, _, _] |
             _: Node.NodeLookupByKey[_, _] =>
           true
-        case _: Node.NodeFetch[_] => false
+        case f: Node.NodeFetch[_, _] => f.key.isDefined
       }
 
   private def changeAllValueVersions(tx: Tx.Transaction, ver: ValueVersion): Tx.Transaction =
@@ -404,6 +403,6 @@ class TransactionCoderSpec
   }
 
   private def absCid(s: String): Value.AbsoluteContractId =
-    Value.AbsoluteContractId(Ref.ContractIdString.assertFromString(s))
+    Value.AbsoluteContractId.assertFromString(s)
 
 }

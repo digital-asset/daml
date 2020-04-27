@@ -1,11 +1,11 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -fno-warn-unused-imports #-}
 
 
--- Remove this module when DEL-6311 is done.
+-- | HIDE Remove this module when DEL-6311 is done.
 module LibraryModules where
 
 import DA.Internal.Erased

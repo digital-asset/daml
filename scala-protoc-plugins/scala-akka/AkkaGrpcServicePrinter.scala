@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.protoc.plugins.akka
+package com.daml.protoc.plugins.akka
 
 import com.google.protobuf.Descriptors.{MethodDescriptor, ServiceDescriptor}
 import scalapb.compiler.FunctionalPrinter.PrinterEndo
@@ -31,7 +31,8 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
           .outdent
           .add("} else {")
           .indent
-          .add("val sink = com.digitalasset.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)")
+          .add(
+            "val sink = com.daml.grpc.adapter.server.akka.ServerAdapter.toSink(responseObserver)")
           .add(s"${method.name}Source(request).via(killSwitch.flow).runWith(sink)")
           .add("()")
           .outdent
@@ -52,7 +53,7 @@ final class AkkaGrpcServicePrinter(service: ServiceDescriptor, params: Generator
     }
 
     p =>
-      p.add("protected implicit def esf: com.digitalasset.grpc.adapter.ExecutionSequencerFactory")
+      p.add("protected implicit def esf: com.daml.grpc.adapter.ExecutionSequencerFactory")
         .add("protected implicit def mat: akka.stream.Materializer")
         .call(closureUtils)
         .newline

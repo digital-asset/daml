@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -62,8 +62,8 @@ damlPreprocessor :: Maybe GHC.UnitId -> GHC.ParsedSource -> IdePreprocessedSourc
 damlPreprocessor mbUnitId x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = noPreprocessor x
     | otherwise = IdePreprocessedSource
-        { preprocWarnings = checkModuleName x ++ checkRecordConstructor x
-        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
+        { preprocWarnings = []
+        , preprocErrors = checkImports x ++ checkDataTypes x ++ checkModuleDefinition x ++ checkRecordConstructor x ++ checkModuleName x
         , preprocSource = recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbUnitId $ enumTypePreprocessor "GHC.Types" x
         }
     where
@@ -108,7 +108,7 @@ checkModuleName (GHC.L _ m)
     , expected <- GHC.moduleNameSlashes modName ++ ".daml"
     , Just actual <- GHC.unpackFS <$> GHC.srcSpanFileName_maybe nameLoc
     , not (splitDirectories expected `isSuffixOf` splitDirectories actual)
-    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. This rule will be enforced in a future SDK version. Please change the filename to " ++ expected ++ " in preparation.")]
+    = [(nameLoc, "Module names should always match file names, as per [documentation|https://docs.daml.com/daml/reference/file-structure.html]. Please change the filename to " ++ expected ++ ".")]
 
     | otherwise
     = []
@@ -141,7 +141,7 @@ checkRecordConstructor (GHC.L _ m) = mapMaybe getRecordError (GHC.hsmodDecls m)
 
     message tyNameStr conNameStr = unwords
         [ "Record type", tyNameStr, "has constructor", conNameStr
-        , "with different name. This may cause problems with cross-SDK upgrades."
+        , "with different name."
         , "Possible solution: Change the constructor name to", tyNameStr ]
 
 checkDataTypes :: GHC.ParsedSource -> [(GHC.SrcSpan, String)]

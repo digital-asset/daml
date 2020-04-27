@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.data
+package com.daml.lf.data
 
 import scala.util.{Failure, Success, Try}
 
-private[digitalasset] object TryOps {
+private[daml] object TryOps {
   def sequence[A](list: List[Try[A]]): Try[List[A]] = {
     val zero: Try[List[A]] = Success(List.empty[A])
     list.foldRight(zero)((a, as) => map2(a, as)(_ :: _))

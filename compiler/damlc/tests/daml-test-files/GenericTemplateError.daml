@@ -1,6 +1,6 @@
 -- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
--- @ERROR range=11:24-11:34; Generic templates are no longer supported
+-- @ERROR range=11:23-11:33; Generic templates are no longer supported
 
 
 module GenericTemplateError where

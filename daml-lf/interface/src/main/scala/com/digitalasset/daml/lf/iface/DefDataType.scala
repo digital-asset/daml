@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.daml.lf.iface
 
 import scalaz.std.map._
 import scalaz.std.tuple._
@@ -10,8 +10,8 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, Bifunctor, Bitraverse, Bifoldable, Foldable, Functor, Monoid, Traverse}
 import java.{util => j}
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
+import com.daml.lf.data.ImmArray.ImmArraySeq
+import com.daml.lf.data.Ref
 
 import scala.language.higherKinds
 import scala.collection.JavaConverters._

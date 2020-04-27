@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Simplifier(
@@ -116,6 +116,10 @@ safetyStep = \case
       BEBool _            -> Safe 0
       BEError             -> Safe 0
       BEEqualGeneric      -> Safe 1 -- may crash if values are incomparable
+      BELessGeneric       -> Safe 1 -- may crash if values are incomparable
+      BELessEqGeneric     -> Safe 1 -- may crash if values are incomparable
+      BEGreaterGeneric    -> Safe 1 -- may crash if values are incomparable
+      BEGreaterEqGeneric  -> Safe 1 -- may crash if values are incomparable
       BEEqual _           -> Safe 2
       BELess _            -> Safe 2
       BELessEq _          -> Safe 2

@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers
+package com.daml.extractor.writers
 
-import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.ledger.types.{Identifier, TransactionTree}
-import com.digitalasset.extractor.targets._
+import com.daml.extractor.config.ExtractorConfig
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.ledger.types.{Identifier, TransactionTree}
+import com.daml.extractor.targets._
 
 import scala.concurrent.Future
 import scalaz._

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -37,6 +37,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-rule-types",
         "//compiler/damlc/daml-visual",
         "//libs-haskell/da-hs-base",
     ],

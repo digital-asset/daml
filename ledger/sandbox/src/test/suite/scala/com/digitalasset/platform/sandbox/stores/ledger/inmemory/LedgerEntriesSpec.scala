@@ -1,11 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger.inmemory
+package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Flow, Keep, Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 
 import scala.concurrent.Future
@@ -42,7 +43,7 @@ class LedgerEntriesSpec
       transactions.foreach(t => ledger.publish(t))
 
       val sink =
-        Flow[(Long, Either[Error, Transaction])]
+        Flow[(Offset, Either[Error, Transaction])]
           .take(NO_OF_MESSAGES.toLong)
           .toMat(Sink.seq)(Keep.right)
 
@@ -74,7 +75,7 @@ class LedgerEntriesSpec
         ledger
           .getSource(None, None)
           .runWith(
-            Flow[(Long, Either[Error, Transaction])]
+            Flow[(Offset, Either[Error, Transaction])]
               .throttle(subscribeRate, 100.milliseconds, subscribeRate, ThrottleMode.shaping)
               .take(NO_OF_MESSAGES.toLong)
               .toMat(Sink.seq)(Keep.right)

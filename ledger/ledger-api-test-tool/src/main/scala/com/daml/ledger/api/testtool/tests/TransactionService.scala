@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -13,24 +13,25 @@ import com.daml.ledger.api.testtool.tests.TransactionService.{
   comparableTransactionTrees,
   comparableTransactions
 }
-import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
-import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.ledger.client.binding.Primitive
-import com.digitalasset.ledger.client.binding.Value.encode
-import com.digitalasset.ledger.test_stable.Iou.Iou
-import com.digitalasset.ledger.test_stable.Iou.Iou._
-import com.digitalasset.ledger.test_stable.Iou.IouTransfer._
-import com.digitalasset.ledger.test_stable.IouTrade.IouTrade
-import com.digitalasset.ledger.test_stable.IouTrade.IouTrade._
-import com.digitalasset.ledger.test_stable.Test.Agreement._
-import com.digitalasset.ledger.test_stable.Test.AgreementFactory._
-import com.digitalasset.ledger.test_stable.Test.Choice1._
-import com.digitalasset.ledger.test_stable.Test.CreateAndFetch._
-import com.digitalasset.ledger.test_stable.Test.Dummy._
-import com.digitalasset.ledger.test_stable.Test.DummyFactory._
-import com.digitalasset.ledger.test_stable.Test.ParameterShowcase._
-import com.digitalasset.ledger.test_stable.Test.TriProposal._
-import com.digitalasset.ledger.test_stable.Test._
+import com.daml.ledger.api.v1.transaction.TreeEvent.Kind.Exercised
+import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
+import com.daml.ledger.client.binding.Primitive
+import com.daml.ledger.client.binding.Value.encode
+import com.daml.ledger.test_stable.Iou.Iou
+import com.daml.ledger.test_stable.Iou.Iou._
+import com.daml.ledger.test_stable.Iou.IouTransfer._
+import com.daml.ledger.test_stable.IouTrade.IouTrade
+import com.daml.ledger.test_stable.IouTrade.IouTrade._
+import com.daml.ledger.test_stable.Test.Agreement._
+import com.daml.ledger.test_stable.Test.AgreementFactory._
+import com.daml.ledger.test_stable.Test.Choice1._
+import com.daml.ledger.test_stable.Test.CreateAndFetch._
+import com.daml.ledger.test_stable.Test.Dummy._
+import com.daml.ledger.test_stable.Test.DummyFactory._
+import com.daml.ledger.test_stable.Test.ParameterShowcase._
+import com.daml.ledger.test_stable.Test.TriProposal._
+import com.daml.ledger.test_stable.Test._
+import com.daml.platform.api.v1.event.EventOps.{EventOps, TreeEventOps}
 import io.grpc.Status
 import scalaz.Tag
 
@@ -179,10 +180,10 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         }
         tree <- eventually { beta.exercise(bob, trade.exerciseIouTrade_Accept(_, bobIou)) }
 
-        aliceTree <- alpha.transactionTreeById(tree.transactionId, alice)
+        aliceTree <- eventually { alpha.transactionTreeById(tree.transactionId, alice) }
         bobTree <- beta.transactionTreeById(tree.transactionId, bob)
-        gbpTree <- alpha.transactionTreeById(tree.transactionId, gbp_bank)
-        dkkTree <- delta.transactionTreeById(tree.transactionId, dkk_bank)
+        gbpTree <- eventually { alpha.transactionTreeById(tree.transactionId, gbp_bank) }
+        dkkTree <- eventually { delta.transactionTreeById(tree.transactionId, dkk_bank) }
 
       } yield {
         def treeIsWellformed(tree: TransactionTree): Unit = {
@@ -392,12 +393,12 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(ledger, party)) =>
       val filterBy = Dummy.id
+      val create = ledger.submitAndWaitRequest(
+        party,
+        Dummy(party).create.command,
+        DummyFactory(party).create.command,
+      )
       for {
-        create <- ledger.submitAndWaitRequest(
-          party,
-          Dummy(party).create.command,
-          DummyFactory(party).create.command,
-        )
         _ <- ledger.submitAndWait(create)
         transactions <- ledger.flatTransactionsByTemplateId(filterBy, party)
       } yield {
@@ -496,8 +497,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         Primitive.List(0L, 1L, 2L, 3L),
         Primitive.Optional("some optional text"),
       )
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("CreateWithAnyType", createdEvents(transaction))
@@ -563,8 +564,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
         veryLongList,
         Primitive.Optional("some optional text"),
       )
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("VeryLongList", createdEvents(transaction))
@@ -613,8 +614,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
       val template = BranchingSignatories(false, alice, bob)
+      val create = beta.submitAndWaitRequest(bob, template.create.command)
       for {
-        create <- beta.submitAndWaitRequest(bob, template.create.command)
         transaction <- beta.submitAndWaitForTransaction(create)
         _ <- synchronize(alpha, beta)
         transactions <- alpha.flatTransactions(alice)
@@ -670,8 +671,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
       val template = BranchingControllers(alice, false, bob, eve)
+      val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transaction <- alpha.submitAndWaitForTransaction(create)
         _ <- synchronize(alpha, beta)
         transactions <- beta.flatTransactions(bob)
@@ -690,8 +691,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
       val template = WithObservers(alice, Primitive.List(observers: _*))
+      val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
-        create <- alpha.submitAndWaitRequest(alice, template.create.command)
         transactionId <- alpha.submitAndWaitForTransactionId(create)
         _ <- eventually {
           for {
@@ -712,8 +713,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   ) {
     case Participants(Participant(ledger, party)) =>
       val template = NothingArgument(party, Primitive.Optional.empty)
+      val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
-        create <- ledger.submitAndWaitRequest(party, template.create.command)
         transaction <- ledger.submitAndWaitForTransaction(create)
       } yield {
         val contract = assertSingleton("UnitAsArgumentToNothing", createdEvents(transaction))
@@ -1599,12 +1600,29 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
 object TransactionService {
 
   // Strip command id and offset to yield a transaction comparable across participant
+  // Furthermore, makes sure that the order is not relevant for witness parties
   private def comparableTransactions(transactions: Vector[Transaction]): Vector[Transaction] =
-    transactions.map(_.copy(commandId = "commandId", offset = "offset"))
+    transactions.map(
+      t =>
+        t.copy(
+          commandId = "commandId",
+          offset = "offset",
+          events = t.events.map(_.modifyWitnessParties(_.sorted)),
+      )
+    )
 
+  // Strip command id and offset to yield a transaction comparable across participant
+  // Furthermore, makes sure that the order is not relevant for witness parties
   private def comparableTransactionTrees(
       transactionTrees: Vector[TransactionTree],
   ): Vector[TransactionTree] =
-    transactionTrees.map(_.copy(commandId = "commandId", offset = "offset"))
+    transactionTrees.map(
+      t =>
+        t.copy(
+          commandId = "commandId",
+          offset = "offset",
+          eventsById = t.eventsById.mapValues(_.modifyWitnessParties(_.sorted)),
+      )
+    )
 
 }

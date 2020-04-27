@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -28,8 +28,9 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
-import qualified DA.Daml.Compiler.Scenario as SS
+import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
+import Development.IDE.Core.Compile
 import Development.IDE.Core.Debouncer
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
@@ -84,7 +85,9 @@ mainAll :: IO ()
 mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
+mainWithVersions versions = do
+ let scenarioConf = SS.defaultScenarioServiceConfig { SS.cnfJvmOptions = ["-Xmx200M"] }
+ SS.withScenarioService Logger.makeNopHandle scenarioConf $ \scenarioService -> do
   hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
@@ -168,7 +171,9 @@ testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> I
 testCase args version getService outdir registerTODO (name, file) = singleTest name . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
-  if any (ignoreVersion version) anns
+  if any (`notElem` supportedOutputVersions) [v | UntilLF v <- anns] then
+    pure (testFailed "Unsupported DAML-LF version in UNTIL-LF annotation")
+  else if any (ignoreVersion version) anns
     then pure $ Result
       { resultOutcome = Success
       , resultDescription = ""
@@ -178,7 +183,7 @@ testCase args version getService outdir registerTODO (name, file) = singleTest n
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       unsafeClearDiagnostics service
-      ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
+      ex <- try $ mainProj args service outdir log (toNormalizedFilePath' file) :: IO (Either SomeException Package)
       diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
@@ -237,7 +242,7 @@ checkDiagnostics log expected got = do
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, _, D.Diagnostic{..}) f = case f of
-            DFilePath p -> toNormalizedFilePath p == fp
+            DFilePath p -> toNormalizedFilePath' p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
@@ -313,9 +318,40 @@ parseRange :: String -> Range
 parseRange s =
   case traverse readMaybe (wordsBy (`elem` (":-" :: String)) s) of
     Just [rowStart, colStart, rowEnd, colEnd] ->
-        Range
-            (Position (rowStart - 1) (colStart - 1))
-            (Position (rowEnd - 1) (colEnd - 1))
+      -- When specifying ranges:
+      --  * lines are 1-based
+      --  * columns are 0-based
+      --  * the column span is open, that is, the end column is "one
+      --    past the end" of the span.
+      --
+      -- Positions in these ranges are matched against LSP coordinates
+      -- which are 0-based in both line and column and also open. Error
+      -- messages are formatted by GHC and are 1-based in line, 0-based
+      -- in column and closed (so add one to column start, one to
+      -- column end to make them 1-based, then subtract one from column
+      -- end to convert to closed!)
+      --
+      -- 'showDiagnostics' reports ranges such that lines are 1-based,
+      -- columns are 0-based and open.
+      --
+      -- Example:
+      --   If @INFO 'range=8:13-8:47':
+      --   then the actual (LSP) range is
+      --      { _start = Position {_line = 7, _character = 13}
+      --      ,   _end = Position {_line = 7, _character = 47}}
+      --   and 'showDiagnostics' reports:
+      --     Hidden:   no
+      --     Range:    8:13-8:47
+      --     Source:   linter
+      --     Severity: DsInfo
+      --     Message:  RangeTest.daml:8:14-47: Some error message.
+      --
+      -- TL;DR: To mark a diagnostic as "expected" paste the range as it
+      -- appears in 'showDiagnostics' e.g. '@INFO range=8:13-8:47; Some
+      -- error message'.
+      Range
+        (Position (rowStart - 1) colStart)
+        (Position (rowEnd - 1) colEnd)
     _ -> error $ "Failed to parse range, got " ++ s
 
 mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
@@ -356,7 +392,7 @@ dlint log file = timed log "DLint" $ unjust $ getDlintIdeas file
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action GHC.CoreModule
 ghcCompile log file = timed log "GHC compile" $ do
-    (_, Just (safeMode, guts, details)) <- generateCore file
+    (_, Just (safeMode, guts, details)) <- generateCore (RunSimplifier False) file
     pure $ cgGutsToCoreModule safeMode guts details
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package

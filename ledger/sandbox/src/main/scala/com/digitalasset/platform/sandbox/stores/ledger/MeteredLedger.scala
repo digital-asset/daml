@@ -1,17 +1,17 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.stores.ledger
+package com.daml.platform.sandbox.stores.ledger
 
 import java.time.Instant
 
 import com.codahale.metrics.{MetricRegistry, Timer}
+import com.daml.daml_lf_dev.DamlLf.Archive
 import com.daml.ledger.participant.state.v1._
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml_lf_dev.DamlLf.Archive
-import com.digitalasset.platform.index.MeteredReadOnlyLedger
-import com.digitalasset.platform.metrics.timedFuture
+import com.daml.lf.data.Ref.Party
+import com.daml.lf.data.Time
+import com.daml.metrics.{MetricName, Timed}
+import com.daml.platform.index.MeteredReadOnlyLedger
 
 import scala.concurrent.Future
 
@@ -20,21 +20,19 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
     with Ledger {
 
   private object Metrics {
-    val publishHeartbeat: Timer = metrics.timer("daml.index.publish_heartbeat")
-    val publishTransaction: Timer = metrics.timer("daml.index.publish_transaction")
-    val publishPartyAllocation: Timer = metrics.timer("daml.index.publish_party_allocation")
-    val uploadPackages: Timer = metrics.timer("daml.index.upload_packages")
-    val publishConfiguration: Timer = metrics.timer("daml.index.publish_configuration")
-  }
+    private val prefix = MetricName.DAML :+ "index"
 
-  override def publishHeartbeat(time: Instant): Future[Unit] =
-    timedFuture(Metrics.publishHeartbeat, ledger.publishHeartbeat(time))
+    val publishTransaction: Timer = metrics.timer(prefix :+ "publish_transaction")
+    val publishPartyAllocation: Timer = metrics.timer(prefix :+ "publish_party_allocation")
+    val uploadPackages: Timer = metrics.timer(prefix :+ "upload_packages")
+    val publishConfiguration: Timer = metrics.timer(prefix :+ "publish_configuration")
+  }
 
   override def publishTransaction(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishTransaction,
       ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
@@ -42,7 +40,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       submissionId: SubmissionId,
       party: Party,
       displayName: Option[String]): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishPartyAllocation,
       ledger.publishPartyAllocation(submissionId, party, displayName))
 
@@ -51,7 +49,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.uploadPackages,
       ledger.uploadPackages(submissionId, knownSince, sourceDescription, payload))
 
@@ -59,7 +57,7 @@ private class MeteredLedger(ledger: Ledger, metrics: MetricRegistry)
       maxRecordTime: Time.Timestamp,
       submissionId: String,
       config: Configuration): Future[SubmissionResult] =
-    timedFuture(
+    Timed.future(
       Metrics.publishConfiguration,
       ledger.publishConfiguration(maxRecordTime, submissionId, config))
 

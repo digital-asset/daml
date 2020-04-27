@@ -1,11 +1,12 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE MultiWayIf #-}
 module DA.Daml.Helper.Run
     ( runDamlStudio
     , runInit
     , runNew
     , runJar
-    , runDaml2ts
+    , runDaml2js
     , runListTemplates
     , runStart
 
@@ -17,6 +18,7 @@ module DA.Daml.Helper.Run
     , runLedgerAllocateParties
     , runLedgerListParties
     , runLedgerUploadDar
+    , runLedgerFetchDar
     , runLedgerNavigator
 
     , withJar
@@ -30,6 +32,8 @@ module DA.Daml.Helper.Run
 
     , NavigatorPort(..)
     , SandboxPort(..)
+    , SandboxPortSpec(..)
+    , toSandboxPortSpec
     , JsonApiPort(..)
     , JsonApiConfig(..)
     , ReplaceExtension(..)
@@ -41,6 +45,7 @@ module DA.Daml.Helper.Run
     , NavigatorOptions(..)
     , JsonApiOptions(..)
     , ScriptOptions(..)
+    , SandboxClassic(..)
     ) where
 
 import Control.Concurrent
@@ -63,7 +68,7 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
-import qualified Network.HTTP.Client as HTTP
+import qualified Network.HTTP.Simple as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
@@ -88,6 +93,9 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
+
+import DA.Daml.Compiler.Fetch (fetchDar)
+import qualified DA.Daml.LF.Ast as LF
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -319,11 +327,11 @@ runJar jarPath mbLogbackPath remainingArgs = do
     mbLogbackArg <- traverse getLogbackArg mbLogbackPath
     withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
 
-runDaml2ts :: [String] -> IO ()
-runDaml2ts remainingArgs = do
-    daml2ts <- fmap (</> "daml2ts" </> "daml2ts") getSdkPath
-    withProcessWait_' (proc daml2ts remainingArgs) (const $ pure ()) `catchIO`
-      (\e -> hPutStrLn stderr "Failed to invoke daml2ts." *> throwIO e)
+runDaml2js :: [String] -> IO ()
+runDaml2js remainingArgs = do
+    daml2js <- fmap (</> "daml2js" </> "daml2js") getSdkPath
+    withProcessWait_' (proc daml2js remainingArgs) (const $ pure ()) `catchIO`
+      (\e -> hPutStrLn stderr "Failed to invoke daml2js." *> throwIO e)
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do
@@ -370,16 +378,7 @@ getTemplatesFolder = fmap (</> "templates") getSdkPath
 -- 4. If the target folder is inside a daml project (transitively) but
 -- is not the project root, it will do nothing and print out a warning.
 --
--- 5. If the target folder is a da project root, it will create a
--- daml.yaml config file from the da.yaml config file, and let the
--- user know that it did that.
---
--- 6. If the target folder is inside a da project (transitively) but
--- is not the project root, it will error out with a message that lets
--- the user know what the project root is and suggests the user run
--- daml init on the project root.
---
--- 7. If none of the above, it will create a daml.yaml from scratch.
+-- 5. If none of the above, it will create a daml.yaml from scratch.
 -- It will attempt to find a Main.daml source file in the project
 -- directory tree, but if it does not it will use daml/Main.daml
 -- as the default.
@@ -424,72 +423,7 @@ runInit targetFolderM = do
                 ]
         exitSuccess
 
-    -- cases 5 or 6
-    daProjectRootM <- findDaProjectRoot targetFolderAbs
-    whenJust daProjectRootM $ \projectRoot -> do
-        when (targetFolderAbs /= projectRoot) $ do
-            let projectRootRel = makeRelative currentDir projectRoot
-            hPutStr stderr $ unlines
-                [ "ERROR: daml init target is not DA project root."
-                , "    daml init target  = " <> targetFolder
-                , "    DA project root   = " <> projectRootRel
-                , ""
-                , "To proceed with da.yaml migration, please use the project root:"
-                , "    " <> showCommandForUser "daml" ["init", projectRootRel]
-                ]
-            exitFailure
-
-        let legacyConfigPath = projectRoot </> legacyConfigName
-            legacyConfigRel = normalise (targetFolderRel </> legacyConfigName)
-              -- ^ for display purposes
-
-        daYaml <- requiredE ("Failed to parse " <> T.pack legacyConfigPath) =<<
-            Y.decodeFileEither (projectRoot </> legacyConfigName)
-
-        putStr $ unlines
-            [ "Detected DA project."
-            , "Migrating " <> legacyConfigRel <> " to " <> projectConfigRel
-            ]
-
-        let getField :: Y.FromJSON t => T.Text -> IO t
-            getField name =
-                required ("Failed to parse project." <> name <> " from " <> T.pack legacyConfigPath) $
-                    flip Y.parseMaybe daYaml $ \y -> do
-                        p <- y Y..: "project"
-                        p Y..: name
-
-        minimumSdkVersion <- getMinimumSdkVersion
-        projSdkVersion :: SdkVersion <- getField "sdk-version"
-        let newProjSdkVersion = max projSdkVersion minimumSdkVersion
-
-        when (projSdkVersion < minimumSdkVersion) $ do
-            putStr $ unlines
-                [ ""
-                , "WARNING: da.yaml SDK version " <> versionToString projSdkVersion <> " is too old for the new"
-                , "assistant, so daml.yaml will use SDK version " <> versionToString newProjSdkVersion <> " instead."
-                , ""
-                ]
-
-        projSource :: T.Text <- getField "source"
-        projParties :: [T.Text] <- getField "parties"
-        projName :: T.Text <- getField "name"
-        projScenario :: T.Text <- getField "scenario"
-
-        BS.writeFile (projectRoot </> projectConfigName) . Y.encodePretty yamlConfig $ Y.object
-            [ ("sdk-version", Y.String (versionToText newProjSdkVersion))
-            , ("name", Y.String projName)
-            , ("source", Y.String projSource)
-            , ("scenario", Y.String projScenario)
-            , ("parties", Y.array (map Y.String projParties))
-            , ("version", Y.String "1.0.0")
-            , ("exposed-modules", Y.array [Y.String "Main"])
-            , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
-            ]
-
-        putStrLn ("Done! Please verify " <> projectConfigRel)
-        exitSuccess
-
-    -- case 7
+    -- case 5
     putStrLn ("Generating " <> projectConfigRel)
 
     currentSdkVersion <- getSdkVersion
@@ -509,7 +443,6 @@ runInit targetFolderM = do
         , ("scenario", Y.String "Main:mainScenario")
         , ("parties", Y.array [Y.String "Alice", Y.String "Bob"])
         , ("version", Y.String "1.0.0")
-        , ("exposed-modules", Y.array [Y.String "Main"])
         , ("dependencies", Y.array [Y.String "daml-prim", Y.String "daml-stdlib"])
         ]
 
@@ -519,11 +452,6 @@ runInit targetFolderM = do
         ]
 
     where
-
-        getMinimumSdkVersion :: IO SdkVersion
-        getMinimumSdkVersion =
-            requiredE "BUG: Expected 0.12.15 to be valid SDK version" $
-              parseVersion "0.12.15"
 
         fieldOrder :: [T.Text]
         fieldOrder =
@@ -553,8 +481,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> [String] -> [String] -> IO ()
-runNew targetFolder templateNameM pkgDeps dataDeps = do
+runNew :: FilePath -> Maybe String -> IO ()
+runNew targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -607,37 +535,23 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
             ]
         exitFailure
 
-    daRootM <- findDaProjectRoot targetFolderAbs
-    whenJust daRootM $ \daRoot -> do
-        hPutStr stderr $ unlines
-            [ "Target directory is inside existing DA project " <> show daRoot
-            , "Please convert DA project to DAML using 'daml init':"
-            , ""
-            , "    " <> showCommandForUser "daml" ["init", daRoot]
-            , ""
-            , "Or specify a new directory outside an existing project."
-            ]
-        exitFailure
-
     -- Copy the template over.
     copyDirectory templateFolder targetFolder
     files <- listFilesRecursive targetFolder
     mapM_ setWritable files
 
-    -- Update daml.yaml
-    let configPath = targetFolder </> projectConfigName
-        configTemplatePath = configPath <.> "template"
-
-    whenM (doesFileExist configTemplatePath) $ do
-        configTemplate <- readFileUTF8 configTemplatePath
+    -- Substitute strings in template files (not a DAML template!)
+    -- e.g. the SDK version numbers in daml.yaml and package.json
+    let templateFiles = filter (".template" `isExtensionOf`) files
+    forM_ templateFiles $ \templateFile -> do
+        templateContent <- readFileUTF8 templateFile
         sdkVersion <- getSdkVersion
-        let config = replace "__VERSION__"  sdkVersion
-                   . replace "__PROJECT_NAME__" projectName
-                   . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
-                   . replace "__DATA_DEPENDENCIES__" (unlines ["  - " <> dep | dep <- dataDeps])
-                   $ configTemplate
-        writeFileUTF8 configPath config
-        removeFile configTemplatePath
+        let content = replace "__VERSION__"  sdkVersion
+                    . replace "__PROJECT_NAME__" projectName
+                    $ templateContent
+            realFile = dropExtension templateFile
+        writeFileUTF8 realFile content
+        removeFile templateFile
 
     -- Done.
     putStrLn $
@@ -647,14 +561,8 @@ runNew targetFolder templateNameM pkgDeps dataDeps = do
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
 
-legacyConfigName :: FilePath
-legacyConfigName = "da.yaml"
-
 findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
 findDamlProjectRoot = findAscendantWithFile projectConfigName
-
-findDaProjectRoot :: FilePath -> IO (Maybe FilePath)
-findDaProjectRoot = findAscendantWithFile legacyConfigName
 
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
@@ -677,6 +585,18 @@ runListTemplates = do
           "The following templates are available:" :
           (map ("  " <>) . sort . map takeFileName) templates
 
+data SandboxPortSpec = FreePort | SpecifiedPort SandboxPort
+
+toSandboxPortSpec :: Int -> Maybe SandboxPortSpec
+toSandboxPortSpec n
+  | n < 0 = Nothing
+  | n  == 0 = Just FreePort
+  | otherwise = Just (SpecifiedPort (SandboxPort n))
+
+fromSandboxPortSpec :: SandboxPortSpec -> Int
+fromSandboxPortSpec FreePort = 0
+fromSandboxPortSpec (SpecifiedPort (SandboxPort n)) = n
+
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
 newtype JsonApiPort = JsonApiPort Int
@@ -687,13 +607,14 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
-withSandbox (SandboxPort port) args a = withTempFile $ \portFile -> do
+withSandbox :: SandboxClassic -> SandboxPortSpec -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
+withSandbox (SandboxClassic classic) portSpec args a = withTempFile $ \portFile -> do
     logbackArg <- getLogbackArg (damlSdkJarFolder </> "sandbox-logback.xml")
-    withJar damlSdkJar [logbackArg] (["sandbox", "--port", show port, "--port-file", portFile] ++ args) $ \ph -> do
+    let sandbox = if classic then "sandbox-classic" else "sandbox"
+    withJar damlSdkJar [logbackArg] ([sandbox, "--port", show (fromSandboxPortSpec portSpec), "--port-file", portFile] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
-        _port <- readPortFile maxRetries portFile
-        a ph
+        port <- readPortFile maxRetries portFile
+        a ph (SandboxPort port)
 
 withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
@@ -753,6 +674,7 @@ newtype SandboxOptions = SandboxOptions [String]
 newtype NavigatorOptions = NavigatorOptions [String]
 newtype JsonApiOptions = JsonApiOptions [String]
 newtype ScriptOptions = ScriptOptions [String]
+newtype SandboxClassic = SandboxClassic { unSandboxClassic :: Bool }
 
 withOptsFromProjectConfig :: T.Text -> [String] -> ProjectConfig -> IO [String]
 withOptsFromProjectConfig fieldName cliOpts projectConfig = do
@@ -764,8 +686,8 @@ withOptsFromProjectConfig fieldName cliOpts projectConfig = do
 
 
 runStart
-    :: Maybe SandboxPort
-    -> StartNavigator
+    :: Maybe SandboxPortSpec
+    -> Maybe StartNavigator
     -> JsonApiConfig
     -> OpenBrowser
     -> Maybe String
@@ -774,10 +696,11 @@ runStart
     -> NavigatorOptions
     -> JsonApiOptions
     -> ScriptOptions
+    -> SandboxClassic
     -> IO ()
 runStart
   sandboxPortM
-  (StartNavigator shouldStartNavigator)
+  mbStartNavigator
   (JsonApiConfig mbJsonApiPort)
   (OpenBrowser shouldOpenBrowser)
   onStartM
@@ -786,6 +709,7 @@ runStart
   (NavigatorOptions navigatorOpts)
   (JsonApiOptions jsonApiOpts)
   (ScriptOptions scriptOpts)
+  sandboxClassic
   = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
@@ -796,14 +720,21 @@ runStart
     mbInitScript :: Maybe String <-
         requiredE "Failed to parse init-script" $
         queryProjectConfig ["init-script"] projectConfig
+    shouldStartNavigator :: Bool <- case mbStartNavigator of
+        -- If an option is passed explicitly, we use it, otherwise we read daml.yaml.
+        Nothing ->
+            fmap (fromMaybe True) $
+            requiredE "Failed to parse start-navigator" $
+            queryProjectConfig ["start-navigator"] projectConfig
+        Just (StartNavigator explicit) -> pure explicit
     sandboxOpts <- withOptsFromProjectConfig "sandbox-options" sandboxOpts projectConfig
     navigatorOpts <- withOptsFromProjectConfig "navigator-options" navigatorOpts projectConfig
     jsonApiOpts <- withOptsFromProjectConfig "json-api-options" jsonApiOpts projectConfig
     scriptOpts <- withOptsFromProjectConfig "script-options" scriptOpts projectConfig
     doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    withSandbox sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh -> do
-        withNavigator' sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
+    withSandbox sandboxClassic sandboxPort (darPath : scenarioArgs ++ sandboxOpts) $ \sandboxPh sandboxPort -> do
+        withNavigator' shouldStartNavigator sandboxPh sandboxPort navigatorPort navigatorOpts $ \navigatorPh -> do
             whenJust mbInitScript $ \initScript -> do
                 procScript <- toAssistantCommand $
                     [ "script"
@@ -811,9 +742,9 @@ runStart
                     , darPath
                     , "--script-name"
                     , initScript
-                    , if any (`elem` ["-w", "--wall-clock-time"]) sandboxOpts
-                        then "--wall-clock-time"
-                        else "--static-time"
+                    , if any (`elem` ["-s", "--static-time"]) sandboxOpts
+                        then "--static-time"
+                        else "--wall-clock-time"
                     , "--ledger-host"
                     , "localhost"
                     , "--ledger-port"
@@ -829,8 +760,8 @@ runStart
 
     where
         navigatorPort = NavigatorPort 7500
-        defaultSandboxPort = SandboxPort 6865
-        withNavigator' sandboxPh =
+        defaultSandboxPort = SpecifiedPort (SandboxPort 6865)
+        withNavigator' shouldStartNavigator sandboxPh =
             if shouldStartNavigator
                 then withNavigator
                 else (\_ _ _ f -> f sandboxPh)
@@ -853,7 +784,7 @@ getTokFromFile tokFileM = do
     Just tokFile -> do
       -- This postprocessing step which allows trailing newlines
       -- matches the behavior of the Scala token reader in
-      -- com.digitalasset.auth.TokenHolder.
+      -- com.daml.auth.TokenHolder.
       tok <- intercalate "\n" . lines <$> readFileUTF8 tokFile
       return (Just (Token tok))
 
@@ -930,6 +861,15 @@ runLedgerUploadDar flags darPathM = do
     bytes <- BS.readFile darPath
     Ledger.uploadDarFile hp bytes
     putStrLn "DAR upload succeeded."
+
+-- | Fetch the packages reachable from a main package-id, and reconstruct a DAR file.
+runLedgerFetchDar :: LedgerFlags -> String -> FilePath -> IO ()
+runLedgerFetchDar flags pidString saveAs = do
+    let pid = LF.PackageId $ T.pack pidString
+    hp <- getHostAndPortDefaults flags
+    putStrLn $ "Fetching " <> show (LF.unPackageId pid) <> " from " <> show hp <> " into " <> saveAs
+    n <- fetchDar hp pid saveAs
+    putStrLn $ "DAR fetch succeeded; contains " <> show n <> " packages."
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
@@ -1043,14 +983,13 @@ waitForConnectionOnPort sleep port = do
 -- Between each connection request it calls `sleep`.
 waitForHttpServer :: IO () -> String -> HTTP.RequestHeaders -> IO ()
 waitForHttpServer sleep url headers = do
-    manager <- HTTP.newManager HTTP.defaultManagerSettings
     request <- HTTP.parseRequest $ "HEAD " <> url
-    request <- pure request { HTTP.requestHeaders = headers }
+    request <- pure (HTTP.setRequestHeaders headers request)
     untilJust $ do
-        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request manager
+        r <- tryJust (\e -> guard (isIOException e || isHttpException e)) $ HTTP.httpNoBody request
         case r of
             Right resp
-                | HTTP.statusCode (HTTP.responseStatus resp) == 200 -> pure $ Just ()
+                | HTTP.statusCode (HTTP.getResponseStatus resp) == 200 -> pure $ Just ()
             _ -> sleep *> pure Nothing
     where isIOException e = isJust (fromException e :: Maybe IOException)
           isHttpException e = isJust (fromException e :: Maybe HTTP.HttpException)

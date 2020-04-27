@@ -1,14 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding.offset
+package com.daml.ledger.client.binding.offset
 
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{
-  LEDGER_BEGIN,
-  LEDGER_END
-}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary, Empty}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.{LEDGER_BEGIN, LEDGER_END}
+import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.{Absolute, Boundary, Empty}
 
 object LedgerOffsetOrdering {
 

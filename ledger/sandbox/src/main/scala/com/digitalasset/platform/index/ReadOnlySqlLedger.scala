@@ -1,51 +1,45 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.index
+package com.daml.platform.index
 
+import java.time.Instant
+
+import akka.actor.Cancellable
 import akka.stream._
 import akka.stream.scaladsl.{Keep, RestartSource, Sink, Source}
 import akka.{Done, NotUsed}
 import com.codahale.metrics.MetricRegistry
-import com.digitalasset.dec.{DirectExecutionContext => DEC}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.health.HealthStatus
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.common.LedgerIdMismatchException
-import com.digitalasset.platform.store.dao.{
-  DbDispatcher,
-  JdbcLedgerDao,
-  LedgerReadDao,
-  MeteredLedgerReadDao
-}
-import com.digitalasset.platform.store.{BaseLedger, DbType, ReadOnlyLedger}
-import com.digitalasset.resources.ProgramResource.StartupException
-import com.digitalasset.resources.ResourceOwner
+import com.daml.ledger.participant.state.v1.Offset
+import com.daml.dec.{DirectExecutionContext => DEC}
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.health.HealthStatus
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.common.LedgerIdMismatchException
+import com.daml.platform.configuration.ServerRole
+import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerReadDao}
+import com.daml.platform.store.{BaseLedger, ReadOnlyLedger}
+import com.daml.resources.ProgramResource.StartupException
+import com.daml.resources.ResourceOwner
 
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 
 object ReadOnlySqlLedger {
 
-  val maxConnections = 16
-
   //jdbcUrl must have the user/password encoded in form of: "jdbc:postgresql://localhost/test?user=fred&password=secret"
   def owner(
+      serverRole: ServerRole,
       jdbcUrl: String,
       ledgerId: LedgerId,
+      eventsPageSize: Int,
       metrics: MetricRegistry,
-  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] = {
-    val dbType = DbType.jdbcType(jdbcUrl)
+  )(implicit mat: Materializer, logCtx: LoggingContext): ResourceOwner[ReadOnlyLedger] =
     for {
-      dbDispatcher <- DbDispatcher.owner(jdbcUrl, maxConnections, metrics)
-      ledgerReadDao = new MeteredLedgerReadDao(
-        JdbcLedgerDao(dbDispatcher, dbType, mat.executionContext),
-        metrics,
-      )
+      ledgerReadDao <- JdbcLedgerDao.readOwner(serverRole, jdbcUrl, eventsPageSize, metrics)
       factory = new Factory(ledgerReadDao)
       ledger <- ResourceOwner.forFutureCloseable(() => factory.createReadOnlySqlLedger(ledgerId))
     } yield ledger
-  }
 
   private class Factory(ledgerDao: LedgerReadDao)(implicit logCtx: LoggingContext) {
 
@@ -85,7 +79,7 @@ object ReadOnlySqlLedger {
 
 private class ReadOnlySqlLedger(
     ledgerId: LedgerId,
-    headAtInitialization: Long,
+    headAtInitialization: Offset,
     ledgerDao: LedgerReadDao,
 )(implicit mat: Materializer)
     extends BaseLedger(ledgerId, headAtInitialization, ledgerDao) {
@@ -101,12 +95,31 @@ private class ReadOnlySqlLedger(
       .toMat(Sink.foreach(dispatcher.signalNewHead))(Keep.both[UniqueKillSwitch, Future[Done]])
       .run()
 
+  // Periodically remove all expired deduplication cache entries.
+  // The current approach is not ideal for multiple ReadOnlySqlLedgers sharing
+  // the same database (as is the case for a horizontally scaled ledger API server).
+  // In that case, an external process periodically clearing expired entries would be better.
+  //
+  // Deduplication entries are added by the submission service, which might use
+  // a different clock than the current clock (e.g., horizontally scaled ledger API server).
+  // This is not an issue, because applications are not expected to submit towards the end
+  // of the deduplication time window.
+  private val (deduplicationCleanupKillSwitch, deduplicationCleanupDone) =
+    Source
+      .tick[Unit](0.millis, 10.minutes, ())
+      .mapAsync[Unit](1)(_ => ledgerDao.removeExpiredDeduplicationData(Instant.now()))
+      .viaMat(KillSwitches.single)(Keep.right[Cancellable, UniqueKillSwitch])
+      .toMat(Sink.ignore)(Keep.both[UniqueKillSwitch, Future[Done]])
+      .run()
+
   override def currentHealth(): HealthStatus = ledgerDao.currentHealth()
 
   override def close(): Unit = {
     // Terminate the dispatcher first so that it doesn't trigger new queries.
     super.close()
+    deduplicationCleanupKillSwitch.shutdown()
     ledgerEndUpdateKillSwitch.shutdown()
+    Await.result(deduplicationCleanupDone, 10.seconds)
     Await.result(ledgerEndUpdateDone, 10.seconds)
     ()
   }

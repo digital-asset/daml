@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -222,9 +222,7 @@ instance IsParties (Optional Party) where
   toParties None = []
   toParties (Some p) = [p]
 
-#ifdef DAML_GENMAP && DAML_ANY_TYPE
-
--- We do not separate generic equality from generic maps so this guards on DAML_GENMAP.
+#ifdef DAML_GENERIC_COMPARISON && DAML_ANY_TYPE
 
 -- We do not have a general Eq instance for Any since Any is not exposed
 -- to users directly and that instance will crash on some values but
@@ -243,6 +241,7 @@ instance Eq AnyChoice where
 instance Eq AnyContractKey where
   AnyContractKey aAny aRep == AnyContractKey bAny bRep =
     eqAny aAny bAny && aRep == bRep
+
 #endif
 
 #ifdef DAML_TYPE_REP

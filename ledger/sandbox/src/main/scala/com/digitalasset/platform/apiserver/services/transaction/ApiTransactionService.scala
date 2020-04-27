@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.apiserver.services.transaction
+package com.daml.platform.apiserver.services.transaction
 
 import java.util.concurrent.atomic.AtomicLong
 
@@ -9,25 +9,25 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain._
-import com.digitalasset.ledger.api.messages.transaction._
-import com.digitalasset.ledger.api.v1.transaction_service.{
+import com.daml.lf.data.Ref.Party
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.domain._
+import com.daml.ledger.api.messages.transaction._
+import com.daml.ledger.api.v1.transaction_service.{
   GetFlatTransactionResponse,
   GetTransactionResponse,
   GetTransactionTreesResponse,
   GetTransactionsResponse
 }
-import com.digitalasset.ledger.api.validation.PartyNameChecker
-import com.digitalasset.logging.LoggingContext.withEnrichedLoggingContext
-import com.digitalasset.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.platform.apiserver.services.logging
-import com.digitalasset.platform.events.EventIdFormatter
-import com.digitalasset.platform.events.EventIdFormatter.TransactionIdWithIndex
-import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.daml.ledger.api.validation.PartyNameChecker
+import com.daml.logging.LoggingContext.withEnrichedLoggingContext
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.platform.apiserver.services.logging
+import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.EventIdFormatter.TransactionIdWithIndex
+import com.daml.platform.server.api.services.domain.TransactionService
+import com.daml.platform.server.api.services.grpc.GrpcTransactionService
+import com.daml.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import scalaz.syntax.tag._
 
@@ -64,33 +64,32 @@ final class ApiTransactionService private (
 
   private val subscriptionIdCounter = new AtomicLong()
 
-  @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override def getTransactions(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] =
     withEnrichedLoggingContext(
-      logging.begin(request.begin),
-      logging.end(request.end),
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
       logging.parties(request.filter.filtersByParty.keys),
     ) { implicit logCtx =>
       val subscriptionId = subscriptionIdCounter.incrementAndGet().toString
       logger.debug(s"Received request for transaction subscription $subscriptionId: $request")
       transactionsService
-        .transactions(request.begin, request.end, request.filter, request.verbose)
+        .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.logErrorsOnStream)
     }
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] =
     withEnrichedLoggingContext(
-      logging.begin(request.begin),
-      logging.end(request.end),
+      logging.startExclusive(request.startExclusive),
+      logging.endInclusive(request.endInclusive),
       logging.parties(request.parties),
     ) { implicit logCtx =>
       logger.debug(s"Received $request")
       transactionsService
         .transactionTrees(
-          request.begin,
-          request.end,
+          request.startExclusive,
+          request.endInclusive,
           TransactionFilter(request.parties.map(p => p -> Filters.noFilter).toMap),
           request.verbose
         )
@@ -160,7 +159,7 @@ final class ApiTransactionService private (
     transactionsService.currentLedgerEnd().andThen(logger.logErrorsOnCall[LedgerOffset.Absolute])
 
   override lazy val offsetOrdering: Ordering[LedgerOffset.Absolute] =
-    Ordering.by(abs => BigInt(abs.value))
+    Ordering.by[LedgerOffset.Absolute, String](_.value)
 
   private def lookUpTreeByTransactionId(
       transactionId: TransactionId,

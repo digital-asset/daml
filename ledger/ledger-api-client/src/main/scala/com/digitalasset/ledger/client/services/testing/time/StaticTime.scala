@@ -1,24 +1,21 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.services.testing.time
+package com.daml.ledger.client.services.testing.time
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.stream.scaladsl.{Broadcast, Flow, GraphDSL, RunnableGraph, Sink}
 import akka.stream.{ClosedShape, KillSwitches, Materializer, UniqueKillSwitch}
-import com.digitalasset.api.util.{TimeProvider, TimestampConversion}
-import com.digitalasset.api.util.TimestampConversion._
-import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.dec.DirectExecutionContext
-import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
-import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.{
-  TimeService,
-  TimeServiceStub
-}
-import com.digitalasset.ledger.client.LedgerClient
+import com.daml.api.util.{TimeProvider, TimestampConversion}
+import com.daml.api.util.TimestampConversion._
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.akka.ClientAdapter
+import com.daml.dec.DirectExecutionContext
+import com.daml.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
+import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.{TimeService, TimeServiceStub}
+import com.daml.ledger.client.LedgerClient
 
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -1,11 +1,11 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine
+package com.daml.lf.engine
 
-import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
-import com.digitalasset.daml.lf.transaction.TransactionVersions
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.daml.lf.language.{LanguageVersion => LV}
+import com.daml.lf.transaction.TransactionVersions
+import com.daml.lf.value.ValueVersions
 
 object EngineInfo {
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
-import com.digitalasset.ledger.test_stable.Test.{Dummy, TextContainer}
+import com.daml.ledger.test_stable.Test.{Dummy, TextContainer}
 import TransactionScale.numberOfCommandsUnit
 
 import scala.concurrent.Future
@@ -24,11 +24,11 @@ class TransactionScale(session: LedgerSession) extends LedgerTestSuite(session) 
   ) {
     case Participants(Participant(ledger, party)) =>
       val targetNumberOfSubCommands = numberOfCommands(units = 3)
+      val request = ledger.submitAndWaitRequest(
+        party,
+        List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
+      )
       for {
-        request <- ledger.submitAndWaitRequest(
-          party,
-          List.fill(targetNumberOfSubCommands)(Dummy(party).create.command): _*,
-        )
         result <- ledger.submitAndWaitForTransaction(request)
       } yield {
         val _ = assertLength("LargeCommand", targetNumberOfSubCommands, result.events)

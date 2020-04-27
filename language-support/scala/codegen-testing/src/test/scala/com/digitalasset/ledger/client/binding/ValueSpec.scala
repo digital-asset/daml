@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.ledger.client.binding
+package com.daml.ledger.client.binding
 
 import encoding.{ValuePrimitiveEncoding, GenEncoding}
 import org.scalacheck.{Arbitrary, Gen, Shrink}
@@ -24,7 +24,7 @@ class ValueSpec extends WordSpec with Matchers with GeneratorDrivenPropertyCheck
     }
 
     "be found for lists" in {
-      import com.digitalasset.ledger.client.binding.{Primitive => P}
+      import com.daml.ledger.client.binding.{Primitive => P}
       Value[P.List[P.Int64]]
       Value.Decoder[P.List[P.Int64]]
       Value.Encoder[P.List[P.Int64]]
@@ -52,7 +52,7 @@ object ValueSpec {
       val TS: Shrink[T],
       val TV: Value[T])
 
-  import com.digitalasset.ledger.client.binding.{Primitive => P}
+  import com.daml.ledger.client.binding.{Primitive => P}
 
   private[binding] implicit val dateArb: Arbitrary[P.Date] =
     Arbitrary(GenEncoding.primitive.valueDate)

@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Defines external Haskell dependencies.
@@ -17,13 +17,14 @@ load("@os_info//:os_info.bzl", "is_windows")
 load("@dadew//:dadew.bzl", "dadew_tool_home")
 load("@rules_haskell//haskell:cabal.bzl", "stack_snapshot")
 
-GHCIDE_REV = "4e89d4574d538d663bd37f074ef6ef973d14a0f1"
-GHCIDE_SHA256 = "0a31e5d7250c0ce18709152c64cea0cc949c84c47cc40396893e5256b587f7ef"
+GHCIDE_REV = "9b6e7122516f9de9b0ba20cd37d59c58a4d634ec"
+GHCIDE_SHA256 = "e125fc97f35b418918cd29d4d70b36e46bde506d1669426d6802d8531fe3e9ac"
 GHCIDE_VERSION = "0.1.0"
 JS_JQUERY_VERSION = "3.3.1"
 JS_DGTABLE_VERSION = "0.5.2"
 JS_FLOT_VERSION = "0.8.3"
 SHAKE_VERSION = "0.18.5"
+ZIP_VERSION = "1.5.0"
 
 def daml_haskell_deps():
     """Load all Haskell dependencies of the DAML repository."""
@@ -416,6 +417,42 @@ haskell_cabal_library(
         urls = ["http://hackage.haskell.org/package/shake-{version}/shake-{version}.tar.gz".format(version = SHAKE_VERSION)],
     )
 
+    http_archive(
+        name = "zip",
+        build_file_content = """
+load("@rules_haskell//haskell:cabal.bzl", "haskell_cabal_library")
+load("@stackage//:packages.bzl", "packages")
+haskell_cabal_library(
+    name = "zip",
+    version = "{version}",
+    srcs = glob(["**"]),
+    haddock = False,
+    deps = [
+        "@stackage//:case-insensitive",
+        "@stackage//:cereal",
+        "@stackage//:conduit",
+        "@stackage//:conduit-extra",
+        "@stackage//:digest",
+        "@stackage//:dlist",
+        "@stackage//:exceptions",
+        "@stackage//:monad-control",
+        "@stackage//:resourcet",
+        "@stackage//:transformers-base",
+    ],
+    verbose = False,
+    visibility = ["//visibility:public"],
+    flags = ["disable-bzip2"],
+)
+""".format(version = ZIP_VERSION),
+        patch_args = ["-p1"],
+        patches = [
+            "@com_github_digital_asset_daml//bazel_tools:haskell-zip.patch",
+        ],
+        sha256 = "051e891d6a13774f1d06b0251e9a0bf92f05175da8189d936c7d29c317709802",
+        strip_prefix = "zip-{}".format(ZIP_VERSION),
+        urls = ["http://hackage.haskell.org/package/zip-{version}/zip-{version}.tar.gz".format(version = ZIP_VERSION)],
+    )
+
     #
     # Stack binary
     #
@@ -459,7 +496,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     stack_snapshot(
         name = "stackage",
         extra_deps = {
-            "bzlib-conduit": ["@bzip2//:libbz2"],
             "digest": ["@com_github_madler_zlib//:libz"],
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
@@ -468,6 +504,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
                 "ghcide": ["ghc-lib"],
                 "hlint": ["ghc-lib"],
                 "ghc-lib-parser-ex": ["ghc-lib"],
+                "zip": ["disable-bzip2"],
             },
             {
                 "blaze-textual": ["integer-simple"],
@@ -482,6 +519,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         local_snapshot = "//:stack-snapshot.yaml",
         packages = [
             "aeson",
+            "aeson-extra",
             "aeson-pretty",
             "ansi-terminal",
             "ansi-wl-pprint",
@@ -509,6 +547,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "data-default",
             "Decimal",
             "deepseq",
+            "digest",
             "directory",
             "dlist",
             "either",
@@ -543,6 +582,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "hpc",
             "hpp",
             "hslogger",
+            "hspec",
             "http-client",
             "http-client-tls",
             "http-conduit",
@@ -589,14 +629,17 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "range-set-list",
             "recursion-schemes",
             "regex-tdfa",
+            "repline",
             "resourcet",
             "retry",
             "rope-utf16-splay",
             "safe",
             "safe-exceptions",
             "scientific",
+            "semigroupoids",
             "semigroups",
             "semver",
+            "silently",
             "sorted-list",
             "split",
             "stache",
@@ -634,7 +677,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "xml",
             "xml-conduit",
             "yaml",
-            "zip",
             "zip-archive",
             "zlib",
             "zlib-bindings",
@@ -652,5 +694,6 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "js-dgtable": "@js_dgtable//:js-dgtable",
             "js-flot": "@js_flot//:js-flot",
             "shake": "@shake//:shake",
+            "zip": "@zip//:zip",
         },
     )

@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module extracts docs from DAML modules. It does so by reading
@@ -21,17 +21,18 @@ import DA.Daml.Doc.Extract.Exports
 import DA.Daml.Doc.Extract.Templates
 import DA.Daml.Doc.Extract.TypeExpr
 
-import Development.IDE.Types.Options (IdeOptions(..))
-import Development.IDE.Core.Debouncer
-import Development.IDE.Core.FileStore
-import qualified Development.IDE.Core.Service     as Service
+import DA.Daml.Options.Types
+
+import qualified DA.Service.Logger.Impl.Pure as Logger
+
+import Development.IDE.Core.IdeState.Daml
+import qualified Development.IDE.Core.Service as Service
 import qualified Development.IDE.Core.Rules     as Service
-import qualified Development.IDE.Core.RuleTypes as Service
+import qualified Development.IDE.Core.Rules.Daml as Service
+import qualified Development.IDE.Core.RuleTypes.Daml as Service
 import qualified Development.IDE.Core.OfInterest as Service
-import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
-import qualified Language.Haskell.LSP.Types as LSP
 
 import "ghc-lib" GHC
 import "ghc-lib-parser" TyCon
@@ -42,8 +43,8 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
 
 import Control.Monad
+import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
-import Data.Default
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.List.Extended (spanMaybe)
@@ -57,7 +58,7 @@ import Data.Either
 extractDocs ::
     ExtractOptions
     -> (LSP.FromServerMessage -> IO ())
-    -> IdeOptions
+    -> Options
     -> [NormalizedFilePath]
     -> MaybeT IO [ModuleDoc]
 extractDocs extractOpts diagsLogger ideOpts fp = do
@@ -178,18 +179,22 @@ buildDocCtx dc_extractOptions tcmod  =
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
 haddockParse :: (LSP.FromServerMessage -> IO ()) ->
-                IdeOptions ->
+                Options ->
                 [NormalizedFilePath] ->
                 MaybeT IO [Service.TcModuleResult]
 haddockParse diagsLogger opts f = MaybeT $ do
-  vfs <- makeVFSHandle
-  service <- Service.initialise def Service.mainRule (pure $ LSP.IdInt 0) diagsLogger noLogging noopDebouncer opts vfs
-  Service.setFilesOfInterest service (HashSet.fromList f)
-  Service.runActionSync service $
-             runMaybeT $
-             do deps <- Service.usesE Service.GetDependencies f
-                Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
-                -- The DAML compiler always parses with Opt_Haddock on
+  withDamlIdeState opts Logger.makeNopHandle diagsLogger $ \service -> do
+      -- Discarding internal modules isn’t strictly necessary since we do not compile
+      -- to Core. However, the errors that you get if you do accidentally compile to core
+      -- which happens if you set them as files of interest and enable the ofInterestRule
+      -- are so confusing that we filter it out anyway.
+      nonInternal <- Service.runAction service $
+          Service.discardInternalModules (optUnitId opts) f
+      liftIO $ Service.setFilesOfInterest service (HashSet.fromList nonInternal)
+      Service.runActionSync service $ runMaybeT $ do
+          deps <- Service.usesE Service.GetDependencies f
+          Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
+              -- We enable Opt_Haddock in the opts for daml-doc.
 
 ------------------------------------------------------------
 

@@ -1,19 +1,19 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator
+package com.daml.navigator
 
-import com.digitalasset.daml.lf.data.{
+import com.daml.lf.data.{
   Decimal => LfDecimal,
   FrontStack,
   ImmArray,
   SortedLookupList,
   Ref => DamlLfRef
 }
-import com.digitalasset.navigator.model._
-import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
+import com.daml.navigator.model._
+import com.daml.lf.{iface => DamlLfIface}
+import com.daml.lf.value.{Value => V}
+import com.daml.lf.value.json.ApiValueImplicits._
 
 import scala.language.implicitConversions
 

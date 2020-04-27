@@ -1,4 +1,4 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:scala.bzl", "da_scala_binary")
@@ -12,7 +12,7 @@ da_scala_binary(
             "src/**/*.scala",
         ],
     ),
-    main_class = "com.digitalasset.navigator.test.Main",
+    main_class = "com.daml.navigator.test.Main",
     resource_strip_prefix = "navigator/integration-test/src/main/resources/",
     resources = ["src/main/resources/Main.daml"],
     visibility = ["//visibility:public"],

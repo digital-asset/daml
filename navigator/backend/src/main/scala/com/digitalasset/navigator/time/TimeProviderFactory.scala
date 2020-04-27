@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.time
+package com.daml.navigator.time
 
 import java.time.Duration
 
-import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.ledger.client.services.testing.time.StaticTime
+import com.daml.api.util.TimeProvider
+import com.daml.ledger.client.services.testing.time.StaticTime
 
 import scala.concurrent.ExecutionContext
 

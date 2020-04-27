@@ -1,14 +1,15 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.api.validation
+package com.daml.platform.server.api.validation
 
 import java.time.Duration
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.ErrorFactories._
+import com.daml.lf.data.Ref
+import com.daml.lf.value.Value.AbsoluteContractId
+import com.daml.ledger.api.domain.LedgerId
+import com.daml.ledger.api.v1.value.Identifier
+import com.daml.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
 import scala.language.higherKinds
@@ -67,6 +68,13 @@ trait FieldValidations {
 
   def requireLedgerString(s: String): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
+
+  def requireAbsoluteContractId(
+      s: String,
+      fieldName: String
+  ): Either[StatusRuntimeException, AbsoluteContractId] =
+    if (s.isEmpty) Left(missingField(fieldName))
+    else AbsoluteContractId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireDottedName(
       s: String,

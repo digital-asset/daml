@@ -1,15 +1,17 @@
-# Copyright (c) 2020 The DAML Authors. All rights reserved.
+# Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
+    "da_scala_test_suite",
 )
 load(
     "//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
 
 genrule(
@@ -47,7 +49,10 @@ EOF
 
 da_scala_library(
     name = "test-lib",
-    srcs = glob(["src/**/*.scala"]),
+    srcs = glob(
+        ["src/**/*.scala"],
+        exclude = ["src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala"],
+    ),
     resources = glob(["src/main/resources/**/*"]),
     deps = [
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -70,7 +75,7 @@ da_scala_library(
 
 da_scala_binary(
     name = "test_client_single_participant",
-    main_class = "com.digitalasset.daml.lf.engine.script.test.SingleParticipant",
+    main_class = "com.daml.lf.engine.script.test.SingleParticipant",
     deps = [
         ":test-lib",
         "//libs-scala/auth-utils",
@@ -79,8 +84,49 @@ da_scala_binary(
 
 da_scala_binary(
     name = "test_client_multi_participant",
-    main_class = "com.digitalasset.daml.lf.engine.script.test.MultiParticipant",
+    main_class = "com.daml.lf.engine.script.test.MultiParticipant",
     deps = [":test-lib"],
+)
+
+da_scala_test_suite(
+    name = "test_json",
+    srcs = [
+        "src/com/digitalasset/daml/lf/engine/script/test/JsonApiIt.scala",
+    ],
+    data = [":script-test.dar"],
+    resources = glob(["src/main/resources/**/*"]),
+    deps = [
+        ":test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/archive:daml_lf_dev_archive_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/interface",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+        "//ledger-api/testing-utils",
+        "//ledger-service/http-json",
+        "//ledger-service/jwt",
+        "//ledger/ledger-api-auth",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
+        "//ledger/sandbox",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+        "//ledger/test-common",
+        "//libs-scala/auth-utils",
+        "//libs-scala/ports",
+        "//libs-scala/resources",
+        "@maven//:com_github_scopt_scopt_2_12",
+        "@maven//:com_google_guava_guava",
+        "@maven//:com_typesafe_akka_akka_http_core_2_12",
+        "@maven//:com_typesafe_akka_akka_stream_2_12",
+        "@maven//:io_spray_spray_json_2_12",
+        "@maven//:org_scalaz_scalaz_core_2_12",
+    ],
 )
 
 client_server_test(
@@ -89,7 +135,10 @@ client_server_test(
     client_files = ["$(rootpath :script-test.dar)"],
     data = [":script-test.dar"],
     server = "//ledger/sandbox:sandbox-binary",
-    server_args = ["--port=0"],
+    server_args = [
+        "--static-time",
+        "--port=0",
+    ],
     server_files = ["$(rootpath :script-test.dar)"],
 )
 
@@ -101,7 +150,7 @@ client_server_test(
     data = [":script-test.dar"],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-w",
+        "--wall-clock-time",
         "--port=0",
     ],
     server_files = ["$(rootpath :script-test.dar)"],
@@ -118,7 +167,7 @@ genrule(
     outs = ["test-auth-token.jwt"],
     cmd = """
       cat <<EOF > $(location test-auth-token.jwt)
-Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJodHRwczovL2RhbWwuY29tL2xlZGdlci1hcGkiOnsiYWRtaW4iOmZhbHNlLCJhY3RBcyI6WyJBbGljZSIsIkJvYiJdfX0.UYogXMZvmhzzjmsmKayaDsI2hGKh1T2Sz5l9h4tdgGM
 EOF
     """,
 )
@@ -140,9 +189,36 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-w",
+        "--wall-clock-time",
         "--port=0",
         "--auth-jwt-hs256-unsafe={}".format(AUTH_TOKEN),
+    ],
+    server_files = ["$(rootpath :script-test.dar)"],
+)
+
+client_server_test(
+    name = "test_wallclock_time_tls",
+    client = ":test_client_single_participant",
+    client_args = [
+        "-w",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:ca.crt))",
+    ],
+    client_files = [
+        "$(rootpath :script-test.dar)",
+    ],
+    data = [
+        ":script-test.dar",
+        "//ledger/test-common/test-certificates:ca.crt",
+        "//ledger/test-common/test-certificates:server.crt",
+        "//ledger/test-common/test-certificates:server.pem",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--wall-clock-time",
+        "--port=0",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common/test-certificates:server.pem))",
+        "--client-auth=none",
     ],
     server_files = ["$(rootpath :script-test.dar)"],
 )

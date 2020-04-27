@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LanguageServer.Visualize
@@ -23,7 +23,7 @@ import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.Visual as Visual
 
 collectTexts :: List Aeson.Value -> Maybe NormalizedFilePath
-collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath (T.unpack file))
+collectTexts (List [Aeson.String file])  = Just (toNormalizedFilePath' (T.unpack file))
 collectTexts _= Nothing
 
 onCommand
@@ -50,7 +50,7 @@ onCommand ide execParsms = case execParsms of
         logError (ideLogger ide) err
         return $ Left (ResponseError InvalidParams err Nothing)
 
-setCommandHandler ::PartialHandlers
+setCommandHandler ::PartialHandlers a
 setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
     LSP.executeCommandHandler = withResponse RspExecuteCommand $ const onCommand
 }

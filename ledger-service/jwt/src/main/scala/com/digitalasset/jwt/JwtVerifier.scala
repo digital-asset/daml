@@ -1,7 +1,7 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.jwt
+package com.daml.jwt
 
 import java.io.File
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
@@ -9,7 +9,7 @@ import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.{RSAKeyProvider}
-import com.digitalasset.jwt.JwtVerifier.Error
+import com.daml.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
 import scalaz.syntax.show._

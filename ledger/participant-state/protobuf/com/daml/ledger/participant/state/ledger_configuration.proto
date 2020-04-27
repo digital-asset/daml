@@ -1,4 +1,4 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // The DAML Ledger configuration. Please refer to the spec
@@ -39,15 +39,9 @@ message LedgerConfiguration {
 }
 
 message LedgerTimeModel {
-  // The expected minimum latency of a transaction.
-  google.protobuf.Duration min_transaction_latency = 1;
-
-  // The maximum allowed clock skew between the ledger and clients.
-  google.protobuf.Duration max_clock_skew = 2;
-
-  // The maximum allowed time to live for a transaction.
-  // Must be greater than the derived minimum time to live.
-  google.protobuf.Duration max_ttl = 3;
+  reserved 1; // was min_transaction_latency
+  reserved 2; // was max_clock_skew
+  reserved 3; // was max_ttl
 
   // The expected average latency of a transaction, i.e., the average time
   // from submitting the transaction to a WriteService and the transaction

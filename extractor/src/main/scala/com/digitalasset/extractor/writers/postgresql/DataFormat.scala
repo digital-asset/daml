@@ -1,12 +1,12 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.extractor.writers.postgresql
+package com.daml.extractor.writers.postgresql
 
-import com.digitalasset.daml.lf.iface
-import com.digitalasset.extractor.ledger.types._
-import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.writers.Writer.RefreshPackages
+import com.daml.lf.iface
+import com.daml.extractor.ledger.types._
+import com.daml.ledger.service.LedgerReader.PackageStore
+import com.daml.extractor.writers.Writer.RefreshPackages
 
 import doobie.free.connection.ConnectionIO
 

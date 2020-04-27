@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -99,9 +99,11 @@ versionChecks Env{..} =
         -- Project SDK version is outdated.
         when (not isHead && projectSdkVersionIsOld) $ do
             hPutStr stderr . unlines $
-                [ "WARNING: Using an outdated version of the DAML SDK in project."
-                , "To migrate to the latest DAML SDK, please set the sdk-version"
-                , "field in daml.yaml to " <> versionToString latestVersion
+                [ "DAML SDK " <> versionToString latestVersion <> " has been released!"
+                , "See https://github.com/digital-asset/daml/releases/tag/v"
+                  <> versionToString latestVersion <> " for details."
+                -- Carefully crafted wording to make sure it’s < 80 characters so
+                -- we do not get a line break.
                 , ""
                 ]
 
@@ -129,6 +131,7 @@ autoInstall env@Env{..} = do
         let sdkVersion = fromJust envSdkVersion
             options = InstallOptions
                 { iTargetM = Nothing
+                , iSnapshots = False
                 , iQuiet = QuietInstall False
                 , iAssistant = InstallAssistant Auto
                 , iActivate = ActivateInstall False
@@ -172,12 +175,16 @@ handleCommand env@Env{..} logger command = do
         ]
 
 runCommand :: Env -> Command -> IO ()
-runCommand env@Env{..}  = \case
+runCommand env@Env{..} = \case
     Builtin (Version VersionOptions{..}) -> do
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
         projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
+        snapshotVersionsE <- tryAssistant $
+            if vSnapshots
+                then getAvailableSdkSnapshotVersions
+                else pure []
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
@@ -221,6 +228,7 @@ runCommand env@Env{..}  = \case
                 [ envVersions
                 , fromRight [] installedVersionsE
                 , if vAll then fromRight [] availableVersionsE else []
+                , fromRight [] snapshotVersionsE
                 ]
             versionTable = [ (versionToText v, versionAttrs v) | v <- versions ]
             versionWidth = maximum (1 : map (T.length . fst) versionTable)
@@ -344,8 +352,8 @@ argWhitelist = S.fromList
     , "sandbox", "INFO", "TRACE", "DEBUG", "WARN", "ERROR"
     , "navigator", "server", "console", "dump-graphql-schema", "create-config", "static", "simulated", "wallclock"
     , "extractor", "prettyprint", "postgresql"
-    , "ledger", "list-parties", "allocate-parties", "upload-dar"
-    , "codegen", "java", "scala", "ts"
+    , "ledger", "list-parties", "allocate-parties", "upload-dar", "fetch-dar"
+    , "codegen", "java", "scala", "js"
     , "deploy"
     , "json-api"
     , "trigger", "list"

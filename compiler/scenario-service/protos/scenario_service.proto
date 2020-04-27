@@ -1,10 +1,10 @@
-// Copyright (c) 2020 The DAML Authors. All rights reserved.
+// Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
 
 option java_multiple_files = true;
-option java_package = "com.digitalasset.daml.lf.scenario.api.v1";
+option java_package = "com.daml.lf.scenario.api.v1";
 option java_outer_classname = "ScenarioServiceProto";
 
 package scenarioservice;
@@ -175,12 +175,6 @@ message ScenarioError {
     sfixed64 effective_at = 2;
   }
 
-  message SubmitterNotInMaintainers {
-    Identifier template_id = 1;
-    Party submitter = 2;
-    repeated Party maintainers = 3;
-  }
-
   // The state of the ledger at the time of the error
   repeated ScenarioStep scenario_steps = 1;
   repeated Node nodes = 2;
@@ -231,7 +225,6 @@ message ScenarioError {
     CommitError scenario_commit_error = 19;
     Empty scenario_mustfail_succeeded = 20;
     string scenario_invalid_party_name = 21;
-    SubmitterNotInMaintainers submitter_not_in_maintainers = 22;
   }
 }
 

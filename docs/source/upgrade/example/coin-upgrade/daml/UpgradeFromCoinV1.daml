@@ -1,4 +1,4 @@
--- Copyright (c) 2020 The DAML Authors. All rights reserved.
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- UPGRADE_MODULE_BEGIN
@@ -15,6 +15,8 @@ template UpgradeCoinProposal
   where
     signatory issuer
     observer owner
+    key (issuer, owner) : (Party, Party)
+    maintainer key._1
     choice Accept : ContractId UpgradeCoinAgreement
       controller owner
       do create UpgradeCoinAgreement with ..
@@ -27,6 +29,8 @@ template UpgradeCoinAgreement
     owner : Party
   where
     signatory issuer, owner
+    key (issuer, owner) : (Party, Party)
+    maintainer key._1
     nonconsuming choice Upgrade : ContractId CoinWithAmount
       with
         coinId : ContractId Coin

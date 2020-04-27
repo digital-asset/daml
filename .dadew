@@ -10,8 +10,7 @@
         "vcredist-14.0.23026",
         "bazel",
         "nodejs-10.16.3",
-        "openssl",
-        "python-3.6.7",
+        "python-3.8.2",
         "nsis-3.04",
         "maven-3.6.1",
         "stack"
