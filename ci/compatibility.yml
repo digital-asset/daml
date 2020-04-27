@@ -24,7 +24,7 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - bash: |
       set -euo pipefail
-      ./compatibility/build-release-artifacts.sh $(Build.StagingDirectory)
+      ./compatibility/build-release-artifacts.sh
     displayName: 'Build release artifacts'
   - bash: |
       set -eou pipefail
