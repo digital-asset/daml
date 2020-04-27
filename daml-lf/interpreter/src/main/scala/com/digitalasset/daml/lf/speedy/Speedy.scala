@@ -13,7 +13,6 @@ import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.value.Value.AbsoluteContractId
 import com.daml.lf.value.{Value => V}
 import org.slf4j.LoggerFactory
 
@@ -376,8 +375,8 @@ object Speedy {
                 throw DamlEArithmeticError(e.getMessage)
             }
         }
-      case v =>
-        machine.ctrl = CtrlValue(v)
+      case _ =>
+        machine.ctrl = this
         machine.kontPop.execute(value, machine)
     }
   }
@@ -389,7 +388,7 @@ object Speedy {
     * when executing.
     */
   final case class CtrlWronglyTypeContractId(
-      acoid: AbsoluteContractId,
+      acoid: V.AbsoluteContractId,
       expected: TypeConName,
       actual: TypeConName,
   ) extends Ctrl {
@@ -401,6 +400,105 @@ object Speedy {
   object Ctrl {
     def fromPrim(prim: Prim, arity: Int): Ctrl =
       CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
+  }
+
+  // This translates a well-typed LF value (typically coming from
+  // the ledger) to speedy value and set the control of with the result.
+  // Raises an exception if missing a package.
+  final case class CtrlTranslateValue(value: V[V.ContractId]) extends Ctrl {
+    override def execute(machine: Machine): Unit = {
+
+      def go(value0: V[V.ContractId]): SValue =
+        value0 match {
+          case V.ValueList(vs) => SList(vs.map[SValue](go))
+          case V.ValueContractId(coid) => SContractId(coid)
+          case V.ValueInt64(x) => SInt64(x)
+          case V.ValueNumeric(x) => SNumeric(x)
+          case V.ValueText(t) => SText(t)
+          case V.ValueTimestamp(t) => STimestamp(t)
+          case V.ValueParty(p) => SParty(p)
+          case V.ValueBool(b) => SBool(b)
+          case V.ValueDate(x) => SDate(x)
+          case V.ValueUnit => SUnit
+          case V.ValueRecord(Some(id), fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (optk, v) =>
+                optk match {
+                  case None =>
+                    crash("SValue.fromValue: record missing field name")
+                  case Some(k) =>
+                    fields(values.size) = k
+                    val _ = values.add(go(v))
+                }
+            }
+            SRecord(id, fields, values)
+          case V.ValueRecord(None, _) =>
+            crash("SValue.fromValue: record missing identifier")
+          case V.ValueStruct(fs) =>
+            val fields = Name.Array.ofDim(fs.length)
+            val values = new util.ArrayList[SValue](fields.length)
+            fs.foreach {
+              case (k, v) =>
+                fields(values.size) = k
+                val _ = values.add(go(v))
+            }
+            SStruct(fields, values)
+          case V.ValueVariant(None, _variant @ _, _value @ _) =>
+            crash("SValue.fromValue: variant without identifier")
+          case V.ValueEnum(None, constructor @ _) =>
+            crash("SValue.fromValue: enum without identifier")
+          case V.ValueOptional(mbV) =>
+            SOptional(mbV.map(go))
+          case V.ValueTextMap(map) =>
+            STextMap(map.mapValue(go).toHashMap)
+          case V.ValueGenMap(entries) =>
+            SGenMap(
+              entries.iterator.map { case (k, v) => go(k) -> go(v) }
+            )
+          case V.ValueVariant(Some(id), variant, arg) =>
+            machine.compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataVariant) =>
+                    SVariant(id, variant, data.constructorRank(variant), go(arg))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      machine.compiledPackages = pkg
+                      machine.ctrl = this
+                    }
+                  ))
+            }
+          case V.ValueEnum(Some(id), constructor) =>
+            machine.compiledPackages.getPackage(id.packageId) match {
+              case Some(pkg) =>
+                pkg.lookupIdentifier(id.qualifiedName).fold(crash, identity) match {
+                  case DDataType(_, _, data: DataEnum) =>
+                    SEnum(id, constructor, data.constructorRank(constructor))
+                  case _ =>
+                    crash(s"definition for variant $id not found")
+                }
+              case None =>
+                throw SpeedyHungry(
+                  SResultNeedPackage(
+                    id.packageId,
+                    pkg => {
+                      machine.compiledPackages = pkg
+                      machine.ctrl = this
+                    }
+                  ))
+            }
+        }
+
+      machine.ctrl = CtrlValue(go(value))
+    }
   }
 
   //
