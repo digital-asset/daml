@@ -3,8 +3,6 @@
 
 package com.daml.ledger.on.memory
 
-import java.time.Duration
-
 import akka.stream.Materializer
 import com.daml.ledger.on.memory.InMemoryLedgerReaderWriter.Index
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
@@ -70,7 +68,7 @@ object Main {
       )
 
     override def ledgerConfig(config: Config[ExtraConfig]): LedgerConfiguration =
-      super.ledgerConfig(config).copy(initialConfigurationSubmitDelay = Duration.ZERO)
+      LedgerConfiguration.defaultLocalLedger
 
     override val defaultExtraConfig: ExtraConfig = ExtraConfig.default
 
