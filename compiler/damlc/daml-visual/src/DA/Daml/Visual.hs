@@ -175,6 +175,8 @@ startFromExpr seen world e = case e of
     -- instance and produce the corresponding edge in the graph.
     EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    EInternalTemplateVal "exerciseByKey" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` _ `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName chc))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 pattern EInternalTemplateVal :: T.Text -> LF.Expr
