@@ -1,6 +1,8 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
+load("@os_info//:os_info.bzl", "is_windows", "os_name")
+
 runfiles_library = """
 # Copy-pasted from the Bazel Bash runfiles library v2.
 set -uo pipefail; f=bazel_tools/tools/bash/runfiles/runfiles.bash
@@ -14,21 +16,25 @@ source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
 """
 
 def _daml_sdk_impl(ctx):
+    # The DAML assistant will mark the installed SDK read-only.
+    # This breaks Bazel horribly on Windows to the point where
+    # even `bazel clean --expunge` fails because it cannot remove
+    # the installed SDK. Therefore, we do not use the assistant to
+    # install the SDK but instead simply extract the SDK to the right
+    # location and set the symlink ourselves.
+    out_dir = ctx.path("sdk").get_child("sdk").get_child(ctx.attr.version)
     if ctx.attr.sdk_tarball:
         ctx.extract(
             ctx.attr.sdk_tarball,
-            output = "extracted-sdk",
+            output = out_dir,
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
     elif ctx.attr.sdk_sha256:
         ctx.download_and_extract(
-            output = "extracted-sdk",
+            output = out_dir,
             # TODO (MK) Make this work on other platforms.
-            url = "https://github.com/digital-asset/daml/releases/download/v{version}/daml-sdk-{version}-{os}.tar.gz"
-                .format(
-                version = ctx.attr.version,
-                os = ctx.attr.os_name,
-            ),
+            url =
+                "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, ctx.attr.version, ctx.attr.os_name),
             sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
             stripPrefix = "sdk-{}".format(ctx.attr.version),
         )
@@ -50,19 +56,8 @@ def _daml_sdk_impl(ctx):
         "ledger-api-test-tool.jar",
         output = "extracted-test-tool",
     )
-    ps_result = ctx.execute(
-        ["extracted-sdk/daml/daml", "install", "extracted-sdk", "--install-assistant=no"],
-        environment = {
-            "DAML_HOME": "sdk",
-        },
-    )
-    if ps_result.return_code != 0:
-        fail("Failed to install SDK.\nExit code %d.\n%s\n%s" %
-             (ps_result.return_code, ps_result.stdout, ps_result.stderr))
 
-    # At least on older SDKs, the symlinking in --install-assistant=yes does not work
-    # properly so we symlink ourselves.
-    ctx.symlink("sdk/sdk/{}/daml/daml".format(ctx.attr.version), "sdk/bin/daml")
+    ctx.symlink(out_dir.get_child("daml").get_child("daml" + (".exe" if is_windows else "")), "sdk/bin/daml")
     ctx.file(
         "sdk/daml-config.yaml",
         content =
@@ -121,11 +116,11 @@ _daml_sdk = repository_rule(
     implementation = _daml_sdk_impl,
     attrs = {
         "version": attr.string(mandatory = True),
+        "os_name": attr.string(mandatory = False, default = os_name),
         "sdk_sha256": attr.string_dict(mandatory = False),
         "sdk_tarball": attr.label(allow_single_file = True, mandatory = False),
         "test_tool_sha256": attr.string(mandatory = False),
         "test_tool": attr.label(allow_single_file = True, mandatory = False),
-        "os_name": attr.string(mandatory = True),
     },
 )
 

@@ -5,6 +5,7 @@ load(
     "@daml//bazel_tools/client_server:client_server_test.bzl",
     "client_server_test",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 latest_stable = "1.0.0"
 
@@ -168,7 +169,9 @@ def sdk_platform_test(sdk_version, platform_version):
             dar_files = dar_files,
         )],
         tags = ["exclusive"] + extra_tags(sdk_version, platform_version),
-    )
+    ) if not is_windows else None
+    # We disable the postgres tests on Windows for now since our postgres setup
+    # relies on Nix. This should be fixable by getting postgres from dev-env.
 
     # daml-ledger test-cases
     name = "daml-ledger-{sdk_version}-platform-{platform_version}".format(
@@ -181,4 +184,5 @@ def sdk_platform_test(sdk_version, platform_version):
         daml = daml_assistant,
         sandbox = sandbox,
         sandbox_args = sandbox_args,
+        tags = extra_tags(sdk_version, platform_version),
     )

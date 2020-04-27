@@ -36,6 +36,12 @@ def daml_deps():
             name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
+            patches = [
+                "@daml//bazel_tools:haskell-strict-source-names.patch",
+                "@daml//bazel_tools:haskell-windows-remove-fake-libs.patch",
+                "@daml//bazel_tools:haskell-windows-extra-libraries.patch",
+            ],
+            patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
         )
 
