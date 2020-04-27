@@ -292,7 +292,6 @@ packagingTests = testGroup "packaging"
               , "--start-navigator=no"
               , "--sandbox-port=" <> show sandboxPort
               , "--json-api-port=" <> show jsonApiPort
-              , "--json-api-option=--allow-insecure-tokens"
               ]
         withCurrentDirectory projDir $
           withCreateProcess startProc $ \_ _ _ startPh ->
