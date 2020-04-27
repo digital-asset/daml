@@ -3,6 +3,7 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
 import java.time.Instant
 
 import anorm.SqlParser.{binaryStream, int, str}
@@ -14,7 +15,7 @@ import com.daml.platform.store.dao.DbDispatcher
 import com.daml.platform.store.serialization.ValueSerializer.{deserializeValue => deserialize}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 /**
   * @see [[ContractsTable]]
@@ -26,6 +27,24 @@ private[dao] sealed abstract class ContractsReader(
 
   import ContractsReader._
 
+  object InTransaction extends PostCommitValidationData {
+
+    override def lookupContractKey(submitter: Party, key: Key)(
+        implicit connection: Connection): Option[ContractId] =
+      lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
+
+    override def lookupMaximumLedgerTime(ids: Set[ContractId])(
+        implicit connection: Connection): Try[Option[Instant]] =
+      SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
+        .as(
+          (instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
+            .map {
+              case result ~ numContracts if numContracts == ids.size => Success(result)
+              case _ => Failure(notFound(ids))
+            })
+
+  }
+
   protected def lookupContractKeyQuery(submitter: Party, key: Key): SimpleSql[Row]
 
   override def lookupActiveContract(
@@ -36,30 +55,21 @@ private[dao] sealed abstract class ContractsReader(
       SQL"select participant_contracts.contract_id, template_id, create_argument from #$contractsTable where contract_witness = $submitter and participant_contracts.contract_id = $contractId"
         .as(contractRowParser.singleOpt)
     }
+
   override def lookupContractKey(
       submitter: Party,
       key: Key,
   ): Future[Option[ContractId]] =
     dispatcher.executeSql("lookup_contract_by_key") { implicit connection =>
-      lookupContractKeyQuery(submitter, key).as(contractId("contract_id").singleOpt)
+      InTransaction.lookupContractKey(submitter, key)
     }
 
   override def lookupMaximumLedgerTime(ids: Set[ContractId]): Future[Option[Instant]] =
-    if (ids.isEmpty) {
-      Future.failed(emptyContractIds)
-    } else {
-      val expectedContracts = ids.size
-      dispatcher
-        .executeSql("lookup_maximum_ledger_time") { implicit connection =>
-          SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
-            .as((instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
-              .map {
-                case result ~ `expectedContracts` => Success(result)
-                case _ => Failure(notFound(ids))
-              })
-        }
-        .map(_.get)(executionContext)
-    }
+    dispatcher
+      .executeSql("lookup_maximum_ledger_time") { implicit connection =>
+        InTransaction.lookupMaximumLedgerTime(ids)
+      }
+      .map(_.get)(executionContext)
 
 }
 

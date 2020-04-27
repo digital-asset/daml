@@ -39,6 +39,9 @@ package object events {
   private[events] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
   private[events] val Relation = lfdata.Relation.Relation
 
+  import com.daml.lf.crypto
+  private[events] type Hash = crypto.Hash
+
   /**
     * Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
@@ -76,5 +79,8 @@ package object events {
       case n if n > 1 => multi(set)
     }
   }
+
+  private[events] def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
+    Key.assertBuild(template, key.key.value)
 
 }
