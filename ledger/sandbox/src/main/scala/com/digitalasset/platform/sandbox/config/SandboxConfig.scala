@@ -59,7 +59,7 @@ object SandboxConfig {
       damlPackages = Nil,
       timeProviderType = None,
       commandConfig = CommandConfiguration.default,
-      ledgerConfig = LedgerConfiguration.default,
+      ledgerConfig = LedgerConfiguration.defaultLocalLedger,
       tlsConfig = None,
       scenario = None,
       implicitPartyAllocation = true,
@@ -78,5 +78,6 @@ object SandboxConfig {
   lazy val default: SandboxConfig =
     nextDefault.copy(
       seeding = None,
+      ledgerConfig = LedgerConfiguration.defaultLedgerBackedIndex,
     )
 }

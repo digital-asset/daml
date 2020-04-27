@@ -95,9 +95,15 @@ object ApiServices {
 
     override def acquire()(implicit executionContext: ExecutionContext): Resource[ApiServices] =
       Resource(
-        indexService
-          .getLedgerId()
-          .map(ledgerId => createServices(ledgerId)(mat.system.dispatcher)))(services =>
+        for {
+          ledgerId <- identityService.getLedgerId()
+          ledgerConfigProvider = LedgerConfigProvider.create(
+            configManagementService,
+            ledgerConfiguration)
+          services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
+          _ <- ledgerConfigProvider.ready
+        } yield services
+      )(services =>
         Future {
           services.foreach {
             case closeable: AutoCloseable => closeable.close()
@@ -105,9 +111,8 @@ object ApiServices {
           }
       }).map(ApiServicesBundle(_))
 
-    private def createServices(ledgerId: LedgerId)(
+    private def createServices(ledgerId: LedgerId, ledgerConfigProvider: LedgerConfigProvider)(
         implicit executionContext: ExecutionContext): List[BindableService] = {
-      val ledgerConfigProvider = LedgerConfigProvider.create(configManagementService)
       val commandExecutor = new TimedCommandExecutor(
         new LedgerTimeAwareCommandExecutor(
           new StoreBackedCommandExecutor(
