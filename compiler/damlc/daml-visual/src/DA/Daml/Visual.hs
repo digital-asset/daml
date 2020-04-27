@@ -173,7 +173,11 @@ startFromExpr seen world e = case e of
         Set.singleton (AExercise tpl (LF.ChoiceName "Archive"))
     -- NOTE(RJR): Look for calls to the `exercise` method from a `Choice`
     -- instance and produce the corresponding edge in the graph.
+    --(LF.ETmApp (LF.ETyApp (LF.ETyApp (LF.ETyApp (EInternalTemplateVal "exercise") (LF.TCon tpl)) (LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])))) _ret), _dict)
     EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    --(LF.ETmApp (LF.ETyApp (LF.ETyApp (LF.ETyApp (LF.ETyApp (EInternalTemplateVal "exerciseByKey") (LF.TCon tpl)) _) (LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])))) _ret) _dict)
+    EInternalTemplateVal "exerciseByKey" `LF.TyApp` LF.TCon tpl `LF.ETyApp` _ `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
