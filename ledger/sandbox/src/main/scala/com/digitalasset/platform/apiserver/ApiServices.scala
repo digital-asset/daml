@@ -99,6 +99,8 @@ object ApiServices {
           ledgerId <- identityService.getLedgerId()
           ledgerConfigProvider = LedgerConfigProvider.create(
             configManagementService,
+            writeService,
+            timeProvider,
             ledgerConfiguration)
           services = createServices(ledgerId, ledgerConfigProvider)(mat.system.dispatcher)
           _ <- ledgerConfigProvider.ready
