@@ -93,7 +93,7 @@ withTools tests = do
 
 newtype SdkVersion = SdkVersion String
 instance IsOption SdkVersion where
-  defaultValue = SdkVersion "1.0.0"
+  defaultValue = SdkVersion (error "SDK version has to be set explicitly using --sdk-version")
   parseValue = Just . SdkVersion
   optionName = Tagged "sdk-version"
   optionHelp = Tagged "The SDK version number"
