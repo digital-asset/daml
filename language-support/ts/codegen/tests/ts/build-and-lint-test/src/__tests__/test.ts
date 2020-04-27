@@ -64,7 +64,7 @@ beforeAll(async () => {
     getEnv('JSON_API'),
     ['--ledger-host', 'localhost', '--ledger-port', `${sandboxPort}`,
      '--port-file', JSON_API_PORT_FILE, '--http-port', "0",
-     '--leak-passwords-firesheep-style', '--websocket-config', 'heartBeatPer=1'],
+     '--allow-insecure-tokens', '--websocket-config', 'heartBeatPer=1'],
     `file:${JSON_API_PORT_FILE}`,
   )
   const jsonApiPortData = await fs.readFile(JSON_API_PORT_FILE, { encoding: 'utf8' });

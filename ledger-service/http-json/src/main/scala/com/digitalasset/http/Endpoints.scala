@@ -453,7 +453,7 @@ object Endpoints {
   }
 
   private[http] val nonHttpsErrorMessage =
-    "missing HTTPS reverse-proxy request headers; for development launch with --leak-passwords-firesheep-style"
+    "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
 
   private def partiesResponse(
       parties: List[domain.PartyDetails],

@@ -205,7 +205,7 @@ object Main extends StrictLogging {
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
 
-      opt[Unit]("leak-passwords-firesheep-style")
+      opt[Unit]("allow-insecure-tokens")
         .action((_, c) => c copy (allowNonHttps = true))
         .text(
           "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
