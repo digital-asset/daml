@@ -80,7 +80,8 @@ object PostCommitValidation {
         divulged: Set[ContractId],
     )(implicit connection: Connection): Set[RejectionReason] = {
 
-      // Collect all the identifiers of contracts that have not been divulged in the current transaction
+      // Collect all the identifiers of contracts that have not been divulged in the current transaction and
+      // query the committed contract store for the maximum ledger effective time
       val maximumLedgerEffectiveTime =
         data.lookupMaximumLedgerTime(
           transaction.fold(Set.empty[ContractId]) {
@@ -91,9 +92,7 @@ object PostCommitValidation {
           }
         )
 
-      // Query the committed contracts store for the maximum ledger effective time of the
-      // collected contracts and returns an error if that is strictly greater than the
-      // ledger effective time of the current transaction.
+      // Check that all collected contracts respect causal monotonicity
       maximumLedgerEffectiveTime
         .map(
           _.filter(_.isAfter(transactionLedgerEffectiveTime)).fold(Set.empty[RejectionReason])(
