@@ -55,7 +55,7 @@ final class JdbcIndexerFactory(
       .map(_ => initialized())
 
   def resetSchema()(
-    implicit executionContext: ExecutionContext
+      implicit executionContext: ExecutionContext
   ): Future[ResourceOwner[JdbcIndexer]] =
     Future.successful(for {
       ledgerDao <- JdbcLedgerDao.writeOwner(
@@ -66,9 +66,7 @@ final class JdbcIndexerFactory(
       )
       _ <- ResourceOwner.forFuture(() => ledgerDao.reset())
       initialLedgerEnd <- ResourceOwner.forFuture(() => initializeLedger(ledgerDao))
-    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics)
-    )
-
+    } yield new JdbcIndexer(initialLedgerEnd, config.participantId, ledgerDao, metrics))
 
   private def initialized()(
       implicit executionContext: ExecutionContext

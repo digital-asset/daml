@@ -148,15 +148,19 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 _ <- if (isReset) {
                   ResourceOwner.unit
                 } else {
-                  ResourceOwner.forFuture(() =>
-                    Future.sequence(config.damlPackages.map(uploadDar(_, writeService)))).map(_ => ())
+                  ResourceOwner
+                    .forFuture(() =>
+                      Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+                    .map(_ => ())
                 }
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
-                    startupMode = if (isReset) IndexerStartupMode.ResetAndStart else IndexerStartupMode.MigrateAndStart,
+                    startupMode =
+                      if (isReset) IndexerStartupMode.ResetAndStart
+                      else IndexerStartupMode.MigrateAndStart,
                     eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),

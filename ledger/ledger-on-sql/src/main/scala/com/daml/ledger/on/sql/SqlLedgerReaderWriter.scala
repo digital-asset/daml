@@ -140,7 +140,9 @@ object SqlLedgerReaderWriter {
     ): Resource[SqlLedgerReaderWriter] =
       for {
         uninitializedDatabase <- Database.owner(jdbcUrl, metricRegistry).acquire()
-        database <- Resource.fromFuture(if (resetOnStartup) uninitializedDatabase.migrateAndReset() else Future.successful(uninitializedDatabase.migrate()))
+        database <- Resource.fromFuture(
+          if (resetOnStartup) uninitializedDatabase.migrateAndReset()
+          else Future.successful(uninitializedDatabase.migrate()))
         ledgerId <- Resource.fromFuture(updateOrRetrieveLedgerId(initialLedgerId, database))
         dispatcher <- ResourceOwner.forFutureCloseable(() => newDispatcher(database)).acquire()
       } yield

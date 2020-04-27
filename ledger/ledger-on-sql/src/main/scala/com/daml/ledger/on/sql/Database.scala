@@ -7,7 +7,14 @@ import java.sql.Connection
 import java.util.concurrent.TimeUnit
 
 import com.codahale.metrics.{MetricRegistry, Timer}
-import com.daml.ledger.on.sql.queries.{H2Queries, PostgresqlQueries, Queries, ReadQueries, SqliteQueries, TimedQueries}
+import com.daml.ledger.on.sql.queries.{
+  H2Queries,
+  PostgresqlQueries,
+  Queries,
+  ReadQueries,
+  SqliteQueries,
+  TimedQueries
+}
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{MetricName, Timed}
 import com.daml.resources.ProgramResource.StartupException
@@ -214,7 +221,9 @@ object Database {
       new Database(system.queries, readerConnectionPool, writerConnectionPool, metricRegistry)
     }
 
-    def migrateAndReset()(implicit executionContext: ExecutionContext, loggerCtx: LoggingContext): Future[Database] = {
+    def migrateAndReset()(
+        implicit executionContext: ExecutionContext,
+        loggerCtx: LoggingContext): Future[Database] = {
 //      val db = new Database(system.queries, readerConnectionPool, writerConnectionPool, metricRegistry)
       val start = System.nanoTime()
       val db = migrate()
@@ -222,7 +231,9 @@ object Database {
       logger.error(s"######## ELAPSED KV MIGRATION: ${TimeUnit.NANOSECONDS.toMillis(elapsed)}")
       val before = System.nanoTime()
       val result = db
-        .inWriteTransaction("ledger_reset") { queries => Future.fromTry(queries.truncate()) }
+        .inWriteTransaction("ledger_reset") { queries =>
+          Future.fromTry(queries.truncate())
+        }
         .map(_ => db)
       result.foreach { _ =>
         val elapsed = System.nanoTime() - before
