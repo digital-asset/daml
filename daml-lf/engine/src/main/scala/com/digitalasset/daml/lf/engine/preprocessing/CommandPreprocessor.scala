@@ -148,7 +148,10 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
             case command.CreateCommand(templateId, argument) =>
               handleNewCids(unsafePreprocessCreate(templateId, argument))
             case command.ExerciseCommand(templateId, contractId, choiceId, argument) =>
-              handleNewCids(unsafePreprocessExercise(templateId, contractId, choiceId, argument))
+              val (cmd, newCids) =
+                unsafePreprocessExercise(templateId, contractId, choiceId, argument)
+              cids = (cids + contractId) | newCids
+              cmd
             case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
               handleNewCids(
                 unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument))

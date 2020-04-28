@@ -1008,9 +1008,7 @@ object SBuiltin {
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
         case Some(mbCoid) =>
-          machine.ctrl = CtrlValue(SOptional(mbCoid.map { coid =>
-            SContractId(coid)
-          }))
+          machine.ctrl = CtrlValue(SOptional(mbCoid.map(SContractId)))
         case None =>
           // if we cannot find it here, send help, and make sure to update [[PartialTransaction.key]] after
           // that.
@@ -1020,7 +1018,10 @@ object SBuiltin {
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
-                  machine.ctrl = CtrlValue(SOptional(Some(SContractId(cid))))
+                  // We have to check that the discriminator of cid does not conflict with a local ones
+                  // however we cannot raise an exception in case of failure here.
+                  // We delegate to CtrlImportValue the task to check cid.
+                  machine.ctrl = CtrlImportValue(V.ValueOptional(Some(V.ValueContractId(cid))))
                   true
                 case SKeyLookupResult.NotFound =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
@@ -1092,7 +1093,10 @@ object SBuiltin {
               machine.committers, {
                 case SKeyLookupResult.Found(cid) =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> Some(cid)))
-                  machine.ctrl = CtrlValue(SContractId(cid))
+                  // We have to check that the discriminator of cid does not conflict with a local ones
+                  // however we cannot raise an exception in case of failure here.
+                  // We delegate to CtrlImportValue the task to check cid.
+                  machine.ctrl = CtrlImportValue(V.ValueContractId(cid))
                   true
                 case SKeyLookupResult.NotFound | SKeyLookupResult.NotVisible =>
                   machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
