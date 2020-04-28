@@ -219,24 +219,17 @@ object Converter {
         seeding = InitialSeeding.NoSeed,
         Set.empty,
       )
-    @tailrec
-    def iter(): Either[String, (SValue, SValue)] = {
-      if (machine.isFinal) {
-        machine.toSValue match {
+    machine.run() match {
+      case SResultFinalValue(v) =>
+        v match {
           case SStruct(_, values) if values.size == 2 => {
             Right((values.get(0), values.get(1)))
           }
           case v => Left(s"Expected SStruct but got $v")
         }
-      } else {
-        machine.step() match {
-          case SResultContinue => iter()
-          case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
-          case res => Left(res.toString())
-        }
-      }
+      case SResultError(err) => Left(Pretty.prettyError(err, machine.ptx).render(80))
+      case res => Left(res.toString())
     }
-    iter()
   }
 
   // Walk over the free applicative and extract the list of commands

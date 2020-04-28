@@ -134,6 +134,11 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
 
   @throws[PackageNotFound]
   @throws[CompilationError]
+  def unsafeCompile(sexpr: SExpr): SExpr =
+    validate(closureConvert(Map.empty, 0, sexpr))
+
+  @throws[PackageNotFound]
+  @throws[CompilationError]
   def unsafeCompileDefn(
       identifier: Identifier,
       defn: Definition,
@@ -995,6 +1000,12 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           closureConvert(remaps, bound, handler),
           closureConvert(remaps, bound, fin),
         )
+
+      case x: SEWronglyTypeContractId =>
+        throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+
+      case x: SEImportValue =>
+        throw CompilationError(s"unexpected SEImportValue: $x")
     }
   }
 
@@ -1043,6 +1054,10 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           go(body)
           go(handler)
           go(fin)
+        case x: SEWronglyTypeContractId =>
+          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEImportValue =>
+          throw CompilationError(s"unexpected SEImportValue: $x")
       }
     go(expr)
     free
@@ -1119,6 +1134,10 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           go(fin)
         case SELocation(_, body) =>
           go(body)
+        case x: SEWronglyTypeContractId =>
+          throw CompilationError(s"unexpected SEWronglyTypeContractId: $x")
+        case x: SEImportValue =>
+          throw CompilationError(s"unexpected SEImportValue: $x")
       }
     go(expr)
     expr

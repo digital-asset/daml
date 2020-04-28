@@ -7,6 +7,7 @@ import com.daml.lf.PureCompiledPackages
 import com.daml.lf.data.{Ref, Time}
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast.ScenarioGetParty
+import com.daml.lf.speedy.SExpr.SEValue
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 
@@ -24,7 +25,7 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
       )
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run()
-      m.ctrl shouldBe Speedy.CtrlValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
+      m.ctrl shouldBe SEValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
     }
   }
 
