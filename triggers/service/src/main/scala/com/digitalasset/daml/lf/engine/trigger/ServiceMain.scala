@@ -279,8 +279,8 @@ object Server {
       // List all running triggers
       get {
         path("list") {
-          val allTriggers = triggers.keys.mkString(",")
-          complete(s"Triggers currently running: $allTriggers")
+          val allTriggers = triggers.keys.map(_.toString).toList.toJson
+          complete(allTriggers)
         }
       },
       // Stop a trigger given its UUID

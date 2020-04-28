@@ -150,7 +150,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         resp <- listTriggers(uri, "Alice")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should endWith(": ")
+        _ <- body should equal("[]")
         // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         _ <- assert(resp.status.isSuccess)
@@ -158,7 +158,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         resp <- listTriggers(uri, "Alice")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should endWith(s": $aliceTrigger")
+        _ <- body should equal(s"""["$aliceTrigger"]""")
         // start trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         _ <- assert(resp.status.isSuccess)
@@ -166,14 +166,14 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should endWith(s": $aliceTrigger,$bobTrigger")
+        _ <- body should equal(s"""["$aliceTrigger","$bobTrigger"]""")
         // stop Alice's trigger
         resp <- stopTrigger(uri, aliceTrigger)
         _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should endWith(s": $bobTrigger")
+        _ <- body should equal(s"""["$bobTrigger"]""")
         // stop Bob's trigger
         resp <- stopTrigger(uri, bobTrigger)
         _ <- assert(resp.status.isSuccess)
@@ -181,7 +181,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should endWith(": ")
+        _ <- body should equal("[]")
       } yield succeed
   }
 
