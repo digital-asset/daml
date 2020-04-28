@@ -31,12 +31,11 @@ final class LedgerApiServer(
     val servicesClosedPromise = Promise[Unit]()
 
     for {
-      workerEventLoopGroup <- new EventLoopGroupOwner(
-        actorSystem.name + "-nio-worker",
-        parallelism = Runtime.getRuntime.availableProcessors).acquire()
-      bossEventLoopGroup <- new EventLoopGroupOwner(actorSystem.name + "-nio-boss", parallelism = 1)
-        .acquire()
-      channelType = EventLoopGroupOwner.serverChannelType
+      eventLoopGroups <- new ServerEventLoopGroups.Owner(
+        actorSystem.name,
+        workerParallelism = sys.runtime.availableProcessors(),
+        bossParallelism = 1,
+      ).acquire()
       apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
       server <- new GrpcServerOwner(
@@ -46,9 +45,7 @@ final class LedgerApiServer(
         sslContext,
         interceptors,
         metrics,
-        channelType,
-        bossEventLoopGroup,
-        workerEventLoopGroup,
+        eventLoopGroups,
         apiServices.services,
       ).acquire()
       // Notify the caller that the services have been closed, so a reset request can complete

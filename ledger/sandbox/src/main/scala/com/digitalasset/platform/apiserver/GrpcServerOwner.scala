@@ -22,7 +22,6 @@ import io.grpc.{
   ServerServiceDefinition
 }
 import io.netty.channel.socket.nio.NioServerSocketChannel
-import io.netty.channel.{EventLoopGroup, ServerChannel}
 import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,9 +34,7 @@ final class GrpcServerOwner(
     sslContext: Option[SslContext] = None,
     interceptors: List[ServerInterceptor] = List.empty,
     metrics: MetricRegistry,
-    channelType: Class[_ <: ServerChannel],
-    bossEventLoopGroup: EventLoopGroup,
-    workerEventLoopGroup: EventLoopGroup,
+    eventLoopGroups: ServerEventLoopGroups,
     services: Iterable[BindableService],
 ) extends ResourceOwner[Server] {
   override def acquire()(implicit executionContext: ExecutionContext): Resource[Server] = {
@@ -52,9 +49,7 @@ final class GrpcServerOwner(
       builder.maxInboundMessageSize(maxInboundMessageSize)
       interceptors.foreach(builder.intercept)
       builder.intercept(new MetricsInterceptor(metrics))
-      builder.channelType(channelType)
-      builder.bossEventLoopGroup(bossEventLoopGroup)
-      builder.workerEventLoopGroup(workerEventLoopGroup)
+      eventLoopGroups.populate(builder)
       services.foreach { service =>
         builder.addService(service)
         toLegacyService(service).foreach(builder.addService)
