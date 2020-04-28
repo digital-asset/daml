@@ -11,16 +11,15 @@ import akka.actor.ActorSystem
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.codahale.metrics.MetricRegistry
-import com.daml.ledger.participant.state.index.v2.IndexService
-import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
-import com.daml.lf.engine.Engine
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, Authorizer}
 import com.daml.ledger.api.domain
 import com.daml.ledger.api.health.HealthChecks
+import com.daml.ledger.participant.state.index.v2.IndexService
+import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
+import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
@@ -97,29 +96,29 @@ final class StandaloneApiServer(
         // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
         initialConfiguration = initialConditions.config,
       )
+      executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
+      apiServicesOwner = new ApiServices.Owner(
+        participantId = participantId,
+        writeService = writeService,
+        indexService = indexService,
+        authorizer = authorizer,
+        engine = engine,
+        timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+        timeProviderType =
+          timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
+            TimeProviderType.Static),
+        ledgerConfiguration = ledgerConfiguration,
+        commandConfig = commandConfig,
+        partyConfig = partyConfig,
+        submissionConfig = submissionConfig,
+        optTimeServiceBackend = timeServiceBackend,
+        metrics = metrics,
+        healthChecks = healthChecks,
+        seedService = config.seeding.map(SeedService(_)),
+      )(materializer, executionSequencerFactory, logCtx)
+        .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
-        (mat: Materializer, esf: ExecutionSequencerFactory) => {
-          ApiServices
-            .create(
-              participantId = participantId,
-              writeService = writeService,
-              indexService = indexService,
-              authorizer = authorizer,
-              engine = engine,
-              timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-              timeProviderType = timeServiceBackend.fold[TimeProviderType](
-                TimeProviderType.WallClock)(_ => TimeProviderType.Static),
-              ledgerConfiguration = ledgerConfiguration,
-              commandConfig = commandConfig,
-              partyConfig = partyConfig,
-              submissionConfig = submissionConfig,
-              optTimeServiceBackend = timeServiceBackend,
-              metrics = metrics,
-              healthChecks = healthChecks,
-              seedService = config.seeding.map(SeedService(_)),
-            )(mat, esf, logCtx)
-            .map(_.withServices(otherServices))
-        },
+        apiServicesOwner,
         config.port,
         config.maxInboundMessageSize,
         config.address,
