@@ -37,8 +37,8 @@ object Timed {
     future.andThen { case _ => counter.dec() }(DirectExecutionContext)
   }
 
-  def timedAndCountedFuture[T](timer: Timer, counter: Counter, f: => Future[T]): Future[T] = {
-    future(timer, countedFuture(counter, f))
+  def timedAndCountedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
+    Timed.future(timer, countedFuture(counter, future))
   }
 
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
