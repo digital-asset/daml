@@ -276,6 +276,14 @@ object Server {
           }
         )
       },
+      get {
+        path("list") {
+//          System.out.println("Listing all trigger IDs:")
+//          triggers.keys.foreach((uuid: UUID) => System.out.println(uuid.toString))
+          val allTriggers = triggers.keys.mkString(",")
+          complete(allTriggers)
+        }
+      },
       // Stop a trigger given its UUID
       delete {
         pathPrefix("stop" / JavaUUID) { id =>

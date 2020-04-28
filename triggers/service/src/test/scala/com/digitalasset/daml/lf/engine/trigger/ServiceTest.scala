@@ -77,6 +77,14 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     Http().singleRequest(req)
   }
 
+  def listTriggers(uri: Uri, party: String) = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(Uri.Path(s"/list")),
+    )
+    Http().singleRequest(req)
+  }
+
   def stopTrigger(uri: Uri, id: String) = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -122,6 +130,9 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
       _ <- assert(resp.status.isSuccess)
       triggerId <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      resp <- listTriggers(uri, "Alice")
+      body <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      _ <- body should include(triggerId)
       resp <- stopTrigger(uri, triggerId)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
