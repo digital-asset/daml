@@ -79,34 +79,53 @@ object PostCommitValidation {
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
     )(implicit connection: Connection): Set[RejectionReason] = {
+      val referredContracts = collectReferredContracts(transaction, divulged)
+      if (referredContracts.isEmpty) {
+        Set.empty
+      } else {
+        data
+          .lookupMaximumLedgerTime(referredContracts)
+          .map(validateCausalMonotonicity(_, transactionLedgerEffectiveTime))
+          .getOrElse(Set(UnknownContract))
+      }
+    }
 
-      // Collect all the identifiers of contracts that have not been divulged in the current transaction and
-      // query the committed contract store for the maximum ledger effective time
-      val maximumLedgerEffectiveTime =
-        data.lookupMaximumLedgerTime(
-          transaction.fold(Set.empty[ContractId]) {
-            case (ids, (_, e: Exercise)) if !divulged(e.targetCoid) => ids + e.targetCoid
-            case (ids, (_, f: Fetch)) if !divulged(f.coid) => ids + f.coid
-            case (ids, (_, l: LookupByKey)) => l.result.filterNot(divulged).fold(ids)(ids + _)
-            case (ids, _) => ids
+    private def validateCausalMonotonicity(
+        maximumLedgerEffectiveTime: Option[Instant],
+        transactionLedgerEffectiveTime: Instant,
+    ): Set[RejectionReason] =
+      maximumLedgerEffectiveTime
+        .filter(_.isAfter(transactionLedgerEffectiveTime))
+        .fold(Set.empty[RejectionReason])(
+          contractLedgerEffectiveTime => {
+            Set(
+              CausalMonotonicityViolation(
+                contractLedgerEffectiveTime = contractLedgerEffectiveTime,
+                transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
+              )
+            )
           }
         )
 
-      // Check that all collected contracts respect causal monotonicity
-      maximumLedgerEffectiveTime
-        .map(
-          _.filter(_.isAfter(transactionLedgerEffectiveTime)).fold(Set.empty[RejectionReason])(
-            contractLedgerEffectiveTime => {
-              Set(
-                CausalMonotonicityViolation(
-                  contractLedgerEffectiveTime = contractLedgerEffectiveTime,
-                  transactionLedgerEffectiveTime = transactionLedgerEffectiveTime,
-                )
-              )
-            }
-          )
-        )
-        .getOrElse(Set(UnknownContract))
+    private def collectReferredContracts(
+        transaction: Transaction,
+        divulged: Set[ContractId],
+    ): Set[ContractId] = {
+      val (createdInTransaction, referred) =
+        transaction.fold((Set.empty[ContractId], Set.empty[ContractId])) {
+          case ((created, ids), (_, c: Create)) =>
+            (created + c.coid, ids)
+          case ((created, ids), (_, e: Exercise)) if !divulged(e.targetCoid) =>
+            (created, ids + e.targetCoid)
+          case ((created, ids), (_, e: Exercise)) if !divulged(e.targetCoid) =>
+            (created, ids + e.targetCoid)
+          case ((created, ids), (_, f: Fetch)) if !divulged(f.coid) =>
+            (created, ids + f.coid)
+          case ((created, ids), (_, l: LookupByKey)) =>
+            (created, l.result.filterNot(divulged).fold(ids)(ids + _))
+          case ((created, ids), _) => (created, ids)
+        }
+      referred.diff(createdInTransaction)
     }
 
     private def validateKeyUsages(transaction: Transaction, submitter: Party)(
@@ -204,10 +223,10 @@ object PostCommitValidation {
       State(Set.empty, Map.empty, Set.empty, submitter, data)
   }
 
-  private val DuplicateKey: RejectionReason =
+  private[events] val DuplicateKey: RejectionReason =
     RejectionReason.Disputed("DuplicateKey: contract key is not unique")
 
-  private def MismatchingLookup(
+  private[events] def MismatchingLookup(
       expectation: Option[ContractId],
       result: Option[ContractId],
   ): RejectionReason =
@@ -215,10 +234,10 @@ object PostCommitValidation {
       s"Contract key lookup with different results: expected [$expectation], actual [$result]"
     )
 
-  private val UnknownContract: RejectionReason =
+  private[events] val UnknownContract: RejectionReason =
     RejectionReason.Inconsistent(s"Could not lookup contract")
 
-  private def CausalMonotonicityViolation(
+  private[events] def CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Instant,
       transactionLedgerEffectiveTime: Instant,
   ): RejectionReason =

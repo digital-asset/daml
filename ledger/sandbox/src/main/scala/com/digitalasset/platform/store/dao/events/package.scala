@@ -12,6 +12,7 @@ package object events {
 
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.AbsoluteContractId
+  private[events] val ContractId = com.daml.lf.value.Value.AbsoluteContractId
   private[events] type Value = lfval.VersionedValue[ContractId]
   private[events] type Contract = lfval.ContractInst[Value]
   private[events] val Contract = lfval.ContractInst
@@ -29,6 +30,7 @@ package object events {
 
   import com.daml.lf.{data => lfdata}
   private[events] type Party = lfdata.Ref.Party
+  private[events] val Party = lfdata.Ref.Party
   private[events] type Identifier = lfdata.Ref.Identifier
   private[events] val Identifier = lfdata.Ref.Identifier
   private[events] type LedgerString = lfdata.Ref.LedgerString
