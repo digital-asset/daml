@@ -32,13 +32,13 @@ object Timed {
     result
   }
 
-  def countedFuture[T](counter: Counter, future: => Future[T]): Future[T] = {
+  def trackedFuture[T](counter: Counter, future: => Future[T]): Future[T] = {
     counter.inc()
     future.andThen { case _ => counter.dec() }(DirectExecutionContext)
   }
 
-  def timedAndCountedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
-    Timed.future(timer, countedFuture(counter, future))
+  def timedAndTrackedFuture[T](timer: Timer, counter: Counter, future: => Future[T]): Future[T] = {
+    Timed.future(timer, trackedFuture(counter, future))
   }
 
   def source[Out, Mat](timer: Timer, source: => Source[Out, Mat]): Source[Out, Mat] = {
