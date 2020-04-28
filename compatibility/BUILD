@@ -49,7 +49,7 @@ platform_versions = [
     )
     for sdk_version in sdk_versions
     for platform_version in platform_versions
-] if not is_windows else None
+]
 
 test_suite(
     name = "head-quick",

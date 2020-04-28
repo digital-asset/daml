@@ -13,6 +13,11 @@ cd "$(dirname "$0")"
 
 eval "$(../dev-env/bin/dade-assist)"
 
+# Git, symlinks and windows do not play well together
+# so we have to copy over the Bazel config. We just do
+# it unconditionally since it should be cheap enough.
+cp ../.bazelrc .bazelrc
+
 bazel build //...
 if [ "${1:-}" = "--quick" ]; then
     bazel test //:head-quick
