@@ -124,37 +124,64 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
       } yield assert(body == "Could not find name foobar in module TestTrigger")
   }
 
-  it should "find a trigger after uploading it" in withHttpService(None) {
-    (uri: Uri, client) =>
-      for {
-        // attempt to start trigger before uploading which fails.
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        _ <- assert(resp.status == StatusCodes.UnprocessableEntity)
-        resp <- uploadDar(uri, darPath)
-        body <- responseBodyToString(resp)
-        _ <- body should startWith("DAR uploaded")
-        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
-        _ <- assert(resp.status.isSuccess)
-        triggerId <- responseBodyToString(resp)
-        resp <- listTriggers(uri, "Alice")
-        body <- responseBodyToString(resp)
-        _ <- body should include(triggerId)
-        resp <- stopTrigger(uri, triggerId)
-        _ <- assert(resp.status.isSuccess)
-      } yield succeed
+  it should "find a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
+    for {
+      // attempt to start trigger before uploading which fails.
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+      _ <- assert(resp.status == StatusCodes.UnprocessableEntity)
+      resp <- uploadDar(uri, darPath)
+      body <- responseBodyToString(resp)
+      _ <- body should startWith("DAR uploaded")
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+      _ <- assert(resp.status.isSuccess)
+      triggerId <- responseBodyToString(resp)
+      resp <- listTriggers(uri, "Alice")
+      body <- responseBodyToString(resp)
+      _ <- body should include(triggerId)
+      resp <- stopTrigger(uri, triggerId)
+      _ <- assert(resp.status.isSuccess)
+    } yield succeed
   }
 
   it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
+        // no triggers running initially
+        resp <- listTriggers(uri, "Alice")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should endWith(": ")
+        // start trigger for Alice
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         _ <- assert(resp.status.isSuccess)
-        triggerId <- responseBodyToString(resp)
+        aliceTrigger <- responseBodyToString(resp)
         resp <- listTriggers(uri, "Alice")
-        body <- responseBodyToString(resp)
-        _ <- body should include(triggerId)
-        resp <- stopTrigger(uri, triggerId)
         _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should endWith(s": $aliceTrigger")
+        // start trigger for Bob
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
+        _ <- assert(resp.status.isSuccess)
+        bobTrigger <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should endWith(s": $aliceTrigger,$bobTrigger")
+        // stop Alice's trigger
+        resp <- stopTrigger(uri, aliceTrigger)
+        _ <- assert(resp.status.isSuccess)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should endWith(s": $bobTrigger")
+        // stop Bob's trigger
+        resp <- stopTrigger(uri, bobTrigger)
+        _ <- assert(resp.status.isSuccess)
+        bobTrigger <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should endWith(": ")
       } yield succeed
   }
 
