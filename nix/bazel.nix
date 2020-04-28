@@ -108,6 +108,7 @@ let shared = rec {
       titlesec
       tocbibind
       todonotes
+      transparent
       trimspaces
       varwidth
       wrapfig
