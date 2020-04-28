@@ -7,6 +7,7 @@ module DA.Daml.LF.Ast.Type
   , alphaEquiv
   , Subst
   , substitute
+  , substituteAux
   ) where
 
 import           Data.Bifunctor
@@ -103,7 +104,12 @@ type Subst = Map.Map TypeVarName Type
 -- substituting into but not contained in the domain of the substitution, then
 -- both free occurrences refer to the same binder.
 substitute :: Subst -> Type -> Type
-substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.empty subst) subst
+substitute subst = substituteAux
+    (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.empty subst)
+    subst
+
+substituteAux :: Set.Set TypeVarName -> Subst -> Type -> Type
+substituteAux = go
   where
     -- NOTE(MH): We maintain the invariant that @fvSubst0@ contains the free
     -- variables of @subst0@ or an over-approximation thereof.

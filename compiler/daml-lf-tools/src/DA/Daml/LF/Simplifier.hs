@@ -10,10 +10,12 @@ import Control.Lens hiding (para)
 import Data.Functor.Foldable
 import Data.Maybe
 import qualified Data.Set as Set
+import qualified Data.Text as T
 import qualified Safe
 import qualified Safe.Exact as Safe
 
 import DA.Daml.LF.Ast
+import DA.Daml.LF.Ast.Subst
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
 
@@ -241,14 +243,61 @@ safetyStep = \case
   ETypeRepF _ -> Safe 0
 
 
+isTypeClassDictionary :: DefValue -> Bool
+isTypeClassDictionary DefValue{..}
+    = T.isPrefixOf "$f" (unExprValName (fst dvalBinder)) -- generic dictionary
+    || T.isPrefixOf "$d" (unExprValName (fst dvalBinder)) -- specialized dictionary
+
+isTypeClassProjection :: DefValue -> Bool
+isTypeClassProjection DefValue{..} = go dvalBody
+  where
+    go :: Expr -> Bool
+    go (ETyLam _ e) = go e
+    go (ETmLam _ e) = go e
+    go (ETmApp e _) = go e
+    go (EStructProj _ _) = True
+    go _ = False
+
+-- | Should I inline this definition?
+shouldInline :: DefValue -> Bool
+shouldInline dval
+    = isTypeClassDictionary dval
+    || isTypeClassProjection dval
+
+-- | Should I apply this argument immediately in a lambda?
+shouldApply :: Expr -> Bool
+shouldApply = \case
+    EBuiltin _ -> True
+    EStructCon _ -> True
+    _ -> False
+
 infoStep :: ExprF Info -> Info
 infoStep e = Info (freeVarsStep (fmap freeVars e)) (safetyStep (fmap safety e))
 
-simplifyExpr :: Expr -> Expr
-simplifyExpr = fst . cata go
+simplifyExpr :: World -> Version -> Expr -> Expr
+simplifyExpr lfWorld _lfVersion = fst . cata go
   where
     go :: ExprF (Expr, Info) -> (Expr, Info)
     go = \case
+
+      -- selective inlining
+      EValF x
+        | Right dv <- lookupValue x lfWorld
+        , shouldInline dv
+        -> (dvalBody dv, cata infoStep (dvalBody dv))
+
+      -- immediately applied type lambdas
+      ETyAppF (ETyLam (x, _k) e, s) t
+        -> (substExpr (typeSubst x t) e, s) -- s doesn't track type variables
+
+      -- immediately applied term lambdas
+      ETmAppF (ETmLam (x, _t) e1, s1) (e2, s2)
+        | shouldApply e2
+        , Info fv1 st1 <- s1
+        , Info fv2 _st2 <- s2
+        -> (substExpr (exprSubst x e2) e1, Info (fv1 <> fv2) (decrSafety st1))
+        --, Info (fv1 <> fv2) (decrSafety st1))
+
       -- <...; f = e; ...>.f    ==>    e
       EStructProjF f (EStructCon fes, s)
         -- NOTE(MH): We're deliberately overapproximating the potential of
@@ -301,5 +350,9 @@ simplifyExpr = fst . cata go
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep (fmap snd e))
 
-simplifyModule :: Module -> Module
-simplifyModule = over moduleExpr simplifyExpr
+simplifyModuleOnce :: World -> Version -> Module -> Module
+simplifyModuleOnce lfWorld lfVersion = over moduleExpr (simplifyExpr lfWorld lfVersion)
+
+simplifyModule :: World -> Version -> Module -> Module
+simplifyModule w v =
+  simplifyModuleOnce w v . simplifyModuleOnce w v

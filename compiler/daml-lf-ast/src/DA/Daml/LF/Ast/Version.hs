@@ -124,6 +124,7 @@ allFeatures =
     [ featureNumeric
     , featureAnyType
     , featureTypeRep
+    , featureTypeSynonyms
     , featureStringInterning
     , featureGenericComparison
     , featureGenMap
