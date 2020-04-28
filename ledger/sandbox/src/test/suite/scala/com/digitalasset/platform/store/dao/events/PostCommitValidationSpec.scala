@@ -21,14 +21,14 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
     "run without prior history" should {
 
-      val emptyLedger = new PostCommitValidation.BackedBy(noCommittedContract)
+      val store = new PostCommitValidation.BackedBy(noCommittedContract)
 
-      "accept a create that doesn't create a duplicate key" in {
+      "accept a create with a key" in {
 
         val createWithKey = genTestCreate()
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(createWithKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -44,7 +44,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val createWithoutKey = genTestCreate().copy(key = None)
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(createWithoutKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -61,7 +61,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val exerciseContract = genTestExercise(createContract)
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(createContract, exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -78,7 +78,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val exerciseContract = genTestExercise(divulgedContract)
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
@@ -95,8 +95,56 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val exerciseContract = genTestExercise(missingCreate)
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(exerciseContract),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation should contain theSameElementsAs Seq(UnknownContract)
+
+      }
+
+      "accept a fetch of a contract created within the transaction" in {
+
+        val createContract = genTestCreate()
+
+        val validation =
+          store.validate(
+            transaction = just(createContract, fetch(createContract)),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "accept a fetch of a contract divulged in the current transaction" in {
+
+        val divulgedContract = genTestCreate()
+
+        val validation =
+          store.validate(
+            transaction = just(fetch(divulgedContract)),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set(divulgedContract.coid),
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "reject a fetch of a contract not created in this transaction" in {
+
+        val missingCreate = genTestCreate()
+
+        val validation =
+          store.validate(
+            transaction = just(fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
             submitter = Party.assertFromString("Alice"),
@@ -111,7 +159,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val createContract = genTestCreate()
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(createContract, lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -127,7 +175,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val missingCreate = genTestCreate()
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -148,7 +196,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val missingContract = genTestCreate()
 
         val validation =
-          emptyLedger.validate(
+          store.validate(
             transaction = just(lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
@@ -156,6 +204,138 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
           )
 
         validation shouldBe Set.empty
+
+      }
+
+    }
+
+    "run with one committed contract with a key" should {
+
+      val committedContract = genTestCreate()
+      val exerciseOnCommittedContract = genTestExercise(committedContract)
+      val committedContractLedgerEffectiveTime = Instant.ofEpochMilli(1000)
+
+      val store = new PostCommitValidation.BackedBy(
+        committedContracts(
+          contract(
+            id = committedContract.coid.coid,
+            ledgerEffectiveTime = committedContractLedgerEffectiveTime,
+            witnesses = Set("Alice"),
+            key = committedContract.key.map(convert(committedContract.coinst.template, _))
+          )
+        )
+      )
+
+      "reject a create that would introduce a duplicate key" in {
+
+        val validation =
+          store.validate(
+            transaction = just(committedContract),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation should contain theSameElementsAs Seq(DuplicateKey)
+
+      }
+
+      "accept an exercise on the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(exerciseOnCommittedContract),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "reject an exercise pre-dating the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(exerciseOnCommittedContract),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation should contain theSameElementsAs Seq(
+          CausalMonotonicityViolation(
+            contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
+          )
+        )
+
+      }
+
+      "accept a fetch on the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(fetch(committedContract)),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "reject a fetch pre-dating the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(fetch(committedContract)),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation should contain theSameElementsAs Seq(
+          CausalMonotonicityViolation(
+            contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
+          )
+        )
+
+      }
+
+      "accept a successful lookup of the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(lookupByKey(committedContract, found = true)),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "reject a failed lookup of the committed contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(lookupByKey(committedContract, found = false)),
+            transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation should contain allElementsOf Seq(
+          MismatchingLookup(
+            result = Some(committedContract.coid),
+            expectation = None,
+          )
+        )
 
       }
 
@@ -193,10 +373,10 @@ object PostCommitValidationSpec {
       key: Option[Key],
   )
 
-  // May whoever is in charge of supernatural stuff have mercy of my sould
+  // Very dirty hack to have a contract store fixture without persistence
   private implicit val connection: Connection = null
 
-  private final case class Fixture private (contracts: Set[ContractFixture])
+  private final case class ContractStoreFixture private (contracts: Set[ContractFixture])
       extends PostCommitValidationData {
 
     override def lookupContractKey(submitter: Party, key: Key)(
@@ -221,39 +401,33 @@ object PostCommitValidationSpec {
       s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
 
-  private val noCommittedContract = Fixture(Set.empty)
+  private val noCommittedContract: ContractStoreFixture =
+    ContractStoreFixture(Set.empty)
+
+  private def committedContracts(
+      c: ContractFixture,
+      cs: ContractFixture*,
+  ): ContractStoreFixture =
+    ContractStoreFixture((c +: cs).toSet)
 
   private def contract(
       id: String,
       ledgerEffectiveTime: Instant,
-      witness: String,
-      witnesses: String*): ContractFixture =
-    ContractFixture(
-      ContractId.assertFromString(s"#$id"),
-      Some(ledgerEffectiveTime),
-      (Set(witness) ++ witnesses.toSet).map(_.asInstanceOf[Party]),
-      None,
-    )
-
-  private def contract(
-      id: String,
-      ledgerEffectiveTime: Instant,
-      key: Key,
-      witness: String,
-      witnesses: String*,
+      witnesses: Set[String],
+      key: Option[Key] = None,
   ): ContractFixture =
     ContractFixture(
-      ContractId.assertFromString(s"#$id"),
+      ContractId.assertFromString(id),
       Some(ledgerEffectiveTime),
-      (Set(witness) ++ witnesses.toSet).map(_.asInstanceOf[Party]),
-      Some(key),
+      witnesses.map(Party.assertFromString),
+      key,
     )
 
-  private def divulgedContract(id: String, witness: String, witnesses: String*): ContractFixture =
+  private def divulgedContract(id: String, witnesses: Set[String]): ContractFixture =
     ContractFixture(
-      ContractId.assertFromString(s"#$id"),
+      ContractId.assertFromString(id),
       None,
-      (Set(witness) ++ witnesses.toSet).map(_.asInstanceOf[Party]),
+      witnesses.map(Party.assertFromString),
       None,
     )
 

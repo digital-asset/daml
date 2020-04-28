@@ -130,15 +130,12 @@ object TransactionBuilder {
       key = contract.key,
     )
 
-  def fetch(
-      contract: Create,
-      actingParties: Set[String],
-  ): Fetch =
+  def fetch(contract: Create): Fetch =
     Fetch(
       coid = contract.coid,
       templateId = contract.coinst.template,
       optLocation = None,
-      actingParties = Some(actingParties.map(Party.assertFromString)),
+      actingParties = Some(contract.signatories.map(Party.assertFromString)),
       signatories = contract.signatories,
       stakeholders = contract.stakeholders,
       key = contract.key,
