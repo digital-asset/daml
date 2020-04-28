@@ -217,7 +217,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
       val store = new PostCommitValidation.BackedBy(
         committedContracts(
-          contract(
+          committed(
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
             witnesses = Set("Alice"),
@@ -341,6 +341,49 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
     }
 
+    "run with one divulged contract" should {
+
+      val divulgedContract = genTestCreate()
+      val exerciseOnDivulgedContract = genTestExercise(divulgedContract)
+
+      val store = new PostCommitValidation.BackedBy(
+        committedContracts(
+          divulged(
+            id = divulgedContract.coid.coid,
+            witnesses = Set("Alice"),
+          )
+        )
+      )
+
+      "accept an exercise on the divulged contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(exerciseOnDivulgedContract),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+
+      "accept a fetch on the divulged contract" in {
+
+        val validation =
+          store.validate(
+            transaction = just(fetch(divulgedContract)),
+            transactionLedgerEffectiveTime = Instant.now(),
+            divulged = Set.empty,
+            submitter = Party.assertFromString("Alice"),
+          )
+
+        validation shouldBe Set.empty
+
+      }
+    }
+
   }
 
 }
@@ -410,7 +453,7 @@ object PostCommitValidationSpec {
   ): ContractStoreFixture =
     ContractStoreFixture((c +: cs).toSet)
 
-  private def contract(
+  private def committed(
       id: String,
       ledgerEffectiveTime: Instant,
       witnesses: Set[String],
@@ -423,7 +466,7 @@ object PostCommitValidationSpec {
       key,
     )
 
-  private def divulgedContract(id: String, witnesses: Set[String]): ContractFixture =
+  private def divulged(id: String, witnesses: Set[String]): ContractFixture =
     ContractFixture(
       ContractId.assertFromString(id),
       None,
