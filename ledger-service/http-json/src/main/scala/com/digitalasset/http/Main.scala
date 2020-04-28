@@ -16,6 +16,7 @@ import com.daml.ledger.api.tls.TlsConfigurationCli
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
+import scalaz.std.anyVal._
 import scalaz.std.option._
 import scalaz.syntax.show._
 import scalaz.syntax.tag._
@@ -53,6 +54,7 @@ object Main extends StrictLogging {
         s", tlsConfig=${config.tlsConfig}" +
         s", jdbcConfig=${config.jdbcConfig.shows}" +
         s", staticContentConfig=${config.staticContentConfig.shows}" +
+        s", allowNonHttps=${config.allowNonHttps.shows}" +
         s", accessTokenFile=${config.accessTokenFile.toString}" +
         ")")
 
@@ -84,19 +86,8 @@ object Main extends StrictLogging {
 
     val serviceF: Future[HttpService.Error \/ ServerBinding] =
       HttpService.start(
-        ledgerHost = config.ledgerHost,
-        ledgerPort = config.ledgerPort,
-        applicationId = config.applicationId,
-        address = config.address,
-        httpPort = config.httpPort,
-        portFile = config.portFile,
-        tlsConfig = config.tlsConfig,
-        wsConfig = config.wsConfig,
-        accessTokenFile = config.accessTokenFile,
+        startSettings = config,
         contractDao = contractDao,
-        staticContentConfig = config.staticContentConfig,
-        packageReloadInterval = config.packageReloadInterval,
-        maxInboundMessageSize = config.maxInboundMessageSize,
       )
 
     discard {
@@ -213,6 +204,11 @@ object Main extends StrictLogging {
         .valueName(StaticContentConfig.usage)
         .text(s"DEV MODE ONLY (not recommended for production). Optional static content configuration string. "
           + StaticContentConfig.help)
+
+      opt[Unit]("allow-insecure-tokens")
+        .action((_, c) => c copy (allowNonHttps = true))
+        .text(
+          "DEV MODE ONLY (not recommended for production). Allow connections without a reverse proxy providing HTTPS.")
 
       opt[String]("access-token-file")
         .text(

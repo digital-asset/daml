@@ -48,6 +48,7 @@ object HttpServiceTestFixture {
       dars: List[File],
       jdbcConfig: Option[JdbcConfig],
       staticContentConfig: Option[StaticContentConfig],
+      leakPasswords: LeakPasswords = LeakPasswords.FiresheepStyle,
       useTls: UseTls = UseTls.NoTls
   )(testFn: (Uri, DomainJsonEncoder, DomainJsonDecoder, LedgerClient) => Future[A])(
       implicit asys: ActorSystem,
@@ -69,20 +70,24 @@ object HttpServiceTestFixture {
     val httpServiceF: Future[ServerBinding] = for {
       (_, ledgerPort) <- ledgerF
       contractDao <- contractDaoF
+      config = Config(
+        ledgerHost = "localhost",
+        ledgerPort = ledgerPort.value,
+        applicationId = applicationId,
+        address = "localhost",
+        httpPort = 0,
+        portFile = None,
+        tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
+        wsConfig = Some(Config.DefaultWsConfig),
+        accessTokenFile = None,
+        allowNonHttps = leakPasswords,
+        staticContentConfig = staticContentConfig,
+        packageReloadInterval = doNotReloadPackages,
+      )
       httpService <- stripLeft(
         HttpService.start(
-          ledgerHost = "localhost",
-          ledgerPort = ledgerPort.value,
-          applicationId = applicationId,
-          address = "localhost",
-          httpPort = 0,
-          portFile = None,
-          tlsConfig = if (useTls) clientTlsConfig else noTlsConfig,
-          wsConfig = Some(Config.DefaultWsConfig),
-          accessTokenFile = None,
+          startSettings = config,
           contractDao = contractDao,
-          staticContentConfig = staticContentConfig,
-          packageReloadInterval = doNotReloadPackages
         ))
     } yield httpService
 
@@ -216,6 +221,12 @@ object HttpServiceTestFixture {
     val NoTls = False
   }
   type UseTls = UseTls.T
+
+  object LeakPasswords extends NewBoolean.Named {
+    val FiresheepStyle = True
+    val No = False
+  }
+  type LeakPasswords = LeakPasswords.T
 
   private val List(serverCrt, serverPem, caCrt, clientCrt, clientPem) = {
     List("server.crt", "server.pem", "ca.crt", "client.crt", "client.pem").map { src =>
