@@ -12,6 +12,7 @@ package object events {
 
   import com.daml.lf.value.{Value => lfval}
   private[events] type ContractId = lfval.AbsoluteContractId
+  private[events] val ContractId = com.daml.lf.value.Value.AbsoluteContractId
   private[events] type Value = lfval.VersionedValue[ContractId]
   private[events] type Contract = lfval.ContractInst[Value]
   private[events] val Contract = lfval.ContractInst
@@ -29,6 +30,7 @@ package object events {
 
   import com.daml.lf.{data => lfdata}
   private[events] type Party = lfdata.Ref.Party
+  private[events] val Party = lfdata.Ref.Party
   private[events] type Identifier = lfdata.Ref.Identifier
   private[events] val Identifier = lfdata.Ref.Identifier
   private[events] type LedgerString = lfdata.Ref.LedgerString
@@ -38,6 +40,9 @@ package object events {
   private[events] type DivulgenceRelation = WitnessRelation[ContractId]
   private[events] type FilterRelation = lfdata.Relation.Relation[Party, lfdata.Ref.Identifier]
   private[events] val Relation = lfdata.Relation.Relation
+
+  import com.daml.lf.crypto
+  private[events] type Hash = crypto.Hash
 
   /**
     * Groups together items of type [[A]] that share an attribute [[K]] over a
@@ -76,5 +81,8 @@ package object events {
       case n if n > 1 => multi(set)
     }
   }
+
+  private[events] def convert(template: Identifier, key: lftx.Node.KeyWithMaintainers[Value]): Key =
+    Key.assertBuild(template, key.key.value)
 
 }
