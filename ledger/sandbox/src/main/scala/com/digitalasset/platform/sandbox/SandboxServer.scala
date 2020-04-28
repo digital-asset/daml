@@ -13,7 +13,6 @@ import com.codahale.metrics.MetricRegistry
 import com.daml.api.util.TimeProvider
 import com.daml.buildinfo.BuildInfo
 import com.daml.dec.DirectExecutionContext
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.daml.ledger.api.domain.LedgerId
@@ -271,8 +270,9 @@ final class SandboxServer(
         // In SandboxServer, there is no delay between indexer and ledger
         initialConfigurationSubmitDelay = Duration.ZERO,
       )
-      apiServer <- new LedgerApiServer(
-        (mat: Materializer, esf: ExecutionSequencerFactory) =>
+      executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
+      apiServicesOwner = ResourceOwner.forFutureCloseable(
+        () =>
           ApiServices
             .create(
               participantId = participantId,
@@ -301,8 +301,10 @@ final class SandboxServer(
               metrics = metrics,
               healthChecks = healthChecks,
               seedService = config.seeding.map(SeedService(_)),
-            )(mat, esf, logCtx)
-            .map(_.withServices(List(resetService))),
+            )(materializer, executionSequencerFactory, logCtx)
+            .map(_.withServices(List(resetService))))
+      apiServer <- new LedgerApiServer(
+        apiServicesOwner,
         // NOTE: Re-use the same port after reset.
         currentPort.getOrElse(config.port),
         config.maxInboundMessageSize,

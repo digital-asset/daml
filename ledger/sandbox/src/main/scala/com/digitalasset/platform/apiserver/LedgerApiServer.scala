@@ -6,7 +6,6 @@ package com.daml.platform.apiserver
 import akka.actor.ActorSystem
 import akka.stream.Materializer
 import com.codahale.metrics.MetricRegistry
-import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.ports.Port
 import com.daml.resources.{Resource, ResourceOwner}
@@ -16,7 +15,7 @@ import io.netty.handler.ssl.SslContext
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final class LedgerApiServer(
-    createApiServices: (Materializer, ExecutionSequencerFactory) => Future[ApiServices],
+    apiServicesOwner: ResourceOwner[ApiServices],
     desiredPort: Port,
     maxInboundMessageSize: Int,
     address: Option[String],
@@ -32,16 +31,13 @@ final class LedgerApiServer(
     val servicesClosedPromise = Promise[Unit]()
 
     for {
-      serverEsf <- new ExecutionSequencerFactoryOwner().acquire()
-      channelType = EventLoopGroupOwner.serverChannelType
       workerEventLoopGroup <- new EventLoopGroupOwner(
         actorSystem.name + "-nio-worker",
         parallelism = Runtime.getRuntime.availableProcessors).acquire()
       bossEventLoopGroup <- new EventLoopGroupOwner(actorSystem.name + "-nio-boss", parallelism = 1)
         .acquire()
-      apiServicesResource = ResourceOwner
-        .forFutureCloseable(() => createApiServices(materializer, serverEsf))
-        .acquire()
+      channelType = EventLoopGroupOwner.serverChannelType
+      apiServicesResource = apiServicesOwner.acquire()
       apiServices <- apiServicesResource
       server <- new GrpcServerOwner(
         address,
