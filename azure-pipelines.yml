@@ -317,7 +317,7 @@ jobs:
           tag: 'v$(release_tag)'
           assets: $(Build.StagingDirectory)/release/*
           assetUploadMode: 'replace'
-          title: 'v$(release_tag)'
+          title: '$(release_tag)'
           addChangeLog: false
           isPrerelease: true
         condition: not(eq(variables['skip-github'], 'TRUE'))
