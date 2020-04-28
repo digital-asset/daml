@@ -74,7 +74,6 @@ object SandboxIndexAndWriteService {
         acs = acs,
         packages = templateStore,
         initialLedgerEntries = ledgerEntries,
-        initialConfig = initialConfig,
         queueDepth = queueDepth,
         startMode = startMode,
         eventsPageSize = eventsPageSize,
@@ -101,7 +100,6 @@ object SandboxIndexAndWriteService {
         acs,
         templateStore,
         ledgerEntries,
-        intialConfig,
       )
     owner(MeteredLedger(ledger, metrics), participantId, intialConfig, timeProvider)
   }

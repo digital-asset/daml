@@ -3,9 +3,16 @@
 
 package com.daml.platform.sandbox.stores.ledger
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.v1.{
+  ParticipantId,
+  SubmissionResult,
+  SubmitterInfo,
+  TimeModel,
+  TransactionMeta
+}
 import com.daml.api.util.TimeProvider
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.{
@@ -53,7 +60,7 @@ class TransactionTimeModelComplianceIT
     implicit val executionContext: ExecutionContext = system.dispatcher
     fixtureId match {
       case BackendType.InMemory =>
-        LedgerResource.inMemory(ledgerId, participantId, timeProvider, ledgerConfig)
+        LedgerResource.inMemory(ledgerId, participantId, timeProvider)
       case BackendType.Postgres =>
         newLoggingContext { implicit logCtx =>
           LedgerResource.postgres(
@@ -61,7 +68,6 @@ class TransactionTimeModelComplianceIT
             ledgerId,
             participantId,
             timeProvider,
-            ledgerConfig,
             metrics,
           )
         }
@@ -125,11 +131,11 @@ class TransactionTimeModelComplianceIT
       publishTxAt(ledger, ledgerTime, "lt-valid").flatMap(expectValidTx)
     }
     "reject transactions with ledger time that is too low" in allFixtures { ledger =>
-      val ledgerTime = recordTime.minus(ledgerConfig.timeModel.minSkew).minusSeconds(1)
+      val ledgerTime = recordTime.minus(TimeModel.reasonableDefault.minSkew).minusSeconds(1)
       publishTxAt(ledger, ledgerTime, "lt-low").flatMap(expectInvalidLedgerTime)
     }
     "reject transactions with ledger time that is too high" in allFixtures { ledger =>
-      val ledgerTime = recordTime.plus(ledgerConfig.timeModel.maxSkew).plusSeconds(1)
+      val ledgerTime = recordTime.plus(TimeModel.reasonableDefault.maxSkew).plusSeconds(1)
       publishTxAt(ledger, ledgerTime, "lt-high").flatMap(expectInvalidLedgerTime)
     }
   }
@@ -143,7 +149,6 @@ object TransactionTimeModelComplianceIT {
   private val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   private val participantId: ParticipantId = Ref.ParticipantId.assertFromString("participantId")
   private val timeProvider = TimeProvider.Constant(recordTime)
-  private val ledgerConfig = Configuration(0, TimeModel.reasonableDefault, Duration.ofDays(1))
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
 

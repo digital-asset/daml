@@ -4,7 +4,6 @@
 package com.daml.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -93,20 +92,12 @@ class InMemoryLedger(
     acs0: InMemoryActiveLedgerState,
     packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump],
-    initialConfig: Configuration,
 ) extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val entries = {
     val l = new LedgerEntries[InMemoryEntry](_.toString)
-    l.publish(
-      InMemoryConfigEntry(
-        ConfigurationEntry.Accepted(
-          submissionId = UUID.randomUUID.toString,
-          participantId = participantId,
-          configuration = initialConfig,
-        )))
     ledgerEntries.foreach {
       case LedgerEntryOrBump.Bump(increment) =>
         l.incrementOffset(increment)
@@ -185,7 +176,7 @@ class InMemoryLedger(
 
   // mutable state
   private var acs = acs0
-  private var ledgerConfiguration: Option[Configuration] = Some(initialConfig)
+  private var ledgerConfiguration: Option[Configuration] = None
   private val commands: scala.collection.mutable.Map[String, CommandDeduplicationEntry] =
     scala.collection.mutable.Map.empty
 
