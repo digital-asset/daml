@@ -1,3 +1,6 @@
+-- Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 -- | Substitution in LF expressions.
 module DA.Daml.LF.Ast.Subst
     ( Subst (..)
@@ -365,3 +368,4 @@ freshenExprVar :: Subst -> ExprVarName -> ExprVarName
 freshenExprVar Subst{..} (ExprVarName v) =
   let candidates = map (\n -> ExprVarName (v <> T.pack (show n))) [1 :: Int ..]
   in findJust (`Set.notMember` substExhaustedExprVars) candidates
+
