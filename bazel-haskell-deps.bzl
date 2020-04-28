@@ -652,6 +652,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "tar-conduit",
             "tasty",
             "tasty-ant-xml",
+            "tasty-expected-failure",
             "tasty-golden",
             "tasty-hunit",
             "tasty-quickcheck",
