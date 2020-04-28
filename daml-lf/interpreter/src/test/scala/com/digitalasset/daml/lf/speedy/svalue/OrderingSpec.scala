@@ -473,7 +473,7 @@ class OrderingSpec
   )
 
   private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val ctrl = Speedy.CtrlTranslateValue(v)
+    val ctrl = Speedy.CtrlImportValue(v)
     val machine = dummyMachine
     machine.ctrl = Speedy.CtrlCrash(ctrl)
     ctrl.execute(machine)

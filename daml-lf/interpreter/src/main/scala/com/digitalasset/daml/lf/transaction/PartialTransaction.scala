@@ -109,7 +109,6 @@ object PartialTransaction {
     context = Context(initialSeeds),
     aborted = None,
     keys = Map.empty,
-    localContracts = Map.empty,
   )
 
 }
@@ -153,7 +152,6 @@ case class PartialTransaction(
     context: PartialTransaction.Context,
     aborted: Option[Tx.TransactionError],
     keys: Map[Node.GlobalKey, Option[Value.ContractId]],
-    localContracts: Map[Value.ContractId, Value.NodeId]
 ) {
 
   import PartialTransaction._
@@ -214,25 +212,6 @@ case class PartialTransaction(
       this
     )
 
-  /** Lookup the contract associated to 'Value.RelativeContractId'.
-    * Return the contract instance and the node in which it was
-    * consumed if any.
-    */
-  def lookupLocalContract(
-      lcoid: Value.ContractId,
-  ): Option[Value.ContractInst[Tx.Value[Value.ContractId]]] =
-    for {
-      nid <- localContracts.get(lcoid)
-      node <- nodes.get(nid)
-      coinst <- node match {
-        case create: Node.NodeCreate.WithTxValue[Value.ContractId] =>
-          Some(create.coinst)
-        case _: Node.NodeExercises[_, _, _] | _: Node.NodeFetch[_, _] |
-            _: Node.NodeLookupByKey[_, _] =>
-          None
-      }
-    } yield coinst
-
   /** Extend the 'PartialTransaction' with a node for creating a
     * contract instance.
     */
@@ -270,7 +249,6 @@ case class PartialTransaction(
         context = context.addChild(nid),
         nodes = nodes.updated(nid, createNode),
         nodeSeeds = nodeSeed.fold(nodeSeeds)(s => nodeSeeds :+ (nid -> s)),
-        localContracts = localContracts.updated(cid, nid)
       )
 
       // if we have a contract key being added, include it in the list of

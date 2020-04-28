@@ -127,21 +127,19 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     * Assumes ty0 is a well-formed serializable typ.
     */
   def translateValue(ty0: Ast.Type, v0: Value[Value.AbsoluteContractId]): Result[SValue] =
-    safelyRun(
-      unsafeTranslateValue(ty0, v0),
-      getDependencies(List(ty0), List.empty)
-    )
+    safelyRun(getDependencies(List(ty0), List.empty)) {
+      unsafeTranslateValue(ty0, v0)
+    }.map(_._1)
 
   /**
     * Translates  LF commands to a speedy commands.
     */
   def preprocessCommands(
       cmds: data.ImmArray[command.Command],
-  ): Result[ImmArray[speedy.Command]] =
-    safelyRun(
-      unsafePreprocessCommands(cmds),
-      getDependencies(List.empty, cmds.map(_.templateId).toList)
-    )
+  ): Result[(ImmArray[speedy.Command], Set[Value.AbsoluteContractId])] =
+    safelyRun(getDependencies(List.empty, cmds.map(_.templateId).toList)) {
+      unsafePreprocessCommands(cmds)
+    }
 
   private def getTemplateId(node: Node.GenNode.WithTxValue[Transaction.NodeId, _]) =
     node match {
@@ -170,19 +168,20 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
 
   def translateNode[Cid <: Value.ContractId](
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[speedy.Command] =
-    safelyRun(
-      unsafeTranslateNode(node),
-      getDependencies(List.empty, List(getTemplateId(node)))
-    )
+  ): Result[(speedy.Command, Set[Value.AbsoluteContractId])] =
+    safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
+      val ((_, globalCids), cmd) = unsafeTranslateNode((Set.empty, Set.empty), node)
+      cmd -> globalCids
+    }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
-  ): Result[ImmArray[(Transaction.NodeId, speedy.Command)]] =
+  ): Result[(ImmArray[speedy.Command], Set[Value.AbsoluteContractId])] =
     safelyRun(
-      unsafeTranslateTransactionRoots(tx),
       getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
-    )
+    ) {
+      unsafeTranslateTransactionRoots(tx)
+    }
 
 }
 
@@ -216,9 +215,8 @@ private[preprocessing] object Preprocessor {
 
   @inline
   def safelyRun[X](
-      unsafeRun: => X,
       handleMissingPackages: Result[_]
-  ): Result[X] = {
+  )(unsafeRun: => X): Result[X] = {
 
     def start: Result[X] =
       try {

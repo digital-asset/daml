@@ -5,9 +5,10 @@ package com.daml.lf
 package engine
 package preprocessing
 
-import com.daml.lf.data.ImmArray
+import com.daml.lf.data.{BackStack, ImmArray}
 import com.daml.lf.transaction.{GenTransaction, Node, Transaction}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.AbsoluteContractId
 
 private[preprocessing] final class TransactionPreprocessor(
     compiledPackages: MutableCompiledPackages) {
@@ -44,14 +45,26 @@ private[preprocessing] final class TransactionPreprocessor(
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
   def unsafeTranslateNode[Cid <: Value.ContractId](
-      node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid],
-  ): speedy.Command = {
+      acc: (Set[Value.ContractId], Set[Value.AbsoluteContractId]),
+      node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid]
+  ): ((Set[Value.ContractId], Set[Value.AbsoluteContractId]), speedy.Command) = {
+
+    val (localCids, globalCids) = acc
 
     node match {
       case Node.NodeCreate(coid @ _, coinst, optLoc @ _, sigs @ _, stks @ _, key @ _) =>
         val identifier = coinst.template
         val arg = unsafeAsValueWithAbsoluteContractIds(coinst.arg.value)
-        commandPreprocessor.unsafePreprocessCreate(identifier, arg)
+        coid match {
+          case acoid: AbsoluteContractId =>
+            if (globalCids(acoid))
+              fail(s"created contract $coid in is not fresh")
+          case _ =>
+        }
+        val (cmd, newCids) = commandPreprocessor.unsafePreprocessCreate(identifier, arg)
+        val newLocal = localCids + coid
+        val newGlobal = globalCids | newCids.filterNot(localCids)
+        (newLocal -> newGlobal, cmd)
 
       case Node.NodeExercises(
           coid,
@@ -69,34 +82,47 @@ private[preprocessing] final class TransactionPreprocessor(
           key @ _) =>
         val templateId = template
         val arg = unsafeAsValueWithAbsoluteContractIds(chosenVal.value)
-        commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, arg)
+        val (cmd, newCids) =
+          commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, arg)
+        (localCids, globalCids | newCids.filterNot(localCids)) -> cmd
       case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
         val acoid = unsafeAsAbsoluteContractId(coid)
-        commandPreprocessor.unsafePreprocessFetch(templateId, acoid)
-
+        val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, acoid)
+        acc -> cmd
       case Node.NodeLookupByKey(templateId, _, key, _) =>
         val keyValue = unsafeAsValueWithNoContractIds(key.key.value)
-        commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
+        val cmd = commandPreprocessor.unsafePreprocessLookupByKey(templateId, keyValue)
+        acc -> cmd
     }
   }
 
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
-  ): ImmArray[(Transaction.NodeId, speedy.Command)] =
-    tx.roots.map(id =>
-      tx.nodes.get(id) match {
-        case None =>
-          fail(s"invalid transaction, root refers to non-existing node $id")
-        case Some(node) =>
-          node match {
-            case Node.NodeFetch(_, _, _, _, _, _, _) =>
-              fail(s"Transaction contains a fetch root node $id")
-            case Node.NodeLookupByKey(_, _, _, _) =>
-              fail(s"Transaction contains a lookup by key root node $id")
-            case _ =>
-              id -> unsafeTranslateNode(node)
+  ): (ImmArray[speedy.Command], Set[AbsoluteContractId]) = {
+
+    type Acc = ((Set[Value.ContractId], Set[Value.AbsoluteContractId]), BackStack[speedy.Command])
+
+    val ((_, globalCids), cmds) =
+      tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {
+        case ((cids, stack), id) =>
+          tx.nodes.get(id) match {
+            case None =>
+              fail(s"invalid transaction, root refers to non-existing node $id")
+            case Some(node) =>
+              node match {
+                case Node.NodeFetch(_, _, _, _, _, _, _) =>
+                  fail(s"Transaction contains a fetch root node $id")
+                case Node.NodeLookupByKey(_, _, _, _) =>
+                  fail(s"Transaction contains a lookup by key root node $id")
+                case _ =>
+                  val (newCids, cmd) = unsafeTranslateNode(cids, node)
+                  (newCids, stack :+ cmd)
+              }
           }
-    })
+      }
+
+    cmds.toImmArray -> globalCids
+  }
 
 }

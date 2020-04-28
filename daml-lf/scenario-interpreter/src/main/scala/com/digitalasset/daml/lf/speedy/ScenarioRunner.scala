@@ -117,6 +117,7 @@ final case class ScenarioRunner(
           tr = tx,
           l = ledger)
         .isRight) {
+      remy.log(machine.commitLocation)
       throw SRunnerException(ScenarioErrorMustFailSucceeded(tx))
     }
     ledger = ledger.insertAssertMustFail(committer, machine.commitLocation)

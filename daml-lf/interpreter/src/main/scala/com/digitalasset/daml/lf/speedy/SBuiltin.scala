@@ -14,7 +14,7 @@ import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy.{
-  CtrlTranslateValue,
+  CtrlImportValue,
   CtrlValue,
   CtrlWronglyTypeContractId,
   Machine,
@@ -795,7 +795,8 @@ object SBuiltin {
   final case class SBUCreate(templateId: TypeConName) extends SBuiltin(6) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(5))
-      val createArg = asVersionedValue(args.get(0).toValue) match {
+      val createArg = args.get(0)
+      val createArgValue = asVersionedValue(createArg.toValue) match {
         case Left(err) => crash(err)
         case Right(x) => x
       }
@@ -809,7 +810,8 @@ object SBuiltin {
 
       val (coid, newPtx) = machine.ptx
         .insertCreate(
-          coinst = V.ContractInst(template = templateId, arg = createArg, agreementText = agreement),
+          coinst =
+            V.ContractInst(template = templateId, arg = createArgValue, agreementText = agreement),
           optLocation = machine.lastLocation,
           signatories = sigs,
           stakeholders = sigs union obs,
@@ -817,6 +819,7 @@ object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
+      machine.addLocalContract(coid, templateId, createArg)
       machine.ptx = newPtx
       machine.ctrl = CtrlValue(SContractId(coid))
       checkAborted(machine.ptx)
@@ -916,49 +919,36 @@ object SBuiltin {
         case SContractId(coid) => coid
         case v => crash(s"expected contract id, got: $v")
       }
-      val coinst =
-        machine.ptx
-          .lookupLocalContract(coid)
-          .getOrElse(
-            coid match {
-              case acoid: V.AbsoluteContractId =>
-                throw SpeedyHungry(
-                  SResultNeedContract(
-                    acoid,
-                    templateId,
-                    machine.committers,
-                    cbMissing = _ => machine.tryHandleException(),
-                    cbPresent = {
-                      coinst =>
-                        // Note that we cannot throw in this continuation -- instead
-                        // set the control appropriately which will crash the machine
-                        // correctly later.
-                        if (coinst.template != templateId) {
-                          machine.ctrl =
-                            CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
-                        } else {
-                          machine.ctrl = CtrlTranslateValue(coinst.arg.value)
-                        }
-                    },
-                  ),
-                )
-              case rcoid: V.RelativeContractId =>
-                crash(s"Relative contract $rcoid ($templateId) not found from partial transaction")
-            }
-          )
 
-      if (coinst.template != templateId) {
-        // Here we crash hard rather than throwing a "nice" error
-        // ([[DamlEWronglyTypedContract]]) since if _relative_ contract
-        // id to be of the wrong template it means that the DAML-LF
-        // program that generated it is ill-typed.
-        //
-        // On the other hand absolute contract ids can come from outside
-        // (e.g. Ledger API) and thus we need to fail more gracefully
-        // (see below).
-        crash(s"Relative contract $coid ($templateId) not found from partial transaction")
-      } else {
-        CtrlTranslateValue(coinst.arg.value).execute(machine)
+      machine.localContracts.get(coid) match {
+        case Some((tmplId, contract)) =>
+          if (tmplId != templateId)
+            crash(s"contract $coid ($templateId) not found from partial transaction")
+          else
+            machine.ctrl = CtrlValue(contract)
+        case None =>
+          coid match {
+            case acoid: V.AbsoluteContractId =>
+              throw SpeedyHungry(
+                SResultNeedContract(
+                  acoid,
+                  templateId,
+                  machine.committers,
+                  cbMissing = _ => machine.tryHandleException(),
+                  cbPresent = { coinst =>
+                    // Note that we cannot throw in this continuation -- instead
+                    // set the control appropriately which will crash the machine
+                    // correctly later.
+                    if (coinst.template != templateId)
+                      machine.ctrl = CtrlWronglyTypeContractId(acoid, templateId, coinst.template)
+                    else
+                      machine.ctrl = CtrlImportValue(coinst.arg.value)
+                  },
+                ),
+              )
+            case _ =>
+              crash(s"contract $coid ($templateId) not found from partial transaction")
+          }
       }
     }
   }
@@ -1129,6 +1119,8 @@ object SBuiltin {
   final case class SBSBeginCommit(optLocation: Option[Location]) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
+      machine.localContracts = Map.empty
+      machine.globalDiscriminators = Set.empty
       machine.committers = extractParties(args.get(0))
       machine.commitLocation = optLocation
       machine.ctrl = CtrlValue.Unit

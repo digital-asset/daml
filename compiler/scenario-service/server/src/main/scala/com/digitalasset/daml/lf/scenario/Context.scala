@@ -155,6 +155,7 @@ class Context(val contextId: Context.ContextId) {
           compiledPackages = PureCompiledPackages(allPackages, defns),
           submissionTime,
           initialSeeding,
+          Set.empty,
         )
   }
 

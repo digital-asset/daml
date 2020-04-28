@@ -25,7 +25,7 @@ object Speedy {
   final case class Machine(
       /* The control is what the machine should be evaluating. */
       var ctrl: Ctrl,
-      /* The enviroment: an array of values */
+      /* The environment: an array of values */
       var env: Env,
       /* Kont, or continuation specifies what should be done next
        * once the control has been evaluated.
@@ -49,6 +49,10 @@ object Speedy {
       var compiledPackages: CompiledPackages,
       /* Flag to trace usage of get_time builtins */
       var dependsOnTime: Boolean,
+      // local contracts
+      var localContracts: Map[V.ContractId, (Ref.TypeConName, SValue)],
+      // global contract discriminators
+      var globalDiscriminators: Set[crypto.Hash],
   ) {
 
     def kontPop(): Kont = kont.remove(kont.size - 1)
@@ -93,6 +97,24 @@ object Speedy {
         }
       }
       ImmArray(s.asScala)
+    }
+
+    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+      coid match {
+        case V.AbsoluteContractId.V1(discriminator, _)
+            if globalDiscriminators.contains(discriminator) =>
+          crash("Conflicting discriminators between a local and global contract ID.")
+        case _ =>
+          localContracts = localContracts.updated(coid, templateId -> SValue)
+      }
+
+    def addGlobalCid(cid: V.ContractId) = cid match {
+      case V.AbsoluteContractId.V1(discriminator, _) =>
+        if (localContracts.isDefinedAt(V.AbsoluteContractId.V1(discriminator)))
+          crash("Conflicting discriminators between a local and global contract ID.")
+        else
+          globalDiscriminators = globalDiscriminators + discriminator
+      case _ =>
     }
 
     /** Perform a single step of the machine execution. */
@@ -245,6 +267,7 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
+        globalCids: Set[V.AbsoluteContractId]
     ) =
       Machine(
         ctrl = null,
@@ -258,6 +281,11 @@ object Speedy {
         compiledPackages = compiledPackages,
         validating = false,
         dependsOnTime = false,
+        localContracts = Map.empty,
+        globalDiscriminators = globalCids.foldLeft(Set.empty[crypto.Hash]) {
+          case (acc, V.AbsoluteContractId.V1(discriminator, _)) => acc + discriminator
+          case (acc, _) => acc
+        }
       )
 
     def newBuilder(
@@ -272,7 +300,8 @@ object Speedy {
             SEApp(compiler.unsafeCompile(expr), Array(SEValue.Token)),
             compiledPackages,
             submissionTime,
-            InitialSeeding(transactionSeed)
+            InitialSeeding(transactionSeed),
+            Set.empty
         ))
     }
 
@@ -281,12 +310,14 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeds: InitialSeeding,
+        globalCids: Set[V.AbsoluteContractId],
     ): Machine =
       fromSExpr(
         SEApp(sexpr, Array(SEValue.Token)),
         compiledPackages,
         submissionTime,
         seeds,
+        globalCids
       )
 
     // Used from repl.
@@ -309,6 +340,7 @@ object Speedy {
         compiledPackages,
         submissionTime,
         InitialSeeding(transactionSeed),
+        Set.empty,
       )
     }
 
@@ -320,8 +352,9 @@ object Speedy {
         compiledPackages: CompiledPackages,
         submissionTime: Time.Timestamp,
         seeding: InitialSeeding,
+        globalCids: Set[V.AbsoluteContractId],
     ): Machine =
-      initial(compiledPackages, submissionTime, seeding).copy(ctrl = CtrlExpr(sexpr))
+      initial(compiledPackages, submissionTime, seeding, globalCids).copy(ctrl = CtrlExpr(sexpr))
   }
 
   /** Control specifies the thing that the machine should be reducing.
@@ -402,16 +435,18 @@ object Speedy {
       CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
   }
 
-  // This translates a well-typed LF value (typically coming from
-  // the ledger) to speedy value and set the control of with the result.
+  // This translates a well-typed LF value (typically coming from the ledger)
+  // to speedy value and set the control of with the result.
+  // All the contract IDs contained in the value are considered global.
   // Raises an exception if missing a package.
-  final case class CtrlTranslateValue(value: V[V.ContractId]) extends Ctrl {
+  final case class CtrlImportValue(value: V[V.AbsoluteContractId]) extends Ctrl {
     override def execute(machine: Machine): Unit = {
-
       def go(value0: V[V.ContractId]): SValue =
         value0 match {
           case V.ValueList(vs) => SList(vs.map[SValue](go))
-          case V.ValueContractId(coid) => SContractId(coid)
+          case V.ValueContractId(coid) =>
+            machine.addGlobalCid(coid)
+            SContractId(coid)
           case V.ValueInt64(x) => SInt64(x)
           case V.ValueNumeric(x) => SNumeric(x)
           case V.ValueText(t) => SText(t)

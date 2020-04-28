@@ -84,30 +84,32 @@ final class Engine {
     val submissionTime = cmds.ledgerEffectiveTime
     preprocessor
       .preprocessCommands(cmds.commands)
-      .flatMap { processedCmds =>
-        interpretCommands(
-          validating = false,
-          submitters = Set(cmds.submitter),
-          commands = processedCmds,
-          ledgerTime = cmds.ledgerEffectiveTime,
-          submissionTime = submissionTime,
-          seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
-        ) map {
-          case (tx, meta) =>
-            // Annotate the transaction with the package dependencies. Since
-            // all commands are actions on a contract template, with a fully typed
-            // argument, we only need to consider the templates mentioned in the command
-            // to compute the full dependencies.
-            val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
-              val pkgId = cmd.templateId.packageId
-              val transitiveDeps =
-                compiledPackages
-                  .getPackageDependencies(pkgId)
-                  .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
-              (pkgIds + pkgId) union transitiveDeps
-            }
-            tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
-        }
+      .flatMap {
+        case (processedCmds, globalCids) =>
+          interpretCommands(
+            validating = false,
+            submitters = Set(cmds.submitter),
+            commands = processedCmds,
+            ledgerTime = cmds.ledgerEffectiveTime,
+            submissionTime = submissionTime,
+            seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+            globalCids,
+          ) map {
+            case (tx, meta) =>
+              // Annotate the transaction with the package dependencies. Since
+              // all commands are actions on a contract template, with a fully typed
+              // argument, we only need to consider the templates mentioned in the command
+              // to compute the full dependencies.
+              val deps = processedCmds.foldLeft(Set.empty[PackageId]) { (pkgIds, cmd) =>
+                val pkgId = cmd.templateId.packageId
+                val transitiveDeps =
+                  compiledPackages
+                    .getPackageDependencies(pkgId)
+                    .getOrElse(sys.error(s"INTERNAL ERROR: Missing dependencies of package $pkgId"))
+                (pkgIds + pkgId) union transitiveDeps
+              }
+              tx -> meta.copy(submissionSeed = submissionSeed, usedPackages = deps)
+          }
       }
   }
 
@@ -131,7 +133,8 @@ final class Engine {
       ledgerEffectiveTime: Time.Timestamp,
   ): Result[(Tx.Transaction, Tx.Metadata)] =
     for {
-      command <- preprocessor.translateNode(node)
+      commandWithCids <- preprocessor.translateNode(node)
+      (command, globalCids) = commandWithCids
       // reinterpret is never used for submission, only for validation.
       result <- interpretCommands(
         validating = true,
@@ -140,6 +143,7 @@ final class Engine {
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
+        globalCids,
       )
     } yield result
 
@@ -192,14 +196,16 @@ final class Engine {
       // For empty transactions, use an empty set of submitters
       submitters = submittersOpt.getOrElse(Set.empty)
 
-      commands <- preprocessor.translateTransactionRoots(tx)
+      commandsWithCids <- preprocessor.translateTransactionRoots(tx)
+      (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,
         submitters = submitters,
-        commands = commands.map(_._2),
+        commands = commands,
         ledgerTime = ledgerEffectiveTime,
         submissionTime = submissionTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+        globalCids,
       )
       (rtx, _) = result
       validationResult <- if (tx isReplayedBy rtx) {
@@ -256,6 +262,7 @@ final class Engine {
       ledgerTime: Time.Timestamp,
       submissionTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
+      globalCids: Set[Value.AbsoluteContractId],
   ): Result[(Tx.Transaction, Tx.Metadata)] =
     runSafely(
       loadPackages(commands.foldLeft(Set.empty[PackageId])(_ + _.templateId.packageId).toList)
@@ -266,6 +273,7 @@ final class Engine {
           compiledPackages = compiledPackages,
           submissionTime = submissionTime,
           seeds = seeding,
+          globalCids,
         )
         .copy(validating = validating, committers = submitters)
       interpretLoop(machine, ledgerTime)
