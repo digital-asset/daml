@@ -251,11 +251,8 @@ class SubmitRequestValidatorTest
 
       "not allow missing ledger configuration" in {
         requestMustFailWith(
-          commandsValidator.validateCommands(
-            api.commands,
-            internal.ledgerTime,
-            internal.submittedAt,
-            None),
+          commandsValidator
+            .validateCommands(api.commands, internal.ledgerTime, internal.submittedAt, None),
           UNAVAILABLE,
           "The ledger configuration is not available."
         )
