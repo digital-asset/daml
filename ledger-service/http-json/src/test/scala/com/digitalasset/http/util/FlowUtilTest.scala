@@ -45,5 +45,5 @@ class FlowUtilTest
   }
 
   private val nonEmptyVectorOfInts: Gen[Vector[Int]] =
-    Gen.nonEmptyBuildableOf[Vector[Int], Int](Arbitrary.arbInt.arbitrary)
+    Gen.nonEmptyBuildableOf[Vector[Int], Int](Arbitrary.arbitrary[Int])
 }
