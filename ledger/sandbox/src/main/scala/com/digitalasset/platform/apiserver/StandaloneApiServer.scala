@@ -89,12 +89,6 @@ final class StandaloneApiServer(
         "read" -> readService,
         "write" -> writeService,
       )
-      ledgerConfiguration = ledgerConfig.copy(
-        // TODO: Remove the initial ledger config from readService.getLedgerInitialConditions()
-        initialConfiguration = initialConditions.config.copy(
-          generation = initialConditions.config.generation + 1
-        ),
-      )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
@@ -106,7 +100,7 @@ final class StandaloneApiServer(
         timeProviderType =
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static),
-        ledgerConfiguration = ledgerConfiguration,
+        ledgerConfiguration = ledgerConfig,
         commandConfig = commandConfig,
         partyConfig = partyConfig,
         optTimeServiceBackend = timeServiceBackend,

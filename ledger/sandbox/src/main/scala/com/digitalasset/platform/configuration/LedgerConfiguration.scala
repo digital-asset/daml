@@ -38,7 +38,7 @@ object LedgerConfiguration {
     */
   val defaultLedgerBackedIndex: LedgerConfiguration = LedgerConfiguration(
     initialConfiguration = Configuration(
-      generation = 0,
+      generation = 1,
       timeModel = TimeModel.reasonableDefault,
       maxDeduplicationTime = Duration.ofDays(1)
     ),
@@ -52,7 +52,7 @@ object LedgerConfiguration {
     */
   val defaultLocalLedger: LedgerConfiguration = LedgerConfiguration(
     initialConfiguration = Configuration(
-      generation = 0,
+      generation = 1,
       timeModel = TimeModel.reasonableDefault,
       maxDeduplicationTime = Duration.ofDays(1)
     ),
@@ -66,7 +66,7 @@ object LedgerConfiguration {
     */
   val defaultRemote: LedgerConfiguration = LedgerConfiguration(
     initialConfiguration = Configuration(
-      generation = 0,
+      generation = 1,
       timeModel = TimeModel.reasonableDefault,
       maxDeduplicationTime = Duration.ofDays(1)
     ),
