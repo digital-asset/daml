@@ -408,8 +408,19 @@ genrule(
         sed -i "s,__VERSION__,"{sdk}"," docs/configs/html/conf.py
         export LC_ALL=en_US.UTF-8
         export LANG=en_US.UTF-8
+        # Sphinx 1.8.3 triggers the following warning:
+        #
+        #   /nix/store/1v39mhhyn48s251przk2fwcvgm71vfqi-python3.7-sphinx-1.8.3/lib/python3.7/site-packages/sphinx/writers/html.py:462: FutureWarning:
+        #      The iterable returned by Node.traverse()
+        #      will become an iterator instead of a list in Docutils > 0.16.
+        #     target_node = image_nodes and image_nodes[0] or node.parent
+        #
+        # We are using an older Sphinx (1.8.3) with a more recent nixpkgs revision.
+        # Unfortunately, an update is not so easy because Sphinx 2.3.1 breaks
+        # the PDF documentation due to issues with the FreeSerif font in the
+        # fontspec package. So, for now we ignore `FutureWarning`.
         WARNINGS=$$(../$(location @sphinx_nix//:bin/sphinx-build) -c docs/configs/html docs/source html 2>&1 | \
-            grep -Ei "warning:" || true)
+            grep -Pi "(?<!future)warning:" || true)
 
         if [ "$$WARNINGS" != "" ]; then
             echo "$$WARNINGS"
