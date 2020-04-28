@@ -271,38 +271,35 @@ final class SandboxServer(
         initialConfigurationSubmitDelay = Duration.ZERO,
       )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner().acquire()
-      apiServicesOwner = ResourceOwner.forFutureCloseable(
-        () =>
-          ApiServices
-            .create(
-              participantId = participantId,
-              writeService = new TimedWriteService(
-                indexAndWriteService.writeService,
-                metrics,
-                MetricName.DAML :+ "services" :+ "write"),
-              indexService = new TimedIndexService(
-                indexAndWriteService.indexService,
-                metrics,
-                MetricName.DAML :+ "services" :+ "write"),
-              authorizer = authorizer,
-              engine = SandboxServer.engine,
-              timeProvider = timeProvider,
-              timeProviderType = timeProviderType,
-              ledgerConfiguration = ledgerConfiguration,
-              commandConfig = config.commandConfig,
-              partyConfig = PartyConfiguration.default.copy(
-                // In this version of Sandbox, parties are always allocated implicitly. Enabling
-                // this would result in an extra `writeService.allocateParty` call, which is
-                // unnecessary and bad for performance.
-                implicitPartyAllocation = false,
-              ),
-              submissionConfig = config.submissionConfig,
-              optTimeServiceBackend = timeServiceBackendO,
-              metrics = metrics,
-              healthChecks = healthChecks,
-              seedService = config.seeding.map(SeedService(_)),
-            )(materializer, executionSequencerFactory, logCtx)
-            .map(_.withServices(List(resetService))))
+      apiServicesOwner = new ApiServices.Owner(
+        participantId = participantId,
+        writeService = new TimedWriteService(
+          indexAndWriteService.writeService,
+          metrics,
+          MetricName.DAML :+ "services" :+ "write"),
+        indexService = new TimedIndexService(
+          indexAndWriteService.indexService,
+          metrics,
+          MetricName.DAML :+ "services" :+ "write"),
+        authorizer = authorizer,
+        engine = SandboxServer.engine,
+        timeProvider = timeProvider,
+        timeProviderType = timeProviderType,
+        ledgerConfiguration = ledgerConfiguration,
+        commandConfig = config.commandConfig,
+        partyConfig = PartyConfiguration.default.copy(
+          // In this version of Sandbox, parties are always allocated implicitly. Enabling
+          // this would result in an extra `writeService.allocateParty` call, which is
+          // unnecessary and bad for performance.
+          implicitPartyAllocation = false,
+        ),
+        submissionConfig = config.submissionConfig,
+        optTimeServiceBackend = timeServiceBackendO,
+        metrics = metrics,
+        healthChecks = healthChecks,
+        seedService = config.seeding.map(SeedService(_)),
+      )(materializer, executionSequencerFactory, logCtx)
+        .map(_.withServices(List(resetService)))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
         // NOTE: Re-use the same port after reset.

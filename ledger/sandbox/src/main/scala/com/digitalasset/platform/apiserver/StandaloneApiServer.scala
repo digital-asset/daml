@@ -97,28 +97,26 @@ final class StandaloneApiServer(
         initialConfiguration = initialConditions.config,
       )
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
-      apiServicesOwner = ResourceOwner.forFutureCloseable(
-        () =>
-          ApiServices
-            .create(
-              participantId = participantId,
-              writeService = writeService,
-              indexService = indexService,
-              authorizer = authorizer,
-              engine = engine,
-              timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
-              timeProviderType = timeServiceBackend.fold[TimeProviderType](
-                TimeProviderType.WallClock)(_ => TimeProviderType.Static),
-              ledgerConfiguration = ledgerConfiguration,
-              commandConfig = commandConfig,
-              partyConfig = partyConfig,
-              submissionConfig = submissionConfig,
-              optTimeServiceBackend = timeServiceBackend,
-              metrics = metrics,
-              healthChecks = healthChecks,
-              seedService = config.seeding.map(SeedService(_)),
-            )(materializer, executionSequencerFactory, logCtx)
-            .map(_.withServices(otherServices)))
+      apiServicesOwner = new ApiServices.Owner(
+        participantId = participantId,
+        writeService = writeService,
+        indexService = indexService,
+        authorizer = authorizer,
+        engine = engine,
+        timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
+        timeProviderType =
+          timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
+            TimeProviderType.Static),
+        ledgerConfiguration = ledgerConfiguration,
+        commandConfig = commandConfig,
+        partyConfig = partyConfig,
+        submissionConfig = submissionConfig,
+        optTimeServiceBackend = timeServiceBackend,
+        metrics = metrics,
+        healthChecks = healthChecks,
+        seedService = config.seeding.map(SeedService(_)),
+      )(materializer, executionSequencerFactory, logCtx)
+        .map(_.withServices(otherServices))
       apiServer <- new LedgerApiServer(
         apiServicesOwner,
         config.port,
