@@ -82,6 +82,10 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     val req = HttpRequest(
       method = HttpMethods.GET,
       uri = uri.withPath(Uri.Path(s"/list")),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        s"""{"party": "$party"}"""
+      )
     )
     Http().singleRequest(req)
   }
@@ -162,22 +166,35 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         // start trigger for Bob
         resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
         _ <- assert(resp.status.isSuccess)
-        bobTrigger <- responseBodyToString(resp)
+        bobTrigger1 <- responseBodyToString(resp)
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$aliceTrigger","$bobTrigger"]""")
+        _ <- body should equal(s"""["$bobTrigger1"]""")
+        // start another trigger for Bob
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
+        _ <- assert(resp.status.isSuccess)
+        bobTrigger2 <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
         // stop Alice's trigger
         resp <- stopTrigger(uri, aliceTrigger)
         _ <- assert(resp.status.isSuccess)
+        resp <- listTriggers(uri, "Alice")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal("[]")
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
-        _ <- body should equal(s"""["$bobTrigger"]""")
-        // stop Bob's trigger
-        resp <- stopTrigger(uri, bobTrigger)
+        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
+        // stop Bob's triggers
+        resp <- stopTrigger(uri, bobTrigger1)
         _ <- assert(resp.status.isSuccess)
-        bobTrigger <- responseBodyToString(resp)
+        resp <- stopTrigger(uri, bobTrigger2)
+        _ <- assert(resp.status.isSuccess)
         resp <- listTriggers(uri, "Bob")
         _ <- assert(resp.status.isSuccess)
         body <- responseBodyToString(resp)
