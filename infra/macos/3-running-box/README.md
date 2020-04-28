@@ -1,33 +1,6 @@
 # Host setup
 
-The host machine needs three things:
-
-1. The [Vagrant base box](../1-create-box/README.md) for macOS.
-2. a) VirtualBox (with the extension).
-2. or b) VMWare Fusion Pro and Vagrant VMWare Plugin
-3. Vagrant.
-
-You can refer to the instructions in [this README](../1-create-box/README.md) for installation and choice of a 
-hypervisor.
-
-For VirtualBox, a more automated setup can use the following set of commands (which will
-require a sudoer password at some points):
-
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)" < /dev/null
-brew cask install virtualbox
-brew cask install vagrant
-cd $(mktemp -d)
-wget https://download.virtualbox.org/virtualbox/6.1.4/Oracle_VM_VirtualBox_Extension_Pack-6.1.4.vbox-extpack
-sudo VBoxManage extpack install Oracle_VM_VirtualBox_Extension_Pack-6.1.4.vbox-extpack
-cd -
-```
-
-This will install homebrew, then use it to install the latest versions of
-VirtualBox and Vagrant. The `brew cask` invocations need to be ran from a
-sudoer account and will request a password (unless passwordless sudo is
-configured, which I would not recommend), so this cannot be completely
-scripted. `brew` itself will refuse to run if started as root.
+Same as for [step 2](../2-common-box/README.md).
 
 # Running a node
 
@@ -35,6 +8,7 @@ With Vagrant and VirtualBox/VMWare installed, running a box is as simple as movi
 this folder and running
 
 ```
+vagrant box add azure-ci-node /path/to/initialized.box
 GUEST_NAME=... VSTS_TOKEN=... vagrant up
 ```
 
@@ -43,6 +17,9 @@ turn should set up the machine and connect to Azure. The command will return
 when the machine has successfully finished its own setup, and is about to
 connect to Azure to register as a CI node. Any error before that will result in
 the command returning a non-zero exit code.
+
+Refer to [step 2](../2-common-box/README.md) for how to create the initialized
+box.
 
 The `VSTS_TOKEN` environment variable must be set to the token used to register
 nodes with Azure. It is the same for all CI nodes (across OSes).
