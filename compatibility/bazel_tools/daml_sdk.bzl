@@ -32,7 +32,6 @@ def _daml_sdk_impl(ctx):
     elif ctx.attr.sdk_sha256:
         ctx.download_and_extract(
             output = out_dir,
-            # TODO (MK) Make this work on other platforms.
             url =
                 "https://github.com/digital-asset/daml/releases/download/v{}/daml-sdk-{}-{}.tar.gz".format(ctx.attr.version, ctx.attr.version, ctx.attr.os_name),
             sha256 = ctx.attr.sdk_sha256[ctx.attr.os_name],
