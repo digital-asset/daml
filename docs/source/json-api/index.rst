@@ -14,8 +14,8 @@ API </app-dev/ledger-api>` to interact with a ledger by providing *basic active 
 - querying the current active contract set, and
 - retrieving all known parties.
 
-The goal of this API is to get you up and running distributed ledger applications quickly, so we have deliberately excluded
-complicating concerns, including but not limited to:
+The goal of this API is to get your distributed ledger application up and running quickly, so we have deliberately excluded
+complicating concerns including, but not limited to:
 
 - inspecting transactions,
 - asynchronous submit/completion workflows,
