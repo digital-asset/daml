@@ -248,7 +248,7 @@ substExpr subst@Subst{..} = \case
         (map (substAlternative subst) alts)
     ELet (Binding (x, t) e1) e2 ->
         substWithBoundExprVar subst x $ \ subst' x' ->
-            ELet (Binding (x', (substType subst t)) (substExpr subst e1))
+            ELet (Binding (x', substType subst t) (substExpr subst e1))
                 (substExpr subst' e2)
     ENil t -> ENil
         (substType subst t)
@@ -368,4 +368,3 @@ freshenExprVar :: Subst -> ExprVarName -> ExprVarName
 freshenExprVar Subst{..} (ExprVarName v) =
   let candidates = map (\n -> ExprVarName (v <> T.pack (show n))) [1 :: Int ..]
   in findJust (`Set.notMember` substExhaustedExprVars) candidates
-
