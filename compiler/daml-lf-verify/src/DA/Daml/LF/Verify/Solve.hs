@@ -42,6 +42,7 @@ exp2CExp (ETmApp (ETmApp (ETyApp (EBuiltin b) _) e1) e2) = case b of
   BEAddNumeric -> CAdd (exp2CExp e1) (exp2CExp e2)
   BESubNumeric -> CSub (exp2CExp e1) (exp2CExp e2)
   _ -> error ("Builtin: " ++ show b)
+exp2CExp (ELocation _ e) = exp2CExp e
 exp2CExp e = error ("Conversion: " ++ show e)
 
 -- | Gather the variable names bound within a skolem variable.
