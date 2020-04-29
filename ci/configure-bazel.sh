@@ -45,7 +45,6 @@ if [ ! -z "${BAZEL_CONFIG_DIR:-}" ]; then
 fi
 
 if is_windows; then
-  git clean -xffd
   echo "build --config windows" > .bazelrc.local
   echo "build --config windows-ci" >> .bazelrc.local
 fi
