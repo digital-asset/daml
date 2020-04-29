@@ -3,14 +3,18 @@
 
 package com.daml.platform.store.dao.events
 
+import java.sql.Connection
 import java.time.Instant
 
-import anorm.{BatchSql, NamedParameter}
+import anorm.SqlParser.int
+import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
 import com.daml.platform.store.DbType
 import com.daml.platform.store.serialization.ValueSerializer.{serializeValue => serialize}
 
-private[events] sealed abstract class ContractsTable {
+import scala.util.{Failure, Success, Try}
+
+private[events] sealed abstract class ContractsTable extends PostCommitValidationData {
 
   protected val insertContractQuery: String
 
@@ -143,6 +147,25 @@ private[events] sealed abstract class ContractsTable {
 
   }
 
+  override final def lookupContractKeyGlobally(key: Key)(
+      implicit connection: Connection): Option[ContractId] =
+    SQL"select participant_contracts.contract_id from participant_contracts where create_key_hash = ${key.hash}"
+      .as(contractId("contract_id").singleOpt)
+
+  override final def lookupMaximumLedgerTime(ids: Set[ContractId])(
+      implicit connection: Connection): Try[Option[Instant]] =
+    if (ids.isEmpty) {
+      Failure(ContractsTable.emptyContractIds)
+    } else {
+      SQL"select max(create_ledger_effective_time) as max_create_ledger_effective_time, count(*) as num_contracts from participant_contracts where participant_contracts.contract_id in ($ids)"
+        .as(
+          (instant("max_create_ledger_effective_time").? ~ int("num_contracts")).single
+            .map {
+              case result ~ numContracts if numContracts == ids.size => Success(result)
+              case _ => Failure(ContractsTable.notFound(ids))
+            })
+    }
+
 }
 
 private[events] object ContractsTable {
@@ -162,5 +185,15 @@ private[events] object ContractsTable {
     override protected val insertContractQuery: String =
       s"merge into participant_contracts using dual on contract_id = {contract_id} when not matched then insert (contract_id, template_id, create_argument, create_ledger_effective_time, create_key_hash, create_stakeholders) values ({contract_id}, {template_id}, {create_argument}, {create_ledger_effective_time}, {create_key_hash}, {create_stakeholders})"
   }
+
+  private def emptyContractIds: Throwable =
+    new IllegalArgumentException(
+      "Cannot lookup the maximum ledger time for an empty set of contract identifiers"
+    )
+
+  private def notFound(contractIds: Set[ContractId]): Throwable =
+    new IllegalArgumentException(
+      s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
+    )
 
 }
