@@ -283,6 +283,16 @@ class InMemoryLedger(
       }
     )
 
+  // Validates the given ledger time according to the ledger time model
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[String, Unit] = {
+    ledgerConfiguration
+      .fold[Either[String, Unit]](
+        Left("No ledger configuration available, cannot validate ledger time")
+      )(
+        config => config.timeModel.checkTime(ledgerTime, recordTime)
+      )
+  }
+
   private def handleSuccessfulTx(
       transactionId: LedgerString,
       submitterInfo: SubmitterInfo,
@@ -290,9 +300,7 @@ class InMemoryLedger(
       transaction: SubmittedTransaction): Unit = {
     val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
     val recordTime = timeProvider.getCurrentTime
-    val timeModel = ledgerConfiguration.get.timeModel
-    timeModel
-      .checkTime(ledgerTime, recordTime)
+    checkTimeModel(ledgerTime, recordTime)
       .fold(
         reason => handleError(submitterInfo, RejectionReason.InvalidLedgerTime(reason)),
         _ => {
