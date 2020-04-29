@@ -12,7 +12,6 @@ module Development.IDE.Core.API.Testing.Visualize
 
 import Control.Monad
 import Data.Bifunctor
-import qualified Data.NameMap as NM
 import qualified Data.Text as T
 
 import qualified DA.Daml.LF.Ast as LF
@@ -57,9 +56,9 @@ data FailedGraphExpectation = FailedGraphExpectation
   }
   deriving (Eq, Show)
 
-graphTest :: LF.World -> LF.Package -> ExpectedGraph -> Either FailedGraphExpectation ()
-graphTest wrld pkg expectedGraph = do
-    let actualGraph = V.graphFromModule (NM.toList $ LF.packageModules pkg) wrld
+graphTest :: LF.World -> ExpectedGraph -> Either FailedGraphExpectation ()
+graphTest wrld expectedGraph = do
+    let actualGraph = V.graphFromWorld wrld
     let actual = graphToExpectedGraph actualGraph
     unless (expectedGraph == actual) $
         Left $ FailedGraphExpectation expectedGraph actual

@@ -526,11 +526,9 @@ timedSection targetDiffTime block = do
 expectedGraph :: D.NormalizedFilePath -> ExpectedGraph -> ShakeTest ()
 expectedGraph damlFilePath expectedGraph = do
     ideState <- ShakeTest $ Reader.asks steService
-    mbDalf <- liftIO $ API.runActionSync ideState (API.getDalf damlFilePath)
-    expectNoErrors
-    Just lfPkg <- pure mbDalf
     wrld <- Reader.liftIO $ API.runActionSync ideState (API.worldForFile damlFilePath)
-    whenLeft (graphTest wrld lfPkg expectedGraph) $ throwError . ExpectedGraphProps
+    expectNoErrors
+    whenLeft (graphTest wrld expectedGraph) $ throwError . ExpectedGraphProps
 
 -- | Example testing scenario.
 example :: ShakeTest ()
