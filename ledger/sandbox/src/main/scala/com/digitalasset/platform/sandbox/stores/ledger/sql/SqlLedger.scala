@@ -40,7 +40,7 @@ import com.daml.resources.ResourceOwner
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 object SqlLedger {
 
