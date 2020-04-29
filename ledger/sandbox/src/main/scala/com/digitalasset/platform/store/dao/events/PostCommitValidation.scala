@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
-import com.daml.ledger.api.domain.RejectionReason
+import com.daml.ledger.participant.state.v1.RejectionReason
 
 /**
   * Performs post-commit validation on transactions for Sandbox Classic.
@@ -30,7 +30,6 @@ sealed trait PostCommitValidation {
       transaction: Transaction,
       transactionLedgerEffectiveTime: Instant,
       divulged: Set[ContractId],
-      submitter: Party,
   )(implicit connection: Connection): Option[RejectionReason]
 
 }
@@ -48,7 +47,6 @@ object PostCommitValidation {
         transaction: Transaction,
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
-        submitter: Party,
     )(implicit connection: Connection): Option[RejectionReason] =
       None
   }
@@ -59,16 +57,14 @@ object PostCommitValidation {
         transaction: Transaction,
         transactionLedgerEffectiveTime: Instant,
         divulged: Set[ContractId],
-        submitter: Party,
     )(implicit connection: Connection): Option[RejectionReason] = {
 
-      val causalMonotonicityRejection =
+      val causalMonotonicityViolation =
         validateCausalMonotonicity(transaction, transactionLedgerEffectiveTime, divulged)
 
-      val invalidKeyUsageRejection =
-        validateKeyUsages(transaction, submitter)
+      val invalidKeyUsage = validateKeyUsages(transaction)
 
-      invalidKeyUsageRejection.orElse(causalMonotonicityRejection)
+      invalidKeyUsage.orElse(causalMonotonicityViolation)
     }
 
     /**
@@ -128,7 +124,7 @@ object PostCommitValidation {
       referred.diff(createdInTransaction)
     }
 
-    private def validateKeyUsages(transaction: Transaction, submitter: Party)(
+    private def validateKeyUsages(transaction: Transaction)(
         implicit connection: Connection): Option[RejectionReason] =
       transaction
         .fold[Result](Right(State.empty(data))) {
@@ -231,7 +227,7 @@ object PostCommitValidation {
     )
 
   private[events] val UnknownContract: RejectionReason =
-    RejectionReason.Inconsistent(s"Could not lookup contract")
+    RejectionReason.Inconsistent
 
   private[events] def CausalMonotonicityViolation(
       contractLedgerEffectiveTime: Instant,

@@ -32,7 +32,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(createWithKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -48,7 +47,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(createWithoutKey),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -65,7 +63,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(createContract, exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -82,7 +79,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -99,7 +95,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(UnknownContract)
@@ -115,7 +110,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(createContract, fetch(createContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -131,7 +125,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set(divulgedContract.coid),
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -147,7 +140,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(UnknownContract)
@@ -163,7 +155,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(createContract, lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -179,7 +170,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(
@@ -200,7 +190,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -232,7 +221,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(committedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(DuplicateKey)
@@ -246,7 +234,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -260,7 +247,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(
@@ -279,7 +265,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -293,7 +278,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(
@@ -312,7 +296,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(lookupByKey(committedContract, found = true)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -326,7 +309,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(lookupByKey(committedContract, found = false)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe Some(
@@ -358,7 +340,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(exerciseOnDivulgedContract),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
@@ -372,7 +353,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             transaction = just(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
             divulged = Set.empty,
-            submitter = Party.assertFromString("Alice"),
           )
 
         error shouldBe None
