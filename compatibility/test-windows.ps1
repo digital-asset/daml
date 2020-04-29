@@ -40,7 +40,12 @@ function bazel() {
     Write-Output "<< bazel $args (ok)"
 }
 
+try {
+
 cd compatibility
+
+bazel clean --expunge
+
 # Symlinks don’t work on Windows.
 cp ../.bazelrc .bazelrc
 
@@ -49,3 +54,10 @@ bazel build //...
 bazel shutdown
 
 bazel test "$test_args"
+
+}
+
+finally {
+  bazel clean --expunge
+  git clean -fxd
+}
