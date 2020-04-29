@@ -80,6 +80,7 @@ jobs:
       - bash: ci/check-changelog.sh $(fork_sha)
 
   - job: Linux
+    condition: false
     dependsOn:
       - check_for_release
     variables:
@@ -116,6 +117,7 @@ jobs:
       - template: ci/report-end.yml
 
   - job: macOS
+    condition: false
     dependsOn:
       - check_for_release
     timeoutInMinutes: 360
@@ -146,6 +148,8 @@ jobs:
       - template: ci/report-end.yml
 
   - job: Windows
+    strategy:
+      parallel: 8
     dependsOn:
       - check_for_release
     variables:
@@ -210,6 +214,7 @@ jobs:
     timeoutInMinutes: 60
     pool:
       name: 'windows-pool'
+    condition: false
     steps:
       - template: ci/report-start.yml
       - checkout: self
