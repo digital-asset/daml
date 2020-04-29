@@ -8,7 +8,6 @@ locals {
   // see main.tf for additional locals
 }
 
-/*
 module "bazel_cache" {
   source = "./modules/gcp_cdn_bucket"
 
@@ -27,11 +26,6 @@ resource "google_storage_bucket_iam_member" "bazel_cache_writer" {
   # https://cloud.google.com/storage/docs/access-control/iam-roles
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.writer.email}"
-}
-*/
-
-module "bazel_cache" {
-  source = "./preserve_ip"
 }
 
 output "bazel_cache_ip" {
