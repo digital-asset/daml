@@ -496,10 +496,12 @@ object TypedValueGenerators {
     * ValueAddend gen.
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def indGenAddend(f: Gen[ValueAddend] => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
+  def indGenAddend(
+      f: (Gen[ValueAddend], Gen[ValueAddend]) => Seq[Gen[ValueAddend]]): Gen[ValueAddend] = {
     object Knot {
       val tie: Gen[ValueAddend] = Gen.sized { sz =>
-        val self = Gen.resize(sz / 2, Gen.lzy(tie))
+        val keySelf = Gen.resize(sz / 10, tie)
+        val self = Gen.resize(sz / 2, tie)
         val nestSize = sz / 3
         Gen.frequency(
           Seq(
@@ -508,7 +510,7 @@ object TypedValueGenerators {
             (sz max 1, Gen.oneOf(Numeric.Scale.values).map(ValueAddend.numeric)),
             (nestSize, self.map(ValueAddend.optional(_)))
           ) ++
-            f(self).map((nestSize, _)): _*
+            f(keySelf, self).map((nestSize, _)): _*
         )
       }
     }
@@ -526,15 +528,15 @@ object TypedValueGenerators {
     * Scalacheck support surrounding that type.''
     */
   val genAddend: Gen[ValueAddend] =
-    indGenAddend(
-      self =>
-        Seq(
-          self.map(ValueAddend.list(_)),
-          self.map(ValueAddend.map(_)),
-          Gen.zip(self, self).map { case (k, v) => ValueAddend.genMap(k, v) },
-      ))
+    indGenAddend { (keySelf, self) =>
+      Seq(
+        self.map(ValueAddend.list(_)),
+        self.map(ValueAddend.map(_)),
+        Gen.zip(keySelf, self).map { case (k, v) => ValueAddend.genMap(k, v) },
+      )
+    }
 
-  val genAddendNoListMap: Gen[ValueAddend] = indGenAddend(_ => Seq.empty)
+  val genAddendNoListMap: Gen[ValueAddend] = indGenAddend((_, _) => Seq.empty)
 
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue[Cid: Order](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
