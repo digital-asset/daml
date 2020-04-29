@@ -27,12 +27,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse,
   GetTransactionsResponse,
 }
-import com.daml.platform.store.entries.{
-  ConfigurationEntry,
-  LedgerEntry,
-  PackageLedgerEntry,
-  PartyLedgerEntry,
-}
+import com.daml.platform.store.entries.{ConfigurationEntry, PackageLedgerEntry, PartyLedgerEntry}
 
 import scala.concurrent.Future
 
@@ -40,10 +35,6 @@ import scala.concurrent.Future
 trait ReadOnlyLedger extends ReportsHealth with AutoCloseable {
 
   def ledgerId: LedgerId
-
-  def ledgerEntries(
-      startExclusive: Option[Offset],
-      endInclusive: Option[Offset]): Source[(Offset, LedgerEntry), NotUsed]
 
   def flatTransactions(
       startExclusive: Option[Offset],

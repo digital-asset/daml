@@ -7,8 +7,8 @@ import java.sql.Connection
 import java.time.Instant
 
 import anorm.BatchSql
-import com.daml.ledger.participant.state.v1.Offset
-import com.daml.ledger.{ApplicationId, CommandId, EventId, TransactionId, WorkflowId}
+import com.daml.ledger.participant.state.v1.{DivulgedContract, Offset, SubmitterInfo}
+import com.daml.ledger.{EventId, TransactionId, WorkflowId}
 import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.BlindingInfo
 import com.daml.platform.events.EventIdFormatter
@@ -91,25 +91,20 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
   }
 
   def write(
-      applicationId: Option[ApplicationId],
+      submitterInfo: Option[SubmitterInfo],
       workflowId: Option[WorkflowId],
       transactionId: TransactionId,
-      commandId: Option[CommandId],
-      submitter: Option[Party],
-      roots: Set[NodeId],
+      recordTime: Instant,
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
+      divulgedContracts: Iterable[DivulgedContract],
   )(implicit connection: Connection): Unit = {
 
     val eventBatches = EventsTable.prepareBatchInsert(
-      applicationId = applicationId,
+      submitterInfo = submitterInfo,
       workflowId = workflowId,
       transactionId = transactionId,
-      commandId = commandId,
-      submitter = submitter,
-      roots = roots,
       ledgerEffectiveTime = ledgerEffectiveTime,
       offset = offset,
       transaction = transaction,
@@ -185,6 +180,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       insertWitnessesBatch.foreach(_.execute())
 
     }
+
   }
 
 }

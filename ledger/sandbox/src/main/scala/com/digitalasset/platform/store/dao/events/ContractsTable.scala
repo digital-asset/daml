@@ -6,6 +6,7 @@ package com.daml.platform.store.dao.events
 import java.sql.Connection
 import java.time.Instant
 
+import com.daml.ledger.participant.state.v1.DivulgedContract
 import anorm.SqlParser.int
 import anorm.{BatchSql, NamedParameter, SqlStringInterpolation, ~}
 import com.daml.platform.store.Conversions._
@@ -95,7 +96,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
   def prepareBatchInsert(
       ledgerEffectiveTime: Instant,
       transaction: Transaction,
-      divulgedContracts: Iterable[(ContractId, Contract)],
+      divulgedContracts: Iterable[DivulgedContract],
   ): PreparedBatches = {
 
     // Add the locally created contracts, ensuring that _transient_
@@ -130,11 +131,11 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
     // consumed or not).
     val divulgedContractsInsertions =
       divulgedContracts.iterator.collect {
-        case (contractId, contract) if !locallyCreatedContracts.insertions.contains(contractId) =>
-          contractId -> insertContractQuery(
-            contractId = contractId,
-            templateId = contract.template,
-            createArgument = contract.arg,
+        case contract if !locallyCreatedContracts.insertions.contains(contract.contractId) =>
+          contract.contractId -> insertContractQuery(
+            contractId = contract.contractId,
+            templateId = contract.contractInst.template,
+            createArgument = contract.contractInst.arg,
             createLedgerEffectiveTime = None,
             stakeholders = Set.empty,
             key = None,

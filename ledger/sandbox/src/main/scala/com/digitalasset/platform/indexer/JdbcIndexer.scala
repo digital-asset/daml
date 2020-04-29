@@ -16,16 +16,14 @@ import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.Update._
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref.LedgerString
-import com.daml.lf.engine.Blinding
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.metrics.{MetricName, Timed}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.common.LedgerIdMismatchException
 import com.daml.platform.configuration.ServerRole
-import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.store.dao.{JdbcLedgerDao, LedgerDao}
-import com.daml.platform.store.entries.{LedgerEntry, PackageLedgerEntry, PartyLedgerEntry}
-import com.daml.platform.store.{FlywayMigrations, PersistenceEntry}
+import com.daml.platform.store.entries.{PackageLedgerEntry, PartyLedgerEntry}
+import com.daml.platform.store.FlywayMigrations
 import com.daml.resources.{Resource, ResourceOwner}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -178,7 +176,6 @@ class JdbcIndexer private[indexer] (
     lastReceivedOffset = offset.toApiString
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-    val externalOffset = offset
     val result = update match {
       case PartyAddedToParticipant(
           party,
@@ -188,7 +185,7 @@ class JdbcIndexer private[indexer] (
           submissionId) =>
         ledgerDao
           .storePartyEntry(
-            externalOffset,
+            offset,
             PartyLedgerEntry.AllocationAccepted(
               submissionId,
               hostingParticipantId,
@@ -204,7 +201,7 @@ class JdbcIndexer private[indexer] (
           rejectionReason) =>
         ledgerDao
           .storePartyEntry(
-            externalOffset,
+            offset,
             PartyLedgerEntry.AllocationRejected(
               submissionId,
               hostingParticipantId,
@@ -226,7 +223,7 @@ class JdbcIndexer private[indexer] (
             PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
         ledgerDao
           .storePackageEntry(
-            externalOffset,
+            offset,
             packages,
             optEntry
           )
@@ -240,7 +237,7 @@ class JdbcIndexer private[indexer] (
           )
         ledgerDao
           .storePackageEntry(
-            externalOffset,
+            offset,
             List.empty,
             Some(entry)
           )
@@ -252,40 +249,21 @@ class JdbcIndexer private[indexer] (
           transactionId,
           recordTime,
           divulgedContracts) =>
-        val blindingInfo = Blinding.blind(transaction)
-
-        val mappedDisclosure = blindingInfo.disclosure.map {
-          case (nodeId, parties) =>
-            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-        }
-
-        // local blinding info only contains values on transactions with relative contractIds.
-        // this does not happen here (see type of transaction: GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId])
-        assert(blindingInfo.localDivulgence.isEmpty)
-
-        val pt = PersistenceEntry.Transaction(
-          LedgerEntry.Transaction(
-            optSubmitterInfo.map(_.commandId),
-            transactionId,
-            optSubmitterInfo.map(_.applicationId),
-            optSubmitterInfo.map(_.submitter),
-            transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
-            recordTime.toInstant,
-            transaction
-              .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _)),
-            mappedDisclosure
-          ),
-          blindingInfo.globalDivulgence,
-          divulgedContracts.map(c => c.contractId -> c.contractInst)
+        ledgerDao.storeTransaction(
+          submitterInfo = optSubmitterInfo,
+          workflowId = transactionMeta.workflowId,
+          transactionId = transactionId,
+          recordTime = recordTime.toInstant,
+          ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+          offset = offset,
+          transaction = transaction,
+          divulged = divulgedContracts,
         )
-        ledgerDao
-          .storeLedgerEntry(externalOffset, pt)
 
       case config: ConfigurationChanged =>
         ledgerDao
           .storeConfigurationEntry(
-            externalOffset,
+            offset,
             config.recordTime.toInstant,
             config.submissionId,
             config.participantId,
@@ -296,7 +274,7 @@ class JdbcIndexer private[indexer] (
       case configRejection: ConfigurationChangeRejected =>
         ledgerDao
           .storeConfigurationEntry(
-            externalOffset,
+            offset,
             configRejection.recordTime.toInstant,
             configRejection.submissionId,
             configRejection.participantId,
@@ -305,36 +283,9 @@ class JdbcIndexer private[indexer] (
           )
 
       case CommandRejected(recordTime, submitterInfo, reason) =>
-        val rejection = PersistenceEntry.Rejection(
-          LedgerEntry.Rejection(
-            recordTime.toInstant,
-            submitterInfo.commandId,
-            submitterInfo.applicationId,
-            submitterInfo.submitter,
-            toDomainRejection(submitterInfo, reason)
-          )
-        )
-        ledgerDao
-          .storeLedgerEntry(externalOffset, rejection)
+        ledgerDao.storeRejection(Some(submitterInfo), recordTime.toInstant, offset, reason)
     }
     result.map(_ => ())(DEC)
-  }
-
-  private def toDomainRejection(
-      submitterInfo: SubmitterInfo,
-      state: RejectionReason): domain.RejectionReason = state match {
-    case RejectionReason.Inconsistent(_) =>
-      domain.RejectionReason.Inconsistent(state.description)
-    case RejectionReason.Disputed(_) =>
-      domain.RejectionReason.Disputed(state.description)
-    case RejectionReason.ResourcesExhausted(_) =>
-      domain.RejectionReason.OutOfQuota(state.description)
-    case RejectionReason.PartyNotKnownOnLedger(_) =>
-      domain.RejectionReason.PartyNotKnownOnLedger(state.description)
-    case RejectionReason.SubmitterCannotActViaParticipant(_) =>
-      domain.RejectionReason.SubmitterCannotActViaParticipant(state.description)
-    case RejectionReason.InvalidLedgerTime(_) =>
-      domain.RejectionReason.InvalidLedgerTime(state.description)
   }
 
   private class SubscriptionResourceOwner(readService: ReadService)
