@@ -51,7 +51,7 @@ bazel shutdown
 
 bazel clean --expunge
 
-bazel build @com_google_protobuf//...
+bazel build @com_google_protobuf//:protoc
 
 # Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
 # It isn’t clear where exactly those errors are coming from.
