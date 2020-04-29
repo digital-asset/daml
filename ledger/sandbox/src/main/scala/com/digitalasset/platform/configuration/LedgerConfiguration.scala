@@ -62,7 +62,6 @@ object LedgerConfiguration {
 
   /** Default configuration for a participant connecting to a remote ledger,
     * i.e., if there may be significant delay between the ledger and the index.
-    * Example: vDAML, Canton.
     */
   val defaultRemote: LedgerConfiguration = LedgerConfiguration(
     initialConfiguration = Configuration(

@@ -28,10 +28,10 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.concurrent.duration.{DurationInt, DurationLong}
 
 /**
-  * This class subscribes to ledger configuration updates coming from the index,
+  * Subscribes to ledger configuration updates coming from the index,
   * and makes the latest ledger configuration available to consumers.
   *
-  * This class is useful to avoid code duplication and to limit the number of
+  * This class helps avoiding code duplication and limiting the number of
   * database lookups, as multiple services and validators require the latest ledger config.
   */
 final class LedgerConfigProvider private (
@@ -63,7 +63,7 @@ final class LedgerConfigProvider private (
     ()
   })
 
-  // Look up the latest ledger configuration, then subscribe to a
+  // Looks up the latest ledger configuration, then subscribes to a
   // stream of configuration changes.
   // If the source of configuration changes proves to be a performance bottleneck,
   // it could be replaced by regular polling.

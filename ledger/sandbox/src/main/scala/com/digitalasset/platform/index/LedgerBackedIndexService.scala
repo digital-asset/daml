@@ -242,7 +242,9 @@ abstract class LedgerBackedIndexService(
         startExclusive
           .map(off => Future.fromTry(ApiOffset.fromString(off.value).map(Some(_))))
           .getOrElse(Future.successful(None)))
-      .flatMapConcat(ledger.configurationEntries(_).map(e => toAbsolute(e._1) -> e._2.toDomain))
+      .flatMapConcat(ledger.configurationEntries(_).map {
+        case (offset, config) => toAbsolute(offset) -> config.toDomain
+      })
 
   /** Deduplicate commands */
   override def deduplicateCommand(
