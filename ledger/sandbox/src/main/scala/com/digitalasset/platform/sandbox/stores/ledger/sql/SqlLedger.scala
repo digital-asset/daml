@@ -39,7 +39,8 @@ import com.daml.resources.ResourceOwner
 
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
+import scala.util.{Failure, Success, Try}
 
 object SqlLedger {
 
@@ -205,7 +206,12 @@ private final class SqlLedger(
               Nil,
           )
         )
-        .map(_ => ())(DEC)
+        .transform(
+          _.map(_ => ()).recover {
+            case NonFatal(t) =>
+              logger.error(s"Failed to persist entry with offset: ${offset.toApiString}", t)
+          }
+        )(DEC)
 
     }
 
