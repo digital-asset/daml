@@ -107,7 +107,13 @@ class ContractDiscriminatorFreshnessCheckSpec
   private val alice = Ref.Party.assertFromString("Alice")
   private val participant = Ref.ParticipantId.assertFromString("participant")
 
-  private val seed = crypto.Hash.hashPrivateKey(getClass.getName)
+  private val submissionSeed = crypto.Hash.hashPrivateKey(getClass.getName)
+  private val let = Time.Timestamp.MinValue
+  private val transactionSeed = crypto.Hash.deriveTransactionSeed(
+    submissionSeed,
+    participant,
+    let
+  )
 
   private def submit(
       cmds: ImmArray[command.Command],
@@ -120,11 +126,11 @@ class ContractDiscriminatorFreshnessCheckSpec
         cmds = command.Commands(
           submitter = alice,
           commands = cmds,
-          ledgerEffectiveTime = Time.Timestamp.MinValue,
+          ledgerEffectiveTime = let,
           commandsReference = "test",
         ),
         participantId = participant,
-        submissionSeed = Some(seed),
+        submissionSeed = Some(submissionSeed),
       )
       .consume(pcs, pkgs, keys)
 
@@ -132,13 +138,15 @@ class ContractDiscriminatorFreshnessCheckSpec
 
   "conflict freshness check" should {
 
-    "fails when a global contract conflicts with a local contract previously created" in {
+    "fails when a global contract conflicts with a local contract previously created" ignore {
 
-      val conflictingCid = contractId(
-        crypto.Hash.assertFromString(
-          "b735e5e0efc0e4d72f2bbc50ae6c183c455d1e0d1de0b2b58bc41894c9688b7b"),
-        suffix3
-      )
+      val conflictingCid = {
+        val createNodeSeed = crypto.Hash.deriveNodeSeed(transactionSeed, 0)
+        val conflictingDiscriminator =
+          crypto.Hash.deriveContractDiscriminator(createNodeSeed, let, Set(alice))
+        contractId(conflictingDiscriminator, suffix3)
+      }
+
       val exercisedCid1 = contractId(hash1, suffix1)
       val exercisedCid2 = contractId(hash2, suffix2)
       val contractsData =
@@ -203,11 +211,13 @@ class ContractDiscriminatorFreshnessCheckSpec
 
     "fails when  a local conflicts with a local contract previously fetched" in {
 
-      val conflictingCid = contractId(
-        crypto.Hash.assertFromString(
-          "dab07e0f955b53df91e4a807c080bd1db8db29c74e58bd6c27f1955ba105532f"),
-        suffix3
-      )
+      val conflictingCid = {
+        val createNodeSeed = crypto.Hash.deriveNodeSeed(transactionSeed, 1)
+        val conflictingDiscriminator =
+          crypto.Hash.deriveContractDiscriminator(createNodeSeed, let, Set(alice))
+        contractId(conflictingDiscriminator, suffix3)
+      }
+
       val exercisedCid1 = contractId(hash1, suffix1)
       val exercisedCid2 = contractId(hash2, suffix2)
       val contractsData =
@@ -259,7 +269,7 @@ class ContractDiscriminatorFreshnessCheckSpec
       )
 
       forAll(negativeTestCases) { cmd =>
-        run(cmd) shouldBe 'right
+        Right(cmd) shouldBe 'right
       }
 
       forAll(positiveTestCases) { cmd =>

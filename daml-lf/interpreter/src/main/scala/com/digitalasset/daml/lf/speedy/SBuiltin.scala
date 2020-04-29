@@ -819,7 +819,7 @@ object SBuiltin {
         )
         .fold(err => throw DamlETransactionError(err), identity)
 
-      machine.addOutputContract(coid, templateId, createArg)
+      machine.addLocalContract(coid, templateId, createArg)
       machine.ptx = newPtx
       machine.ctrl = CtrlValue(SContractId(coid))
       checkAborted(machine.ptx)

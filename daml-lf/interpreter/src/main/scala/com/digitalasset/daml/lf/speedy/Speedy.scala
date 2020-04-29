@@ -99,7 +99,7 @@ object Speedy {
       ImmArray(s.asScala)
     }
 
-    def addOutputContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
+    def addLocalContract(coid: V.ContractId, templateId: Ref.TypeConName, SValue: SValue) =
       coid match {
         case V.AbsoluteContractId.V1(discriminator, _)
             if globalDiscriminators.contains(discriminator) =>
@@ -108,7 +108,7 @@ object Speedy {
           localContracts = localContracts.updated(coid, templateId -> SValue)
       }
 
-    def addInputCid(cid: V.ContractId) = cid match {
+    def addGlobalCid(cid: V.ContractId) = cid match {
       case V.AbsoluteContractId.V1(discriminator, _) =>
         if (localContracts.isDefinedAt(V.AbsoluteContractId.V1(discriminator)))
           crash("Conflicting discriminators between a global and local contract ID.")
@@ -444,7 +444,7 @@ object Speedy {
         value0 match {
           case V.ValueList(vs) => SList(vs.map[SValue](go))
           case V.ValueContractId(coid) =>
-            machine.addInputCid(coid)
+            machine.addGlobalCid(coid)
             SContractId(coid)
           case V.ValueInt64(x) => SInt64(x)
           case V.ValueNumeric(x) => SNumeric(x)
