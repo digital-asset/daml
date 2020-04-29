@@ -154,8 +154,7 @@ private final class SqlLedger(
     new AtomicReference[Option[Configuration]](configAtInitialization)
 
   // Validates the given ledger time according to the ledger time model
-  private def checkTimeModel(ledgerTime: Instant): Either[RejectionReason, Unit] = {
-    val recordTime = timeProvider.getCurrentTime
+  private def checkTimeModel(ledgerTime: Instant, recordTime: Instant): Either[RejectionReason, Unit] = {
     currentConfiguration
       .get()
       .fold[Either[RejectionReason, Unit]](
@@ -177,7 +176,7 @@ private final class SqlLedger(
       val ledgerTime = transactionMeta.ledgerEffectiveTime.toInstant
       val recordTime = timeProvider.getCurrentTime
 
-      checkTimeModel(ledgerTime)
+      checkTimeModel(ledgerTime, recordTime)
         .fold(
           reason =>
             ledgerDao.storeRejection(
