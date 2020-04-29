@@ -49,7 +49,6 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
-git clean -xffd
 bazel clean --expunge
 
 bazel build @com_google_protobuf//:protoc
