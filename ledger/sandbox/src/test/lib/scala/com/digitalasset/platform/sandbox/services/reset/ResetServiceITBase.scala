@@ -60,7 +60,6 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, DurationLong, FiniteDuration}
 
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class ResetServiceITBase
     extends AsyncWordSpec
     with AsyncTimeLimitedTests
@@ -229,7 +228,7 @@ abstract class ResetServiceITBase
           ledgerId <- fetchLedgerId()
           packagesBeforeReset <- eventually { (_, _) =>
             listPackages(ledgerId).map { packages =>
-              packages should not be empty
+              packages.size should be > 0
               packages
             }
           }
