@@ -21,7 +21,6 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
