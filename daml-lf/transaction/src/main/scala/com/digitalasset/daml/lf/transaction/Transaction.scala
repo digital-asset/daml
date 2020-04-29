@@ -284,6 +284,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
       false
     else
       go(FrontStack(roots.zip(other.roots)))
+
   }
 
   /** Whether `other` is the result of reinterpreting this transaction.
