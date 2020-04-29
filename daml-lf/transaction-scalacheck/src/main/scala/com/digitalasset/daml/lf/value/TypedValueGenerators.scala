@@ -21,7 +21,7 @@ import iface.{
   Variant,
 }
 
-import scalaz.{Order, Ordering, ~>}
+import scalaz.{@@, Order, Ordering, Tag, ~>}
 import scalaz.Id.Id
 import scalaz.syntax.bitraverse._
 import scalaz.syntax.traverse._
@@ -140,7 +140,7 @@ object TypedValueGenerators {
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[Vector[elt.Inj[Cid]]]]
+        Tag unsubst implicitly[Arbitrary[Vector[elt.Inj[Cid]] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = {
         import elt.injshrink
@@ -185,7 +185,7 @@ object TypedValueGenerators {
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
+        Tag unsubst implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
@@ -221,7 +221,7 @@ object TypedValueGenerators {
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val k: Arbitrary[key.Inj[Cid]] = key.injarb
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid]]]
+        Tag unsubst implicitly[Arbitrary[key.Inj[Cid] Map elt.Inj[Cid] @@ Div3]]
       }
       override def injshrink[Cid: Shrink] = {
         import key.{injshrink => keyshrink}, elt.{injshrink => eltshrink}
