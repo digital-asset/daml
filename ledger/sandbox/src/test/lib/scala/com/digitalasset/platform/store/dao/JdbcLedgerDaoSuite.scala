@@ -9,7 +9,14 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v1.{AbsoluteContractInst, Configuration, Offset, TimeModel}
+import com.daml.ledger.participant.state.v1.{
+  AbsoluteContractInst,
+  Configuration,
+  DivulgedContract,
+  Offset,
+  SubmitterInfo,
+  TimeModel
+}
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref.{Identifier, Party}
@@ -30,6 +37,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.platform.events.EventIdFormatter
+import com.daml.platform.events.EventIdFormatter.split
 import com.daml.platform.store.PersistenceEntry
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
@@ -425,20 +433,30 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
     )
   }
 
+  private def splitOrThrow(id: EventId): NodeId =
+    split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
+
   protected final def store(
       divulgedContracts: Map[(AbsoluteContractId, AbsoluteContractInst), Set[Party]],
       offsetAndTx: (Offset, LedgerEntry.Transaction))(
-      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] =
+      implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] = {
+    val (offset, entry) = offsetAndTx
+    val submitterInfo =
+      for (submitter <- entry.submittingParty; app <- entry.applicationId; cmd <- entry.commandId)
+        yield SubmitterInfo(submitter, app, cmd, Instant.EPOCH)
     ledgerDao
-      .storeLedgerEntry(
-        offset = offsetAndTx._1,
-        PersistenceEntry.Transaction(
-          entry = offsetAndTx._2,
-          globalDivulgence = divulgedContracts.map { case ((id, _), witnesses) => id -> witnesses },
-          divulgedContracts = divulgedContracts.keysIterator.toList,
-        )
+      .storeTransaction(
+        submitterInfo = submitterInfo,
+        workflowId = entry.workflowId,
+        transactionId = entry.transactionId,
+        transaction = entry.transaction.mapNodeId(splitOrThrow),
+        recordTime = entry.recordedAt,
+        ledgerEffectiveTime = entry.ledgerEffectiveTime,
+        offset = offset,
+        divulged = divulgedContracts.keysIterator.map(c => DivulgedContract(c._1, c._2)).toList
       )
       .map(_ => offsetAndTx)
+  }
 
   protected final def store(offsetAndTx: (Offset, LedgerEntry.Transaction))(
       implicit ec: ExecutionContext): Future[(Offset, LedgerEntry.Transaction)] =
