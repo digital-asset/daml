@@ -145,6 +145,15 @@ class TransactionTimeModelComplianceIT
     completion.status.value.code shouldBe ok
 
   "A Ledger" should {
+    "reject transactions if there is no ledger config" in allFixtures { ledger =>
+      val ledgerTime = recordTime
+
+      for {
+        r1 <- publishTxAt(ledger, ledgerTime, "lt-valid")
+      } yield {
+        expectInvalidLedgerTime(r1)
+      }
+    }
     "accept transactions with ledger time that is right" in allFixtures { ledger =>
       val ledgerTime = recordTime
 
