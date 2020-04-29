@@ -136,7 +136,7 @@ object TypedValueGenerators {
       override def injord[Cid: Order] = {
         import scalaz.std.iterable._ // compatible with SValue ordering
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[Iterable[elt.Inj[Cid]]]] contramap identity
+        Order[Iterable[elt.Inj[Cid]]] contramap identity
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
@@ -158,7 +158,7 @@ object TypedValueGenerators {
       }
       override def injord[Cid: Order] = {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord
-        implicitly[Order[Option[elt.Inj[Cid]]]]
+        Order[Option[elt.Inj[Cid]]]
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
@@ -181,7 +181,7 @@ object TypedValueGenerators {
       }
       override def injord[Cid: Order] = {
         implicit val e: Order[elt.Inj[Cid]] = elt.injord[Cid]
-        implicitly[Order[SortedLookupList[elt.Inj[Cid]]]]
+        Order[SortedLookupList[elt.Inj[Cid]]]
       }
       override def injarb[Cid: Arbitrary: IntroCtx] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
