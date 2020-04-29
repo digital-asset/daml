@@ -6,9 +6,7 @@ package com.daml.platform.sandboxnext.services.reset
 import com.daml.platform.sandbox.SandboxBackend
 import com.daml.platform.sandbox.services.reset.ResetServiceITBase
 import com.daml.platform.sandboxnext.SandboxNextFixture
-import org.scalatest.Ignore
 
-@Ignore
 final class ResetServiceOnPostgresqlIT
     extends ResetServiceITBase
     with SandboxNextFixture
