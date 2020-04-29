@@ -141,6 +141,7 @@ object Trigger extends StrictLogging {
       compiledPackages = compiledPackages,
       submissionTime = Timestamp.now(),
       seeding = InitialSeeding.NoSeed,
+      Set.empty,
     )
     Machine.stepToValue(machine)
     machine.toSValue match {
@@ -165,6 +166,7 @@ object Trigger extends StrictLogging {
         compiledPackages = compiledPackages,
         submissionTime = Timestamp.now(),
         seeding = InitialSeeding.NoSeed,
+        Set.empty,
       )
     Machine.stepToValue(machine)
     machine.toSValue match {
@@ -318,7 +320,8 @@ class Runner(
       sexpr = null,
       compiledPackages = compiledPackages,
       submissionTime = Timestamp.now(),
-      seeding = InitialSeeding.NoSeed
+      seeding = InitialSeeding.NoSeed,
+      Set.empty,
     )
     val createdExpr: SExpr = SEValue(converter.fromACS(acs) match {
       case Left(err) => throw new ConverterException(err)

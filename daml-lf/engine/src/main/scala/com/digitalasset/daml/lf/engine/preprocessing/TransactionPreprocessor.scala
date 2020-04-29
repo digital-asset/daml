@@ -45,9 +45,9 @@ private[preprocessing] final class TransactionPreprocessor(
   // Translate a GenNode into an expression re-interpretable by the interpreter
   @throws[PreprocessorException]
   def unsafeTranslateNode[Cid <: Value.ContractId](
-      acc: (Set[Value.ContractId], Set[Value.AbsoluteContractId]),
+      acc: (Set[Value.AbsoluteContractId], Set[Value.ContractId]),
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid]
-  ): ((Set[Value.ContractId], Set[Value.AbsoluteContractId]), speedy.Command) = {
+  ): ((Set[Value.AbsoluteContractId], Set[Value.ContractId]), speedy.Command) = {
 
     val (localCids, globalCids) = acc
 
@@ -57,14 +57,14 @@ private[preprocessing] final class TransactionPreprocessor(
         val arg = unsafeAsValueWithAbsoluteContractIds(coinst.arg.value)
         coid match {
           case acoid: AbsoluteContractId =>
-            if (globalCids(acoid))
+            if (localCids(acoid))
               fail(s"created contract $coid in is not fresh")
           case _ =>
         }
         val (cmd, newCids) = commandPreprocessor.unsafePreprocessCreate(identifier, arg)
-        val newLocal = localCids + coid
-        val newGlobal = globalCids | newCids.filterNot(localCids)
-        (newLocal -> newGlobal, cmd)
+        val newglobalCids = globalCids + coid
+        val newlocalCids = localCids | newCids.filterNot(globalCids)
+        (newlocalCids -> newglobalCids, cmd)
 
       case Node.NodeExercises(
           coid,
@@ -84,7 +84,7 @@ private[preprocessing] final class TransactionPreprocessor(
         val arg = unsafeAsValueWithAbsoluteContractIds(chosenVal.value)
         val (cmd, newCids) =
           commandPreprocessor.unsafePreprocessExercise(templateId, coid, choice, arg)
-        (localCids, globalCids | newCids.filterNot(localCids)) -> cmd
+        (localCids | newCids.filterNot(globalCids), globalCids) -> cmd
       case Node.NodeFetch(coid, templateId, _, _, _, _, _) =>
         val acoid = unsafeAsAbsoluteContractId(coid)
         val cmd = commandPreprocessor.unsafePreprocessFetch(templateId, acoid)
@@ -101,9 +101,9 @@ private[preprocessing] final class TransactionPreprocessor(
       tx: GenTransaction.WithTxValue[Transaction.NodeId, Cid],
   ): (ImmArray[speedy.Command], Set[AbsoluteContractId]) = {
 
-    type Acc = ((Set[Value.ContractId], Set[Value.AbsoluteContractId]), BackStack[speedy.Command])
+    type Acc = ((Set[Value.AbsoluteContractId], Set[Value.ContractId]), BackStack[speedy.Command])
 
-    val ((_, globalCids), cmds) =
+    val ((localCids, _), cmds) =
       tx.roots.foldLeft[Acc](((Set.empty, Set.empty), BackStack.empty)) {
         case ((cids, stack), id) =>
           tx.nodes.get(id) match {
@@ -122,7 +122,7 @@ private[preprocessing] final class TransactionPreprocessor(
           }
       }
 
-    cmds.toImmArray -> globalCids
+    cmds.toImmArray -> localCids
   }
 
 }

@@ -3,6 +3,7 @@
 
 package com.daml.lf
 
+import com.daml.http.domain.CreateCommand
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._
@@ -14,7 +15,10 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.language.implicitConversions
 
-class ContractFreshCheckSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+class ContractDiscriminatorFreshnessCheckSpec
+    extends WordSpec
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   private val pkg = p"""
          module Mod {
@@ -169,7 +173,7 @@ class ContractFreshCheckSpec extends WordSpec with Matchers with TableDrivenProp
         )
 
       val negativeTestCases = Table(
-        "successful command",
+        "successful commands",
         command.ExerciseCommand(tmplId, exercisedCid1, "Noop", Value.ValueUnit),
         command.ExerciseByKeyCommand(tmplId, keyRecord(alice, 1), "Noop", Value.ValueUnit),
         command.ExerciseCommand(tmplId, exercisedCid1, "LookupByKey", keyRecord(alice, -1)),
@@ -178,7 +182,7 @@ class ContractFreshCheckSpec extends WordSpec with Matchers with TableDrivenProp
       )
 
       val positiveTestCases = Table(
-        "failing command",
+        "failing commands",
         command.ExerciseCommand(tmplId, conflictingCid, "Noop", Value.ValueUnit),
         command.ExerciseCommand(tmplId, exercisedCid2, "Noop", Value.ValueUnit),
         command.ExerciseByKeyCommand(tmplId, keyRecord(alice, 2), "Noop", Value.ValueUnit),
@@ -247,7 +251,7 @@ class ContractFreshCheckSpec extends WordSpec with Matchers with TableDrivenProp
       )
 
       val positiveTestCases = Table(
-        "failing command",
+        "failing commands",
         command.ExerciseCommand(tmplId, conflictingCid, "Noop", Value.ValueUnit),
         command.ExerciseCommand(tmplId, exercisedCid2, "Noop", Value.ValueUnit),
         command.ExerciseByKeyCommand(tmplId, keyRecord(alice, 2), "Noop", Value.ValueUnit),

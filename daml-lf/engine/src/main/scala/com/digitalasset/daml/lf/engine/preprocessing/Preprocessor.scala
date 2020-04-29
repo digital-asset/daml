@@ -170,7 +170,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
       node: Node.GenNode.WithTxValue[Transaction.NodeId, Cid],
   ): Result[(speedy.Command, Set[Value.AbsoluteContractId])] =
     safelyRun(getDependencies(List.empty, List(getTemplateId(node)))) {
-      val ((_, globalCids), cmd) = unsafeTranslateNode((Set.empty, Set.empty), node)
+      val ((globalCids, _), cmd) = unsafeTranslateNode((Set.empty, Set.empty), node)
       cmd -> globalCids
     }
 

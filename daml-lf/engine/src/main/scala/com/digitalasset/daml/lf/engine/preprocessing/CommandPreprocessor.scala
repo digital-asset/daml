@@ -77,7 +77,11 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
     val template = unsafeGetTemplate(templateId)
     val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> argCids
+    val cids = contractId match {
+      case acoid: Value.AbsoluteContractId => argCids + acoid
+      case _ => argCids
+    }
+    speedy.Command.Exercise(templateId, SValue.SContractId(contractId), choiceId, arg) -> cids
   }
 
   @throws[PreprocessorException]
@@ -91,7 +95,10 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
     val choiceArgType = unsafeGetChoiceArgType(templateId, template, choiceId)
     val ckTtype = unsafeGetContractKeyType(templateId, template)
     val (arg, argCids) = valueTranslator.unsafeTranslateValue(choiceArgType, argument)
-    val (key, _) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
+    val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
+    keyCids.foreach { coid =>
+      fail(s"Unexpected contract id in key: $coid")
+    }
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg) -> argCids
   }
 
@@ -119,7 +126,10 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
   ): speedy.Command.LookupByKey = {
     val template = unsafeGetTemplate(templateId)
     val ckTtype = unsafeGetContractKeyType(templateId, template)
-    val (key, _) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
+    val (key, keyCids) = valueTranslator.unsafeTranslateValue(ckTtype, contractKey)
+    keyCids.foreach { coid =>
+      fail(s"Unexpected contract id in key: $coid")
+    }
     speedy.Command.LookupByKey(templateId, key)
   }
 
@@ -148,10 +158,7 @@ private[preprocessing] final class CommandPreprocessor(compiledPackages: Mutable
             case command.CreateCommand(templateId, argument) =>
               handleNewCids(unsafePreprocessCreate(templateId, argument))
             case command.ExerciseCommand(templateId, contractId, choiceId, argument) =>
-              val (cmd, newCids) =
-                unsafePreprocessExercise(templateId, contractId, choiceId, argument)
-              cids = (cids + contractId) | newCids
-              cmd
+              handleNewCids(unsafePreprocessExercise(templateId, contractId, choiceId, argument))
             case command.ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
               handleNewCids(
                 unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument))

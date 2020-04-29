@@ -472,7 +472,7 @@ class OrderingSpec
     Some(txSeed),
   )
 
-  private def translatePrimValue(v: Value[Value.ContractId]) = {
+  private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
     val ctrl = Speedy.CtrlImportValue(v)
     val machine = dummyMachine
     machine.ctrl = Speedy.CtrlCrash(ctrl)
