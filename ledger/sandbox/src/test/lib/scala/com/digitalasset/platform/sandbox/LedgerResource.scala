@@ -35,14 +35,15 @@ object LedgerResource {
       entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty,
   )(implicit executionContext: ExecutionContext): Resource[Ledger] =
     new OwnedResource(
-      ResourceOwner.successful(
-        new InMemoryLedger(
-          ledgerId,
-          participantId,
-          timeProvider,
-          acs,
-          packages,
-          entries,
+      ResourceOwner.forValue(
+        () =>
+          new InMemoryLedger(
+            ledgerId,
+            participantId,
+            timeProvider,
+            acs,
+            packages,
+            entries,
         )))
 
   def postgres(
