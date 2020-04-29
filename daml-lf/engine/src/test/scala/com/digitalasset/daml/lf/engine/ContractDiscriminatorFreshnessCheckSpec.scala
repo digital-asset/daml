@@ -3,7 +3,6 @@
 
 package com.daml.lf
 
-import com.daml.http.domain.CreateCommand
 import com.daml.lf.data._
 import com.daml.lf.engine.Engine
 import com.daml.lf.testing.parser.Implicits._

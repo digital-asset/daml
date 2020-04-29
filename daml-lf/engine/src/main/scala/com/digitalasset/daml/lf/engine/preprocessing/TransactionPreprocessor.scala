@@ -58,13 +58,13 @@ private[preprocessing] final class TransactionPreprocessor(
         coid match {
           case acoid: AbsoluteContractId =>
             if (localCids(acoid))
-              fail(s"created contract $coid in is not fresh")
+              fail("Conflicting discriminators between a global and local contract ID.")
           case _ =>
         }
         val (cmd, newCids) = commandPreprocessor.unsafePreprocessCreate(identifier, arg)
-        val newglobalCids = globalCids + coid
-        val newlocalCids = localCids | newCids.filterNot(globalCids)
-        (newlocalCids -> newglobalCids, cmd)
+        val newGlobalCids = globalCids + coid
+        val newLocalCids = localCids | newCids.filterNot(globalCids)
+        (newLocalCids -> newGlobalCids, cmd)
 
       case Node.NodeExercises(
           coid,
