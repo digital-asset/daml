@@ -79,7 +79,6 @@ class KeyValueCommitting private[daml] (
     * existing entries in the key-value store. The concrete key for DAML state entry is obtained by applying
     * [[packDamlStateKey]] to [[DamlStateKey]].
     *
-    * @param engine: Engine instance to use for interpreting submission.
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
     * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.

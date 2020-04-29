@@ -15,6 +15,7 @@ import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyVa
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
@@ -31,6 +32,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(
+        Engine(),
         new FakeStateAccess(mockStateOperations),
         metricRegistry = new MetricRegistry,
       )
@@ -47,6 +49,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(None)))
       val instance = SubmissionValidator.create(
+        Engine(),
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true,
         metricRegistry = new MetricRegistry,
@@ -61,6 +64,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
     "return invalid submission for invalid envelope" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       val instance = SubmissionValidator.create(
+        Engine(),
         new FakeStateAccess(mockStateOperations),
         metricRegistry = new MetricRegistry,
       )
@@ -124,7 +128,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
-          .processSubmission(new KeyValueCommitting(new MetricRegistry)),
+          .processSubmission(new KeyValueCommitting(Engine(), new MetricRegistry)),
         allocateLogEntryId = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
         stateValueCache = Cache.none,

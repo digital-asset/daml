@@ -47,6 +47,7 @@ da_scala_test(
     deps = [
         ":ledger-on-memory",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",

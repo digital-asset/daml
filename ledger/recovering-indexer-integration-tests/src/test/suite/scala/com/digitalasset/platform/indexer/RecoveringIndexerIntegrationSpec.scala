@@ -17,6 +17,7 @@ import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1._
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.LedgerString
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.platform.configuration.ServerRole
@@ -234,6 +235,7 @@ object RecoveringIndexerIntegrationSpec {
         ledgerId,
         participantId,
         metricRegistry = metricRegistry,
+        engine = Engine()
       ).map(readerWriter =>
         new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
     }

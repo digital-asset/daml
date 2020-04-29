@@ -193,6 +193,7 @@ da_scala_test_suite(
         ":ledger-on-sql",
         ":ledger-on-sql-test-lib",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//ledger-api/rs-grpc-bridge",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
