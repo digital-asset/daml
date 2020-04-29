@@ -7,8 +7,8 @@ module DA.Daml.LF.Verify.Subst
   , singleExprSubst
   , singleTypeSubst
   , createExprSubst
-  , substituteTmTm
-  , substituteTyTm
+  , SubstTm(..)
+  , SubstTy(..)
   ) where
 
 import Control.Lens hiding (Context)
@@ -47,121 +47,111 @@ substDom :: ExprSubst
   -> [ExprVarName]
 substDom = Map.keys
 
--- | Apply an expression substitution to an expression.
+-- | A class covering the data types to which an expression substitution can be applied.
+class SubstTm a where
+  -- | Apply an expression substitution.
+  substituteTm :: ExprSubst
+    -- ^ The expression substitution to apply.
+    -> a
+    -- ^ The data to apply the substitution to.
+    -> a
+
+-- | A class covering the data types to which a type substitution can be applied.
+class SubstTy a where
+  -- | Apply an type substitution.
+  substituteTy :: Subst
+    -- ^ The type substitution to apply.
+    -> a
+    -- ^ The data to apply the substitution to.
+    -> a
+
 -- TODO: We assume that for any substitution x |-> e : x notin e
 -- and a |-> t : a notin t.
--- TODO: I can't help but feel there has to be a nicer way to write this function
-substituteTmTm :: ExprSubst
-  -- ^ The expression substitution to apply.
-  -> Expr
-  -- ^ The expression to apply the substitution to.
-  -> Expr
-substituteTmTm s = \case
-  EVar x
-    | Just e <- Map.lookup x s -> e
-    | otherwise -> EVar x
-  ERecCon t fs -> ERecCon t $ map (over _2 (substituteTmTm s)) fs
-  ERecProj t f e -> ERecProj t f $ substituteTmTm s e
-  ERecUpd t f e1 e2 -> ERecUpd t f (substituteTmTm s e1) (substituteTmTm s e2)
-  EVariantCon t v e -> EVariantCon t v (substituteTmTm s e)
-  EStructCon fs -> EStructCon $ map (over _2 (substituteTmTm s)) fs
-  EStructProj f e -> EStructProj f (substituteTmTm s e)
-  EStructUpd f e1 e2 -> EStructUpd f (substituteTmTm s e1) (substituteTmTm s e2)
-  ETmApp e1 e2 -> ETmApp (substituteTmTm s e1) (substituteTmTm s e2)
-  ETyApp e t -> ETyApp (substituteTmTm s e) t
-  ETmLam (x,t) e -> if x `elem` substDom s
-    then ETmLam (x,t) e
-    else ETmLam (x,t) (substituteTmTm s e)
-  ETyLam (a,k) e -> ETyLam (a,k) (substituteTmTm s e)
-  ECase e cs -> ECase (substituteTmTm s e)
-    $ map (\CaseAlternative{..} -> CaseAlternative altPattern (substituteTmTm s altExpr)) cs
-  ELet Binding{..} e -> ELet (Binding bindingBinder $ substituteTmTm s bindingBound)
-    (substituteTmTm s e)
-  ECons t e1 e2 -> ECons t (substituteTmTm s e1) (substituteTmTm s e2)
-  ESome t e -> ESome t (substituteTmTm s e)
-  EToAny t e -> EToAny t (substituteTmTm s e)
-  EFromAny t e -> EFromAny t (substituteTmTm s e)
-  EUpdate u -> EUpdate $ substituteTmUpd s u
-  ELocation l e -> ELocation l (substituteTmTm s e)
-  e -> e
+instance SubstTm Expr where
+  substituteTm s = \case
+    EVar x
+      | Just e <- Map.lookup x s -> e
+      | otherwise -> EVar x
+    ERecCon t fs -> ERecCon t $ map (over _2 (substituteTm s)) fs
+    ERecProj t f e -> ERecProj t f $ substituteTm s e
+    ERecUpd t f e1 e2 -> ERecUpd t f (substituteTm s e1) (substituteTm s e2)
+    EVariantCon t v e -> EVariantCon t v (substituteTm s e)
+    EStructCon fs -> EStructCon $ map (over _2 (substituteTm s)) fs
+    EStructProj f e -> EStructProj f (substituteTm s e)
+    EStructUpd f e1 e2 -> EStructUpd f (substituteTm s e1) (substituteTm s e2)
+    ETmApp e1 e2 -> ETmApp (substituteTm s e1) (substituteTm s e2)
+    ETyApp e t -> ETyApp (substituteTm s e) t
+    ETmLam (x,t) e -> if x `elem` substDom s
+      then ETmLam (x,t) e
+      else ETmLam (x,t) (substituteTm s e)
+    ETyLam (a,k) e -> ETyLam (a,k) (substituteTm s e)
+    ECase e cs -> ECase (substituteTm s e)
+      $ map (\CaseAlternative{..} -> CaseAlternative altPattern (substituteTm s altExpr)) cs
+    ELet Binding{..} e -> ELet (Binding bindingBinder $ substituteTm s bindingBound)
+      (substituteTm s e)
+    ECons t e1 e2 -> ECons t (substituteTm s e1) (substituteTm s e2)
+    ESome t e -> ESome t (substituteTm s e)
+    EToAny t e -> EToAny t (substituteTm s e)
+    EFromAny t e -> EFromAny t (substituteTm s e)
+    EUpdate u -> EUpdate $ substituteTm s u
+    ELocation l e -> ELocation l (substituteTm s e)
+    e -> e
 
--- | Apply an expression substitution to an update.
-substituteTmUpd :: ExprSubst
-  -- ^ The expression substitution to apply.
-  -> Update
-  -- ^ The update to apply the substitution to.
-  -> Update
-substituteTmUpd s = \case
-  UPure t e -> UPure t $ substituteTmTm s e
-  UBind Binding{..} e -> UBind (Binding bindingBinder $ substituteTmTm s bindingBound)
-    (substituteTmTm s e)
-  UCreate t e -> UCreate t $ substituteTmTm s e
-  UExercise t c e1 a e2 -> UExercise t c (substituteTmTm s e1) a (substituteTmTm s e2)
-  UFetch t e -> UFetch t $ substituteTmTm s e
-  UEmbedExpr t e -> UEmbedExpr t $ substituteTmTm s e
-  u -> u
+instance SubstTm Update where
+  substituteTm s = \case
+    UPure t e -> UPure t $ substituteTm s e
+    UBind Binding{..} e -> UBind (Binding bindingBinder $ substituteTm s bindingBound)
+      (substituteTm s e)
+    UCreate t e -> UCreate t $ substituteTm s e
+    UExercise t c e1 a e2 -> UExercise t c (substituteTm s e1) a (substituteTm s e2)
+    UFetch t e -> UFetch t $ substituteTm s e
+    UEmbedExpr t e -> UEmbedExpr t $ substituteTm s e
+    u -> u
 
--- | Apply a type substitution to an expression.
-substituteTyTm :: Subst
-  -- ^ The type substitution to apply.
-  -> Expr
-  -- ^ The expression to apply the substitution to.
-  -> Expr
-substituteTyTm s = \case
-  ERecCon t fs -> ERecCon (substituteTyTCApp s t) $ map (over _2 (substituteTyTm s)) fs
-  ERecProj t f e -> ERecProj (substituteTyTCApp s t) f $ substituteTyTm s e
-  ERecUpd t f e1 e2 -> ERecUpd (substituteTyTCApp s t) f (substituteTyTm s e1)
-    (substituteTyTm s e2)
-  EVariantCon t v e -> EVariantCon (substituteTyTCApp s t) v (substituteTyTm s e)
-  EStructCon fs -> EStructCon $ map (over _2 (substituteTyTm s)) fs
-  EStructProj f e -> EStructProj f $ substituteTyTm s e
-  EStructUpd f e1 e2 -> EStructUpd f (substituteTyTm s e1) (substituteTyTm s e2)
-  ETmApp e1 e2 -> ETmApp (substituteTyTm s e1) (substituteTyTm s e2)
-  ETyApp e t -> ETyApp (substituteTyTm s e) (substitute s t)
-  ETmLam (n, t) e -> ETmLam (n, substitute s t) (substituteTyTm s e)
-  ETyLam b e -> ETyLam b $ substituteTyTm s e
-  ECase e cs -> ECase (substituteTyTm s e) (map (substituteTyCaseAlt s) cs)
-  ELet Binding{..} e -> ELet (Binding (over _2 (substitute s) bindingBinder) (substituteTyTm s bindingBound))
-    (substituteTyTm s e)
-  ENil t -> ENil (substitute s t)
-  ECons t e1 e2 -> ECons (substitute s t) (substituteTyTm s e1) (substituteTyTm s e2)
-  ESome t e -> ESome (substitute s t) (substituteTyTm s e)
-  ENone t -> ENone (substitute s t)
-  EToAny t e -> EToAny (substitute s t) (substituteTyTm s e)
-  EFromAny t e -> EFromAny (substitute s t) (substituteTyTm s e)
-  ETypeRep t -> ETypeRep (substitute s t)
-  EUpdate u -> EUpdate (substituteTyUpd s u)
-  ELocation l e -> ELocation l (substituteTyTm s e)
-  e -> e
+instance SubstTm a => SubstTm (Maybe a) where
+  substituteTm s m = substituteTm s <$> m
 
--- | Apply a type substitution to an update.
-substituteTyUpd :: Subst
-  -- ^ The type substitution to apply.
-  -> Update
-  -- ^ The update to apply the substitution to.
-  -> Update
-substituteTyUpd s = \case
-  UPure t e -> UPure (substitute s t) (substituteTyTm s e)
-  UBind Binding{..} e -> UBind (Binding (over _2 (substitute s) bindingBinder) (substituteTyTm s bindingBound))
-    (substituteTyTm s e)
-  UCreate n e -> UCreate n (substituteTyTm s e)
-  UExercise n c e1 a e2 -> UExercise n c (substituteTyTm s e1) a (substituteTyTm s e2)
-  UFetch n e -> UFetch n (substituteTyTm s e)
-  UEmbedExpr t e -> UEmbedExpr (substitute s t) (substituteTyTm s e)
-  u -> u
+instance SubstTy Expr where
+  substituteTy s = \case
+    ERecCon t fs -> ERecCon (substituteTy s t) $ map (over _2 (substituteTy s)) fs
+    ERecProj t f e -> ERecProj (substituteTy s t) f $ substituteTy s e
+    ERecUpd t f e1 e2 -> ERecUpd (substituteTy s t) f (substituteTy s e1)
+      (substituteTy s e2)
+    EVariantCon t v e -> EVariantCon (substituteTy s t) v (substituteTy s e)
+    EStructCon fs -> EStructCon $ map (over _2 (substituteTy s)) fs
+    EStructProj f e -> EStructProj f $ substituteTy s e
+    EStructUpd f e1 e2 -> EStructUpd f (substituteTy s e1) (substituteTy s e2)
+    ETmApp e1 e2 -> ETmApp (substituteTy s e1) (substituteTy s e2)
+    ETyApp e t -> ETyApp (substituteTy s e) (substitute s t)
+    ETmLam (n, t) e -> ETmLam (n, substitute s t) (substituteTy s e)
+    ETyLam b e -> ETyLam b $ substituteTy s e
+    ECase e cs -> ECase (substituteTy s e) (map (substituteTy s) cs)
+    ELet Binding{..} e -> ELet (Binding (over _2 (substitute s) bindingBinder) (substituteTy s bindingBound))
+      (substituteTy s e)
+    ENil t -> ENil (substitute s t)
+    ECons t e1 e2 -> ECons (substitute s t) (substituteTy s e1) (substituteTy s e2)
+    ESome t e -> ESome (substitute s t) (substituteTy s e)
+    ENone t -> ENone (substitute s t)
+    EToAny t e -> EToAny (substitute s t) (substituteTy s e)
+    EFromAny t e -> EFromAny (substitute s t) (substituteTy s e)
+    ETypeRep t -> ETypeRep (substitute s t)
+    EUpdate u -> EUpdate (substituteTy s u)
+    ELocation l e -> ELocation l (substituteTy s e)
+    e -> e
 
--- | Apply a type substitution to an applied type constructor.
-substituteTyTCApp :: Subst
-  -- ^ The type substitution to apply.
-  -> TypeConApp
-  -- ^ The applied type constructor to apply the substitution to.
-  -> TypeConApp
-substituteTyTCApp s (TypeConApp n ts) = TypeConApp n (map (substitute s) ts)
+instance SubstTy Update where
+  substituteTy s = \case
+    UPure t e -> UPure (substitute s t) (substituteTy s e)
+    UBind Binding{..} e -> UBind (Binding (over _2 (substitute s) bindingBinder) (substituteTy s bindingBound))
+      (substituteTy s e)
+    UCreate n e -> UCreate n (substituteTy s e)
+    UExercise n c e1 a e2 -> UExercise n c (substituteTy s e1) a (substituteTy s e2)
+    UFetch n e -> UFetch n (substituteTy s e)
+    UEmbedExpr t e -> UEmbedExpr (substitute s t) (substituteTy s e)
+    u -> u
 
--- | Apply a type substitution to a case alternative.
-substituteTyCaseAlt :: Subst
-  -- ^ The type substitution to apply.
-  -> CaseAlternative
-  -- ^ The case alternative to apply the substitution to.
-  -> CaseAlternative
-substituteTyCaseAlt s (CaseAlternative p e) = CaseAlternative p (substituteTyTm s e)
+instance SubstTy TypeConApp where
+  substituteTy s (TypeConApp n ts) = TypeConApp n (map (substitute s) ts)
+
+instance SubstTy CaseAlternative where
+  substituteTy s (CaseAlternative p e) = CaseAlternative p (substituteTy s e)

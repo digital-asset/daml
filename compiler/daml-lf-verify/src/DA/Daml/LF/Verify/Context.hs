@@ -2,19 +2,26 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Contexts for DAML LF static verification
 module DA.Daml.LF.Verify.Context
-  ( Env(..)
+  ( Phase(..)
+  , GenPhase
+  , BoolExpr(..)
+  , Cond(..)
+  , Env(..)
   , Error(..)
   , MonadEnv
   , UpdateSet(..)
-  , UpdCreate(..)
-  , UpdArchive(..)
+  , Upd(..)
   , UpdChoice(..)
   , Skolem(..)
+  , getEnv
   , runEnv
   , genRenamedVar
   , emptyEnv
@@ -24,7 +31,10 @@ module DA.Daml.LF.Verify.Context
   , concatEnv
   , emptyUpdateSet
   , concatUpdateSet
-  , solveValueUpdatesEnv
+  , addUpd
+  , conditionalUpdateSet
+  , solveValueReferences
+  , solveChoiceReferences
   , lookupChoInHMap
   , fieldName2VarName
   , recTypConFields, recTypFields, recExpFields
@@ -34,7 +44,7 @@ import Control.Monad.Error.Class (MonadError (..), throwError)
 import Control.Monad.State.Lazy
 import Data.Hashable
 import GHC.Generics
-import Data.Maybe (listToMaybe, isJust)
+import Data.Maybe (listToMaybe, isJust, fromMaybe)
 import Data.List (find)
 import Data.Bifunctor
 import qualified Data.HashMap.Strict as HM
@@ -43,22 +53,88 @@ import qualified Data.Text as T
 import DA.Daml.LF.Ast hiding (lookupChoice)
 import DA.Daml.LF.Verify.Subst
 
--- | Data type denoting a create update.
-data UpdCreate = UpdCreate
-  { _creTemp  :: !(Qualified TypeConName)
-    -- ^ Qualified type constructor corresponding to the contract template.
-  , _creField :: ![(FieldName, Expr)]
-    -- ^ The fields to be verified, together with their value.
-  }
+-- TODO: Move these data types to a seperate file?
+-- | Data type denoting the phase of the constraint generator.
+data Phase
+  = ValueGathering
+  -- ^ The value phase gathers all value and data type definitions across modules.
+  | ChoiceGathering
+  -- ^ The choice phase gathers the updates performed in choice definitions.
+  | Solving
+  -- ^ During the solving phase, all definitions have been loaded and updates
+  -- have been inlined.
+
+-- | Data type denoting a boolean condition expression. This data type was
+-- introduced to avoid having to use imported daml-if prelude functions.
+data BoolExpr
+  = BExpr Expr
+  -- ^ A daml-lf expression.
+  | BAnd BoolExpr BoolExpr
+  -- ^ And operator.
+  | BNot BoolExpr
+  -- ^ Not operator.
   deriving Show
--- | Data type denoting an archive update.
-data UpdArchive = UpdArchive
-  { _arcTemp  :: !(Qualified TypeConName)
-    -- ^ Qualified type constructor corresponding to the contract template.
-  , _arcField :: ![(FieldName, Expr)]
-    -- ^ The fields to be verified, together with their value.
-  }
+
+-- | Data type denoting a potentially conditional value.
+data Cond a
+  = Determined a
+  -- ^ Non-conditional value.
+  | Conditional BoolExpr a (Maybe a)
+  -- ^ Conditional value, with a (Boolean) condition, a value in case the
+  -- condition holds, and possibly a value in case it doesn't.
   deriving Show
+
+instance Functor Cond where
+  fmap f (Determined x) = Determined (f x)
+  fmap f (Conditional e x y) = Conditional e (f x) (f <$> y)
+
+-- | Class covering the types which store conditionals inside.
+class Conditional a where
+  -- | Shift the conditional inside the data type.
+  introCond :: Cond a -> a
+
+instance Conditional (UpdateSet ph) where
+  introCond (Determined upds) = upds
+  introCond (Conditional e updx updy) = case updx of
+    UpdateSetVG{} -> UpdateSetVG
+      (concatCond $ Conditional e (_usvgUpdate updx) (_usvgUpdate <$> updy))
+      (concatCond $ Conditional e (_usvgChoice updx) (_usvgChoice <$> updy))
+      (concatCond $ Conditional e (_usvgValue updx) (_usvgValue <$> updy))
+    UpdateSetCG{} -> UpdateSetCG
+      (concatCond $ Conditional e (_uscgUpdate updx) (_uscgUpdate <$> updy))
+      (concatCond $ Conditional e (_uscgChoice updx) (_uscgChoice <$> updy))
+    UpdateSetS{} -> UpdateSetS
+      (concatCond $ Conditional e (_ussUpdate updx) (_ussUpdate <$> updy))
+
+-- | Flatten nested conditionals into a single level.
+concatCond :: Cond [Cond a] -> [Cond a]
+concatCond (Determined xs) = xs
+concatCond (Conditional e xs mys) = case mys of
+  Just ys -> map (ext_cond e) xs ++ map (ext_cond (BNot e)) ys
+  Nothing -> map (ext_cond e) xs
+  where
+    ext_cond :: BoolExpr -> Cond b -> Cond b
+    ext_cond e (Determined x) = Conditional e x Nothing
+    ext_cond e1 (Conditional e2 x y) = Conditional (BAnd e1 e2) x y
+
+-- | Data type denoting an update.
+data Upd
+  = UpdCreate
+  -- ^ Data type denoting a create update.
+    { _creTemp  :: !(Qualified TypeConName)
+     -- ^ Qualified type constructor corresponding to the contract template.
+    , _creField :: ![(FieldName, Expr)]
+      -- ^ The fields to be verified, together with their value.
+    }
+  | UpdArchive
+  -- ^ Data type denoting an archive update.
+    { _arcTemp  :: !(Qualified TypeConName)
+      -- ^ Qualified type constructor corresponding to the contract template.
+    , _arcField :: ![(FieldName, Expr)]
+      -- ^ The fields to be verified, together with their value.
+    }
+  deriving Show
+
 -- | Data type denoting an exercised choice update.
 data UpdChoice = UpdChoice
   { _choTemp  :: !(Qualified TypeConName)
@@ -66,40 +142,84 @@ data UpdChoice = UpdChoice
   , _choName  :: !ChoiceName
     -- ^ The name of the choice.
   }
-  deriving Show
+  deriving (Eq, Generic, Hashable, Show)
 
--- | The List of updates being performed
-data UpdateSet = UpdateSet
-  { _usCre :: ![UpdCreate]
-    -- ^ The list of create updates.
-  , _usArc :: ![UpdArchive]
-    -- ^ The list of archive updates.
-  , _usCho :: ![UpdChoice]
-    -- ^ The list of choice updates.
-  , _usVal :: ![Qualified ExprValName]
-    -- ^ The list of referenced values. These will be replaced by their
-    -- respective updates after solving.
-    -- Note that this should be empty after the `ValuePhase`.
-  }
-  deriving Show
+-- | The collection of updates being performed.
+data UpdateSet (ph :: Phase) where
+  UpdateSetVG ::
+    { _usvgUpdate :: ![Cond Upd]
+      -- ^ The list of updates.
+    , _usvgChoice :: ![Cond UpdChoice]
+      -- ^ The list of exercised choices.
+    , _usvgValue :: ![Cond (Qualified ExprValName)]
+      -- ^ The list of referenced values.
+    } -> UpdateSet 'ValueGathering
+  UpdateSetCG ::
+    { _uscgUpdate :: ![Cond Upd]
+      -- ^ The list of updates.
+    , _uscgChoice :: ![Cond UpdChoice]
+      -- ^ The list of exercised choices.
+    } -> UpdateSet 'ChoiceGathering
+  UpdateSetS ::
+    { _ussUpdate :: ![Cond Upd]
+      -- ^ The list of updates.
+    } -> UpdateSet 'Solving
 
--- | Create an empty update set.
-emptyUpdateSet :: UpdateSet
-emptyUpdateSet = UpdateSet [] [] [] []
+class GenPhase ph where
+  emptyUpdateSet :: UpdateSet ph
+  emptyEnv :: Env ph
+
+instance GenPhase 'ValueGathering where
+  emptyUpdateSet = UpdateSetVG [] [] []
+  emptyEnv = EnvVG [] HM.empty HM.empty HM.empty
+
+instance GenPhase 'ChoiceGathering where
+  emptyUpdateSet = UpdateSetCG [] []
+  emptyEnv = EnvCG [] HM.empty HM.empty HM.empty HM.empty
+
+instance GenPhase 'Solving where
+  emptyUpdateSet = UpdateSetS []
+  emptyEnv = EnvS [] HM.empty HM.empty HM.empty HM.empty
 
 -- | Combine two update sets.
-concatUpdateSet :: UpdateSet
+concatUpdateSet :: UpdateSet ph
   -- ^ The first update set to be combined.
-  -> UpdateSet
+  -> UpdateSet ph
   -- ^ The second update set to be combined.
-  -> UpdateSet
-concatUpdateSet (UpdateSet cres1 arcs1 chos1 vals1) (UpdateSet cres2 arcs2 chos2 vals2) =
-  UpdateSet (cres1 ++ cres2) (arcs1 ++ arcs2) (chos1 ++ chos2) (vals1 ++ vals2)
+  -> UpdateSet ph
+concatUpdateSet (UpdateSetVG upd1 cho1 val1) (UpdateSetVG upd2 cho2 val2) =
+  UpdateSetVG (upd1 ++ upd2) (cho1 ++ cho2) (val1 ++ val2)
+concatUpdateSet (UpdateSetCG upd1 cho1) (UpdateSetCG upd2 cho2) =
+  UpdateSetCG (upd1 ++ upd2) (cho1 ++ cho2)
+concatUpdateSet (UpdateSetS upd1) (UpdateSetS upd2) =
+  UpdateSetS (upd1 ++ upd2)
+
+-- | Add a single Upd to an UpdateSet
+addUpd :: UpdateSet ph
+  -- ^ The update set to extend.
+  -> Upd
+  -- ^ The update to add.
+  -> UpdateSet ph
+addUpd upds@UpdateSetVG{..} upd = upds{_usvgUpdate = Determined upd : _usvgUpdate}
+addUpd upds@UpdateSetCG{..} upd = upds{_uscgUpdate = Determined upd : _uscgUpdate}
+addUpd upds@UpdateSetS{..} upd = upds{_ussUpdate = Determined upd : _ussUpdate}
+
+-- | Make an update set conditional. A second update set can also be introduced
+-- for the case where the condition does not hold.
+conditionalUpdateSet :: Expr
+  -- ^ The condition on which to combine the two update sets.
+  -> UpdateSet ph
+  -- ^ The update set in case the condition holds.
+  -> Maybe (UpdateSet ph)
+  -- ^ Possibly a second update set.
+  -> UpdateSet ph
+conditionalUpdateSet exp upd1 upd2 =
+  introCond (Conditional (BExpr exp) upd1 upd2)
 
 -- | Refresh a given expression variable by producing a fresh renamed variable.
 -- TODO: when a renamed var gets renamed again, it might overlap again.
--- We should have an additional field in VarName to denote it's number.
-genRenamedVar :: MonadEnv m
+-- We should have an additional field in VarName to denote its number.
+genRenamedVar :: MonadEnv m ph
   => ExprVarName
   -- ^ The variable to be renamed.
   -> m ExprVarName
@@ -123,7 +243,7 @@ data Cid
   deriving (Generic, Hashable, Eq, Show)
 
 -- | Convert an expression to a contract id, if possible.
-expr2cid :: MonadEnv m
+expr2cid :: MonadEnv m ph
   => Expr
   -- ^ The expression to be converted.
   -> m Cid
@@ -133,33 +253,59 @@ expr2cid _ = throwError ExpectCid
 
 -- TODO: Could we alternatively just declare the variables that occur in the updates and drop the skolems?
 -- | The environment for the DAML-LF verifier
-data Env = Env
-  { _envskol :: ![Skolem]
-    -- ^ The skolemised term variables and fields.
-  , _envvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet))
-    -- ^ The bound values.
-  , _envchs :: !(HM.HashMap (Qualified TypeConName, ChoiceName)
-      (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet))
-    -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
-  , _envdats :: !(HM.HashMap TypeConName DefDataType)
-    -- ^ The set of data constructors.
-  , _envcids :: !(HM.HashMap Cid ExprVarName)
-    -- ^ The set of fetched cid's mapped to their variable name.
-  }
-
--- | Construct an empty environment.
-emptyEnv :: Env
-emptyEnv = Env [] HM.empty HM.empty HM.empty HM.empty
+data Env (ph :: Phase) where
+  EnvVG ::
+    { _envvgskol :: ![Skolem]
+      -- ^ The skolemised term variables and fields.
+    , _envvgvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering))
+      -- ^ The bound values.
+    , _envvgdats :: !(HM.HashMap TypeConName DefDataType)
+      -- ^ The set of data constructors.
+    , _envvgcids :: !(HM.HashMap Cid ExprVarName)
+      -- ^ The set of fetched cid's mapped to their variable name.
+    } -> Env 'ValueGathering
+  EnvCG ::
+    { _envcgskol :: ![Skolem]
+      -- ^ The skolemised term variables and fields.
+    , _envcgvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering))
+      -- ^ The bound values.
+    , _envcgdats :: !(HM.HashMap TypeConName DefDataType)
+      -- ^ The set of data constructors.
+    , _envcgcids :: !(HM.HashMap Cid ExprVarName)
+      -- ^ The set of fetched cid's mapped to their variable name.
+    , _envcgchs :: !(HM.HashMap UpdChoice
+        (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering))
+      -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
+    } -> Env 'ChoiceGathering
+  EnvS ::
+    { _envsskol :: ![Skolem]
+      -- ^ The skolemised term variables and fields.
+    , _envsvals :: !(HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'Solving))
+      -- ^ The bound values.
+    , _envsdats :: !(HM.HashMap TypeConName DefDataType)
+      -- ^ The set of data constructors.
+    , _envscids :: !(HM.HashMap Cid ExprVarName)
+      -- ^ The set of fetched cid's mapped to their variable name.
+    , _envschs :: !(HM.HashMap UpdChoice
+        (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving))
+      -- ^ The set of relevant choices, mapping to functions from self, this and args to its updates.
+    } -> Env 'Solving
 
 -- | Combine two environments.
-concatEnv :: Env
+concatEnv :: Env ph
   -- ^ The first environment to be combined.
-  -> Env
+  -> Env ph
   -- ^ The second environment to be combined.
-  -> Env
-concatEnv (Env vars1 vals1 chs1 dats1 cids1) (Env vars2 vals2 chs2 dats2 cids2) =
-  Env (vars1 ++ vars2) (vals1 `HM.union` vals2) (chs1 `HM.union` chs2)
-    (dats1 `HM.union` dats2) (cids1 `HM.union` cids2)
+  -> Env ph
+concatEnv (EnvVG vars1 vals1 dats1 cids1) (EnvVG vars2 vals2 dats2 cids2) =
+  EnvVG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
+    (cids1 `HM.union` cids2)
+concatEnv (EnvCG vars1 vals1 dats1 cids1 chos1) (EnvCG vars2 vals2 dats2 cids2 chos2) =
+  EnvCG (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
+    (cids1 `HM.union` cids2) (chos1 `HM.union` chos2)
+concatEnv (EnvS vars1 vals1 dats1 cids1 chos1) (EnvS vars2 vals2 dats2 cids2 chos2) =
+  EnvS (vars1 ++ vars2) (vals1 `HM.union` vals2) (dats1 `HM.union` dats2)
+    (cids1 `HM.union` cids2) (chos1 `HM.union` chos2)
   -- TODO: union makes me slightly nervous, as it allows overlapping keys
   -- (and just uses the first). `unionWith concatUpdateSet` would indeed be better,
   -- but this still makes me nervous as the expr and exprvarnames wouldn't be merged.
@@ -170,68 +316,75 @@ fieldName2VarName = ExprVarName . unFieldName
 
 -- | Type class constraint with the required monadic effects for functions
 -- manipulating the verification environment.
-type MonadEnv m = (MonadError Error m, MonadState (Int,Env) m)
+type MonadEnv m ph = (MonadError Error m, MonadState (Int,Env ph) m)
 
 -- | Fetch the current environment.
-getEnv :: MonadEnv m => m Env
+getEnv :: MonadEnv m ph => m (Env ph)
 getEnv = snd <$> get
 
 -- | Set the current environment.
-putEnv :: MonadEnv m => Env -> m ()
+putEnv :: MonadEnv m ph => Env ph -> m ()
 putEnv env = get >>= \(uni,_) -> put (uni,env)
 
 -- | Generate a new unique name.
-fresh :: MonadEnv m => m String
+fresh :: MonadEnv m ph => m String
 fresh = do
   (cur,env) <- get
   put (cur + 1,env)
   return $ show cur
 
 -- | Evaluate the MonadEnv to produce an error message or the final environment.
-runEnv :: StateT (Int,Env) (Either Error) ()
+runEnv :: StateT (Int, Env ph) (Either Error) ()
   -- ^ The monadic computation to be evaluated.
-  -> Env
+  -> Env ph
   -- ^ The initial environment to start from.
-  -> Either Error Env
+  -> Either Error (Env ph)
 runEnv comp env0 = do
   (_res, (_uni,env1)) <- runStateT comp (0,env0)
   return env1
 
 -- | Skolemise an expression variable and extend the environment.
-extVarEnv :: MonadEnv m
+extVarEnv :: MonadEnv m ph
   => ExprVarName
   -- ^ The expression variable to be skolemised.
   -> m ()
-extVarEnv x = do
-  env@Env{..} <- getEnv
-  putEnv env{_envskol = SkolVar x : _envskol}
+extVarEnv x = extSkolEnv (SkolVar x)
 
 -- | Skolemise a list of record projection and extend the environment.
-extRecEnv :: MonadEnv m
+extRecEnv :: MonadEnv m ph
   => ExprVarName
   -- ^ The variable on which is being projected.
   -> [FieldName]
   -- ^ The fields which should be skolemised.
   -> m ()
-extRecEnv x fs = do
-  env@Env{..} <- getEnv
-  putEnv env{_envskol = SkolRec x fs : _envskol}
+extRecEnv x fs = extSkolEnv (SkolRec x fs)
+
+-- | Extend the environment with a new skolem variable.
+extSkolEnv :: MonadEnv m ph
+  => Skolem
+  -- ^ The skolem variable to add.
+  -> m ()
+extSkolEnv skol = getEnv >>= \case
+  env@EnvVG{..} -> putEnv env{_envvgskol = skol : _envvgskol}
+  env@EnvCG{..} -> putEnv env{_envcgskol = skol : _envcgskol}
+  env@EnvS{..} -> putEnv env{_envsskol = skol : _envsskol}
 
 -- | Extend the environment with a new value definition.
-extValEnv :: MonadEnv m
+extValEnv :: MonadEnv m ph
   => Qualified ExprValName
   -- ^ The name of the value being defined.
   -> Expr
   -- ^ The (partially) evaluated value definition.
-  -> UpdateSet
+  -> UpdateSet ph
   -- ^ The updates performed by this value.
   -> m ()
-extValEnv val expr upd = do
-  env@Env{..} <- getEnv
-  putEnv env{_envvals = HM.insert val (expr, upd) _envvals}
+extValEnv val expr upd = getEnv >>= \case
+  env@EnvVG{..} -> putEnv env{_envvgvals = HM.insert val (expr, upd) _envvgvals}
+  env@EnvCG{..} -> putEnv env{_envcgvals = HM.insert val (expr, upd) _envcgvals}
+  env@EnvS{..} -> putEnv env{_envsvals = HM.insert val (expr, upd) _envsvals}
 
 -- | Extends the environment with a new choice.
-extChEnv :: MonadEnv m
+extChEnv :: MonadEnv m ph
   => Qualified TypeConName
   -- ^ The type of the template on which this choice is defined.
   -> ChoiceName
@@ -242,26 +395,29 @@ extChEnv :: MonadEnv m
   -- ^ Variable to bind the contract on which this choice is exercised on to.
   -> ExprVarName
   -- ^ Variable to bind the choice argument to.
-  -> UpdateSet
+  -> UpdateSet ph
   -- ^ The updates performed by the new choice.
   -> m ()
-extChEnv tc ch self this arg upd = do
-  env@Env{..} <- getEnv
-  let substUpd sExp tExp aExp = substituteTmUpd (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
-  putEnv env{_envchs = HM.insert (tc, ch) (self,this,arg,substUpd) _envchs}
+extChEnv tc ch self this arg upd =
+  let substUpd sExp tExp aExp = substituteTm (createExprSubst [(self,sExp),(this,tExp),(arg,aExp)]) upd
+  in getEnv >>= \case
+    EnvVG{} -> error "Impossible: extChEnv is not used in the value gathering phase"
+    env@EnvCG{..} -> putEnv env{_envcgchs = HM.insert (UpdChoice tc ch) (self,this,arg,substUpd) _envcgchs}
+    env@EnvS{..} -> putEnv env{_envschs = HM.insert (UpdChoice tc ch) (self,this,arg,substUpd) _envschs}
 
 -- | Extend the environment with a list of new data type definitions.
-extDatsEnv :: MonadEnv m
+extDatsEnv :: MonadEnv m ph
   => HM.HashMap TypeConName DefDataType
   -- ^ A hashmap of the data constructor names, with their corresponding definitions.
   -> m ()
-extDatsEnv hmap = do
-  env@Env{..} <- getEnv
-  putEnv env{_envdats = hmap `HM.union` _envdats}
+extDatsEnv hmap = getEnv >>= \case
+    env@EnvVG{..} -> putEnv env{_envvgdats = hmap `HM.union` _envvgdats}
+    env@EnvCG{..} -> putEnv env{_envcgdats = hmap `HM.union` _envcgdats}
+    env@EnvS{..} -> putEnv env{_envsdats = hmap `HM.union` _envsdats}
 
 -- | Extend the environment with a new contract id, and the variable to which
 -- the fetched contract is bound.
-extCidEnv :: MonadEnv m
+extCidEnv :: MonadEnv m ph
   => Expr
   -- ^ The contract id expression.
   -> ExprVarName
@@ -269,19 +425,21 @@ extCidEnv :: MonadEnv m
   -> m ()
 extCidEnv exp var = do
   cid <- expr2cid exp
-  env@Env{..} <- getEnv
-  putEnv env{_envcids = HM.insert cid var _envcids}
+  getEnv >>= \case
+    env@EnvVG{..} -> putEnv env{_envvgcids = HM.insert cid var _envvgcids}
+    env@EnvCG{..} -> putEnv env{_envcgcids = HM.insert cid var _envcgcids}
+    env@EnvS{..} -> putEnv env{_envscids = HM.insert cid var _envscids}
 
 -- TODO: Is one layer of recursion enough?
 -- | Recursively skolemise the given record fields, when they have a record
 -- type. Note that this only works 1 level deep.
-extRecEnvLvl1 :: MonadEnv m
+extRecEnvLvl1 :: MonadEnv m ph
   => [(FieldName, Type)]
   -- ^ The record fields to skolemise, together with their types.
   -> m ()
 extRecEnvLvl1 = mapM_ step
   where
-    step :: MonadEnv m => (FieldName, Type) -> m ()
+    step :: MonadEnv m ph => (FieldName, Type) -> m ()
     step (f,typ) = do
       { fsRec <- recTypFields typ
       ; extRecEnv (fieldName2VarName f) fsRec
@@ -291,87 +449,103 @@ extRecEnvLvl1 = mapM_ step
 
 -- | Lookup an expression variable in the environment. Succeeds if this variable
 -- has been skolemised, or throws an error if it hasn't.
-lookupVar :: MonadEnv m
+lookupVar :: MonadEnv m ph
   => ExprVarName
   -- ^ The expression variable to look up.
-  -> m ()
--- TODO: It might be nicer to return a bool here as well?
-lookupVar x = getEnv >>= \ env -> unless (elem (SkolVar x) $ _envskol env)
-  (throwError $ UnboundVar x)
+  -> m Bool
+lookupVar x = getEnv >>= \case
+  EnvVG{..} -> return $ elem (SkolVar x) _envvgskol
+  EnvCG{..} -> return $ elem (SkolVar x) _envcgskol
+  EnvS{..} -> return $ elem (SkolVar x) _envsskol
 
 -- | Lookup a record project in the environment. Returns a boolean denoting
 -- whether or not the record projection has been skolemised.
-lookupRec :: MonadEnv m
+lookupRec :: MonadEnv m ph
   => ExprVarName
   -- ^ The expression variable on which is being projected.
   -> FieldName
   -- ^ The field name which is being projected.
   -> m Bool
 lookupRec x f = do
-  env <- getEnv
-  let fields = [ fs | SkolRec y fs <- _envskol env , x == y ]
+  skols <- getEnv >>= \case
+    EnvVG{..} -> return _envvgskol
+    EnvCG{..} -> return _envcgskol
+    EnvS{..} -> return _envsskol
+  let fields = [ fs | SkolRec y fs <- skols, x == y ]
   if not (null fields)
     then return (elem f $ head fields)
     else return False
 
 -- | Lookup a value name in the environment. Returns its (partially) evaluated
 -- definition, together with the updates it performs.
-lookupVal :: MonadEnv m
+lookupVal :: MonadEnv m ph
   => Qualified ExprValName
   -- ^ The value name to lookup.
-  -> m (Expr, UpdateSet)
+  -> m (Expr, UpdateSet ph)
 lookupVal val = do
-  env <- getEnv
-  case lookupValInHMap (_envvals env) val of
+  vals <- getEnv >>= \case
+    EnvVG{..} -> return _envvgvals
+    EnvCG{..} -> return _envcgvals
+    EnvS{..} -> return _envsvals
+  case lookupValInHMap vals val of
     Just res -> return res
     Nothing -> throwError (UnknownValue val)
 
 -- | Lookup a choice name in the environment. Returns a function which, once
 -- self, this and args have been instantiated, returns the set of updates it
 -- performs.
-lookupChoice :: MonadEnv m
+lookupChoice :: MonadEnv m ph
   => Qualified TypeConName
   -- ^ The template name in which this choice is defined.
   -> ChoiceName
   -- ^ The choice name to lookup.
-  -> m (Expr -> Expr -> Expr -> UpdateSet)
+  -> m (Expr -> Expr -> Expr -> UpdateSet ph)
 lookupChoice tem ch = do
-  env <- getEnv
-  case lookupChoInHMap (_envchs env) (qualObject tem) ch of
+  chs <- getEnv >>= \case
+    EnvVG{..} -> return HM.empty
+    EnvCG{..} -> return _envcgchs
+    EnvS{..} -> return _envschs
+  case lookupChoInHMap chs (qualObject tem) ch of
     Nothing -> throwError (UnknownChoice ch)
     Just (_,_,_,upd) -> return upd
 
 -- | Lookup a data type definition in the environment.
-lookupDataCon :: MonadEnv m
+lookupDataCon :: MonadEnv m ph
   => TypeConName
   -- ^ The data constructor to lookup.
   -> m DefDataType
 lookupDataCon tc = do
-  env <- getEnv
-  case HM.lookup tc (_envdats env) of
+  dats <- getEnv >>= \case
+    EnvVG{..} -> return _envvgdats
+    EnvCG{..} -> return _envcgdats
+    EnvS{..} -> return _envsdats
+  case HM.lookup tc dats of
     Nothing -> throwError (UnknownDataCons tc)
     Just def -> return def
 
 -- | Lookup a contract id in the environment. Returns the variable its fetched
 -- contract is bound to.
-lookupCid :: MonadEnv m
+lookupCid :: MonadEnv m ph
   => Expr
   -- ^ The contract id to lookup.
   -> m ExprVarName
 lookupCid exp = do
-  env <- getEnv
   cid <- expr2cid exp
-  case HM.lookup cid (_envcids env) of
+  cids <- getEnv >>= \case
+    EnvVG{..} -> return _envvgcids
+    EnvCG{..} -> return _envcgcids
+    EnvS{..} -> return _envscids
+  case HM.lookup cid cids of
     Nothing -> throwError $ UnknownCid cid
     Just var -> return var
 
 -- TODO: There seems to be something wrong with the PackageRef in Qualified.
 -- | Helper function to lookup a value definition in a HashMap.
-lookupValInHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
+lookupValInHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet ph)
   -- ^ The HashMap in which to look.
   -> Qualified ExprValName
   -- ^ The value name to lookup.
-  -> Maybe (Expr, UpdateSet)
+  -> Maybe (Expr, UpdateSet ph)
 lookupValInHMap hmap val = listToMaybe $ HM.elems
   $ HM.filterWithKey (\name _ -> qualObject name == qualObject val && qualModule name == qualModule val) hmap
 
@@ -379,56 +553,164 @@ lookupValInHMap hmap val = listToMaybe $ HM.elems
 -- | Helper function to lookup a choice in a HashMap. Returns the variables for
 -- self, this and args used, as well as a function which, given the values for
 -- self, this and args, produces the list of updates performed by this choice.
-lookupChoInHMap :: HM.HashMap (Qualified TypeConName, ChoiceName)
-    (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet)
+lookupChoInHMap :: HM.HashMap UpdChoice
+    (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet ph)
   -- ^ The HashMap in which to look.
   -> TypeConName
   -- ^ The template in which the choice is defined.
   -> ChoiceName
   -- ^ The choice name to lookup.
-  -> Maybe (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet)
+  -> Maybe (ExprVarName, ExprVarName, ExprVarName, Expr -> Expr -> Expr -> UpdateSet ph)
 -- TODO: This TypeConName should be qualified
 -- TODO: The type con name really should be taken into account here
 lookupChoInHMap hmap _tem cho = listToMaybe $ HM.elems
-  $ HM.filterWithKey (\(_t, c) _ -> c == cho) hmap
+  $ HM.filterWithKey (\upd _ -> _choName upd == cho) hmap
 
 -- | Solves the value references by computing the closure of all referenced
 -- values, for each value in the environment.
--- It thus empties `_usVal` by collecting all updates made by this closure.
--- TODO: There are undoubtedly more efficient algorithms for computing this.
-solveValueUpdatesEnv :: Env -> Env
-solveValueUpdatesEnv env =
-  let hmap0 = _envvals env
-      hmap1 = foldl solveValueUpdate hmap0 (HM.keys hmap0)
-  in env{_envvals = hmap1}
-
--- | Compute the value reference closure for a single value.
-solveValueUpdate :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
-  -- ^ The HashMap containing the updates for each value.
-  -> Qualified ExprValName
-  -- ^ The current value to solve.
-  -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet)
-solveValueUpdate hmap0 val0 =
-  let (hmap1, _, _) = step (hmap0, emptyUpdateSet, []) val0
-  in hmap1
+-- It thus empties `_usValue` by collecting all updates made by this closure.
+solveValueReferences :: Env 'ValueGathering -> Env 'ChoiceGathering
+solveValueReferences EnvVG{..} =
+  let valhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envvgvals (HM.keys _envvgvals)
+  in EnvCG _envvgskol (convertHMap valhmap) _envvgdats _envvgcids HM.empty
   where
-    step :: (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet), UpdateSet, [Qualified ExprValName])
-      -> Qualified ExprValName
-      -> (HM.HashMap (Qualified ExprValName) (Expr, UpdateSet), UpdateSet, [Qualified ExprValName])
-    step inp@(hmap, baseupd, vis) val =
-      if val `elem` vis
-      -- TODO: Mutual recursion! For now, just ignore...
-      then inp
-      else case lookupValInHMap hmap val of
-        Nothing -> error ("Impossible! Undefined value: " ++ (show $ unExprValName $ qualObject val))
-        Just (expr, valupd) ->
-          let (nhmap, nvalupd, _) = foldl step (hmap, valupd{_usVal = []}, val:vis) (_usVal valupd)
-          in (HM.insert val (expr, nvalupd) nhmap, concatUpdateSet baseupd nvalupd, val:vis)
+    lookup_ref :: Qualified ExprValName
+      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
+      -> (Expr, UpdateSet 'ValueGathering)
+    lookup_ref ref hmap = fromMaybe (error "Impossible: Undefined value ref while solving")
+      (lookupValInHMap hmap ref)
+
+    get_refs :: (Expr, UpdateSet 'ValueGathering)
+      -> ([Cond (Qualified ExprValName)], (Expr, UpdateSet 'ValueGathering))
+    get_refs (e, upds@UpdateSetVG{..}) = (_usvgValue, (e, upds{_usvgValue = []}))
+
+    ext_upds :: (Expr, UpdateSet 'ValueGathering) -> (Expr, UpdateSet 'ValueGathering)
+      -> (Expr, UpdateSet 'ValueGathering)
+    ext_upds (e, upds1)  (_, upds2) = (e, concatUpdateSet upds1 upds2)
+
+    intro_cond :: Cond (Expr, UpdateSet 'ValueGathering)
+      -> (Expr, UpdateSet 'ValueGathering)
+    -- Note that the expression is not important here, as it will be ignored in
+    -- `ext_upds` later on.
+    intro_cond (Determined x) = x
+    intro_cond (Conditional cond (e,updx) y) = (e, introCond (Conditional cond updx (snd <$> y)))
+
+    convertHMap :: HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ValueGathering)
+      -> HM.HashMap (Qualified ExprValName) (Expr, UpdateSet 'ChoiceGathering)
+    convertHMap = HM.map (second updateSetVG2CG)
+
+    updateSetVG2CG :: UpdateSet 'ValueGathering -> UpdateSet 'ChoiceGathering
+    updateSetVG2CG UpdateSetVG{..} = if null _usvgValue
+      then UpdateSetCG _usvgUpdate _usvgChoice
+      else error "Impossible: There should be no references remaining after value solving"
+
+-- | Solves the choice references by computing the closure of all referenced
+-- choices, for each choice in the environment.
+-- It thus empties `_usChoice` by collecting all updates made by this closure.
+solveChoiceReferences :: Env 'ChoiceGathering -> Env 'Solving
+solveChoiceReferences EnvCG{..} =
+  let chhmap = foldl (\hmap ref -> snd $ solveReference lookup_ref get_refs ext_upds intro_cond [] hmap ref) _envcgchs (HM.keys _envcgchs)
+      chshmap = convertChHMap chhmap
+      valhmap = HM.map (inlineChoices chshmap) _envcgvals
+  in EnvS _envcgskol valhmap _envcgdats _envcgcids chshmap
+  where
+    lookup_ref :: UpdChoice
+      -> HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+    lookup_ref UpdChoice{..} hmap = fromMaybe (error "Impossible: Undefined choice ref while solving")
+      (lookupChoInHMap hmap (qualObject _choTemp) _choName)
+
+    get_refs :: (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> ([Cond UpdChoice], (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering))
+    -- TODO: This is gonna result in a ton of substitutions
+    get_refs (self,this,args,updfunc0) =
+      -- TODO: This seems to be a rather common pattern. Abstract to reduce duplication.
+      let chos = _uscgChoice $ updfunc0 (EVar self) (EVar this) (EVar args)
+          updfunc1 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            let upds@UpdateSetCG{..} = updfunc0 selfexp thisexp argsexp
+            in upds{_uscgChoice = []}
+      in (chos, (self,this,args,updfunc1))
+
+    ext_upds :: (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+    ext_upds (self,this,args,updfunc1) (_,_,_,updfunc2) =
+      let updfunc3 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            updfunc1 selfexp thisexp argsexp `concatUpdateSet` updfunc2 selfexp thisexp argsexp
+      in (self,this,args,updfunc3)
+
+    intro_cond :: Cond (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet ph)
+      -> (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet ph)
+    intro_cond (Determined x) = x
+    intro_cond (Conditional cond (self,this,args,updfunc1) y) =
+      let updfunc3 (selfexp :: Expr) (thisexp :: Expr) (argsexp :: Expr) =
+            introCond (Conditional cond (updfunc1 selfexp thisexp argsexp)
+              ((\(_,_,_,updfunc2) -> updfunc2 selfexp thisexp argsexp) <$> y))
+      in (self,this,args,updfunc3)
+
+    inlineChoices :: HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving)
+      -> (Expr, UpdateSet 'ChoiceGathering)
+      -> (Expr, UpdateSet 'Solving)
+    inlineChoices chshmap (exp, UpdateSetCG{..}) =
+      let lookupRes = map
+            (intro_cond . fmap (\ch -> fromMaybe (error "Impossible: missing choice while solving") (HM.lookup ch chshmap)))
+            _uscgChoice
+          chupds = concatMap (\(self,this,args,upds) -> _ussUpdate $ upds (EVar self) (EVar this) (EVar args)) lookupRes
+      in (exp, UpdateSetS (_uscgUpdate ++ chupds))
+
+    convertChHMap :: HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'ChoiceGathering)
+      -> HM.HashMap UpdChoice (ExprVarName,ExprVarName,ExprVarName,Expr -> Expr -> Expr -> UpdateSet 'Solving)
+    convertChHMap = HM.map (\(self,this,args,updfunc) ->
+      (self,this,args, \(selfExp :: Expr) (thisExp :: Expr) (argsExp :: Expr) ->
+        updateSetCG2S $ updfunc selfExp thisExp argsExp))
+
+    updateSetCG2S :: UpdateSet 'ChoiceGathering -> UpdateSet 'Solving
+    updateSetCG2S UpdateSetCG{..} = if null _uscgChoice
+      then UpdateSetS _uscgUpdate
+      else error "Impossible: There should be no references remaining after choice solving"
+
+-- | Solves a single reference by recursively inlining the references into updates.
+solveReference :: forall updset ref. (Eq ref, Hashable ref)
+  => (ref -> HM.HashMap ref updset -> updset)
+  -- ^ Function for looking up references in the update set.
+  -> (updset -> ([Cond ref], updset))
+  -- ^ Function popping the references from the update set.
+  -> (updset -> updset -> updset)
+  -- ^ Function for concatinating update sets.
+  -> (Cond updset -> updset)
+  -- ^ Function for moving conditionals inside the update set.
+  -> [ref]
+  -- ^ The references which have already been visited.
+  -> HM.HashMap ref updset
+  -- ^ The hashmap mapping references to update sets.
+  -> ref
+  -- ^ The reference to be solved.
+  -> (updset, HM.HashMap ref updset)
+solveReference lookup getRefs extUpds introCond vis hmap0 ref0 =
+  let upd0 = lookup ref0 hmap0
+      (refs, upd1) = getRefs upd0
+  in if ref0 `elem` vis
+  -- TODO: Recursion!
+    then (upd1, hmap0) -- TODO: At least remove the references?
+    else let (upd2, hmap1) = foldl handle_ref (upd1, hmap0) refs
+      in (upd1, HM.insert ref0 upd2 hmap1)
+  where
+    handle_ref :: (updset, HM.HashMap ref updset) -> Cond ref
+      -> (updset, HM.HashMap ref updset)
+    handle_ref (upd_i0, hmap_i0) (Determined ref_i) =
+      let (upd_i1, hmap_i1) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_i
+      in (extUpds upd_i0 upd_i1, hmap_i1)
+    handle_ref (upd_i0, hmap_i0) (Conditional cond ref_ia ref_ib) =
+      let (upd_ia, hmap_ia) = solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_i0 ref_ia
+          (upd_ib, hmap_ib) = maybe (Nothing, hmap_ia)
+            (first Just . solveReference lookup getRefs extUpds introCond (ref0:vis) hmap_ia) ref_ib
+          upd_i1 = extUpds upd_i0 $ introCond $ Conditional cond upd_ia upd_ib
+      in (upd_i1, hmap_ib)
 
 -- TODO: This should work recursively
 -- | Lookup the field names and corresponding types, for a given record type
 -- constructor name.
-recTypConFields :: MonadEnv m
+recTypConFields :: MonadEnv m ph
   => TypeConName
   -- ^ The record type constructor name to lookup.
   -> m [(FieldName,Type)]
@@ -437,7 +719,7 @@ recTypConFields tc = lookupDataCon tc >>= \dat -> case dataCons dat of
   _ -> throwError ExpectRecord
 
 -- | Lookup the fields for a given record type.
-recTypFields :: MonadEnv m
+recTypFields :: MonadEnv m ph
   => Type
   -- ^ The type to lookup.
   -> m [FieldName]
@@ -448,13 +730,16 @@ recTypFields (TStruct fs) = return $ map fst fs
 recTypFields _ = throwError ExpectRecord
 
 -- | Lookup the record fields and corresponding values from a given expression.
-recExpFields :: MonadEnv m
+recExpFields :: MonadEnv m ph
   => Expr
   -- ^ The expression to lookup.
   -> m [(FieldName, Expr)]
 recExpFields (EVar x) = do
-  env <- getEnv
-  let fss = [ fs | SkolRec y fs <- _envskol env , x == y ]
+  skols <- getEnv >>= \case
+    EnvVG{..} -> return _envvgskol
+    EnvCG{..} -> return _envcgskol
+    EnvS{..} -> return _envsskol
+  let fss = [ fs | SkolRec y fs <- skols, x == y ]
   if not (null fss)
     -- TODO: I would prefer `this.amount` here
     then return $ zip (head fss) (map (EVar . fieldName2VarName) $ head fss)
@@ -471,34 +756,29 @@ recExpFields (ERecProj _ f e) = do
     Nothing -> throwError $ UnknownRecField f
 recExpFields _ = throwError ExpectRecord
 
--- | Apply an expression substitution to an update set.
-substituteTmUpd :: ExprSubst
-  -- ^ The substitution to apply.
-  -> UpdateSet
-  -- ^ The update set on which to apply the substitution.
-  -> UpdateSet
-substituteTmUpd s UpdateSet{..} = UpdateSet susCre susArc _usCho _usVal
-  where
-    susCre = map (substituteTmUpdCreate s) _usCre
-    susArc = map (substituteTmUpdArchive s) _usArc
+instance SubstTm BoolExpr where
+  substituteTm s (BExpr e) = BExpr (substituteTm s e)
+  substituteTm s (BAnd e1 e2) = BAnd (substituteTm s e1) (substituteTm s e2)
+  substituteTm s (BNot e) = BNot (substituteTm s e)
 
--- | Apply an expression substitution to a create update.
-substituteTmUpdCreate :: ExprSubst
-  -- ^ The substitution to apply.
-  -> UpdCreate
-  -- ^ The create update on which to apply the substitution.
-  -> UpdCreate
-substituteTmUpdCreate s UpdCreate{..} = UpdCreate _creTemp
-  (map (second (substituteTmTm s)) _creField)
+instance SubstTm a => SubstTm (Cond a) where
+  substituteTm s (Determined x) = Determined $ substituteTm s x
+  substituteTm s (Conditional e x y) =
+    Conditional (substituteTm s e) (substituteTm s x) (substituteTm s y)
 
--- | Apply an expression substitution to an archive update.
-substituteTmUpdArchive :: ExprSubst
-  -- ^ The substitution to apply.
-  -> UpdArchive
-  -- ^ The archive update on which to apply the substitution.
-  -> UpdArchive
-substituteTmUpdArchive s UpdArchive{..} = UpdArchive _arcTemp
-  (map (second (substituteTmTm s)) _arcField)
+instance SubstTm (UpdateSet ph) where
+  substituteTm s UpdateSetVG{..} = UpdateSetVG susUpdate _usvgChoice _usvgValue
+    where susUpdate = map (substituteTm s) _usvgUpdate
+  substituteTm s UpdateSetCG{..} = UpdateSetCG susUpdate _uscgChoice
+    where susUpdate = map (substituteTm s) _uscgUpdate
+  substituteTm s UpdateSetS{..} = UpdateSetS susUpdate
+    where susUpdate = map (substituteTm s) _ussUpdate
+
+instance SubstTm Upd where
+  substituteTm s UpdCreate{..} = UpdCreate _creTemp
+    (map (second (substituteTm s)) _creField)
+  substituteTm s UpdArchive{..} = UpdArchive _arcTemp
+    (map (second (substituteTm s)) _arcField)
 
 -- | Data type representing an error.
 data Error
