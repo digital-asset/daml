@@ -115,8 +115,7 @@ You should copy this into a new ``MessageList.tsx`` file in ``ui/src/components`
   :start-after: // MESSAGELIST_BEGIN
   :end-before: // MESSAGELIST_END
 
-First we get the ``username`` of the current user with the ``useParty`` hook.
-Then ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
+The ``messagesResult`` gets the stream of all ``Message`` contracts where the ``receiver`` is our ``username``.
 The streaming aspect means that we don't need to reload the page when new messages come in.
 We extract the *payload* of every ``Message`` contract (the data as opposed to metadata like the contract ID) in ``messages``.
 The rest of the component simply constructs a React ``List`` element with an item for each message.
