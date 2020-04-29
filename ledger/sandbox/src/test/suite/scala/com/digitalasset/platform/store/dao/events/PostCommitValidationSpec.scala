@@ -27,7 +27,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val createWithKey = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(createWithKey),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -35,7 +35,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -43,7 +43,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val createWithoutKey = genTestCreate().copy(key = None)
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(createWithoutKey),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -51,7 +51,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -60,7 +60,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val createContract = genTestCreate()
         val exerciseContract = genTestExercise(createContract)
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(createContract, exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -68,7 +68,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -77,7 +77,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val divulgedContract = genTestCreate()
         val exerciseContract = genTestExercise(divulgedContract)
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -85,7 +85,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -94,7 +94,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
         val missingCreate = genTestCreate()
         val exerciseContract = genTestExercise(missingCreate)
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(exerciseContract),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -102,7 +102,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain theSameElementsAs Seq(UnknownContract)
+        error shouldBe Some(UnknownContract)
 
       }
 
@@ -110,7 +110,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val createContract = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(createContract, fetch(createContract)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -118,7 +118,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -126,7 +126,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val divulgedContract = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -134,7 +134,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -142,7 +142,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val missingCreate = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(fetch(missingCreate)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -150,7 +150,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain theSameElementsAs Seq(UnknownContract)
+        error shouldBe Some(UnknownContract)
 
       }
 
@@ -158,7 +158,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val createContract = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(createContract, lookupByKey(createContract, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -166,7 +166,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -174,7 +174,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val missingCreate = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(lookupByKey(missingCreate, found = true)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -182,7 +182,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain allElementsOf Seq(
+        error shouldBe Some(
           MismatchingLookup(
             expectation = Some(missingCreate.coid),
             result = None,
@@ -195,7 +195,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
         val missingContract = genTestCreate()
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(lookupByKey(missingContract, found = false)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -203,7 +203,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
@@ -220,7 +220,6 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
           committed(
             id = committedContract.coid.coid,
             ledgerEffectiveTime = committedContractLedgerEffectiveTime,
-            witnesses = Set("Alice"),
             key = committedContract.key.map(convert(committedContract.coinst.template, _))
           )
         )
@@ -228,7 +227,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
       "reject a create that would introduce a duplicate key" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(committedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
@@ -236,13 +235,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain theSameElementsAs Seq(DuplicateKey)
+        error shouldBe Some(DuplicateKey)
 
       }
 
       "accept an exercise on the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
@@ -250,13 +249,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
       "reject an exercise pre-dating the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(exerciseOnCommittedContract),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
@@ -264,7 +263,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain theSameElementsAs Seq(
+        error shouldBe Some(
           CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
@@ -275,7 +274,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
       "accept a fetch on the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
@@ -283,13 +282,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
       "reject a fetch pre-dating the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(fetch(committedContract)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
@@ -297,7 +296,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain theSameElementsAs Seq(
+        error shouldBe Some(
           CausalMonotonicityViolation(
             contractLedgerEffectiveTime = committedContractLedgerEffectiveTime,
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime.minusNanos(1),
@@ -308,7 +307,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
       "accept a successful lookup of the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(lookupByKey(committedContract, found = true)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
@@ -316,13 +315,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
       "reject a failed lookup of the committed contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(lookupByKey(committedContract, found = false)),
             transactionLedgerEffectiveTime = committedContractLedgerEffectiveTime,
@@ -330,7 +329,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation should contain allElementsOf Seq(
+        error shouldBe Some(
           MismatchingLookup(
             result = Some(committedContract.coid),
             expectation = None,
@@ -348,16 +347,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
 
       val store = new PostCommitValidation.BackedBy(
         committedContracts(
-          divulged(
-            id = divulgedContract.coid.coid,
-            witnesses = Set("Alice"),
-          )
+          divulged(divulgedContract.coid.coid),
         )
       )
 
       "accept an exercise on the divulged contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(exerciseOnDivulgedContract),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -365,13 +361,13 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
 
       "accept a fetch on the divulged contract" in {
 
-        val validation =
+        val error =
           store.validate(
             transaction = just(fetch(divulgedContract)),
             transactionLedgerEffectiveTime = Instant.now(),
@@ -379,7 +375,7 @@ final class PostCommitValidationSpec extends WordSpec with Matchers {
             submitter = Party.assertFromString("Alice"),
           )
 
-        validation shouldBe Set.empty
+        error shouldBe None
 
       }
     }
@@ -412,7 +408,6 @@ object PostCommitValidationSpec {
   private final case class ContractFixture private (
       id: ContractId,
       ledgerEffectiveTime: Option[Instant],
-      witnesses: Set[Party],
       key: Option[Key],
   )
 
@@ -422,9 +417,9 @@ object PostCommitValidationSpec {
   private final case class ContractStoreFixture private (contracts: Set[ContractFixture])
       extends PostCommitValidationData {
 
-    override def lookupContractKey(submitter: Party, key: Key)(
+    override def lookupContractKeyGlobally(key: Key)(
         implicit connection: Connection = null): Option[ContractId] =
-      contracts.find(c => c.key.contains(key) && c.witnesses.contains(submitter)).map(_.id)
+      contracts.find(c => c.key.contains(key)).map(_.id)
 
     override def lookupMaximumLedgerTime(ids: Set[ContractId])(
         implicit connection: Connection = null): Try[Option[Instant]] = {
@@ -432,11 +427,11 @@ object PostCommitValidationSpec {
         case c if ids.contains(c.id) => c.ledgerEffectiveTime
       }
       if (lookup.isEmpty) Failure(notFound(ids))
-      else Success(lookup.fold[Option[Instant]](None)(pickTheGreater))
+      else Success(lookup.fold[Option[Instant]](None)(pickTheGreatest))
     }
   }
 
-  private def pickTheGreater(l: Option[Instant], r: Option[Instant]): Option[Instant] =
+  private def pickTheGreatest(l: Option[Instant], r: Option[Instant]): Option[Instant] =
     l.fold(r)(left => r.fold(l)(right => if (left.isAfter(right)) l else r))
 
   private def notFound(contractIds: Set[ContractId]): Throwable =
@@ -456,21 +451,18 @@ object PostCommitValidationSpec {
   private def committed(
       id: String,
       ledgerEffectiveTime: Instant,
-      witnesses: Set[String],
       key: Option[Key] = None,
   ): ContractFixture =
     ContractFixture(
       ContractId.assertFromString(id),
       Some(ledgerEffectiveTime),
-      witnesses.map(Party.assertFromString),
       key,
     )
 
-  private def divulged(id: String, witnesses: Set[String]): ContractFixture =
+  private def divulged(id: String): ContractFixture =
     ContractFixture(
       ContractId.assertFromString(id),
       None,
-      witnesses.map(Party.assertFromString),
       None,
     )
 
