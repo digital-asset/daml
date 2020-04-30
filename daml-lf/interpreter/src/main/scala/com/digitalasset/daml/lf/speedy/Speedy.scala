@@ -66,7 +66,7 @@ object Speedy {
         // NOTE(MH): If the top of the continuation stack is the monadic token,
         // we push location information under it to account for the implicit
         // lambda binding the token.
-        case Some(KArg(Array(SEValue.Token))) => kont.add(last_index, KLocation(loc))
+        case Some(KArg(SEValue.Token)) => kont.add(last_index, KLocation(loc))
         // NOTE(MH): When we use a cached top level value, we need to put the
         // stack trace it produced back on the continuation stack to get
         // complete stack trace at the use site. Thus, we store the stack traces
@@ -399,7 +399,7 @@ object Speedy {
 
   object Ctrl {
     def fromPrim(prim: Prim, arity: Int): Ctrl =
-      CtrlValue(SPAP(prim, new util.ArrayList[SValue](), arity))
+      CtrlValue(SPAP(prim, new util.ArrayList[SValue](arity), arity, false))
   }
 
   // This translates a well-typed LF value (typically coming from
@@ -530,36 +530,20 @@ object Speedy {
   }
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
-  final case class KArg(newArgs: Array[SExpr]) extends Kont with SomeArrayEquals {
+  final case class KArg(arg: SExpr) extends Kont with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       v match {
-        case SPAP(prim, args, arity) =>
-          val missing = arity - args.size
-          val newArgsLimit = Math.min(missing, newArgs.length)
-
-          // Keep some space free, because both `KFun` and `KPushTo` will add to the list.
-          val extendedArgs = new util.ArrayList[SValue](args.size + newArgsLimit)
-          extendedArgs.addAll(args)
-
-          // Stash away over-applied arguments, if any.
-          val othersLength = newArgs.length - missing
-          if (othersLength > 0) {
-            val others = new Array[SExpr](othersLength)
-            System.arraycopy(newArgs, missing, others, 0, othersLength)
-            machine.kont.add(KArg(others))
-          }
-
-          machine.kont.add(KFun(prim, extendedArgs, arity))
-
-          // Start evaluating the arguments.
-          var i = 1
-          while (i < newArgsLimit) {
-            val arg = newArgs(newArgsLimit - i)
-            machine.kont.add(KPushTo(extendedArgs, arg))
-            i = i + 1
-          }
-          machine.ctrl = CtrlExpr(newArgs(0))
-
+        case pap0: SPAP =>
+          val pap =
+            if (pap0.shared)
+              pap0.copy(
+                args = pap0.args.clone().asInstanceOf[util.ArrayList[SValue]],
+                shared = false,
+              )
+            else
+              pap0
+          machine.kont.add(KFun(pap))
+          machine.ctrl = CtrlExpr(arg)
         case _ =>
           crash(s"Applying non-PAP: $v")
       }
@@ -569,16 +553,18 @@ object Speedy {
   /** The function and the arguments have been evaluated. Construct a PAP from them.
     * If the PAP is fully applied the machine will push the arguments to the environment
     * and start evaluating the function body. */
-  final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
+  final case class KFun(pap: SPAP) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      args.add(v) // Add last argument
-      machine.ctrl = CtrlValue(SPAP(prim, args, arity))
+      pap.args.add(v.share()) // Add last argument
+      machine.ctrl = CtrlValue(pap)
     }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   final case class KMatch(alts: Array[SCaseAlt]) extends Kont with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
+      // NOTE(MH): We don't need to call `v.share()` here since pattern
+      // matching on a PAP will crash anyway.
       val altOpt = v match {
         case SBool(b) =>
           alts.find { alt =>
@@ -669,7 +655,7 @@ object Speedy {
     */
   final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
     def execute(v: SValue, machine: Machine) = {
-      to.add(v)
+      to.add(v.share())
       machine.ctrl = CtrlExpr(next)
     }
   }
@@ -683,7 +669,7 @@ object Speedy {
   final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
     def execute(sv: SValue, machine: Machine) = {
       machine.pushStackTrace(stack_trace)
-      v.cached = Some((sv, stack_trace))
+      v.cached = Some((sv.share(), stack_trace))
     }
   }
 

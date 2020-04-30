@@ -515,8 +515,8 @@ class Runner(
         // Unwrap Script newtype and apply to ()
         case SRecord(_, _, vals) if vals.size == 1 => {
           vals.get(0) match {
-            case SPAP(_, _, _) =>
-              machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(vals.get(0)), Array(SEValue(SUnit))))
+            case SPAP(_, _, _, _) =>
+              machine.ctrl = Speedy.CtrlExpr(SEApp(SEValue(vals.get(0).share()), Array(SEValue(SUnit))))
               Future.unit
             case v =>
               Future.failed(
