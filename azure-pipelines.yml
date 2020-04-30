@@ -116,65 +116,62 @@ jobs:
       - template: ci/report-end.yml
 
   - job: macOS
-    #dependsOn:
-    #  - check_for_release
+    dependsOn:
+      - check_for_release
     timeoutInMinutes: 360
     pool:
       name: 'macOS-pool'
-    #variables:
-    #  release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    #  release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    #  trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    #  is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      #- bash: |
-      #    set -euo pipefail
-      #    git checkout $(release_sha)
-      #    git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
-      #  name: checkout_release
-      #  condition: eq(variables.is_release, 'true')
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-unix.yml
         parameters:
-          release_tag: 0.0.0
+          release_tag: $(release_tag)
           name: macos
-          is_release: false
-      #- template: ci/tell-slack-failed.yml
-      #  parameters:
-      #    trigger_sha: '$(trigger_sha)'
+          is_release: variables.is_release
+      - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: Windows
-    #dependsOn:
-    #  - check_for_release
-    #variables:
-    #  release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    #  release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    #  trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    #  is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+    dependsOn:
+      - check_for_release
+    variables:
+      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
     timeoutInMinutes: 360
-    strategy:
-      parallel: 6
     pool:
       name: 'windows-pool'
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      #- bash: |
-      #    set -euo pipefail
-      #    git checkout $(release_sha)
-      #    git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
-      #  name: checkout_release
-      #  condition: eq(variables.is_release, 'true')
+      - bash: |
+          set -euo pipefail
+          git checkout $(release_sha)
+          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+        name: checkout_release
+        condition: eq(variables.is_release, 'true')
       - template: ci/build-windows.yml
         parameters:
-          #release_tag: $(release_tag)
-          release_tag: 0.0.0
-          is_release: false
-      #- template: ci/tell-slack-failed.yml
-      #  parameters:
-      #    trigger_sha: '$(trigger_sha)'
+          release_tag: $(release_tag)
+          is_release: variables.is_release
+      - template: ci/tell-slack-failed.yml
+        parameters:
+          trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
   - job: compatibility_linux
