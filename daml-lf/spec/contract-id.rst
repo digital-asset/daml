@@ -1,3 +1,6 @@
+.. Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 V1 Contract ID allocation scheme
 ================================
 
@@ -239,3 +242,4 @@ suffix of the local contract IDs.
 .. End:
 
 ..  LocalWords:  commiter lexicographically endian
+
