@@ -90,6 +90,8 @@ class TransactionTimeModelComplianceIT
       optByKeyNodes = None
     )
 
+    val offset = ledger.ledgerEnd
+
     for {
       submissionResult <- ledger.publishTransaction(
         submitterInfo,
@@ -97,8 +99,8 @@ class TransactionTimeModelComplianceIT
         dummyTransaction)
       completion <- ledger
         .completions(
+          Some(offset),
           None,
-          Some(ledger.ledgerEnd),
           com.daml.ledger.api.domain.ApplicationId(submitterInfo.applicationId),
           Set(submitterInfo.submitter)
         )
