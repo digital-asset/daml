@@ -185,8 +185,8 @@ class ApiCodecCompressedSpec
 
       "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
         val mapVa = VA.genMap(kva, VA.int64)
-        import mapVa.injshrink
-        implicit val mapArb: Arbitrary[mapVa.Inj[Cid]] = mapVa.injarb(Arbitrary(genCid), Order[Cid])
+        import mapVa.{injarb, injshrink}
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
         forAll(minSuccessful(50)) { map: mapVa.Inj[Cid] =>
           val canonical = mapVa.inj(map)
           val jsEnc = inside(apiValueToJsValue(canonical)) {
