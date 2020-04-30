@@ -481,7 +481,6 @@ private class JdbcLedgerDao(
             submitterInfo = submitterInfo,
             workflowId = workflowId,
             transactionId = transactionId,
-            recordTime = recordTime,
             ledgerEffectiveTime = ledgerEffectiveTime,
             offset = offset,
             transaction = transaction,
@@ -490,12 +489,12 @@ private class JdbcLedgerDao(
           submitterInfo
             .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
             .foreach(_.execute())
-          updateLedgerEnd(offset)
         } else {
           submitterInfo
             .map(prepareRejectionInsert(_, offset, recordTime, error.get))
             .foreach(_.execute())
         }
+        updateLedgerEnd(offset)
         Ok
       }
 
@@ -509,6 +508,7 @@ private class JdbcLedgerDao(
       submitterInfo
         .map(prepareRejectionInsert(_, offset, recordTime, reason))
         .foreach(_.execute())
+      updateLedgerEnd(offset)
       Ok
     }
 
@@ -532,12 +532,14 @@ private class JdbcLedgerDao(
                   submitterInfo = submitterInfo,
                   workflowId = tx.workflowId,
                   transactionId = tx.transactionId,
-                  recordTime = tx.recordedAt,
                   ledgerEffectiveTime = tx.ledgerEffectiveTime,
                   offset = offset,
                   transaction = tx.transaction.mapNodeId(splitOrThrow),
                   divulgedContracts = Nil,
                 )
+                submitterInfo
+                  .map(prepareCompletionInsert(_, offset, tx.transactionId, tx.recordedAt))
+                  .foreach(_.execute())
               case LedgerEntry.Rejection(recordTime, commandId, applicationId, submitter, reason) =>
                 val _ = prepareRejectionInsert(
                   submitterInfo = SubmitterInfo(submitter, applicationId, commandId, Instant.EPOCH),

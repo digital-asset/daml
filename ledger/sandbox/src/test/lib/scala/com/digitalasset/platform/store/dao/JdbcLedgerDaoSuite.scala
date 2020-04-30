@@ -8,6 +8,7 @@ import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v1.{
   AbsoluteContractInst,
@@ -38,7 +39,6 @@ import com.daml.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.daml.ledger.{EventId, TransactionId}
 import com.daml.platform.events.EventIdFormatter
 import com.daml.platform.events.EventIdFormatter.split
-import com.daml.platform.store.PersistenceEntry
 import com.daml.platform.store.entries.LedgerEntry
 import org.scalatest.Suite
 
@@ -65,6 +65,8 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final val bob = Party.assertFromString("Bob")
   protected final val charlie = Party.assertFromString("Charlie")
 
+  protected final val defaultAppId = "default-app-id"
+  protected final val defaultWorkflowId = "default-workflow-id"
   protected final val someAgreement = "agreement"
   protected final val someTemplateId = Identifier(
     Ref.PackageId.assertFromString("packageId"),
@@ -106,7 +108,7 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
   protected final val packages: List[(DamlLf.Archive, v2.PackageDetails)] =
     dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
 
-  protected implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
+  protected implicit def toParty(s: String): Party = Party.assertFromString(s)
 
   protected implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
@@ -464,24 +466,26 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
 
   /** A transaction that creates the given key */
   protected final def txCreateContractWithKey(
-      let: Instant,
-      offset: Offset,
       party: Party,
-      key: String): PersistenceEntry.Transaction = {
-    val id = offset.toLong
-    PersistenceEntry.Transaction(
+      key: String,
+  ): (Offset, LedgerEntry.Transaction) = {
+    val transactionId = UUID.randomUUID.toString
+    val createEventId = event(transactionId, 0)
+    val contractId =
+      AbsoluteContractId.assertFromString(s"#txCreateContractWithKey-${UUID.randomUUID}")
+    nextOffset() ->
       LedgerEntry.Transaction(
-        Some(s"commandId$id"),
-        s"transactionId$id",
-        Some("applicationId"),
-        Some(party),
-        Some("workflowId"),
-        let,
-        let,
+        commandId = Some(UUID.randomUUID().toString),
+        transactionId = transactionId,
+        applicationId = Some(defaultAppId),
+        submittingParty = Some(party),
+        workflowId = Some(defaultWorkflowId),
+        ledgerEffectiveTime = Instant.now,
+        recordedAt = Instant.now,
         GenTransaction(
           HashMap(
-            event(s"transactionId$id", id) -> NodeCreate(
-              coid = AbsoluteContractId.assertFromString(s"#contractId$id"),
+            createEventId -> NodeCreate(
+              coid = contractId,
               coinst = someContractInstance,
               optLocation = None,
               signatories = Set(party),
@@ -491,153 +495,144 @@ private[dao] trait JdbcLedgerDaoSuite extends AkkaBeforeAndAfterAll with JdbcLed
                   VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
                   Set(party)))
             )),
-          ImmArray(event(s"transactionId$id", id)),
+          ImmArray(createEventId),
         ),
-        Map(event(s"transactionId$id", id) -> Set(party))
-      ),
-      Map.empty,
-      List.empty
-    )
+        Map(createEventId -> Set(party))
+      )
   }
 
   /** A transaction that archives the given contract with the given key */
   protected final def txArchiveContract(
-      let: Instant,
-      offset: Offset,
       party: Party,
-      cid: Offset,
-      key: String): PersistenceEntry.Transaction = {
-    val id = offset.toLong
-    PersistenceEntry.Transaction(
-      LedgerEntry.Transaction(
-        Some(s"commandId$id"),
-        s"transactionId$id",
-        Some("applicationId"),
-        Some(party),
-        Some("workflowId"),
-        let,
-        let,
-        GenTransaction(
-          HashMap(
-            event(s"transactionId$id", id) -> NodeExercises(
-              targetCoid = AbsoluteContractId.assertFromString(s"#contractId${cid.toLong}"),
-              templateId = someTemplateId,
-              choiceId = Ref.ChoiceName.assertFromString("Archive"),
-              optLocation = None,
-              consuming = true,
-              actingParties = Set(party),
-              chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
-              stakeholders = Set(party),
-              signatories = Set(party),
-              controllers = Set(party),
-              children = ImmArray.empty,
-              exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
-              key = Some(
+      contract: (AbsoluteContractId, Option[String]),
+  ): (Offset, LedgerEntry.Transaction) = {
+    val (contractId, maybeKey) = contract
+    val transactionId = UUID.randomUUID.toString
+    val archiveEventId = event(transactionId, 0)
+    nextOffset() -> LedgerEntry.Transaction(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId,
+      Some(defaultAppId),
+      Some(party),
+      Some(defaultWorkflowId),
+      ledgerEffectiveTime = Instant.now,
+      recordedAt = Instant.now,
+      GenTransaction(
+        HashMap(
+          archiveEventId -> NodeExercises(
+            targetCoid = contractId,
+            templateId = someTemplateId,
+            choiceId = Ref.ChoiceName.assertFromString("Archive"),
+            optLocation = None,
+            consuming = true,
+            actingParties = Set(party),
+            chosenValue = VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit),
+            stakeholders = Set(party),
+            signatories = Set(party),
+            controllers = Set(party),
+            children = ImmArray.empty,
+            exerciseResult = Some(VersionedValue(ValueVersions.acceptedVersions.head, ValueUnit)),
+            key = maybeKey.map(
+              k =>
                 KeyWithMaintainers(
-                  VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
-                  Set(party)))
-            )),
-          ImmArray(event(s"transactionId$id", id)),
-        ),
-        Map(event(s"transactionId$id", id) -> Set(party))
+                  VersionedValue(ValueVersions.acceptedVersions.head, ValueText(k)),
+                  Set(party),
+              )
+            )
+          )),
+        ImmArray(archiveEventId),
       ),
-      Map.empty,
-      List.empty
+      Map(archiveEventId -> Set(party))
     )
   }
 
   /** A transaction that looks up a key */
   protected final def txLookupByKey(
-      let: Instant,
-      offset: Offset,
       party: Party,
       key: String,
-      result: Option[Offset]): PersistenceEntry.Transaction = {
-    val id = offset.toLong
-    PersistenceEntry.Transaction(
-      LedgerEntry.Transaction(
-        Some(s"commandId$id"),
-        s"transactionId$id",
-        Some("applicationId"),
-        Some(party),
-        Some("workflowId"),
-        let,
-        let,
-        GenTransaction(
-          HashMap(
-            event(s"transactionId$id", id) -> NodeLookupByKey(
-              someTemplateId,
-              None,
-              KeyWithMaintainers(
-                VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
-                Set(party)),
-              result.map(id => AbsoluteContractId.assertFromString(s"#contractId${id.toLong}")),
-            )),
-          ImmArray(event(s"transactionId$id", id)),
-        ),
-        Map(event(s"transactionId$id", id) -> Set(party))
+      result: Option[AbsoluteContractId],
+  ): (Offset, LedgerEntry.Transaction) = {
+    val transactionId = UUID.randomUUID.toString
+    val lookupByKeyEventId = event(transactionId, 0)
+    nextOffset() -> LedgerEntry.Transaction(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId = transactionId,
+      applicationId = Some(defaultAppId),
+      submittingParty = Some(party),
+      workflowId = Some(defaultWorkflowId),
+      ledgerEffectiveTime = Instant.now(),
+      recordedAt = Instant.now(),
+      transaction = GenTransaction(
+        HashMap(
+          lookupByKeyEventId -> NodeLookupByKey(
+            someTemplateId,
+            None,
+            KeyWithMaintainers(
+              VersionedValue(ValueVersions.acceptedVersions.head, ValueText(key)),
+              Set(party)),
+            result,
+          )),
+        ImmArray(lookupByKeyEventId),
       ),
-      Map.empty,
-      List.empty
+      explicitDisclosure = Map(lookupByKeyEventId -> Set(party))
     )
   }
 
-  /** A transaction that fetches a contract Id */
   protected final def txFetch(
-      let: Instant,
-      offset: Offset,
       party: Party,
-      cid: Offset): PersistenceEntry.Transaction = {
-    val id = offset.toLong
-    PersistenceEntry.Transaction(
-      LedgerEntry.Transaction(
-        Some(s"commandId$id"),
-        s"transactionId$id",
-        Some("applicationId"),
-        Some(party),
-        Some("workflowId"),
-        let,
-        let,
-        GenTransaction(
-          HashMap(
-            event(s"transactionId$id", id) -> NodeFetch(
-              coid = AbsoluteContractId.assertFromString(s"#contractId${cid.toLong}"),
-              templateId = someTemplateId,
-              optLocation = None,
-              actingParties = Some(Set(party)),
-              signatories = Set(party),
-              stakeholders = Set(party),
-              None,
-            )),
-          ImmArray(event(s"transactionId$id", id)),
-        ),
-        Map(event(s"transactionId$id", id) -> Set(party))
+      contractId: AbsoluteContractId,
+  ): (Offset, LedgerEntry.Transaction) = {
+    val transactionId = UUID.randomUUID.toString
+    val fetchEventId = event(transactionId, 0)
+    nextOffset() -> LedgerEntry.Transaction(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId = transactionId,
+      applicationId = Some(defaultAppId),
+      submittingParty = Some(party),
+      workflowId = Some(defaultWorkflowId),
+      ledgerEffectiveTime = Instant.now(),
+      recordedAt = Instant.now(),
+      transaction = GenTransaction(
+        HashMap(
+          fetchEventId -> NodeFetch(
+            coid = contractId,
+            templateId = someTemplateId,
+            optLocation = None,
+            actingParties = Some(Set(party)),
+            signatories = Set(party),
+            stakeholders = Set(party),
+            None,
+          )),
+        ImmArray(fetchEventId),
       ),
-      Map.empty,
-      List.empty
+      explicitDisclosure = Map(fetchEventId -> Set(party))
     )
   }
 
-  protected final def emptyTxWithDivulgedContracts(
-      offset: Offset,
-      let: Instant,
-  ): PersistenceEntry.Transaction = {
-    val id = offset.toLong
-    PersistenceEntry.Transaction(
-      LedgerEntry.Transaction(
-        Some(s"commandId$id"),
-        s"transactionId$id",
-        Some("applicationId"),
-        Some(alice),
-        Some("workflowId"),
-        let,
-        let,
-        GenTransaction(HashMap.empty, ImmArray.empty),
-        Map.empty
-      ),
-      Map(AbsoluteContractId.assertFromString(s"#contractId$id") -> Set(bob)),
-      List(AbsoluteContractId.assertFromString(s"#contractId$id") -> someContractInstance)
+  protected final def emptyTransaction(party: Party): (Offset, LedgerEntry.Transaction) =
+    nextOffset() -> LedgerEntry.Transaction(
+      commandId = Some(UUID.randomUUID().toString),
+      transactionId = UUID.randomUUID.toString,
+      applicationId = Some(defaultAppId),
+      submittingParty = Some(party),
+      workflowId = Some(defaultWorkflowId),
+      ledgerEffectiveTime = Instant.now(),
+      recordedAt = Instant.now(),
+      transaction = GenTransaction(HashMap.empty, ImmArray.empty),
+      explicitDisclosure = Map.empty,
     )
-  }
+
+  // Returns the command ids and status of completed commands between two offsets
+  protected def getCompletions(
+      startExclusive: Offset,
+      endInclusive: Offset,
+      applicationId: String,
+      parties: Set[Party],
+  ): Future[Seq[(String, Int)]] =
+    ledgerDao.completions
+      .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
+      .map(_._2.completions.head)
+      .map(c => c.commandId -> c.status.get.code)
+      .runWith(Sink.seq)
 
 }

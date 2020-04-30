@@ -127,10 +127,14 @@ class ImplicitPartyAdditionIT
             None,
           )
         )
-        // Wait until both transactions have been processed
+        // Wait until the last command completed
         _ <- ledger
-          .ledgerEntries(None, None)
-          .take(2)
+          .completions(
+            None,
+            Some(ledger.ledgerEnd),
+            com.daml.ledger.api.domain.ApplicationId("appId"),
+            Set(Ref.Party.assertFromString("fetch-signatory")))
+          .filter { case (_, completion) => completion.completions.head.commandId == "CmdId3" }
           .runWith(Sink.seq)
         parties <- ledger.listKnownParties()
       } yield {

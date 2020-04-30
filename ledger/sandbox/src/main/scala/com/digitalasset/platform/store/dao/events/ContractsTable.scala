@@ -44,12 +44,6 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
   private def deleteContract(contractId: ContractId): Vector[NamedParameter] =
     Vector[NamedParameter]("contract_id" -> contractId)
 
-  case class PreparedBatches private (
-      insertions: Option[(Set[ContractId], BatchSql)],
-      deletions: Option[(Set[ContractId], BatchSql)],
-      transientContracts: Set[ContractId],
-  )
-
   private case class AccumulatingBatches(
       insertions: Map[ContractId, Vector[NamedParameter]],
       deletions: Map[ContractId, Vector[NamedParameter]],
@@ -84,8 +78,8 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       }
     }
 
-    def prepare: PreparedBatches =
-      PreparedBatches(
+    def prepare: ContractsTable.PreparedBatches =
+      ContractsTable.PreparedBatches(
         insertions = prepareNonEmpty(insertContractQuery, insertions),
         deletions = prepareNonEmpty(deleteContractQuery, deletions),
         transientContracts = transientContracts,
@@ -97,7 +91,7 @@ private[events] sealed abstract class ContractsTable extends PostCommitValidatio
       ledgerEffectiveTime: Instant,
       transaction: Transaction,
       divulgedContracts: Iterable[DivulgedContract],
-  ): PreparedBatches = {
+  ): ContractsTable.PreparedBatches = {
 
     // Add the locally created contracts, ensuring that _transient_
     // contracts are not inserted in the first place
@@ -196,5 +190,11 @@ private[events] object ContractsTable {
     new IllegalArgumentException(
       s"One or more of the following contract identifiers has been found: ${contractIds.map(_.coid).mkString(", ")}"
     )
+
+  final case class PreparedBatches private (
+      insertions: Option[(Set[ContractId], BatchSql)],
+      deletions: Option[(Set[ContractId], BatchSql)],
+      transientContracts: Set[ContractId],
+  )
 
 }

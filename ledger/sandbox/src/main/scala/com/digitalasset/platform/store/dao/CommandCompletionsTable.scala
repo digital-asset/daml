@@ -47,7 +47,7 @@ object CommandCompletionsTable {
       endInclusive: Offset,
       applicationId: ApplicationId,
       parties: Set[Ref.Party]): SimpleSql[Row] =
-    SQL"select completion_offset, record_time, application_id, submitting_party, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and submitting_party in ($parties) order by completion_offset asc"
+    SQL"select completion_offset, record_time, command_id, transaction_id, status_code, status_message from participant_command_completions where completion_offset > $startExclusive and completion_offset <= $endInclusive and application_id = $applicationId and submitting_party in ($parties) order by completion_offset asc"
 
   def prepareCompletionInsert(
       submitterInfo: SubmitterInfo,
@@ -62,18 +62,19 @@ object CommandCompletionsTable {
       offset: Offset,
       recordTime: Instant,
       reason: RejectionReason,
-  ): SimpleSql[Row] =
-    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, ${toErrorCode(
-      reason)}, ${reason.description})"
+  ): SimpleSql[Row] = {
+    val (code, message) = toStatus(reason)
+    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $recordTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $code, $message)"
+  }
 
-  def toErrorCode(rejection: RejectionReason): Int = {
+  private def toStatus(rejection: RejectionReason): (Int, String) = {
     rejection match {
       case Inconsistent | _: Disputed | PartyNotKnownOnLedger =>
-        Code.INVALID_ARGUMENT.value()
+        Code.INVALID_ARGUMENT.value() -> rejection.description
       case ResourcesExhausted | _: InvalidLedgerTime =>
-        Code.ABORTED.value()
+        Code.ABORTED.value() -> rejection.description
       case _: SubmitterCannotActViaParticipant =>
-        Code.PERMISSION_DENIED.value()
+        Code.PERMISSION_DENIED.value() -> rejection.description
     }
   }
 

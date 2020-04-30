@@ -71,7 +71,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
         .getCommandCompletions(from, to, applicationId = "WRONG", parties)
         .runWith(Sink.seq)
     } yield {
-      response should have size 0 // `shouldBe empty` upsets WartRemover
+      response shouldBe Seq.empty
     }
   }
 
@@ -84,7 +84,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
         .getCommandCompletions(from, to, applicationId, Set("WRONG"))
         .runWith(Sink.seq)
     } yield {
-      response should have size 0 // `shouldBe empty` upsets WartRemover
+      response shouldBe Seq.empty
     }
   }
 
