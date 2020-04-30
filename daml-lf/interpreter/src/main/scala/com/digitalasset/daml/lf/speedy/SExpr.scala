@@ -132,7 +132,9 @@ object SExpr {
     * defined. This allows for selecting the right alternative at runtime by
     * indexing into the table of alternatives. Currently, this is flag is only
     * considered for variant and enum types. */
-  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt], jumpable: Boolean = false) extends SExpr with SomeArrayEquals {
+  final case class SECase(scrut: SExpr, alts: Array[SCaseAlt], jumpable: Boolean = false)
+      extends SExpr
+      with SomeArrayEquals {
     def execute(machine: Machine): Ctrl = {
       machine.kont.add(KMatch(alts, jumpable))
       CtrlExpr(scrut)

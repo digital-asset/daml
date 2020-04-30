@@ -578,7 +578,9 @@ object Speedy {
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it.
     * Consult the documentation of `SECase` for the meaning of `jumpable`. */
-  final case class KMatch(alts: Array[SCaseAlt], jumpable: Boolean) extends Kont with SomeArrayEquals {
+  final case class KMatch(alts: Array[SCaseAlt], jumpable: Boolean)
+      extends Kont
+      with SomeArrayEquals {
     def execute(v: SValue, machine: Machine) = {
       val alt = v match {
         case SBool(b) =>

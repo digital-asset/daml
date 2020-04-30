@@ -431,90 +431,106 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           case SCPVariant(tycon, _, _) => {
             lookupVariantDefinition(tycon).get.variants.iterator.zipWithIndex.map {
               case (_, index) => {
-                alts.find { alt =>
-                  alt.pattern match {
-                    case SCPVariant(_, _, rank) => rank == index
-                    case SCPDefault => true
-                    case _ => false
+                alts
+                  .find { alt =>
+                    alt.pattern match {
+                      case SCPVariant(_, _, rank) => rank == index
+                      case SCPDefault => true
+                      case _ => false
+                    }
                   }
-                }.getOrElse(throw CompilationError("non-exhaustive case on variant"))
+                  .getOrElse(throw CompilationError("non-exhaustive case on variant"))
               }
             }.toArray
           }
           case SCPEnum(tycon, _, _) => {
             lookupEnumDefinition(tycon).get.constructors.iterator.zipWithIndex.map {
               case (_, index) => {
-                alts.find { alt =>
-                  alt.pattern match {
-                    case SCPEnum(_, _, rank) => rank == index
-                    case SCPDefault => true
-                    case _ => false
+                alts
+                  .find { alt =>
+                    alt.pattern match {
+                      case SCPEnum(_, _, rank) => rank == index
+                      case SCPDefault => true
+                      case _ => false
+                    }
                   }
-                }.getOrElse(throw CompilationError("non-exhaustive case on enum"))
+                  .getOrElse(throw CompilationError("non-exhaustive case on enum"))
               }
             }.toArray
           }
           case SCPPrimCon(PCFalse) => {
-            val altTrue = alts.find { alt =>
-              alt.pattern match {
-                case SCPPrimCon(PCTrue) => true
-                case SCPDefault => true
-                case _ => false
+            val altTrue = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPPrimCon(PCTrue) => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on bool without true pattern"))
+              .getOrElse(throw CompilationError("case on bool without true pattern"))
             Array(alt0, altTrue)
           }
           case SCPPrimCon(PCTrue) => {
-            val altFalse = alts.find { alt =>
-              alt.pattern match {
-                case SCPPrimCon(PCFalse) => true
-                case SCPDefault => true
-                case _ => false
+            val altFalse = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPPrimCon(PCFalse) => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on bool without false pattern"))
+              .getOrElse(throw CompilationError("case on bool without false pattern"))
             Array(altFalse, alt0)
           }
           case SCPPrimCon(PCUnit) => {
             Array(alt0)
           }
           case SCPNil => {
-            val altCons = alts.find { alt =>
-              alt.pattern match {
-                case SCPCons => true
-                case SCPDefault => true
-                case _ => false
+            val altCons = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPCons => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on list without cons pattern"))
+              .getOrElse(throw CompilationError("case on list without cons pattern"))
             Array(alt0, altCons)
           }
           case SCPCons => {
-            val altNil = alts.find { alt =>
-              alt.pattern match {
-                case SCPNil => true
-                case SCPDefault => true
-                case _ => false
+            val altNil = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPNil => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on list without nil pattern"))
+              .getOrElse(throw CompilationError("case on list without nil pattern"))
             Array(altNil, alt0)
           }
           case SCPNone => {
-            val altSome = alts.find { alt =>
-              alt.pattern match {
-                case SCPSome => true
-                case SCPDefault => true
-                case _ => false
+            val altSome = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPSome => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on optional without some pattern"))
+              .getOrElse(throw CompilationError("case on optional without some pattern"))
             Array(alt0, altSome)
           }
           case SCPSome => {
-            val altNone = alts.find { alt =>
-              alt.pattern match {
-                case SCPNone => true
-                case SCPDefault => true
-                case _ => false
+            val altNone = alts
+              .find { alt =>
+                alt.pattern match {
+                  case SCPNone => true
+                  case SCPDefault => true
+                  case _ => false
+                }
               }
-            }.getOrElse(throw CompilationError("case on optional without none pattern"))
+              .getOrElse(throw CompilationError("case on optional without none pattern"))
             Array(altNone, alt0)
           }
         }
@@ -1126,7 +1142,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound -= n
         case x: SEMakeClo =>
           throw CompilationError(s"unexpected SEMakeClo: $x")
-        case SECase(scrut, alts, jumpable@_) =>
+        case SECase(scrut, alts, jumpable @ _) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
@@ -1200,7 +1216,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
           bound = n + fv.length
           go(body)
           bound = oldBound
-        case SECase(scrut, alts, jumpable@_) =>
+        case SECase(scrut, alts, jumpable @ _) =>
           go(scrut)
           alts.foreach {
             case SCaseAlt(pat, body) =>
