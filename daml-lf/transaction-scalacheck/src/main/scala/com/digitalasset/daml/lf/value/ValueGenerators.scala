@@ -152,18 +152,18 @@ object ValueGenerators {
     Gen
       .containerOfN[Array, Byte](crypto.Hash.underlyingHashLength, arbitrary[Byte]) map crypto.Hash.assertFromByteArray
   private val genBytes: Gen[Bytes] = arbitrary[Array[Byte]] map Bytes.fromByteArray
-  private val genAbsCidV0: Gen[AbsoluteContractId.V0] =
+  val absCoidV0Gen: Gen[AbsoluteContractId.V0] =
     Gen.alphaStr.map(t => Value.AbsoluteContractId.V0.assertFromString('#' +: t))
   private val genAbsCidV1: Gen[AbsoluteContractId.V1] =
     Gen.zip(genHash, genBytes) map { case (h, b) => AbsoluteContractId.V1(h, b) }
 
-  def absCoidGen: Gen[AbsoluteContractId] = genAbsCidV0 // TODO SC gen V1
+  def absCoidGen: Gen[AbsoluteContractId] = Gen.oneOf(absCoidV0Gen, genAbsCidV1)
 
   def comparableAbsCoidsGen: Gen[(AbsoluteContractId, AbsoluteContractId)] =
     for {
-      cidA <- Gen.oneOf(genAbsCidV0, genAbsCidV1)
+      cidA <- absCoidGen
       cidB <- Gen.oneOf(
-        genAbsCidV0,
+        absCoidV0Gen,
         cidA match {
           case _: AbsoluteContractId.V0 => genAbsCidV1
           case v1: AbsoluteContractId.V1 =>
@@ -179,7 +179,7 @@ object ValueGenerators {
     } yield (cidA, cidB)
 
   def coidGen: Gen[ContractId] =
-    Gen.frequency((1, genRel), (3, genAbsCidV0))
+    Gen.frequency((1, genRel), (3, absCoidV0Gen))
 
   def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
@@ -431,7 +431,7 @@ object ValueGenerators {
       disclosed1 <- nodePartiesGen
       disclosed2 <- nodePartiesGen
       divulged <- Gen.mapOf(
-        genAbsCidV0.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
+        absCoidV0Gen.flatMap(c => genMaybeEmptyParties.map(ps => (c: AbsoluteContractId) -> ps)))
     } yield BlindingInfo(disclosed1, disclosed2, divulged)
   }
 
