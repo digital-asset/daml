@@ -47,10 +47,10 @@ final class InMemoryLedgerReaderWriter private (
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .createForTimeMode(
-        engine,
         InMemoryLedgerStateAccess,
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         stateValueCache = stateValueCache,
+        engine = engine,
         metricRegistry = metricRegistry,
         inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),

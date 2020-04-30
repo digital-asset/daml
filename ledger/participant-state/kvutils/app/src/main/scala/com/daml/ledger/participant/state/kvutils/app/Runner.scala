@@ -49,7 +49,7 @@ final class Runner[T <: ReadWriteService, Extra](
 
       // share engine between the kvutils committer backend and the ledger api server
       // this avoids duplicate compilation of packages as well as keeping them in memory twice
-      val engine = Engine()
+      val sharedEngine = Engine()
 
       newLoggingContext { implicit logCtx =>
         for {
@@ -69,7 +69,9 @@ final class Runner[T <: ReadWriteService, Extra](
                     .forCloseable(() => reporter.register(metricRegistry))
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire())
-              ledger <- factory.readWriteServiceOwner(config, participantConfig, engine).acquire()
+              ledger <- factory
+                .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                .acquire()
               readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
               writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
               _ <- Resource.fromFuture(
@@ -92,7 +94,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
                 metrics = metricRegistry,
                 timeServiceBackend = factory.timeServiceBackend(config),
-                engine = engine,
+                engine = sharedEngine,
               ).acquire()
             } yield ()
           })

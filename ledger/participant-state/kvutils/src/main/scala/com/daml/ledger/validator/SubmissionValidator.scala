@@ -313,19 +313,19 @@ object SubmissionValidator {
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
   def create[LogResult](
-      engine: Engine,
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      engine: Engine = Engine(),
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(
-      engine,
       ledgerStateAccess,
       allocateNextLogEntryId,
       checkForMissingInputs,
       stateValueCache,
+      engine,
       metricRegistry,
       inStaticTimeMode = false,
     )
@@ -333,11 +333,11 @@ object SubmissionValidator {
 
   // Internal method to enable proper command dedup in sandbox with static time mode
   private[daml] def createForTimeMode[LogResult](
-      engine: Engine,
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      engine: Engine,
       metricRegistry: MetricRegistry,
       inStaticTimeMode: Boolean,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =

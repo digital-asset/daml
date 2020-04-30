@@ -62,10 +62,10 @@ final class SqlLedgerReaderWriter(
     () => timeProvider.getCurrentTime,
     SubmissionValidator
       .createForTimeMode(
-        engine,
         SqlLedgerStateAccess,
         allocateNextLogEntryId = () => allocateSeededLogEntryId(),
         stateValueCache = stateValueCache,
+        engine = engine,
         metricRegistry = metricRegistry,
         inStaticTimeMode = timeProvider != TimeProvider.UTC,
       ),

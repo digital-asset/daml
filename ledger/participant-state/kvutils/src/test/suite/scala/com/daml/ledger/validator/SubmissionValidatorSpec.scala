@@ -32,7 +32,6 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(Some(aStateValue()))))
       val instance = SubmissionValidator.create(
-        Engine(),
         new FakeStateAccess(mockStateOperations),
         metricRegistry = new MetricRegistry,
       )
@@ -49,7 +48,6 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       when(mockStateOperations.readState(any[Seq[Bytes]]()))
         .thenReturn(Future.successful(Seq(None)))
       val instance = SubmissionValidator.create(
-        Engine(),
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         checkForMissingInputs = true,
         metricRegistry = new MetricRegistry,
@@ -64,7 +62,6 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
     "return invalid submission for invalid envelope" in {
       val mockStateOperations = mock[LedgerStateOperations[Unit]]
       val instance = SubmissionValidator.create(
-        Engine(),
         new FakeStateAccess(mockStateOperations),
         metricRegistry = new MetricRegistry,
       )
