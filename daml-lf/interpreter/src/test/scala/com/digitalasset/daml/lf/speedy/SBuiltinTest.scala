@@ -795,7 +795,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "TextMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
-      ("TEXTMAP_EMPTY @Int64" /: l) {
+      (l foldLeft "TEXTMAP_EMPTY @Int64") {
         case (acc, (k, v)) => s"""(TEXTMAP_INSERT @$typ "$k" $v $acc)"""
       }
 
@@ -909,7 +909,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "GenMap operations" - {
 
     def buildMap[X](typ: String, l: (String, X)*) =
-      ("GENMAP_EMPTY @Text @Int64" /: l) {
+      (l foldLeft "GENMAP_EMPTY @Text @Int64") {
         case (acc, (k, v)) => s"""(GENMAP_INSERT @Text @$typ "$k" $v $acc)"""
       }
 

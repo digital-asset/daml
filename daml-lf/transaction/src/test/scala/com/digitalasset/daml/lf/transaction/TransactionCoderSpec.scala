@@ -49,7 +49,7 @@ class TransactionCoderSpec
 
     "do NodeCreate" in {
       forAll(malformedCreateNodeGen, valueVersionGen()) {
-        (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], valVer: ValueVersion) =>
+        (node: NodeCreate[Tx.TContractId, Tx.Value[Tx.TContractId]], _: ValueVersion) =>
           val encodedNode = TransactionCoder
             .encodeNode(
               TransactionCoder.NidEncoder,
@@ -76,7 +76,7 @@ class TransactionCoderSpec
 
     "do NodeFetch" in {
       forAll(fetchNodeGen, valueVersionGen()) {
-        (node: NodeFetch.WithTxValue[Tx.TContractId], valVer: ValueVersion) =>
+        (node: NodeFetch.WithTxValue[Tx.TContractId], _: ValueVersion) =>
           val encodedNode =
             TransactionCoder
               .encodeNode(

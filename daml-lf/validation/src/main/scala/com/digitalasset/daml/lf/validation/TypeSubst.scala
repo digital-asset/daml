@@ -64,7 +64,7 @@ private[validation] object TypeSubst {
     case TVar(name) =>
       acc + name
     case otherwise @ _ =>
-      (acc /: TypeTraversable(typ))(freeVars)
+      (TypeTraversable(typ) foldLeft acc)(freeVars)
   }
 
   private def freeVars(subst: Map[TypeVarName, Type]): Set[TypeVarName] =

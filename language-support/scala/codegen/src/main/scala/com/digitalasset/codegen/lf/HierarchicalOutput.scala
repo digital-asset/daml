@@ -49,7 +49,7 @@ private[codegen] object HierarchicalOutput {
               Vector(
                 (
                   firstFile,
-                  (Set.empty[Tree] /: multiple.map(_._2))(_ | _),
+                  (multiple.map(_._2) foldLeft Set.empty[Tree])(_ | _),
                   Iterable(q"""object ${TermName(k)} {
                                 ..${multiple flatMap (_._3)}
                               }""")))

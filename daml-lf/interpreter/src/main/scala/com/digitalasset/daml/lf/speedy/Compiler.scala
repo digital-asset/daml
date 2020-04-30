@@ -901,7 +901,7 @@ private[lf] final case class Compiler(packages: PackageId PartialFunction Packag
 
   private def withBinders[A](binders: ExprVarName*)(f: Unit => A): A =
     withEnv { _ =>
-      env = (env /: binders)(_ addExprVar _)
+      env = (binders foldLeft env)(_ addExprVar _)
       f(())
     }
 

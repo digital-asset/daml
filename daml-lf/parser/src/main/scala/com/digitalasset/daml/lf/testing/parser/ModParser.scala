@@ -19,7 +19,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   import exprParser.{expr, expr0}
 
   private def split(defs: Seq[Def]) = {
-    ((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)]) /: defs) {
+    defs.foldLeft((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)])) {
       case ((definitions, templates), DataDef(name, defn)) =>
         ((name -> defn) +: definitions, templates)
       case ((definitions, templates), TemplDef(name, defn)) =>

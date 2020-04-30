@@ -568,7 +568,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val kArrow = lfKind.getArrow
           val params = kArrow.getParamsList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeKind(kArrow.getResult))((param, kind) => KArrow(decodeKind(param), kind))
+          (params foldRight decodeKind(kArrow.getResult))((param, kind) =>
+            KArrow(decodeKind(param), kind))
         case PLF.Kind.SumCase.SUM_NOT_SET =>
           throw ParseError("Kind.SUM_NOT_SET")
       }
@@ -599,7 +600,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
             )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
-          (TTyCon(decodeTypeConName(tcon.getTycon)) /: [Type] tcon.getArgsList.asScala)(
+          (tcon.getArgsList.asScala foldLeft [Type] TTyCon(decodeTypeConName(tcon.getTycon)))(
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.SYN =>
           val tsyn = lfType.getSyn
@@ -618,18 +619,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
               assertSince(info.minVersion, prim.getPrim.getValueDescriptor.getFullName)
               info.typ
             }
-          (baseType /: [Type] prim.getArgsList.asScala)((typ, arg) => TApp(typ, decodeType(arg)))
+          (prim.getArgsList.asScala foldLeft [Type] baseType)((typ, arg) =>
+            TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
           assertUntil(LV.Features.arrowType, "Type.Fun")
           val tFun = lfType.getFun
           val params = tFun.getParamsList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeType(tFun.getResult))((param, res) => TFun(decodeType(param), res))
+          (params foldRight decodeType(tFun.getResult))(
+            (param, res) => TFun(decodeType(param), res))
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
           val vars = tForall.getVarsList.asScala
           assertNonEmpty(vars, "vars")
-          (vars :\ decodeType(tForall.getBody))((binder, acc) =>
+          (vars foldRight decodeType(tForall.getBody))((binder, acc) =>
             TForall(decodeTypeVarWithKind(binder), acc))
         case PLF.Type.SumCase.STRUCT =>
           val struct = lfType.getStruct
@@ -848,7 +851,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(app.getFun, definition) /: args)((e, arg) =>
+          (args foldLeft decodeExpr(app.getFun, definition))((e, arg) =>
             EApp(e, decodeExpr(arg, definition)))
 
         case PLF.Expr.SumCase.ABS =>
@@ -856,27 +859,28 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          (params :\ decodeExpr(lfAbs.getBody, definition))((param, e) =>
+          (params foldRight decodeExpr(lfAbs.getBody, definition))((param, e) =>
             EAbs(decodeBinder(param), e, currentDefinitionRef))
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(tyapp.getExpr, definition) /: args)((e, arg) => ETyApp(e, decodeType(arg)))
+          (args foldLeft decodeExpr(tyapp.getExpr, definition))((e, arg) =>
+            ETyApp(e, decodeType(arg)))
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeExpr(lfTyAbs.getBody, definition))((param, e) =>
+          (params foldRight decodeExpr(lfTyAbs.getBody, definition))((param, e) =>
             ETyAbs(decodeTypeVarWithKind(param), e))
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
           assertNonEmpty(bindings, "bindings")
-          (bindings :\ decodeExpr(lfLet.getBody, definition))((binding, e) => {
+          (bindings foldRight decodeExpr(lfLet.getBody, definition))((binding, e) => {
             val (v, t) = decodeBinder(binding.getBinder)
             ELet(Binding(Some(v), t, decodeExpr(binding.getBound, definition)), e)
           })
