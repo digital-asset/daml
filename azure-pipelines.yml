@@ -79,71 +79,71 @@ jobs:
       - checkout: self
       - bash: ci/check-changelog.sh $(fork_sha)
 
-  - job: Linux
-    dependsOn:
-      - check_for_release
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    timeoutInMinutes: 360
-    pool:
-      name: 'linux-pool'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-          git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
-        name: checkout_release
-        condition: eq(variables.is_release, 'true')
-      - template: ci/build-unix.yml
-        parameters:
-          release_tag: $(release_tag)
-          name: 'linux'
-          is_release: variables.is_release
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          bazel build //release:release
-          ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-        condition: and(succeeded(), ne(variables['is_release'], 'true'))
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
-
-  - job: macOS
-    dependsOn:
-      - check_for_release
-    timeoutInMinutes: 360
-    pool:
-      name: 'macOS-pool'
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-      is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-          git checkout $(release_sha)
-          git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
-        name: checkout_release
-        condition: eq(variables.is_release, 'true')
-      - template: ci/build-unix.yml
-        parameters:
-          release_tag: $(release_tag)
-          name: macos
-          is_release: variables.is_release
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
+# - job: Linux
+#   dependsOn:
+#     - check_for_release
+#   variables:
+#     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+#     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+#     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+#     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+#   timeoutInMinutes: 360
+#   pool:
+#     name: 'linux-pool'
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#     - bash: |
+#         set -euo pipefail
+#         git checkout $(release_sha)
+#         git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+#       name: checkout_release
+#       condition: eq(variables.is_release, 'true')
+#     - template: ci/build-unix.yml
+#       parameters:
+#         release_tag: $(release_tag)
+#         name: 'linux'
+#         is_release: variables.is_release
+#     - bash: |
+#         set -euo pipefail
+#         eval "$(./dev-env/bin/dade-assist)"
+#         bazel build //release:release
+#         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+#       condition: and(succeeded(), ne(variables['is_release'], 'true'))
+#     - template: ci/tell-slack-failed.yml
+#       parameters:
+#         trigger_sha: '$(trigger_sha)'
+#     - template: ci/report-end.yml
+#
+# - job: macOS
+#   dependsOn:
+#     - check_for_release
+#   timeoutInMinutes: 360
+#   pool:
+#     name: 'macOS-pool'
+#   variables:
+#     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+#     release_tag: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+#     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+#     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#     - bash: |
+#         set -euo pipefail
+#         git checkout $(release_sha)
+#         git checkout $(trigger_sha) -- docs/source/support/release-notes.rst
+#       name: checkout_release
+#       condition: eq(variables.is_release, 'true')
+#     - template: ci/build-unix.yml
+#       parameters:
+#         release_tag: $(release_tag)
+#         name: macos
+#         is_release: variables.is_release
+#     - template: ci/tell-slack-failed.yml
+#       parameters:
+#         trigger_sha: '$(trigger_sha)'
+#     - template: ci/report-end.yml
 
   - job: Windows
     dependsOn:
@@ -179,51 +179,51 @@ jobs:
           trigger_sha: '$(trigger_sha)'
       - template: ci/report-end.yml
 
-  - job: compatibility_linux
-    dependsOn:
-      - check_for_release
-    timeoutInMinutes: 60
-    pool:
-      name: linux-pool
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - template: ci/compatibility.yml
-        parameters:
-          test_flags: '--quick'
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
-
-  - job: compatibility_macos
-    dependsOn:
-      - check_for_release
-    timeoutInMinutes: 60
-    pool:
-      name: macos-pool
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - template: ci/compatibility.yml
-        parameters:
-          test_flags: '--quick'
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
-
-  - job: compatibility_windows
-    dependsOn:
-      - check_for_release
-    timeoutInMinutes: 60
-    pool:
-      name: 'windows-pool'
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-      - template: ci/compatibility-windows.yml
-        parameters:
-          test_flags: '--quick'
-      - template: ci/tell-slack-failed.yml
-      - template: ci/report-end.yml
-
+# - job: compatibility_linux
+#   dependsOn:
+#     - check_for_release
+#   timeoutInMinutes: 60
+#   pool:
+#     name: linux-pool
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#     - template: ci/compatibility.yml
+#       parameters:
+#         test_flags: '--quick'
+#     - template: ci/tell-slack-failed.yml
+#     - template: ci/report-end.yml
+#
+# - job: compatibility_macos
+#   dependsOn:
+#     - check_for_release
+#   timeoutInMinutes: 60
+#   pool:
+#     name: macos-pool
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#     - template: ci/compatibility.yml
+#       parameters:
+#         test_flags: '--quick'
+#     - template: ci/tell-slack-failed.yml
+#     - template: ci/report-end.yml
+#
+# - job: compatibility_windows
+#   dependsOn:
+#     - check_for_release
+#   timeoutInMinutes: 60
+#   pool:
+#     name: 'windows-pool'
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#     - template: ci/compatibility-windows.yml
+#       parameters:
+#         test_flags: '--quick'
+#     - template: ci/tell-slack-failed.yml
+#     - template: ci/report-end.yml
+#
   - job: check_for_release
     dependsOn:
       - git_sha
@@ -235,16 +235,16 @@ jobs:
     steps:
       - bash: |
           set -euo pipefail
-
+ 
           ./release.sh check
-
+ 
           is_release_commit() {
               changed="$(git diff-tree --no-commit-id --name-only -r $(branch_sha) $(fork_sha) | sort)"
               stable=$(printf "LATEST\ndocs/source/support/release-notes.rst" | sort)
               snapshot="LATEST"
               [ "$snapshot" = "$changed" ] || [ "$stable" = "$changed" ]
           }
-
+ 
           if is_release_commit; then
               echo "##vso[task.setvariable variable=is_release;isOutput=true]true"
               echo "##vso[task.setvariable variable=trigger_sha;isOutput=true]$(branch_sha)"
@@ -254,186 +254,186 @@ jobs:
               echo "##vso[task.setvariable variable=is_release;isOutput=true]false"
           fi
         name: out
-
-  - job: release
-    dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
-    condition: and(succeeded(),
-                   eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
-    pool:
-      vmImage: "Ubuntu-16.04"
-    variables:
-      linux-tarball: $[ dependencies.Linux.outputs['publish.tarball'] ]
-      macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
-      windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
-      windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
-      protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    steps:
-      - template: ci/report-start.yml
-      - checkout: self
-        persistCredentials: true
-      - bash: |
-          set -euxo pipefail
-          if git tag v$(release_tag) $(release_sha); then
-            git push origin v$(release_tag)
-            mkdir $(Build.StagingDirectory)/release
-          else
-            echo "##vso[task.setvariable variable=skip-github]TRUE"
-          fi
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(linux-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(macos-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(windows-tarball)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(windows-installer)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - task: DownloadPipelineArtifact@0
-        inputs:
-          artifactName: $(protos-zip)
-          targetPath: $(Build.StagingDirectory)/release
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - bash: |
-          set -euo pipefail
-          KEY_FILE=$(mktemp)
-          GPG_DIR=$(mktemp -d)
-          cleanup() {
-              rm -rf $KEY_FILE $GPG_DIR
-          }
-          trap cleanup EXIT
-          echo "$GPG_KEY" | base64 -d > $KEY_FILE
-          gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
-          cd $(Build.StagingDirectory)/release
-          # Note: relies on our release artifacts not having spaces in their
-          # names. Creates a ${f}.asc with the signature for each $f.
-          for f in *; do
-              gpg --homedir $GPG_DIR -ab $f
-          done
-        env:
-          GPG_KEY: $(gpg-code-signing)
-      - task: GitHubRelease@0
-        inputs:
-          gitHubConnection: 'garyverhaegen-da'
-          repositoryName: '$(Build.Repository.Name)'
-          action: 'create'
-          target: '$(release_sha)'
-          tagSource: 'manual'
-          tag: 'v$(release_tag)'
-          assets: $(Build.StagingDirectory)/release/*
-          assetUploadMode: 'replace'
-          title: '$(release_tag)'
-          addChangeLog: false
-          isPrerelease: true
-        condition: not(eq(variables['skip-github'], 'TRUE'))
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
-      - template: ci/report-end.yml
-
-  - job: write_ledger_dump
-    dependsOn: [ "check_for_release" ]
-    pool:
-      vmImage: "Ubuntu-16.04"
-    condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
-                   or(eq(variables['Build.SourceBranchName'], 'master'),
-                      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
-    variables:
-      release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-      release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
-      trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-
-          git checkout $(release_sha)
-          export DAML_SDK_RELEASE_VERSION=$(release_tag)
-
-          sudo mkdir -p /nix
-          sudo chown $USER /nix
-          curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
-          eval "$(dev-env/bin/dade-assist)"
-          GCS_KEY=$(mktemp)
-          cleanup () {
-              rm -f $GCS_KEY
-          }
-          trap cleanup EXIT
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          export BOTO_CONFIG=/dev/null
-
-          bazel build //ledger/participant-state/kvutils:reference-ledger-dump
-          gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
-                    gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ci/tell-slack-failed.yml
-        parameters:
-          trigger_sha: '$(trigger_sha)'
+#
+# - job: release
+#   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
+#   condition: and(succeeded(),
+#                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+#                  or(eq(variables['Build.SourceBranchName'], 'master'),
+#                     startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+#   pool:
+#     vmImage: "Ubuntu-16.04"
+#   variables:
+#     linux-tarball: $[ dependencies.Linux.outputs['publish.tarball'] ]
+#     macos-tarball: $[ dependencies.macOS.outputs['publish.tarball'] ]
+#     windows-tarball: $[ dependencies.Windows.outputs['publish.tarball'] ]
+#     windows-installer: $[ dependencies.Windows.outputs['publish.installer'] ]
+#     protos-zip: $[ dependencies.Linux.outputs['publish.protos-zip'] ]
+#     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+#     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+#     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+#   steps:
+#     - template: ci/report-start.yml
+#     - checkout: self
+#       persistCredentials: true
+#     - bash: |
+#         set -euxo pipefail
+#         if git tag v$(release_tag) $(release_sha); then
+#           git push origin v$(release_tag)
+#           mkdir $(Build.StagingDirectory)/release
+#         else
+#           echo "##vso[task.setvariable variable=skip-github]TRUE"
+#         fi
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(linux-tarball)
+#         targetPath: $(Build.StagingDirectory)/release
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(macos-tarball)
+#         targetPath: $(Build.StagingDirectory)/release
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(windows-tarball)
+#         targetPath: $(Build.StagingDirectory)/release
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(windows-installer)
+#         targetPath: $(Build.StagingDirectory)/release
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - task: DownloadPipelineArtifact@0
+#       inputs:
+#         artifactName: $(protos-zip)
+#         targetPath: $(Build.StagingDirectory)/release
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - bash: |
+#         set -euo pipefail
+#         KEY_FILE=$(mktemp)
+#         GPG_DIR=$(mktemp -d)
+#         cleanup() {
+#             rm -rf $KEY_FILE $GPG_DIR
+#         }
+#         trap cleanup EXIT
+#         echo "$GPG_KEY" | base64 -d > $KEY_FILE
+#         gpg --homedir $GPG_DIR --no-tty --quiet --import $KEY_FILE
+#         cd $(Build.StagingDirectory)/release
+#         # Note: relies on our release artifacts not having spaces in their
+#         # names. Creates a ${f}.asc with the signature for each $f.
+#         for f in *; do
+#             gpg --homedir $GPG_DIR -ab $f
+#         done
+#       env:
+#         GPG_KEY: $(gpg-code-signing)
+#     - task: GitHubRelease@0
+#       inputs:
+#         gitHubConnection: 'garyverhaegen-da'
+#         repositoryName: '$(Build.Repository.Name)'
+#         action: 'create'
+#         target: '$(release_sha)'
+#         tagSource: 'manual'
+#         tag: 'v$(release_tag)'
+#         assets: $(Build.StagingDirectory)/release/*
+#         assetUploadMode: 'replace'
+#         title: '$(release_tag)'
+#         addChangeLog: false
+#         isPrerelease: true
+#       condition: not(eq(variables['skip-github'], 'TRUE'))
+#     - template: ci/tell-slack-failed.yml
+#       parameters:
+#         trigger_sha: '$(trigger_sha)'
+#     - template: ci/report-end.yml
+#
+# - job: write_ledger_dump
+#   dependsOn: [ "check_for_release" ]
+#   pool:
+#     vmImage: "Ubuntu-16.04"
+#   condition: and(eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
+#                  or(eq(variables['Build.SourceBranchName'], 'master'),
+#                     startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')))
+#   variables:
+#     release_sha: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+#     release_tag: $[ dependencies.check_for_release.outputs['out.release_tag'] ]
+#     trigger_sha: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+#   steps:
+#     - checkout: self
+#     - bash: |
+#         set -euo pipefail
+#
+#         git checkout $(release_sha)
+#         export DAML_SDK_RELEASE_VERSION=$(release_tag)
+#
+#         sudo mkdir -p /nix
+#         sudo chown $USER /nix
+#         curl -sfL https://nixos.org/releases/nix/nix-2.3.3/install | bash
+#         eval "$(dev-env/bin/dade-assist)"
+#         GCS_KEY=$(mktemp)
+#         cleanup () {
+#             rm -f $GCS_KEY
+#         }
+#         trap cleanup EXIT
+#         echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+#         gcloud auth activate-service-account --key-file=$GCS_KEY
+#         export BOTO_CONFIG=/dev/null
+#
+#         bazel build //ledger/participant-state/kvutils:reference-ledger-dump
+#         gsutil cp bazel-bin/ledger/participant-state/kvutils/reference-ledger-dump.out \
+#                   gs://daml-dumps/release/ledger/api-server-damlonx/reference-v2/reference-ledger-dump-$(release_tag)
+#       env:
+#         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#     - template: ci/tell-slack-failed.yml
+#       parameters:
+#         trigger_sha: '$(trigger_sha)'
 
   - job: collect_build_data
     condition: always()
     dependsOn:
-      - Linux
-      - macOS
+#     - Linux
+#     - macOS
       - Windows
-      - release
-      - write_ledger_dump
+#     - release
+#     - write_ledger_dump
       - git_sha
-      - compatibility_macos
-      - compatibility_linux
-      - compatibility_windows
+#     - compatibility_macos
+#     - compatibility_linux
+#     - compatibility_windows
     pool:
       name: "linux-pool"
     variables:
-      Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
-      Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
-      Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
-      Linux.status: $[ dependencies.Linux.result ]
-      macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
-      macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
-      macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
-      macOS.status: $[ dependencies.macOS.result ]
+#     Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
+#     Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
+#     Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
+#     Linux.status: $[ dependencies.Linux.result ]
+#     macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
+#     macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
+#     macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
+#     macOS.status: $[ dependencies.macOS.result ]
       Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
       Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
       Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
       Windows.status: $[ dependencies.Windows.result ]
-      release.start: $[ dependencies.release.outputs['start.time'] ]
-      release.machine: $[ dependencies.release.outputs['start.machine'] ]
-      release.end: $[ dependencies.release.outputs['end.time'] ]
-      release.status: $[ dependencies.release.result ]
-      dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
-      dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
-      dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
-      dump.status: $[ dependencies.write_ledger_dump.result ]
-      compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
-      compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
-      compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
-      compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
-      compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
-      compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
-      compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
-      compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
-      compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
-      compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
-      compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
-      compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
+#     release.start: $[ dependencies.release.outputs['start.time'] ]
+#     release.machine: $[ dependencies.release.outputs['start.machine'] ]
+#     release.end: $[ dependencies.release.outputs['end.time'] ]
+#     release.status: $[ dependencies.release.result ]
+#     dump.start: $[ dependencies.write_ledger_dump.outputs['start.time'] ]
+#     dump.machine: $[ dependencies.write_ledger_dump.outputs['start.machine'] ]
+#     dump.end: $[ dependencies.write_ledger_dump.outputs['end.time'] ]
+#     dump.status: $[ dependencies.write_ledger_dump.result ]
+#     compatibility_linux.start: $[ dependencies.compatibility_linux.outputs['start.time'] ]
+#     compatibility_linux.machine: $[ dependencies.compatibility_linux.outputs['start.machine'] ]
+#     compatibility_linux.end: $[ dependencies.compatibility_linux.outputs['end.time'] ]
+#     compatibility_linux.status: $[ dependencies.compatibility_linux.result ]
+#     compatibility_macos.start: $[ dependencies.compatibility_macos.outputs['start.time'] ]
+#     compatibility_macos.machine: $[ dependencies.compatibility_macos.outputs['start.machine'] ]
+#     compatibility_macos.end: $[ dependencies.compatibility_macos.outputs['end.time'] ]
+#     compatibility_macos.status: $[ dependencies.compatibility_macos.result ]
+#     compatibility_windows.start: $[ dependencies.compatibility_windows.outputs['start.time'] ]
+#     compatibility_windows.machine: $[ dependencies.compatibility_windows.outputs['start.machine'] ]
+#     compatibility_windows.end: $[ dependencies.compatibility_windows.outputs['end.time'] ]
+#     compatibility_windows.status: $[ dependencies.compatibility_windows.result ]
 
       branch_sha: $[ dependencies.git_sha.outputs['out.branch'] ]
       master_sha: $[ dependencies.git_sha.outputs['out.master'] ]
@@ -453,38 +453,10 @@ jobs:
 
           REPORT=$(mktemp)
           cat >$REPORT <<END
-          {"jobs": {"Linux": {"start": "$(Linux.start)",
-                              "machine": "$(Linux.machine)",
-                              "end": "$(Linux.end)",
-                              "status": "$(Linux.status)"},
-                    "macOS": {"start": "$(macOS.start)",
-                              "machine": "$(macOS.machine)",
-                              "end": "$(macOS.end)",
-                              "status": "$(macOS.status)"},
-                    "Windows": {"start": "$(Windows.start)",
+          {"jobs": {"Windows": {"start": "$(Windows.start)",
                                 "machine": "$(Windows.machine)",
                                 "end": "$(Windows.end)",
-                                "status": "$(Windows.status)"},
-                    "write_ledger_dump": {"start": "$(dump.start)",
-                                          "machine": "$(dump.machine)",
-                                          "end": "$(dump.end)",
-                                          "status": "$(dump.status)"},
-                    "release": {"start": "$(release.start)",
-                                "machine": "$(release.machine)",
-                                "end": "$(release.end)",
-                                "status": "$(release.status)"},
-                    "compatibility_linux": {"start": "$(compatibility_linux.start)",
-                                            "machine": "$(compatibility_linux.machine)",
-                                            "end": "$(compatibility_linux.end)",
-                                            "status": "$(compatibility_linux.status)"},
-                    "compatibility_macos": {"start": "$(compatibility_macos.start)",
-                                            "machine": "$(compatibility_macos.machine)",
-                                            "end": "$(compatibility_macos.end)",
-                                            "status": "$(compatibility_macos.status)"},
-                    "compatibility_windows": {"start": "$(compatibility_windows.start)",
-                                              "machine": "$(compatibility_windows.machine)",
-                                              "end": "$(compatibility_windows.end)",
-                                              "status": "$(compatibility_windows.status)"}},
+                                "status": "$(Windows.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
@@ -529,13 +501,7 @@ jobs:
           #
           # release and write_ledger_dump only run on releases and are skipped
           # otherwise.
-          if [[ "$(Linux.status)" != "Succeeded"
-              || "$(macOS.status)" != "Succeeded"
-              || "$(Windows.status)" != "Succeeded"
-              || "$(compatibility_linux.status)" != "Succeeded"
-              || "$(compatibility_macos.status)" != "Succeeded"
-              || "$(dump.status)" == "Canceled"
-              || "$(release.status)" == "Canceled" ]]; then
+          if [[ "$(Windows.status)" != "Succeeded" ]]; then
               exit 1
           fi
         env:
