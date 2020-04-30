@@ -159,10 +159,16 @@ def _extract_main_dalf_impl(ctx):
         outputs = [output_dalf],
         progress_message = "Extract DALF from DAR (%s)" % project_name,
         command = """
-            set -eou pipefail
-            {zipper} x {input_dar}
-            main_dalf=$({find} . -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
-            cp $main_dalf {output_dalf}
+set -eoux pipefail
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+# While zipper has a -d option, it insists on it
+# being a relative path so we don't use it.
+ZIPPER=$PWD/{zipper}
+DAR=$PWD/{input_dar}
+(cd $TMPDIR && $ZIPPER x $DAR)
+main_dalf=$({find} $TMPDIR/ -name '{project_name}-{project_version}-[a-z0-9]*.dalf')
+cp $main_dalf {output_dalf}
         """.format(
             zipper = zipper.path,
             find = posix.commands["find"],
