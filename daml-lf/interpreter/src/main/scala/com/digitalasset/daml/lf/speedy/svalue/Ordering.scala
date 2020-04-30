@@ -223,8 +223,8 @@ object Ordering extends scala.math.Ordering[SValue] {
             case SContractId(RelativeContractId(_)) =>
               throw SErrorCrash("relative contract id are not comparable")
           }
-          case SPAP(_, _, _) => {
-            case SPAP(_, _, _) =>
+          case SPAP(_, _, _, _) => {
+            case SPAP(_, _, _, _) =>
               throw SErrorCrash("functions are not comparable")
           }
         }(fallback = throw SErrorCrash("try to compare unrelated type"))

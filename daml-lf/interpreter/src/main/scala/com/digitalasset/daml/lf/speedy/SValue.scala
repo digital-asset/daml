@@ -86,14 +86,14 @@ sealed trait SValue {
     this match {
       case SContractId(coid) => SContractId(f(coid))
       case SEnum(_, _, _) | _: SPrimLit | SToken | STNat(_) | STypeRep(_) => this
-      case SPAP(prim, args, arity) =>
+      case SPAP(prim, args, arity, shared) =>
         val prim2 = prim match {
           case PClosure(expr, vars) =>
             PClosure(expr, vars.map(_.mapContractId(f)))
           case other => other
         }
         val args2 = mapArrayList(args, _.mapContractId(f))
-        SPAP(prim2, args2, arity)
+        SPAP(prim2, args2, arity, shared)
       case SRecord(tycon, fields, values) =>
         SRecord(tycon, fields, mapArrayList(values, v => v.mapContractId(f)))
       case SStruct(fields, values) =>
@@ -113,6 +113,8 @@ sealed trait SValue {
       case SAny(ty, value) =>
         SAny(ty, value.mapContractId(f))
     }
+
+    def share(): SValue = this
 }
 
 object SValue {
@@ -130,8 +132,12 @@ object SValue {
     * If the primitive is a closure, the arguments are pushed to the environment and the
     * closure body is entered.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
+  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int, var shared: Boolean) extends SValue {
     override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
+    override def share(): SValue = {
+      shared = true
+      this
+    }
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
