@@ -319,7 +319,12 @@ fetch_gh_versions = do
 
 same_versions :: (Set.Set Version, Set.Set Version) -> [GitHubVersion] -> Bool
 same_versions s3_versions gh_versions =
-    let gh_releases = Set.fromList $ map (to_v . name) $ filter (not . prerelease) gh_versions
+    -- Versions 0.13.5 and earlier can no longer be built by this script, and
+    -- happen to not exist in the s3 repo. This means they are not generated
+    -- and thus do not appear in the versions.json file on s3. This means that
+    -- if we do not remove them from the listing here, the docs cron always
+    -- believes there is a change to deploy.
+    let gh_releases = Set.fromList $ map (to_v . name) $ filter (\v -> to_v (name v) > to_v "0.13.5") $ filter (not . prerelease) gh_versions
         gh_snapshots = Set.fromList $ map (to_v . name) $ filter prerelease gh_versions
     in s3_versions == (gh_releases, gh_snapshots)
 
