@@ -332,6 +332,14 @@ object Speedy {
 
     /** Execute a single step to reduce the control */
     def execute(machine: Machine): Unit
+
+    def intoPAP(): SPAP = {
+      crash(s"Applying non-PAP: $this")
+    }
+
+    def intoValue(): SValue = {
+      crash(s"expected value, found $this")
+    }
   }
 
   /** A special control object to guard against misbehaving operations.
@@ -349,6 +357,12 @@ object Speedy {
   }
 
   final case class CtrlValue(value: SValue) extends Ctrl {
+    override def intoPAP(): SPAP = value match {
+      case pap: SPAP => pap
+      case _ => crash(s"Applying non-PAP: $this")
+    }
+    override def intoValue(): SValue = value
+
     def execute(machine: Machine): Unit = value match {
       case pap: SPAP if pap.args.size == pap.arity =>
         pap.prim match {
@@ -376,8 +390,7 @@ object Speedy {
             }
         }
       case _ =>
-        machine.ctrl = this
-        machine.kontPop.execute(value, machine)
+        machine.ctrl = machine.kontPop.execute(this, machine)
     }
   }
 
@@ -519,20 +532,21 @@ object Speedy {
   sealed trait Kont {
 
     /** Execute the continuation. */
-    def execute(v: SValue, machine: Machine): Unit
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl
   }
 
   /** Pop 'count' arguments from the environment. */
   final case class KPop(count: Int) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
       machine.popEnv(count)
+      ctrl
     }
   }
 
   /** The function has been evaluated to a value, now start evaluating the arguments. */
   final case class KArg(newArgs: Array[SExpr]) extends Kont with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
-      v match {
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      ctrl.intoPAP match {
         case SPAP(prim, args, arity) =>
           val missing = arity - args.size
           val newArgsLimit = Math.min(missing, newArgs.length)
@@ -558,10 +572,7 @@ object Speedy {
             machine.kont.add(KPushTo(extendedArgs, arg))
             i = i + 1
           }
-          machine.ctrl = CtrlExpr(newArgs(0))
-
-        case _ =>
-          crash(s"Applying non-PAP: $v")
+          CtrlExpr(newArgs(0))
       }
     }
   }
@@ -570,15 +581,16 @@ object Speedy {
     * If the PAP is fully applied the machine will push the arguments to the environment
     * and start evaluating the function body. */
   final case class KFun(prim: Prim, args: util.ArrayList[SValue], var arity: Int) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      args.add(v) // Add last argument
-      machine.ctrl = CtrlValue(SPAP(prim, args, arity))
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      args.add(ctrl.intoValue) // Add last argument
+      CtrlValue(SPAP(prim, args, arity))
     }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   final case class KMatch(alts: Array[SCaseAlt]) extends Kont with SomeArrayEquals {
-    def execute(v: SValue, machine: Machine) = {
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      val v = ctrl.intoValue
       val altOpt = v match {
         case SBool(b) =>
           alts.find { alt =>
@@ -652,7 +664,7 @@ object Speedy {
           crash("Match on non-matchable value")
       }
 
-      machine.ctrl = CtrlExpr(
+      CtrlExpr(
         altOpt
           .getOrElse(throw DamlEMatchError(s"No match for $v in ${alts.toList}"))
           .body,
@@ -668,9 +680,9 @@ object Speedy {
     * direy into the environment.
     */
   final case class KPushTo(to: util.ArrayList[SValue], next: SExpr) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      to.add(v)
-      machine.ctrl = CtrlExpr(next)
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      to.add(ctrl.intoValue)
+      CtrlExpr(next)
     }
   }
 
@@ -681,9 +693,10 @@ object Speedy {
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
   final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
-    def execute(sv: SValue, machine: Machine) = {
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
       machine.pushStackTrace(stack_trace)
-      v.cached = Some((sv, stack_trace))
+      v.cached = Some((ctrl.intoValue, stack_trace))
+      ctrl
     }
   }
 
@@ -694,15 +707,15 @@ object Speedy {
     */
   final case class KCatch(handler: SExpr, fin: SExpr, envSize: Int) extends Kont {
 
-    def execute(v: SValue, machine: Machine) = {
-      machine.ctrl = CtrlExpr(fin)
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      CtrlExpr(fin)
     }
   }
 
   /** A location frame stores a location annotation found in the AST. */
   final case class KLocation(location: Location) extends Kont {
-    def execute(v: SValue, machine: Machine) = {
-      machine.ctrl = CtrlValue(v)
+    def execute(ctrl: Ctrl, machine: Machine): Ctrl = {
+      CtrlValue(ctrl.intoValue)
     }
   }
 
