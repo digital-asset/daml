@@ -96,15 +96,6 @@ object JsonProtocol extends DefaultJsonProtocol with ExtraFormats {
     }
   }
 
-  implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
-    override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
-
-    override def read(json: JsValue): Instant = json match {
-      case JsNumber(a) => java.time.Instant.ofEpochMilli(a.toLongExact)
-      case _ => deserializationError("java.time.Instant must be epoch millis")
-    }
-  }
-
   implicit val TemplateIdRequiredPkgFormat: RootJsonFormat[domain.TemplateId.RequiredPkg] =
     new RootJsonFormat[domain.TemplateId.RequiredPkg] {
       override def write(a: domain.TemplateId.RequiredPkg): JsValue =
