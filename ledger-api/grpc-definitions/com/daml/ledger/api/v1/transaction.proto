@@ -73,8 +73,8 @@ message TreeEvent {
     oneof kind {
         CreatedEvent created = 1;
         ExercisedEvent exercised = 2;
-        EnteredViewEvent enteredView = 3;
-        LeftViewEvent leftView = 4;
+        EnterLocalLedgerEvent enter = 3;
+        LeaveLocalLedgerEvent leave = 4;
     }
 }
 
