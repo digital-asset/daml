@@ -196,6 +196,24 @@ class ApiCodecCompressedSpec
         }
       }
 
+      "fail on map duplicate keys" in forAll(genAddend, minSuccessful(20)) { kva =>
+        val mapVa = VA.genMap(kva, VA.int64)
+        implicit val cidArb: Arbitrary[Cid] = Arbitrary(genCid)
+        import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
+        forAll(minSuccessful(50)) { (k: kva.Inj[Cid], v: VA.int64.Inj[Cid], map: mapVa.Inj[Cid]) =>
+          val canonical = mapVa.inj(map updated (k, v))
+          val jsEnc = inside(apiValueToJsValue(canonical)) {
+            case JsArray(elements) => elements
+          }
+          val broken = JsArray(
+            shuffle(jsEnc :+ JsArray(Seq(kva.inj(k), VA.int64.inj(v)) map apiValueToJsValue: _*)))
+          val err = the[DeserializationException] thrownBy {
+            jsValueToApiValue(broken, mapVa.t, typeLookup)
+          }
+          err.msg should startWith("duplicate key: ")
+        }
+      }
+
       def cr(typ: VA)(v: typ.Inj[Cid]) =
         (typ, v: Any, typ.inj(v))
 
