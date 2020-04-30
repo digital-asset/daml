@@ -47,15 +47,13 @@ function bazel() {
 # ScalaCInvoker, a Bazel worker, created by rules_scala opens some of the bazel execroot's files,
 # which later causes issues on Bazel init (source forest creation) on Windows. A shutdown closes workers,
 # which is a workaround for this problem.
-bazel shutdown
+bazel clean --expunge
 
 # Prefetch nodejs_dev_env to avoid permission denied errors on external/nodejs_dev_env/nodejs_dev_env/node.exe
 # It isn’t clear where exactly those errors are coming from.
-bazel fetch @nodejs_dev_env//...
+#bazel fetch @nodejs_dev_env//...
 
 # TODO
-bazel build //... `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `-`-build_event_binary_file ${ARTIFACT_DIRS}/test_build_events_windows.log
+bazel build @zlib//:zlib `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `-`-build_event_binary_file ${ARTIFACT_DIRS}/test_build_events_windows.log
 
-bazel shutdown
-
-bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...
+bazel clean --expunge
