@@ -22,7 +22,6 @@ import scalaz.syntax.traverse._
 import scala.collection.JavaConverters._
 
 final case class KVTestState(
-    engine: Engine,
     participantId: ParticipantId,
     recordTime: Timestamp,
     defaultConfig: Configuration,
@@ -40,12 +39,12 @@ object KVTest {
 
   private[kvutils] val metricRegistry = new MetricRegistry
 
-  private[this] val keyValueCommitting = new KeyValueCommitting(metricRegistry)
+  private[this] val engine = Engine()
+  private[this] val keyValueCommitting = new KeyValueCommitting(engine, metricRegistry)
   private[this] val keyValueSubmission = new KeyValueSubmission(metricRegistry)
 
   def initialTestState: KVTestState =
     KVTestState(
-      engine = Engine(),
       participantId = mkParticipantId(0),
       recordTime = Timestamp.Epoch.addMicros(1000000),
       defaultConfig = theDefaultConfig,
@@ -124,7 +123,6 @@ object KVTest {
       testState <- get[KVTestState]
       entryId <- freshEntryId
       (logEntry, newState) = keyValueCommitting.processSubmission(
-        engine = testState.engine,
         entryId = entryId,
         recordTime = testState.recordTime,
         defaultConfig = testState.defaultConfig,
@@ -170,7 +168,7 @@ object KVTest {
   ): KVTest[(Transaction.AbsTransaction, Transaction.Metadata)] =
     for {
       s <- get[KVTestState]
-      (tx, meta) = s.engine
+      (tx, meta) = engine
         .submit(
           cmds = Commands(
             submitter = submitter,

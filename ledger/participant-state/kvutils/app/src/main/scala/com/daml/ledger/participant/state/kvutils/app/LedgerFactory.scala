@@ -10,6 +10,7 @@ import com.codahale.metrics.{MetricRegistry, SharedMetricRegistries}
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{ReadService, WriteService}
 import com.daml.ledger.api.auth.{AuthService, AuthServiceWildcard}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.{ApiServerConfig, TimeServiceBackend}
 import com.daml.platform.configuration.{
@@ -87,6 +88,7 @@ trait ReadServiceOwner[+RS <: ReadService, ExtraConfig] extends ConfigProvider[E
   def readServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RS]
 }
 
@@ -94,6 +96,7 @@ trait WriteServiceOwner[+WS <: WriteService, ExtraConfig] extends ConfigProvider
   def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[WS]
 }
 
@@ -104,18 +107,21 @@ trait LedgerFactory[+RWS <: ReadWriteService, ExtraConfig]
   override final def readServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig)
+    readWriteServiceOwner(config, participantConfig, engine)
 
   override final def writeServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS] =
-    readWriteServiceOwner(config, participantConfig)
+    readWriteServiceOwner(config, participantConfig, engine)
 
   def readWriteServiceOwner(
       config: Config[ExtraConfig],
       participantConfig: ParticipantConfig,
+      engine: Engine,
   )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[RWS]
 }
 
@@ -128,12 +134,13 @@ object LedgerFactory {
     override final def readWriteServiceOwner(
         config: Config[Unit],
         participantConfig: ParticipantConfig,
+        engine: Engine,
     )(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
-        readerWriter <- owner(config, participantConfig)
+        readerWriter <- owner(config, participantConfig, engine)
       } yield
         new KeyValueParticipantState(
           readerWriter,
@@ -144,6 +151,7 @@ object LedgerFactory {
     def owner(
         value: Config[Unit],
         config: ParticipantConfig,
+        engine: Engine,
     )(implicit materializer: Materializer, logCtx: LoggingContext): ResourceOwner[KVL]
 
     override final def extraConfigParser(parser: OptionParser[Config[Unit]]): Unit =

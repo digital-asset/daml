@@ -18,6 +18,7 @@ da_scala_test_suite(
     ],
     deps = [
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//language-support/scala/bindings",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",

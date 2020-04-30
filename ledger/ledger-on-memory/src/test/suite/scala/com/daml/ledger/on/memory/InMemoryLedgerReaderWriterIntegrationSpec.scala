@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpecBase.ParticipantState
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.resources.ResourceOwner
 
@@ -26,5 +27,6 @@ class InMemoryLedgerReaderWriterIntegrationSpec
       ledgerId,
       participantId,
       metricRegistry = metricRegistry,
+      engine = Engine(),
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
 }

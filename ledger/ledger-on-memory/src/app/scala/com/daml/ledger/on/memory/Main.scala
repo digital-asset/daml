@@ -13,6 +13,7 @@ import com.daml.ledger.participant.state.kvutils.app.{
   Runner
 }
 import com.daml.ledger.participant.state.kvutils.caching
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.apiserver.ApiServerConfig
@@ -37,19 +38,20 @@ object Main {
     override final def readWriteServiceOwner(
         config: Config[ExtraConfig],
         participantConfig: ParticipantConfig,
+        engine: Engine,
     )(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[KeyValueParticipantState] =
       for {
-        readerWriter <- owner(config, participantConfig)
+        readerWriter <- owner(config, participantConfig, engine)
       } yield
         new KeyValueParticipantState(
           readerWriter,
           readerWriter,
           metricRegistry(participantConfig, config))
 
-    def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig)(
+    def owner(config: Config[ExtraConfig], participantConfig: ParticipantConfig, engine: Engine)(
         implicit materializer: Materializer,
         logCtx: LoggingContext,
     ): ResourceOwner[InMemoryLedgerReaderWriter] =
@@ -60,6 +62,7 @@ object Main {
         stateValueCache = caching.Cache.from(config.stateValueCache),
         dispatcher = dispatcher,
         state = state,
+        engine = engine,
       )
 
     override val defaultExtraConfig: ExtraConfig = ExtraConfig.default

@@ -220,6 +220,16 @@ object Database {
       new Database(system.queries, readerConnectionPool, writerConnectionPool, metricRegistry)
     }
 
+    def migrateAndReset()(
+        implicit executionContext: ExecutionContext,
+        loggerCtx: LoggingContext): Future[Database] = {
+      val db = migrate()
+      db.inWriteTransaction("ledger_reset") { queries =>
+          Future.fromTry(queries.truncate())
+        }
+        .map(_ => db)
+    }
+
     def clear(): this.type = {
       flyway.clean()
       this

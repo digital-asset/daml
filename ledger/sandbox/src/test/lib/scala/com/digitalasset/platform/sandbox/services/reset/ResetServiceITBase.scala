@@ -35,6 +35,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
   LedgerIdentityServiceGrpc
 }
+import com.daml.ledger.api.v1.package_service.{ListPackagesRequest, PackageServiceGrpc}
 import com.daml.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.daml.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
@@ -116,6 +117,9 @@ abstract class ResetServiceITBase
         .getActiveContracts(GetActiveContractsRequest(ledgerId, Some(f)), _))
       .all()
       .map(_.flatMap(_.activeContracts)(collection.breakOut))
+
+  protected def listPackages(ledgerId: String): Future[Seq[String]] =
+    PackageServiceGrpc.stub(channel).listPackages(ListPackagesRequest(ledgerId)).map(_.packageIds)
 
   protected def submitAndExpectCompletions(
       ledgerId: String,
@@ -216,6 +220,22 @@ abstract class ResetServiceITBase
           newEvents <- activeContracts(newLid, M.transactionFilter)
         } yield {
           newEvents should have size 0
+        }
+      }
+
+      "retain previously uploaded packages" in {
+        for {
+          ledgerId <- fetchLedgerId()
+          packagesBeforeReset <- eventually { (_, _) =>
+            listPackages(ledgerId).map { packages =>
+              packages.size should be > 0
+              packages
+            }
+          }
+          newLid <- reset(ledgerId)
+          packagesAfterReset <- listPackages(newLid)
+        } yield {
+          packagesBeforeReset should contain theSameElementsAs packagesAfterReset
         }
       }
 
