@@ -490,9 +490,10 @@ private class JdbcLedgerDao(
             .map(prepareCompletionInsert(_, offset, transactionId, recordTime))
             .foreach(_.execute())
         } else {
-          submitterInfo
-            .map(prepareRejectionInsert(_, offset, recordTime, error.get))
-            .foreach(_.execute())
+          for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
+            stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
+            prepareRejectionInsert(info, offset, recordTime, error.get).execute()
+          }
         }
         updateLedgerEnd(offset)
         Ok
@@ -505,9 +506,10 @@ private class JdbcLedgerDao(
       reason: RejectionReason,
   ): Future[PersistenceResponse] =
     dbDispatcher.executeSql("store_rejection") { implicit conn =>
-      submitterInfo
-        .map(prepareRejectionInsert(_, offset, recordTime, reason))
-        .foreach(_.execute())
+      for (info @ SubmitterInfo(submitter, _, commandId, _) <- submitterInfo) {
+        stopDeduplicatingCommandSync(domain.CommandId(commandId), submitter)
+        prepareRejectionInsert(info, offset, recordTime, reason).execute()
+      }
       updateLedgerEnd(offset)
       Ok
     }
