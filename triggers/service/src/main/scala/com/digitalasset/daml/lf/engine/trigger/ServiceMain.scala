@@ -187,6 +187,9 @@ object Server {
   }
   implicit val triggerParamsFormat = jsonFormat2(TriggerParams)
 
+  case class ListParams(party: String) // May also need an auth token later
+  implicit val listParamsFormat = jsonFormat1(ListParams)
+
   private def addDar(compiledPackages: MutableCompiledPackages, dar: Dar[(PackageId, Package)]) = {
     val darMap = dar.all.toMap
     darMap.foreach {
@@ -204,6 +207,11 @@ object Server {
     }
   }
 
+  case class TriggerActorWithParty(
+      ref: ActorRef[TriggerActor.Message],
+      party: String,
+  )
+
   def apply(
       host: String,
       port: Int,
@@ -216,7 +224,9 @@ object Server {
     implicit val esf: ExecutionSequencerFactory =
       new AkkaExecutionSequencerPool("TriggerService")(untypedSystem)
 
-    var triggers: Map[UUID, ActorRef[TriggerActor.Message]] = Map.empty
+    var triggers: Map[UUID, TriggerActorWithParty] = Map.empty
+    var triggersByParty: Map[String, Set[UUID]] = Map.empty
+
     // Mutable in preparation for dynamic package upload.
     val compiledPackages: MutableCompiledPackages = ConcurrentCompiledPackages()
     dar.foreach(addDar(compiledPackages, _))
@@ -236,15 +246,17 @@ object Server {
                   case Left(err) =>
                     complete((StatusCodes.UnprocessableEntity, err))
                   case Right(trigger) =>
+                    val party = params.party
                     val uuid = UUID.randomUUID
                     val ref = ctx.spawn(
                       TriggerActor(
-                        TriggerActor.Config(compiledPackages, trigger, ledgerConfig, params.party)),
+                        TriggerActor.Config(compiledPackages, trigger, ledgerConfig, party)),
                       uuid.toString,
                     )
-                    triggers = triggers + (uuid -> ref)
+                    triggers = triggers + (uuid -> TriggerActorWithParty(ref, party))
+                    val newTriggerSet = triggersByParty.getOrElse(party, Set()) + uuid
+                    triggersByParty = triggersByParty + (party -> newTriggerSet)
                     complete(uuid.toString)
-
                 }
             }
           },
@@ -276,11 +288,27 @@ object Server {
           }
         )
       },
+      // List triggers currently running for the given party
+      get {
+        path("list") {
+          entity(as[ListParams]) { params =>
+            {
+              val list =
+                triggersByParty.getOrElse(params.party, Set()).map(_.toString).toList.toJson
+              complete(list)
+            }
+          }
+        }
+      },
       // Stop a trigger given its UUID
       delete {
         pathPrefix("stop" / JavaUUID) { id =>
-          triggers.get(id).get ! TriggerActor.Stop
+          val actorWithParty = triggers.get(id).get
+          actorWithParty.ref ! TriggerActor.Stop
           triggers = triggers - id
+          val party = actorWithParty.party
+          val newTriggerSet = triggersByParty.get(party).get - id
+          triggersByParty = triggersByParty + (party -> newTriggerSet)
           complete(s"Trigger $id has been stopped.")
         }
       },

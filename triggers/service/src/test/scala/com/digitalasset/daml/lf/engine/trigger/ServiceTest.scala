@@ -41,6 +41,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   val dar = encodedDar.map {
     case (pkgId, pkgArchive) => Decode.readArchivePayload(pkgId, pkgArchive)
   }
+  val testPkgId = dar.main._1
 
   def submitCmd(client: LedgerClient, party: String, cmd: Command) = {
     val req = SubmitAndWaitRequest(
@@ -77,6 +78,18 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     Http().singleRequest(req)
   }
 
+  def listTriggers(uri: Uri, party: String) = {
+    val req = HttpRequest(
+      method = HttpMethods.GET,
+      uri = uri.withPath(Uri.Path(s"/list")),
+      entity = HttpEntity(
+        ContentTypes.`application/json`,
+        s"""{"party": "$party"}"""
+      )
+    )
+    Http().singleRequest(req)
+  }
+
   def stopTrigger(uri: Uri, id: String) = {
     val req = HttpRequest(
       method = HttpMethods.DELETE,
@@ -100,13 +113,17 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
     Http().singleRequest(req)
   }
 
+  def responseBodyToString(resp: HttpResponse) = {
+    resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+  }
+
   it should "should fail for non-existent trigger" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       for {
-        resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:foobar", "Alice")
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:foobar", "Alice")
         body <- {
           assert(resp.status == StatusCodes.UnprocessableEntity)
-          resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+          responseBodyToString(resp)
         }
       } yield assert(body == "Could not find name foobar in module TestTrigger")
   }
@@ -114,33 +131,91 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
   it should "find a trigger after uploading it" in withHttpService(None) { (uri: Uri, client) =>
     for {
       // attempt to start trigger before uploading which fails.
-      resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       _ <- assert(resp.status == StatusCodes.UnprocessableEntity)
       resp <- uploadDar(uri, darPath)
-      body <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      body <- responseBodyToString(resp)
       _ <- body should startWith("DAR uploaded")
-      resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
+      resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
       _ <- assert(resp.status.isSuccess)
-      triggerId <- resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+      triggerId <- responseBodyToString(resp)
+      resp <- listTriggers(uri, "Alice")
+      body <- responseBodyToString(resp)
+      _ <- body should include(triggerId)
       resp <- stopTrigger(uri, triggerId)
       _ <- assert(resp.status.isSuccess)
     } yield succeed
+  }
+
+  it should "start multiple triggers and list them by party" in withHttpService(Some(dar)) {
+    (uri: Uri, client) =>
+      for {
+        // no triggers running initially
+        resp <- listTriggers(uri, "Alice")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal("[]")
+        // start trigger for Alice
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
+        _ <- assert(resp.status.isSuccess)
+        aliceTrigger <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Alice")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal(s"""["$aliceTrigger"]""")
+        // start trigger for Bob
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
+        _ <- assert(resp.status.isSuccess)
+        bobTrigger1 <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal(s"""["$bobTrigger1"]""")
+        // start another trigger for Bob
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Bob")
+        _ <- assert(resp.status.isSuccess)
+        bobTrigger2 <- responseBodyToString(resp)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
+        // stop Alice's trigger
+        resp <- stopTrigger(uri, aliceTrigger)
+        _ <- assert(resp.status.isSuccess)
+        resp <- listTriggers(uri, "Alice")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal("[]")
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal(s"""["$bobTrigger1","$bobTrigger2"]""")
+        // stop Bob's triggers
+        resp <- stopTrigger(uri, bobTrigger1)
+        _ <- assert(resp.status.isSuccess)
+        resp <- stopTrigger(uri, bobTrigger2)
+        _ <- assert(resp.status.isSuccess)
+        resp <- listTriggers(uri, "Bob")
+        _ <- assert(resp.status.isSuccess)
+        body <- responseBodyToString(resp)
+        _ <- body should equal("[]")
+      } yield succeed
   }
 
   it should "should enable a trigger on http request" in withHttpService(Some(dar)) {
     (uri: Uri, client) =>
       // start the trigger
       for {
-        resp <- startTrigger(uri, s"${dar.main._1}:TestTrigger:trigger", "Alice")
+        resp <- startTrigger(uri, s"$testPkgId:TestTrigger:trigger", "Alice")
         triggerId <- {
           assert(resp.status.isSuccess)
-          resp.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map(_.utf8String)
+          responseBodyToString(resp)
         }
         // Trigger is running, create an A contract
         _ <- {
           val cmd = Command().withCreate(
             CreateCommand(
-              templateId = Some(Identifier(dar.main._1, "TestTrigger", "A")),
+              templateId = Some(Identifier(testPkgId, "TestTrigger", "A")),
               createArguments = Some(
                 Record(
                   None,
@@ -153,7 +228,7 @@ class ServiceTest extends AsyncFlatSpec with Eventually with Matchers {
         // Query ACS until we see a B contract
         // format: off
       _ <- Future {
-        val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(dar.main._1, "TestTrigger", "B"))))))).toMap)
+        val filter = TransactionFilter(List(("Alice", Filters(Some(InclusiveFilters(Seq(Identifier(testPkgId, "TestTrigger", "B"))))))).toMap)
         eventually {
           val acs = client.activeContractSetClient.getActiveContracts(filter).runWith(Sink.seq)
             .map(acsPages => acsPages.flatMap(_.activeContracts))
