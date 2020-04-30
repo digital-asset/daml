@@ -169,6 +169,11 @@ jobs:
         parameters:
           release_tag: $(release_tag)
           is_release: variables.is_release
+      - task: PublishBuildArtifacts@1
+        condition: succeededOrFailed()
+        inputs:
+          pathtoPublish: '$(Build.StagingDirectory)'
+          artifactName: 'Bazel Logs'
       - template: ci/tell-slack-failed.yml
         parameters:
           trigger_sha: '$(trigger_sha)'
