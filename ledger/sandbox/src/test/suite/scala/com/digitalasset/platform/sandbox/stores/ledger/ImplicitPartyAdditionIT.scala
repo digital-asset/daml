@@ -52,7 +52,7 @@ class ImplicitPartyAdditionIT
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =
-    Set(BackendType.InMemory, BackendType.Postgres)
+    Set(BackendType.InMemory)
 
   override protected def constructResource(index: Int, fixtureId: BackendType): Resource[Ledger] = {
     implicit val executionContext: ExecutionContext = system.dispatcher
@@ -129,7 +129,7 @@ class ImplicitPartyAdditionIT
           )
         )
         // Wait until the last command completed
-        _ <- ledger
+        (_, completion) <- ledger
           .completions(
             Some(offset),
             None,
@@ -143,14 +143,17 @@ class ImplicitPartyAdditionIT
         exerciseResult shouldBe SubmissionResult.Acknowledged
         fetchResult shouldBe SubmissionResult.Acknowledged
 
-        parties.exists(d => d.party == "create-signatory") shouldBe true
-        parties.exists(d => d.party == "create-stakeholder") shouldBe true
+        completion.completions.head.status.get.code shouldBe 0
 
-        parties.exists(d => d.party == "exercise-signatory") shouldBe true
-        parties.exists(d => d.party == "exercise-stakeholder") shouldBe true
+        parties.map(_.party) should contain allOf (
+          toParty("create-signatory"),
+          toParty("create-stakeholder"),
+          toParty("exercise-signatory"),
+          toParty("exercise-stakeholder"),
+          toParty("fetch-acting-party"),
+          toParty("fetch-signatory"),
+        )
 
-        parties.exists(d => d.party == "fetch-acting-party") shouldBe true
-        parties.exists(d => d.party == "fetch-signatory") shouldBe true
       }
     }
   }
