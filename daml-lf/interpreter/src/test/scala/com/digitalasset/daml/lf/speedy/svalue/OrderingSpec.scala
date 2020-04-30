@@ -14,7 +14,7 @@ import com.daml.lf.speedy.{SBuiltin, SExpr, SValue}
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.value.Value
 import com.daml.lf.value.TypedValueGenerators.genAddend
-import com.daml.lf.value.ValueGenerators.absCoidGen
+import com.daml.lf.value.ValueGenerators.{absCoidGen, comparableAbsCoidsGen}
 import com.daml.lf.PureCompiledPackages
 import org.scalacheck.Arbitrary
 import org.scalatest.prop.{
@@ -447,6 +447,7 @@ class OrderingSpec
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
+
     "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
       implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
@@ -457,6 +458,11 @@ class OrderingSpec
         val bySvalue = translatePrimValue(ta) ?|? translatePrimValue(tb)
         (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
       }
+    }
+
+    "match global AbsoluteContractId ordering" in forAll(comparableAbsCoidsGen, minSuccessful(100)) {
+      case (a, b) =>
+        Cid.`AbsCid Order`.order(a, b) should ===(cidOrd.order(a, b))
     }
   }
 
