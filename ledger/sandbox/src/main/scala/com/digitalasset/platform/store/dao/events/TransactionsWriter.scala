@@ -139,12 +139,12 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     }
 
   private def insertContractsAndUpdateWitnesses(
-      contractBatches: ContractsTable.PreparedBatches,
+      contracts: ContractsTable.PreparedBatches,
       transaction: Transaction,
       blinding: BlindingInfo,
   )(implicit connection: Connection): Unit = {
 
-    for ((deleted, deleteContractsBatch) <- contractBatches.deletions) {
+    for ((deleted, deleteContractsBatch) <- contracts.deletions) {
       val deleteWitnessesBatch = contractWitnessesTable.prepareBatchDelete(deleted.toSeq)
       assert(deleteWitnessesBatch.nonEmpty, "No witness found for contracts marked for deletion")
       // Delete the witnesses first to respect the foreign key constraint of the underlying storage
@@ -152,7 +152,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       deleteContractsBatch.execute()
     }
 
-    for ((_, insertContractsBatch) <- contractBatches.insertions) {
+    for ((_, insertContractsBatch) <- contracts.insertions) {
       insertContractsBatch.execute()
     }
 
@@ -161,9 +161,9 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
     // contracts because it may be the case that we are only adding new witnesses to existing
     // contracts (e.g. via divulging a contract with fetch).
     val insertWitnessesBatch = prepareWitnessesBatch(
-      toBeInserted = contractBatches.insertions.fold(Set.empty[ContractId])(_._1),
-      toBeDeleted = contractBatches.deletions.fold(Set.empty[ContractId])(_._1),
-      transient = contractBatches.transientContracts,
+      toBeInserted = contracts.insertions.fold(Set.empty[ContractId])(_._1),
+      toBeDeleted = contracts.deletions.fold(Set.empty[ContractId])(_._1),
+      transient = contracts.transientContracts,
       transaction = transaction,
       blinding = blinding,
     )
@@ -181,7 +181,7 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       divulgedContracts: Iterable[DivulgedContract],
   )(implicit connection: Connection): Unit = {
 
-    val eventBatches = EventsTable.prepareBatchInsert(
+    val events = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
       workflowId = workflowId,
       transactionId = transactionId,
@@ -190,17 +190,17 @@ private[dao] final class TransactionsWriter(dbType: DbType) {
       transaction = transaction,
     )
 
-    if (eventBatches.isEmpty && divulgedContracts.isEmpty) {
+    if (events.isEmpty && divulgedContracts.isEmpty) {
       ()
     } else {
       val blinding = Blinding.blind(transaction)
-      insertEventsWithWitnesses(eventBatches, transaction, transactionId, blinding)
-      val contractBatches = contractsTable.prepareBatchInsert(
+      insertEventsWithWitnesses(events, transaction, transactionId, blinding)
+      val contracts = contractsTable.prepareBatchInsert(
         ledgerEffectiveTime = ledgerEffectiveTime,
         transaction = transaction,
         divulgedContracts = divulgedContracts,
       )
-      insertContractsAndUpdateWitnesses(contractBatches, transaction, blinding)
+      insertContractsAndUpdateWitnesses(contracts, transaction, blinding)
     }
 
   }
