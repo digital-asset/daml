@@ -39,6 +39,13 @@ final class StandaloneIndexerServer(
           .map { _ =>
             logger.debug("Waiting for the indexer to initialize the database.")
           }
+      case IndexerStartupMode.ResetAndStart =>
+        Resource
+          .fromFuture(indexerFactory.resetSchema())
+          .flatMap(startIndexer(indexer, _))
+          .map { _ =>
+            logger.debug("Waiting for the indexer to initialize the database.")
+          }
       case IndexerStartupMode.ValidateAndStart =>
         Resource
           .fromFuture(indexerFactory.validateSchema())

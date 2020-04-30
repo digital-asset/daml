@@ -18,6 +18,7 @@ import com.daml.ledger.participant.state.kvutils.app.Metrics.{
 import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWriteService}
 import com.daml.ledger.participant.state.v1.{SubmissionId, WritePackagesService}
 import com.daml.lf.archive.DarReader
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.JvmMetricSet
 import com.daml.platform.apiserver.{StandaloneApiServer, TimedIndexService}
@@ -46,6 +47,10 @@ final class Runner[T <: ReadWriteService, Extra](
         "[^A-Za-z0-9_\\-]".r.replaceAllIn(name.toLowerCase, "-"))
       implicit val materializer: Materializer = Materializer(actorSystem)
 
+      // share engine between the kvutils committer backend and the ledger api server
+      // this avoids duplicate compilation of packages as well as keeping them in memory twice
+      val sharedEngine = Engine()
+
       newLoggingContext { implicit logCtx =>
         for {
           // Take ownership of the actor system and materializer so they're cleaned up properly.
@@ -64,7 +69,9 @@ final class Runner[T <: ReadWriteService, Extra](
                     .forCloseable(() => reporter.register(metricRegistry))
                     .map(_.start(config.metricsReportingInterval.getSeconds, TimeUnit.SECONDS))
                     .acquire())
-              ledger <- factory.readWriteServiceOwner(config, participantConfig).acquire()
+              ledger <- factory
+                .readWriteServiceOwner(config, participantConfig, sharedEngine)
+                .acquire()
               readService = new TimedReadService(ledger, metricRegistry, ReadServicePrefix)
               writeService = new TimedWriteService(ledger, metricRegistry, WriteServicePrefix)
               _ <- Resource.fromFuture(
@@ -87,6 +94,7 @@ final class Runner[T <: ReadWriteService, Extra](
                   service => new TimedIndexService(service, metricRegistry, IndexServicePrefix),
                 metrics = metricRegistry,
                 timeServiceBackend = factory.timeServiceBackend(config),
+                engine = sharedEngine,
               ).acquire()
             } yield ()
           })

@@ -50,7 +50,7 @@ object IntegrityCheck extends App {
     timeModel = TimeModel.reasonableDefault,
     maxDeduplicationTime = Duration.ofDays(1),
   )
-  val keyValueCommitting = new KeyValueCommitting(metricRegistry)
+  val keyValueCommitting = new KeyValueCommitting(engine, metricRegistry)
   var state = Map.empty[Proto.DamlStateKey, Proto.DamlStateValue]
 
   var total_t_commit = 0L
@@ -80,7 +80,6 @@ object IntegrityCheck extends App {
     val (t_commit, (logEntry2, outputState)) = Helpers.time(
       () =>
         keyValueCommitting.processSubmission(
-          engine,
           entry.getEntryId,
           Conversions.parseTimestamp(logEntry.getRecordTime),
           defaultConfig,

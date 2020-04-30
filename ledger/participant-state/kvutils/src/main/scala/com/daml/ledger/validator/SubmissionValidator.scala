@@ -312,13 +312,12 @@ object SubmissionValidator {
   type StateMap = Map[DamlStateKey, DamlStateValue]
   type LogEntryAndState = (DamlLogEntry, StateMap)
 
-  private lazy val engine = Engine()
-
   def create[LogResult](
       ledgerStateAccess: LedgerStateAccess[LogResult],
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      engine: Engine = Engine(),
       metricRegistry: MetricRegistry,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] = {
     createForTimeMode(
@@ -326,6 +325,7 @@ object SubmissionValidator {
       allocateNextLogEntryId,
       checkForMissingInputs,
       stateValueCache,
+      engine,
       metricRegistry,
       inStaticTimeMode = false,
     )
@@ -337,12 +337,13 @@ object SubmissionValidator {
       allocateNextLogEntryId: () => DamlLogEntryId = () => allocateRandomLogEntryId(),
       checkForMissingInputs: Boolean = false,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
+      engine: Engine,
       metricRegistry: MetricRegistry,
       inStaticTimeMode: Boolean,
   )(implicit executionContext: ExecutionContext): SubmissionValidator[LogResult] =
     new SubmissionValidator(
       ledgerStateAccess,
-      processSubmission(new KeyValueCommitting(metricRegistry, inStaticTimeMode)),
+      processSubmission(new KeyValueCommitting(engine, metricRegistry, inStaticTimeMode)),
       allocateNextLogEntryId,
       checkForMissingInputs,
       stateValueCache,
@@ -362,7 +363,6 @@ object SubmissionValidator {
       inputState: Map[DamlStateKey, Option[DamlStateValue]],
   ): LogEntryAndState =
     keyValueCommitting.processSubmission(
-      engine,
       damlLogEntryId,
       recordTime,
       LedgerReader.DefaultConfiguration,

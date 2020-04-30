@@ -15,6 +15,7 @@ import com.daml.ledger.validator.SubmissionValidator.{LogEntryAndState, RawKeyVa
 import com.daml.ledger.validator.SubmissionValidatorSpec._
 import com.daml.ledger.validator.ValidationFailed.{MissingInputState, ValidationError}
 import com.daml.lf.data.Time.Timestamp
+import com.daml.lf.engine.Engine
 import com.google.protobuf.{ByteString, Empty}
 import org.mockito.ArgumentMatchers._
 import org.mockito.Mockito.{times, verify, when}
@@ -124,7 +125,7 @@ class SubmissionValidatorSpec extends AsyncWordSpec with Matchers with Inside {
       val instance = new SubmissionValidator(
         ledgerStateAccess = new FakeStateAccess(mockStateOperations),
         processSubmission = SubmissionValidator
-          .processSubmission(new KeyValueCommitting(new MetricRegistry)),
+          .processSubmission(new KeyValueCommitting(Engine(), new MetricRegistry)),
         allocateLogEntryId = mockLogEntryIdGenerator,
         checkForMissingInputs = false,
         stateValueCache = Cache.none,

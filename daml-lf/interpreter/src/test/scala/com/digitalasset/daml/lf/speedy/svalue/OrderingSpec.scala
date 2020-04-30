@@ -447,10 +447,10 @@ class OrderingSpec
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SValue.SContractId
     val EmptyScope: Value.LookupVariantEnum = _ => None
-    "match SValue Ordering" in forAll(genAddend, minSuccessful(20)) { va =>
+    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
       import va.{injarb, injshrink}
       implicit val valueOrd: Order[Value[Cid]] = Tag unsubst Value.orderInstance[Cid](EmptyScope)
-      forAll(minSuccessful(5)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
+      forAll(minSuccessful(20)) { (a: va.Inj[Cid], b: va.Inj[Cid]) =>
         import va.injord
         val ta = va.inj(a)
         val tb = va.inj(b)
@@ -472,8 +472,8 @@ class OrderingSpec
     Some(txSeed),
   )
 
-  private def translatePrimValue(v: Value[Value.ContractId]) = {
-    val ctrl = Speedy.CtrlTranslateValue(v)
+  private def translatePrimValue(v: Value[Value.AbsoluteContractId]) = {
+    val ctrl = Speedy.CtrlImportValue(v)
     val machine = dummyMachine
     machine.ctrl = Speedy.CtrlCrash(ctrl)
     ctrl.execute(machine)

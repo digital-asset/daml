@@ -295,6 +295,7 @@ class Runner(
         compiledPackages = extendedCompiledPackages,
         submissionTime = Timestamp.now(),
         seeding = InitialSeeding.NoSeed,
+        Set.empty,
       )
 
     // Removing the early return only makes this harder to read.

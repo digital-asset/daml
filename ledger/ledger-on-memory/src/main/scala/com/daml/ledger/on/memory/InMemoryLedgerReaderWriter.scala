@@ -21,6 +21,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.LedgerStateOperations.{Key, MetricPrefix, Value}
 import com.daml.ledger.validator._
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
 import com.daml.metrics.Timed
 import com.daml.platform.akkastreams.dispatcher.Dispatcher
 import com.daml.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -37,6 +38,7 @@ final class InMemoryLedgerReaderWriter private (
     stateValueCache: Cache[Bytes, DamlStateValue],
     dispatcher: Dispatcher[Index],
     state: InMemoryState,
+    engine: Engine,
 )(implicit executionContext: ExecutionContext)
     extends LedgerWriter
     with LedgerReader {
@@ -48,6 +50,7 @@ final class InMemoryLedgerReaderWriter private (
         InMemoryLedgerStateAccess,
         allocateNextLogEntryId = () => sequentialLogEntryId.next(),
         stateValueCache = stateValueCache,
+        engine = engine,
         metricRegistry = metricRegistry,
         inStaticTimeMode = timeProvider != TimeProvider.UTC
       ),
@@ -127,6 +130,7 @@ object InMemoryLedgerReaderWriter {
       timeProvider: TimeProvider = DefaultTimeProvider,
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       metricRegistry: MetricRegistry,
+      engine: Engine,
   )(implicit materializer: Materializer)
       extends ResourceOwner[InMemoryLedgerReaderWriter] {
     override def acquire()(
@@ -143,6 +147,7 @@ object InMemoryLedgerReaderWriter {
           stateValueCache,
           dispatcher,
           state,
+          engine
         ).acquire()
       } yield readerWriter
     }
@@ -158,6 +163,7 @@ object InMemoryLedgerReaderWriter {
       stateValueCache: Cache[Bytes, DamlStateValue] = Cache.none,
       dispatcher: Dispatcher[Index],
       state: InMemoryState,
+      engine: Engine,
   ) extends ResourceOwner[InMemoryLedgerReaderWriter] {
     override def acquire()(
         implicit executionContext: ExecutionContext
@@ -173,6 +179,7 @@ object InMemoryLedgerReaderWriter {
           stateValueCache,
           dispatcher,
           state,
+          engine,
         ))
     }
   }

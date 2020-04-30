@@ -21,7 +21,6 @@ import com.daml.ledger.participant.state.index.v2.IndexService
 import com.daml.ledger.participant.state.v1.{ParticipantId, ReadService, SeedService, WriteService}
 import com.daml.lf.engine.Engine
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.platform.apiserver.StandaloneApiServer._
 import com.daml.platform.configuration.{
   CommandConfiguration,
   LedgerConfiguration,
@@ -56,7 +55,7 @@ final class StandaloneApiServer(
     timeServiceBackend: Option[TimeServiceBackend] = None,
     otherServices: immutable.Seq[BindableService] = immutable.Seq.empty,
     otherInterceptors: List[ServerInterceptor] = List.empty,
-    engine: Engine = sharedEngine // allows sharing DAML engine with DAML-on-X participant
+    engine: Engine
 )(implicit actorSystem: ActorSystem, materializer: Materializer, logCtx: LoggingContext)
     extends ResourceOwner[ApiServer] {
 
@@ -136,10 +135,7 @@ final class StandaloneApiServer(
     owner.acquire()
   }
 
-  // if requested, initialize the ledger state with the given scenario
   private def preloadPackages(packageContainer: InMemoryPackageStore): Unit = {
-    // [[ScenarioLoader]] needs all the packages to be already compiled --
-    // make sure that that's the case
     for {
       (pkgId, _) <- packageContainer.listLfPackagesSync()
       pkg <- packageContainer.getLfPackageSync(pkgId)
@@ -172,8 +168,4 @@ final class StandaloneApiServer(
     config.portFile.foreach { path =>
       Files.write(path, Seq(port.toString).asJava)
     }
-}
-
-object StandaloneApiServer {
-  private val sharedEngine: Engine = Engine()
 }

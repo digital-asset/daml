@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.ParticipantStateIntegrationSpec
 import com.daml.ledger.participant.state.kvutils.api.KeyValueParticipantState
 import com.daml.ledger.participant.state.v1.SeedService.Seeding
 import com.daml.ledger.participant.state.v1.{LedgerId, ParticipantId, SeedService}
+import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext
 import com.daml.resources.ResourceOwner
 
@@ -28,8 +29,10 @@ abstract class SqlLedgerReaderWriterIntegrationSpecBase(implementationName: Stri
       ledgerId,
       participantId,
       metricRegistry,
+      engine = Engine(),
       jdbcUrl(testId),
+      resetOnStartup = false,
       // Using a weak random source to avoid slowdown during tests.
-      seedService = SeedService(Seeding.Weak),
+      seedService = SeedService(Seeding.Weak)
     ).map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metricRegistry))
 }

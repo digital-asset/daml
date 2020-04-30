@@ -24,6 +24,7 @@ import com.daml.ledger.participant.state.v1.metrics.{TimedReadService, TimedWrit
 import com.daml.ledger.participant.state.v1.{SeedService, WritePackagesService}
 import com.daml.lf.archive.DarReader
 import com.daml.lf.data.Ref
+import com.daml.lf.engine.Engine
 import com.daml.logging.ContextualizedLogger
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.metrics.MetricName
@@ -37,7 +38,6 @@ import com.daml.platform.sandbox.metrics.MetricsReporting
 import com.daml.platform.sandbox.services.SandboxResetService
 import com.daml.platform.sandboxnext.Runner._
 import com.daml.platform.services.time.TimeProviderType
-import com.daml.platform.store.FlywayMigrations
 import com.daml.ports.Port
 import com.daml.resources.akka.AkkaResourceOwner
 import com.daml.resources.{ResettableResourceOwner, Resource, ResourceOwner}
@@ -61,6 +61,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     case LedgerIdMode.Dynamic =>
       None
   }
+  private val engine = Engine()
 
   private val (ledgerType, ledgerJdbcUrl, indexJdbcUrl, startupMode): (
       String,
@@ -71,7 +72,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       case Some(url) if url.startsWith("jdbc:postgresql:") =>
         ("PostgreSQL", url, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:mem:") =>
-        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.ResetAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, url, StartupMode.MigrateAndStart)
       case Some(url) if url.startsWith("jdbc:h2:") =>
         throw new InvalidDatabaseException(
           "This version of Sandbox does not support file-based H2 databases. Please use SQLite instead.")
@@ -80,7 +81,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
       case Some(url) =>
         throw new InvalidDatabaseException(s"Unknown database: $url")
       case None =>
-        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.ResetAndStart)
+        ("in-memory", InMemoryLedgerJdbcUrl, InMemoryIndexJdbcUrl, StartupMode.MigrateAndStart)
     }
 
   private val timeProviderType =
@@ -120,43 +121,46 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                   config.metricsReporter,
                   config.metricsReportingInterval,
                 )
-                _ <- startupMode match {
-                  case StartupMode.MigrateAndStart =>
-                    ResourceOwner.successful(())
-                  case StartupMode.ResetAndStart =>
-                    // Resetting through Flyway removes all tables in the database schema.
-                    // Therefore we don't need to "reset" the KV Ledger and Index separately.
-                    ResourceOwner.forFuture(() => new FlywayMigrations(indexJdbcUrl).reset())
-                }
                 timeServiceBackend = timeProviderType match {
                   case TimeProviderType.Static =>
                     Some(TimeServiceBackend.simple(Instant.EPOCH))
                   case TimeProviderType.WallClock =>
                     None
                 }
+                isReset = startupMode == StartupMode.ResetAndStart
                 readerWriter <- new SqlLedgerReaderWriter.Owner(
                   initialLedgerId = specifiedLedgerId,
                   participantId = ParticipantId,
                   metricRegistry = metrics,
                   jdbcUrl = ledgerJdbcUrl,
+                  resetOnStartup = isReset,
                   timeProvider = timeServiceBackend.getOrElse(TimeProvider.UTC),
                   seedService = SeedService(seeding),
                   stateValueCache = caching.Cache.from(
                     caching.Configuration(maximumWeight = MaximumStateValueCacheSize)),
+                  engine = engine
                 )
                 ledger = new KeyValueParticipantState(readerWriter, readerWriter, metrics)
                 readService = new TimedReadService(ledger, metrics, ReadServicePrefix)
                 writeService = new TimedWriteService(ledger, metrics, WriteServicePrefix)
                 ledgerId <- ResourceOwner.forFuture(() =>
                   readService.getLedgerInitialConditions().runWith(Sink.head).map(_.ledgerId))
-                _ <- ResourceOwner.forFuture(() =>
-                  Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+                _ <- if (isReset) {
+                  ResourceOwner.unit
+                } else {
+                  ResourceOwner
+                    .forFuture(() =>
+                      Future.sequence(config.damlPackages.map(uploadDar(_, writeService))))
+                    .map(_ => ())
+                }
                 _ <- new StandaloneIndexerServer(
                   readService = readService,
                   config = IndexerConfig(
                     ParticipantId,
                     jdbcUrl = indexJdbcUrl,
-                    startupMode = IndexerStartupMode.MigrateAndStart,
+                    startupMode =
+                      if (isReset) IndexerStartupMode.ResetAndStart
+                      else IndexerStartupMode.MigrateAndStart,
                     eventsPageSize = config.eventsPageSize,
                     allowExistingSchema = true,
                   ),
@@ -182,7 +186,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                 apiServer <- new StandaloneApiServer(
                   config = ApiServerConfig(
                     participantId = ParticipantId,
-                    archiveFiles = config.damlPackages,
+                    archiveFiles = if (isReset) List.empty else config.damlPackages,
                     // Re-use the same port when resetting the server.
                     port = currentPort.getOrElse(config.port),
                     address = config.address,
@@ -193,6 +197,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
                     portFile = config.portFile,
                     seeding = Some(seeding),
                   ),
+                  engine = engine,
                   commandConfig = config.commandConfig,
                   partyConfig = PartyConfiguration.default.copy(
                     implicitPartyAllocation = config.implicitPartyAllocation,
