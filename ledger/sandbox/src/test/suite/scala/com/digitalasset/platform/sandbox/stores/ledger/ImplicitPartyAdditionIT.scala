@@ -75,6 +75,7 @@ class ImplicitPartyAdditionIT
 
   "A Ledger" should {
     "implicitly add parties mentioned in a transaction" in allFixtures { ledger =>
+      val offset = ledger.ledgerEnd
       for {
         createResult <- publishSingleNodeTx(
           ledger,
@@ -130,12 +131,12 @@ class ImplicitPartyAdditionIT
         // Wait until the last command completed
         _ <- ledger
           .completions(
+            Some(offset),
             None,
-            Some(ledger.ledgerEnd),
             com.daml.ledger.api.domain.ApplicationId("appId"),
             Set(Ref.Party.assertFromString("fetch-signatory")))
           .filter { case (_, completion) => completion.completions.head.commandId == "CmdId3" }
-          .runWith(Sink.seq)
+          .runWith(Sink.head)
         parties <- ledger.listKnownParties()
       } yield {
         createResult shouldBe SubmissionResult.Acknowledged
